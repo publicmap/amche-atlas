@@ -425,7 +425,10 @@
       "id": "steep-plots"
     },
     {
-      "id": "communidade-land"
+      "id": "communidade-bhunaksha"
+    },
+    {
+      "id": "communidade-saligao"
     },
     {
       "id": "notified-wetlands"
@@ -706,6 +709,63 @@
     },
     {
       "id": "crz"
+    },
+    {
+      "title": "Protected Archaeological Sites",
+      "description": "Ancient monuments and archaeological sites protected by the Archaeological Survey of India (ASI).",
+      "headerImage": "assets/map-layers/map-layer-asi.png",
+      "type": "vector",
+      "id": "asi",
+      "url": "https://indianopenmaps.fly.dev/not-so-open/cultural/monuments/zones/asi/bhuvan/{z}/{x}/{y}.pbf",
+      "sourceLayer": "Bhuvan_ASI_Boundaries",
+      "maxzoom": 13,
+      "attribution": "Source: <a href=\"https://bhuvan.nrsc.gov.in/\" target=\"_blank\" rel=\"noopener noreferrer\">BHuvan/ASI</a> - Collected by <a href=\"https://datameet.org\" target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
+      "initiallyChecked": false,
+      "style": {
+        "line-color": [
+          "match",
+          [
+            "get",
+            "boundary_type"
+          ],
+          "protected",
+          "black",
+          "prohibited",
+          "orange",
+          "yellow"
+        ],
+        "line-width": [
+          "match",
+          [
+            "get",
+            "boundary_type"
+          ],
+          "protected",
+          4,
+          2
+        ]
+      },
+      "inspect": {
+        "id": "gid",
+        "title": "Monument Name",
+        "label": "mon_name",
+        "fields": [
+          "asicircle",
+          "boundary_type",
+          "buff_dist",
+          "district",
+          "flag",
+          "gid"
+        ],
+        "fieldTitles": [
+          "Asicircle",
+          "Boundary Type",
+          "Buff Dist",
+          "District",
+          "Flag",
+          "Gid"
+        ]
+      }
     },
     {
       "id": "mining"

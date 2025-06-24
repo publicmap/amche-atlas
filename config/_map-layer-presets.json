@@ -869,7 +869,31 @@
       }
     },
     {
-      "id": "communidade-land",
+      "id": "communidade-bhunaksha",
+      "title": "Communidade Lands (Bardez)",
+      "description": "Land parcels governed by the <a href='https://cdn.s3waas.gov.in/s3d840cc5d906c3e9c84374c8919d2074e/uploads/2018/07/2018070597.pdf'>Code of Communidades</a>",
+      "headerImage": "assets/map-layers/map-layer-communidade-land.png",
+      "type": "vector",
+      "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=6bd0b9f7-fef3-4a97-8926-016ef6155293",
+      "sourceLayer": "vector",
+      "maxzoom": 14,
+      "attribution": "<a href='https://docs.google.com/spreadsheets/d/18ws6fp8x5UxD7xq_LW-8qVq1qAPoEPR8qEF8jWyR0lI/edit?gid=0#gid=0'>Communidades of Goltim and Saligao</a>",
+      "style": {
+        "fill-color": "Magenta",
+        "line-color": "Magenta",
+        "line-width": 1,
+        "fill-opacity": 0.3
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Owners",
+        "label": "Owners",
+        "fields": ["Plot","Village"],
+        "fieldTitles": ["Plot","Village"]
+      }
+    },
+    {
+      "id": "communidade-saligao",
       "title": "Communidade Land",
       "description": "Land parcels governed by the <a href='https://cdn.s3waas.gov.in/s3d840cc5d906c3e9c84374c8919d2074e/uploads/2018/07/2018070597.pdf'>Code of Communidades</a>",
       "headerImage": "assets/map-layers/map-layer-communidade-land.png",

@@ -40,6 +40,10 @@ export class MapFeatureControl {
         this._hoverPopup = null;
         this._currentHoveredFeature = null;
         
+        // Drawer state tracking
+        this._isDrawerOpen = false;
+        this._drawerStateListeners = [];
+        
         // Initialized
     }
 
@@ -99,6 +103,9 @@ export class MapFeatureControl {
         };
         this._stateManager.addEventListener('state-change', this._stateChangeListener);
         
+        // Set up drawer state tracking
+        this._setupDrawerStateTracking();
+        
         // Set up global click handler for feature interactions
         this._setupGlobalClickHandler();
         
@@ -150,7 +157,7 @@ export class MapFeatureControl {
     }
 
     /**
-     * Create the header with title and collapse button
+     * Create the header with title and collapse button or options button
      */
     _createHeader() {
         const header = document.createElement('div');
@@ -163,34 +170,163 @@ export class MapFeatureControl {
             justify-content: space-between;
             align-items: center;
             font-size: 12px;
-            color: orange;
+            color: white;
             cursor: pointer;
         `;
 
         const title = document.createElement('span');
         title.textContent = 'Map Information';
         
-        const toggleBtn = document.createElement('button');
-        toggleBtn.className = 'feature-control-toggle';
-        toggleBtn.innerHTML = this._isCollapsed ? '▲' : '▼';
-        toggleBtn.style.cssText = `
-            background: none;
-            border: none;
-            font-size: 10px;
-            cursor: pointer;
-            color: orange;
-        `;
-
+        // Create container for the button (will be updated dynamically)
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'feature-control-button-container';
+        
         header.appendChild(title);
-        header.appendChild(toggleBtn);
+        header.appendChild(buttonContainer);
 
-        header.addEventListener('click', () => {
-            this._isCollapsed = !this._isCollapsed;
-            this._layersContainer.style.display = this._isCollapsed ? 'none' : 'block';
-            toggleBtn.innerHTML = this._isCollapsed ? '▲' : '▼';
+        // Add click handler to header (excluding the button area)
+        header.addEventListener('click', (e) => {
+            // Only toggle if click wasn't on the button container
+            if (!buttonContainer.contains(e.target)) {
+                this._toggleCollapse();
+            }
         });
 
         this._container.appendChild(header);
+        this._updateHeaderButton(); // Initial button state
+    }
+
+    /**
+     * Toggle collapse state
+     */
+    _toggleCollapse() {
+        this._isCollapsed = !this._isCollapsed;
+        this._layersContainer.style.display = this._isCollapsed ? 'none' : 'block';
+        this._updateHeaderButton();
+    }
+
+    /**
+     * Update header button based on state
+     */
+    _updateHeaderButton() {
+        const buttonContainer = this._container.querySelector('.feature-control-button-container');
+        if (!buttonContainer) return;
+
+        // Clear existing button
+        buttonContainer.innerHTML = '';
+
+        // Check if we should show Options button (when collapsed or no active layers)
+        const shouldShowOptionsButton = this._isCollapsed || this._shouldShowOptionsButton();
+
+        if (shouldShowOptionsButton) {
+            // Create shoelace options button with state-aware styling
+            const optionsBtn = document.createElement('sl-button');
+            optionsBtn.setAttribute('variant', 'text');
+            optionsBtn.setAttribute('size', 'small');
+            
+            // Style based on drawer state
+            const isActive = this._isDrawerOpen;
+            optionsBtn.setAttribute('data-drawer-open', isActive.toString());
+            optionsBtn.style.cssText = `
+                --sl-color-neutral-700: ${isActive ? '#fbbf24' : 'orange'};
+                --sl-color-neutral-600: ${isActive ? '#fbbf24' : 'orange'};
+                font-size: 10px;
+                color: ${isActive ? '#fbbf24' : 'orange'};
+                background-color: ${isActive ? 'rgba(251, 191, 36, 0.15)' : 'transparent'};
+                border: 1px solid ${isActive ? '#fbbf24' : 'transparent'};
+                border-radius: 4px;
+                transition: all 0.2s ease;
+            `;
+            
+            optionsBtn.innerHTML = `
+                <sl-icon name="sliders" style="font-size: 10px;color: ${isActive ? '#fbbf24' : 'white'}"></sl-icon>
+                <span style="margin-left: 4px; font-size: 10px;color: ${isActive ? '#fbbf24' : 'white'}">${isActive ? 'Close' : 'Options'}</span>
+            `;
+
+            // Add click handler to toggle layer drawer
+            optionsBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent header click
+                this._toggleLayerDrawer();
+            });
+
+            buttonContainer.appendChild(optionsBtn);
+        } else {
+            // Create normal toggle button
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'feature-control-toggle';
+            toggleBtn.innerHTML = this._isCollapsed ? '▲' : '▼';
+            toggleBtn.style.cssText = `
+                background: none;
+                border: none;
+                font-size: 10px;
+                cursor: pointer;
+                color: white;
+            `;
+
+            // Add click handler for toggle
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent header click
+                this._toggleCollapse();
+            });
+
+            buttonContainer.appendChild(toggleBtn);
+        }
+    }
+
+    /**
+     * Check if we should show the options button instead of toggle
+     */
+    _shouldShowOptionsButton() {
+        // Show options button when there are no active layers
+        if (!this._stateManager) return true;
+        
+        const activeLayers = this._stateManager.getActiveLayers();
+        return activeLayers.size === 0;
+    }
+
+    /**
+     * Set up drawer state tracking
+     */
+    _setupDrawerStateTracking() {
+        const drawer = document.querySelector('.drawer-placement-start');
+        if (!drawer) return;
+
+        // Check initial drawer state
+        this._isDrawerOpen = drawer.open || false;
+
+        // Listen for drawer show/hide events
+        const showListener = () => {
+            this._isDrawerOpen = true;
+            this._updateHeaderButton(); // Update button styling
+        };
+
+        const hideListener = () => {
+            this._isDrawerOpen = false;
+            this._updateHeaderButton(); // Update button styling
+        };
+
+        drawer.addEventListener('sl-show', showListener);
+        drawer.addEventListener('sl-hide', hideListener);
+
+        // Store listeners for cleanup
+        this._drawerStateListeners.push(
+            { element: drawer, event: 'sl-show', listener: showListener },
+            { element: drawer, event: 'sl-hide', listener: hideListener }
+        );
+    }
+
+    /**
+     * Toggle the layer drawer from index.html
+     */
+    _toggleLayerDrawer() {
+        const drawer = document.querySelector('.drawer-placement-start');
+        if (drawer) {
+            if (this._isDrawerOpen) {
+                drawer.hide();
+            } else {
+                drawer.show();
+            }
+        }
     }
 
     /**
@@ -380,6 +516,9 @@ export class MapFeatureControl {
         if (emptyState) {
             emptyState.remove();
         }
+        
+        // Update header button when layers are rendered
+        this._updateHeaderButton();
 
         // Get current layer order from config to maintain stable ordering
         const configOrder = this._getConfigLayerOrder();
@@ -549,6 +688,9 @@ export class MapFeatureControl {
         `;
         emptyState.textContent = 'No active layers to display';
         this._layersContainer.appendChild(emptyState);
+        
+        // Update header button when empty state is rendered
+        this._updateHeaderButton();
     }
 
     /**
@@ -1337,6 +1479,12 @@ export class MapFeatureControl {
         if (this._stateManager && this._stateChangeListener) {
             this._stateManager.removeEventListener('state-change', this._stateChangeListener);
         }
+        
+        // Clean up drawer state listeners
+        this._drawerStateListeners.forEach(({ element, event, listener }) => {
+            element.removeEventListener(event, listener);
+        });
+        this._drawerStateListeners = [];
         
         // Clean up hover popup completely on cleanup
         this._removeHoverPopup();

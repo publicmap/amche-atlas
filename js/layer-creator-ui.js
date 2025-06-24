@@ -132,29 +132,108 @@ function makeLayerConfig(url, tilejson) {
             title: tilejson?.name || 'Vector Tile Layer',
             description: tilejson?.description || 'Vector tile layer from custom source',
             type: 'vector',
-            id: (tilejson?.name || 'vector-layer').toLowerCase().replace(/\s+/g, '-'),
+            id: (tilejson?.name || 'vector-layer').toLowerCase().replace(/\s+/g, '-') + '-' + Math.random().toString(36).slice(2, 8),
             url: (tilejson?.tiles && tilejson.tiles[0]) || url,
+            sourceLayer: tilejson?.vector_layers?.[0]?.id || 'default',
             minzoom: tilejson?.minzoom || 0,
             maxzoom: tilejson?.maxzoom || 14,
             attribution: attribution,
             initiallyChecked: false,
             inspect: {
-                id: "id",
-                title: "Name",
-                label: "name",
-                fields: ["id", "description", "class", "type"],
-                fieldTitles: ["ID", "Description", "Class", "Type"]
+                id: tilejson?.vector_layers?.[0]?.fields?.gid ? "gid" : (tilejson?.vector_layers?.[0]?.fields?.id ? "id" : "gid"),
+                title: tilejson?.vector_layers?.[0]?.fields?.mon_name ? "Monument Name" : "Name",
+                label: tilejson?.vector_layers?.[0]?.fields?.mon_name ? "mon_name" : (tilejson?.vector_layers?.[0]?.fields?.name ? "name" : "mon_name"),
+                fields: tilejson?.vector_layers?.[0]?.fields ? 
+                    Object.keys(tilejson.vector_layers[0].fields).slice(0, 6) : 
+                    ["id", "description", "class", "type"],
+                fieldTitles: tilejson?.vector_layers?.[0]?.fields ? 
+                    Object.keys(tilejson.vector_layers[0].fields).slice(0, 6).map(field => 
+                        field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                    ) : 
+                    ["ID", "Description", "Class", "Type"]
             },
             style: {
-                'fill-color': randomColor,
-                'fill-opacity': 0.4,
-                'line-color': randomColor,
-                'line-width': 1,
-                'circle-color': randomColor,
-                'circle-radius': 4
+                fill: {
+                    "fill-color": [
+                        "case",
+                        ["boolean", ["feature-state", "selected"], false],
+                        "rgba(255, 0, 0, 0.5)",
+                        ["boolean", ["feature-state", "hover"], false],
+                        "rgba(255, 255, 0, 0.5)",
+                        randomColor
+                    ],
+                    "fill-opacity": [
+                        "interpolate", ["linear"], ["zoom"],
+                        15, [
+                            "case",
+                            ["boolean", ["feature-state", "selected"], false], 0.6,
+                            ["boolean", ["feature-state", "hover"], false], 0.6,
+                            0.6
+                        ],
+                        17, [
+                            "case",
+                            ["boolean", ["feature-state", "selected"], false], 0.3,
+                            ["boolean", ["feature-state", "hover"], false], 0.2,
+                            0.2
+                        ]
+                    ]
+                },
+                line: {
+                    "line-color": [
+                        "case",
+                        ["boolean", ["feature-state", "hover"], false], "yellow",
+                        ["boolean", ["feature-state", "selected"], false], "red",
+                        randomColor
+                    ],
+                    "line-width": [
+                        "interpolate", ["linear"], ["zoom"],
+                        10, [
+                            "case",
+                            ["boolean", ["feature-state", "selected"], false], 2,
+                            ["boolean", ["feature-state", "hover"], false], 1.5,
+                            0.5
+                        ],
+                        16, [
+                            "case",
+                            ["boolean", ["feature-state", "selected"], false], 4,
+                            ["boolean", ["feature-state", "hover"], false], 3,
+                            1
+                        ]
+                    ],
+                    "line-opacity": 1
+                },
+                circle: {
+                    "circle-radius": 5,
+                    "circle-color": randomColor,
+                    "circle-opacity": 0.8,
+                    "circle-stroke-width": 1,
+                    "circle-stroke-color": "#FFFFFF",
+                    "circle-stroke-opacity": 1,
+                    "circle-blur": 0,
+                    "circle-translate": [0, 0],
+                    "circle-translate-anchor": "map",
+                    "circle-pitch-alignment": "viewport",
+                    "circle-pitch-scale": "map"
+                },
+                text: {
+                    "text-color": "#000000",
+                    "text-halo-color": "#ffffff",
+                    "text-halo-width": 1,
+                    "text-opacity": [
+                        "case",
+                        ["boolean", ["feature-state", "selected"], false], 1,
+                        ["boolean", ["feature-state", "hover"], false], 0.9,
+                        0.7
+                    ],
+                    "text-offset": [0, 0],
+                    "text-anchor": "center",
+                    "text-justify": "center",
+                    "text-allow-overlap": false,
+                    "text-transform": "none"
+                }
             }
         };
-        // Add sourceLayer and headerImage for api-main URLs
+        // Add headerImage for api-main URLs and override sourceLayer
         if (url.includes('api-main')) {
             config.sourceLayer = 'vector';
             if (mapId) {
@@ -208,14 +287,48 @@ function makeLayerConfig(url, tilejson) {
 }
 
 async function handleUrlInput(url) {
-    const type = guessLayerType(url);
+    let actualUrl = url;
+    let tilejson = null;
+    
+    // Special handling for indianopenmaps.fly.dev view URLs
+    if (url.includes('indianopenmaps.fly.dev') && url.includes('/view')) {
+        try {
+            // Convert view URL to tile URL pattern
+            // Example: https://indianopenmaps.fly.dev/not-so-open/cultural/monuments/zones/asi/bhuvan/view#6.81/22.273/74.559
+            // Becomes: https://indianopenmaps.fly.dev/not-so-open/cultural/monuments/zones/asi/bhuvan/{z}/{x}/{y}.pbf
+            const baseUrl = url.split('/view')[0];
+            actualUrl = `${baseUrl}/{z}/{x}/{y}.pbf`;
+            
+            // Also fetch the TileJSON
+            const tilejsonUrl = `${baseUrl}/tiles.json`;
+            tilejson = await fetchTileJSON(tilejsonUrl);
+        } catch (error) {
+            console.warn('Failed to fetch TileJSON from indianopenmaps.fly.dev view URL:', error);
+        }
+    }
+    
+    const type = guessLayerType(actualUrl);
     let config = {};
     if (type === 'vector') {
-        // Try to fetch TileJSON
-        const tilejson = await fetchTileJSON(url);
-        config = makeLayerConfig(url, tilejson);
+        // Special handling for indianopenmaps.fly.dev tile URLs (if not already handled above)
+        if (!tilejson && actualUrl.includes('indianopenmaps.fly.dev') && actualUrl.includes('{z}')) {
+            try {
+                // Convert tile URL to TileJSON URL by replacing the tile template with tiles.json
+                const tilejsonUrl = actualUrl.replace(/\{z\}\/\{x\}\/\{y\}\.pbf$/, 'tiles.json');
+                tilejson = await fetchTileJSON(tilejsonUrl);
+            } catch (error) {
+                console.warn('Failed to fetch TileJSON from indianopenmaps.fly.dev:', error);
+            }
+        }
+        
+        // Fallback: try to fetch TileJSON from the original URL
+        if (!tilejson) {
+            tilejson = await fetchTileJSON(actualUrl);
+        }
+        
+        config = makeLayerConfig(actualUrl, tilejson);
     } else {
-        config = makeLayerConfig(url);
+        config = makeLayerConfig(actualUrl);
     }
     return config;
 }
