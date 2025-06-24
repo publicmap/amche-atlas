@@ -44,6 +44,20 @@ export class MapFeatureControl {
         this._isDrawerOpen = false;
         this._drawerStateListeners = [];
         
+        // Source layer links functionality moved from map-layer-controls.js
+        /**
+         * sourceLayerLinks: Array of link objects that appear in feature details for specific source layers
+         * Each link object can have:
+         * - name: Display name for the link
+         * - sourceLayer: String or Array of strings specifying which source layers this link applies to
+         * - renderHTML: Function that returns HTML content for the additional information
+         *   - Functions receive: { feature, layerConfig, lat, lng, zoom, mercatorCoords }
+         * 
+         * The renderHTML function should return HTML that will be displayed in an additional table
+         * below the main properties table in the feature details.
+         */
+        this._sourceLayerLinks = [];
+        
         // Initialized
     }
 
@@ -95,6 +109,9 @@ export class MapFeatureControl {
             this._config = window.layerControl._config;
         }
         
+        // Initialize sourceLayerLinks from config or set default
+        this._initializeSourceLayerLinks();
+        
         // State manager and config set
         
         // Listen to state changes from the centralized manager
@@ -120,7 +137,128 @@ export class MapFeatureControl {
      */
     setConfig(config) {
         this._config = config;
+        this._initializeSourceLayerLinks();
         this._scheduleRender();
+    }
+
+    /**
+     * Initialize source layer links from config or set default
+     */
+    _initializeSourceLayerLinks() {
+        // Store sourceLayerLinks from config or set default
+        this._sourceLayerLinks = this._config?.sourceLayerLinks || [{
+            name: 'Bhunaksha',
+            sourceLayer: 'Onemapgoa_GA_Cadastrals',
+
+            renderHTML: ({ feature }) => {
+                const plot = feature.properties.plot || '';
+                const giscode = feature.properties.giscode || '';
+
+                // Create a unique container ID for this specific render
+                const containerId = `bhunaksha-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+                // Create initial container with loading text
+                const containerHTML = `
+                    <div id="${containerId}" class="text-xs text-gray-600">
+                        <div class="mb-2 font-semibold text-gray-800">Additional Information from Bhunaksha</div>
+                        <span class="text-xs text-gray-600">Requesting Occupant Details...</span>
+                    </div>
+                `;
+
+                // Set up async request after delay
+                setTimeout(async () => {
+                    try {
+                        // Format giscode: insert commas after 2, 10, 18 characters
+                        let levels = '';
+                        if (giscode.length >= 18) {
+                            const district = giscode.substring(0, 2);
+                            const taluka = giscode.substring(2, 10);
+                            const village = giscode.substring(10, 18);
+                            const sheet = giscode.substring(18);
+                            levels = `${district}%2C${taluka}%2C${village}%2C${sheet}`;
+                        } else {
+                            // Fallback to original if giscode format is unexpected
+                            levels = '01%2C30010002%2C40107000%2C000VILLAGE';
+                        }
+
+                        // URL encode the plot number (replace / with %2F)
+                        const plotEncoded = plot.replace(/\//g, '%2F');
+                        const apiUrl = `https://bhunaksha.goa.gov.in/bhunaksha/ScalarDatahandler?OP=5&state=30&levels=${levels}%2C&plotno=${plotEncoded}`;
+
+                        const response = await fetch(apiUrl);
+                        const data = await response.json();
+
+                        // Update the DOM with the response
+                        const container = document.getElementById(containerId);
+                        if (container) {
+                            if (data.info && data.has_data === 'Y') {
+                                let infoText;
+                                
+                                // Check if info contains HTML tags
+                                const isHTML = /<[^>]*>/g.test(data.info);
+                                
+                                if (isHTML) {
+                                    // If it's HTML, extract content from HTML tags and use directly
+                                    // Remove outer <html> tags if present and clean up
+                                    infoText = data.info
+                                        .replace(/<\/?html>/gi, '')
+                                        .replace(/<font[^>]*>/gi, '<span>')
+                                        .replace(/<\/font>/gi, '</span>')
+                                        .trim();
+                                } else {
+                                    // Parse and format the info text as plain text, filtering out first 3 lines
+                                    const rawText = data.info.split('\n').slice(3).join('\n').replace(/-{10,}/g, '');
+                                    // Format headers (text from start of line to colon) as bold with line breaks
+                                    const formattedText = rawText.replace(/^([^:\n]+:)/gm, '<strong>$1</strong><br>');
+                                    infoText = formattedText.replace(/\n/g, '<br>');
+                                }
+                                
+                                container.innerHTML = `
+                                    <div class="text-xs text-gray-600">
+                                        <div class="mb-2 font-semibold text-gray-800">Additional Information from Bhunaksha</div>
+                                        <div class="mb-2">${infoText}</div>
+                                        <div class="italic text-xs text-gray-500">
+                                            <svg class="inline w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                            </svg>
+                                            Retrieved from <a href="${apiUrl}" target="_blank" class="text-blue-600 hover:text-blue-800">Bhunaksha/Dharani</a>. For information purposes only.
+                                        </div>
+                                    </div>
+                                `;
+                            } else {
+                                container.innerHTML = `
+                                    <div class="text-xs text-gray-600">
+                                        <div class="mb-2 font-semibold text-gray-800">Additional Information from Bhunaksha</div>
+                                        <span class="text-xs text-gray-500">No occupant data available</span>
+                                    </div>
+                                `;
+                            }
+                        } else {
+                            console.warn('[Bhunaksha] Container not found for ID:', containerId);
+                        }
+                    } catch (error) {
+                        console.error('[Bhunaksha] Error fetching occupant details:', error);
+                        const container = document.getElementById(containerId);
+                        if (container) {
+                            container.innerHTML = `
+                                <div class="text-xs text-gray-600">
+                                    <div class="mb-2 font-semibold text-gray-800">Additional Information from Bhunaksha</div>
+                                    <span class="text-xs text-red-500">Error loading details</span>
+                                </div>
+                            `;
+                        }
+                    }
+                }, (() => {
+                    // Check if 'esz' is in the layers URL parameter
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const layersParam = urlParams.get('layers');
+                    const hasEsz = layersParam && layersParam.includes('esz');
+                    return hasEsz ? 0 : 5000;
+                })());
+
+                return containerHTML;
+            }
+        }];
     }
 
     /**
@@ -1065,83 +1203,110 @@ export class MapFeatureControl {
             table.appendChild(row);
         });
         
-        // KML export button with standardized ID
-        const exportButton = document.createElement('button');
-        exportButton.className = 'feature-inspector-export-button';
-        exportButton.id = `export-button-${layerId}-${featureId}`;
-        exportButton.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 8px;
-            background: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 9px;
-            cursor: pointer;
-            margin-top: 8px;
-        `;
-        exportButton.innerHTML = `
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Export KML
-        `;
-        
-        exportButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._exportFeatureKML(featureState.feature, layerConfig);
-        });
-        
         tableContent.appendChild(table);
-        tableContent.appendChild(exportButton);
         
         content.appendChild(tableContent);
+        
+        // Add source layer links content if applicable
+        this._addSourceLayerLinksContent(content, featureState, layerConfig);
         
         return content;
     }
 
     /**
-     * Export feature as KML
+     * Add source layer links content to the feature content
      */
-    _exportFeatureKML(feature, layer) {
-        try {
-            // Use existing KML conversion function if available
-            if (typeof convertToKML === 'function') {
-                const fieldValues = layer.inspect?.fields
-                    ? layer.inspect.fields
-                        .map(field => feature.properties[field])
-                        .filter(value => value)
-                        .join('_')
-                    : '';
-                const groupTitle = feature.properties[layer.inspect?.label] || 'Exported';
-                const title = fieldValues
-                    ? `${fieldValues}_${groupTitle}`
-                    : feature.properties[layer.inspect?.label] || 'Exported_Feature';
-                const description = layer.inspect?.title || 'Exported from Amche Goa';
+    _addSourceLayerLinksContent(content, featureState, layerConfig) {
+        if (!this._sourceLayerLinks || this._sourceLayerLinks.length === 0) {
+            return;
+        }
 
-                const kmlContent = convertToKML(feature, { title, description });
-
-                const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
-                const url = URL.createObjectURL(blob);
-
-                const downloadLink = document.createElement('a');
-                downloadLink.href = url;
-                downloadLink.download = `${title}.kml`;
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-                URL.revokeObjectURL(url);
+        const feature = featureState.feature;
+        const sourceLayer = feature.sourceLayer || feature.layer?.sourceLayer;
+        
+        // Find applicable source layer links
+        const applicableLinks = this._sourceLayerLinks.filter(link => {
+            if (!link.sourceLayer) return false;
+            
+            // Handle both string and array for sourceLayer
+            if (Array.isArray(link.sourceLayer)) {
+                return link.sourceLayer.includes(sourceLayer);
             } else {
-                console.warn('KML conversion function not available');
-                alert('KML export not available');
+                return link.sourceLayer === sourceLayer;
             }
-        } catch (error) {
-            console.error('Error exporting KML:', error);
-            alert('Error exporting KML. Please check the console for details.');
+        });
+
+        if (applicableLinks.length === 0) {
+            return;
+        }
+
+        // Create container for additional information
+        const additionalInfoContainer = document.createElement('div');
+        additionalInfoContainer.className = 'feature-inspector-additional-info';
+        additionalInfoContainer.style.cssText = `
+            margin-top: 12px;
+            padding: 12px;
+            border-top: 1px solid #e5e7eb;
+            background-color: #f9fafb;
+            border-radius: 0 0 4px 4px;
+        `;
+
+        // Process each applicable link
+        applicableLinks.forEach((link, index) => {
+            if (link.renderHTML && typeof link.renderHTML === 'function') {
+                try {
+                    // Call the renderHTML function with feature data
+                    const linkHTML = link.renderHTML({
+                        feature: feature,
+                        layerConfig: layerConfig,
+                        lat: featureState.lngLat?.lat,
+                        lng: featureState.lngLat?.lng,
+                        zoom: this._map?.getZoom(),
+                        mercatorCoords: this._getMercatorCoords(featureState.lngLat)
+                    });
+
+                    if (linkHTML) {
+                        // Create a wrapper div for this link's content
+                        const linkContainer = document.createElement('div');
+                        linkContainer.className = `source-layer-link-${index}`;
+                        linkContainer.innerHTML = linkHTML;
+                        
+                        // Add separator between multiple links
+                        if (index > 0) {
+                            const separator = document.createElement('div');
+                            separator.style.cssText = 'border-top: 1px solid #e5e7eb; margin: 8px 0; padding-top: 8px;';
+                            additionalInfoContainer.appendChild(separator);
+                        }
+                        
+                        additionalInfoContainer.appendChild(linkContainer);
+                    }
+                } catch (error) {
+                    console.error(`Error rendering source layer link "${link.name}":`, error);
+                }
+            }
+        });
+
+        // Only add the container if it has content
+        if (additionalInfoContainer.children.length > 0) {
+            content.appendChild(additionalInfoContainer);
         }
     }
+
+    /**
+     * Get mercator coordinates from lng/lat
+     */
+    _getMercatorCoords(lngLat) {
+        if (!lngLat) return null;
+        
+        // Convert to Web Mercator coordinates
+        const x = lngLat.lng * 20037508.34 / 180;
+        const y = Math.log(Math.tan((90 + lngLat.lat) * Math.PI / 360)) / (Math.PI / 180);
+        const mercatorY = y * 20037508.34 / 180;
+        
+        return { x, y: mercatorY };
+    }
+
+
 
     /**
      * Get a unique identifier for a feature (STANDARDIZED)
@@ -1270,16 +1435,7 @@ export class MapFeatureControl {
         return document.getElementById(`features-container-${layerId}`);
     }
 
-    /**
-     * Get a feature's export button by layer and feature ID
-     * @param {string} layerId - The layer ID
-     * @param {string} featureId - The feature ID (with or without 'feature-' prefix)
-     * @returns {HTMLElement|null} The export button element
-     */
-    getFeatureExportButton(layerId, featureId) {
-        const normalizedFeatureId = featureId.startsWith('feature-') ? featureId : `feature-${featureId}`;
-        return document.getElementById(`export-button-${layerId}-${normalizedFeatureId}`);
-    }
+
 
     /**
      * Get a feature inspector element using feature object directly
