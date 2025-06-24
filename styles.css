@@ -927,6 +927,29 @@ header .icon-button {
     color: #ffffff !important;
 }
 
+/* Options button hover styles - simple and subtle */
+.feature-control-button-container sl-button[variant="text"]:hover {
+    background-color: rgba(251, 191, 36, 0.15) !important;
+}
+
+.feature-control-button-container sl-button[variant="text"]:hover sl-icon {
+    color: #fbbf24 !important;
+}
+
+/* Active state hover (when drawer is open) - subtle difference */
+.feature-control-button-container sl-button[variant="text"][data-drawer-open="true"]:hover {
+    background-color: rgba(251, 191, 36, 0.2) !important;
+}
+
+/* Smooth transitions for the options button */
+.feature-control-button-container sl-button[variant="text"] {
+    transition: background-color 0.15s ease !important;
+}
+
+.feature-control-button-container sl-button[variant="text"] sl-icon {
+    transition: color 0.15s ease !important;
+}
+
 sl-details::part(header) {
     padding: 0;
     opacity: 0.9;

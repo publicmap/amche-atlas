@@ -846,7 +846,7 @@ export class MapFeatureControl {
         layerHeader.className = 'feature-control-layer-header';
         
         let headerStyle = `
-            padding: 0px 12px;
+            padding: 8px 12px;
             font-size: 10px;
             font-weight: 600;
             color: #fff;
@@ -860,6 +860,7 @@ export class MapFeatureControl {
             justify-content: space-between;
             align-items: center;
             transition: background-color 0.2s ease;
+            min-height: 32px;
         `;
         
         if (config.headerImage) {
@@ -897,8 +898,12 @@ export class MapFeatureControl {
         actionBtn.style.cssText = `
             position: relative;
             z-index: 2;
-            padding: 2px 4px;
-            border-radius: 2px;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
             transition: background-color 0.2s ease;
         `;
 
@@ -974,18 +979,20 @@ export class MapFeatureControl {
             closeBtn.style.cssText = `
                 background: none;
                 border: none;
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: bold;
                 cursor: pointer;
                 color: #fff;
                 text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
-                width: 20px;
-                height: 20px;
+                width: 24px;
+                height: 24px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border-radius: 50%;
+                border-radius: 4px;
                 transition: background-color 0.2s ease;
+                padding: 0;
+                margin: 0;
             `;
             
             // Hover effect
@@ -1018,9 +1025,13 @@ export class MapFeatureControl {
                 --sl-color-primary-600: currentColor;
                 --sl-color-primary-500: currentColor;
                 color: #ffffff;
-                font-size: 14px;
+                font-size: 16px;
                 opacity: 0.5;
                 transition: opacity 0.2s ease;
+                width: 24px;
+                height: 24px;
+                padding: 0;
+                margin: 0;
             `;
             
             // Store original layer opacity for hover preview
