@@ -5,6 +5,7 @@ import { getInsertPosition } from './layer-order-manager.js';
 import { fixLayerOrdering } from './layer-order-manager.js';
 import { localization } from './localization.js';
 import { fetchTileJSON } from './map-utils.js';
+import { drawerStateManager } from './drawer-state-manager.js';
 
 /**
  * MapLayerControl - Controls layer visibility and interaction for a Mapbox GL JS map
@@ -844,13 +845,18 @@ export class MapLayerControl {
             return;
         }
         
+        // Exclude terrain layers from appearing in the feature control
+        if (layerConfig.type === 'terrain') {
+            return;
+        }
+        
         // Register ALL visible layers (both inspectable and non-inspectable)
         // This allows the feature control to show all visible layers
         // Non-inspectable layers will be displayed but won't have expand/collapse functionality
         
         // For non-inspectable layers, we still want to register them for visibility tracking
         // but we don't need to validate matching layers for raster/style layers
-        const nonInteractiveTypes = ['raster', 'style', 'terrain', 'layer-group'];
+        const nonInteractiveTypes = ['raster', 'style', 'layer-group'];
         if (nonInteractiveTypes.includes(layerConfig.type)) {
             // Register without validation for non-interactive layers
             this._stateManager.registerLayer(layerConfig);

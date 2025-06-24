@@ -56,6 +56,7 @@
     <!-- Application Scripts -->
     <script src="js/geolocation-control.js"></script>
     <script src="js/mapbox-gl-view-control.js"></script>
+    <script type="module" src="js/drawer-state-manager.js"></script>
     <script type="module" src="js/map-feature-state-manager.js"></script>
     <script src="js/map-search-control.js"></script>
     <script type="module" src="js/map-layer-controls.js"></script>
@@ -219,9 +220,7 @@
         </div>
     </header>
 
-    <!-- Add the floating drawer toggle button -->
-    <sl-icon-button name="list" id="open-drawer" class="fixed top-20 left-4 z-10 rounded-full shadow-lg"
-        style="font-size: 1.5rem; padding: 8px;color:orange"></sl-icon-button>
+
 
     <!-- Wrap main content in a container -->
     <div class="flex flex-grow relative h-full">
@@ -272,12 +271,11 @@
             window.location.href = `${baseUrl}/sound/${currentHash}`;
         }
     </script>
-    <!-- Modify the drawer initialization script -->
+    <!-- Initialize drawer functionality and navigation -->
     <script>
         // Initialize drawer functionality after Shoelace components are ready
         customElements.whenDefined('sl-drawer').then(() => {
             const drawer = document.querySelector('.drawer-placement-start');
-            const openButton = document.querySelector('#open-drawer');
 
             // Track if drawer was manually toggled
             let userToggledDrawer = false;
@@ -303,14 +301,13 @@
                 window.addEventListener('resize', handleDrawerState);
             }
 
-            // Toggle drawer when button is clicked
-            openButton.addEventListener('click', () => {
+            // Listen for drawer close event to track manual toggles
+            drawer.addEventListener('sl-hide', () => {
                 userToggledDrawer = true;
-                drawer.show();
             });
 
-            // Listen for drawer close event
-            drawer.addEventListener('sl-hide', () => {
+            // Listen for drawer show event to track manual toggles
+            drawer.addEventListener('sl-show', () => {
                 userToggledDrawer = true;
             });
         });

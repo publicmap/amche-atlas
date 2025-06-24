@@ -923,15 +923,6 @@ a:hover {
 
 
 
-/* Style the open drawer button and its icon */
-#open-drawer {
-    background-color: #000000;
-}
-
-#open-drawer::part(base) {
-    background-color: #000000;
-}
-
 header .icon-button {
     color: #ffffff !important;
 }

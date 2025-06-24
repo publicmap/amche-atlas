@@ -9,6 +9,8 @@
  * Updated to use config JSON as source of truth for active layers.
  */
 
+import { drawerStateManager } from './drawer-state-manager.js';
+
 export class MapFeatureControl {
     constructor(options = {}) {
         this.options = {
@@ -40,9 +42,8 @@ export class MapFeatureControl {
         this._hoverPopup = null;
         this._currentHoveredFeature = null;
         
-        // Drawer state tracking
-        this._isDrawerOpen = false;
-        this._drawerStateListeners = [];
+        // Drawer state tracking via centralized manager
+        this._drawerStateListener = null;
         
         // Source layer links functionality moved from map-layer-controls.js
         /**
@@ -109,6 +110,13 @@ export class MapFeatureControl {
             this._config = window.layerControl._config;
         }
         
+        // Set up a periodic sync to ensure config stays up to date
+        setInterval(() => {
+            if (!this._config && window.layerControl && window.layerControl._config) {
+                this._config = window.layerControl._config;
+            }
+        }, 1000);
+        
         // Initialize sourceLayerLinks from config or set default
         this._initializeSourceLayerLinks();
         
@@ -122,6 +130,11 @@ export class MapFeatureControl {
         
         // Set up drawer state tracking
         this._setupDrawerStateTracking();
+        
+        // Set up initial button state once drawer state manager is ready
+        setTimeout(() => {
+            this._updateHeaderButton();
+        }, 100);
         
         // Set up global click handler for feature interactions
         this._setupGlobalClickHandler();
@@ -331,7 +344,7 @@ export class MapFeatureControl {
         });
 
         this._container.appendChild(header);
-        this._updateHeaderButton(); // Initial button state
+        // Don't call _updateHeaderButton() here - let drawer state manager handle it
     }
 
     /**
@@ -340,7 +353,7 @@ export class MapFeatureControl {
     _toggleCollapse() {
         this._isCollapsed = !this._isCollapsed;
         this._layersContainer.style.display = this._isCollapsed ? 'none' : 'block';
-        this._updateHeaderButton();
+        // Note: Do NOT call _updateHeaderButton() here - this is for collapsing the feature control itself, not the drawer
     }
 
     /**
@@ -350,121 +363,68 @@ export class MapFeatureControl {
         const buttonContainer = this._container.querySelector('.feature-control-button-container');
         if (!buttonContainer) return;
 
-        // Clear existing button
+        // Clear existing buttons
         buttonContainer.innerHTML = '';
 
-        // Check if we should show Options button (when collapsed or no active layers)
-        const shouldShowOptionsButton = this._isCollapsed || this._shouldShowOptionsButton();
+        // Always create the options (sliders) button
+        const optionsBtn = document.createElement('sl-button');
+        optionsBtn.setAttribute('variant', 'text');
+        optionsBtn.setAttribute('size', 'small');
+        
+        // Style based on drawer state from centralized manager
+        const isActive = drawerStateManager && drawerStateManager.isOpen() || false;
+        optionsBtn.setAttribute('data-drawer-open', isActive.toString());
+        optionsBtn.style.cssText = `
+            --sl-color-neutral-700: ${isActive ? '#fbbf24' : 'orange'};
+            --sl-color-neutral-600: ${isActive ? '#fbbf24' : 'orange'};
+            font-size: 10px;
+            color: ${isActive ? '#fbbf24' : 'orange'};
+            background-color: ${isActive ? 'rgba(251, 191, 36, 0.15)' : 'transparent'};
+            border: 1px solid ${isActive ? '#fbbf24' : 'transparent'};
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            margin-right: 4px;
+        `;
+        
+        optionsBtn.innerHTML = `<sl-icon name="sliders" style="font-size: 10px;color: ${isActive ? '#fbbf24' : 'white'}" aria-hidden="true" library="default"></sl-icon>`;
 
-        if (shouldShowOptionsButton) {
-            // Create shoelace options button with state-aware styling
-            const optionsBtn = document.createElement('sl-button');
-            optionsBtn.setAttribute('variant', 'text');
-            optionsBtn.setAttribute('size', 'small');
-            
-            // Style based on drawer state
-            const isActive = this._isDrawerOpen;
-            optionsBtn.setAttribute('data-drawer-open', isActive.toString());
-            optionsBtn.style.cssText = `
-                --sl-color-neutral-700: ${isActive ? '#fbbf24' : 'orange'};
-                --sl-color-neutral-600: ${isActive ? '#fbbf24' : 'orange'};
-                font-size: 10px;
-                color: ${isActive ? '#fbbf24' : 'orange'};
-                background-color: ${isActive ? 'rgba(251, 191, 36, 0.15)' : 'transparent'};
-                border: 1px solid ${isActive ? '#fbbf24' : 'transparent'};
-                border-radius: 4px;
-                transition: all 0.2s ease;
-            `;
-            
-            optionsBtn.innerHTML = `
-                <sl-icon name="sliders" style="font-size: 10px;color: ${isActive ? '#fbbf24' : 'white'}"></sl-icon>
-                <span style="margin-left: 4px; font-size: 10px;color: ${isActive ? '#fbbf24' : 'white'}">${isActive ? 'Close' : 'Options'}</span>
-            `;
+        // Add click handler to toggle layer drawer
+        optionsBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent header click
+            this._toggleLayerDrawer();
+        });
 
-            // Add click handler to toggle layer drawer
-            optionsBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent header click
-                this._toggleLayerDrawer();
-            });
-
-            buttonContainer.appendChild(optionsBtn);
-        } else {
-            // Create normal toggle button
-            const toggleBtn = document.createElement('button');
-            toggleBtn.className = 'feature-control-toggle';
-            toggleBtn.innerHTML = this._isCollapsed ? '▲' : '▼';
-            toggleBtn.style.cssText = `
-                background: none;
-                border: none;
-                font-size: 10px;
-                cursor: pointer;
-                color: white;
-            `;
-
-            // Add click handler for toggle
-            toggleBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent header click
-                this._toggleCollapse();
-            });
-
-            buttonContainer.appendChild(toggleBtn);
-        }
+        buttonContainer.appendChild(optionsBtn);
     }
 
     /**
      * Check if we should show the options button instead of toggle
+     * Always show options button since it controls the layer drawer
      */
     _shouldShowOptionsButton() {
-        // Show options button when there are no active layers
-        if (!this._stateManager) return true;
-        
-        const activeLayers = this._stateManager.getActiveLayers();
-        return activeLayers.size === 0;
+        // Always show options button - it controls the layer drawer regardless of layer state
+        return true;
     }
 
     /**
-     * Set up drawer state tracking
+     * Set up drawer state tracking using centralized manager
      */
     _setupDrawerStateTracking() {
-        const drawer = document.querySelector('.drawer-placement-start');
-        if (!drawer) return;
-
-        // Check initial drawer state
-        this._isDrawerOpen = drawer.open || false;
-
-        // Listen for drawer show/hide events
-        const showListener = () => {
-            this._isDrawerOpen = true;
-            this._updateHeaderButton(); // Update button styling
+        // Listen to drawer state changes from the centralized manager
+        this._drawerStateListener = (event) => {
+            const { isOpen, eventType } = event.detail;
+            this._updateHeaderButton(); // Update button styling based on drawer state
         };
 
-        const hideListener = () => {
-            this._isDrawerOpen = false;
-            this._updateHeaderButton(); // Update button styling
-        };
-
-        drawer.addEventListener('sl-show', showListener);
-        drawer.addEventListener('sl-hide', hideListener);
-
-        // Store listeners for cleanup
-        this._drawerStateListeners.push(
-            { element: drawer, event: 'sl-show', listener: showListener },
-            { element: drawer, event: 'sl-hide', listener: hideListener }
-        );
+        // Listen to the global drawer state change event
+        window.addEventListener('drawer-state-change', this._drawerStateListener);
     }
 
     /**
-     * Toggle the layer drawer from index.html
+     * Toggle the layer drawer using centralized manager
      */
     _toggleLayerDrawer() {
-        const drawer = document.querySelector('.drawer-placement-start');
-        if (drawer) {
-            if (this._isDrawerOpen) {
-                drawer.hide();
-            } else {
-                drawer.show();
-            }
-        }
+        drawerStateManager.toggle();
     }
 
     /**
@@ -474,6 +434,7 @@ export class MapFeatureControl {
         const { eventType, data } = detail;
         
         // Optimize rendering based on event type
+        // NOTE: Do NOT call _updateHeaderButton() from layer events - only drawer events should affect the button
         switch (eventType) {
             case 'feature-hover':
                 this._handleFeatureHover(data);
@@ -536,11 +497,25 @@ export class MapFeatureControl {
             case 'layer-registered':
                 // Re-render when layers are registered (turned on)
                 this._scheduleRender();
+                
+                // Ensure URL is updated when layers are turned on
+                if (window.urlManager) {
+                    setTimeout(() => {
+                        window.urlManager.updateURL();
+                    }, 50);
+                }
                 break;
             case 'layer-unregistered':
                 // Re-render when layers are unregistered (turned off)
                 // This ensures the feature control stays in sync with layer toggles
                 this._scheduleRender();
+                
+                // Ensure URL is updated when layers are turned off
+                if (window.urlManager) {
+                    setTimeout(() => {
+                        window.urlManager.updateURL();
+                    }, 50);
+                }
                 break;
             case 'cleanup':
                 // Only re-render if visible features were cleaned up
@@ -654,9 +629,6 @@ export class MapFeatureControl {
         if (emptyState) {
             emptyState.remove();
         }
-        
-        // Update header button when layers are rendered
-        this._updateHeaderButton();
 
         // Get current layer order from config to maintain stable ordering
         const configOrder = this._getConfigLayerOrder();
@@ -690,19 +662,40 @@ export class MapFeatureControl {
      * Get layer order from config to maintain stable ordering
      */
     _getConfigLayerOrder() {
-        if (!this._config || !this._config.groups) {
-            // Fallback to alphabetical ordering if no config
-            return Array.from(this._stateManager.getActiveLayers().keys()).sort();
+        if (!this._config || !this._config.layers) {
+            // Try to get config from layer control if not available
+            if (window.layerControl && window.layerControl._config) {
+                this._config = window.layerControl._config;
+            } else {
+                // Fallback to state manager ordering if no config
+                const activeLayers = this._stateManager.getActiveLayers();
+                return Array.from(activeLayers.keys());
+            }
         }
         
-        // Return layers in the order they appear in config
-        // Include ALL visible layers (both inspectable and non-inspectable)
-        return this._config.groups
-            .filter(group => {
-                // Include all layers that are registered with the state manager (visible layers)
-                return this._stateManager.getLayerConfig(group.id) !== undefined;
-            })
-            .map(group => group.id);
+        // Use the layers array from config to maintain the exact order specified
+        if (this._config.layers && Array.isArray(this._config.layers)) {
+            return this._config.layers
+                .filter(layer => {
+                    // Include all layers that are registered with the state manager (visible layers)
+                    return this._stateManager.getLayerConfig(layer.id) !== undefined;
+                })
+                .map(layer => layer.id);
+        }
+        
+        // Fallback to groups if layers array doesn't exist (older config format)
+        if (this._config.groups && Array.isArray(this._config.groups)) {
+            return this._config.groups
+                .filter(group => {
+                    // Include all layers that are registered with the state manager (visible layers)
+                    return this._stateManager.getLayerConfig(group.id) !== undefined;
+                })
+                .map(group => group.id);
+        }
+        
+        // Final fallback
+        const activeLayers = this._stateManager.getActiveLayers();
+        return Array.from(activeLayers.keys());
     }
 
     /**
@@ -826,8 +819,8 @@ export class MapFeatureControl {
         emptyState.textContent = 'No active layers to display';
         this._layersContainer.appendChild(emptyState);
         
-        // Update header button when empty state is rendered
-        this._updateHeaderButton();
+        // Don't update header button here - let drawer state tracking handle it
+        // The button state should be independent of layer state
     }
 
     /**
@@ -1112,6 +1105,14 @@ export class MapFeatureControl {
                     }
                     groupHeader.open = false;
                     groupHeader.classList.remove('active');
+                }
+                
+                // Ensure URL manager gets notified of the layer change
+                if (window.urlManager) {
+                    // Force URL update to reflect the layer being turned off
+                    setTimeout(() => {
+                        window.urlManager.updateURL();
+                    }, 100);
                 }
             }
         }
@@ -1882,11 +1883,11 @@ export class MapFeatureControl {
             this._stateManager.removeEventListener('state-change', this._stateChangeListener);
         }
         
-        // Clean up drawer state listeners
-        this._drawerStateListeners.forEach(({ element, event, listener }) => {
-            element.removeEventListener(event, listener);
-        });
-        this._drawerStateListeners = [];
+        // Clean up drawer state listener
+        if (this._drawerStateListener) {
+            window.removeEventListener('drawer-state-change', this._drawerStateListener);
+            this._drawerStateListener = null;
+        }
         
         // Clean up hover popup completely on cleanup
         this._removeHoverPopup();
