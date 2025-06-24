@@ -18,6 +18,7 @@ export class MapFeatureStateManager extends EventTarget {
         // Layer configuration
         this._layerConfig = new Map(); // layerId -> LayerConfig
         this._activeInteractiveLayers = new Set();
+        this._activeVisibleLayers = new Set();
         
         // Performance optimization
         this._renderScheduled = false;
@@ -32,15 +33,22 @@ export class MapFeatureStateManager extends EventTarget {
         // Cache layer ID mappings to avoid expensive lookups
         this._layerIdCache = new Map(); // layerId -> actualLayerIds[]
         
+        this._lastMapMoveTime = 0;
+        this._debug = false;
+        
         this._setupCleanup();
     }
 
     /**
-     * Register a layer for feature interactions
+     * Register a layer for tracking (both visible and potentially interactive)
      */
     registerLayer(layerConfig) {
         this._layerConfig.set(layerConfig.id, layerConfig);
         
+        // All registered layers are considered visible/active
+        this._activeVisibleLayers.add(layerConfig.id);
+        
+        // Only inspectable layers get interactive event handling
         if (layerConfig.inspect) {
             this._activeInteractiveLayers.add(layerConfig.id);
             this._setupLayerEventsWithRetry(layerConfig);
@@ -50,19 +58,20 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
-     * Unregister a layer (when toggled off)
+     * Unregister a layer (remove from both visible and interactive tracking)
      */
     unregisterLayer(layerId) {
-        // Clean up all features for this layer
-        this._cleanupLayerFeatures(layerId);
+        if (!this._layerConfig.has(layerId)) return;
         
-        // Remove layer events
+        // Remove from both sets
+        this._activeVisibleLayers.delete(layerId);
+        this._activeInteractiveLayers.delete(layerId);
+        
         this._removeLayerEvents(layerId);
-        
-        // Clear cache for this layer
+        this._cleanupLayerFeatures(layerId);
+        this._layerConfig.delete(layerId);
         this._layerIdCache.delete(layerId);
         
-        this._activeInteractiveLayers.delete(layerId);
         this._emitStateChange('layer-unregistered', { layerId });
     }
 
@@ -502,12 +511,13 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
-     * Get all active layers (both with and without features)
+     * Get all active layers (both visible and interactive layers)
      */
     getActiveLayers() {
         const activeLayers = new Map();
         
-        this._activeInteractiveLayers.forEach(layerId => {
+        // Include all visible layers (both inspectable and non-inspectable)
+        this._activeVisibleLayers.forEach(layerId => {
             const layerConfig = this._layerConfig.get(layerId);
             const features = this.getLayerFeatures(layerId);
             

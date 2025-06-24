@@ -696,14 +696,11 @@ export class MapFeatureControl {
         }
         
         // Return layers in the order they appear in config
-        // Include all interactive layers (geojson, vector, etc.), even if they don't have inspect properties
+        // Include ALL visible layers (both inspectable and non-inspectable)
         return this._config.groups
             .filter(group => {
-                // Include all interactive layers that are registered with the state manager
-                return this._stateManager.isLayerInteractive(group.id) && 
-                       // Only include layers that are vector-based or geojson (can have features)
-                       (group.type === 'geojson' || group.type === 'vector' || 
-                        group.type === 'csv' || group.inspect);
+                // Include all layers that are registered with the state manager (visible layers)
+                return this._stateManager.getLayerConfig(group.id) !== undefined;
             })
             .map(group => group.id);
     }
@@ -741,10 +738,12 @@ export class MapFeatureControl {
             }
         });
 
-        // Create features container if there are selected features
-        // Show all layers (geojson, vector, csv) even if they don't have inspect properties
-        if (selectedFeatures.size > 0 && (config.inspect || 
-            config.type === 'geojson' || config.type === 'vector' || config.type === 'csv')) {
+        // Create features container if there are selected features AND the layer is inspectable
+        // Only show feature content for layers that can actually have inspectable features
+        const hasInspectableFeatures = selectedFeatures.size > 0 && (config.inspect || 
+            config.type === 'geojson' || config.type === 'vector' || config.type === 'csv');
+        
+        if (hasInspectableFeatures) {
             const featuresContainer = document.createElement('div');
             featuresContainer.className = 'feature-control-features';
             featuresContainer.setAttribute('data-layer-features', layerId);
@@ -899,18 +898,10 @@ export class MapFeatureControl {
         headerText.textContent = config.title || config.id;
         layerHeader.appendChild(headerText);
 
-        // Toggle button
-        const toggleBtn = document.createElement('button');
-        toggleBtn.className = 'layer-toggle-btn';
-        const isCollapsed = this._layerCollapseStates.get(layerId) || false;
-        toggleBtn.innerHTML = isCollapsed ? '▲' : '▼';
-        toggleBtn.style.cssText = `
-            background: none;
-            border: none;
-            font-size: 10px;
-            cursor: pointer;
-            color: #fff;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+        // Action button container
+        const actionBtn = document.createElement('div');
+        actionBtn.className = 'layer-action-btn';
+        actionBtn.style.cssText = `
             position: relative;
             z-index: 2;
             padding: 2px 4px;
@@ -918,37 +909,43 @@ export class MapFeatureControl {
             transition: background-color 0.2s ease;
         `;
 
-        // Hover effect for toggle button
-        toggleBtn.addEventListener('mouseenter', () => {
-            toggleBtn.style.backgroundColor = 'rgba(255,255,255,0.2)';
-        });
+        // Create and update the button based on collapse state
+        this._updateActionButton(actionBtn, layerId, config);
+
+        layerHeader.appendChild(actionBtn);
+
+        // Add click handler for header (collapse/expand functionality only for inspectable layers)
+        const isInspectable = config.inspect || config.type === 'geojson' || config.type === 'vector' || config.type === 'csv';
         
-        toggleBtn.addEventListener('mouseleave', () => {
-            toggleBtn.style.backgroundColor = 'transparent';
-        });
-
-        layerHeader.appendChild(toggleBtn);
-
-        // Add click handler for collapse functionality
-        layerHeader.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent event bubbling
-            
-            // Toggle collapse state
-            const currentState = this._layerCollapseStates.get(layerId) || false;
-            const newState = !currentState;
-            this._layerCollapseStates.set(layerId, newState);
-            
-            // Update toggle button
-            toggleBtn.innerHTML = newState ? '▲' : '▼';
-            
-            // Find and toggle the features container
-            const layerElement = layerHeader.closest('.feature-control-layer');
-            const featuresContainer = layerElement.querySelector(`[data-layer-features="${layerId}"]`);
-            
-            if (featuresContainer) {
-                featuresContainer.style.display = newState ? 'none' : 'block';
-            }
-        });
+        if (isInspectable) {
+            layerHeader.addEventListener('click', (e) => {
+                // Check if click was on the action button
+                if (actionBtn.contains(e.target)) {
+                    return; // Let the button handle its own click
+                }
+                
+                e.stopPropagation(); // Prevent event bubbling
+                
+                // Toggle collapse state
+                const currentState = this._layerCollapseStates.get(layerId) || false;
+                const newState = !currentState;
+                this._layerCollapseStates.set(layerId, newState);
+                
+                // Update action button
+                this._updateActionButton(actionBtn, layerId, config);
+                
+                // Find and toggle the features container
+                const layerElement = layerHeader.closest('.feature-control-layer');
+                const featuresContainer = layerElement.querySelector(`[data-layer-features="${layerId}"]`);
+                
+                if (featuresContainer) {
+                    featuresContainer.style.display = newState ? 'none' : 'block';
+                }
+            });
+        } else {
+            // For non-inspectable layers, only show close button functionality
+            layerHeader.style.cursor = 'default';
+        }
 
         // Add hover effect for the entire header
         layerHeader.addEventListener('mouseenter', () => {
@@ -964,6 +961,255 @@ export class MapFeatureControl {
         });
 
         return layerHeader;
+    }
+
+    /**
+     * Update the action button based on layer state (collapsed/expanded)
+     */
+    _updateActionButton(actionBtn, layerId, config) {
+        const isInspectable = config.inspect || config.type === 'geojson' || config.type === 'vector' || config.type === 'csv';
+        const isCollapsed = this._layerCollapseStates.get(layerId) || false;
+        
+        // Clear existing content
+        actionBtn.innerHTML = '';
+        
+        // For non-inspectable layers, always show only the close button
+        if (!isInspectable || isCollapsed) {
+            // Show close button when collapsed
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '×';
+            closeBtn.style.cssText = `
+                background: none;
+                border: none;
+                font-size: 14px;
+                font-weight: bold;
+                cursor: pointer;
+                color: #fff;
+                text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+                width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                transition: background-color 0.2s ease;
+            `;
+            
+            // Hover effect
+            closeBtn.addEventListener('mouseenter', () => {
+                closeBtn.style.backgroundColor = 'rgba(255,0,0,0.2)';
+            });
+            
+            closeBtn.addEventListener('mouseleave', () => {
+                closeBtn.style.backgroundColor = 'transparent';
+            });
+            
+            // Click handler to turn off layer
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._toggleLayerOff(layerId);
+            });
+            
+            closeBtn.title = 'Turn off layer';
+            actionBtn.appendChild(closeBtn);
+            
+        } else {
+            // Show opacity lightbulb button when expanded
+            const opacityBtn = document.createElement('sl-icon-button');
+            opacityBtn.setAttribute('name', 'lightbulb-fill'); // Start with full lightbulb (high opacity)
+            opacityBtn.setAttribute('data-opacity', '0.9'); // Start at high opacity so first click goes to low
+            opacityBtn.setAttribute('data-hover-state', 'false'); // Track if we're in hover preview mode
+            opacityBtn.title = 'Toggle opacity';
+            opacityBtn.style.cssText = `
+                --sl-color-neutral-600: #ffffff;
+                --sl-color-primary-600: currentColor;
+                --sl-color-primary-500: currentColor;
+                color: #ffffff;
+                font-size: 14px;
+                opacity: 0.5;
+                transition: opacity 0.2s ease;
+            `;
+            
+            // Store original layer opacity for hover preview
+            const originalOpacity = this._getCurrentLayerOpacity(layerId, config);
+            
+            // Hover handler - preview opacity change
+            opacityBtn.addEventListener('mouseenter', (e) => {
+                opacityBtn.style.opacity = '1.0';
+                // Preview the opposite opacity state
+                const currentOpacity = parseFloat(opacityBtn.getAttribute('data-opacity'));
+                const previewOpacity = currentOpacity === 0.4 ? 0.9 : 0.4;
+                
+                // Store current icon state for restoration
+                const currentIcon = opacityBtn.getAttribute('name');
+                opacityBtn.setAttribute('data-original-icon', currentIcon);
+                
+                // Change icon to preview target state
+                const previewIcon = previewOpacity === 0.9 ? 'lightbulb-fill' : 'lightbulb';
+                opacityBtn.setAttribute('name', previewIcon);
+                
+                this._applyLayerOpacity(layerId, config, previewOpacity);
+                opacityBtn.setAttribute('data-hover-state', 'true');
+            });
+            
+            // Mouse leave handler - restore original opacity
+            opacityBtn.addEventListener('mouseleave', (e) => {
+                opacityBtn.style.opacity = '0.5';
+                // Only restore if we haven't clicked (committed the change)
+                if (opacityBtn.getAttribute('data-hover-state') === 'true') {
+                    const currentOpacity = parseFloat(opacityBtn.getAttribute('data-opacity'));
+                    
+                    // Restore original icon
+                    const originalIcon = opacityBtn.getAttribute('data-original-icon');
+                    if (originalIcon) {
+                        opacityBtn.setAttribute('name', originalIcon);
+                    }
+                    
+                    this._applyLayerOpacity(layerId, config, currentOpacity);
+                    opacityBtn.setAttribute('data-hover-state', 'false');
+                }
+            });
+            
+            // Click handler - commit opacity toggle
+            opacityBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const currentOpacity = parseFloat(opacityBtn.getAttribute('data-opacity'));
+                const newOpacityFactor = currentOpacity === 0.4 ? 0.9 : 0.4;
+                
+                // Update button state
+                opacityBtn.setAttribute('data-opacity', newOpacityFactor);
+                opacityBtn.setAttribute('name', newOpacityFactor === 0.9 ? 'lightbulb-fill' : 'lightbulb');
+                opacityBtn.setAttribute('data-hover-state', 'false'); // Clear hover state
+                
+                // Apply the new opacity (this commits the change)
+                this._applyLayerOpacity(layerId, config, newOpacityFactor);
+            });
+            
+            actionBtn.appendChild(opacityBtn);
+        }
+    }
+
+    /**
+     * Toggle layer off by communicating with layer control
+     */
+    _toggleLayerOff(layerId) {
+        // Find the layer control instance and toggle the layer off
+        if (window.layerControl && window.layerControl._state && window.layerControl._state.groups) {
+            const layerGroup = window.layerControl._state.groups.find(group => group.id === layerId);
+            if (layerGroup) {
+                // Find the group index
+                const groupIndex = window.layerControl._state.groups.indexOf(layerGroup);
+                
+                // Toggle the layer off
+                window.layerControl._toggleSourceControl(groupIndex, false);
+                
+                // Update the UI toggle state
+                const groupHeader = document.querySelector(`sl-details[data-group-id="${layerId}"]`);
+                if (groupHeader) {
+                    const toggleInput = groupHeader.querySelector('.toggle-switch input[type="checkbox"]');
+                    if (toggleInput) {
+                        toggleInput.checked = false;
+                    }
+                    groupHeader.open = false;
+                    groupHeader.classList.remove('active');
+                }
+            }
+        }
+    }
+
+    /**
+     * Get current layer opacity
+     */
+    _getCurrentLayerOpacity(layerId, config) {
+        // Return the current opacity values for the layer
+        // This is used to restore state after hover preview
+        if (config.type === 'vector') {
+            const layerConfig = config._layerConfig;
+            if (layerConfig && layerConfig.hasFillStyles) {
+                const fillLayer = this._map.getLayer(`vector-layer-${layerId}`);
+                if (fillLayer) {
+                    return this._map.getPaintProperty(`vector-layer-${layerId}`, 'fill-opacity') || 1;
+                }
+            }
+        } else if (config.type === 'tms') {
+            const layerIdOnMap = `tms-layer-${layerId}`;
+            if (this._map.getLayer(layerIdOnMap)) {
+                return this._map.getPaintProperty(layerIdOnMap, 'raster-opacity') || 1;
+            }
+        } else if (config.type === 'img') {
+            if (this._map.getLayer(layerId)) {
+                return this._map.getPaintProperty(layerId, 'raster-opacity') || 1;
+            }
+        } else if (config.type === 'raster-style-layer') {
+            const styleLayerId = config.styleLayer || layerId;
+            if (this._map.getLayer(styleLayerId)) {
+                return this._map.getPaintProperty(styleLayerId, 'raster-opacity') || 1;
+            }
+        } else if (config.type === 'geojson') {
+            const sourceId = `geojson-${layerId}`;
+            if (this._map.getLayer(`${sourceId}-line`)) {
+                return this._map.getPaintProperty(`${sourceId}-line`, 'line-opacity') || 1;
+            }
+        }
+        return 0.9; // Default high opacity
+    }
+
+    /**
+     * Apply layer opacity changes based on layer type
+     */
+    _applyLayerOpacity(layerId, config, opacityFactor) {
+        if (config.type === 'vector') {
+            const layerConfig = config._layerConfig;
+            if (layerConfig) {
+                if (layerConfig.hasFillStyles) {
+                    this._map.setPaintProperty(`vector-layer-${layerId}`, 'fill-opacity', (config._baseFillOpacity || 1) * opacityFactor);
+                }
+                if (layerConfig.hasLineStyles) {
+                    this._map.setPaintProperty(`vector-layer-${layerId}-outline`, 'line-opacity', (config._baseLineOpacity || 1) * opacityFactor);
+                }
+                if (layerConfig.hasTextStyles) {
+                    const baseTextOpacity = config.style?.['text-opacity'] || 1;
+                    if (Array.isArray(baseTextOpacity)) {
+                        const modifiedOpacity = [...baseTextOpacity];
+                        modifiedOpacity[modifiedOpacity.length - 1] = 0.7 * opacityFactor;
+                        this._map.setPaintProperty(`vector-layer-${layerId}-text`, 'text-opacity', modifiedOpacity);
+                    } else {
+                        this._map.setPaintProperty(`vector-layer-${layerId}-text`, 'text-opacity', baseTextOpacity * opacityFactor);
+                    }
+                }
+            }
+        } else if (config.type === 'tms') {
+            const layerIdOnMap = `tms-layer-${layerId}`;
+            if (this._map.getLayer(layerIdOnMap)) {
+                this._map.setPaintProperty(layerIdOnMap, 'raster-opacity', opacityFactor);
+            }
+        } else if (config.type === 'img') {
+            if (this._map.getLayer(layerId)) {
+                this._map.setPaintProperty(layerId, 'raster-opacity', opacityFactor);
+            }
+        } else if (config.type === 'raster-style-layer') {
+            const styleLayerId = config.styleLayer || layerId;
+            if (this._map.getLayer(styleLayerId)) {
+                const existingLayer = this._map.getLayer(styleLayerId);
+                if (existingLayer.type === 'raster') {
+                    this._map.setPaintProperty(styleLayerId, 'raster-opacity', opacityFactor);
+                }
+            }
+        } else if (config.type === 'geojson') {
+            const sourceId = `geojson-${layerId}`;
+            if (this._map.getLayer(`${sourceId}-fill`)) {
+                this._map.setPaintProperty(`${sourceId}-fill`, 'fill-opacity', opacityFactor * 0.5);
+            }
+            if (this._map.getLayer(`${sourceId}-line`)) {
+                this._map.setPaintProperty(`${sourceId}-line`, 'line-opacity', opacityFactor);
+            }
+            if (this._map.getLayer(`${sourceId}-label`)) {
+                this._map.setPaintProperty(`${sourceId}-label`, 'text-opacity', opacityFactor);
+            }
+            if (this._map.getLayer(`${sourceId}-circle`)) {
+                this._map.setPaintProperty(`${sourceId}-circle`, 'circle-opacity', opacityFactor);
+            }
+        }
     }
 
     /**

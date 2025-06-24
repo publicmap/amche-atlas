@@ -829,8 +829,8 @@ export class MapLayerControl {
         if (!this._stateManager) return;
         
         this._state.groups.forEach(group => {
-            if (group.inspect && group.initiallyChecked) {
-                // Use the same validation as individual layer registration
+            if (group.initiallyChecked) {
+                // Register ALL initially checked layers (both inspectable and non-inspectable)
                 this._registerLayerWithStateManager(group);
             }
         });
@@ -844,16 +844,24 @@ export class MapLayerControl {
             return;
         }
         
-        // Only register interactive layer types (geojson, vector, csv) that can have features
-        // Even if they don't have inspect properties, they should be registered for consistency
-        const interactiveTypes = ['geojson', 'vector', 'csv'];
-        if (!layerConfig.inspect && !interactiveTypes.includes(layerConfig.type)) {
+        // Register ALL visible layers (both inspectable and non-inspectable)
+        // This allows the feature control to show all visible layers
+        // Non-inspectable layers will be displayed but won't have expand/collapse functionality
+        
+        // For non-inspectable layers, we still want to register them for visibility tracking
+        // but we don't need to validate matching layers for raster/style layers
+        const nonInteractiveTypes = ['raster', 'style', 'terrain', 'layer-group'];
+        if (nonInteractiveTypes.includes(layerConfig.type)) {
+            // Register without validation for non-interactive layers
+            this._stateManager.registerLayer(layerConfig);
             return;
         }
         
-        // Pre-validate that this layer has matching layers in the map style
-        // to avoid unnecessary registrations and console noise
+        // For potentially interactive layers, pre-validate that this layer has matching layers 
+        // in the map style to avoid unnecessary registrations and console noise
         if (!this._hasMatchingLayers(layerConfig)) {
+            // Still register for visibility tracking even if no matching layers found
+            this._stateManager.registerLayer(layerConfig);
             return;
         }
         
@@ -965,11 +973,23 @@ export class MapLayerControl {
     /**
      * Unregister a layer with the state manager when it becomes inactive
      */
+    /**
+     * Unregister a layer with the state manager using the correct layer ID
+     */
+    _unregisterLayerWithCorrectId(group) {
+        if (!this._stateManager) {
+            return;
+        }
+        
+        // Always use the group ID as the key for unregistration since that's what we register with
+        this._stateManager.unregisterLayer(group.id);
+    }
+
     _unregisterLayerWithStateManager(layerId) {
         if (this._stateManager) {
             // Only unregister if the layer is actually registered
-            // Check using the state manager's isLayerInteractive method
-            if (this._stateManager.isLayerInteractive(layerId)) {
+            // Check using the state manager's getLayerConfig method (works for all layer types)
+            if (this._stateManager.getLayerConfig(layerId)) {
                 this._stateManager.unregisterLayer(layerId);
             }
         }
@@ -2226,9 +2246,9 @@ export class MapLayerControl {
         const group = this._state.groups[groupIndex];
         this._currentGroup = group;
 
-        // For non-visible layers, unregister immediately
+        // For non-visible layers, unregister immediately using the correct layer ID
         if (!visible) {
-            this._unregisterLayerWithStateManager(group.id);
+            this._unregisterLayerWithCorrectId(group);
         }
         
         // For visible layers, register AFTER the layers are added to the map
@@ -2930,7 +2950,8 @@ export class MapLayerControl {
 
         // Register with state manager AFTER layers are added to the map
         // This ensures _hasMatchingLayers() can find the newly added layers
-        if (visible && group.inspect) {
+        if (visible) {
+            // Register ALL visible layers (both inspectable and non-inspectable)
             // Use a small delay to ensure layers are fully added to the map style
             requestAnimationFrame(() => {
                 this._registerLayerWithStateManager(group);
