@@ -2251,7 +2251,7 @@ sl-menu {
 }
 
 .map-feature-control .map-layers-main::part(header) {
-    padding: 0;
+    padding: 6px;
     background: transparent;
     border: none;
 }
@@ -2281,10 +2281,14 @@ sl-menu {
 }
 
 .map-feature-control .layer-details::part(header) {
-    padding: 0;
-    background: transparent;
+    padding: 0px 6px;
+    background: rgba(0, 0, 0, 0.02);
     border: none;
+    border-top: 1px solid #fafafa;
+    border-bottom: 1px solid #e6e6e6;
 }
+
+/* Header background image styling - applied dynamically via JavaScript */
 
 .map-feature-control .layer-details::part(content) {
     padding: 0;

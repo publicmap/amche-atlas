@@ -324,14 +324,13 @@ export class MapFeatureControl {
         summary.setAttribute('slot', 'summary');
         summary.className = 'map-layers-summary';
         summary.style.cssText = `
-            padding: 12px 16px;
+            padding: 0px;
             background: transparent;
             color: #1f2937;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        `;
+            `;
 
         // Create title text
         const title = document.createElement('span');
@@ -369,7 +368,7 @@ export class MapFeatureControl {
         const actionsSection = document.createElement('div');
         actionsSection.className = 'map-layers-actions';
         actionsSection.style.cssText = `
-            padding: 12px 16px;
+            padding: 4px 4px;
             background: rgba(0, 0, 0, 0.02);
             border-bottom: 1px solid rgba(0, 0, 0, 0.08);
             display: flex;
@@ -750,10 +749,8 @@ export class MapFeatureControl {
         
         // Set custom styles for layer details
         layerDetails.style.cssText = `
-            margin-bottom: 8px;
             --sl-panel-background-color: #777;
             --sl-panel-border-color: #333;
-            border-radius: 6px;
             overflow: hidden;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         `;
@@ -767,27 +764,22 @@ export class MapFeatureControl {
             font-size: 13px;
             font-weight: 600;
             color: #1f2937;
-            background: rgba(0, 0, 0, 0.02);
             cursor: pointer;
-            border-radius: 0;
             position: relative;
             min-height: 32px;
             display: flex;
             align-items: center;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            background: transparent;
         `;
         
-        // Add background image if available
-        if (config.headerImage) {
-            summaryStyle += `
-                background-image: linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0.7)), url('${config.headerImage}');
-                background-size: cover;
-                background-position: center;
-                background-repeat: no-repeat;
-            `;
-        }
-        
         summary.style.cssText = summaryStyle;
+        
+        // Add background image class if available
+        if (config.headerImage) {
+            layerDetails.classList.add('has-header-image');
+            layerDetails.setAttribute('data-header-image', config.headerImage);
+            this._addHeaderImageCSS(layerId, config.headerImage);
+        }
         
         // Create title text
         const title = document.createElement('span');
@@ -949,6 +941,31 @@ export class MapFeatureControl {
                 });
             }
         });
+    }
+
+    /**
+     * Add custom CSS for header background images
+     */
+    _addHeaderImageCSS(layerId, imageUrl) {
+        // Create or get existing style element for header images
+        let styleElement = document.getElementById('map-feature-control-header-images');
+        if (!styleElement) {
+            styleElement = document.createElement('style');
+            styleElement.id = 'map-feature-control-header-images';
+            document.head.appendChild(styleElement);
+        }
+
+        // Add CSS rule for this specific layer
+        const cssRule = `
+.map-feature-control .layer-details[data-layer-id="${layerId}"]::part(header) {
+    background-image: linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0.5)), url('${imageUrl}') !important;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}`;
+
+        // Append the rule to the style element
+        styleElement.textContent += cssRule;
     }
 
     /**
@@ -1120,8 +1137,8 @@ export class MapFeatureControl {
         const content = document.createElement('div');
         content.className = 'features-content';
         content.style.cssText = `
-            max-height: 200px;
-            overflow-y: auto;
+                max-height: 200px;
+                overflow-y: auto;
             background: transparent;
             padding: 4px 0;
         `;
@@ -2448,6 +2465,22 @@ export class MapFeatureControl {
         const existing = this._layersContainer.querySelector(`[data-layer-id="${layerId}"]`);
         if (existing) {
             existing.remove();
+        }
+        
+        // Clean up header image CSS for this layer
+        this._removeHeaderImageCSS(layerId);
+    }
+
+    /**
+     * Remove header image CSS for a specific layer
+     */
+    _removeHeaderImageCSS(layerId) {
+        const styleElement = document.getElementById('map-feature-control-header-images');
+        if (styleElement) {
+            // Remove the CSS rule for this layer
+            const cssText = styleElement.textContent;
+            const layerRuleRegex = new RegExp(`\\.map-feature-control \\.layer-details\\[data-layer-id="${layerId}"\\]::part\\(header\\)[^}]+}`, 'g');
+            styleElement.textContent = cssText.replace(layerRuleRegex, '');
         }
     }
 
