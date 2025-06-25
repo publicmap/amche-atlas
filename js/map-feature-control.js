@@ -7,6 +7,7 @@
  * 
  * Now uses centralized MapFeatureStateManager for all state management.
  * Updated to use config JSON as source of truth for active layers.
+ * UI completely rewritten to use Shoelace details components with nested structure.
  */
 
 import { drawerStateManager } from './drawer-state-manager.js';
@@ -27,6 +28,8 @@ export class MapFeatureControl {
         this._stateManager = null;
         this._container = null;
         this._layersContainer = null;
+        this._mainDetails = null; // Main "Map Layers" details component
+        this._drawerSwitch = null; // Drawer toggle switch
         this._isCollapsed = this.options.collapsed;
         this._config = null; // Store config reference
         
@@ -131,9 +134,9 @@ export class MapFeatureControl {
         // Set up drawer state tracking
         this._setupDrawerStateTracking();
         
-        // Set up initial button state once drawer state manager is ready
+        // Set up initial switch state once drawer state manager is ready
         setTimeout(() => {
-            this._updateHeaderButton();
+            this._updateDrawerSwitch();
         }, 100);
         
         // Set up global click handler for feature interactions
@@ -275,13 +278,13 @@ export class MapFeatureControl {
     }
 
     /**
-     * Create the main container and structure
+     * Create the main container with Shoelace details structure
      */
     _createContainer() {
         this._container = document.createElement('div');
         this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group map-feature-control';
         
-        // Add custom styles
+        // Add custom styles for the container
         this._container.style.cssText = `
             background: #666;
             box-shadow: 0 0 0 2px rgba(0,0,0,.1);
@@ -291,119 +294,133 @@ export class MapFeatureControl {
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            border-radius: 4px;
         `;
 
-        this._createHeader();
+        // Create main details component for "Map Layers"
+        this._createMainDetails();
         
+        this._container.appendChild(this._mainDetails);
+    }
+
+    /**
+     * Create the main "Map Layers" details component with drawer switch
+     */
+    _createMainDetails() {
+        this._mainDetails = document.createElement('sl-details');
+        this._mainDetails.className = 'map-layers-main';
+        this._mainDetails.open = !this._isCollapsed;
+        
+        // Set custom styles for the main details
+        this._mainDetails.style.cssText = `
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            overflow: visible;
+        `;
+
+        // Create simple summary with just the title
+        const summary = document.createElement('div');
+        summary.setAttribute('slot', 'summary');
+        summary.className = 'map-layers-summary';
+        summary.style.cssText = `
+            padding: 12px 16px;
+            background: transparent;
+            color: #1f2937;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        `;
+
+        // Create title text
+        const title = document.createElement('span');
+        title.textContent = 'Map Layers';
+        summary.appendChild(title);
+        this._mainDetails.appendChild(summary);
+
+        // Create actions section for main details
+        const actionsSection = this._createMainDetailsActions();
+        this._mainDetails.appendChild(actionsSection);
+
+        // Create layers container
         this._layersContainer = document.createElement('div');
         this._layersContainer.className = 'feature-control-layers';
         this._layersContainer.style.cssText = `
             flex: 1;
             overflow-y: auto;
-            max-height: calc(${this.options.maxHeight} - 50px);
-            display: ${this._isCollapsed ? 'none' : 'block'};
+            max-height: calc(${this.options.maxHeight} - 90px);
+            background: transparent;
+            padding: 0;
         `;
         
-        this._container.appendChild(this._layersContainer);
-    }
+        this._mainDetails.appendChild(this._layersContainer);
 
-    /**
-     * Create the header with title and collapse button or options button
-     */
-    _createHeader() {
-        const header = document.createElement('div');
-        header.className = 'feature-control-header';
-        header.style.cssText = `
-            padding: 2px 12px;
-            border-bottom: 1px solid #eee;
-            background: #222;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 12px;
-            color: white;
-            cursor: pointer;
-        `;
-
-        const title = document.createElement('span');
-        title.textContent = 'Map Information';
-        
-        // Create container for the button (will be updated dynamically)
-        const buttonContainer = document.createElement('div');
-        buttonContainer.className = 'feature-control-button-container';
-        
-        header.appendChild(title);
-        header.appendChild(buttonContainer);
-
-        // Add click handler to header (excluding the button area)
-        header.addEventListener('click', (e) => {
-            // Only toggle if click wasn't on the button container
-            if (!buttonContainer.contains(e.target)) {
-                this._toggleCollapse();
-            }
+        // Add toggle handler for main details
+        this._mainDetails.addEventListener('sl-toggle', (e) => {
+            this._isCollapsed = !this._mainDetails.open;
         });
-
-        this._container.appendChild(header);
-        // Don't call _updateHeaderButton() here - let drawer state manager handle it
     }
 
     /**
-     * Toggle collapse state
+     * Create actions section for main details with drawer toggle
      */
-    _toggleCollapse() {
-        this._isCollapsed = !this._isCollapsed;
-        this._layersContainer.style.display = this._isCollapsed ? 'none' : 'block';
-        // Note: Do NOT call _updateHeaderButton() here - this is for collapsing the feature control itself, not the drawer
-    }
+    _createMainDetailsActions() {
+        const actionsSection = document.createElement('div');
+        actionsSection.className = 'map-layers-actions';
+        actionsSection.style.cssText = `
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.02);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
 
-    /**
-     * Update header button based on state
-     */
-    _updateHeaderButton() {
-        const buttonContainer = this._container.querySelector('.feature-control-button-container');
-        if (!buttonContainer) return;
-
-        // Clear existing buttons
-        buttonContainer.innerHTML = '';
-
-        // Always create the options (sliders) button
-        const optionsBtn = document.createElement('sl-button');
-        optionsBtn.setAttribute('variant', 'text');
-        optionsBtn.setAttribute('size', 'small');
-        
-        // Style based on drawer state from centralized manager
-        const isActive = drawerStateManager && drawerStateManager.isOpen() || false;
-        optionsBtn.setAttribute('data-drawer-open', isActive.toString());
-        optionsBtn.style.cssText = `
-            --sl-color-neutral-700: ${isActive ? '#fbbf24' : 'orange'};
-            --sl-color-neutral-600: ${isActive ? '#fbbf24' : 'orange'};
-            font-size: 10px;
-            color: ${isActive ? '#fbbf24' : 'orange'};
-            background-color: ${isActive ? 'rgba(251, 191, 36, 0.15)' : 'transparent'};
-            border: 1px solid ${isActive ? '#fbbf24' : 'transparent'};
-            border-radius: 4px;
-            transition: all 0.2s ease;
-            margin-right: 4px;
+        // Create drawer toggle switch
+        this._drawerSwitch = document.createElement('sl-switch');
+        this._drawerSwitch.size = 'small';
+        this._drawerSwitch.style.cssText = `
+            --sl-color-primary-600: #3b82f6;
+            --sl-color-primary-500: #3b82f6;
         `;
         
-        optionsBtn.innerHTML = `<sl-icon name="sliders" style="font-size: 10px;color: ${isActive ? '#fbbf24' : 'white'}" aria-hidden="true" library="default"></sl-icon>`;
-
-        // Add click handler to toggle layer drawer
-        optionsBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent header click
+        // Add click handler to toggle drawer
+        this._drawerSwitch.addEventListener('sl-change', (e) => {
             this._toggleLayerDrawer();
         });
 
-        buttonContainer.appendChild(optionsBtn);
+        // Create label for the switch
+        const switchLabel = document.createElement('label');
+        switchLabel.style.cssText = `
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 500;
+            cursor: pointer;
+            user-select: none;
+        `;
+        switchLabel.textContent = 'Layer List';
+        
+        // Make label clickable
+        switchLabel.addEventListener('click', () => {
+            this._drawerSwitch.checked = !this._drawerSwitch.checked;
+            this._toggleLayerDrawer();
+        });
+
+        actionsSection.appendChild(this._drawerSwitch);
+        actionsSection.appendChild(switchLabel);
+
+        return actionsSection;
     }
 
     /**
-     * Check if we should show the options button instead of toggle
-     * Always show options button since it controls the layer drawer
+     * Update drawer switch state based on centralized manager
      */
-    _shouldShowOptionsButton() {
-        // Always show options button - it controls the layer drawer regardless of layer state
-        return true;
+    _updateDrawerSwitch() {
+        if (!this._drawerSwitch) return;
+        
+        const isOpen = drawerStateManager && drawerStateManager.isOpen() || false;
+        this._drawerSwitch.checked = isOpen;
     }
 
     /**
@@ -413,7 +430,7 @@ export class MapFeatureControl {
         // Listen to drawer state changes from the centralized manager
         this._drawerStateListener = (event) => {
             const { isOpen, eventType } = event.detail;
-            this._updateHeaderButton(); // Update button styling based on drawer state
+            this._updateDrawerSwitch(); // Update switch state based on drawer state
         };
 
         // Listen to the global drawer state change event
@@ -709,21 +726,407 @@ export class MapFeatureControl {
         let isNewElement = false;
         
         if (!layerElement) {
-            layerElement = document.createElement('div');
-            layerElement.className = 'feature-control-layer';
-            layerElement.setAttribute('data-layer-id', layerId);
-            layerElement.style.cssText = `border-bottom: 1px solid #eee;`;
+            layerElement = this._createLayerDetailsElement(layerId, config);
             isNewElement = true;
         }
 
-        // Clear existing content
-        layerElement.innerHTML = '';
+        // Update layer content
+        this._updateLayerContent(layerElement, layerId, config, features);
+        
+        // Add to container if it's a new element, maintaining config order
+        if (isNewElement) {
+            this._insertLayerInOrder(layerElement, layerId);
+        }
+    }
 
-        // Create layer header with collapse functionality
-        const layerHeader = this._createLayerHeader(config, layerId);
-        layerElement.appendChild(layerHeader);
+    /**
+     * Create a layer details element with nested structure
+     */
+    _createLayerDetailsElement(layerId, config) {
+        const layerDetails = document.createElement('sl-details');
+        layerDetails.className = 'layer-details';
+        layerDetails.setAttribute('data-layer-id', layerId);
+        layerDetails.open = false; // Collapsed by default
+        
+        // Set custom styles for layer details
+        layerDetails.style.cssText = `
+            margin-bottom: 8px;
+            --sl-panel-background-color: #777;
+            --sl-panel-border-color: #333;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        `;
 
-        // Only show selected features in inspector
+        // Create custom summary with background image support
+        const summary = document.createElement('div');
+        summary.setAttribute('slot', 'summary');
+        summary.className = 'layer-summary';
+        
+        let summaryStyle = `
+            font-size: 13px;
+            font-weight: 600;
+            color: #1f2937;
+            background: rgba(0, 0, 0, 0.02);
+            cursor: pointer;
+            border-radius: 0;
+            position: relative;
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        `;
+        
+        // Add background image if available
+        if (config.headerImage) {
+            summaryStyle += `
+                background-image: linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0.7)), url('${config.headerImage}');
+                background-size: cover;
+                background-position: center;
+                background-repeat: no-repeat;
+            `;
+        }
+        
+        summary.style.cssText = summaryStyle;
+        
+        // Create title text
+        const title = document.createElement('span');
+        title.textContent = config.title || config.id;
+        title.style.cssText = 'position: relative; z-index: 2; flex: 1;';
+        summary.appendChild(title);
+        
+        layerDetails.appendChild(summary);
+        
+        return layerDetails;
+    }
+
+    /**
+     * Update layer content with action buttons and nested details
+     */
+    _updateLayerContent(layerElement, layerId, config, features) {
+        // Clear existing content except summary
+        const existingContent = layerElement.querySelector('.layer-content');
+        if (existingContent) {
+            existingContent.remove();
+        }
+
+        // Create main content container
+        const contentContainer = document.createElement('div');
+        contentContainer.className = 'layer-content';
+        contentContainer.style.cssText = `
+            background: transparent;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+        `;
+
+        // Create actions section
+        const actionsSection = document.createElement('div');
+        actionsSection.className = 'layer-actions-section';
+        actionsSection.style.cssText = `
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.02);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        `;
+
+        // Create action buttons
+        const actionsContainer = this._createLayerActions(layerId, config);
+        actionsSection.appendChild(actionsContainer);
+        contentContainer.appendChild(actionsSection);
+
+        // Create nested details group container for Source, Legend, and Features
+        const detailsGroup = document.createElement('div');
+        detailsGroup.className = `details-group-${layerId}`;
+        detailsGroup.style.cssText = 'padding: 0 16px 12px 16px;';
+
+        // Create nested details for Source, Legend, and Features
+        const nestedDetails = this._createNestedDetails(layerId, config, features);
+        nestedDetails.forEach(detail => detailsGroup.appendChild(detail));
+
+        // Set up accordion behavior - only one detail open at a time
+        this._setupDetailsGroupAccordion(detailsGroup);
+
+        contentContainer.appendChild(detailsGroup);
+        layerElement.appendChild(contentContainer);
+    }
+
+    /**
+     * Create action buttons for the layer
+     */
+    _createLayerActions(layerId, config) {
+        const actionsContainer = document.createElement('div');
+        actionsContainer.className = 'layer-actions';
+        actionsContainer.style.cssText = `
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        `;
+
+        // Create Adjust Opacity button
+        const opacityBtn = document.createElement('sl-button');
+        opacityBtn.size = 'small';
+        opacityBtn.variant = 'default';
+        opacityBtn.innerHTML = `
+            <sl-icon name="lightbulb" slot="prefix"></sl-icon>
+            Adjust Opacity
+        `;
+        opacityBtn.style.cssText = `
+            --sl-color-primary-600: #4ade80;
+            --sl-color-primary-500: #4ade80;
+            flex: 1;
+            min-width: 120px;
+        `;
+
+        // Store opacity state
+        opacityBtn.setAttribute('data-opacity', '0.9');
+        
+        // Add click handler for opacity toggle
+        opacityBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._toggleLayerOpacity(layerId, config, opacityBtn);
+        });
+
+        // Create Remove Layer button
+        const removeBtn = document.createElement('sl-button');
+        removeBtn.size = 'small';
+        removeBtn.variant = 'danger';
+        removeBtn.innerHTML = `
+            <sl-icon name="x-circle" slot="prefix"></sl-icon>
+            Remove Layer
+        `;
+        removeBtn.style.cssText = `
+            flex: 1;
+            min-width: 120px;
+        `;
+
+        // Add click handler for layer removal
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._removeLayer(layerId);
+        });
+
+        actionsContainer.appendChild(opacityBtn);
+        actionsContainer.appendChild(removeBtn);
+
+        return actionsContainer;
+    }
+
+    /**
+     * Create nested details for Source, Legend, and Features
+     */
+    _createNestedDetails(layerId, config, features) {
+        const details = [];
+
+        // Source Details
+        const sourceDetails = this._createSourceDetails(layerId, config);
+        if (sourceDetails) details.push(sourceDetails);
+
+        // Legend Details
+        const legendDetails = this._createLegendDetails(layerId, config);
+        if (legendDetails) details.push(legendDetails);
+
+        // Features Details (only for vector and geojson layers)
+        if (config.type === 'vector' || config.type === 'geojson') {
+            const featuresDetails = this._createFeaturesDetails(layerId, config, features);
+            if (featuresDetails) details.push(featuresDetails);
+        }
+
+        return details;
+    }
+
+    /**
+     * Set up accordion behavior for details group - only one detail open at a time
+     */
+    _setupDetailsGroupAccordion(detailsGroup) {
+        // Listen for sl-show events on any details within this group
+        detailsGroup.addEventListener('sl-show', (event) => {
+            // Only handle direct child sl-details elements
+            if (event.target.localName === 'sl-details' && event.target.parentElement === detailsGroup) {
+                // Close all other details in this group
+                const allDetails = detailsGroup.querySelectorAll('sl-details');
+                allDetails.forEach(detail => {
+                    if (detail !== event.target) {
+                        detail.open = false;
+                    }
+                });
+            }
+        });
+    }
+
+    /**
+     * Create Source details component
+     */
+    _createSourceDetails(layerId, config) {
+        const hasContent = config.description || config.attribution;
+        if (!hasContent) return null;
+
+        const sourceDetails = document.createElement('sl-details');
+        sourceDetails.className = 'source-details';
+        sourceDetails.open = false; // Collapsed by default
+        
+        sourceDetails.style.cssText = `
+            margin-bottom: 2px;
+            font-size: 11px;
+        `;
+
+        // Create summary with first line preview
+        const summary = document.createElement('div');
+        summary.setAttribute('slot', 'summary');
+        summary.className = 'source-summary';
+        summary.style.cssText = `
+            padding: 6px 0;
+            font-size: 11px;
+            font-weight: 600;
+            color: #374151;
+        `;
+
+        // Get first line of content for preview
+        let firstLine = 'Source';
+        if (config.description) {
+            // Strip HTML and get first line
+            const textContent = config.description.replace(/<[^>]*>/g, '').trim();
+            firstLine = textContent.split('\n')[0].substring(0, 50);
+            if (textContent.length > 50) firstLine += '...';
+        } else if (config.attribution) {
+            const textContent = config.attribution.replace(/<[^>]*>/g, '').trim();
+            firstLine = textContent.split('\n')[0].substring(0, 50);
+            if (textContent.length > 50) firstLine += '...';
+        }
+
+        summary.textContent = firstLine;
+        sourceDetails.appendChild(summary);
+
+        // Create content
+        const content = document.createElement('div');
+        content.style.cssText = `
+            padding: 8px 0;
+            background: transparent;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #6b7280;
+        `;
+
+        if (config.description) {
+            const descDiv = document.createElement('div');
+            descDiv.innerHTML = config.description;
+            descDiv.style.cssText = 'margin-bottom: 8px;';
+            content.appendChild(descDiv);
+        }
+
+        if (config.attribution) {
+            const attrDiv = document.createElement('div');
+            attrDiv.innerHTML = config.attribution;
+            attrDiv.style.cssText = 'font-style: italic; color: #bbb;';
+            content.appendChild(attrDiv);
+        }
+
+        sourceDetails.appendChild(content);
+        return sourceDetails;
+    }
+
+    /**
+     * Create Legend details component
+     */
+    _createLegendDetails(layerId, config) {
+        const hasLegend = config.legend || config.legendImage;
+        if (!hasLegend) return null;
+
+        const legendDetails = document.createElement('sl-details');
+        legendDetails.className = 'legend-details';
+        legendDetails.open = false; // Collapsed by default
+        
+        legendDetails.style.cssText = `
+            margin-bottom: 2px;
+            font-size: 11px;
+        `;
+
+        // Create summary
+        const summary = document.createElement('div');
+        summary.setAttribute('slot', 'summary');
+        summary.className = 'legend-summary';
+        summary.style.cssText = `
+            padding: 6px 0;
+            font-size: 11px;
+            font-weight: 600;
+            color: #374151;
+        `;
+        summary.textContent = 'Legend';
+        legendDetails.appendChild(summary);
+
+        // Create content
+        const content = document.createElement('div');
+        content.style.cssText = `
+            padding: 8px 0;
+            background: transparent;
+        `;
+
+        if (config.legendImage) {
+            const img = document.createElement('img');
+            img.src = config.legendImage;
+            img.style.cssText = `
+                max-width: 100%;
+                height: auto;
+                border-radius: 4px;
+                cursor: pointer;
+            `;
+            
+            // Add click handler for modal view
+            img.addEventListener('click', () => {
+                this._showLegendModal(config.legendImage);
+            });
+            
+            content.appendChild(img);
+        } else if (config.legend) {
+            const legendDiv = document.createElement('div');
+            legendDiv.innerHTML = config.legend;
+            legendDiv.style.cssText = 'font-size: 10px; color: #ddd;';
+            content.appendChild(legendDiv);
+        }
+
+        legendDetails.appendChild(content);
+        return legendDetails;
+    }
+
+    /**
+     * Create Features details component
+     */
+    _createFeaturesDetails(layerId, config, features) {
+        const featuresDetails = document.createElement('sl-details');
+        featuresDetails.className = 'features-details';
+        featuresDetails.setAttribute('data-layer-features', layerId);
+        featuresDetails.id = `features-container-${layerId}`;
+        featuresDetails.open = false; // Collapsed by default
+        
+        featuresDetails.style.cssText = `
+            margin-bottom: 2px;
+            font-size: 11px;
+        `;
+
+        // Create summary with feature count
+        const summary = document.createElement('div');
+        summary.setAttribute('slot', 'summary');
+        summary.className = 'features-summary';
+        summary.style.cssText = `
+            padding: 6px 0;
+            font-size: 11px;
+            font-weight: 600;
+            color: #374151;
+        `;
+
+        // Count selected features
+        const selectedCount = Array.from(features.values()).filter(f => f.isSelected).length;
+        summary.textContent = selectedCount > 0 ? `Features (${selectedCount})` : 'Features';
+        featuresDetails.appendChild(summary);
+
+                // Create content container for features
+        const content = document.createElement('div');
+        content.className = 'features-content';
+        content.style.cssText = `
+            max-height: 200px;
+            overflow-y: auto;
+            background: transparent;
+            padding: 4px 0;
+        `;
+
+        // Only show selected features
         const selectedFeatures = new Map();
         features.forEach((featureState, featureId) => {
             if (featureState.isSelected) {
@@ -731,41 +1134,433 @@ export class MapFeatureControl {
             }
         });
 
-        // Create features container if there are selected features AND the layer is inspectable
-        // Only show feature content for layers that can actually have inspectable features
-        const hasInspectableFeatures = selectedFeatures.size > 0 && (config.inspect || 
-            config.type === 'geojson' || config.type === 'vector' || config.type === 'csv');
-        
-        if (hasInspectableFeatures) {
-            const featuresContainer = document.createElement('div');
-            featuresContainer.className = 'feature-control-features';
-            featuresContainer.setAttribute('data-layer-features', layerId);
-            // Add standardized ID for direct targeting
-            featuresContainer.id = `features-container-${layerId}`;
-            
-            // Check if this layer is collapsed
-            const isLayerCollapsed = this._layerCollapseStates.get(layerId) || false;
-            
-            featuresContainer.style.cssText = `
-                max-height: 200px;
-                overflow-y: auto;
-                display: ${isLayerCollapsed ? 'none' : 'block'};
-                transition: all 0.2s ease;
-            `;
-
-            // Sort and render only selected features
+        if (selectedFeatures.size > 0) {
             const sortedFeatures = this._getSortedFeatures(selectedFeatures);
             sortedFeatures.forEach(([featureId, featureState]) => {
-                this._renderFeature(featuresContainer, featureState, config, layerId);
+                this._renderFeatureInDetails(content, featureState, config, layerId);
             });
+        } else {
+            // Show empty state
+            const emptyDiv = document.createElement('div');
+            emptyDiv.style.cssText = `
+                padding: 12px;
+                text-align: center;
+                color: #999;
+                font-size: 10px;
+                font-style: italic;
+            `;
+            emptyDiv.textContent = 'No features selected';
+            content.appendChild(emptyDiv);
+        }
 
-            layerElement.appendChild(featuresContainer);
+        featuresDetails.appendChild(content);
+        return featuresDetails;
+    }
+
+    /**
+     * Render feature within details component structure
+     */
+    _renderFeatureInDetails(container, featureState, layerConfig, layerId) {
+        const featureElement = document.createElement('div');
+        const featureId = this._getFeatureId(featureState.feature);
+        
+        featureElement.className = 'feature-control-feature selected';
+        featureElement.setAttribute('data-feature-id', featureId);
+        featureElement.setAttribute('data-layer-id', layerId);
+        
+        // Add standardized ID for direct targeting: inspector-{layerId}-{featureId}
+        featureElement.id = `inspector-${layerId}-${featureId}`;
+        
+        // Selected feature styling for the details structure
+        featureElement.style.cssText = `
+            border-bottom: 1px solid #555;
+            font-size: 11px;
+            background: #3a3a3a;
+            cursor: pointer;
+            padding: 0;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            overflow: hidden;
+        `;
+
+        // Render detailed content for selected features
+        const content = this._createFeatureContentForDetails(featureState, layerConfig, layerId, featureId);
+        featureElement.appendChild(content);
+
+        container.appendChild(featureElement);
+    }
+
+    /**
+     * Create feature content optimized for details structure
+     */
+    _createFeatureContentForDetails(featureState, layerConfig, layerId, featureId) {
+        const content = document.createElement('div');
+        content.className = 'feature-inspector-content';
+        content.id = `content-${layerId}-${featureId}`;
+        content.style.cssText = 'padding: 8px;';
+        
+        // Properties table content with compact styling for nested view
+        const tableContent = document.createElement('div');
+        tableContent.className = 'feature-inspector-table-content';
+        tableContent.id = `table-content-${layerId}-${featureId}`;
+        tableContent.style.cssText = 'max-height: 200px; overflow-y: auto;';
+        
+        // Build the properties table with intelligent formatting (reuse existing logic)
+        const table = document.createElement('table');
+        table.className = 'feature-inspector-properties-table';
+        table.id = `properties-table-${layerId}-${featureId}`;
+        table.style.cssText = `
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+            font-family: inherit;
+            background-color: #2a2a2a;
+            border-radius: 4px;
+            overflow: hidden;
+            font-size: 10px;
+        `;
+        
+        const properties = featureState.feature.properties || {};
+        const inspect = layerConfig.inspect || {};
+        
+        // Get field configuration (reuse existing logic)
+        const priorityFields = inspect.fields || [];
+        const fieldTitles = inspect.fieldTitles || [];
+        const labelField = inspect.label;
+        
+        // Create field title mapping
+        const fieldTitleMap = {};
+        priorityFields.forEach((field, index) => {
+            if (fieldTitles[index]) {
+                fieldTitleMap[field] = fieldTitles[index];
+            }
+        });
+        
+        // Organize properties: label first, then priority fields, then remaining fields
+        const organizedFields = [];
+        
+        // 1. Add label field first if it exists and has a value
+        if (labelField && properties[labelField] !== undefined && properties[labelField] !== null && properties[labelField] !== '') {
+            organizedFields.push({
+                key: labelField,
+                value: properties[labelField],
+                isLabel: true,
+                displayName: inspect.title || fieldTitleMap[labelField] || labelField
+            });
         }
         
-        // Add to container if it's a new element, maintaining config order
-        if (isNewElement) {
-            this._insertLayerInOrder(layerElement, layerId);
+        // 2. Add priority fields in order (excluding label field to avoid duplication)
+        priorityFields.forEach(field => {
+            if (field !== labelField && properties[field] !== undefined && properties[field] !== null && properties[field] !== '') {
+                organizedFields.push({
+                    key: field,
+                    value: properties[field],
+                    isPriority: true,
+                    displayName: fieldTitleMap[field] || field
+                });
+            }
+        });
+        
+        // 3. Add remaining fields for completeness (limited to prevent clutter)
+        Object.entries(properties).slice(0, 5).forEach(([key, value]) => {
+            // Skip if already added as label or priority field
+            if (key === labelField || priorityFields.includes(key)) {
+                return;
+            }
+            
+            // Skip empty values and internal/system fields
+            if (value === undefined || value === null || value === '') {
+                return;
+            }
+            
+            // Skip common internal/system fields that aren't useful to display
+            const systemFields = ['id', 'fid', '_id', 'objectid', 'gid', 'osm_id', 'way_id'];
+            if (systemFields.includes(key.toLowerCase())) {
+                return;
+            }
+            
+            organizedFields.push({
+                key: key,
+                value: value,
+                isOther: true,
+                displayName: key
+            });
+        });
+        
+        // Render the organized fields with compact styling
+        organizedFields.forEach(field => {
+            const row = document.createElement('tr');
+            
+            // Set row background with darker theme for nested view
+            let rowBackgroundColor = '#2a2a2a';
+            if (field.isLabel) {
+                rowBackgroundColor = '#333';
+            } else if (field.isPriority) {
+                rowBackgroundColor = '#2d2d2d';
+            }
+            
+            row.style.cssText = `
+                border-bottom: 1px solid #444;
+                background-color: ${rowBackgroundColor};
+                transition: background-color 0.1s ease;
+            `;
+            
+            const keyCell = document.createElement('td');
+            keyCell.style.cssText = `
+                padding: 4px 6px;
+                font-weight: 500;
+                color: ${field.isLabel ? '#fff' : field.isPriority ? '#ddd' : '#bbb'};
+                width: 40%;
+                vertical-align: top;
+                line-height: 1.2;
+                font-size: 9px;
+            `;
+            keyCell.textContent = field.displayName;
+            
+            const valueCell = document.createElement('td');
+            valueCell.style.cssText = `
+                padding: 4px 6px;
+                word-break: break-word;
+                font-size: 9px;
+                font-weight: ${field.isLabel ? '500' : '400'};
+                color: ${field.isLabel ? '#fff' : '#ccc'};
+                line-height: 1.2;
+                vertical-align: top;
+            `;
+            valueCell.textContent = String(field.value);
+            
+            row.appendChild(keyCell);
+            row.appendChild(valueCell);
+            table.appendChild(row);
+        });
+        
+        tableContent.appendChild(table);
+        content.appendChild(tableContent);
+        
+        // Add source layer links content if applicable (simplified for nested view)
+        this._addSourceLayerLinksContentToDetails(content, featureState, layerConfig);
+        
+        return content;
+    }
+
+    /**
+     * Add source layer links content optimized for details view
+     */
+    _addSourceLayerLinksContentToDetails(content, featureState, layerConfig) {
+        if (!this._sourceLayerLinks || this._sourceLayerLinks.length === 0) {
+            return;
         }
+
+        const feature = featureState.feature;
+        const sourceLayer = feature.sourceLayer || feature.layer?.sourceLayer;
+        
+        // Find applicable source layer links
+        const applicableLinks = this._sourceLayerLinks.filter(link => {
+            if (!link.sourceLayer) return false;
+            
+            // Handle both string and array for sourceLayer
+            if (Array.isArray(link.sourceLayer)) {
+                return link.sourceLayer.includes(sourceLayer);
+            } else {
+                return link.sourceLayer === sourceLayer;
+            }
+        });
+
+        if (applicableLinks.length === 0) {
+            return;
+        }
+
+        // Create container for additional information with compact styling
+        const additionalInfoContainer = document.createElement('div');
+        additionalInfoContainer.className = 'feature-inspector-additional-info';
+        additionalInfoContainer.style.cssText = `
+            margin-top: 8px;
+            padding: 6px;
+            border-top: 1px solid #444;
+            background-color: #333;
+            border-radius: 0 0 4px 4px;
+            font-size: 9px;
+        `;
+
+        // Process each applicable link (simplified rendering for nested view)
+        applicableLinks.forEach((link, index) => {
+            if (link.renderHTML && typeof link.renderHTML === 'function') {
+                try {
+                    // Call the renderHTML function with feature data
+                    const linkHTML = link.renderHTML({
+                        feature: feature,
+                        layerConfig: layerConfig,
+                        lat: featureState.lngLat?.lat,
+                        lng: featureState.lngLat?.lng,
+                        zoom: this._map?.getZoom(),
+                        mercatorCoords: this._getMercatorCoords(featureState.lngLat)
+                    });
+
+                    if (linkHTML) {
+                        // Create a wrapper div for this link's content
+                        const linkContainer = document.createElement('div');
+                        linkContainer.className = `source-layer-link-${index}`;
+                        linkContainer.innerHTML = linkHTML;
+                        linkContainer.style.fontSize = '9px'; // Override for compact view
+                        
+                        // Add separator between multiple links
+                        if (index > 0) {
+                            const separator = document.createElement('div');
+                            separator.style.cssText = 'border-top: 1px solid #444; margin: 4px 0; padding-top: 4px;';
+                            additionalInfoContainer.appendChild(separator);
+                        }
+                        
+                        additionalInfoContainer.appendChild(linkContainer);
+                    }
+                } catch (error) {
+                    console.error(`Error rendering source layer link "${link.name}":`, error);
+                }
+            }
+        });
+
+        // Only add the container if it has content
+        if (additionalInfoContainer.children.length > 0) {
+            content.appendChild(additionalInfoContainer);
+        }
+    }
+
+    /**
+     * Toggle layer opacity with button state management
+     */
+    _toggleLayerOpacity(layerId, config, button) {
+        const currentOpacity = parseFloat(button.getAttribute('data-opacity'));
+        const newOpacity = currentOpacity === 0.4 ? 0.9 : 0.4;
+        
+        // Update button state
+        button.setAttribute('data-opacity', newOpacity);
+        
+        // Update button appearance
+        const icon = button.querySelector('sl-icon');
+        if (icon) {
+            icon.name = newOpacity === 0.9 ? 'lightbulb' : 'lightbulb-off';
+        }
+        
+        button.style.setProperty('--sl-color-primary-600', newOpacity === 0.9 ? '#4ade80' : '#94a3b8');
+        button.style.setProperty('--sl-color-primary-500', newOpacity === 0.9 ? '#4ade80' : '#94a3b8');
+        
+        // Apply the opacity change to the actual layer
+        this._applyLayerOpacity(layerId, config, newOpacity);
+    }
+
+    /**
+     * Remove layer by communicating with layer control
+     */
+    _removeLayer(layerId) {
+        // Find the layer control instance and toggle the layer off
+        if (window.layerControl && window.layerControl._state && window.layerControl._state.groups) {
+            const layerGroup = window.layerControl._state.groups.find(group => group.id === layerId);
+            if (layerGroup) {
+                // Find the group index
+                const groupIndex = window.layerControl._state.groups.indexOf(layerGroup);
+                
+                // Toggle the layer off
+                window.layerControl._toggleSourceControl(groupIndex, false);
+                
+                // Update the UI toggle state
+                const groupHeader = document.querySelector(`sl-details[data-group-id="${layerId}"]`);
+                if (groupHeader) {
+                    const toggleInput = groupHeader.querySelector('.toggle-switch input[type="checkbox"]');
+                    if (toggleInput) {
+                        toggleInput.checked = false;
+                    }
+                    groupHeader.open = false;
+                    groupHeader.classList.remove('active');
+                }
+                
+                // Ensure URL manager gets notified of the layer change
+                if (window.urlManager) {
+                    // Force URL update to reflect the layer being turned off
+                    setTimeout(() => {
+                        window.urlManager.updateURL();
+                    }, 100);
+                }
+            }
+        }
+    }
+
+    /**
+     * Show legend in modal (reuse existing implementation)
+     */
+    _showLegendModal(imageSrc) {
+        // Create modal overlay
+        const modal = document.createElement('div');
+        modal.className = 'legend-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 1;
+            visibility: visible;
+        `;
+
+        const modalContent = document.createElement('div');
+        modalContent.className = 'legend-modal-content';
+        modalContent.style.cssText = `
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow: auto;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        `;
+
+        const img = document.createElement('img');
+        img.src = imageSrc;
+        img.style.cssText = `
+            display: block;
+            max-width: 100%;
+            height: auto;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'legend-modal-close';
+        closeBtn.innerHTML = '×';
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            background: white;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #666;
+        `;
+
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+
+        modalContent.appendChild(img);
+        modalContent.appendChild(closeBtn);
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
     }
 
     /**

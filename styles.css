@@ -958,7 +958,7 @@ sl-details::part(header):hover {
     opacity: 1;
 }
 sl-details::part(base) {
-    padding: 10px;
+    padding: 0px;
 }
 sl-details::part(content) {
     padding: 0px;
@@ -2230,4 +2230,300 @@ sl-menu {
         font-size: 0.7rem;
         padding: 3px 6px;
     }
+}
+
+/* Enhanced Map Feature Control with nested Shoelace Details styling */
+/* Map Feature Control - Minimal Clean Design */
+.map-feature-control {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Main Map Layers details component */
+.map-feature-control .map-layers-main::part(base) {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+}
+
+.map-feature-control .map-layers-main::part(header) {
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+
+.map-feature-control .map-layers-main::part(content) {
+    padding: 0;
+    background: transparent;
+}
+
+.map-feature-control .map-layers-main::part(summary-icon) {
+    color: #666;
+    font-size: 12px;
+}
+
+/* Individual layer details styling */
+.map-feature-control .layer-details::part(base) {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    margin-bottom: 0;
+    overflow: visible;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.map-feature-control .layer-details:last-child::part(base) {
+    border-bottom: none;
+}
+
+.map-feature-control .layer-details::part(header) {
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+
+.map-feature-control .layer-details::part(content) {
+    padding: 0;
+    background: transparent;
+}
+
+.map-feature-control .layer-details::part(summary-icon) {
+    color: #666;
+    font-size: 12px;
+}
+
+/* Nested details components (Source, Legend, Features) */
+.map-feature-control .source-details::part(base),
+.map-feature-control .legend-details::part(base),
+.map-feature-control .features-details::part(base) {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    margin-bottom: 0;
+}
+
+.map-feature-control .source-details::part(header),
+.map-feature-control .legend-details::part(header),
+.map-feature-control .features-details::part(header) {
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+
+.map-feature-control .source-details::part(content),
+.map-feature-control .legend-details::part(content),
+.map-feature-control .features-details::part(content) {
+    padding: 0;
+    background: transparent;
+}
+
+.map-feature-control .source-details::part(summary-icon),
+.map-feature-control .legend-details::part(summary-icon),
+.map-feature-control .features-details::part(summary-icon) {
+    color: #888;
+    font-size: 10px;
+}
+
+/* Layer action buttons styling - Minimal */
+.map-feature-control .layer-actions sl-button::part(base) {
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    transition: all 0.15s ease;
+    font-weight: 500;
+    border: 1px solid transparent;
+}
+
+.map-feature-control .layer-actions sl-button[variant="default"]::part(base) {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.2);
+    color: #059669;
+}
+
+.map-feature-control .layer-actions sl-button[variant="default"]:hover::part(base) {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.3);
+    transform: none;
+}
+
+.map-feature-control .layer-actions sl-button[variant="danger"]::part(base) {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #dc2626;
+}
+
+.map-feature-control .layer-actions sl-button[variant="danger"]:hover::part(base) {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+    transform: none;
+}
+
+/* Drawer toggle switch styling - Minimal */
+.map-feature-control .map-layers-summary sl-switch::part(control) {
+    --thumb-size: 12px;
+    --width: 24px;
+    --height: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.map-feature-control .map-layers-summary sl-switch::part(thumb) {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.map-feature-control .map-layers-summary sl-switch[checked]::part(control) {
+    background: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.map-feature-control .map-layers-summary sl-switch[checked]::part(thumb) {
+    background: white;
+    border-color: white;
+}
+
+/* Feature content styling within details - Minimal */
+.map-feature-control .feature-control-feature {
+    border-radius: 0;
+    transition: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.map-feature-control .feature-control-feature:hover {
+    background: rgba(0, 0, 0, 0.02) !important;
+    transform: none;
+    box-shadow: none;
+}
+
+.map-feature-control .feature-inspector-properties-table tr:hover {
+    background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+/* Scrollbar styling for nested content - Minimal */
+.map-feature-control .features-content::-webkit-scrollbar,
+.map-feature-control .feature-inspector-table-content::-webkit-scrollbar {
+    width: 3px;
+}
+
+.map-feature-control .features-content::-webkit-scrollbar-track,
+.map-feature-control .feature-inspector-table-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.map-feature-control .features-content::-webkit-scrollbar-thumb,
+.map-feature-control .feature-inspector-table-content::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+}
+
+/* Legend image styling - Minimal */
+.map-feature-control .legend-details img {
+    transition: none;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.map-feature-control .legend-details img:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* Mobile responsive adjustments - Minimal */
+@media (max-width: 768px) {
+    .map-feature-control {
+        max-width: calc(100vw - 16px);
+        min-width: 200px;
+    }
+    
+    .map-feature-control .layer-actions {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .map-feature-control .layer-actions sl-button {
+        min-width: auto;
+        width: 100%;
+    }
+    
+    .map-feature-control .layer-actions sl-button::part(base) {
+        font-size: 9px;
+        padding: 3px 6px;
+    }
+    
+    /* Compact feature table on mobile */
+    .map-feature-control .feature-inspector-properties-table {
+        font-size: 8px !important;
+    }
+    
+    .map-feature-control .feature-inspector-properties-table td {
+        padding: 2px 3px !important;
+        font-size: 7px !important;
+    }
+}
+
+/* Animation for expanding/collapsing details */
+.map-feature-control sl-details::part(content) {
+    transition: all 0.15s ease;
+}
+
+/* Details group spacing - accordion style */
+.map-feature-control [class*="details-group-"] sl-details:not(:last-child) {
+    margin-bottom: 1px;
+}
+
+/* Actions sections styling */
+.map-feature-control .map-layers-actions {
+    background: rgba(0, 0, 0, 0.02);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.map-feature-control .layer-actions-section {
+    background: rgba(0, 0, 0, 0.02);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Switch styling in actions sections */
+.map-feature-control .map-layers-actions sl-switch::part(control),
+.map-feature-control .layer-actions-section sl-switch::part(control) {
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.map-feature-control .map-layers-actions sl-switch::part(thumb),
+.map-feature-control .layer-actions-section sl-switch::part(thumb) {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.map-feature-control .map-layers-actions sl-switch[checked]::part(control),
+.map-feature-control .layer-actions-section sl-switch[checked]::part(control) {
+    background: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.map-feature-control .map-layers-actions sl-switch[checked]::part(thumb),
+.map-feature-control .layer-actions-section sl-switch[checked]::part(thumb) {
+    background: white;
+    border-color: white;
+}
+
+/* Focus styles for accessibility */
+.map-feature-control sl-details::part(header):focus-visible {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
+}
+
+.map-feature-control sl-switch:focus-visible::part(control) {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
+}
+
+.map-feature-control sl-button:focus-visible::part(base) {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
 }
