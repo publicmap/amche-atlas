@@ -807,17 +807,11 @@ export class MapFeatureControl {
         contentContainer.className = 'layer-content';
         contentContainer.style.cssText = `
             background: transparent;
-            border-top: 1px solid rgba(0, 0, 0, 0.08);
         `;
 
         // Create actions section
         const actionsSection = document.createElement('div');
         actionsSection.className = 'layer-actions-section';
-        actionsSection.style.cssText = `
-            padding: 12px 16px;
-            background: rgba(0, 0, 0, 0.02);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-        `;
 
         // Create action buttons
         const actionsContainer = this._createLayerActions(layerId, config);
@@ -827,7 +821,6 @@ export class MapFeatureControl {
         // Create nested details group container for Source, Legend, and Features
         const detailsGroup = document.createElement('div');
         detailsGroup.className = `details-group-${layerId}`;
-        detailsGroup.style.cssText = 'padding: 0 16px 12px 16px;';
 
         // Create nested details for Source, Legend, and Features
         const nestedDetails = this._createNestedDetails(layerId, config, features);
@@ -841,52 +834,31 @@ export class MapFeatureControl {
     }
 
     /**
-     * Create action buttons for the layer
+     * Create action controls for the layer
      */
     _createLayerActions(layerId, config) {
         const actionsContainer = document.createElement('div');
         actionsContainer.className = 'layer-actions';
         actionsContainer.style.cssText = `
             display: flex;
+            align-items: center;
             gap: 8px;
-            flex-wrap: wrap;
         `;
 
-        // Create Adjust Opacity button
-        const opacityBtn = document.createElement('sl-button');
-        opacityBtn.size = 'small';
-        opacityBtn.variant = 'default';
-        opacityBtn.innerHTML = `
-            <sl-icon name="lightbulb" slot="prefix"></sl-icon>
-            Adjust Opacity
-        `;
-        opacityBtn.style.cssText = `
-            --sl-color-primary-600: #4ade80;
-            --sl-color-primary-500: #4ade80;
-            flex: 1;
-            min-width: 120px;
-        `;
+        // Create opacity dropdown
+        const opacityDropdown = this._createOpacityDropdown(layerId, config);
+        actionsContainer.appendChild(opacityDropdown);
 
-        // Store opacity state
-        opacityBtn.setAttribute('data-opacity', '0.9');
-        
-        // Add click handler for opacity toggle
-        opacityBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._toggleLayerOpacity(layerId, config, opacityBtn);
-        });
-
-        // Create Remove Layer button
+        // Create remove layer button
         const removeBtn = document.createElement('sl-button');
         removeBtn.size = 'small';
-        removeBtn.variant = 'danger';
-        removeBtn.innerHTML = `
-            <sl-icon name="x-circle" slot="prefix"></sl-icon>
-            Remove Layer
-        `;
+        removeBtn.variant = 'text';
+        removeBtn.innerHTML = '<sl-icon name="x"></sl-icon>';
         removeBtn.style.cssText = `
-            flex: 1;
-            min-width: 120px;
+            --sl-color-neutral-600: #ef4444;
+            --sl-color-neutral-700: #dc2626;
+            padding: 4px;
+            min-width: auto;
         `;
 
         // Add click handler for layer removal
@@ -895,10 +867,89 @@ export class MapFeatureControl {
             this._removeLayer(layerId);
         });
 
-        actionsContainer.appendChild(opacityBtn);
         actionsContainer.appendChild(removeBtn);
 
         return actionsContainer;
+    }
+
+    /**
+     * Create opacity dropdown with various opacity stops
+     */
+    _createOpacityDropdown(layerId, config) {
+        const dropdown = document.createElement('sl-dropdown');
+        dropdown.setAttribute('data-layer-id', layerId);
+        dropdown.style.cssText = 'flex: 1;';
+
+        // Create trigger button
+        const trigger = document.createElement('sl-button');
+        trigger.setAttribute('slot', 'trigger');
+        trigger.size = 'small';
+        trigger.caret = true;
+        trigger.style.cssText = `
+            --sl-color-primary-600: #6b7280;
+            --sl-color-primary-500: #6b7280;
+            width: 100%;
+            font-size: 11px;
+        `;
+        
+        // Set initial text based on current opacity
+        const currentOpacity = this._getCurrentLayerOpacity(layerId, config);
+        trigger.innerHTML = `
+            <sl-icon name="lightbulb" slot="prefix"></sl-icon>
+            ${Math.round(currentOpacity * 100)}% Opacity
+        `;
+
+        // Create menu with opacity options
+        const menu = document.createElement('sl-menu');
+        
+        const opacityOptions = [
+            { value: 1.0, label: '100%' },
+            { value: 0.9, label: '90%' },
+            { value: 0.4, label: '40%' },
+            { value: 0.1, label: '10%' }
+        ];
+
+        opacityOptions.forEach(option => {
+            const menuItem = document.createElement('sl-menu-item');
+            menuItem.setAttribute('value', option.value);
+            menuItem.textContent = option.label;
+            menuItem.style.fontSize = '11px';
+            
+            // Mark current opacity as checked
+            if (Math.abs(currentOpacity - option.value) < 0.05) {
+                menuItem.setAttribute('type', 'checkbox');
+                menuItem.checked = true;
+            }
+            
+            menu.appendChild(menuItem);
+        });
+
+        // Add event listener for opacity selection
+        dropdown.addEventListener('sl-select', (e) => {
+            const selectedValue = parseFloat(e.detail.item.value);
+            
+            // Update trigger text
+            trigger.innerHTML = `
+                <sl-icon name="lightbulb" slot="prefix"></sl-icon>
+                ${Math.round(selectedValue * 100)}% Opacity
+            `;
+            
+            // Apply opacity to layer
+            this._applyLayerOpacity(layerId, config, selectedValue);
+            
+            // Update menu item checked states
+            menu.querySelectorAll('sl-menu-item').forEach(item => {
+                item.removeAttribute('type');
+                item.checked = false;
+            });
+            e.detail.item.setAttribute('type', 'checkbox');
+            e.detail.item.checked = true;
+        });
+
+        dropdown.appendChild(trigger);
+        dropdown.appendChild(menu);
+
+        return dropdown;
     }
 
     /**
@@ -980,7 +1031,6 @@ export class MapFeatureControl {
         sourceDetails.open = false; // Collapsed by default
         
         sourceDetails.style.cssText = `
-            margin-bottom: 2px;
             font-size: 11px;
         `;
 
@@ -1214,7 +1264,6 @@ export class MapFeatureControl {
         const content = document.createElement('div');
         content.className = 'feature-inspector-content';
         content.id = `content-${layerId}-${featureId}`;
-        content.style.cssText = 'padding: 8px;';
         
         // Properties table content with compact styling for nested view
         const tableContent = document.createElement('div');
@@ -1441,28 +1490,7 @@ export class MapFeatureControl {
         }
     }
 
-    /**
-     * Toggle layer opacity with button state management
-     */
-    _toggleLayerOpacity(layerId, config, button) {
-        const currentOpacity = parseFloat(button.getAttribute('data-opacity'));
-        const newOpacity = currentOpacity === 0.4 ? 0.9 : 0.4;
-        
-        // Update button state
-        button.setAttribute('data-opacity', newOpacity);
-        
-        // Update button appearance
-        const icon = button.querySelector('sl-icon');
-        if (icon) {
-            icon.name = newOpacity === 0.9 ? 'lightbulb' : 'lightbulb-off';
-        }
-        
-        button.style.setProperty('--sl-color-primary-600', newOpacity === 0.9 ? '#4ade80' : '#94a3b8');
-        button.style.setProperty('--sl-color-primary-500', newOpacity === 0.9 ? '#4ade80' : '#94a3b8');
-        
-        // Apply the opacity change to the actual layer
-        this._applyLayerOpacity(layerId, config, newOpacity);
-    }
+
 
     /**
      * Remove layer by communicating with layer control
@@ -1475,28 +1503,36 @@ export class MapFeatureControl {
                 // Find the group index
                 const groupIndex = window.layerControl._state.groups.indexOf(layerGroup);
                 
-                // Toggle the layer off
+                // Toggle the layer off - this will automatically trigger URL update via URLManager patching
                 window.layerControl._toggleSourceControl(groupIndex, false);
                 
-                // Update the UI toggle state
+                // Update the UI toggle state in the layer control UI
                 const groupHeader = document.querySelector(`sl-details[data-group-id="${layerId}"]`);
                 if (groupHeader) {
                     const toggleInput = groupHeader.querySelector('.toggle-switch input[type="checkbox"]');
                     if (toggleInput) {
                         toggleInput.checked = false;
+                        // Trigger change event to ensure proper state synchronization
+                        toggleInput.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                     groupHeader.open = false;
                     groupHeader.classList.remove('active');
                 }
                 
-                // Ensure URL manager gets notified of the layer change
+                // The URLManager should automatically handle URL updates via method patching,
+                // but provide fallback if patching isn't working
                 if (window.urlManager) {
-                    // Force URL update to reflect the layer being turned off
                     setTimeout(() => {
-                        window.urlManager.updateURL();
-                    }, 100);
+                        window.urlManager.onLayersChanged();
+                    }, 50);
                 }
+                
+                console.log(`[FeatureControl] Layer ${layerId} toggled off and removed from UI`);
+            } else {
+                console.warn(`[FeatureControl] Layer ${layerId} not found in layer control state`);
             }
+        } else {
+            console.warn('[FeatureControl] Layer control not available for layer removal');
         }
     }
 
@@ -1916,28 +1952,36 @@ export class MapFeatureControl {
                 // Find the group index
                 const groupIndex = window.layerControl._state.groups.indexOf(layerGroup);
                 
-                // Toggle the layer off
+                // Toggle the layer off - this will automatically trigger URL update via URLManager patching
                 window.layerControl._toggleSourceControl(groupIndex, false);
                 
-                // Update the UI toggle state
+                // Update the UI toggle state in the layer control UI
                 const groupHeader = document.querySelector(`sl-details[data-group-id="${layerId}"]`);
                 if (groupHeader) {
                     const toggleInput = groupHeader.querySelector('.toggle-switch input[type="checkbox"]');
                     if (toggleInput) {
                         toggleInput.checked = false;
+                        // Trigger change event to ensure proper state synchronization
+                        toggleInput.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                     groupHeader.open = false;
                     groupHeader.classList.remove('active');
                 }
                 
-                // Ensure URL manager gets notified of the layer change
+                // The URLManager should automatically handle URL updates via method patching,
+                // but provide fallback if patching isn't working
                 if (window.urlManager) {
-                    // Force URL update to reflect the layer being turned off
                     setTimeout(() => {
-                        window.urlManager.updateURL();
-                    }, 100);
+                        window.urlManager.onLayersChanged();
+                    }, 50);
                 }
+                
+                console.log(`[FeatureControl] Layer ${layerId} toggled off`);
+            } else {
+                console.warn(`[FeatureControl] Layer ${layerId} not found in layer control state`);
             }
+        } else {
+            console.warn('[FeatureControl] Layer control not available for layer toggle');
         }
     }
 

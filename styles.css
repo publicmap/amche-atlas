@@ -1224,12 +1224,7 @@ input:checked + .toggle-slider:before {
     opacity: 1;
 }
 
-/* Source details styles */
-.source-details {
-    background: #f5f5f5;
-    border-radius: 4px;
-    padding: 1rem;
-}
+
 
 .source-details .font-mono {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
@@ -2285,13 +2280,12 @@ sl-menu {
     background: rgba(0, 0, 0, 0.02);
     border: none;
     border-top: 1px solid #fafafa;
-    border-bottom: 1px solid #e6e6e6;
 }
 
 /* Header background image styling - applied dynamically via JavaScript */
 
 .map-feature-control .layer-details::part(content) {
-    padding: 0;
+    padding: 0px 6px;
     background: transparent;
 }
 
@@ -2332,38 +2326,42 @@ sl-menu {
     font-size: 10px;
 }
 
-/* Layer action buttons styling - Minimal */
-.map-feature-control .layer-actions sl-button::part(base) {
+/* Layer action controls styling - Compact */
+.map-feature-control .layer-actions sl-dropdown sl-button::part(base) {
     font-size: 10px;
-    padding: 4px 8px;
     border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: transparent;
+    color: hsl(210, 2%, 47%);
     transition: all 0.15s ease;
-    font-weight: 500;
-    border: 1px solid transparent;
 }
 
-.map-feature-control .layer-actions sl-button[variant="default"]::part(base) {
-    background: rgba(34, 197, 94, 0.1);
-    border-color: rgba(34, 197, 94, 0.2);
-    color: #059669;
+.map-feature-control .layer-actions sl-dropdown sl-button:hover::part(base) {
+    background: #e9ecef;
+    border-color: #dee2e6;
 }
 
-.map-feature-control .layer-actions sl-button[variant="default"]:hover::part(base) {
-    background: rgba(34, 197, 94, 0.15);
-    border-color: rgba(34, 197, 94, 0.3);
-    transform: none;
+.map-feature-control .layer-actions sl-button[variant="text"]::part(base) {
+    color: #ef4444;
+    transition: all 0.15s ease;
+    min-width: auto;
+    background: transparent;
+    border: none;
 }
 
-.map-feature-control .layer-actions sl-button[variant="danger"]::part(base) {
+.map-feature-control .layer-actions sl-button[variant="text"]:hover::part(base) {
     background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.2);
     color: #dc2626;
 }
 
-.map-feature-control .layer-actions sl-button[variant="danger"]:hover::part(base) {
-    background: rgba(239, 68, 68, 0.15);
-    border-color: rgba(239, 68, 68, 0.3);
-    transform: none;
+/* Dropdown menu styling for opacity options */
+.map-feature-control .layer-actions sl-dropdown sl-menu-item::part(base) {
+    font-size: 10px;
+    padding: 4px 8px;
+}
+
+.map-feature-control .layer-actions sl-dropdown sl-menu-item:hover::part(base) {
+    background: rgba(0, 0, 0, 0.05);
 }
 
 /* Drawer toggle switch styling - Minimal */
@@ -2445,16 +2443,15 @@ sl-menu {
     }
     
     .map-feature-control .layer-actions {
-        flex-direction: column;
-        gap: 4px;
+        flex-direction: row;
+        gap: 6px;
     }
     
-    .map-feature-control .layer-actions sl-button {
-        min-width: auto;
-        width: 100%;
+    .map-feature-control .layer-actions sl-dropdown {
+        flex: 1;
     }
     
-    .map-feature-control .layer-actions sl-button::part(base) {
+    .map-feature-control .layer-actions sl-dropdown sl-button::part(base) {
         font-size: 9px;
         padding: 3px 6px;
     }
