@@ -1008,6 +1008,8 @@ export class MapLayerControl {
                 class: 'group-header w-full map-controls-group',
                 open: group.initiallyChecked || false
             });
+            // Add data-layer-id attribute for direct targeting from feature control
+            $groupHeader.attr('data-layer-id', group.id);
             this._sourceControls[groupIndex] = $groupHeader[0];
 
             // Create buttons first so they can be referenced in event handlers

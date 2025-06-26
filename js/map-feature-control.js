@@ -1691,46 +1691,70 @@ export class MapFeatureControl {
 
 
     /**
-     * Remove layer by communicating with layer control
+     * Remove layer by directly targeting the layer control toggle
+     * Uses jQuery and waits for Shoelace component to be ready
      */
-    _removeLayer(layerId) {
-        // Find the layer control instance and toggle the layer off
-        if (window.layerControl && window.layerControl._state && window.layerControl._state.groups) {
-            const layerGroup = window.layerControl._state.groups.find(group => group.id === layerId);
-            if (layerGroup) {
-                // Find the group index
-                const groupIndex = window.layerControl._state.groups.indexOf(layerGroup);
-                
-                // Toggle the layer off - this will automatically trigger URL update via URLManager patching
-                window.layerControl._toggleSourceControl(groupIndex, false);
-                
-                // Update the UI toggle state in the layer control UI
-                const groupHeader = document.querySelector(`sl-details[data-group-id="${layerId}"]`);
-                if (groupHeader) {
-                    const toggleInput = groupHeader.querySelector('.toggle-switch input[type="checkbox"]');
-                    if (toggleInput) {
-                        toggleInput.checked = false;
-                        // Trigger change event to ensure proper state synchronization
-                        toggleInput.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                    groupHeader.open = false;
-                    groupHeader.classList.remove('active');
-                }
-                
-                // The URLManager should automatically handle URL updates via method patching,
-                // but provide fallback if patching isn't working
-                if (window.urlManager) {
-                    setTimeout(() => {
-                        window.urlManager.onLayersChanged();
-                    }, 50);
-                }
-                
-                // Layer toggled off silently
-            } else {
-                console.warn(`[FeatureControl] Layer ${layerId} not found in layer control state`);
+    async _removeLayer(layerId) {
+        try {
+            // Use jQuery to find the layer element
+            const $layerElement = $(`sl-details[data-layer-id="${layerId}"]`);
+            
+            if ($layerElement.length === 0) {
+                console.warn(`[FeatureControl] Layer element with data-layer-id="${layerId}" not found`);
+                return;
             }
-        } else {
-            console.warn('[FeatureControl] Layer control not available for layer removal');
+            
+            const layerElement = $layerElement[0];
+            
+            // Wait for Shoelace component to finish updating
+            if (layerElement.updateComplete) {
+                await layerElement.updateComplete;
+            }
+            
+            // Use jQuery to find the toggle input with multiple selector attempts
+            let $toggleInput = $layerElement.find('.toggle-switch input[type="checkbox"]');
+            
+            // Fallback selectors if the first one doesn't work
+            if ($toggleInput.length === 0) {
+                $toggleInput = $layerElement.find('input[type="checkbox"]');
+            }
+            
+            // Additional fallback - search more broadly
+            if ($toggleInput.length === 0) {
+                $toggleInput = $layerElement.find('input');
+            }
+            
+            console.log(`[FeatureControl] Debug - Layer ${layerId}:`, {
+                layerElement: !!layerElement,
+                toggleInput: $toggleInput.length > 0,
+                isChecked: $toggleInput.length > 0 ? $toggleInput.prop('checked') : 'N/A',
+                toggleInputElement: $toggleInput.length > 0 ? $toggleInput[0] : null,
+                foundElements: $toggleInput.length
+            });
+            
+            if ($toggleInput.length > 0) {
+                // Use jQuery to uncheck and trigger change event
+                $toggleInput.prop('checked', false);
+                $toggleInput.trigger('change');
+                
+                // Close the details and remove active state using jQuery
+                $layerElement.prop('open', false);
+                $layerElement.removeClass('active');
+                
+                console.log(`[FeatureControl] Layer ${layerId} toggled off successfully`);
+            } else {
+                console.error(`[FeatureControl] No checkbox input found for layer ${layerId}`);
+                
+                // Last resort: try to find any clickable element that might toggle the layer
+                const $anyToggle = $layerElement.find('[type="checkbox"], .toggle-switch, .toggle-slider');
+                if ($anyToggle.length > 0) {
+                    console.log(`[FeatureControl] Attempting to click any toggle element for ${layerId}`);
+                    $anyToggle.first().click();
+                }
+            }
+            
+        } catch (error) {
+            console.error(`[FeatureControl] Error removing layer ${layerId}:`, error);
         }
     }
 
@@ -2140,46 +2164,62 @@ export class MapFeatureControl {
     }
 
     /**
-     * Toggle layer off by communicating with layer control
+     * Toggle layer off by directly targeting the layer control toggle
+     * Uses jQuery and waits for Shoelace component to be ready
      */
-    _toggleLayerOff(layerId) {
-        // Find the layer control instance and toggle the layer off
-        if (window.layerControl && window.layerControl._state && window.layerControl._state.groups) {
-            const layerGroup = window.layerControl._state.groups.find(group => group.id === layerId);
-            if (layerGroup) {
-                // Find the group index
-                const groupIndex = window.layerControl._state.groups.indexOf(layerGroup);
-                
-                // Toggle the layer off - this will automatically trigger URL update via URLManager patching
-                window.layerControl._toggleSourceControl(groupIndex, false);
-                
-                // Update the UI toggle state in the layer control UI
-                const groupHeader = document.querySelector(`sl-details[data-group-id="${layerId}"]`);
-                if (groupHeader) {
-                    const toggleInput = groupHeader.querySelector('.toggle-switch input[type="checkbox"]');
-                    if (toggleInput) {
-                        toggleInput.checked = false;
-                        // Trigger change event to ensure proper state synchronization
-                        toggleInput.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                    groupHeader.open = false;
-                    groupHeader.classList.remove('active');
-                }
-                
-                // The URLManager should automatically handle URL updates via method patching,
-                // but provide fallback if patching isn't working
-                if (window.urlManager) {
-                    setTimeout(() => {
-                        window.urlManager.onLayersChanged();
-                    }, 50);
-                }
-                
-                // Layer toggled off silently
-            } else {
-                console.warn(`[FeatureControl] Layer ${layerId} not found in layer control state`);
+    async _toggleLayerOff(layerId) {
+        try {
+            // Use jQuery to find the layer element
+            const $layerElement = $(`sl-details[data-layer-id="${layerId}"]`);
+            
+            if ($layerElement.length === 0) {
+                console.warn(`[FeatureControl] Layer element with data-layer-id="${layerId}" not found`);
+                return;
             }
-        } else {
-            console.warn('[FeatureControl] Layer control not available for layer toggle');
+            
+            const layerElement = $layerElement[0];
+            
+            // Wait for Shoelace component to finish updating
+            if (layerElement.updateComplete) {
+                await layerElement.updateComplete;
+            }
+            
+            // Use jQuery to find the toggle input with multiple selector attempts
+            let $toggleInput = $layerElement.find('.toggle-switch input[type="checkbox"]');
+            
+            // Fallback selectors if the first one doesn't work
+            if ($toggleInput.length === 0) {
+                $toggleInput = $layerElement.find('input[type="checkbox"]');
+            }
+            
+            // Additional fallback - search more broadly
+            if ($toggleInput.length === 0) {
+                $toggleInput = $layerElement.find('input');
+            }
+            
+            if ($toggleInput.length > 0) {
+                // Use jQuery to uncheck and trigger change event
+                $toggleInput.prop('checked', false);
+                $toggleInput.trigger('change');
+                
+                // Close the details and remove active state using jQuery
+                $layerElement.prop('open', false);
+                $layerElement.removeClass('active');
+                
+                console.log(`[FeatureControl] Layer ${layerId} toggled off successfully`);
+            } else {
+                console.error(`[FeatureControl] No checkbox input found for layer ${layerId}`);
+                
+                // Last resort: try to find any clickable element that might toggle the layer
+                const $anyToggle = $layerElement.find('[type="checkbox"], .toggle-switch, .toggle-slider');
+                if ($anyToggle.length > 0) {
+                    console.log(`[FeatureControl] Attempting to click any toggle element for ${layerId}`);
+                    $anyToggle.first().click();
+                }
+            }
+            
+        } catch (error) {
+            console.error(`[FeatureControl] Error toggling layer ${layerId}:`, error);
         }
     }
 
