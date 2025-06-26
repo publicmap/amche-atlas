@@ -1241,12 +1241,19 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
-     * Clear all layer DOM visual states
+     * Clear all layer DOM hover states only (preserve selection states)
      */
     _clearAllLayerDOMStates() {
         const layerElements = document.querySelectorAll('[data-layer-id]');
         layerElements.forEach(layerElement => {
-            layerElement.classList.remove('has-hover', 'has-selection');
+            // Only remove hover, not selection - selection should be persistent
+            layerElement.classList.remove('has-hover');
+            
+            // Update selection state based on actual feature states for each layer
+            const layerId = layerElement.getAttribute('data-layer-id');
+            if (layerId) {
+                this._updateLayerDOMStateFromFeatures(layerId);
+            }
         });
     }
 

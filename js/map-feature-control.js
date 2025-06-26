@@ -742,16 +742,24 @@ export class MapFeatureControl {
             if (featureState.isSelected) hasSelection = true;
         });
         
+        // Always update both states to ensure correct visual state
         this._updateLayerVisualState(layerId, { hasHover, hasSelection });
     }
 
     /**
-     * Clear all layer visual states
+     * Clear all layer hover states only (preserve selection states)
      */
     _clearAllLayerVisualStates() {
         const layerElements = this._layersContainer.querySelectorAll('[data-layer-id]');
         layerElements.forEach(layerElement => {
-            layerElement.classList.remove('has-hover', 'has-selection');
+            // Only remove hover, not selection - selection should be persistent
+            layerElement.classList.remove('has-hover');
+            
+            // Update selection state based on actual feature states
+            const layerId = layerElement.getAttribute('data-layer-id');
+            if (layerId) {
+                this._updateLayerVisualStateFromFeatures(layerId);
+            }
         });
     }
 

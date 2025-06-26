@@ -93,20 +93,20 @@
               "boolean",
               [
                 "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            "yellow",
-            [
-              "boolean",
-              [
-                "feature-state",
                 "selected"
               ],
               false
             ],
             "red",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            "yellow",
             "black"
           ],
           "line-width": [
