@@ -494,6 +494,7 @@ async function initializeMap() {
         
         // Hide loader and show controls
         document.getElementById('layer-controls-loader').classList.add('hidden');
+        document.getElementById('map-layer-filter').classList.remove('hidden');
         container.classList.remove('hidden');
         
         // Initialize layer control with state manager

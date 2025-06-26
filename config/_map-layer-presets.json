@@ -2037,7 +2037,7 @@
       "headerImage": "assets/map-layers/map-layer-forest.png",
       "type": "geojson",
       "id": "private-forests",
-      "url": "https://gist.githubusercontent.com/planemad/54b84c11fc0325889f1127e49b5740db/raw/6b4df018b298f37b1789f1c40405c8d9aee0aadd/goa_private_forest_plots.geojson",
+      "url": "https://gist.githubusercontent.com/planemad/54b84c11fc0325889f1127e49b5740db/raw/1f99740ddb55a1528d76a5364aa9a95c1fe800da/goa_private_forest_plots-jun-2026.geojson",
       "attribution": "<a href='https://docs.google.com/spreadsheets/d/1OHrd9c61IQ2rE_pKqPrtMgT5AY5Wepru/edit?gid=378361244#gid=378361244'>Goa Private Forest Plots</a> - Collected by <a href='https://github.com/publicmap/amche-goa/issues/75'>Amche.in Community</a>",
       "style": {
         "line-color": "#006400",

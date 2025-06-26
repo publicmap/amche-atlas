@@ -629,9 +629,11 @@ export class MapLayerControl {
         // Proceed with normal initialization since layers are already loaded from map-init.js
         if (this._map.isStyleLoaded()) {
             this._initializeControl($(container));
+            this._initializeFilterControls();
         } else {
             this._map.on('style.load', () => {
                 this._initializeControl($(container));
+                this._initializeFilterControls();
             });
         }
 
@@ -1250,6 +1252,11 @@ export class MapLayerControl {
 
                 // Update active class
                 $groupHeader.toggleClass('active', isChecked);
+                
+                // Apply filters to update visibility based on search and hide inactive settings
+                if (this._applyAllFilters) {
+                    requestAnimationFrame(() => this._applyAllFilters());
+                }
             });
 
             const $toggleSlider = $('<span>', {
@@ -4726,6 +4733,107 @@ export class MapLayerControl {
         });
 
         this._globalClickHandlerAdded = true;
+    }
+
+    // Initialize filter controls
+    _initializeFilterControls() {
+        // Use setTimeout to ensure DOM elements are ready
+        setTimeout(() => {
+            const searchInput = document.getElementById('layer-search-input');
+            const hideInactiveSwitch = document.getElementById('hide-inactive-switch');
+            
+            if (searchInput) {
+                // Add search functionality
+                searchInput.addEventListener('sl-input', (e) => {
+                    this._filterLayers(e.target.value);
+                });
+                
+                // Handle clear button
+                searchInput.addEventListener('sl-clear', () => {
+                    this._filterLayers('');
+                });
+                
+                console.log('[Filter] Search input initialized');
+            } else {
+                console.warn('[Filter] Search input not found');
+            }
+            
+            if (hideInactiveSwitch) {
+                // Add hide inactive functionality
+                hideInactiveSwitch.addEventListener('sl-change', (e) => {
+                    this._toggleInactiveVisibility(e.target.checked);
+                });
+                
+                console.log('[Filter] Hide inactive switch initialized');
+            } else {
+                console.warn('[Filter] Hide inactive switch not found');
+            }
+        }, 100);
+    }
+
+    // Filter layers based on search text
+    _filterLayers(searchText) {
+        this._applyAllFilters();
+    }
+
+    // Toggle visibility of inactive layers
+    _toggleInactiveVisibility(hideInactive) {
+        this._applyAllFilters();
+    }
+
+    // Apply both search and hide inactive filters
+    _applyAllFilters() {
+        try {
+            if (!this._container) return;
+            
+            const searchInput = document.getElementById('layer-search-input');
+            const hideInactiveSwitch = document.getElementById('hide-inactive-switch');
+            
+            const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const hideInactive = hideInactiveSwitch ? hideInactiveSwitch.checked : false;
+            
+            const layerGroups = this._container.querySelectorAll('.group-header');
+        
+        layerGroups.forEach(groupElement => {
+            const groupId = groupElement.getAttribute('data-layer-id');
+            if (!groupId) return;
+            
+            const groupData = this._state.groups.find(group => group.id === groupId);
+            if (!groupData) return;
+            
+            // Check if group matches search
+            const searchMatches = !searchTerm || 
+                (groupData.id && groupData.id.toLowerCase().includes(searchTerm)) ||
+                (groupData.name && groupData.name.toLowerCase().includes(searchTerm)) ||
+                (groupData.title && groupData.title.toLowerCase().includes(searchTerm)) ||
+                (groupData.description && groupData.description.toLowerCase().includes(searchTerm)) ||
+                (groupData.tags && Array.isArray(groupData.tags) && groupData.tags.some(tag => tag && tag.toLowerCase().includes(searchTerm)));
+            
+            // Check if layer is active (only if hide inactive is enabled)
+            const toggleInput = groupElement.querySelector('.toggle-switch input[type="checkbox"]');
+            const isActive = toggleInput && toggleInput.checked;
+            const activeMatches = !hideInactive || isActive;
+            
+            // Show layer only if both conditions are met
+            if (searchMatches && activeMatches) {
+                groupElement.style.display = '';
+            } else {
+                                 groupElement.style.display = 'none';
+             }
+         });
+        } catch (error) {
+            console.error('[Filter] Error applying filters:', error);
+        }
+     }
+
+    // Get all layer names for autocomplete (could be used for future enhancements)
+    _getAllLayerNames() {
+        return this._state.groups.map(group => ({
+            id: group.id,
+            name: group.name,
+            description: group.description,
+            tags: group.tags || []
+        }));
     }
 }
 
