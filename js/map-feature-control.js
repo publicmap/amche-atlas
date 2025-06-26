@@ -143,11 +143,12 @@ export class MapFeatureControl {
         this._setupDrawerStateTracking();
         
         // Set up initial switch state once drawer state manager is ready
+        // Use a longer delay to ensure mobile/desktop drawer initialization is complete
         setTimeout(() => {
             this._updateDrawerSwitch();
             // Initialize inspect mode state
             this._inspectModeEnabled = this.options.inspectMode;
-        }, 100);
+        }, 300);
         
         // Set up global click handler for feature interactions
         this._setupGlobalClickHandler();
@@ -512,7 +513,12 @@ export class MapFeatureControl {
         if (!this._drawerSwitch) return;
         
         const isOpen = drawerStateManager && drawerStateManager.isOpen() || false;
-        this._drawerSwitch.checked = isOpen;
+        
+        // Only update if the switch state differs from the drawer state
+        if (this._drawerSwitch.checked !== isOpen) {
+            this._drawerSwitch.checked = isOpen;
+            console.log('[MapFeatureControl] Updated drawer switch to match drawer state:', isOpen);
+        }
     }
 
     /**
@@ -522,6 +528,7 @@ export class MapFeatureControl {
         // Listen to drawer state changes from the centralized manager
         this._drawerStateListener = (event) => {
             const { isOpen, eventType } = event.detail;
+            console.log('[MapFeatureControl] Received drawer state change:', eventType, 'isOpen:', isOpen);
             this._updateDrawerSwitch(); // Update switch state based on drawer state
         };
 
@@ -533,6 +540,7 @@ export class MapFeatureControl {
      * Toggle the layer drawer using centralized manager
      */
     _toggleLayerDrawer() {
+        console.log('[MapFeatureControl] Toggling drawer, current state:', drawerStateManager.isOpen());
         drawerStateManager.toggle();
     }
 

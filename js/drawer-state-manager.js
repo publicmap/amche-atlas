@@ -91,23 +91,58 @@ export class DrawerStateManager {
     }
 
     /**
-     * Check the initial state of the drawer
+     * Check the initial state of the drawer with improved mobile detection
      */
     _checkInitialState() {
         if (!this._drawer) return;
 
-        // Use multiple methods to determine initial state
-        const isOpen = this._drawer.open || 
-                      this._drawer.hasAttribute('open') || 
-                      this._drawer.classList.contains('sl-drawer--open') ||
-                      getComputedStyle(this._drawer).display !== 'none';
-
-        this._isOpen = isOpen;
-        
-        // Emit initial state after a delay to allow components to register listeners
+        // Wait a bit longer for all CSS transitions and layout to settle
         setTimeout(() => {
+            // Use multiple methods to determine initial state
+            // Check Shoelace's internal state first
+            const shoelaceOpen = this._drawer.open;
+            
+            // Check for the 'open' attribute
+            const hasOpenAttribute = this._drawer.hasAttribute('open');
+            
+            // Check computed style visibility
+            const computedStyle = getComputedStyle(this._drawer);
+            const isVisible = computedStyle.display !== 'none' && 
+                             computedStyle.visibility !== 'hidden' &&
+                             computedStyle.opacity !== '0';
+            
+            // Check for Shoelace's open class
+            const hasOpenClass = this._drawer.classList.contains('sl-drawer--open');
+            
+            // Mobile detection - if we're on mobile and none of the above indicates open,
+            // then the drawer is likely hidden by the mobile initialization logic
+            const isMobile = window.innerWidth <= 768;
+            
+            // On mobile, drawer should be closed by default unless explicitly opened
+            // On desktop, drawer should be open by default unless explicitly closed
+            let initialState;
+            if (isMobile) {
+                // On mobile, only consider open if Shoelace explicitly says it's open
+                initialState = shoelaceOpen && (hasOpenAttribute || hasOpenClass) && isVisible;
+            } else {
+                // On desktop, consider open if any indicator suggests it's open
+                initialState = shoelaceOpen || hasOpenAttribute || hasOpenClass || isVisible;
+            }
+            
+            this._isOpen = initialState;
+            
+            console.log('[DrawerStateManager] Initial state check:', {
+                isMobile,
+                shoelaceOpen,
+                hasOpenAttribute,
+                isVisible,
+                hasOpenClass,
+                finalState: this._isOpen
+            });
+            
+            // Emit initial state after all checks
             this._emitStateChange('initial-state');
-        }, 100);
+        }, 200); // Increased delay to ensure all initialization is complete
     }
 
     /**
@@ -125,6 +160,8 @@ export class DrawerStateManager {
         // Dispatch to both the custom event target and window
         this._eventTarget.dispatchEvent(event);
         window.dispatchEvent(event);
+        
+        console.log('[DrawerStateManager] State change emitted:', eventType, 'isOpen:', this._isOpen);
     }
 
     /**

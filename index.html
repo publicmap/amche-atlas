@@ -307,8 +307,10 @@
                 }
             }
 
-            // Initial state
-            handleDrawerState();
+            // Initial state - with a delay to ensure components are fully initialized
+            setTimeout(() => {
+                handleDrawerState();
+            }, 100);
 
             // Listen for window resize, but don't apply on touch devices
             const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -316,14 +318,22 @@
                 window.addEventListener('resize', handleDrawerState);
             }
 
-            // Listen for drawer close event to track manual toggles
-            drawer.addEventListener('sl-hide', () => {
-                userToggledDrawer = true;
+            // Listen for drawer events to track manual toggles
+            // Use more specific event handlers to avoid conflicts with programmatic toggles
+            drawer.addEventListener('sl-after-show', (event) => {
+                // Only mark as user-toggled if it's a direct user interaction
+                if (event.target === drawer) {
+                    userToggledDrawer = true;
+                    console.log('[HTML] Drawer manually opened by user');
+                }
             });
 
-            // Listen for drawer show event to track manual toggles
-            drawer.addEventListener('sl-show', () => {
-                userToggledDrawer = true;
+            drawer.addEventListener('sl-after-hide', (event) => {
+                // Only mark as user-toggled if it's a direct user interaction
+                if (event.target === drawer) {
+                    userToggledDrawer = true;
+                    console.log('[HTML] Drawer manually closed by user');
+                }
             });
         });
 
