@@ -39,6 +39,9 @@ export class MapFeatureStateManager extends EventTarget {
         // Inspect mode control - reference to the feature control for inspect mode state
         this._featureControl = null;
         
+        // Set up listeners for map changes to detect when new layers/sources are added
+        this._setupMapChangeListeners();
+        
         this._setupCleanup();
     }
 
@@ -650,11 +653,48 @@ export class MapFeatureStateManager extends EventTarget {
             // Only warn if this layer was expected to be interactive
             if (layerConfig.inspect) {
                 console.warn(`[StateManager] No interactive layers found for ${layerConfig.id}`);
+                
+                // For critical layers like plot, set up a longer-term retry mechanism
+                if (layerConfig.id === 'plot' || layerConfig.id === 'goa-mask') {
+                    this._setupLongTermRetry(layerConfig);
+                }
             }
             return;
         }
         
         this._setupLayerEvents(layerConfig);
+    }
+
+    /**
+     * Set up long-term retry for critical layers that might load asynchronously
+     */
+    _setupLongTermRetry(layerConfig) {
+        const layerId = layerConfig.id;
+        const maxLongRetries = 10;
+        const longRetryDelay = 2000; // 2 seconds
+        
+        let longRetryCount = 0;
+        
+        const longRetryInterval = setInterval(() => {
+            longRetryCount++;
+            
+            const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
+            
+            if (matchingLayerIds.length > 0) {
+                console.log(`[StateManager] Long-term retry successful for ${layerId} after ${longRetryCount} attempts`);
+                this._setupLayerEvents(layerConfig);
+                clearInterval(longRetryInterval);
+            } else if (longRetryCount >= maxLongRetries) {
+                console.warn(`[StateManager] Long-term retry failed for ${layerId} after ${maxLongRetries} attempts`);
+                clearInterval(longRetryInterval);
+            }
+        }, longRetryDelay);
+        
+        // Store interval reference for cleanup
+        if (!this._longRetryIntervals) {
+            this._longRetryIntervals = new Map();
+        }
+        this._longRetryIntervals.set(layerId, longRetryInterval);
     }
 
     _setupLayerEvents(layerConfig) {
@@ -703,6 +743,15 @@ export class MapFeatureStateManager extends EventTarget {
             return [];
         }
         
+        // Debug: Only log for layers that fail to match
+        if (layerId === 'plot' || layerId === 'goa-mask') {
+            console.log(`[StateManager] Matching layers for ${layerId} with config:`, {
+                type: layerConfig.type,
+                sourceLayer: layerConfig.sourceLayer,
+                source: layerConfig.source
+            });
+        }
+        
         const matchingIds = [];
         
         // Strategy 1: Direct ID match
@@ -710,13 +759,40 @@ export class MapFeatureStateManager extends EventTarget {
             matchingIds.push(layerId);
         }
         
-        // Strategy 2: For vector layers with sourceLayer property (most common case)
+        // Strategy 2: For vector layers with sourceLayer property (MOST IMPORTANT)
         // This is the primary strategy for vector tile layers
         if (layerConfig.sourceLayer) {
             const sourceLayerMatches = style.layers
                 .filter(l => l['source-layer'] === layerConfig.sourceLayer)
                 .map(l => l.id);
             matchingIds.push(...sourceLayerMatches);
+            
+            // Only log for problematic layers
+            if ((layerId === 'plot' || layerId === 'goa-mask') && sourceLayerMatches.length === 0) {
+                console.log(`[StateManager] Strategy 2 - Source layer (${layerConfig.sourceLayer}) matches:`, sourceLayerMatches);
+            }
+        }
+        
+        // Strategy 2b: Fuzzy matching for source-layer names (for cases where names might be slightly different)
+        if (layerConfig.sourceLayer && matchingIds.length === 0) {
+            const fuzzyMatches = style.layers
+                .filter(l => {
+                    if (!l['source-layer']) return false;
+                    const sourceLayer = l['source-layer'].toLowerCase();
+                    const configSourceLayer = layerConfig.sourceLayer.toLowerCase();
+                    
+                    // Check for partial matches or common variations
+                    return sourceLayer.includes(configSourceLayer) || 
+                           configSourceLayer.includes(sourceLayer) ||
+                           sourceLayer.includes(layerId.toLowerCase()) ||
+                           layerId.toLowerCase().includes(sourceLayer);
+                })
+                .map(l => l.id);
+            matchingIds.push(...fuzzyMatches);
+            
+            if ((layerId === 'plot' || layerId === 'goa-mask') && fuzzyMatches.length > 0) {
+                console.log(`[StateManager] Strategy 2b - Fuzzy source layer matches for ${layerId}:`, fuzzyMatches);
+            }
         }
         
         // Strategy 3: For layers with source matching (when sourceLayer is not specified)
@@ -758,6 +834,61 @@ export class MapFeatureStateManager extends EventTarget {
             .map(l => l.id);
         matchingIds.push(...prefixMatches);
         
+        // Strategy 8: Comprehensive search for layers that might be related to this config
+        // This handles cases where layers are added with different naming conventions
+        if (matchingIds.length === 0) {
+            const comprehensiveMatches = style.layers.filter(l => {
+                // Search by layer ID containing the config layerId
+                if (l.id.toLowerCase().includes(layerId.toLowerCase())) return true;
+                
+                // Search by source ID containing the config layerId
+                if (l.source && l.source.toLowerCase().includes(layerId.toLowerCase())) return true;
+                
+                // For plot layer, look for cadastral-related terms (but exclude admin boundaries)
+                if (layerId === 'plot') {
+                    const layerIdLower = l.id.toLowerCase();
+                    const sourceLower = (l.source || '').toLowerCase();
+                    const sourceLayerLower = (l['source-layer'] || '').toLowerCase();
+                    
+                    // Exclude administrative boundaries that aren't cadastral
+                    if (layerIdLower.includes('admin-') || layerIdLower.includes('country-') || 
+                        layerIdLower.includes('state-') || layerIdLower.includes('district-boundary')) {
+                        return false;
+                    }
+                    
+                    // Look for specific cadastral terms
+                    const cadastralTerms = ['cadastral', 'plot', 'survey', 'parcel', 'onemapgoa', 'ga_cadastral'];
+                    return cadastralTerms.some(term => 
+                        layerIdLower.includes(term) || 
+                        sourceLower.includes(term) || 
+                        sourceLayerLower.includes(term)
+                    );
+                }
+                
+                // For goa-mask, look for district/admin related terms
+                if (layerId === 'goa-mask') {
+                    const adminTerms = ['district', 'admin', 'boundary', 'goa', 'mask'];
+                    const layerIdLower = l.id.toLowerCase();
+                    const sourceLower = (l.source || '').toLowerCase();
+                    const sourceLayerLower = (l['source-layer'] || '').toLowerCase();
+                    
+                    return adminTerms.some(term => 
+                        layerIdLower.includes(term) || 
+                        sourceLower.includes(term) || 
+                        sourceLayerLower.includes(term)
+                    );
+                }
+                
+                return false;
+            }).map(l => l.id);
+            
+            matchingIds.push(...comprehensiveMatches);
+            
+            if ((layerId === 'plot' || layerId === 'goa-mask') && comprehensiveMatches.length > 0) {
+                console.log(`[StateManager] Strategy 8 - Comprehensive search matches for ${layerId}:`, comprehensiveMatches);
+            }
+        }
+        
         // Remove duplicates and filter out non-interactive layers
         const uniqueIds = [...new Set(matchingIds)];
         const filteredIds = uniqueIds.filter(id => {
@@ -766,6 +897,7 @@ export class MapFeatureStateManager extends EventTarget {
             
             // Skip non-interactive layer types
             if (['background', 'raster', 'hillshade'].includes(layer.type)) {
+                console.log(`[StateManager] Skipping non-interactive layer type: ${id} (${layer.type})`);
                 return false;
             }
             
@@ -775,8 +907,60 @@ export class MapFeatureStateManager extends EventTarget {
         // Cache the result
         this._layerIdCache.set(layerId, filteredIds);
         
+        // Only log final results for problematic layers
+        if (layerId === 'plot' || layerId === 'goa-mask') {
+            console.log(`[StateManager] Final matching layer IDs for ${layerId}:`, filteredIds);
+        }
+        
         if (filteredIds.length === 0) {
-            console.warn(`[StateManager] No interactive layers found for ${layerId}`);
+            console.warn(`[StateManager] No interactive layers found for ${layerId}. Available layers with source-layer:`, 
+                style.layers.filter(l => l['source-layer']).map(l => ({ id: l.id, sourceLayer: l['source-layer'] })).slice(0, 10)
+            );
+            
+            // Additional debugging: Show all unique source-layer values
+            const uniqueSourceLayers = [...new Set(
+                style.layers
+                    .filter(l => l['source-layer'])
+                    .map(l => l['source-layer'])
+            )];
+            console.warn(`[StateManager] All unique source-layer values in map:`, uniqueSourceLayers.slice(0, 15));
+            
+            // Show what we were looking for vs what's available
+            if (layerConfig.sourceLayer) {
+                console.warn(`[StateManager] Looking for sourceLayer "${layerConfig.sourceLayer}" but available source-layers are:`, 
+                    uniqueSourceLayers.filter(sl => sl.toLowerCase().includes(layerId.toLowerCase()) || 
+                                                    layerId.toLowerCase().includes(sl.toLowerCase())).slice(0, 5)
+                );
+            }
+            
+            // Additional debugging for problematic layers - show all layer IDs and sources
+            if (layerId === 'plot') {
+                const allLayerIds = style.layers.map(l => l.id);
+                const allSources = [...new Set(style.layers.map(l => l.source).filter(Boolean))];
+                
+                console.warn(`[StateManager] All layer IDs in map (${allLayerIds.length}):`, allLayerIds.slice(0, 20));
+                console.warn(`[StateManager] All sources in map (${allSources.length}):`, allSources);
+                
+                // Look for any layers that might be cadastral-related
+                const potentialCadastralLayers = style.layers.filter(l => {
+                    const combined = `${l.id} ${l.source || ''} ${l['source-layer'] || ''}`.toLowerCase();
+                    return combined.includes('cadastral') || combined.includes('onemapgoa') || 
+                           combined.includes('plot') || combined.includes('survey') ||
+                           combined.includes('parcel');
+                });
+                
+                if (potentialCadastralLayers.length > 0) {
+                    console.warn(`[StateManager] Potential cadastral layers found:`, 
+                        potentialCadastralLayers.map(l => ({ 
+                            id: l.id, 
+                            source: l.source, 
+                            sourceLayer: l['source-layer'] 
+                        }))
+                    );
+                } else {
+                    console.warn(`[StateManager] No cadastral-related layers found in map`);
+                }
+            }
         }
         
         return filteredIds;
@@ -1034,6 +1218,14 @@ export class MapFeatureStateManager extends EventTarget {
             clearTimeout(this._hoverDebounceTimeout);
         }
         
+        // Clean up long-term retry intervals
+        if (this._longRetryIntervals) {
+            this._longRetryIntervals.forEach((interval, layerId) => {
+                clearInterval(interval);
+            });
+            this._longRetryIntervals.clear();
+        }
+        
         this._activeInteractiveLayers.forEach(layerId => {
             this._removeLayerEvents(layerId);
         });
@@ -1233,6 +1425,56 @@ export class MapFeatureStateManager extends EventTarget {
         layerElements.forEach(layerElement => {
             layerElement.classList.remove('has-hover', 'has-selection');
         });
+    }
+
+    /**
+     * Set up listeners for map style changes to detect when new sources/layers are added
+     */
+    _setupMapChangeListeners() {
+        // Listen for style data events which fire when sources/layers are added
+        this._map.on('styledata', () => {
+            // Clear cache when style changes so we re-check for layers
+            this._layerIdCache.clear();
+            
+            // Re-try setup for layers that previously failed
+            this._retryFailedLayers();
+        });
+        
+        // Listen for source data events
+        this._map.on('sourcedata', (e) => {
+            if (e.isSourceLoaded) {
+                // A source has finished loading, clear cache and retry
+                this._layerIdCache.clear();
+                setTimeout(() => {
+                    this._retryFailedLayers();
+                }, 100); // Small delay to ensure layers are added
+            }
+        });
+    }
+
+    /**
+     * Retry setup for layers that previously failed to find matching layers
+     */
+    _retryFailedLayers() {
+        const failedLayers = [];
+        
+        this._layerConfig.forEach((config, layerId) => {
+            if (config.inspect && !this._activeInteractiveLayers.has(layerId)) {
+                failedLayers.push(config);
+            }
+        });
+        
+        if (failedLayers.length > 0) {
+            console.log(`[StateManager] Retrying ${failedLayers.length} failed layers after style/source change`);
+            
+            failedLayers.forEach(config => {
+                const matchingLayerIds = this._getMatchingLayerIds(config);
+                if (matchingLayerIds.length > 0) {
+                    console.log(`[StateManager] Retry successful for ${config.id}, found layers:`, matchingLayerIds);
+                    this._setupLayerEvents(config);
+                }
+            });
+        }
     }
 }
 
