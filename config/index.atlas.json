@@ -425,24 +425,6 @@
       "id": "steep-plots"
     },
     {
-      "id": "communidade-bhunaksha"
-    },
-    {
-      "id": "communidade-saligao"
-    },
-    {
-      "id": "notified-wetlands"
-    },
-    {
-      "id": "plot"
-    },
-    {
-      "id": "village"
-    },
-    {
-      "id": "municipal-wards"
-    },
-    {
       "initiallyChecked": true,
       "title": "Local Body Boundaries",
       "description": "Municipal and Panchayat local body boundaries. Please see <a href='https://grammanchitra.gov.in/gm4MVC' target='_blank'>Gramanchiitra</a> for panchayat demographic profile and information on elected representatives.",
@@ -670,6 +652,24 @@
           "LGD Code"
         ]
       }
+    },
+    {
+      "id": "municipal-wards"
+    },
+    {
+      "id": "village"
+    },
+    {
+      "id": "communidade-bhunaksha"
+    },
+    {
+      "id": "communidade-saligao"
+    },
+    {
+      "id": "notified-wetlands"
+    },
+    {
+      "id": "plot"
     },
     {
       "id": "assembly-constituencies"

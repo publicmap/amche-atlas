@@ -187,64 +187,64 @@ export class MapFeatureStateManager extends EventTarget {
             // Clear all previous hover states
             this._clearAllHover();
             
-                            // Process new hover states in batch
-                if (hoveredFeatures.length > 0) {
-                    const layersToUpdate = new Set();
+            // Process new hover states in batch
+            if (hoveredFeatures.length > 0) {
+                const layersToUpdate = new Set();
+                
+                hoveredFeatures.forEach(({ feature, layerId }) => {
+                    const featureId = this._getFeatureId(feature);
                     
-                    hoveredFeatures.forEach(({ feature, layerId }) => {
-                        const featureId = this._getFeatureId(feature);
-                        
-                        // Set new hover state
-                        if (!this._activeHoverFeatures.has(layerId)) {
-                            this._activeHoverFeatures.set(layerId, new Set());
-                        }
-                        this._activeHoverFeatures.get(layerId).add(featureId);
-                        
-                        // Set Mapbox feature state for hover
-                        this._setMapboxFeatureState(featureId, layerId, { hover: true });
-                        
-                        // Update feature state with the provided lngLat or use the feature's lngLat
-                        this._updateFeatureState(featureId, {
-                            feature,
-                            layerId,
-                            lngLat: lngLat,
-                            isHovered: true,
-                            timestamp: Date.now(),
-                            rawFeatureId: this._getRawFeatureIdFromFeature(feature) // Store raw ID for Mapbox
-                        });
-                        
-                        layersToUpdate.add(layerId);
-                    });
-                    
-                    // Update DOM visual states for all affected layers
-                    layersToUpdate.forEach(layerId => {
-                        this._updateLayerDOMState(layerId, { hasHover: true });
-                    });
-                    
-                    // Update current hover target for compatibility
-                    if (hoveredFeatures.length === 1) {
-                        const { feature, layerId } = hoveredFeatures[0];
-                        const featureId = this._getFeatureId(feature);
-                        this._currentHoverTarget = `${layerId}:${featureId}`;
-                    } else {
-                        this._currentHoverTarget = `multiple:${hoveredFeatures.length}`;
+                    // Set new hover state
+                    if (!this._activeHoverFeatures.has(layerId)) {
+                        this._activeHoverFeatures.set(layerId, new Set());
                     }
+                    this._activeHoverFeatures.get(layerId).add(featureId);
                     
-                    // Emit a single batch hover event
-                    this._scheduleRender('features-batch-hover', { 
-                        hoveredFeatures: hoveredFeatures.map(({ feature, layerId }) => ({
-                            featureId: this._getFeatureId(feature),
-                            layerId,
-                            feature
-                        })),
-                        lngLat,
-                        affectedLayers: Array.from(layersToUpdate)
+                    // Set Mapbox feature state for hover
+                    this._setMapboxFeatureState(featureId, layerId, { hover: true });
+                    
+                    // Update feature state with the provided lngLat or use the feature's lngLat
+                    this._updateFeatureState(featureId, {
+                        feature,
+                        layerId,
+                        lngLat: lngLat,
+                        isHovered: true,
+                        timestamp: Date.now(),
+                        rawFeatureId: this._getRawFeatureIdFromFeature(feature) // Store raw ID for Mapbox
                     });
+                    
+                    layersToUpdate.add(layerId);
+                });
+                
+                // Update DOM visual states for all affected layers
+                layersToUpdate.forEach(layerId => {
+                    this._updateLayerDOMState(layerId, { hasHover: true });
+                });
+                
+                // Update current hover target for compatibility
+                if (hoveredFeatures.length === 1) {
+                    const { feature, layerId } = hoveredFeatures[0];
+                    const featureId = this._getFeatureId(feature);
+                    this._currentHoverTarget = `${layerId}:${featureId}`;
                 } else {
-                    // No features to hover
-                    this._currentHoverTarget = null;
-                    this._scheduleRender('features-hover-cleared', { lngLat });
+                    this._currentHoverTarget = `multiple:${hoveredFeatures.length}`;
                 }
+                
+                // Emit a single batch hover event
+                this._scheduleRender('features-batch-hover', { 
+                    hoveredFeatures: hoveredFeatures.map(({ feature, layerId }) => ({
+                        featureId: this._getFeatureId(feature),
+                        layerId,
+                        feature
+                    })),
+                    lngLat,
+                    affectedLayers: Array.from(layersToUpdate)
+                });
+            } else {
+                // No features to hover
+                this._currentHoverTarget = null;
+                this._scheduleRender('features-hover-cleared', { lngLat });
+            }
         }, 5); // Shorter debounce for better responsiveness
     }
 
@@ -298,7 +298,6 @@ export class MapFeatureStateManager extends EventTarget {
     handleFeatureClicks(clickedFeatures) {
         if (!clickedFeatures || clickedFeatures.length === 0) return;
         
-        
         // Check if any of the clicked features are already selected
         const alreadySelectedFeatures = [];
         const newFeatures = [];
@@ -332,7 +331,6 @@ export class MapFeatureStateManager extends EventTarget {
                 [...clickedSet].every(item => selectedSet.has(item));
             
             if (setsAreIdentical) {
-                
                 // Deselect all features at once
                 const deselectedLayers = new Set();
                 alreadySelectedFeatures.forEach(({ featureId, layerId }) => {
@@ -349,61 +347,61 @@ export class MapFeatureStateManager extends EventTarget {
                 // Don't select new features if we're toggling off existing ones
                 return;
             }
-                 }
+        }
          
-         // If we reach here, either:
-         // 1. No features were already selected (newFeatures.length > 0, alreadySelectedFeatures.length = 0)
-         // 2. Some clicked features are selected but the selection sets are different (mixed case)
-         // In both cases, clear existing selections and select the new clicked features
-         
-         const clearedFeatures = this._clearAllSelections(true);
-         
-         const selectedFeatures = [];
-         const layersWithSelections = new Set();
-         
-         clickedFeatures.forEach(({ feature, layerId, lngLat }) => {
-             const featureId = this._getFeatureId(feature);
-             
-             // Set selection for this feature
-             if (!this._selectedFeatures.has(layerId)) {
-                 this._selectedFeatures.set(layerId, new Set());
-             }
-             this._selectedFeatures.get(layerId).add(featureId);
-             
-             // Set Mapbox feature state for selection
-             this._setMapboxFeatureState(featureId, layerId, { selected: true });
-             
-             // Update feature state
-             this._updateFeatureState(featureId, {
-                 feature,
-                 layerId,
-                 lngLat,
-                 isSelected: true,
-                 timestamp: Date.now(),
-                 rawFeatureId: this._getRawFeatureIdFromFeature(feature) // Store raw ID for Mapbox
-             });
-             
-             selectedFeatures.push({ featureId, layerId, feature });
-             layersWithSelections.add(layerId);
-         });
-         
-         // Update DOM visual states for all layers with new selections
-         layersWithSelections.forEach(layerId => {
-             this._updateLayerDOMState(layerId, { hasSelection: true });
-         });
-         
-         // Emit event for all selections
-         if (selectedFeatures.length === 1) {
-             this._scheduleRender('feature-click', { 
-                 ...selectedFeatures[0],
-                 clearedFeatures 
-             });
-         } else {
-             this._scheduleRender('feature-click-multiple', { 
-                 selectedFeatures,
-                 clearedFeatures 
-             });
-         }
+        // If we reach here, either:
+        // 1. No features were already selected (newFeatures.length > 0, alreadySelectedFeatures.length = 0)
+        // 2. Some clicked features are selected but the selection sets are different (mixed case)
+        // In both cases, clear existing selections and select the new clicked features
+        
+        const clearedFeatures = this._clearAllSelections(true);
+        
+        const selectedFeatures = [];
+        const layersWithSelections = new Set();
+        
+        clickedFeatures.forEach(({ feature, layerId, lngLat }) => {
+            const featureId = this._getFeatureId(feature);
+            
+            // Set selection for this feature
+            if (!this._selectedFeatures.has(layerId)) {
+                this._selectedFeatures.set(layerId, new Set());
+            }
+            this._selectedFeatures.get(layerId).add(featureId);
+            
+            // Set Mapbox feature state for selection
+            this._setMapboxFeatureState(featureId, layerId, { selected: true });
+            
+            // Update feature state
+            this._updateFeatureState(featureId, {
+                feature,
+                layerId,
+                lngLat,
+                isSelected: true,
+                timestamp: Date.now(),
+                rawFeatureId: this._getRawFeatureIdFromFeature(feature) // Store raw ID for Mapbox
+            });
+            
+            selectedFeatures.push({ featureId, layerId, feature });
+            layersWithSelections.add(layerId);
+        });
+        
+        // Update DOM visual states for all layers with new selections
+        layersWithSelections.forEach(layerId => {
+            this._updateLayerDOMState(layerId, { hasSelection: true });
+        });
+        
+        // Emit event for all selections
+        if (selectedFeatures.length === 1) {
+            this._scheduleRender('feature-click', { 
+                ...selectedFeatures[0],
+                clearedFeatures 
+            });
+        } else {
+            this._scheduleRender('feature-click-multiple', { 
+                selectedFeatures,
+                clearedFeatures 
+            });
+        }
     }
 
     /**
@@ -449,7 +447,6 @@ export class MapFeatureStateManager extends EventTarget {
      * Internal deselection logic without event emission (for batch operations)
      */
     _deselectFeatureInternal(featureId, layerId) {
-        
         // Remove from selected features
         const selectedSet = this._selectedFeatures.get(layerId);
         if (selectedSet) {
@@ -507,14 +504,10 @@ export class MapFeatureStateManager extends EventTarget {
                     this._removeMapboxFeatureState(featureId, layerId, 'selected');
                     
                     if (!state.isHovered) {
-                        console.log(`[StateManager] Removing feature state completely: ${featureId}`);
                         this._featureStates.delete(featureId);
                     } else {
-                        console.log(`[StateManager] Clearing selection but keeping feature state: ${featureId} (hovered: ${state.isHovered})`);
                         this._updateFeatureState(featureId, { isSelected: false });
                     }
-                } else {
-                    console.warn(`[StateManager] Selected feature ${featureId} not found in feature states`);
                 }
             });
         });
@@ -527,16 +520,9 @@ export class MapFeatureStateManager extends EventTarget {
         });
         
         // Emit event for cleared selections if any were cleared
-        if (clearedFeatures.length > 0) {
-            console.log('[StateManager] Cleared selections:', clearedFeatures);
-            if (!suppressEvent) {
-                this._emitStateChange('selections-cleared', { clearedFeatures });
-            }
+        if (clearedFeatures.length > 0 && !suppressEvent) {
+            this._emitStateChange('selections-cleared', { clearedFeatures });
         }
-        
-        console.log('[StateManager] Selected features after clearing:', 
-            Array.from(this._selectedFeatures.entries()).map(([layerId, features]) => 
-                ({ layerId, featureIds: Array.from(features) })));
         
         return clearedFeatures;
     }
@@ -639,9 +625,9 @@ export class MapFeatureStateManager extends EventTarget {
         const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
         
         if (matchingLayerIds.length === 0 && retryCount < maxRetries) {
-            // Only log on first and last attempts to reduce noise
-            if (retryCount === 0 || retryCount === maxRetries - 1) {
-                console.log(`[StateManager] Setting up events for ${layerConfig.id}, attempt ${retryCount + 1}/${maxRetries}`);
+            // Only log on final attempt to reduce noise
+            if (retryCount === maxRetries - 1) {
+                console.log(`[StateManager] No layers found for ${layerConfig.id} after ${maxRetries} attempts`);
             }
             setTimeout(() => {
                 this._setupLayerEventsWithRetry(layerConfig, retryCount + 1);
@@ -743,15 +729,6 @@ export class MapFeatureStateManager extends EventTarget {
             return [];
         }
         
-        // Debug: Only log for layers that fail to match
-        if (layerId === 'plot' || layerId === 'goa-mask') {
-            console.log(`[StateManager] Matching layers for ${layerId} with config:`, {
-                type: layerConfig.type,
-                sourceLayer: layerConfig.sourceLayer,
-                source: layerConfig.source
-            });
-        }
-        
         const matchingIds = [];
         
         // Strategy 1: Direct ID match
@@ -759,48 +736,20 @@ export class MapFeatureStateManager extends EventTarget {
             matchingIds.push(layerId);
         }
         
-        // Strategy 2: For vector layers with sourceLayer property (MOST IMPORTANT)
-        // This is the primary strategy for vector tile layers
+        // Strategy 2: sourceLayer matching (primary for vector tiles)
         if (layerConfig.sourceLayer) {
             const sourceLayerMatches = style.layers
                 .filter(l => l['source-layer'] === layerConfig.sourceLayer)
                 .map(l => l.id);
             matchingIds.push(...sourceLayerMatches);
-            
-            // Only log for problematic layers
-            if ((layerId === 'plot' || layerId === 'goa-mask') && sourceLayerMatches.length === 0) {
-                console.log(`[StateManager] Strategy 2 - Source layer (${layerConfig.sourceLayer}) matches:`, sourceLayerMatches);
-            }
         }
         
-        // Strategy 2b: Fuzzy matching for source-layer names (for cases where names might be slightly different)
-        if (layerConfig.sourceLayer && matchingIds.length === 0) {
-            const fuzzyMatches = style.layers
-                .filter(l => {
-                    if (!l['source-layer']) return false;
-                    const sourceLayer = l['source-layer'].toLowerCase();
-                    const configSourceLayer = layerConfig.sourceLayer.toLowerCase();
-                    
-                    // Check for partial matches or common variations
-                    return sourceLayer.includes(configSourceLayer) || 
-                           configSourceLayer.includes(sourceLayer) ||
-                           sourceLayer.includes(layerId.toLowerCase()) ||
-                           layerId.toLowerCase().includes(sourceLayer);
-                })
+        // Strategy 3: Vector layer matching (for custom vector layers)
+        if (layerConfig.type === 'vector') {
+            const vectorMatches = style.layers
+                .filter(l => l.id.startsWith(`vector-layer-${layerId}`))
                 .map(l => l.id);
-            matchingIds.push(...fuzzyMatches);
-            
-            if ((layerId === 'plot' || layerId === 'goa-mask') && fuzzyMatches.length > 0) {
-                console.log(`[StateManager] Strategy 2b - Fuzzy source layer matches for ${layerId}:`, fuzzyMatches);
-            }
-        }
-        
-        // Strategy 3: For layers with source matching (when sourceLayer is not specified)
-        if (layerConfig.source && !layerConfig.sourceLayer) {
-            const sourceMatches = style.layers
-                .filter(l => l.source === layerConfig.source)
-                .map(l => l.id);
-            matchingIds.push(...sourceMatches);
+            matchingIds.push(...vectorMatches);
         }
         
         // Strategy 4: GeoJSON source matching
@@ -820,75 +769,6 @@ export class MapFeatureStateManager extends EventTarget {
             matchingIds.push(...csvMatches);
         }
         
-        // Strategy 6: Vector layer matching (custom vector layers)
-        if (layerConfig.type === 'vector') {
-            const vectorMatches = style.layers
-                .filter(l => l.id.startsWith(`vector-layer-${layerId}`))
-                .map(l => l.id);
-            matchingIds.push(...vectorMatches);
-        }
-        
-        // Strategy 7: Prefix matching for common patterns (fallback)
-        const prefixMatches = style.layers
-            .filter(l => l.id.startsWith(`${layerId}-`))
-            .map(l => l.id);
-        matchingIds.push(...prefixMatches);
-        
-        // Strategy 8: Comprehensive search for layers that might be related to this config
-        // This handles cases where layers are added with different naming conventions
-        if (matchingIds.length === 0) {
-            const comprehensiveMatches = style.layers.filter(l => {
-                // Search by layer ID containing the config layerId
-                if (l.id.toLowerCase().includes(layerId.toLowerCase())) return true;
-                
-                // Search by source ID containing the config layerId
-                if (l.source && l.source.toLowerCase().includes(layerId.toLowerCase())) return true;
-                
-                // For plot layer, look for cadastral-related terms (but exclude admin boundaries)
-                if (layerId === 'plot') {
-                    const layerIdLower = l.id.toLowerCase();
-                    const sourceLower = (l.source || '').toLowerCase();
-                    const sourceLayerLower = (l['source-layer'] || '').toLowerCase();
-                    
-                    // Exclude administrative boundaries that aren't cadastral
-                    if (layerIdLower.includes('admin-') || layerIdLower.includes('country-') || 
-                        layerIdLower.includes('state-') || layerIdLower.includes('district-boundary')) {
-                        return false;
-                    }
-                    
-                    // Look for specific cadastral terms
-                    const cadastralTerms = ['cadastral', 'plot', 'survey', 'parcel', 'onemapgoa', 'ga_cadastral'];
-                    return cadastralTerms.some(term => 
-                        layerIdLower.includes(term) || 
-                        sourceLower.includes(term) || 
-                        sourceLayerLower.includes(term)
-                    );
-                }
-                
-                // For goa-mask, look for district/admin related terms
-                if (layerId === 'goa-mask') {
-                    const adminTerms = ['district', 'admin', 'boundary', 'goa', 'mask'];
-                    const layerIdLower = l.id.toLowerCase();
-                    const sourceLower = (l.source || '').toLowerCase();
-                    const sourceLayerLower = (l['source-layer'] || '').toLowerCase();
-                    
-                    return adminTerms.some(term => 
-                        layerIdLower.includes(term) || 
-                        sourceLower.includes(term) || 
-                        sourceLayerLower.includes(term)
-                    );
-                }
-                
-                return false;
-            }).map(l => l.id);
-            
-            matchingIds.push(...comprehensiveMatches);
-            
-            if ((layerId === 'plot' || layerId === 'goa-mask') && comprehensiveMatches.length > 0) {
-                console.log(`[StateManager] Strategy 8 - Comprehensive search matches for ${layerId}:`, comprehensiveMatches);
-            }
-        }
-        
         // Remove duplicates and filter out non-interactive layers
         const uniqueIds = [...new Set(matchingIds)];
         const filteredIds = uniqueIds.filter(id => {
@@ -897,7 +777,6 @@ export class MapFeatureStateManager extends EventTarget {
             
             // Skip non-interactive layer types
             if (['background', 'raster', 'hillshade'].includes(layer.type)) {
-                console.log(`[StateManager] Skipping non-interactive layer type: ${id} (${layer.type})`);
                 return false;
             }
             
@@ -906,62 +785,6 @@ export class MapFeatureStateManager extends EventTarget {
         
         // Cache the result
         this._layerIdCache.set(layerId, filteredIds);
-        
-        // Only log final results for problematic layers
-        if (layerId === 'plot' || layerId === 'goa-mask') {
-            console.log(`[StateManager] Final matching layer IDs for ${layerId}:`, filteredIds);
-        }
-        
-        if (filteredIds.length === 0) {
-            console.warn(`[StateManager] No interactive layers found for ${layerId}. Available layers with source-layer:`, 
-                style.layers.filter(l => l['source-layer']).map(l => ({ id: l.id, sourceLayer: l['source-layer'] })).slice(0, 10)
-            );
-            
-            // Additional debugging: Show all unique source-layer values
-            const uniqueSourceLayers = [...new Set(
-                style.layers
-                    .filter(l => l['source-layer'])
-                    .map(l => l['source-layer'])
-            )];
-            console.warn(`[StateManager] All unique source-layer values in map:`, uniqueSourceLayers.slice(0, 15));
-            
-            // Show what we were looking for vs what's available
-            if (layerConfig.sourceLayer) {
-                console.warn(`[StateManager] Looking for sourceLayer "${layerConfig.sourceLayer}" but available source-layers are:`, 
-                    uniqueSourceLayers.filter(sl => sl.toLowerCase().includes(layerId.toLowerCase()) || 
-                                                    layerId.toLowerCase().includes(sl.toLowerCase())).slice(0, 5)
-                );
-            }
-            
-            // Additional debugging for problematic layers - show all layer IDs and sources
-            if (layerId === 'plot') {
-                const allLayerIds = style.layers.map(l => l.id);
-                const allSources = [...new Set(style.layers.map(l => l.source).filter(Boolean))];
-                
-                console.warn(`[StateManager] All layer IDs in map (${allLayerIds.length}):`, allLayerIds.slice(0, 20));
-                console.warn(`[StateManager] All sources in map (${allSources.length}):`, allSources);
-                
-                // Look for any layers that might be cadastral-related
-                const potentialCadastralLayers = style.layers.filter(l => {
-                    const combined = `${l.id} ${l.source || ''} ${l['source-layer'] || ''}`.toLowerCase();
-                    return combined.includes('cadastral') || combined.includes('onemapgoa') || 
-                           combined.includes('plot') || combined.includes('survey') ||
-                           combined.includes('parcel');
-                });
-                
-                if (potentialCadastralLayers.length > 0) {
-                    console.warn(`[StateManager] Potential cadastral layers found:`, 
-                        potentialCadastralLayers.map(l => ({ 
-                            id: l.id, 
-                            source: l.source, 
-                            sourceLayer: l['source-layer'] 
-                        }))
-                    );
-                } else {
-                    console.warn(`[StateManager] No cadastral-related layers found in map`);
-                }
-            }
-        }
         
         return filteredIds;
     }
@@ -1465,15 +1288,20 @@ export class MapFeatureStateManager extends EventTarget {
         });
         
         if (failedLayers.length > 0) {
-            console.log(`[StateManager] Retrying ${failedLayers.length} failed layers after style/source change`);
+            let successCount = 0;
             
             failedLayers.forEach(config => {
                 const matchingLayerIds = this._getMatchingLayerIds(config);
                 if (matchingLayerIds.length > 0) {
-                    console.log(`[StateManager] Retry successful for ${config.id}, found layers:`, matchingLayerIds);
                     this._setupLayerEvents(config);
+                    successCount++;
                 }
             });
+            
+            // Only log if there were successful retries
+            if (successCount > 0) {
+                console.log(`[StateManager] Successfully set up ${successCount}/${failedLayers.length} failed layers after map change`);
+            }
         }
     }
 }

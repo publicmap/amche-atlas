@@ -551,7 +551,7 @@ export class MapFeatureControl {
             }
         }
         
-        console.log(`[FeatureControl] Inspect mode ${this._inspectModeEnabled ? 'enabled' : 'disabled'}`);
+        // Inspect mode toggled silently to reduce noise
     }
 
     /**
@@ -560,7 +560,6 @@ export class MapFeatureControl {
     _clearAllSelections() {
         if (this._stateManager) {
             this._stateManager.clearAllSelections();
-            console.log('[FeatureControl] All selections cleared');
         }
     }
 
@@ -787,7 +786,6 @@ export class MapFeatureControl {
         }
         
         const activeLayers = this._stateManager.getActiveLayers();
-        console.log(`[FeatureControl] Active layers count: ${activeLayers.size}`, Array.from(activeLayers.keys()));
         return activeLayers;
     }
 
@@ -1727,7 +1725,7 @@ export class MapFeatureControl {
                     }, 50);
                 }
                 
-                console.log(`[FeatureControl] Layer ${layerId} toggled off and removed from UI`);
+                // Layer toggled off silently
             } else {
                 console.warn(`[FeatureControl] Layer ${layerId} not found in layer control state`);
             }
@@ -2176,7 +2174,7 @@ export class MapFeatureControl {
                     }, 50);
                 }
                 
-                console.log(`[FeatureControl] Layer ${layerId} toggled off`);
+                // Layer toggled off silently
             } else {
                 console.warn(`[FeatureControl] Layer ${layerId} not found in layer control state`);
             }
