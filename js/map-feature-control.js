@@ -130,6 +130,9 @@ export class MapFeatureControl {
         
         // State manager and config set
         
+        // Link the state manager to this control for inspect mode checking
+        this._stateManager.setFeatureControl(this);
+        
         // Listen to state changes from the centralized manager
         this._stateChangeListener = (event) => {
             this._handleStateChange(event.detail);
@@ -142,6 +145,8 @@ export class MapFeatureControl {
         // Set up initial switch state once drawer state manager is ready
         setTimeout(() => {
             this._updateDrawerSwitch();
+            // Initialize inspect mode state
+            this._inspectModeEnabled = this.options.inspectMode;
         }, 100);
         
         // Set up global click handler for feature interactions
@@ -367,7 +372,7 @@ export class MapFeatureControl {
     }
 
     /**
-     * Create actions section for main details with drawer toggle
+     * Create actions section for main details with drawer toggle, inspect mode, and clear selection
      */
     _createMainDetailsActions() {
         const actionsSection = document.createElement('div');
@@ -379,6 +384,7 @@ export class MapFeatureControl {
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-wrap: wrap;
         `;
 
         // Create drawer toggle switch
@@ -394,25 +400,107 @@ export class MapFeatureControl {
             this._toggleLayerDrawer();
         });
 
-        // Create label for the switch
-        const switchLabel = document.createElement('label');
-        switchLabel.style.cssText = `
+        // Create label for the drawer switch
+        const drawerSwitchLabel = document.createElement('label');
+        drawerSwitchLabel.style.cssText = `
             font-size: 12px;
             color: #6b7280;
             font-weight: 500;
             cursor: pointer;
             user-select: none;
         `;
-        switchLabel.textContent = 'Layer List';
+        drawerSwitchLabel.textContent = 'Layer List';
         
         // Make label clickable
-        switchLabel.addEventListener('click', () => {
+        drawerSwitchLabel.addEventListener('click', () => {
             this._drawerSwitch.checked = !this._drawerSwitch.checked;
             this._toggleLayerDrawer();
         });
 
+        // Create inspect mode toggle switch
+        this._inspectSwitch = document.createElement('sl-switch');
+        this._inspectSwitch.size = 'small';
+        this._inspectSwitch.checked = this.options.inspectMode;
+        this._inspectSwitch.style.cssText = `
+            --sl-color-primary-600: #f59e0b;
+            --sl-color-primary-500: #f59e0b;
+        `;
+        
+        // Add click handler to toggle inspect mode
+        this._inspectSwitch.addEventListener('sl-change', (e) => {
+            this._toggleInspectMode();
+        });
+
+        // Create label for the inspect switch with icon
+        const inspectSwitchLabel = document.createElement('label');
+        inspectSwitchLabel.style.cssText = `
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 500;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        `;
+        
+        const inspectIcon = document.createElement('sl-icon');
+        inspectIcon.name = 'hand-index-thumb';
+        inspectIcon.style.fontSize = '12px';
+        
+        inspectSwitchLabel.appendChild(inspectIcon);
+        inspectSwitchLabel.appendChild(document.createTextNode('Inspect'));
+        
+        // Make label clickable
+        inspectSwitchLabel.addEventListener('click', () => {
+            this._inspectSwitch.checked = !this._inspectSwitch.checked;
+            this._toggleInspectMode();
+        });
+
+        // Create clear selection button
+        const clearSelectionBtn = document.createElement('sl-button');
+        clearSelectionBtn.size = 'small';
+        clearSelectionBtn.variant = 'text';
+        clearSelectionBtn.style.cssText = `
+            --sl-color-danger-600: #ef4444;
+            --sl-color-danger-500: #ef4444;
+            color: #ef4444;
+            font-size: 11px;
+        `;
+        
+        const clearIcon = document.createElement('sl-icon');
+        clearIcon.name = 'x-circle';
+        clearIcon.setAttribute('slot', 'prefix');
+        clearIcon.style.fontSize = '12px';
+        
+        clearSelectionBtn.appendChild(clearIcon);
+        clearSelectionBtn.appendChild(document.createTextNode('Clear Selection'));
+        
+        // Add click handler to clear all selections
+        clearSelectionBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this._clearAllSelections();
+        });
+
+        // Add all controls to the actions section
         actionsSection.appendChild(this._drawerSwitch);
-        actionsSection.appendChild(switchLabel);
+        actionsSection.appendChild(drawerSwitchLabel);
+        
+        // Add separator
+        const separator1 = document.createElement('div');
+        separator1.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
+        actionsSection.appendChild(separator1);
+        
+        actionsSection.appendChild(this._inspectSwitch);
+        actionsSection.appendChild(inspectSwitchLabel);
+        
+        // Add separator
+        const separator2 = document.createElement('div');
+        separator2.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
+        actionsSection.appendChild(separator2);
+        
+        actionsSection.appendChild(clearSelectionBtn);
 
         return actionsSection;
     }
@@ -446,6 +534,34 @@ export class MapFeatureControl {
      */
     _toggleLayerDrawer() {
         drawerStateManager.toggle();
+    }
+
+    /**
+     * Toggle inspect mode (hover interactions and popups)
+     */
+    _toggleInspectMode() {
+        this._inspectModeEnabled = this._inspectSwitch.checked;
+        this.options.showHoverPopups = this._inspectModeEnabled;
+        
+        // If inspect mode is disabled, clear any existing hover popups
+        if (!this._inspectModeEnabled) {
+            this._removeHoverPopup();
+            if (this._stateManager) {
+                this._stateManager.handleMapMouseLeave();
+            }
+        }
+        
+        console.log(`[FeatureControl] Inspect mode ${this._inspectModeEnabled ? 'enabled' : 'disabled'}`);
+    }
+
+    /**
+     * Clear all selections across all layers
+     */
+    _clearAllSelections() {
+        if (this._stateManager) {
+            this._stateManager.clearAllSelections();
+            console.log('[FeatureControl] All selections cleared');
+        }
     }
 
     /**
@@ -590,18 +706,21 @@ export class MapFeatureControl {
 
     /**
      * Update layer visual state based on feature states (hover/selection)
+     * Selection is "sticky" - red border stays until explicitly cleared
      */
     _updateLayerVisualState(layerId, states) {
         const layerElement = this._layersContainer.querySelector(`[data-layer-id="${layerId}"]`);
         if (!layerElement) return;
         
         // Update CSS classes based on states
+        // Always update hover visual state (inspect mode only affects popups)
         if (states.hasHover === true) {
             layerElement.classList.add('has-hover');
         } else if (states.hasHover === false) {
             layerElement.classList.remove('has-hover');
         }
         
+        // Selection state is sticky - only changes when explicitly set
         if (states.hasSelection === true) {
             layerElement.classList.add('has-selection');
         } else if (states.hasSelection === false) {
@@ -2868,8 +2987,8 @@ export class MapFeatureControl {
     _handleFeatureHover(data) {
         const { featureId, layerId, lngLat, feature } = data;
         
-        // Skip if hover popups are disabled
-        if (!this.options.showHoverPopups) return;
+        // Skip if inspect mode is disabled
+        if (!this._inspectModeEnabled || !this.options.showHoverPopups) return;
         
         // Skip on mobile devices to avoid conflicts with touch interactions
         if ('ontouchstart' in window) return;
@@ -2884,8 +3003,8 @@ export class MapFeatureControl {
     _handleBatchFeatureHover(data) {
         const { hoveredFeatures, lngLat, affectedLayers } = data;
         
-        // Skip if hover popups are disabled
-        if (!this.options.showHoverPopups) return;
+        // Skip if inspect mode is disabled
+        if (!this._inspectModeEnabled || !this.options.showHoverPopups) return;
         
         // Skip on mobile devices to avoid conflicts with touch interactions
         if ('ontouchstart' in window) return;

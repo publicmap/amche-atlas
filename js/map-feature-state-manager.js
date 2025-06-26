@@ -36,7 +36,24 @@ export class MapFeatureStateManager extends EventTarget {
         this._lastMapMoveTime = 0;
         this._debug = false;
         
+        // Inspect mode control - reference to the feature control for inspect mode state
+        this._featureControl = null;
+        
         this._setupCleanup();
+    }
+
+    /**
+     * Set the feature control reference for inspect mode state checking
+     */
+    setFeatureControl(featureControl) {
+        this._featureControl = featureControl;
+    }
+
+    /**
+     * Check if inspect mode is enabled
+     */
+    _isInspectModeEnabled() {
+        return this._featureControl ? this._featureControl._inspectModeEnabled : false;
     }
 
     /**
@@ -688,13 +705,13 @@ export class MapFeatureStateManager extends EventTarget {
         
         const matchingIds = [];
         
-        // Use the same efficient approach as map-layer-controls.js
         // Strategy 1: Direct ID match
         if (style.layers.some(l => l.id === layerId)) {
             matchingIds.push(layerId);
         }
         
         // Strategy 2: For vector layers with sourceLayer property (most common case)
+        // This is the primary strategy for vector tile layers
         if (layerConfig.sourceLayer) {
             const sourceLayerMatches = style.layers
                 .filter(l => l['source-layer'] === layerConfig.sourceLayer)
@@ -702,8 +719,8 @@ export class MapFeatureStateManager extends EventTarget {
             matchingIds.push(...sourceLayerMatches);
         }
         
-        // Strategy 3: For layers with source matching
-        if (layerConfig.source) {
+        // Strategy 3: For layers with source matching (when sourceLayer is not specified)
+        if (layerConfig.source && !layerConfig.sourceLayer) {
             const sourceMatches = style.layers
                 .filter(l => l.source === layerConfig.source)
                 .map(l => l.id);
@@ -719,9 +736,25 @@ export class MapFeatureStateManager extends EventTarget {
             matchingIds.push(...geojsonMatches);
         }
         
-        // Strategy 5: Prefix matching for common patterns
+        // Strategy 5: CSV layer matching
+        if (layerConfig.type === 'csv') {
+            const csvMatches = style.layers
+                .filter(l => l.id.startsWith(`csv-${layerId}-`))
+                .map(l => l.id);
+            matchingIds.push(...csvMatches);
+        }
+        
+        // Strategy 6: Vector layer matching (custom vector layers)
+        if (layerConfig.type === 'vector') {
+            const vectorMatches = style.layers
+                .filter(l => l.id.startsWith(`vector-layer-${layerId}`))
+                .map(l => l.id);
+            matchingIds.push(...vectorMatches);
+        }
+        
+        // Strategy 7: Prefix matching for common patterns (fallback)
         const prefixMatches = style.layers
-            .filter(l => l.id.startsWith(`vector-layer-${layerId}`) || l.id.startsWith(`${layerId}-`))
+            .filter(l => l.id.startsWith(`${layerId}-`))
             .map(l => l.id);
         matchingIds.push(...prefixMatches);
         

@@ -2484,6 +2484,20 @@ sl-menu {
         padding: 2px 3px !important;
         font-size: 7px !important;
     }
+    
+    /* Mobile responsive for main actions */
+    .map-feature-control .map-layers-actions {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    
+    .map-feature-control .map-layers-actions label {
+        font-size: 10px !important;
+    }
+    
+    .map-feature-control .map-layers-actions sl-button {
+        font-size: 9px !important;
+    }
 }
 
 /* Animation for expanding/collapsing details */
