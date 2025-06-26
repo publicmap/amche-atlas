@@ -116,6 +116,9 @@ export class MapFeatureStateManager extends EventTarget {
                 rawFeatureId: this._getRawFeatureIdFromFeature(feature) // Store raw ID for Mapbox
             });
             
+            // Update DOM visual state for hover
+            this._updateLayerDOMState(layerId, { hasHover: true });
+            
             this._currentHoverTarget = hoverTarget;
             this._scheduleRender('feature-hover', { featureId, layerId, lngLat, feature });
         }, 10); // 10ms debounce
@@ -164,59 +167,64 @@ export class MapFeatureStateManager extends EventTarget {
             // Clear all previous hover states
             this._clearAllHover();
             
-            // Process new hover states in batch
-            if (hoveredFeatures.length > 0) {
-                const layersToUpdate = new Set();
-                
-                hoveredFeatures.forEach(({ feature, layerId }) => {
-                    const featureId = this._getFeatureId(feature);
+                            // Process new hover states in batch
+                if (hoveredFeatures.length > 0) {
+                    const layersToUpdate = new Set();
                     
-                    // Set new hover state
-                    if (!this._activeHoverFeatures.has(layerId)) {
-                        this._activeHoverFeatures.set(layerId, new Set());
-                    }
-                    this._activeHoverFeatures.get(layerId).add(featureId);
-                    
-                    // Set Mapbox feature state for hover
-                    this._setMapboxFeatureState(featureId, layerId, { hover: true });
-                    
-                    // Update feature state with the provided lngLat or use the feature's lngLat
-                    this._updateFeatureState(featureId, {
-                        feature,
-                        layerId,
-                        lngLat: lngLat,
-                        isHovered: true,
-                        timestamp: Date.now(),
-                        rawFeatureId: this._getRawFeatureIdFromFeature(feature) // Store raw ID for Mapbox
+                    hoveredFeatures.forEach(({ feature, layerId }) => {
+                        const featureId = this._getFeatureId(feature);
+                        
+                        // Set new hover state
+                        if (!this._activeHoverFeatures.has(layerId)) {
+                            this._activeHoverFeatures.set(layerId, new Set());
+                        }
+                        this._activeHoverFeatures.get(layerId).add(featureId);
+                        
+                        // Set Mapbox feature state for hover
+                        this._setMapboxFeatureState(featureId, layerId, { hover: true });
+                        
+                        // Update feature state with the provided lngLat or use the feature's lngLat
+                        this._updateFeatureState(featureId, {
+                            feature,
+                            layerId,
+                            lngLat: lngLat,
+                            isHovered: true,
+                            timestamp: Date.now(),
+                            rawFeatureId: this._getRawFeatureIdFromFeature(feature) // Store raw ID for Mapbox
+                        });
+                        
+                        layersToUpdate.add(layerId);
                     });
                     
-                    layersToUpdate.add(layerId);
-                });
-                
-                // Update current hover target for compatibility
-                if (hoveredFeatures.length === 1) {
-                    const { feature, layerId } = hoveredFeatures[0];
-                    const featureId = this._getFeatureId(feature);
-                    this._currentHoverTarget = `${layerId}:${featureId}`;
+                    // Update DOM visual states for all affected layers
+                    layersToUpdate.forEach(layerId => {
+                        this._updateLayerDOMState(layerId, { hasHover: true });
+                    });
+                    
+                    // Update current hover target for compatibility
+                    if (hoveredFeatures.length === 1) {
+                        const { feature, layerId } = hoveredFeatures[0];
+                        const featureId = this._getFeatureId(feature);
+                        this._currentHoverTarget = `${layerId}:${featureId}`;
+                    } else {
+                        this._currentHoverTarget = `multiple:${hoveredFeatures.length}`;
+                    }
+                    
+                    // Emit a single batch hover event
+                    this._scheduleRender('features-batch-hover', { 
+                        hoveredFeatures: hoveredFeatures.map(({ feature, layerId }) => ({
+                            featureId: this._getFeatureId(feature),
+                            layerId,
+                            feature
+                        })),
+                        lngLat,
+                        affectedLayers: Array.from(layersToUpdate)
+                    });
                 } else {
-                    this._currentHoverTarget = `multiple:${hoveredFeatures.length}`;
+                    // No features to hover
+                    this._currentHoverTarget = null;
+                    this._scheduleRender('features-hover-cleared', { lngLat });
                 }
-                
-                // Emit a single batch hover event
-                this._scheduleRender('features-batch-hover', { 
-                    hoveredFeatures: hoveredFeatures.map(({ feature, layerId }) => ({
-                        featureId: this._getFeatureId(feature),
-                        layerId,
-                        feature
-                    })),
-                    lngLat,
-                    affectedLayers: Array.from(layersToUpdate)
-                });
-            } else {
-                // No features to hover
-                this._currentHoverTarget = null;
-                this._scheduleRender('features-hover-cleared', { lngLat });
-            }
         }, 5); // Shorter debounce for better responsiveness
     }
 
@@ -232,6 +240,10 @@ export class MapFeatureStateManager extends EventTarget {
         
         this._currentHoverTarget = null;
         this._clearAllHover();
+        
+        // Clear all DOM visual states
+        this._clearAllLayerDOMStates();
+        
         this._scheduleRender('map-mouse-leave', {});
     }
 
@@ -327,6 +339,8 @@ export class MapFeatureStateManager extends EventTarget {
          const clearedFeatures = this._clearAllSelections(true);
          
          const selectedFeatures = [];
+         const layersWithSelections = new Set();
+         
          clickedFeatures.forEach(({ feature, layerId, lngLat }) => {
              const featureId = this._getFeatureId(feature);
              
@@ -350,6 +364,12 @@ export class MapFeatureStateManager extends EventTarget {
              });
              
              selectedFeatures.push({ featureId, layerId, feature });
+             layersWithSelections.add(layerId);
+         });
+         
+         // Update DOM visual states for all layers with new selections
+         layersWithSelections.forEach(layerId => {
+             this._updateLayerDOMState(layerId, { hasSelection: true });
          });
          
          // Emit event for all selections
@@ -378,6 +398,10 @@ export class MapFeatureStateManager extends EventTarget {
         
         this._currentHoverTarget = null;
         this._clearLayerHover(layerId);
+        
+        // Update DOM visual state for this layer
+        this._updateLayerDOMStateFromFeatures(layerId);
+        
         this._scheduleRender('feature-leave', { layerId });
     }
 
@@ -427,6 +451,9 @@ export class MapFeatureStateManager extends EventTarget {
                 this._updateFeatureState(featureId, { isSelected: false });
             }
         }
+        
+        // Update DOM visual state for this layer
+        this._updateLayerDOMStateFromFeatures(layerId);
     }
 
     /**
@@ -447,8 +474,10 @@ export class MapFeatureStateManager extends EventTarget {
 
     _clearAllSelections(suppressEvent = false) {
         const clearedFeatures = [];
+        const affectedLayers = new Set();
      
         this._selectedFeatures.forEach((features, layerId) => {
+            affectedLayers.add(layerId);
             features.forEach(featureId => {
                 const state = this._featureStates.get(featureId);
                 if (state) {
@@ -471,6 +500,11 @@ export class MapFeatureStateManager extends EventTarget {
         });
         
         this._selectedFeatures.clear();
+        
+        // Update DOM visual states for all affected layers
+        affectedLayers.forEach(layerId => {
+            this._updateLayerDOMStateFromFeatures(layerId);
+        });
         
         // Emit event for cleared selections if any were cleared
         if (clearedFeatures.length > 0) {
@@ -766,6 +800,9 @@ export class MapFeatureStateManager extends EventTarget {
                 }
             });
             this._activeHoverFeatures.delete(layerId);
+            
+            // Update DOM visual state for this layer
+            this._updateLayerDOMStateFromFeatures(layerId);
         }
     }
 
@@ -1113,6 +1150,56 @@ export class MapFeatureStateManager extends EventTarget {
         } catch (error) {
             console.warn(`[StateManager] Error removing Mapbox feature state:`, error);
         }
+    }
+
+    /**
+     * Update DOM visual state for layer elements
+     * Adds/removes CSS classes on elements with matching data-layer-id
+     */
+    _updateLayerDOMState(layerId, states) {
+        // Find all elements with matching data-layer-id
+        const layerElements = document.querySelectorAll(`[data-layer-id="${layerId}"]`);
+        
+        layerElements.forEach(element => {
+            // Update CSS classes based on states
+            if (states.hasHover === true) {
+                element.classList.add('has-hover');
+            } else if (states.hasHover === false) {
+                element.classList.remove('has-hover');
+            }
+            
+            if (states.hasSelection === true) {
+                element.classList.add('has-selection');
+            } else if (states.hasSelection === false) {
+                element.classList.remove('has-selection');
+            }
+        });
+    }
+
+    /**
+     * Update DOM visual state by examining current feature states
+     */
+    _updateLayerDOMStateFromFeatures(layerId) {
+        const layerFeatures = this.getLayerFeatures(layerId);
+        let hasHover = false;
+        let hasSelection = false;
+        
+        layerFeatures.forEach((featureState) => {
+            if (featureState.isHovered) hasHover = true;
+            if (featureState.isSelected) hasSelection = true;
+        });
+        
+        this._updateLayerDOMState(layerId, { hasHover, hasSelection });
+    }
+
+    /**
+     * Clear all layer DOM visual states
+     */
+    _clearAllLayerDOMStates() {
+        const layerElements = document.querySelectorAll('[data-layer-id]');
+        layerElements.forEach(layerElement => {
+            layerElement.classList.remove('has-hover', 'has-selection');
+        });
     }
 }
 

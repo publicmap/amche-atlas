@@ -400,6 +400,28 @@ header h1 {
     overflow: hidden;
 }
 
+/* Feature control visual feedback styles */
+.layer-details.has-hover {
+    border-left-color: #fbbf24 !important; /* Yellow border for hover */
+    border-left-width: 4px !important;
+}
+
+.layer-details.has-selection {
+    border-left-color: #ef4444 !important; /* Red border for selection - sticky until cleared */
+    border-left-width: 4px !important;
+}
+
+/* Selection takes priority over hover - red stays when selected */
+.layer-details.has-hover.has-selection {
+    border-left-color: #ef4444 !important; /* Red border takes priority */
+    border-left-width: 4px !important;
+}
+
+/* Animation for smooth border transitions */
+.layer-details {
+    transition: border-left-color 0.2s ease, border-left-width 0.2s ease;
+}
+
 .consolidated-popup {
     max-height: 200px;
     overflow-y: auto;
@@ -2253,7 +2275,7 @@ sl-menu {
 
 .map-feature-control .map-layers-main::part(content) {
     padding: 0;
-    background: transparent;
+    background: #f3f3f3;
 }
 
 .map-feature-control .map-layers-main::part(summary-icon) {
@@ -2280,8 +2302,6 @@ sl-menu {
     background: rgba(0, 0, 0, 0.02);
     border: none;
     border-top: 1px solid #fafafa;
-}
-
 /* Header background image styling - applied dynamically via JavaScript */
 
 .map-feature-control .layer-details::part(content) {
@@ -2337,7 +2357,6 @@ sl-menu {
 }
 
 .map-feature-control .layer-actions sl-dropdown sl-button:hover::part(base) {
-    background: #e9ecef;
     border-color: #dee2e6;
 }
 
@@ -2481,11 +2500,6 @@ sl-menu {
 .map-feature-control .map-layers-actions {
     background: rgba(0, 0, 0, 0.02);
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.map-feature-control .layer-actions-section {
-    background: rgba(0, 0, 0, 0.02);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* Switch styling in actions sections */

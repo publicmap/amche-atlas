@@ -21,6 +21,7 @@ export class MapFeatureControl {
             minWidth: '250px',
             collapsed: false,
             showHoverPopups: true, // New option to control hover popups
+            inspectMode: false, // Default inspect mode off
             ...options
         };
 
@@ -47,6 +48,10 @@ export class MapFeatureControl {
         
         // Drawer state tracking via centralized manager
         this._drawerStateListener = null;
+        
+        // Inspection mode controls
+        this._inspectModeEnabled = false; // Default off as requested
+        this._inspectSwitch = null;
         
         // Source layer links functionality moved from map-layer-controls.js
         /**
@@ -450,65 +455,83 @@ export class MapFeatureControl {
         const { eventType, data } = detail;
         
         // Optimize rendering based on event type
-        // NOTE: Do NOT call _updateHeaderButton() from layer events - only drawer events should affect the button
         switch (eventType) {
             case 'feature-hover':
                 this._handleFeatureHover(data);
-                // Only update layer header styling for hover, don't render features
-                this._updateLayerHeaderHoverState(data.layerId, true);
+                // Update layer visual state for hover
+                this._updateLayerVisualState(data.layerId, { hasHover: true });
                 break;
             case 'features-batch-hover':
                 // Handle batch hover events (PERFORMANCE OPTIMIZED)
                 this._handleBatchFeatureHover(data);
-                // Update layer header styling for all affected layers
+                // Update layer visual state for all affected layers
                 data.affectedLayers.forEach(layerId => {
-                    this._updateLayerHeaderHoverState(layerId, true);
+                    this._updateLayerVisualState(layerId, { hasHover: true });
                 });
                 break;
             case 'features-hover-cleared':
             case 'map-mouse-leave':
                 // Clear all hover states
                 this._handleAllFeaturesLeave();
+                // Clear hover visual states for all layers
+                this._clearAllLayerVisualStates();
                 break;
             case 'feature-click':
                 // Handle cleared features first if they exist, then the new selection
                 if (data.clearedFeatures && data.clearedFeatures.length > 0) {
                     this._handleSelectionsCleared(data.clearedFeatures);
                 }
-                // Then render the clicked feature's layer
+                // Render the clicked feature's layer and ensure it's expanded
                 this._renderLayer(data.layerId);
+                this._expandLayerForFeatureSelection(data.layerId);
+                // Update layer visual state for selection
+                this._updateLayerVisualState(data.layerId, { hasSelection: true });
                 break;
             case 'feature-click-multiple':
                 // Handle multiple feature selections from overlapping click
                 if (data.clearedFeatures && data.clearedFeatures.length > 0) {
                     this._handleSelectionsCleared(data.clearedFeatures);
                 }
-                // Render all affected layers
+                // Render all affected layers and ensure they're expanded
                 const affectedLayers = new Set(data.selectedFeatures.map(f => f.layerId));
                 affectedLayers.forEach(layerId => {
                     this._renderLayer(layerId);
+                    this._expandLayerForFeatureSelection(layerId);
+                    // Update layer visual state for selection
+                    this._updateLayerVisualState(layerId, { hasSelection: true });
                 });
                 break;
             case 'selections-cleared':
                 this._handleSelectionsCleared(data.clearedFeatures);
+                // Update visual states for all layers that had selections cleared
+                const clearedLayerIds = [...new Set(data.clearedFeatures.map(item => item.layerId))];
+                clearedLayerIds.forEach(layerId => {
+                    this._updateLayerVisualState(layerId, { hasSelection: false });
+                });
                 break;
             case 'feature-close':
                 this._renderLayer(data.layerId);
+                // Check if layer still has selections to update visual state
+                this._updateLayerVisualStateFromFeatures(data.layerId);
                 break;
             case 'feature-deselected':
                 // Handle feature deselection (toggle off)
                 this._renderLayer(data.layerId);
+                // Check if layer still has selections to update visual state
+                this._updateLayerVisualStateFromFeatures(data.layerId);
                 break;
             case 'features-batch-deselected':
                 // Handle batch deselection of multiple features
                 data.affectedLayers.forEach(layerId => {
                     this._renderLayer(layerId);
+                    // Check if layer still has selections to update visual state
+                    this._updateLayerVisualStateFromFeatures(layerId);
                 });
                 break;
             case 'feature-leave':
                 this._handleFeatureLeave(data);
-                // Remove hover styling from layer header
-                this._updateLayerHeaderHoverState(data.layerId, false);
+                // Update layer visual state (remove hover if no features are hovered)
+                this._updateLayerVisualStateFromFeatures(data.layerId);
                 break;
             case 'layer-registered':
                 // Re-render when layers are registered (turned on)
@@ -543,27 +566,81 @@ export class MapFeatureControl {
     }
 
     /**
-     * Update layer header visual state for hover indication
+     * Expand layer details when a feature is selected to provide visual feedback
      */
-    _updateLayerHeaderHoverState(layerId, isHovered) {
+    _expandLayerForFeatureSelection(layerId) {
         const layerElement = this._layersContainer.querySelector(`[data-layer-id="${layerId}"]`);
         if (layerElement) {
-            const headerElement = layerElement.querySelector('.feature-control-layer-header');
-            if (headerElement) {
-                if (isHovered) {
-                    headerElement.style.borderColor = '#fbbf24'; // Yellow border for hover
-                } else {
-                    headerElement.style.borderColor = 'transparent'; // Back to transparent
-                }
+            // Expand the main layer details
+            layerElement.open = true;
+            
+            // Find and expand the features details specifically
+            const featuresDetails = layerElement.querySelector('.features-details');
+            if (featuresDetails) {
+                featuresDetails.open = true;
             }
         }
+        
+        // Also ensure the main control is expanded
+        if (this._mainDetails) {
+            this._mainDetails.open = true;
+            this._isCollapsed = false;
+        }
+    }
+
+    /**
+     * Update layer visual state based on feature states (hover/selection)
+     */
+    _updateLayerVisualState(layerId, states) {
+        const layerElement = this._layersContainer.querySelector(`[data-layer-id="${layerId}"]`);
+        if (!layerElement) return;
+        
+        // Update CSS classes based on states
+        if (states.hasHover === true) {
+            layerElement.classList.add('has-hover');
+        } else if (states.hasHover === false) {
+            layerElement.classList.remove('has-hover');
+        }
+        
+        if (states.hasSelection === true) {
+            layerElement.classList.add('has-selection');
+        } else if (states.hasSelection === false) {
+            layerElement.classList.remove('has-selection');
+        }
+    }
+
+    /**
+     * Update layer visual state by examining current feature states
+     */
+    _updateLayerVisualStateFromFeatures(layerId) {
+        if (!this._stateManager) return;
+        
+        const layerFeatures = this._stateManager.getLayerFeatures(layerId);
+        let hasHover = false;
+        let hasSelection = false;
+        
+        layerFeatures.forEach((featureState) => {
+            if (featureState.isHovered) hasHover = true;
+            if (featureState.isSelected) hasSelection = true;
+        });
+        
+        this._updateLayerVisualState(layerId, { hasHover, hasSelection });
+    }
+
+    /**
+     * Clear all layer visual states
+     */
+    _clearAllLayerVisualStates() {
+        const layerElements = this._layersContainer.querySelectorAll('[data-layer-id]');
+        layerElements.forEach(layerElement => {
+            layerElement.classList.remove('has-hover', 'has-selection');
+        });
     }
 
     /**
      * Handle cleared selections - update UI for all cleared features
      */
     _handleSelectionsCleared(clearedFeatures) {
-        
         // Get unique layer IDs that had selections cleared
         const affectedLayerIds = [...new Set(clearedFeatures.map(item => item.layerId))];
         
@@ -753,6 +830,9 @@ export class MapFeatureControl {
             --sl-panel-border-color: #333;
             overflow: hidden;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+            border-left: 6px solid #ababab;
+            margin-bottom: 2px;
         `;
 
         // Create custom summary with background image support
@@ -855,9 +935,6 @@ export class MapFeatureControl {
         removeBtn.variant = 'text';
         removeBtn.innerHTML = '<sl-icon name="x"></sl-icon>';
         removeBtn.style.cssText = `
-            --sl-color-neutral-600: #ef4444;
-            --sl-color-neutral-700: #dc2626;
-            padding: 4px;
             min-width: auto;
         `;
 
@@ -892,11 +969,14 @@ export class MapFeatureControl {
             font-size: 11px;
         `;
         
-        // Set initial text based on current opacity
+        // Set initial text - default to "Opacity" to avoid NaN display
         const currentOpacity = this._getCurrentLayerOpacity(layerId, config);
+        const opacityText = (!isNaN(currentOpacity) && isFinite(currentOpacity)) 
+            ? `${Math.round(currentOpacity * 100)}% Opacity`
+            : 'Opacity';
         trigger.innerHTML = `
             <sl-icon name="lightbulb" slot="prefix"></sl-icon>
-            ${Math.round(currentOpacity * 100)}% Opacity
+            ${opacityText}
         `;
 
         // Create menu with opacity options
@@ -928,10 +1008,13 @@ export class MapFeatureControl {
         dropdown.addEventListener('sl-select', (e) => {
             const selectedValue = parseFloat(e.detail.item.value);
             
-            // Update trigger text
+            // Update trigger text with safe NaN check
+            const opacityText = (!isNaN(selectedValue) && isFinite(selectedValue)) 
+                ? `${Math.round(selectedValue * 100)}% Opacity`
+                : 'Opacity';
             trigger.innerHTML = `
                 <sl-icon name="lightbulb" slot="prefix"></sl-icon>
-                ${Math.round(selectedValue * 100)}% Opacity
+                ${opacityText}
             `;
             
             // Apply opacity to layer
@@ -1041,7 +1124,6 @@ export class MapFeatureControl {
         summary.style.cssText = `
             padding: 6px 0;
             font-size: 11px;
-            font-weight: 600;
             color: #374151;
         `;
 
@@ -1174,7 +1256,6 @@ export class MapFeatureControl {
         summary.style.cssText = `
             padding: 6px 0;
             font-size: 11px;
-            font-weight: 600;
             color: #374151;
         `;
 
@@ -2817,27 +2898,13 @@ export class MapFeatureControl {
      * Handle all features leaving (map mouse leave or hover cleared)
      */
     _handleAllFeaturesLeave() {
-        // Clear all layer header hover states
-        this._clearAllLayerHeaderHoverStates();
-        
         // Remove hover popup completely when all features leave
         // This ensures clean state when mouse moves off map
         this._removeHoverPopup();
         this._currentHoveredFeature = null;
     }
 
-    /**
-     * Clear hover states from all layer headers
-     */
-    _clearAllLayerHeaderHoverStates() {
-        const layerElements = this._layersContainer.querySelectorAll('.feature-control-layer');
-        layerElements.forEach(layerElement => {
-            const headerElement = layerElement.querySelector('.feature-control-layer-header');
-            if (headerElement) {
-                headerElement.style.borderColor = 'transparent';
-            }
-        });
-    }
+
 
     /**
      * Handle feature leave - update or remove hover popup
