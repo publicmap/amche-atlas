@@ -912,8 +912,21 @@
       "id": "goa-soi-map"
     },
     {
-      "title": "Regional Development Plans",
-      "description": "Regional Development Plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
+      "title": "Tillari Command Area Development Scheme",
+      "description": "Notified Command Area Development Scheme for the Tillari Irrigation Project covering talukas of Bicholim, Pernem and Bardez in North Goa.",
+      "headerImage": "assets/map-layers/map-layer-tillari.png",
+      "legendImage": "assets/map-layers/map-layer-tillari-legend.jpg",
+      "type": "tms",
+      "id": "tillari",
+      "url": "https://mapwarper.net/mosaics/tile/2267/{z}/{x}/{y}.png",
+      "attribution": "<a href='https://archive.org/details/in.goa.egaz.2425-36.SI/2425-36-SI-EOG-2/'>Department of Water Resources, Government of Goa, notified on 2024-12-06</a>. Georeferenced using <a href='https://mapwarper.net/layers/2267#Show_tab'>Mapwarper</a>"
+    },
+    {
+      "id": "goa-czmp-map"
+    },
+    {
+      "title": "Regional Development Plan for Goa 2021",
+      "description": "Regional landuse plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
       "headerImage": "assets/map-layers/map-layer-rdp.png",
       "legendImage": "assets/map-layers/map-layer-rdp-legend.jpg",
       "type": "tms",
@@ -921,20 +934,6 @@
       "url": "https://mapwarper.net/mosaics/tile/2054/{z}/{x}/{y}.png",
       "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, Goa Town & Country Planning Department</a>. Georeferenced using <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
       "initiallyChecked": true
-    },
-    {
-      "title": "Irrigation Command Area Maps",
-      "description": "Irrigation command area maps.",
-      "headerImage": "assets/map-layers/map-layer-cada.png",
-      "legendImage": "assets/map-layers/map-layer-cada-legend.jpg",
-      "type": "tms",
-      "id": "cada",
-      "url": "https://mapwarper.net/mosaics/tile/2267/{z}/{x}/{y}.png",
-      "attribution": "Water Resources Department, Govet. of Goa",
-      "initiallyChecked": true
-    },
-    {
-      "id": "goa-czmp-map"
     },
     {
       "id": "goa-ams-map"

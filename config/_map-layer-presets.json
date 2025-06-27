@@ -4658,6 +4658,7 @@
     {
       "initiallyChecked": true,
       "id": "mapbox-satellite",
+      "tags": ["satellite","basemap"],
       "type": "raster-style-layer",
       "title": "Satellite Imagery",
       "description": "Satellite imagery from Mapbox. See <a href='https://docs.mapbox.com/help/dive-deeper/imagery/'>Mapbox Satellite Imagery</a> for details.",
@@ -4687,6 +4688,7 @@
     },
     {
       "id": "3d-terrain",
+      "tags": ["satellite","basemap"],
       "title": "3D Terrain",
       "description": "Terrain Controls",
       "headerImage": "assets/map-layers/map-layer-3d-terrain.png",
