@@ -67,6 +67,13 @@ export class MapFeatureControl {
          */
         this._sourceLayerLinks = [];
         
+        // Layer isolation state management
+        this._layerHoverState = {
+            isActive: false,
+            hiddenLayers: [], // Track which layers we've hidden
+            hoveredLayerId: null
+        };
+        
         // Initialized
     }
 
@@ -1001,6 +1008,9 @@ export class MapFeatureControl {
         summary.appendChild(title);
         
         layerDetails.appendChild(summary);
+        
+        // Add hover event handlers for layer isolation
+        this._addLayerIsolationHoverHandlers(layerDetails, layerId, config);
         
         return layerDetails;
     }
@@ -2957,7 +2967,7 @@ export class MapFeatureControl {
     }
 
     /**
-     * Get matching layer IDs (simplified version of state manager's method)
+     * Get matching layer IDs - comprehensive version based on map-layer-controls.js logic
      */
     _getMatchingLayerIds(layerConfig) {
         const style = this._map.getStyle();
@@ -2966,12 +2976,17 @@ export class MapFeatureControl {
         const layerId = layerConfig.id;
         const matchingIds = [];
         
-        // Direct ID match
-        if (style.layers.some(l => l.id === layerId)) {
-            matchingIds.push(layerId);
-        }
+        // Strategy 1: Direct ID match
+        const directMatches = style.layers.filter(l => l.id === layerId).map(l => l.id);
+        matchingIds.push(...directMatches);
         
-        // Source layer matching (for vector layers)
+        // Strategy 2: Prefix matches (for geojson layers and others)
+        const prefixMatches = style.layers
+            .filter(l => l.id.startsWith(layerId + '-') || l.id.startsWith(layerId + ' '))
+            .map(l => l.id);
+        matchingIds.push(...prefixMatches);
+        
+        // Strategy 3: Source layer matches (for vector layers)
         if (layerConfig.sourceLayer) {
             const sourceLayerMatches = style.layers
                 .filter(l => l['source-layer'] === layerConfig.sourceLayer)
@@ -2979,36 +2994,129 @@ export class MapFeatureControl {
             matchingIds.push(...sourceLayerMatches);
         }
         
-        // GeoJSON layer matching
+        // Strategy 4: Source matches (for vector tile sources)
+        if (layerConfig.source) {
+            const sourceMatches = style.layers
+                .filter(l => l.source === layerConfig.source)
+                .map(l => l.id);
+            matchingIds.push(...sourceMatches);
+        }
+        
+        // Strategy 5: Legacy source layers array
+        if (layerConfig.sourceLayers && Array.isArray(layerConfig.sourceLayers)) {
+            const legacyMatches = style.layers
+                .filter(l => l['source-layer'] && layerConfig.sourceLayers.includes(l['source-layer']))
+                .map(l => l.id);
+            matchingIds.push(...legacyMatches);
+        }
+        
+        // Strategy 6: Grouped layers
+        if (layerConfig.layers && Array.isArray(layerConfig.layers)) {
+            layerConfig.layers.forEach(subLayer => {
+                if (subLayer.sourceLayer) {
+                    const subLayerMatches = style.layers
+                        .filter(l => l['source-layer'] === subLayer.sourceLayer)
+                        .map(l => l.id);
+                    matchingIds.push(...subLayerMatches);
+                }
+            });
+        }
+        
+        // Strategy 7: GeoJSON source matching (enhanced)
         if (layerConfig.type === 'geojson') {
-            const geojsonMatches = style.layers
-                .filter(l => l.id.startsWith(`geojson-${layerId}-`))
+            const sourceId = `geojson-${layerId}`;
+            
+            // Check for source match
+            const geojsonSourceMatches = style.layers
+                .filter(l => l.source === sourceId)
                 .map(l => l.id);
-            matchingIds.push(...geojsonMatches);
+            matchingIds.push(...geojsonSourceMatches);
+            
+            // Check for specific geojson layer patterns
+            const geojsonLayerPatterns = [
+                `${sourceId}-fill`,
+                `${sourceId}-line`,
+                `${sourceId}-circle`,
+                `${sourceId}-symbol`
+            ];
+            
+            geojsonLayerPatterns.forEach(pattern => {
+                const patternMatches = style.layers
+                    .filter(l => l.id === pattern)
+                    .map(l => l.id);
+                matchingIds.push(...patternMatches);
+            });
         }
         
-        // Vector layer matching
-        if (layerConfig.type === 'vector') {
-            const vectorMatches = style.layers
-                .filter(l => l.id.startsWith(`vector-layer-${layerId}`))
-                .map(l => l.id);
-            matchingIds.push(...vectorMatches);
-        }
-        
-        // CSV layer matching
+        // Strategy 8: CSV layer matching
         if (layerConfig.type === 'csv') {
+            const sourceId = `csv-${layerId}`;
             const csvMatches = style.layers
-                .filter(l => l.id.startsWith(`csv-${layerId}-`))
+                .filter(l => l.source === sourceId || l.id === `${sourceId}-circle`)
                 .map(l => l.id);
             matchingIds.push(...csvMatches);
         }
         
-        // Generic prefix matching (fallback)
-        const prefixMatches = style.layers
-            .filter(l => l.id.startsWith(`${layerId}-`))
-            .map(l => l.id);
-        matchingIds.push(...prefixMatches);
+        // Strategy 9: Vector layer matching (enhanced)
+        if (layerConfig.type === 'vector') {
+            const sourceId = `vector-${layerId}`;
+            const vectorSourceMatches = style.layers
+                .filter(l => l.source === sourceId)
+                .map(l => l.id);
+            matchingIds.push(...vectorSourceMatches);
+            
+            const vectorLayerPatterns = [
+                `vector-layer-${layerId}`,
+                `vector-layer-${layerId}-outline`,
+                `vector-layer-${layerId}-text`
+            ];
+            
+            vectorLayerPatterns.forEach(pattern => {
+                const patternMatches = style.layers
+                    .filter(l => l.id === pattern)
+                    .map(l => l.id);
+                matchingIds.push(...patternMatches);
+            });
+        }
         
+        // Strategy 10: TMS layer matching
+        if (layerConfig.type === 'tms') {
+            const tmsMatches = style.layers
+                .filter(l => l.id === `tms-layer-${layerId}`)
+                .map(l => l.id);
+            matchingIds.push(...tmsMatches);
+        }
+        
+        // Strategy 11: IMG layer matching
+        if (layerConfig.type === 'img') {
+            const imgMatches = style.layers
+                .filter(l => l.id === layerId || l.id === `img-layer-${layerId}`)
+                .map(l => l.id);
+            matchingIds.push(...imgMatches);
+        }
+        
+        // Strategy 12: Raster style layer matching
+        if (layerConfig.type === 'raster-style-layer') {
+            const styleLayerId = layerConfig.styleLayer || layerId;
+            const rasterMatches = style.layers
+                .filter(l => l.id === styleLayerId)
+                .map(l => l.id);
+            matchingIds.push(...rasterMatches);
+        }
+        
+        // Strategy 13: Style layer matching (for layers with sublayers)
+        if (layerConfig.type === 'style' && layerConfig.layers) {
+            layerConfig.layers.forEach(layer => {
+                if (layer.sourceLayer) {
+                    const styleSubMatches = style.layers
+                        .filter(l => l['source-layer'] === layer.sourceLayer)
+                        .map(l => l.id);
+                    matchingIds.push(...styleSubMatches);
+                }
+            });
+        }
+        
+        // Remove duplicates and return
         return [...new Set(matchingIds)];
     }
 
@@ -3025,6 +3133,9 @@ export class MapFeatureControl {
             window.removeEventListener('drawer-state-change', this._drawerStateListener);
             this._drawerStateListener = null;
         }
+        
+        // Clean up layer isolation state
+        this._restoreAllLayers();
         
         // Clean up hover popup completely on cleanup
         this._removeHoverPopup();
@@ -3579,6 +3690,168 @@ export class MapFeatureControl {
         
         // Consider it mobile if any of these conditions are true
         return hasTouch || smallScreen || userAgent;
+    }
+
+    /**
+     * Add layer isolation hover handlers to layer details elements
+     */
+    _addLayerIsolationHoverHandlers(layerElement, layerId, config) {
+        // Mouse enter handler - isolate the layer
+        layerElement.addEventListener('mouseenter', (e) => {
+            // Prevent multiple hover states
+            if (this._layerHoverState.isActive && this._layerHoverState.hoveredLayerId === layerId) {
+                return;
+            }
+            
+            this._isolateLayer(layerId, config);
+        });
+
+        // Mouse leave handler - restore all layers
+        layerElement.addEventListener('mouseleave', (e) => {
+            this._restoreAllLayers();
+        });
+    }
+
+    /**
+     * Isolate a specific layer by hiding all other non-basemap layers
+     */
+    _isolateLayer(layerId, config) {
+        if (!this._map) return;
+
+        // Get matching style layers for the hovered config layer
+        const hoveredLayerIds = this._getMatchingLayerIds(config);
+        console.log(`Hovered layer ${layerId} matches style layers:`, hoveredLayerIds);
+        
+        // Get all basemap layer IDs from config
+        const basemapLayerIds = this._getBasemapLayerIds();
+        console.log(`Basemap layer IDs to preserve:`, basemapLayerIds);
+        
+        // Get all currently visible layers from the map
+        const style = this._map.getStyle();
+        if (!style.layers) return;
+
+        const visibleLayers = style.layers.filter(layer => {
+            const visibility = layer.layout?.visibility;
+            return visibility === undefined || visibility === 'visible';
+        });
+
+        // Build list of layers to hide
+        const layersToHide = [];
+        const layersToKeep = [];
+        
+        visibleLayers.forEach(layer => {
+            const styleLayerId = layer.id;
+            
+            // Skip if this layer belongs to the hovered config layer
+            if (hoveredLayerIds.includes(styleLayerId)) {
+                layersToKeep.push(styleLayerId + ' (hovered layer)');
+                return;
+            }
+            
+            // Skip if this layer belongs to a basemap config layer
+            if (basemapLayerIds.includes(styleLayerId)) {
+                layersToKeep.push(styleLayerId + ' (basemap)');
+                return;
+            }
+            
+            // Add to hide list
+            layersToHide.push(styleLayerId);
+        });
+
+        console.log(`Layers to keep visible:`, layersToKeep);
+        console.log(`Layers to hide:`, layersToHide);
+
+        // Hide the layers
+        layersToHide.forEach(styleLayerId => {
+            try {
+                this._map.setLayoutProperty(styleLayerId, 'visibility', 'none');
+            } catch (error) {
+                console.warn(`Failed to hide layer ${styleLayerId}:`, error);
+            }
+        });
+
+        // Update hover state
+        this._layerHoverState = {
+            isActive: true,
+            hiddenLayers: layersToHide,
+            hoveredLayerId: layerId
+        };
+
+        console.log(`Isolated layer ${layerId}, hidden ${layersToHide.length} layers`);
+    }
+
+    /**
+     * Restore visibility of all previously hidden layers
+     */
+    _restoreAllLayers() {
+        if (!this._map || !this._layerHoverState.isActive) return;
+
+        // Restore visibility of all hidden layers
+        this._layerHoverState.hiddenLayers.forEach(layerId => {
+            try {
+                this._map.setLayoutProperty(layerId, 'visibility', 'visible');
+            } catch (error) {
+                console.warn(`Failed to restore layer ${layerId}:`, error);
+            }
+        });
+
+        console.log(`Restored ${this._layerHoverState.hiddenLayers.length} layers`);
+
+        // Reset hover state
+        this._layerHoverState = {
+            isActive: false,
+            hiddenLayers: [],
+            hoveredLayerId: null
+        };
+    }
+
+    /**
+     * Get all matching style layer IDs for basemap config layers
+     */
+    _getBasemapLayerIds() {
+        // Try to get config from multiple sources
+        let config = this._config;
+        if (!config && window.layerControl && window.layerControl._config) {
+            config = window.layerControl._config;
+        }
+        
+        if (!config) {
+            console.warn('[MapFeatureControl] No config available for basemap detection');
+            return [];
+        }
+
+        const basemapLayerIds = [];
+        const basemapConfigs = [];
+        
+        // Find all config layers tagged with 'basemap'
+        if (config.layers && Array.isArray(config.layers)) {
+            config.layers.forEach(layer => {
+                if (layer.tags && layer.tags.includes('basemap')) {
+                    basemapConfigs.push(layer);
+                    const matchingIds = this._getMatchingLayerIds(layer);
+                    console.log(`Basemap config layer ${layer.id} matches style layers:`, matchingIds);
+                    basemapLayerIds.push(...matchingIds);
+                }
+            });
+        }
+
+        // Also check groups if they exist (older config format)
+        if (config.groups && Array.isArray(config.groups)) {
+            config.groups.forEach(group => {
+                if (group.tags && group.tags.includes('basemap')) {
+                    basemapConfigs.push(group);
+                    const matchingIds = this._getMatchingLayerIds(group);
+                    console.log(`Basemap config group ${group.id} matches style layers:`, matchingIds);
+                    basemapLayerIds.push(...matchingIds);
+                }
+            });
+        }
+
+        console.log(`Found ${basemapConfigs.length} basemap config entries:`, basemapConfigs.map(c => c.id));
+        const uniqueBasemapIds = [...new Set(basemapLayerIds)];
+        console.log(`Total unique basemap style layer IDs:`, uniqueBasemapIds);
+        
+        return uniqueBasemapIds;
     }
 }
 

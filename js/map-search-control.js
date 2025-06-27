@@ -140,13 +140,7 @@ class MapSearchControl {
             console.log('Cleared injection timeout');
         }
         
-        // Reset to reference view if we had an active search
-        if (this.hasActiveSearch && this.referenceView) {
-            console.log('Resetting map to reference view');
-            this.resetToReferenceView();
-        }
-        
-        // Reset search state flags
+        // Reset search state flags but don't change map location
         this.hasActiveSearch = false;
         this.referenceView = null;
         
@@ -218,6 +212,9 @@ class MapSearchControl {
         // Monitor input changes more aggressively
         this.setupInputMonitoring();
         
+        // Add map moveend listener to refresh search results when viewport changes
+        this.map.on('moveend', this.handleMapMoveEnd.bind(this));
+        
         console.log('MapSearchControl initialized');
     }
     
@@ -255,6 +252,94 @@ class MapSearchControl {
     handleClear(event) {
         console.log('Search box clear event received');
         this.handleEmptyInput();
+    }
+
+    /**
+     * Handle map moveend events to refresh search results for current viewport
+     */
+    handleMapMoveEnd() {
+        // Only refresh if we have an active search query that's not a coordinate
+        if (this.hasActiveSearch && this.currentQuery && !this.isCoordinateInput && this.currentQuery.length > 0) {
+            console.log('Map moved, refreshing search results for current viewport');
+            
+            // Re-query local suggestions with the new viewport
+            const newLocalSuggestions = this.queryLocalCadastralSuggestions(this.currentQuery);
+            
+            // Only update if suggestions have changed
+            if (this.haveSuggestionsChanged(this.localSuggestions, newLocalSuggestions)) {
+                console.log(`Search results updated: ${this.localSuggestions.length} -> ${newLocalSuggestions.length} suggestions`);
+                
+                this.localSuggestions = newLocalSuggestions;
+                
+                // Clear existing markers and UI
+                this.clearSuggestionMarkers();
+                
+                if (this.localSuggestions.length > 0) {
+                    // Create new markers and update UI
+                    this.createSuggestionMarkers();
+                    this.showSuggestionMarkers();
+                    
+                    // Re-inject suggestions into UI
+                    if (this.injectionTimeout) {
+                        clearTimeout(this.injectionTimeout);
+                    }
+                    
+                    this.injectionTimeout = setTimeout(() => {
+                        this.injectLocalSuggestionsIntoUI();
+                    }, 100);
+                } else {
+                    // Clear UI if no suggestions in current viewport
+                    this.clearInjectedSuggestions();
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if two suggestion arrays are different
+     * @param {Array} oldSuggestions - Previous suggestions
+     * @param {Array} newSuggestions - New suggestions
+     * @returns {boolean} True if suggestions have changed
+     */
+    haveSuggestionsChanged(oldSuggestions, newSuggestions) {
+        if (oldSuggestions.length !== newSuggestions.length) {
+            return true;
+        }
+        
+        // Compare feature IDs to detect changes
+        const oldIds = new Set(oldSuggestions.map(s => s.properties._featureId));
+        const newIds = new Set(newSuggestions.map(s => s.properties._featureId));
+        
+        if (oldIds.size !== newIds.size) {
+            return true;
+        }
+        
+        for (const id of oldIds) {
+            if (!newIds.has(id)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Clear injected suggestions from the UI
+     */
+    clearInjectedSuggestions() {
+        try {
+            const $resultsList = this.searchBox.shadowRoot ? 
+                $(this.searchBox.shadowRoot.querySelector('[role="listbox"]')) :
+                $('[role="listbox"]').first();
+                
+            if ($resultsList.length > 0) {
+                const removedCount = $resultsList.find('.local-suggestion').length;
+                $resultsList.find('.local-suggestion').remove();
+                console.log(`Cleared ${removedCount} injected suggestions from UI`);
+            }
+        } catch (error) {
+            console.error('Error clearing injected suggestions:', error);
+        }
     }
 
     /**
@@ -303,13 +388,7 @@ class MapSearchControl {
             hasReferenceView: !!this.referenceView
         });
         
-        // Reset to reference view if we had an active search
-        if (this.hasActiveSearch && this.referenceView) {
-            console.log('Resetting map to reference view due to empty input');
-            this.resetToReferenceView();
-        }
-        
-        // Reset all search state (including suggestion markers)
+        // Reset all search state (including suggestion markers) but don't change map location
         this.resetSearchState();
         
         // Clear search marker when input is cleared
@@ -321,7 +400,7 @@ class MapSearchControl {
             console.log('Cleared feature state due to empty search input');
         }
         
-        console.log('Empty input handling complete - all markers and state cleared');
+        console.log('Empty input handling complete - all markers and state cleared (map location unchanged)');
         console.log('=== EMPTY INPUT HANDLING COMPLETE ===');
     }
     
@@ -689,52 +768,45 @@ class MapSearchControl {
         }
 
         try {
-            // Get the current map bounds for querying visible features
+            // Get the current map bounds for spatial filtering
             const bounds = this.map.getBounds();
-            
-            // First, let's see what sources are available
-            const style = this.map.getStyle();
-            console.log('Available sources:', Object.keys(style.sources || {}));
-            
-            // Query features from the cadastral source layer - try without filter first to see what we get
-            const allFeatures = this.map.querySourceFeatures('vector-plot', {
-                sourceLayer: 'Onemapgoa_GA_Cadastrals'
+            console.log('Querying cadastral features within current viewport bounds:', {
+                southwest: bounds.getSouthWest().toArray(),
+                northeast: bounds.getNorthEast().toArray()
             });
             
-            console.log(`Found ${allFeatures.length} total features in Onemapgoa_GA_Cadastrals layer`);
-            
-            // Log some sample features and their properties
-            if (allFeatures.length > 0) {
-                console.log('Sample feature properties:', allFeatures[0].properties);
-                console.log('All property keys in first feature:', Object.keys(allFeatures[0].properties || {}));
-                
-                // Log first 10 plot values to see what we're working with
-                const plotValues = allFeatures.slice(0, 20).map(f => f.properties?.plot).filter(Boolean);
-                console.log('Sample plot values from first 20 features:', plotValues);
-                
-                // Log location fields for debugging
-                const locationSamples = allFeatures.slice(0, 10).map(f => ({
-                    plot: f.properties?.plot,
-                    lname: f.properties?.lname,
-                    villagenam: f.properties?.villagenam
-                }));
-                console.log('Sample location data:', locationSamples);
-                
-                // Count features with plot property
-                const featuresWithPlot = allFeatures.filter(f => f.properties && 'plot' in f.properties);
-                console.log(`Features with 'plot' property: ${featuresWithPlot.length} out of ${allFeatures.length}`);
-            }
-            
-            // Now apply the filter for features that have a plot property
+            // Query features from the cadastral source layer within current viewport
             const features = this.map.querySourceFeatures('vector-plot', {
                 sourceLayer: 'Onemapgoa_GA_Cadastrals',
                 filter: ['has', 'plot'] // Only get features that have a plot property
             });
 
-            console.log(`Found ${features.length} cadastral features with 'plot' property to search through`);
+            console.log(`Found ${features.length} cadastral features with 'plot' property in current viewport`);
+            
+            // Additional spatial filtering to ensure features are within bounds
+            // (querySourceFeatures should already filter by viewport, but let's be explicit)
+            const featuresInBounds = features.filter(feature => {
+                const center = this.getFeatureCenter(feature);
+                if (!center || center.length < 2) return false;
+                
+                const [lng, lat] = center;
+                return bounds.contains([lng, lat]);
+            });
+            
+            console.log(`After spatial filtering: ${featuresInBounds.length} features within bounds`);
+            
+            // Log some sample features and their properties (only on first query to avoid spam)
+            if (featuresInBounds.length > 0 && !this.hasActiveSearch) {
+                console.log('Sample feature properties:', featuresInBounds[0].properties);
+                console.log('All property keys in first feature:', Object.keys(featuresInBounds[0].properties || {}));
+                
+                // Log first few plot values to see what we're working with
+                const plotValues = featuresInBounds.slice(0, 10).map(f => f.properties?.plot).filter(Boolean);
+                console.log('Sample plot values from first 10 features:', plotValues);
+            }
 
             // Filter features by plot property that starts with the query (case insensitive)
-            const matchingFeatures = features.filter(feature => {
+            const matchingFeatures = featuresInBounds.filter(feature => {
                 const plotValue = feature.properties.plot;
                 if (!plotValue) return false;
                 
@@ -744,20 +816,20 @@ class MapSearchControl {
                 
                 const isMatch = plotString.startsWith(queryLower);
                 
-                // Log detailed matching info for debugging
-                if (features.length <= 10 || isMatch) {
+                // Log detailed matching info for debugging (only for small datasets or matches)
+                if (featuresInBounds.length <= 10 || isMatch) {
                     console.log(`Plot "${plotValue}" -> "${plotString}" ${isMatch ? 'MATCHES' : 'does not match'} query "${queryLower}"`);
                 }
                 
                 return isMatch;
             });
 
-            console.log(`Found ${matchingFeatures.length} matching cadastral plots for query: "${query}"`);
+            console.log(`Found ${matchingFeatures.length} matching cadastral plots within viewport for query: "${query}"`);
             
             // If we have matching features, log their plot values
             if (matchingFeatures.length > 0) {
                 const matchingPlots = matchingFeatures.map(f => f.properties.plot);
-                console.log(`Matching plot values:`, matchingPlots);
+                console.log(`Matching plot values in viewport:`, matchingPlots);
             }
 
             // Group features by unique location to avoid duplicates
@@ -949,12 +1021,6 @@ class MapSearchControl {
             hasReferenceView: !!this.referenceView
         });
         
-        // Reset to reference view if we had an active search
-        if (this.hasActiveSearch && this.referenceView) {
-            console.log('Resetting map to reference view during cleanup');
-            this.resetToReferenceView();
-        }
-        
         // Remove search marker
         this.removeSearchMarker();
         console.log('Removed search marker');
@@ -990,6 +1056,10 @@ class MapSearchControl {
             this.searchBox.removeEventListener('clear', this.handleClear.bind(this));
             console.log('Removed event listeners from search box');
         }
+        
+        // Remove map event listeners
+        this.map.off('moveend', this.handleMapMoveEnd.bind(this));
+        console.log('Removed map event listeners');
         
         console.log('MapSearchControl cleanup complete');
         console.log('=== MAP SEARCH CONTROL CLEANUP COMPLETE ===');

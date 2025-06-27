@@ -870,8 +870,8 @@
     },
     {
       "id": "communidade-bhunaksha",
-      "title": "Communidade Lands (Bardez)",
-      "description": "Land parcels governed by the <a href='https://cdn.s3waas.gov.in/s3d840cc5d906c3e9c84374c8919d2074e/uploads/2018/07/2018070597.pdf'>Code of Communidades</a>",
+      "title": "Communidade Lands (Bhunaksha)",
+      "description": "Land parcels with Bhunaksha RoR includes 'Communidade' in the list of occupant info.",
       "headerImage": "assets/map-layers/map-layer-communidade-land.png",
       "type": "vector",
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=6bd0b9f7-fef3-4a97-8926-016ef6155293",
@@ -884,6 +884,7 @@
         "line-width": 1,
         "fill-opacity": 0.3
       },
+      "filter": ["==", "Village", "Saligao"],
       "inspect": {
         "id": "id",
         "title": "Owners",
@@ -1109,7 +1110,7 @@
               false
             ],
             1,
-            0
+            0.01
           ],
           18,
           [
@@ -4658,6 +4659,7 @@
     {
       "initiallyChecked": true,
       "id": "mapbox-satellite",
+      "tags": ["satellite","basemap"],
       "type": "raster-style-layer",
       "title": "Satellite Imagery",
       "description": "Satellite imagery from Mapbox. See <a href='https://docs.mapbox.com/help/dive-deeper/imagery/'>Mapbox Satellite Imagery</a> for details.",
@@ -4687,6 +4689,7 @@
     },
     {
       "id": "3d-terrain",
+      "tags": ["satellite","basemap"],
       "title": "3D Terrain",
       "description": "Terrain Controls",
       "headerImage": "assets/map-layers/map-layer-3d-terrain.png",
