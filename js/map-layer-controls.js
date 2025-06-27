@@ -243,6 +243,7 @@ export class MapLayerControl {
      */
     _isPropertyValidForLayerType(property, layerType) {
         // Define invalid property patterns for each layer type
+        // Note: text- properties are NOT filtered out because text layers are created separately as symbol type
         const invalidPatterns = {
             symbol: [
                 /^fill-/,        // fill-color, fill-opacity, etc.
@@ -251,20 +252,17 @@ export class MapLayerControl {
             ],
             fill: [
                 /^line-/,        // line-color, line-width, etc.
-                /^text-/,        // text-color, text-field, etc.
                 /^icon-/,        // icon-image, icon-color, etc.
                 /^circle-/       // circle-radius, circle-color, etc.
             ],
             line: [
                 /^fill-/,        // fill-color, fill-opacity, etc.
-                /^text-/,        // text-color, text-field, etc.
                 /^icon-/,        // icon-image, icon-color, etc.
                 /^circle-/       // circle-radius, circle-color, etc.
             ],
             circle: [
                 /^fill-/,        // fill-color, fill-opacity, etc.
                 /^line-/,        // line-color, line-width, etc.
-                /^text-/,        // text-color, text-field, etc.
                 /^icon-/         // icon-image, icon-color, etc.
             ]
         };
@@ -1893,8 +1891,12 @@ export class MapLayerControl {
 
                     // Add text layer if text styles are defined
                     if (group.style?.['text-field']) {
+                        // Merge group styles with default styles from _defaults.json
+                        const defaultTextStyles = this._defaultStyles?.vector?.text || {};
+                        const mergedTextStyles = { ...defaultTextStyles, ...group.style };
+                        
                         // Use the proper style categorization to handle all properties correctly
-                        const { paint: textPaint, layout: textLayout } = this._categorizeStyleProperties(group.style, 'symbol');
+                        const { paint: textPaint, layout: textLayout } = this._categorizeStyleProperties(mergedTextStyles, 'symbol');
 
                         const textLayerConfig = {
                             id: `vector-layer-${group.id}-text`,
@@ -1902,7 +1904,7 @@ export class MapLayerControl {
                             source: sourceId,
                             'source-layer': group.sourceLayer || 'default',
                             layout: {
-                                // Default layout properties
+                                // Default layout properties (fallback values)
                                 'text-font': ['Open Sans Bold'],
                                 'text-anchor': 'center',
                                 'text-justify': 'center',
@@ -1910,11 +1912,11 @@ export class MapLayerControl {
                                 'text-offset': [0, 0],
                                 'text-transform': 'none',
                                 'text-size': 12,
-                                // Apply categorized layout properties (including text-padding)
+                                // Apply categorized layout properties (including defaults from _defaults.json)
                                 ...textLayout
                             },
                             paint: {
-                                // Default paint properties
+                                // Default paint properties (fallback values)
                                 'text-color': '#000000',
                                 'text-halo-color': '#ffffff',
                                 'text-halo-width': 1,
@@ -1927,7 +1929,7 @@ export class MapLayerControl {
                                     0.9,
                                     0.7
                                 ],
-                                // Apply categorized paint properties
+                                // Apply categorized paint properties (including defaults from _defaults.json)
                                 ...textPaint
                             }
                         };
@@ -2455,36 +2457,39 @@ export class MapLayerControl {
 
                 // Add text layer if text properties are defined
                 if (group.style?.['text-field'] || group.style?.['text-size']) {
+                    // Merge group styles with default styles from _defaults.json
+                    // Use geojson defaults if available, otherwise fall back to vector defaults
+                    const defaultTextStyles = this._defaultStyles?.geojson?.text || this._defaultStyles?.vector?.text || {};
+                    const mergedTextStyles = { ...defaultTextStyles, ...group.style };
+                    
                     // Use proper style categorization to handle all properties correctly
-                    const { paint: textPaint, layout: textLayout } = this._categorizeStyleProperties(group.style, 'symbol');
+                    const { paint: textPaint, layout: textLayout } = this._categorizeStyleProperties(mergedTextStyles, 'symbol');
 
                     this._map.addLayer({
                         id: `${sourceId}-label`,
                         type: 'symbol',
                         source: sourceId,
                         layout: {
-                            // Default layout properties
+                            // Default layout properties (fallback values)
                             'text-font': ['Open Sans Bold'],
-                            'text-field': this._defaultStyles.vector.text['text-field'],
-                            'text-size': this._defaultStyles.vector.text['text-size'],
-                            'text-anchor': this._defaultStyles.vector.text['text-anchor'],
-                            'text-justify': this._defaultStyles.vector.text['text-justify'],
-                            'text-allow-overlap': this._defaultStyles.vector.text['text-allow-overlap'],
-                            'text-offset': this._defaultStyles.vector.text['text-offset'],
-                            'text-transform': this._defaultStyles.vector.text['text-transform'],
-                            // Only set text-padding if it's defined to avoid undefined errors
-                            ...(group.style?.['text-padding'] !== undefined ? { 'text-padding': group.style['text-padding'] } : {}),
+                            'text-field': ['get', 'name'],
+                            'text-size': 12,
+                            'text-anchor': 'center',
+                            'text-justify': 'center',
+                            'text-allow-overlap': false,
+                            'text-offset': [0, 0],
+                            'text-transform': 'none',
                             visibility: 'visible',
-                            // Apply categorized layout properties (including text-padding)
+                            // Apply categorized layout properties (including defaults from _defaults.json)
                             ...textLayout
                         },
                         paint: {
-                            // Default paint properties
+                            // Default paint properties (fallback values)
                             'text-color': '#000000',
                             'text-halo-color': '#ffffff',
                             'text-halo-width': 1,
                             'text-halo-blur': 1,
-                            // Apply categorized paint properties
+                            // Apply categorized paint properties (including defaults from _defaults.json)
                             ...textPaint
                         }
                     }, this._getInsertPosition('vector', 'symbol'));
@@ -2658,36 +2663,48 @@ export class MapLayerControl {
 
                 // Add text layer if text styles are defined
                 if (group.style?.['text-field']) {
+                    // Merge group styles with default styles from _defaults.json
+                    const defaultTextStyles = this._defaultStyles?.vector?.text || {};
+                    const mergedTextStyles = { ...defaultTextStyles, ...group.style };
+                    
+                    // Use the proper style categorization for merged styles
+                    const { paint: textPaint, layout: textLayout } = this._categorizeStyleProperties(mergedTextStyles, 'symbol');
+                    
                     const textLayerConfig = {
                         id: `vector-layer-${group.id}-text`,
                         type: 'symbol',
                         source: sourceId,
                         'source-layer': group.sourceLayer || 'default',
                         layout: {
-                            'text-font': group.style?.['text-font'] || ['Open Sans Bold'],
+                            // Default layout properties (fallback values)
+                            'text-font': ['Open Sans Bold'],
                             'text-field': group.style?.['text-field'],
-                            'text-size': group.style?.['text-size'] || 12,
-                            'text-anchor': group.style?.['text-anchor'] || 'center',
-                            'text-justify': group.style?.['text-justify'] || 'center',
-                            'text-allow-overlap': group.style?.['text-allow-overlap'] || false,
-                            'text-offset': group.style?.['text-offset'] || [0, 0],
-                            'text-transform': group.style?.['text-transform'] || 'none',
-                            'text-padding': group.style?.['text-padding'],
-                            visibility: 'visible'
+                            'text-size': 12,
+                            'text-anchor': 'center',
+                            'text-justify': 'center',
+                            'text-allow-overlap': false,
+                            'text-offset': [0, 0],
+                            'text-transform': 'none',
+                            visibility: 'visible',
+                            // Apply categorized layout properties (including defaults from _defaults.json)
+                            ...textLayout
                         },
                         paint: {
-                            'text-color': group.style?.['text-color'] || '#000000',
-                            'text-halo-color': group.style?.['text-halo-color'] || '#ffffff',
-                            'text-halo-width': group.style?.['text-halo-width'] !== undefined ? group.style['text-halo-width'] : 1,
-                            'text-halo-blur': group.style?.['text-halo-blur'] !== undefined ? group.style['text-halo-blur'] : 1,
-                            'text-opacity': group.style?.['text-opacity'] || [
+                            // Default paint properties (fallback values)
+                            'text-color': '#000000',
+                            'text-halo-color': '#ffffff',
+                            'text-halo-width': 1,
+                            'text-halo-blur': 1,
+                            'text-opacity': [
                                 'case',
                                 ['boolean', ['feature-state', 'selected'], false],
                                 1,
                                 ['boolean', ['feature-state', 'hover'], false],
                                 0.9,
                                 0.7
-                            ]
+                            ],
+                            // Apply categorized paint properties (including defaults from _defaults.json) 
+                            ...textPaint
                         }
                     };
 

@@ -194,7 +194,28 @@
             "name"
           ],
           "text-size": 12,
-          "text-halo-color": "#ffffff",
+          "text-halo-color": [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            "red",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            "yellow",
+            "white"
+          ],
           "text-halo-width": 1,
           "text-halo-blur": 1,
           "text-opacity": [
@@ -220,9 +241,15 @@
             0.9
           ],
           "text-anchor": "bottom",
+          "text-line-height": 1,
+          "text-max-width": 8,
           "text-justify": "center",
           "text-allow-overlap": false,
-          "text-transform": "none"
+          "text-transform": "none",
+          "text-offset": [
+            0,
+            0
+          ]
           
         },
         "circle": {

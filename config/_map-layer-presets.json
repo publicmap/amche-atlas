@@ -1929,7 +1929,6 @@
         "text-halo-width": 2,
         "text-size": 12,
         "line-color": "#0084f7",
-        "line-width": 2,
         "fill-color": "#0084f7",
         "fill-opacity": 0.3
       },
