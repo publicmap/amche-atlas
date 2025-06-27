@@ -923,6 +923,17 @@
       "initiallyChecked": true
     },
     {
+      "title": "Irrigation Command Area Maps",
+      "description": "Irrigation command area maps.",
+      "headerImage": "assets/map-layers/map-layer-cada.png",
+      "legendImage": "assets/map-layers/map-layer-cada-legend.jpg",
+      "type": "tms",
+      "id": "cada",
+      "url": "https://mapwarper.net/mosaics/tile/2267/{z}/{x}/{y}.png",
+      "attribution": "Water Resources Department, Govet. of Goa",
+      "initiallyChecked": true
+    },
+    {
       "id": "goa-czmp-map"
     },
     {
