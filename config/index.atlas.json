@@ -425,21 +425,6 @@
       "id": "steep-plots"
     },
     {
-      "id": "communidade-land"
-    },
-    {
-      "id": "notified-wetlands"
-    },
-    {
-      "id": "plot"
-    },
-    {
-      "id": "village"
-    },
-    {
-      "id": "municipal-wards"
-    },
-    {
       "initiallyChecked": true,
       "title": "Local Body Boundaries",
       "description": "Municipal and Panchayat local body boundaries. Please see <a href='https://grammanchitra.gov.in/gm4MVC' target='_blank'>Gramanchiitra</a> for panchayat demographic profile and information on elected representatives.",
@@ -669,6 +654,24 @@
       }
     },
     {
+      "id": "municipal-wards"
+    },
+    {
+      "id": "village"
+    },
+    {
+      "id": "communidade-bhunaksha"
+    },
+    {
+      "id": "communidade-saligao"
+    },
+    {
+      "id": "notified-wetlands"
+    },
+    {
+      "id": "plot"
+    },
+    {
       "id": "assembly-constituencies"
     },
     {
@@ -708,6 +711,63 @@
       "id": "crz"
     },
     {
+      "title": "Protected Archaeological Sites",
+      "description": "Ancient monuments and archaeological sites protected by the Archaeological Survey of India (ASI).",
+      "headerImage": "assets/map-layers/map-layer-asi.png",
+      "type": "vector",
+      "id": "asi",
+      "url": "https://indianopenmaps.fly.dev/not-so-open/cultural/monuments/zones/asi/bhuvan/{z}/{x}/{y}.pbf",
+      "sourceLayer": "Bhuvan_ASI_Boundaries",
+      "maxzoom": 13,
+      "attribution": "Source: <a href=\"https://bhuvan.nrsc.gov.in/\" target=\"_blank\" rel=\"noopener noreferrer\">BHuvan/ASI</a> - Collected by <a href=\"https://datameet.org\" target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
+      "initiallyChecked": false,
+      "style": {
+        "line-color": [
+          "match",
+          [
+            "get",
+            "boundary_type"
+          ],
+          "protected",
+          "black",
+          "prohibited",
+          "orange",
+          "yellow"
+        ],
+        "line-width": [
+          "match",
+          [
+            "get",
+            "boundary_type"
+          ],
+          "protected",
+          4,
+          2
+        ]
+      },
+      "inspect": {
+        "id": "gid",
+        "title": "Monument Name",
+        "label": "mon_name",
+        "fields": [
+          "asicircle",
+          "boundary_type",
+          "buff_dist",
+          "district",
+          "flag",
+          "gid"
+        ],
+        "fieldTitles": [
+          "Asicircle",
+          "Boundary Type",
+          "Buff Dist",
+          "District",
+          "Flag",
+          "Gid"
+        ]
+      }
+    },
+    {
       "id": "mining"
     },
     {
@@ -736,7 +796,7 @@
     },
     {
       "id": "landslide-risk",
-      "url": "https://earthengine.googleapis.com/v1/projects/earthengine-legacy/maps/5bc0f5e3b498438cf56cc26f6b4386d6-1a646d0ca3e01bfd9a02855ccc3a3238/tiles/{z}/{x}/{y}",
+      "url": "https://earthengine.googleapis.com/v1/projects/earthengine-legacy/maps/5bc0f5e3b498438cf56cc26f6b4386d6-ff533c90daa9035e666bdd8441044c8c/tiles/{z}/{x}/{y}",
       "type": "tms",
       "title": "Landslide Risk",
       "description": "High resolution (100m) landslide susceptibility mapping using ensemble machine learning and geospatial big data. See <a href='https://github.com/hydrosenselab/ILSM'>source code</a> for technical details.",
@@ -860,6 +920,17 @@
       "id": "regional-plan",
       "url": "https://mapwarper.net/mosaics/tile/2054/{z}/{x}/{y}.png",
       "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, Goa Town & Country Planning Department</a>. Georeferenced using <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
+      "initiallyChecked": true
+    },
+    {
+      "title": "Irrigation Command Area Maps",
+      "description": "Irrigation command area maps.",
+      "headerImage": "assets/map-layers/map-layer-cada.png",
+      "legendImage": "assets/map-layers/map-layer-cada-legend.jpg",
+      "type": "tms",
+      "id": "cada",
+      "url": "https://mapwarper.net/mosaics/tile/2267/{z}/{x}/{y}.png",
+      "attribution": "Water Resources Department, Govet. of Goa",
       "initiallyChecked": true
     },
     {

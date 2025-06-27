@@ -102,15 +102,27 @@
     margin-bottom: 0;
 }
 
-/* Add these styles to fix mobile viewport height */
+/* Add these styles to fix mobile viewport height including iOS Safari */
 html,
 body {
-    height: 100%;
+    height: 100vh; /* Fallback for older browsers */
+    height: 100dvh; /* Dynamic viewport height for iOS Safari */
     margin: 0;
     padding: 0;
     overflow: hidden;
     position: relative;
     width: 100%;
+}
+
+/* Full viewport height class for iOS Safari compatibility */
+.full-viewport-height {
+    height: 100vh; /* Fallback for older browsers */
+}
+
+@supports (height: 100dvh) {
+    .full-viewport-height {
+        height: 100dvh; /* Dynamic viewport height for iOS Safari */
+    }
 }
 
 /* Update the map container positioning */
@@ -386,6 +398,28 @@ header h1 {
     box-shadow: 0 2px 12px rgba(0,0,0,0.15);
     max-width: 250px;
     overflow: hidden;
+}
+
+/* Feature control visual feedback styles */
+.layer-details.has-hover {
+    border-left-color: #fbbf24 !important; /* Yellow border for hover */
+    border-left-width: 4px !important;
+}
+
+.layer-details.has-selection {
+    border-left-color: #ef4444 !important; /* Red border for selection - sticky until cleared */
+    border-left-width: 4px !important;
+}
+
+/* Selection takes priority over hover - red stays when selected */
+.layer-details.has-hover.has-selection {
+    border-left-color: #ef4444 !important; /* Red border takes priority */
+    border-left-width: 4px !important;
+}
+
+/* Animation for smooth border transitions */
+.layer-details {
+    transition: border-left-color 0.2s ease, border-left-width 0.2s ease;
 }
 
 .consolidated-popup {
@@ -911,17 +945,31 @@ a:hover {
 
 
 
-/* Style the open drawer button and its icon */
-#open-drawer {
-    background-color: #000000;
-}
-
-#open-drawer::part(base) {
-    background-color: #000000;
-}
-
 header .icon-button {
     color: #ffffff !important;
+}
+
+/* Options button hover styles - simple and subtle */
+.feature-control-button-container sl-button[variant="text"]:hover {
+    background-color: rgba(251, 191, 36, 0.15) !important;
+}
+
+.feature-control-button-container sl-button[variant="text"]:hover sl-icon {
+    color: #fbbf24 !important;
+}
+
+/* Active state hover (when drawer is open) - subtle difference */
+.feature-control-button-container sl-button[variant="text"][data-drawer-open="true"]:hover {
+    background-color: rgba(251, 191, 36, 0.2) !important;
+}
+
+/* Smooth transitions for the options button */
+.feature-control-button-container sl-button[variant="text"] {
+    transition: background-color 0.15s ease !important;
+}
+
+.feature-control-button-container sl-button[variant="text"] sl-icon {
+    transition: color 0.15s ease !important;
 }
 
 sl-details::part(header) {
@@ -932,7 +980,7 @@ sl-details::part(header):hover {
     opacity: 1;
 }
 sl-details::part(base) {
-    padding: 10px;
+    padding: 0px;
 }
 sl-details::part(content) {
     padding: 0px;
@@ -1198,12 +1246,7 @@ input:checked + .toggle-slider:before {
     opacity: 1;
 }
 
-/* Source details styles */
-.source-details {
-    background: #f5f5f5;
-    border-radius: 4px;
-    padding: 1rem;
-}
+
 
 .source-details .font-mono {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
@@ -2204,4 +2247,312 @@ sl-menu {
         font-size: 0.7rem;
         padding: 3px 6px;
     }
+}
+
+/* Enhanced Map Feature Control with nested Shoelace Details styling */
+/* Map Feature Control - Minimal Clean Design */
+.map-feature-control {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Main Map Layers details component */
+.map-feature-control .map-layers-main::part(base) {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+}
+
+.map-feature-control .map-layers-main::part(header) {
+    padding: 6px;
+    background: transparent;
+    border: none;
+}
+
+.map-feature-control .map-layers-main::part(content) {
+    padding: 0;
+    background: #f3f3f3;
+}
+
+.map-feature-control .map-layers-main::part(summary-icon) {
+    color: #666;
+    font-size: 12px;
+}
+
+/* Individual layer details styling */
+.map-feature-control .layer-details::part(base) {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    margin-bottom: 0;
+    overflow: visible;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.map-feature-control .layer-details:last-child::part(base) {
+    border-bottom: none;
+}
+
+.map-feature-control .layer-details::part(header) {
+    padding: 0px 6px;
+    background: rgba(0, 0, 0, 0.02);
+    border: none;
+    border-top: 1px solid #fafafa;
+/* Header background image styling - applied dynamically via JavaScript */
+
+.map-feature-control .layer-details::part(content) {
+    padding: 0px 6px;
+    background: transparent;
+}
+
+.map-feature-control .layer-details::part(summary-icon) {
+    color: #666;
+    font-size: 12px;
+}
+
+/* Nested details components (Source, Legend, Features) */
+.map-feature-control .source-details::part(base),
+.map-feature-control .legend-details::part(base),
+.map-feature-control .features-details::part(base) {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    margin-bottom: 0;
+}
+
+.map-feature-control .source-details::part(header),
+.map-feature-control .legend-details::part(header),
+.map-feature-control .features-details::part(header) {
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+
+.map-feature-control .source-details::part(content),
+.map-feature-control .legend-details::part(content),
+.map-feature-control .features-details::part(content) {
+    padding: 0;
+    background: transparent;
+}
+
+.map-feature-control .source-details::part(summary-icon),
+.map-feature-control .legend-details::part(summary-icon),
+.map-feature-control .features-details::part(summary-icon) {
+    color: #888;
+    font-size: 10px;
+}
+
+/* Layer action controls styling - Compact */
+.map-feature-control .layer-actions sl-dropdown sl-button::part(base) {
+    font-size: 10px;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: transparent;
+    color: hsl(210, 2%, 47%);
+    transition: all 0.15s ease;
+}
+
+.map-feature-control .layer-actions sl-dropdown sl-button:hover::part(base) {
+    border-color: #dee2e6;
+}
+
+.map-feature-control .layer-actions sl-button[variant="text"]::part(base) {
+    color: #ef4444;
+    transition: all 0.15s ease;
+    min-width: auto;
+    background: transparent;
+    border: none;
+}
+
+.map-feature-control .layer-actions sl-button[variant="text"]:hover::part(base) {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+/* Dropdown menu styling for opacity options */
+.map-feature-control .layer-actions sl-dropdown sl-menu-item::part(base) {
+    font-size: 10px;
+    padding: 4px 8px;
+}
+
+.map-feature-control .layer-actions sl-dropdown sl-menu-item:hover::part(base) {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* Drawer toggle switch styling - Minimal */
+.map-feature-control .map-layers-summary sl-switch::part(control) {
+    --thumb-size: 12px;
+    --width: 24px;
+    --height: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.map-feature-control .map-layers-summary sl-switch::part(thumb) {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.map-feature-control .map-layers-summary sl-switch[checked]::part(control) {
+    background: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.map-feature-control .map-layers-summary sl-switch[checked]::part(thumb) {
+    background: white;
+    border-color: white;
+}
+
+/* Feature content styling within details - Minimal */
+.map-feature-control .feature-control-feature {
+    border-radius: 0;
+    transition: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.map-feature-control .feature-control-feature:hover {
+    background: rgba(0, 0, 0, 0.02) !important;
+    transform: none;
+    box-shadow: none;
+}
+
+.map-feature-control .feature-inspector-properties-table tr:hover {
+    background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+/* Scrollbar styling for nested content - Minimal */
+.map-feature-control .features-content::-webkit-scrollbar,
+.map-feature-control .feature-inspector-table-content::-webkit-scrollbar {
+    width: 3px;
+}
+
+.map-feature-control .features-content::-webkit-scrollbar-track,
+.map-feature-control .feature-inspector-table-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.map-feature-control .features-content::-webkit-scrollbar-thumb,
+.map-feature-control .feature-inspector-table-content::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+}
+
+/* Legend image styling - Minimal */
+.map-feature-control .legend-details img {
+    transition: none;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.map-feature-control .legend-details img:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* Mobile responsive adjustments - Minimal */
+@media (max-width: 768px) {
+    .map-feature-control {
+        max-width: calc(100vw - 16px);
+        min-width: 200px;
+    }
+    
+    .map-feature-control .layer-actions {
+        flex-direction: row;
+        gap: 6px;
+    }
+    
+    .map-feature-control .layer-actions sl-dropdown {
+        flex: 1;
+    }
+    
+    .map-feature-control .layer-actions sl-dropdown sl-button::part(base) {
+        font-size: 9px;
+        padding: 3px 6px;
+    }
+    
+    /* Compact feature table on mobile */
+    .map-feature-control .feature-inspector-properties-table {
+        font-size: 8px !important;
+    }
+    
+    .map-feature-control .feature-inspector-properties-table td {
+        padding: 2px 3px !important;
+        font-size: 7px !important;
+    }
+    
+    /* Mobile responsive for main actions */
+    .map-feature-control .map-layers-actions {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    
+    .map-feature-control .map-layers-actions label {
+        font-size: 10px !important;
+    }
+    
+    .map-feature-control .map-layers-actions sl-button {
+        font-size: 9px !important;
+    }
+}
+
+/* Animation for expanding/collapsing details */
+.map-feature-control sl-details::part(content) {
+    transition: all 0.15s ease;
+}
+
+/* Details group spacing - accordion style */
+.map-feature-control [class*="details-group-"] sl-details:not(:last-child) {
+    margin-bottom: 1px;
+}
+
+/* Actions sections styling */
+.map-feature-control .map-layers-actions {
+    background: rgba(0, 0, 0, 0.02);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Switch styling in actions sections */
+.map-feature-control .map-layers-actions sl-switch::part(control),
+.map-feature-control .layer-actions-section sl-switch::part(control) {
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.map-feature-control .map-layers-actions sl-switch::part(thumb),
+.map-feature-control .layer-actions-section sl-switch::part(thumb) {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.map-feature-control .map-layers-actions sl-switch[checked]::part(control),
+.map-feature-control .layer-actions-section sl-switch[checked]::part(control) {
+    background: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.map-feature-control .map-layers-actions sl-switch[checked]::part(thumb),
+.map-feature-control .layer-actions-section sl-switch[checked]::part(thumb) {
+    background: white;
+    border-color: white;
+}
+
+/* Focus styles for accessibility */
+.map-feature-control sl-details::part(header):focus-visible {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
+}
+
+.map-feature-control sl-switch:focus-visible::part(control) {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
+}
+
+.map-feature-control sl-button:focus-visible::part(base) {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
 }

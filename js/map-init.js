@@ -1,4 +1,6 @@
 import { MapLayerControl } from './map-layer-controls.js';
+import { MapFeatureControl } from './map-feature-control.js';
+import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { configControl } from './config-control.js';
 import { localization } from './localization.js';
 import { URLManager } from './url-api.js';
@@ -195,6 +197,9 @@ async function loadConfiguration() {
                         layer.initiallyChecked = false;
                     }
                 });
+                
+                console.log('[MapInit] Set initial layer states based on URL parameters:', 
+                    existingLayers.map(l => ({ id: l.id, initiallyChecked: l.initiallyChecked })));
             
             // Create minified layers parameter for URL rewriting
             const minifiedLayersParam = processedUrlLayers.map(layer => {
@@ -479,16 +484,40 @@ async function initializeMap() {
         // Add view control
         map.addControl(new ViewControl(), 'top-right');
         
+        // Initialize centralized state manager (NEW ARCHITECTURE)
+        const stateManager = new MapFeatureStateManager(map);
+        console.log('[MapInit] Initialized centralized feature state manager');
+        
         // Initialize layer control
         const layerControl = new MapLayerControl(layers);
         const container = document.getElementById('layer-controls-container');
         
         // Hide loader and show controls
         document.getElementById('layer-controls-loader').classList.add('hidden');
+        document.getElementById('map-layer-filter').classList.remove('hidden');
         container.classList.remove('hidden');
         
-        // Initialize layer control
+        // Initialize layer control with state manager
         layerControl.renderToContainer(container, map);
+        layerControl.setStateManager(stateManager);
+        
+        // Make layer control globally accessible
+        window.layerControl = layerControl;
+        
+        // Initialize the feature control with state manager and config
+        const featureControl = new MapFeatureControl({
+            position: 'bottom-right',
+            maxHeight: '500px',
+            maxWidth: '350px'
+        });
+        featureControl.addTo(map);
+        featureControl.initialize(stateManager, config);
+        
+        // Make components globally accessible
+        window.featureControl = featureControl;
+        window.stateManager = stateManager;
+        
+        console.log('[MapInit] Initialized event-driven architecture');
         
         // Initialize URL manager after layer control is ready
         const urlManager = new URLManager(layerControl, map);

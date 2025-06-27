@@ -869,7 +869,31 @@
       }
     },
     {
-      "id": "communidade-land",
+      "id": "communidade-bhunaksha",
+      "title": "Communidade Lands (Bardez)",
+      "description": "Land parcels governed by the <a href='https://cdn.s3waas.gov.in/s3d840cc5d906c3e9c84374c8919d2074e/uploads/2018/07/2018070597.pdf'>Code of Communidades</a>",
+      "headerImage": "assets/map-layers/map-layer-communidade-land.png",
+      "type": "vector",
+      "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=6bd0b9f7-fef3-4a97-8926-016ef6155293",
+      "sourceLayer": "vector",
+      "maxzoom": 14,
+      "attribution": "<a href='https://docs.google.com/spreadsheets/d/18ws6fp8x5UxD7xq_LW-8qVq1qAPoEPR8qEF8jWyR0lI/edit?gid=0#gid=0'>Communidades of Goltim and Saligao</a>",
+      "style": {
+        "fill-color": "Magenta",
+        "line-color": "Magenta",
+        "line-width": 1,
+        "fill-opacity": 0.3
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Owners",
+        "label": "Owners",
+        "fields": ["Plot","Village"],
+        "fieldTitles": ["Plot","Village"]
+      }
+    },
+    {
+      "id": "communidade-saligao",
       "title": "Communidade Land",
       "description": "Land parcels governed by the <a href='https://cdn.s3waas.gov.in/s3d840cc5d906c3e9c84374c8919d2074e/uploads/2018/07/2018070597.pdf'>Code of Communidades</a>",
       "headerImage": "assets/map-layers/map-layer-communidade-land.png",
@@ -881,6 +905,11 @@
         "line-color": "Magenta",
         "line-width": 2,
         "fill-opacity": 0.5
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Occupant",
+        "label": "owner"
       }
     },
     {
@@ -888,14 +917,119 @@
       "title": "Notified Wetlands",
       "description": "Notified Wetlands as per the <a href='https://gswa.goa.gov.in/gazette-notification/'>Goa State Wetland Authority Notifications</a>",
       "headerImage": "assets/map-layers/map-layer-notified-wetlands.png",
-      "type": "geojson",
-      "url": "https://gist.githubusercontent.com/planemad/7556655a787c4fb2143ce4f71d8645da/raw/2b2d8bbb775cce9eff236ceb0107274ddf93c81d/goa-notified-wetlands.geojson",
-      "attribution": "<a href='https://gswa.goa.gov.in/gazette-notification/'>Goa State Wetland Authority</a> collected by <a href='https://docs.google.com/spreadsheets/d/18ws6fp8x5UxD7xq_LW-8qVq1qAPoEPR8qEF8jWyR0lI/edit?gid=1037394520#gid=1037394520'>Amche.in Community</a>",
+      "type": "vector",
+      "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=37001657-13b7-4065-8b80-cdb5594f15b1",
+      "sourceLayer": "vector",
+      "maxzoom": 14,
+      "attribution": "<a href='https://docs.google.com/spreadsheets/d/19dREaWRkcxG00UmGGCQa_5tdoouuVi5EfCQZ_BmB064/edit?gid=0#gid=0'>Goa Gazettes collected by amche.in community</a> - via <a href='https://www.maphub.co/map/37001657-13b7-4065-8b80-cdb5594f15b1'>Maphub</a>",
+      "filter": ["!=", "match_status", "unmatched"],
       "style": {
-        "fill-color": "cyan",
-        "line-color": "cyan",
-        "line-width": 2,
-        "fill-opacity": 0.5
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          [
+            "to-string",
+            ["get", "Wetland Name"]
+          ],
+          14,
+          [
+            "concat",
+            [
+              "to-string",
+              ["get", "match_notes"]
+            ],
+            "\n",
+            [
+              "to-string",
+              ["get", "Category"]
+            ]
+          ]
+        ]
+        ,
+        "text-halo-color":[
+          "match",
+          [
+            "get",
+            "Category"
+          ],
+          ["Wetland","Wetland & Zone of influence"],
+          "#67abee",
+          ["Buffer Zone","Buffer zone"],
+          "#7feeff",
+          ["Zone of Influence","Zone of influence"],
+          "#b2b2c1",
+          "black"
+        ],
+        "fill-opacity": [
+          "match",
+          [
+            "get",
+            "match_notes"
+          ],
+          "Subdivision",
+          0.9,
+          0.7
+        ],
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "Category"
+          ],
+          ["Wetland","Wetland & Zone of influence"],
+          "#67abee",
+          ["Buffer Zone","Buffer zone"],
+          "#7feeff",
+          ["Zone of Influence","Zone of influence"],
+          "#b2b2c1",
+          "black"
+        ], 
+        "line-width": [
+          "match",
+          [
+            "get",
+            "match_notes"
+          ],
+          "Subdivision",
+          3,
+          0.1
+        ],
+        "line-color":[
+          "match",
+          [
+            "get",
+            "Category"
+          ],
+          ["Wetland","Wetland & Zone of influence"],
+          "#67abee",
+          ["Buffer Zone","Buffer zone"],
+          "#7feeff",
+          ["Zone of Influence","Zone of influence"],
+          "#b2b2c1",
+          "black"
+        ],
+        "line-sort-key": [
+          "match",
+          [
+            "get",
+            "Category"
+          ],
+          ["Wetland","Wetland & Zone of influence"],
+          5,
+          "Buffer Zone",
+          4,
+          0
+        ]
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Wetland Name",
+        "label": "Wetland Name",
+        "fields" : ["Category","match_notes"],
+        "fieldTitles": ["Type"," Coverage"],
+        "customHtml": "<a href='https://www.fao.org/soils-portal/data-hub/soil-maps-and-databases/faounesco-soil-map-of-the-world/en/' target='_blank'>Soil Code Lookup</a> | <a href='https://www.fao.org/soils-portal/data-hub/soil-maps-and-databases/faounesco-soil-map-of-the-world/en/'>Soil Unit Lookup</a> | <a href='https://www.fao.org/fileadmin/user_upload/soils/docs/Soil_map_FAOUNESCO/acrobat/South_Asia_VII_II.pdf' target='_blank'>South Asia Soil Unit Map</a>"
       }
     },
     {
@@ -1015,7 +1149,7 @@
           "Village",
           "Taluk"
         ],
-        "customHtml": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/' target='_blank'>View in Bhunaksha Goa</a> | <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31' target='_blank'>View RoR</a>"
+        "customHtml": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/' target='_blank'>Bhunaksha Goa</a> | <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31' target='_blank'>View RoR</a> | <a href='https://davepaiva.github.io/goa-cadastral-duckdb-demo/' target='_blank'>Search</a>"
       }
     },
     {
@@ -1903,67 +2037,11 @@
       "headerImage": "assets/map-layers/map-layer-forest.png",
       "type": "geojson",
       "id": "private-forests",
-      "url": "https://gist.githubusercontent.com/planemad/54b84c11fc0325889f1127e49b5740db/raw/6b4df018b298f37b1789f1c40405c8d9aee0aadd/goa_private_forest_plots.geojson",
+      "url": "https://gist.githubusercontent.com/planemad/54b84c11fc0325889f1127e49b5740db/raw/1f99740ddb55a1528d76a5364aa9a95c1fe800da/goa_private_forest_plots-jun-2026.geojson",
       "attribution": "<a href='https://docs.google.com/spreadsheets/d/1OHrd9c61IQ2rE_pKqPrtMgT5AY5Wepru/edit?gid=378361244#gid=378361244'>Goa Private Forest Plots</a> - Collected by <a href='https://github.com/publicmap/amche-goa/issues/75'>Amche.in Community</a>",
       "style": {
         "line-color": "#006400",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          14,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            4,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            3,
-            1
-          ],
-          18,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            8,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            5,
-            2
-          ]
-        ],
-        "fill-color": "green",
-        "fill-opacity": 0.7
+        "fill-color": "green"
       },
       "inspect": {
         "id": "id",

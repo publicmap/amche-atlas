@@ -56,9 +56,12 @@
     <!-- Application Scripts -->
     <script src="js/geolocation-control.js"></script>
     <script src="js/mapbox-gl-view-control.js"></script>
-    <script src="js/map-feature-state-manager.js"></script>
+    <script type="module" src="js/drawer-state-manager.js"></script>
+    <script type="module" src="js/map-feature-state-manager.js"></script>
     <script src="js/map-search-control.js"></script>
+    <script type="module" src="js/map-layer-controls.js"></script>
     <script type="module" src="js/config-control.js"></script>
+    <script type="module" src="js/map-feature-control.js"></script>
     <script type="module" src="js/map-init.js"></script>
     <!-- Service Worker Registration -->
     <script src="js/pwa/register-sw.js"></script>
@@ -100,7 +103,7 @@
 
 </head>
 
-<body class="flex flex-col h-screen">
+<body class="flex flex-col full-viewport-height">
     <!-- Header -->
     <header class="bg-gray-900 text-white p-4 flex justify-between items-center">
         <div class="flex items-center gap-4">
@@ -217,9 +220,7 @@
         </div>
     </header>
 
-    <!-- Add the floating drawer toggle button -->
-    <sl-icon-button name="list" id="open-drawer" class="fixed top-20 left-4 z-10 rounded-full shadow-lg"
-        style="font-size: 1.5rem; padding: 8px;color:orange"></sl-icon-button>
+
 
     <!-- Wrap main content in a container -->
     <div class="flex flex-grow relative h-full">
@@ -234,10 +235,25 @@
                 <div id="layer-controls-loader" class="p-4">
                     <div class="flex flex-col gap-4" id="skeleton-container"></div>
                 </div>
+                <div id="map-layer-filter" class="sticky top-0 z-10 hidden">
+                    <div class="relative">
+                        <sl-input
+                            id="layer-search-input"
+                            placeholder="Search layers..."
+                            clearable
+                            class="w-full">
+                            <sl-icon slot="prefix" name="search"></sl-icon>
+                        </sl-input>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 mt-1">
+                        <label class="text-sm text-white">Hide inactive</label>
+                        <sl-switch id="hide-inactive-switch" size="small"></sl-switch>
+                    </div>
+                </div>
                 <div id="layer-controls-container" class="hidden"></div>
             </sl-drawer>
 
-            <div id="edit-mode-control"
+            <div id="edit-mode-control" style="display: none;"
                 class="mapboxgl-ctrl mapboxgl-ctrl-group absolute bottom-10 right-0 z-10 bg-white rounded shadow-md mr-2">
                 <button id="edit-mode-toggle"
                     class="px-2 py-1 text-sm flex items-center justify-center hover:bg-blue-500"
@@ -270,12 +286,11 @@
             window.location.href = `${baseUrl}/sound/${currentHash}`;
         }
     </script>
-    <!-- Modify the drawer initialization script -->
+    <!-- Initialize drawer functionality and navigation -->
     <script>
         // Initialize drawer functionality after Shoelace components are ready
         customElements.whenDefined('sl-drawer').then(() => {
             const drawer = document.querySelector('.drawer-placement-start');
-            const openButton = document.querySelector('#open-drawer');
 
             // Track if drawer was manually toggled
             let userToggledDrawer = false;
@@ -292,8 +307,10 @@
                 }
             }
 
-            // Initial state
-            handleDrawerState();
+            // Initial state - with a delay to ensure components are fully initialized
+            setTimeout(() => {
+                handleDrawerState();
+            }, 100);
 
             // Listen for window resize, but don't apply on touch devices
             const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -301,15 +318,22 @@
                 window.addEventListener('resize', handleDrawerState);
             }
 
-            // Toggle drawer when button is clicked
-            openButton.addEventListener('click', () => {
-                userToggledDrawer = true;
-                drawer.show();
+            // Listen for drawer events to track manual toggles
+            // Use more specific event handlers to avoid conflicts with programmatic toggles
+            drawer.addEventListener('sl-after-show', (event) => {
+                // Only mark as user-toggled if it's a direct user interaction
+                if (event.target === drawer) {
+                    userToggledDrawer = true;
+                    console.log('[HTML] Drawer manually opened by user');
+                }
             });
 
-            // Listen for drawer close event
-            drawer.addEventListener('sl-hide', () => {
-                userToggledDrawer = true;
+            drawer.addEventListener('sl-after-hide', (event) => {
+                // Only mark as user-toggled if it's a direct user interaction
+                if (event.target === drawer) {
+                    userToggledDrawer = true;
+                    console.log('[HTML] Drawer manually closed by user');
+                }
             });
         });
 
