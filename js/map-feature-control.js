@@ -186,9 +186,9 @@ export class MapFeatureControl {
 
                 // Create initial container with loading text
                 const containerHTML = `
-                    <div id="${containerId}" class="text-xs text-gray-600">
-                        <div class="mb-2 font-semibold text-gray-800">Additional Information from Bhunaksha</div>
-                        <span class="text-xs text-gray-600">Requesting Occupant Details...</span>
+                    <div id="${containerId}" class="text-xs">
+                        <div class="mb-2 font-semibold">Additional Information from Bhunaksha</div>
+                        <span class="text-xs">Requesting Occupant Details...</span>
                     </div>
                 `;
 
