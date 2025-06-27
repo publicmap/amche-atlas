@@ -722,6 +722,28 @@
       "attribution": "Source: <a href=\"https://bhuvan.nrsc.gov.in/\" target=\"_blank\" rel=\"noopener noreferrer\">BHuvan/ASI</a> - Collected by <a href=\"https://datameet.org\" target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
       "initiallyChecked": false,
       "style": {
+        "text-field": 
+        [
+          "step",
+          ["zoom"],
+          [
+            "get",
+            "mon_name"
+          ],
+          15,
+          [
+            "get",
+            "boundary_type"
+          ]
+        ],
+          "symbol-placement": [
+            "step",
+            ["zoom"],
+            "point",
+             15,
+            "line"
+          ],
+          "line-cross-slope": 1,
         "line-color": [
           "match",
           [
@@ -729,10 +751,10 @@
             "boundary_type"
           ],
           "protected",
-          "black",
+          "darkred",
           "prohibited",
           "orange",
-          "yellow"
+          "green"
         ],
         "line-width": [
           "match",
@@ -742,7 +764,7 @@
           ],
           "protected",
           4,
-          2
+          20
         ]
       },
       "inspect": {
