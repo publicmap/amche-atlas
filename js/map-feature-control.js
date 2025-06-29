@@ -11,6 +11,7 @@
  */
 
 import { drawerStateManager } from './drawer-state-manager.js';
+import { convertToKML } from './map-utils.js';
 
 export class MapFeatureControl {
     constructor(options = {}) {
@@ -972,7 +973,6 @@ export class MapFeatureControl {
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             border-bottom: 1px solid rgba(0, 0, 0, 0.2);
             border-left: 6px solid #ababab;
-            margin-bottom: 2px;
         `;
 
         // Create custom summary with background image support
@@ -1630,6 +1630,9 @@ export class MapFeatureControl {
         // Add source layer links content if applicable (simplified for nested view)
         this._addSourceLayerLinksContentToDetails(content, featureState, layerConfig);
         
+        // Add feature actions footer
+        this._addFeatureActionsToContent(content, featureState, layerConfig, layerId, featureId);
+        
         return content;
     }
 
@@ -1714,7 +1717,240 @@ export class MapFeatureControl {
         }
     }
 
+    /**
+     * Add feature actions footer with Export KML and Settings buttons
+     */
+    _addFeatureActionsToContent(content, featureState, layerConfig, layerId, featureId) {
+        const feature = featureState.feature;
+        
+        // Create container for action buttons
+        const actionContainer = document.createElement('div');
+        actionContainer.className = 'feature-actions';
+        actionContainer.style.cssText = `
+            padding: 8px 6px;
+            border-top: 1px solid #444;
+            background-color: #2d2d2d;
+            display: flex;
+            gap: 12px;
+            font-size: 10px;
+            border-radius: 0 0 4px 4px;
+        `;
 
+        // Add settings button - always visible
+        const settingsButton = document.createElement('button');
+        settingsButton.className = 'feature-action-button';
+        settingsButton.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            color: #bbb;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            transition: all 0.2s ease;
+        `;
+        
+        settingsButton.innerHTML = `
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Settings</span>
+        `;
+
+        // Add hover effects
+        settingsButton.addEventListener('mouseenter', () => {
+            settingsButton.style.backgroundColor = '#444';
+            settingsButton.style.color = '#fff';
+        });
+        
+        settingsButton.addEventListener('mouseleave', () => {
+            settingsButton.style.backgroundColor = 'transparent';
+            settingsButton.style.color = '#bbb';
+        });
+
+        // Add click handler for settings button
+        settingsButton.addEventListener('click', () => {
+            this._showLayerSettings(layerConfig);
+        });
+
+        actionContainer.appendChild(settingsButton);
+
+        // Add export KML button
+        if (this._map) {
+            const exportButton = document.createElement('button');
+            exportButton.className = 'feature-action-button';
+            exportButton.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                background: none;
+                border: none;
+                color: #bbb;
+                cursor: pointer;
+                padding: 4px 6px;
+                border-radius: 3px;
+                font-size: 10px;
+                transition: all 0.2s ease;
+            `;
+            
+            exportButton.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Export KML</span>
+            `;
+
+            // Add hover effects
+            exportButton.addEventListener('mouseenter', () => {
+                exportButton.style.backgroundColor = '#444';
+                exportButton.style.color = '#fff';
+            });
+            
+            exportButton.addEventListener('mouseleave', () => {
+                exportButton.style.backgroundColor = 'transparent';
+                exportButton.style.color = '#bbb';
+            });
+
+            // Add click handler for export button
+            exportButton.addEventListener('click', () => {
+                this._exportFeatureAsKML(feature, layerConfig);
+            });
+
+            actionContainer.appendChild(exportButton);
+        }
+
+        content.appendChild(actionContainer);
+    }
+
+    /**
+     * Export feature as KML file
+     */
+    _exportFeatureAsKML(feature, layerConfig) {
+        try {
+            // Generate meaningful filename from feature properties
+            const fieldValues = layerConfig.inspect?.fields
+                ? layerConfig.inspect.fields
+                    .map(field => feature.properties[field])
+                    .filter(value => value)
+                    .join('_')
+                : '';
+            const groupTitle = feature.properties[layerConfig.inspect?.label] || 'Exported';
+            const title = fieldValues
+                ? `${fieldValues}_${groupTitle}`
+                : feature.properties[layerConfig.inspect?.label] || 'Exported_Feature';
+            const description = layerConfig.inspect?.title || 'Exported from Amche Goa';
+
+            // Check if convertToKML function is available
+            if (typeof convertToKML === 'undefined') {
+                console.error('convertToKML function is not available');
+                this._showToast('KML export function not available', 'error');
+                return;
+            }
+
+            const kmlContent = convertToKML(feature, { title, description });
+
+            const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
+            const url = URL.createObjectURL(blob);
+
+            // Check if we're on iOS/iPadOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+            if (isIOS) {
+                // iOS fallback method - open in new tab
+                window.open(url, '_blank');
+
+                // Show instructions
+                this._showToast('On iPad: Tap and hold the page, then select "Download Linked File" to save the KML', 'info', 10000);
+
+                // Clean up after delay
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                }, 60000); // Keep available for 1 minute
+            } else {
+                // Regular download for other platforms
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = `${title}.kml`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(url);
+            }
+
+        } catch (error) {
+            console.error('Error exporting KML:', error);
+            this._showToast('Error exporting KML. Please check the console for details.', 'error');
+        }
+    }
+
+    /**
+     * Show layer settings modal
+     */
+    _showLayerSettings(layerConfig) {
+        // Try to access the layer control's settings method
+        if (window.layerControl && typeof window.layerControl._showLayerSettings === 'function') {
+            window.layerControl._showLayerSettings(layerConfig);
+        } else {
+            console.warn('Layer settings functionality not available');
+            this._showToast('Layer settings not available', 'warning');
+        }
+    }
+
+    /**
+     * Show toast notification
+     */
+    _showToast(message, type = 'success', duration = 3000) {
+        // Try to use the layer control's toast method if available
+        if (window.layerControl && typeof window.layerControl._showToast === 'function') {
+            window.layerControl._showToast(message, type, duration);
+            return;
+        }
+
+        // Fallback toast implementation
+        const toast = document.createElement('div');
+        toast.className = `map-feature-control-toast toast-${type}`;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : type === 'info' ? '#3b82f6' : '#10b981'};
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10000;
+            font-size: 14px;
+            max-width: 300px;
+            word-wrap: break-word;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        `;
+        toast.textContent = message;
+
+        document.body.appendChild(toast);
+
+        // Animate in
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateX(0)';
+        });
+
+        // Auto remove
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
+        }, duration);
+    }
 
     /**
      * Remove layer by directly targeting the layer control toggle
