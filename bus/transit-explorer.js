@@ -12,7 +12,7 @@ import {
 } from './transit-data.js';
 
 // Import URL API for deep linking support
-import { URLManager } from './url-api.js';
+import { URLManager } from '../js/url-api.js';
 
 class TransitExplorer {
     constructor() {
@@ -42,10 +42,10 @@ class TransitExplorer {
         this.setupEventListeners();
         
         // Initialize URL manager after map is set up
-        this.urlManager = new URLManager(this);
+        this.urlManager = new URLManager(null, this.map);
         
         // Check if URL has parameters before requesting location
-        const urlParams = this.urlManager.parseURLParameters();
+        const urlParams = this.parseURLParameters();
         const hasURLSelection = urlParams.route || urlParams.stop;
         
         // Request location (but don't auto-find nearest stop if URL has selections)
@@ -60,7 +60,7 @@ class TransitExplorer {
     async applyURLParametersOnLoad(hasURLSelection = false) {
         try {
             if (hasURLSelection) {
-                const applied = await this.urlManager.applyURLParameters();
+                const applied = await this.applyURLParameters();
                 if (!applied) {
                     console.log('🔗 Failed to apply URL parameters, falling back to nearest stop');
                     // If URL parameters failed to apply, find nearest stop as fallback
@@ -94,17 +94,293 @@ class TransitExplorer {
         return this.urlManager;
     }
 
-    // Test URL slugification (for debugging)
-    testURLFeatures() {
-        if (this.urlManager) {
-            console.log('🔗 Testing URL features...');
-            this.urlManager.testSlugification();
+    // Parse URL parameters for transit-specific parameters
+    parseURLParameters() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const routeParam = urlParams.get('route');
+        const stopParam = urlParams.get('stop');
+        
+        return {
+            route: routeParam ? decodeURIComponent(routeParam) : null,
+            stop: stopParam ? decodeURIComponent(stopParam) : null
+        };
+    }
+
+    // Update URL with transit parameters
+    updateTransitURL(options = {}) {
+        const urlParams = new URLSearchParams(window.location.search);
+        let hasChanges = false;
+
+        // Handle route parameter
+        if (options.route !== undefined) {
+            if (options.route) {
+                const slugifiedRoute = this.slugify(options.route);
+                if (urlParams.get('route') !== slugifiedRoute) {
+                    urlParams.set('route', slugifiedRoute);
+                    hasChanges = true;
+                }
+            } else {
+                if (urlParams.has('route')) {
+                    urlParams.delete('route');
+                    hasChanges = true;
+                }
+            }
+        }
+
+        // Handle stop parameter
+        if (options.stop !== undefined) {
+            if (options.stop) {
+                const slugifiedStop = this.slugify(options.stop);
+                if (urlParams.get('stop') !== slugifiedStop) {
+                    urlParams.set('stop', slugifiedStop);
+                    hasChanges = true;
+                }
+            } else {
+                if (urlParams.has('stop')) {
+                    urlParams.delete('stop');
+                    hasChanges = true;
+                }
+            }
+        }
+
+        // Update URL if there are changes
+        if (hasChanges) {
+            const newURL = window.location.pathname + 
+                          (urlParams.toString() ? '?' + urlParams.toString() : '') + 
+                          window.location.hash;
             
-            const currentURL = this.urlManager.getShareableURL();
-            console.log('🔗 Current shareable URL:', currentURL);
+            window.history.replaceState(null, '', newURL);
+            console.log('🔗 Updated URL:', newURL);
+        }
+    }
+
+    // Convert text to URL-friendly slug
+    slugify(text) {
+        if (!text) return '';
+        
+        return text
+            .toString()
+            .toLowerCase()
+            .trim()
+            .replace(/[\s\-_\.]+/g, '-')
+            .replace(/[^\w\-]+/g, '')
+            .replace(/\-{2,}/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
+
+    // Apply URL parameters to the transit explorer
+    async applyURLParameters() {
+        const params = this.parseURLParameters();
+        
+        if (!params.route && !params.stop) {
+            console.log('🔗 No URL parameters to apply');
+            return false;
+        }
+
+        let applied = false;
+
+        try {
+            // Wait for map to be ready
+            await this.waitForMapReady();
+
+            // Apply stop selection first (if present)
+            if (params.stop) {
+                const originalStopName = await this.findOriginalNameFromSlug(params.stop, 'stop');
+                const stopApplied = await this.applyStopFromURL(originalStopName || params.stop);
+                if (stopApplied) {
+                    applied = true;
+                    console.log(`🔗 Applied stop from URL: ${originalStopName || params.stop}`);
+                }
+            }
+
+            // Apply route selection (if present)
+            if (params.route) {
+                const originalRouteName = await this.findOriginalNameFromSlug(params.route, 'route');
+                const routeApplied = await this.applyRouteFromURL(originalRouteName || params.route);
+                if (routeApplied) {
+                    applied = true;
+                    console.log(`🔗 Applied route from URL: ${originalRouteName || params.route}`);
+                }
+            }
+
+        } catch (error) {
+            console.error('🔗 Error applying URL parameters:', error);
+        }
+
+        return applied;
+    }
+
+    // Wait for map to be ready
+    async waitForMapReady() {
+        return new Promise((resolve) => {
+            const checkReady = () => {
+                if (this.map && 
+                    this.map.isSourceLoaded('mumbai-stops') && 
+                    this.map.isSourceLoaded('mumbai-routes')) {
+                    resolve();
+                } else {
+                    setTimeout(checkReady, 500);
+                }
+            };
+            checkReady();
+        });
+    }
+
+    // Find original name from slug by searching through available options
+    async findOriginalNameFromSlug(slug, type) {
+        if (!slug) return null;
+        
+        try {
+            let features = [];
             
-            const selections = this.urlManager.getCurrentSelections();
-            console.log('🔗 Current selections:', selections);
+            if (type === 'route') {
+                features = this.map.querySourceFeatures('mumbai-routes', {
+                    sourceLayer: 'mumbai-routes'
+                });
+            } else if (type === 'stop') {
+                features = this.map.querySourceFeatures('mumbai-stops', {
+                    sourceLayer: 'mumbai-stops'
+                });
+            }
+            
+            // Find feature whose name slugifies to the target slug
+            for (const feature of features) {
+                const props = feature.properties;
+                let names = [];
+                
+                if (type === 'route') {
+                    names = [props.route_short_name, props.route_name].filter(n => n);
+                } else if (type === 'stop') {
+                    names = [props.name, props.stop_name, props.stop_desc].filter(n => n);
+                }
+                
+                for (const name of names) {
+                    if (this.slugify(name) === slug) {
+                        return name;
+                    }
+                }
+            }
+            
+            console.warn(`🔗 Could not find original name for ${type} slug: ${slug}`);
+            return null;
+            
+        } catch (error) {
+            console.error(`🔗 Error finding original name for ${type} slug:`, error);
+            return null;
+        }
+    }
+
+    // Apply stop selection from URL parameter
+    async applyStopFromURL(stopName) {
+        try {
+            const stopFeatures = this.map.querySourceFeatures('mumbai-stops', {
+                sourceLayer: 'mumbai-stops'
+            });
+
+            const matchingStop = stopFeatures.find(feature => {
+                const props = feature.properties;
+                const names = [
+                    props.name,
+                    props.stop_name,
+                    props.stop_desc
+                ].filter(name => name);
+
+                return names.some(name => 
+                    name.toLowerCase().includes(stopName.toLowerCase()) ||
+                    stopName.toLowerCase().includes(name.toLowerCase())
+                );
+            });
+
+            if (matchingStop) {
+                this.handleStopClick(matchingStop, [matchingStop]);
+                
+                if (matchingStop.geometry && matchingStop.geometry.coordinates) {
+                    this.map.flyTo({
+                        center: matchingStop.geometry.coordinates,
+                        zoom: Math.max(15, this.map.getZoom()),
+                        duration: 2000
+                    });
+                }
+                
+                return true;
+            } else {
+                console.warn(`🔗 Stop not found: ${stopName}`);
+                return false;
+            }
+
+        } catch (error) {
+            console.error('🔗 Error applying stop from URL:', error);
+            return false;
+        }
+    }
+
+    // Apply route selection from URL parameter
+    async applyRouteFromURL(routeName) {
+        try {
+            const routeFeatures = this.map.querySourceFeatures('mumbai-routes', {
+                sourceLayer: 'mumbai-routes'
+            });
+
+            let matchingRoute = routeFeatures.find(feature => {
+                const props = feature.properties;
+                return props.route_short_name === routeName || 
+                       props.route_name === routeName;
+            });
+
+            if (!matchingRoute) {
+                matchingRoute = routeFeatures.find(feature => {
+                    const props = feature.properties;
+                    const names = [
+                        props.route_short_name,
+                        props.route_name
+                    ].filter(name => name);
+
+                    return names.some(name => 
+                        name.toLowerCase().includes(routeName.toLowerCase()) ||
+                        routeName.toLowerCase().includes(name.toLowerCase())
+                    );
+                });
+            }
+
+            if (matchingRoute) {
+                this.handleRouteClick(matchingRoute);
+                this.fitMapToRoute(matchingRoute);
+                return true;
+            } else {
+                console.warn(`🔗 Route not found: ${routeName}`);
+                return false;
+            }
+
+        } catch (error) {
+            console.error('🔗 Error applying route from URL:', error);
+            return false;
+        }
+    }
+
+    // Fit map to show the selected route
+    fitMapToRoute(routeFeature) {
+        try {
+            if (routeFeature.geometry && routeFeature.geometry.coordinates) {
+                const coordinates = routeFeature.geometry.coordinates;
+                
+                const bounds = new mapboxgl.LngLatBounds();
+                
+                if (routeFeature.geometry.type === 'LineString') {
+                    coordinates.forEach(coord => bounds.extend(coord));
+                } else if (routeFeature.geometry.type === 'MultiLineString') {
+                    coordinates.forEach(line => {
+                        line.forEach(coord => bounds.extend(coord));
+                    });
+                }
+                
+                this.map.fitBounds(bounds, {
+                    padding: 50,
+                    duration: 2000,
+                    maxZoom: 14
+                });
+            }
+        } catch (error) {
+            console.error('🔗 Error fitting map to route:', error);
         }
     }
 
@@ -493,11 +769,9 @@ class TransitExplorer {
             this.displayRouteInfo(routeId);
             
             // Update URL with route selection
-            if (this.urlManager) {
-                const routeName = this.getRouteNameById(routeId);
-                if (routeName) {
-                    this.urlManager.onRouteSelected(routeName, routeId);
-                }
+            const routeName = this.getRouteNameById(routeId);
+            if (routeName) {
+                this.updateTransitURL({ route: routeName });
             }
         }
         
@@ -1125,9 +1399,7 @@ class TransitExplorer {
         }
         
         // Update URL to clear parameters
-        if (this.urlManager) {
-            this.urlManager.onSelectionCleared();
-        }
+        this.updateTransitURL({ route: null, stop: null });
         
         // Clear the selection indicator
         this.updateSelectionIndicator('');
@@ -1574,11 +1846,10 @@ class TransitExplorer {
         this.loadDepartures(stopFeature);
         
         // Update URL with stop selection
-        if (this.urlManager && stopFeature.properties) {
+        if (stopFeature.properties) {
             const stopName = stopFeature.properties.name || stopFeature.properties.stop_name;
-            const stopId = stopFeature.properties.id || stopFeature.properties.stop_id;
             if (stopName) {
-                this.urlManager.onStopSelected(stopName, stopId);
+                this.updateTransitURL({ stop: stopName });
             }
         }
         
@@ -1738,9 +2009,7 @@ class TransitExplorer {
             this.highlightDepartureRows(routeId, routeName);
             
             // Update URL with route selection
-            if (this.urlManager) {
-                this.urlManager.onRouteSelected(routeName, routeId);
-            }
+            this.updateTransitURL({ route: routeName });
             
             // Update selection indicator
             this.updateSelectionIndicator(`Route ${routeName} selected`);
@@ -1938,9 +2207,7 @@ class TransitExplorer {
         this.clearAllSelections();
         
         // Update URL to clear parameters since we're resetting to nearest stop
-        if (this.urlManager) {
-            this.urlManager.onSelectionCleared();
-        }
+        this.updateTransitURL({ route: null, stop: null });
         
         // Find and select nearest stop
         await this.findNearestStop();
@@ -2066,8 +2333,8 @@ class TransitExplorer {
             this.highlightDepartureRows(routeId, routeName);
             
             // Update URL with route selection
-            if (this.urlManager && routeName) {
-                this.urlManager.onRouteSelected(routeName, routeId);
+            if (routeName) {
+                this.updateTransitURL({ route: routeName });
             }
         }
     }

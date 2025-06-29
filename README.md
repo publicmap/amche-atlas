@@ -1,6 +1,6 @@
 # amche-goa
 
-**amche-atlas** is designed to be a flexible and interactive web based GIS software to quickly visualize spatial data layers from a vareity of sources.
+**amche-atlas** is designed to be a flexible and interactive web based GIS software to quickly visualize spatial data layers from a vareity of sources using the latest open source 
 
 amche-atlas is currently deployed at the following urls:
 - Homepage: https://amche.in/
@@ -97,8 +97,8 @@ The development of amche.in was largely made pausible due to [Claude](https://cl
 
 - To setup, open your terminal:
   - `git clone git@github.com:publicmap/amche-goa.git` and `cd amche-goa`
-  - `python3 -m http.server` to start a local server
-  - Open `http://localhost:8000/` in your broswer
+  - `npm install` to install all code dependencies. Requires [Node.JS](https://nodejs.org/en)
+  - `npm start` to start a local server. Open `http://localhost:4035/` in your broswer
 - Source code hosted on Github and served via [Github Pages](https://pages.github.com/)
   - Code on `main` branch deploys to https://amche.in and `dev` branch to https://amche.in/dev . Deployment time is currently under 1 minute.
 - Take a look at the [Project Board](https://github.com/publicmap/amche-goa/projects) to take up an issue to contribute to

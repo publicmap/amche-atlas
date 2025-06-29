@@ -323,13 +323,7 @@ export class BusStop {
             // Limited routes (ending with LTD)
             'LTD': ['Express Terminal', 'Limited Stop', 'Fast Service'],
             // Circular routes (C prefix)
-            'C': ['Circular Route', 'City Center', 'Loop Service'],
-            // Number patterns
-            '1': ['Main Station', 'Central Hub', 'City Terminal'],
-            '2': ['East Terminal', 'Station East', 'Eastern Suburb'],
-            '3': ['West Terminal', 'Station West', 'Western Suburb'],
-            '4': ['North Terminal', 'Station North', 'Northern Suburb'],
-            '5': ['South Terminal', 'Station South', 'Southern Suburb']
+            'C': ['Circular Route', 'City Center', 'Loop Service']
         };
         
         // Check route name patterns
