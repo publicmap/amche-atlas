@@ -2556,3 +2556,40 @@ sl-menu {
     outline: 2px solid #fbbf24;
     outline-offset: 2px;
 }
+
+/* Feature action buttons styling */
+.map-feature-control .feature-actions {
+    min-width: 200px;
+}
+
+.map-feature-control .feature-action-button {
+    flex-shrink: 0;
+    min-width: fit-content;
+}
+
+.map-feature-control .feature-action-button span {
+    flex-shrink: 0;
+}
+
+/* Additional information section styling - improve contrast on dark backgrounds */
+.map-feature-control .feature-inspector-additional-info {
+    color: #d1d5db !important;
+}
+
+.map-feature-control .feature-inspector-additional-info .font-semibold {
+    color: #f3f4f6 !important;
+}
+
+.map-feature-control .feature-inspector-additional-info .text-gray-500,
+.map-feature-control .feature-inspector-additional-info .text-gray-600,
+.map-feature-control .feature-inspector-additional-info .text-gray-800 {
+    color: #9ca3af !important;
+}
+
+.map-feature-control .feature-inspector-additional-info a {
+    color: #60a5fa !important;
+}
+
+.map-feature-control .feature-inspector-additional-info a:hover {
+    color: #93c5fd !important;
+}

@@ -249,22 +249,22 @@ export class MapFeatureControl {
                                 }
                                 
                                 container.innerHTML = `
-                                    <div class="text-xs text-gray-600">
-                                        <div class="mb-2 font-semibold text-gray-800">Additional Information from Bhunaksha</div>
-                                        <div class="mb-2">${infoText}</div>
-                                        <div class="italic text-xs text-gray-500">
+                                    <div class="text-xs" style="color: #d1d5db;">
+                                        <div class="mb-2 font-semibold" style="color: #f3f4f6;">Additional Information from Bhunaksha</div>
+                                        <div class="mb-2" style="color: #e5e7eb;">${infoText}</div>
+                                        <div class="italic text-xs" style="color: #9ca3af;">
                                             <svg class="inline w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
                                             </svg>
-                                            Retrieved from <a href="${apiUrl}" target="_blank" class="text-blue-600 hover:text-blue-800">Bhunaksha/Dharani</a>. For information purposes only.
+                                            Retrieved from <a href="${apiUrl}" target="_blank" style="color: #60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
                                         </div>
                                     </div>
                                 `;
                             } else {
                                 container.innerHTML = `
-                                    <div class="text-xs text-gray-600">
-                                        <div class="mb-2 font-semibold text-gray-800">Additional Information from Bhunaksha</div>
-                                        <span class="text-xs text-gray-500">No occupant data available</span>
+                                    <div class="text-xs" style="color: #d1d5db;">
+                                        <div class="mb-2 font-semibold" style="color: #f3f4f6;">Additional Information from Bhunaksha</div>
+                                        <span class="text-xs" style="color: #9ca3af;">No occupant data available</span>
                                     </div>
                                 `;
                             }
@@ -276,9 +276,9 @@ export class MapFeatureControl {
                         const container = document.getElementById(containerId);
                         if (container) {
                             container.innerHTML = `
-                                <div class="text-xs text-gray-600">
-                                    <div class="mb-2 font-semibold text-gray-800">Additional Information from Bhunaksha</div>
-                                    <span class="text-xs text-red-500">Error loading details</span>
+                                <div class="text-xs" style="color: #d1d5db;">
+                                    <div class="mb-2 font-semibold" style="color: #f3f4f6;">Additional Information from Bhunaksha</div>
+                                    <span class="text-xs" style="color: #ef4444;">Error loading details</span>
                                 </div>
                             `;
                         }
@@ -1731,9 +1731,11 @@ export class MapFeatureControl {
             border-top: 1px solid #444;
             background-color: #2d2d2d;
             display: flex;
-            gap: 12px;
+            gap: 8px;
             font-size: 10px;
             border-radius: 0 0 4px 4px;
+            min-width: 0;
+            flex-wrap: wrap;
         `;
 
         // Add settings button - always visible
@@ -1751,6 +1753,9 @@ export class MapFeatureControl {
             border-radius: 3px;
             font-size: 10px;
             transition: all 0.2s ease;
+            white-space: nowrap;
+            min-width: auto;
+            flex: 1 1 auto;
         `;
         
         settingsButton.innerHTML = `
@@ -1795,6 +1800,9 @@ export class MapFeatureControl {
                 border-radius: 3px;
                 font-size: 10px;
                 transition: all 0.2s ease;
+                white-space: nowrap;
+                min-width: auto;
+                flex: 1 1 auto;
             `;
             
             exportButton.innerHTML = `
