@@ -855,6 +855,7 @@ class TransitExplorer {
     }
 
     clearDepartureHighlights(isTemporaryOnly = false) {
+        // Clear highlights from all departure rows (both tabbed and legacy)
         const departureRows = document.querySelectorAll('.departure-row');
         departureRows.forEach(row => {
             if (isTemporaryOnly) {
@@ -884,21 +885,30 @@ class TransitExplorer {
 
     setupDepartureRowInteractions() {
         // This will be called after departures are displayed
-        const departureRows = document.querySelectorAll('.departure-row');
+        // Handle interactions for both tabbed and legacy departure rows
+        const allDepartureRows = document.querySelectorAll('.departure-row');
         
-        departureRows.forEach((row, index) => {
+        console.log(`🎯 Setting up interactions for ${allDepartureRows.length} departure rows`);
+        
+        allDepartureRows.forEach((row, globalIndex) => {
+            // Clear any existing event listeners by cloning the element
+            const newRow = row.cloneNode(true);
+            row.parentNode.replaceChild(newRow, row);
+            
             // Make rows clickable
-            row.style.cursor = 'pointer';
+            newRow.style.cursor = 'pointer';
             
             // Add click handler
-            row.addEventListener('click', (e) => {
-                const routeBadge = row.querySelector('.route-badge-text');
-                const routeId = row.dataset.routeId;
+            newRow.addEventListener('click', (e) => {
+                const routeBadge = newRow.querySelector('.route-badge-text');
+                const routeId = newRow.dataset.routeId;
                 const routeName = routeBadge ? routeBadge.textContent.trim() : '';
-                const departureData = this.getDepartureData(index);
+                const departureIndex = newRow.dataset.departureIndex;
+                const tabType = newRow.dataset.tabType;
+                const departureData = this.getDepartureDataFromTab(departureIndex, tabType);
                 
                 if (routeId && routeName) {
-                    console.log(`🚌 Departure row clicked: ${routeName} (ID: ${routeId})`);
+                    console.log(`🚌 Departure row clicked: ${routeName} (ID: ${routeId}) from ${tabType} tab`);
                     
                     // Clear previous selections
                     this.clearDepartureHighlights();
@@ -906,7 +916,7 @@ class TransitExplorer {
                     this.stopBusLocationUpdates(); // Stop previous bus tracking
                     
                     // Highlight this row
-                    row.classList.add('departure-row-selected');
+                    newRow.classList.add('departure-row-selected');
                     
                     // Highlight corresponding route on map
                     this.highlightRoute(routeId);
@@ -920,27 +930,30 @@ class TransitExplorer {
                     this.currentTrackedRoute = { routeId, routeName, departureData };
                     
                     // Update selection indicator
-                    this.updateSelectionIndicator(`Tracking Route ${routeName} - Live bus locations updating`);
+                    const trackingText = departureData?.isLive ? 
+                        `Tracking Route ${routeName} - Live bus locations updating` :
+                        `Route ${routeName} selected - Scheduled departures`;
+                    this.updateSelectionIndicator(trackingText);
                 }
             });
             
             // Add hover handlers
-            row.addEventListener('mouseenter', (e) => {
-                const routeId = row.dataset.routeId;
-                const routeBadge = row.querySelector('.route-badge-text');
+            newRow.addEventListener('mouseenter', (e) => {
+                const routeId = newRow.dataset.routeId;
+                const routeBadge = newRow.querySelector('.route-badge-text');
                 const routeName = routeBadge ? routeBadge.textContent.trim() : '';
                 
-                if (routeId && !row.classList.contains('departure-row-selected')) {
-                    row.classList.add('departure-row-hover');
+                if (routeId && !newRow.classList.contains('departure-row-selected')) {
+                    newRow.classList.add('departure-row-hover');
                     this.highlightRoute(routeId, true);
                 }
             });
             
-            row.addEventListener('mouseleave', (e) => {
-                const routeId = row.dataset.routeId;
+            newRow.addEventListener('mouseleave', (e) => {
+                const routeId = newRow.dataset.routeId;
                 
-                if (!row.classList.contains('departure-row-selected')) {
-                    row.classList.remove('departure-row-hover');
+                if (!newRow.classList.contains('departure-row-selected')) {
+                    newRow.classList.remove('departure-row-hover');
                     
                     // Restore permanent highlight if exists
                     if (this.currentHighlightedRoute && this.currentHighlightedRoute !== routeId) {
@@ -951,6 +964,26 @@ class TransitExplorer {
                 }
             });
         });
+    }
+
+    getDepartureDataFromTab(departureIndex, tabType) {
+        // Parse the departure index to get the actual index
+        let actualIndex;
+        let departureArray;
+        
+        if (tabType === 'live') {
+            actualIndex = parseInt(departureIndex.replace('live-', ''));
+            departureArray = this.currentDepartures ? this.currentDepartures.filter(d => d.isLive) : [];
+        } else if (tabType === 'scheduled') {
+            actualIndex = parseInt(departureIndex.replace('scheduled-', ''));
+            departureArray = this.currentDepartures ? this.currentDepartures.filter(d => !d.isLive) : [];
+        } else {
+            // Legacy format
+            actualIndex = parseInt(departureIndex);
+            departureArray = this.currentDepartures || [];
+        }
+        
+        return departureArray[actualIndex] || null;
     }
 
     getDepartureData(departureIndex) {
@@ -1124,6 +1157,9 @@ class TransitExplorer {
 
         // Stop selector button and dropdown
         this.setupStopSelector();
+
+        // Set up departure tabs
+        this.setupDepartureTabs();
 
         // Add refresh button functionality to the last updated element
         const lastUpdated = document.getElementById('last-updated');
@@ -2607,6 +2643,63 @@ class TransitExplorer {
     }
 
     displayDepartures(departures) {
+        // Split departures into live and scheduled
+        const liveDepartures = departures.filter(d => d.isLive);
+        const scheduledDepartures = departures.filter(d => !d.isLive);
+        
+        console.log(`📊 Displaying ${liveDepartures.length} live and ${scheduledDepartures.length} scheduled departures`);
+        
+        // Display both tabs
+        this.displayLiveDepartures(liveDepartures);
+        this.displayScheduledDepartures(scheduledDepartures);
+        
+        // Also populate legacy departure list for backward compatibility
+        this.displayLegacyDepartures(departures);
+    }
+
+    displayLiveDepartures(departures) {
+        const departureList = document.getElementById('live-departure-list');
+        
+        if (departures.length === 0) {
+            departureList.innerHTML = `
+                <div class="text-center py-8 text-gray-400">
+                    <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
+                        <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1V8a1 1 0 00-1-1h-3z"/>
+                    </svg>
+                    <p>No live departures available</p>
+                    <p class="text-sm mt-1 text-amber-400">Switch to Scheduled tab for timetable data</p>
+                </div>
+            `;
+            return;
+        }
+
+        const departureHTML = this.generateDepartureHTML(departures, 'live');
+        departureList.innerHTML = departureHTML;
+    }
+
+    displayScheduledDepartures(departures) {
+        const departureList = document.getElementById('scheduled-departure-list');
+        
+        if (departures.length === 0) {
+            departureList.innerHTML = `
+                <div class="text-center py-8 text-gray-400">
+                    <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
+                        <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1V8a1 1 0 00-1-1h-3z"/>
+                    </svg>
+                    <p>No scheduled departures available</p>
+                    <p class="text-sm mt-1">Service may have ended for today</p>
+                </div>
+            `;
+            return;
+        }
+
+        const departureHTML = this.generateDepartureHTML(departures, 'scheduled');
+        departureList.innerHTML = departureHTML;
+    }
+
+    displayLegacyDepartures(departures) {
         const departureList = document.getElementById('departure-list');
         
         if (departures.length === 0) {
@@ -2623,7 +2716,12 @@ class TransitExplorer {
             return;
         }
 
-        const departureHTML = departures.map((departure, index) => {
+        const departureHTML = this.generateDepartureHTML(departures, 'legacy');
+        departureList.innerHTML = departureHTML;
+    }
+
+    generateDepartureHTML(departures, tabType) {
+        return departures.map((departure, index) => {
             const timeStr = departure.time.toLocaleTimeString('en-US', { 
                 hour: 'numeric', 
                 minute: '2-digit',
@@ -2652,10 +2750,15 @@ class TransitExplorer {
             };
             const routeBadge = DataUtils.getStyledRouteBadge(departure.route, routeInfo, 'medium');
             
+            // Add tab-specific classes and data attributes
+            const tabClass = tabType !== 'legacy' ? `departure-row-${tabType}` : '';
+            const tabPrefix = tabType !== 'legacy' ? `${tabType}-` : '';
+            
             return `
-                <div class="departure-row flex items-center justify-between p-3 rounded transition-all duration-200" 
+                <div class="departure-row ${tabClass} flex items-center justify-between p-3 rounded transition-all duration-200" 
                      data-route-id="${departure.routeId || ''}" 
-                     data-departure-index="${index}">
+                     data-departure-index="${tabPrefix}${index}"
+                     data-tab-type="${tabType}">
                     <div class="flex items-center gap-3">
                         <div class="status-indicator ${statusClass}"></div>
                         <div>
@@ -2681,8 +2784,6 @@ class TransitExplorer {
                 </div>
             `;
         }).join('');
-
-        departureList.innerHTML = departureHTML;
     }
 
     showDepartureError() {
@@ -2738,6 +2839,69 @@ class TransitExplorer {
         if (panel) {
             panel.classList.add('hidden');
         }
+    }
+
+    setupDepartureTabs() {
+        console.log('🏷️ Setting up departure tabs...');
+        
+        // Set up tab buttons
+        const liveTabBtn = document.getElementById('live-tab-btn');
+        const scheduledTabBtn = document.getElementById('scheduled-tab-btn');
+        
+        if (liveTabBtn) {
+            liveTabBtn.addEventListener('click', () => {
+                this.switchDepartureTab('live');
+            });
+        }
+        
+        if (scheduledTabBtn) {
+            scheduledTabBtn.addEventListener('click', () => {
+                this.switchDepartureTab('scheduled');
+            });
+        }
+        
+        // Initialize with live tab active
+        this.currentDepartureTab = 'live';
+        
+        console.log('✅ Departure tabs set up successfully');
+    }
+
+    switchDepartureTab(tabName) {
+        console.log(`🔄 Switching to ${tabName} tab`);
+        
+        // Update current tab
+        this.currentDepartureTab = tabName;
+        
+        // Update tab button styles
+        const liveTabBtn = document.getElementById('live-tab-btn');
+        const scheduledTabBtn = document.getElementById('scheduled-tab-btn');
+        
+        if (tabName === 'live') {
+            // Style live tab as active
+            liveTabBtn.className = 'departure-tab-btn px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 text-green-400 bg-green-900/30 border border-green-600/50';
+            scheduledTabBtn.className = 'departure-tab-btn px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 text-gray-400 hover:text-white hover:bg-gray-700';
+        } else {
+            // Style scheduled tab as active
+            scheduledTabBtn.className = 'departure-tab-btn px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 text-amber-400 bg-amber-900/30 border border-amber-600/50';
+            liveTabBtn.className = 'departure-tab-btn px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 text-gray-400 hover:text-white hover:bg-gray-700';
+        }
+        
+        // Update tab content visibility
+        const liveContent = document.getElementById('live-departures');
+        const scheduledContent = document.getElementById('scheduled-departures');
+        
+        if (tabName === 'live') {
+            liveContent.classList.remove('hidden');
+            scheduledContent.classList.add('hidden');
+        } else {
+            liveContent.classList.add('hidden');
+            scheduledContent.classList.remove('hidden');
+        }
+        
+        // Update selection interactions for current tab
+        setTimeout(() => {
+            this.setupDepartureRowInteractions();
+        }, 100);
     }
 
     updateSelectionIndicator(message) {
