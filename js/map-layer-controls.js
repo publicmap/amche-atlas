@@ -38,6 +38,7 @@ export class MapLayerControl {
         this._config.showPopupsOnClick = this._config.showPopupsOnClick !== undefined ? this._config.showPopupsOnClick : false;
 
         // sourceLayerLinks functionality has been moved to MapFeatureControl
+        this._sourceLayerLinks = this._config.sourceLayerLinks || [];
 
         // Default styles will be loaded from config/index.atlas.json styles object
         this._defaultStyles = {};
@@ -243,6 +244,7 @@ export class MapLayerControl {
      */
     _isPropertyValidForLayerType(property, layerType) {
         // Define invalid property patterns for each layer type
+        // Note: text- properties are NOT filtered out because text layers are created separately as symbol type
         const invalidPatterns = {
             symbol: [
                 /^fill-/,        // fill-color, fill-opacity, etc.
@@ -251,20 +253,17 @@ export class MapLayerControl {
             ],
             fill: [
                 /^line-/,        // line-color, line-width, etc.
-                /^text-/,        // text-color, text-field, etc.
                 /^icon-/,        // icon-image, icon-color, etc.
                 /^circle-/       // circle-radius, circle-color, etc.
             ],
             line: [
                 /^fill-/,        // fill-color, fill-opacity, etc.
-                /^text-/,        // text-color, text-field, etc.
                 /^icon-/,        // icon-image, icon-color, etc.
                 /^circle-/       // circle-radius, circle-color, etc.
             ],
             circle: [
                 /^fill-/,        // fill-color, fill-opacity, etc.
                 /^line-/,        // line-color, line-width, etc.
-                /^text-/,        // text-color, text-field, etc.
                 /^icon-/         // icon-image, icon-color, etc.
             ]
         };
@@ -1893,8 +1892,12 @@ export class MapLayerControl {
 
                     // Add text layer if text styles are defined
                     if (group.style?.['text-field']) {
+                        // Merge group styles with default styles from _defaults.json
+                        const defaultTextStyles = this._defaultStyles?.vector?.text || {};
+                        const mergedTextStyles = { ...defaultTextStyles, ...group.style };
+                        
                         // Use the proper style categorization to handle all properties correctly
-                        const { paint: textPaint, layout: textLayout } = this._categorizeStyleProperties(group.style, 'symbol');
+                        const { paint: textPaint, layout: textLayout } = this._categorizeStyleProperties(mergedTextStyles, 'symbol');
 
                         const textLayerConfig = {
                             id: `vector-layer-${group.id}-text`,
@@ -1902,7 +1905,7 @@ export class MapLayerControl {
                             source: sourceId,
                             'source-layer': group.sourceLayer || 'default',
                             layout: {
-                                // Default layout properties
+                                // Default layout properties (fallback values)
                                 'text-font': ['Open Sans Bold'],
                                 'text-anchor': 'center',
                                 'text-justify': 'center',
@@ -1910,11 +1913,11 @@ export class MapLayerControl {
                                 'text-offset': [0, 0],
                                 'text-transform': 'none',
                                 'text-size': 12,
-                                // Apply categorized layout properties (including text-padding)
+                                // Apply categorized layout properties (including defaults from _defaults.json)
                                 ...textLayout
                             },
                             paint: {
-                                // Default paint properties
+                                // Default paint properties (fallback values)
                                 'text-color': '#000000',
                                 'text-halo-color': '#ffffff',
                                 'text-halo-width': 1,
@@ -1927,7 +1930,7 @@ export class MapLayerControl {
                                     0.9,
                                     0.7
                                 ],
-                                // Apply categorized paint properties
+                                // Apply categorized paint properties (including defaults from _defaults.json)
                                 ...textPaint
                             }
                         };
@@ -2395,18 +2398,18 @@ export class MapLayerControl {
                     type: 'fill',
                     source: sourceId,
                     paint: {
-                        'fill-color': group.style?.['fill-color'] || this._defaultStyles.geojson.fill['fill-color'],
+                        'fill-color': group.style?.['fill-color'] || this._defaultStyles.vector.fill['fill-color'],
                         'fill-opacity': [
                             'case',
                             ['boolean', ['feature-state', 'hover'], false],
                             0.8,
-                            group.style?.['fill-opacity'] || this._defaultStyles.geojson.fill['fill-opacity']
+                            group.style?.['fill-opacity'] || this._defaultStyles.vector.fill['fill-opacity']
                         ]
                     },
                     layout: {
                         visibility: 'visible'
                     }
-                }, this._getInsertPosition('geojson', 'fill'));
+                }, this._getInsertPosition('vector', 'fill'));
 
                 // Add line layer
                 this._map.addLayer({
@@ -2414,19 +2417,19 @@ export class MapLayerControl {
                     type: 'line',
                     source: sourceId,
                     paint: {
-                        'line-color': this._combineWithDefaultStyle(group.style?.['line-color'], this._defaultStyles.geojson.line['line-color']),
-                        'line-width': group.style?.['line-width'] || this._defaultStyles.geojson.line['line-width'],
-                        'line-opacity': group.style?.['line-opacity'] !== undefined ? group.style['line-opacity'] : (this._defaultStyles.geojson.line['line-opacity'] || 1),
+                        'line-color': this._combineWithDefaultStyle(group.style?.['line-color'], this._defaultStyles.vector.line['line-color']),
+                        'line-width': group.style?.['line-width'] || this._defaultStyles.vector.line['line-width'],
+                        'line-opacity': group.style?.['line-opacity'] !== undefined ? group.style['line-opacity'] : (this._defaultStyles.vector.line['line-opacity'] || 1),
                         // Only set line-dasharray if it's defined to avoid undefined errors
-                        ...(group.style?.['line-dasharray'] || this._defaultStyles.geojson.line?.['line-dasharray'] ?
-                            { 'line-dasharray': group.style?.['line-dasharray'] || this._defaultStyles.geojson.line['line-dasharray'] } : {})
+                        ...(group.style?.['line-dasharray'] || this._defaultStyles.vector.line?.['line-dasharray'] ?
+                            { 'line-dasharray': group.style?.['line-dasharray'] || this._defaultStyles.vector.line['line-dasharray'] } : {})
                     },
                     layout: {
                         'visibility': 'visible',
                         'line-join': 'round',
                         'line-cap': 'round'
                     }
-                }, this._getInsertPosition('geojson', 'line'));
+                }, this._getInsertPosition('vector', 'line'));
 
                 // Add circle layer if circle properties are defined
                 if (group.style?.['circle-radius'] || group.style?.['circle-color']) {
@@ -2435,59 +2438,62 @@ export class MapLayerControl {
                         type: 'circle',
                         source: sourceId,
                         paint: {
-                            'circle-radius': group.style['circle-radius'] || this._defaultStyles.geojson.circle?.['circle-radius'] || 5,
-                            'circle-color': group.style['circle-color'] || this._defaultStyles.geojson.circle?.['circle-color'] || '#FF0000',
-                            'circle-opacity': group.style['circle-opacity'] !== undefined ? group.style['circle-opacity'] : (this._defaultStyles.geojson.circle?.['circle-opacity'] || 0.8),
-                            'circle-stroke-width': group.style['circle-stroke-width'] !== undefined ? group.style['circle-stroke-width'] : (this._defaultStyles.geojson.circle?.['circle-stroke-width'] || 1),
-                            'circle-stroke-color': group.style['circle-stroke-color'] || this._defaultStyles.geojson.circle?.['circle-stroke-color'] || '#FFFFFF',
-                            'circle-stroke-opacity': group.style['circle-stroke-opacity'] !== undefined ? group.style['circle-stroke-opacity'] : (this._defaultStyles.geojson.circle?.['circle-stroke-opacity'] || 1),
-                            'circle-blur': group.style['circle-blur'] !== undefined ? group.style['circle-blur'] : (this._defaultStyles.geojson.circle?.['circle-blur'] || 0),
-                            'circle-translate': group.style['circle-translate'] || this._defaultStyles.geojson.circle?.['circle-translate'] || [0, 0],
-                            'circle-translate-anchor': group.style['circle-translate-anchor'] || this._defaultStyles.geojson.circle?.['circle-translate-anchor'] || 'map',
-                            'circle-pitch-alignment': group.style['circle-pitch-alignment'] || this._defaultStyles.geojson.circle?.['circle-pitch-alignment'] || 'viewport',
-                            'circle-pitch-scale': group.style['circle-pitch-scale'] || this._defaultStyles.geojson.circle?.['circle-pitch-scale'] || 'map'
+                            'circle-radius': group.style['circle-radius'] || this._defaultStyles.vector.circle?.['circle-radius'] || 5,
+                            'circle-color': group.style['circle-color'] || this._defaultStyles.vector.circle?.['circle-color'] || '#FF0000',
+                            'circle-opacity': group.style['circle-opacity'] !== undefined ? group.style['circle-opacity'] : (this._defaultStyles.vector.circle?.['circle-opacity'] || 0.8),
+                            'circle-stroke-width': group.style['circle-stroke-width'] !== undefined ? group.style['circle-stroke-width'] : (this._defaultStyles.vector.circle?.['circle-stroke-width'] || 1),
+                            'circle-stroke-color': group.style['circle-stroke-color'] || this._defaultStyles.vector.circle?.['circle-stroke-color'] || '#FFFFFF',
+                            'circle-stroke-opacity': group.style['circle-stroke-opacity'] !== undefined ? group.style['circle-stroke-opacity'] : (this._defaultStyles.vector.circle?.['circle-stroke-opacity'] || 1),
+                            'circle-blur': group.style['circle-blur'] !== undefined ? group.style['circle-blur'] : (this._defaultStyles.vector.circle?.['circle-blur'] || 0),
+                            'circle-translate': group.style['circle-translate'] || this._defaultStyles.vector.circle?.['circle-translate'] || [0, 0],
+                            'circle-translate-anchor': group.style['circle-translate-anchor'] || this._defaultStyles.vector.circle?.['circle-translate-anchor'] || 'map',
+                            'circle-pitch-alignment': group.style['circle-pitch-alignment'] || this._defaultStyles.vector.circle?.['circle-pitch-alignment'] || 'viewport',
+                            'circle-pitch-scale': group.style['circle-pitch-scale'] || this._defaultStyles.vector.circle?.['circle-pitch-scale'] || 'map'
                         },
                         layout: {
                             'visibility': 'visible'
                         }
-                    }, this._getInsertPosition('geojson', 'circle'));
+                    }, this._getInsertPosition('vector', 'circle'));
                 }
 
                 // Add text layer if text properties are defined
                 if (group.style?.['text-field'] || group.style?.['text-size']) {
+                    // Merge group styles with default styles from _defaults.json
+                    // Use geojson defaults if available, otherwise fall back to vector defaults
+                    const defaultTextStyles = this._defaultStyles?.geojson?.text || this._defaultStyles?.vector?.text || {};
+                    const mergedTextStyles = { ...defaultTextStyles, ...group.style };
+                    
                     // Use proper style categorization to handle all properties correctly
-                    const { paint: textPaint, layout: textLayout } = this._categorizeStyleProperties(group.style, 'symbol');
+                    const { paint: textPaint, layout: textLayout } = this._categorizeStyleProperties(mergedTextStyles, 'symbol');
 
                     this._map.addLayer({
                         id: `${sourceId}-label`,
                         type: 'symbol',
                         source: sourceId,
                         layout: {
-                            // Default layout properties
+                            // Default layout properties (fallback values)
                             'text-font': ['Open Sans Bold'],
-                            'text-field': this._defaultStyles.geojson.text['text-field'],
-                            'text-size': this._defaultStyles.geojson.text['text-size'],
-                            'text-anchor': this._defaultStyles.geojson.text['text-anchor'],
-                            'text-justify': this._defaultStyles.geojson.text['text-justify'],
-                            'text-allow-overlap': this._defaultStyles.geojson.text['text-allow-overlap'],
-                            'text-offset': this._defaultStyles.geojson.text['text-offset'],
-                            'text-transform': this._defaultStyles.geojson.text['text-transform'],
-                            // Only set text-padding if it's defined to avoid undefined errors
-                            ...(group.style?.['text-padding'] !== undefined ? { 'text-padding': group.style['text-padding'] } : {}),
+                            'text-field': ['get', 'name'],
+                            'text-size': 12,
+                            'text-anchor': 'center',
+                            'text-justify': 'center',
+                            'text-allow-overlap': false,
+                            'text-offset': [0, 0],
+                            'text-transform': 'none',
                             visibility: 'visible',
-                            // Apply categorized layout properties (including text-padding)
+                            // Apply categorized layout properties (including defaults from _defaults.json)
                             ...textLayout
                         },
                         paint: {
-                            // Default paint properties
+                            // Default paint properties (fallback values)
                             'text-color': '#000000',
                             'text-halo-color': '#ffffff',
                             'text-halo-width': 1,
                             'text-halo-blur': 1,
-                            // Apply categorized paint properties
+                            // Apply categorized paint properties (including defaults from _defaults.json)
                             ...textPaint
                         }
-                    }, this._getInsertPosition('geojson', 'symbol'));
+                    }, this._getInsertPosition('vector', 'symbol'));
                 }
 
                 // Fix interactivity by adding event listeners
@@ -2658,36 +2664,48 @@ export class MapLayerControl {
 
                 // Add text layer if text styles are defined
                 if (group.style?.['text-field']) {
+                    // Merge group styles with default styles from _defaults.json
+                    const defaultTextStyles = this._defaultStyles?.vector?.text || {};
+                    const mergedTextStyles = { ...defaultTextStyles, ...group.style };
+                    
+                    // Use the proper style categorization for merged styles
+                    const { paint: textPaint, layout: textLayout } = this._categorizeStyleProperties(mergedTextStyles, 'symbol');
+                    
                     const textLayerConfig = {
                         id: `vector-layer-${group.id}-text`,
                         type: 'symbol',
                         source: sourceId,
                         'source-layer': group.sourceLayer || 'default',
                         layout: {
-                            'text-font': group.style?.['text-font'] || ['Open Sans Bold'],
+                            // Default layout properties (fallback values)
+                            'text-font': ['Open Sans Bold'],
                             'text-field': group.style?.['text-field'],
-                            'text-size': group.style?.['text-size'] || 12,
-                            'text-anchor': group.style?.['text-anchor'] || 'center',
-                            'text-justify': group.style?.['text-justify'] || 'center',
-                            'text-allow-overlap': group.style?.['text-allow-overlap'] || false,
-                            'text-offset': group.style?.['text-offset'] || [0, 0],
-                            'text-transform': group.style?.['text-transform'] || 'none',
-                            'text-padding': group.style?.['text-padding'],
-                            visibility: 'visible'
+                            'text-size': 12,
+                            'text-anchor': 'center',
+                            'text-justify': 'center',
+                            'text-allow-overlap': false,
+                            'text-offset': [0, 0],
+                            'text-transform': 'none',
+                            visibility: 'visible',
+                            // Apply categorized layout properties (including defaults from _defaults.json)
+                            ...textLayout
                         },
                         paint: {
-                            'text-color': group.style?.['text-color'] || '#000000',
-                            'text-halo-color': group.style?.['text-halo-color'] || '#ffffff',
-                            'text-halo-width': group.style?.['text-halo-width'] !== undefined ? group.style['text-halo-width'] : 1,
-                            'text-halo-blur': group.style?.['text-halo-blur'] !== undefined ? group.style['text-halo-blur'] : 1,
-                            'text-opacity': group.style?.['text-opacity'] || [
+                            // Default paint properties (fallback values)
+                            'text-color': '#000000',
+                            'text-halo-color': '#ffffff',
+                            'text-halo-width': 1,
+                            'text-halo-blur': 1,
+                            'text-opacity': [
                                 'case',
                                 ['boolean', ['feature-state', 'selected'], false],
                                 1,
                                 ['boolean', ['feature-state', 'hover'], false],
                                 0.9,
                                 0.7
-                            ]
+                            ],
+                            // Apply categorized paint properties (including defaults from _defaults.json) 
+                            ...textPaint
                         }
                     };
 
@@ -4221,8 +4239,8 @@ export class MapLayerControl {
                     type: 'fill',
                     source: sourceId,
                     paint: {
-                        'fill-color': newConfig.style?.['fill-color'] || this._defaultStyles.geojson.fill['fill-color'],
-                        'fill-opacity': newConfig.style?.['fill-opacity'] || this._defaultStyles.geojson.fill['fill-opacity']
+                        'fill-color': newConfig.style?.['fill-color'] || this._defaultStyles.vector.fill['fill-color'],
+                        'fill-opacity': newConfig.style?.['fill-opacity'] || this._defaultStyles.vector.fill['fill-opacity']
                     },
                     layout: {
                         visibility: 'none'
@@ -4235,19 +4253,19 @@ export class MapLayerControl {
                     type: 'line',
                     source: sourceId,
                     paint: {
-                        'line-color': this._combineWithDefaultStyle(newConfig.style?.['line-color'], this._defaultStyles.geojson.line['line-color']),
-                        'line-width': newConfig.style?.['line-width'] || this._defaultStyles.geojson.line['line-width'],
-                        'line-opacity': newConfig.style?.['line-opacity'] !== undefined ? newConfig.style['line-opacity'] : (this._defaultStyles.geojson.line['line-opacity'] || 1),
+                        'line-color': this._combineWithDefaultStyle(newConfig.style?.['line-color'], this._defaultStyles.vector.line['line-color']),
+                        'line-width': newConfig.style?.['line-width'] || this._defaultStyles.vector.line['line-width'],
+                        'line-opacity': newConfig.style?.['line-opacity'] !== undefined ? newConfig.style['line-opacity'] : (this._defaultStyles.vector.line['line-opacity'] || 1),
                         // Only set line-dasharray if it's defined to avoid undefined errors
-                        ...(newConfig.style?.['line-dasharray'] || this._defaultStyles.geojson.line?.['line-dasharray'] ?
-                            { 'line-dasharray': newConfig.style?.['line-dasharray'] || this._defaultStyles.geojson.line['line-dasharray'] } : {})
+                        ...(newConfig.style?.['line-dasharray'] || this._defaultStyles.vector.line?.['line-dasharray'] ?
+                            { 'line-dasharray': newConfig.style?.['line-dasharray'] || this._defaultStyles.vector.line['line-dasharray'] } : {})
                     },
                     layout: {
                         'visibility': 'visible',
                         'line-join': 'round',
                         'line-cap': 'round'
                     }
-                }, this._getInsertPosition('geojson', 'line'));
+                }, this._getInsertPosition('vector', 'line'));
 
                 // Add circle layer if circle properties are defined
                 if (newConfig.style?.['circle-radius'] || newConfig.style?.['circle-color']) {
@@ -4256,17 +4274,17 @@ export class MapLayerControl {
                         type: 'circle',
                         source: sourceId,
                         paint: {
-                            'circle-radius': newConfig.style['circle-radius'] || this._defaultStyles.geojson.circle?.['circle-radius'] || 5,
-                            'circle-color': newConfig.style['circle-color'] || this._defaultStyles.geojson.circle?.['circle-color'] || '#FF0000',
-                            'circle-opacity': newConfig.style['circle-opacity'] !== undefined ? newConfig.style['circle-opacity'] : (this._defaultStyles.geojson.circle?.['circle-opacity'] || 0.8),
-                            'circle-stroke-width': newConfig.style['circle-stroke-width'] !== undefined ? newConfig.style['circle-stroke-width'] : (this._defaultStyles.geojson.circle?.['circle-stroke-width'] || 1),
-                            'circle-stroke-color': newConfig.style['circle-stroke-color'] || this._defaultStyles.geojson.circle?.['circle-stroke-color'] || '#FFFFFF',
-                            'circle-stroke-opacity': newConfig.style['circle-stroke-opacity'] !== undefined ? newConfig.style['circle-stroke-opacity'] : (this._defaultStyles.geojson.circle?.['circle-stroke-opacity'] || 1),
-                            'circle-blur': newConfig.style['circle-blur'] !== undefined ? newConfig.style['circle-blur'] : (this._defaultStyles.geojson.circle?.['circle-blur'] || 0),
-                            'circle-translate': newConfig.style['circle-translate'] || this._defaultStyles.geojson.circle?.['circle-translate'] || [0, 0],
-                            'circle-translate-anchor': newConfig.style['circle-translate-anchor'] || this._defaultStyles.geojson.circle?.['circle-translate-anchor'] || 'map',
-                            'circle-pitch-alignment': newConfig.style['circle-pitch-alignment'] || this._defaultStyles.geojson.circle?.['circle-pitch-alignment'] || 'viewport',
-                            'circle-pitch-scale': newConfig.style['circle-pitch-scale'] || this._defaultStyles.geojson.circle?.['circle-pitch-scale'] || 'map'
+                            'circle-radius': newConfig.style['circle-radius'] || this._defaultStyles.vector.circle?.['circle-radius'] || 5,
+                            'circle-color': newConfig.style['circle-color'] || this._defaultStyles.vector.circle?.['circle-color'] || '#FF0000',
+                            'circle-opacity': newConfig.style['circle-opacity'] !== undefined ? newConfig.style['circle-opacity'] : (this._defaultStyles.vector.circle?.['circle-opacity'] || 0.8),
+                            'circle-stroke-width': newConfig.style['circle-stroke-width'] !== undefined ? newConfig.style['circle-stroke-width'] : (this._defaultStyles.vector.circle?.['circle-stroke-width'] || 1),
+                            'circle-stroke-color': newConfig.style['circle-stroke-color'] || this._defaultStyles.vector.circle?.['circle-stroke-color'] || '#FFFFFF',
+                            'circle-stroke-opacity': newConfig.style['circle-stroke-opacity'] !== undefined ? newConfig.style['circle-stroke-opacity'] : (this._defaultStyles.vector.circle?.['circle-stroke-opacity'] || 1),
+                            'circle-blur': newConfig.style['circle-blur'] !== undefined ? newConfig.style['circle-blur'] : (this._defaultStyles.vector.circle?.['circle-blur'] || 0),
+                            'circle-translate': newConfig.style['circle-translate'] || this._defaultStyles.vector.circle?.['circle-translate'] || [0, 0],
+                            'circle-translate-anchor': newConfig.style['circle-translate-anchor'] || this._defaultStyles.vector.circle?.['circle-translate-anchor'] || 'map',
+                            'circle-pitch-alignment': newConfig.style['circle-pitch-alignment'] || this._defaultStyles.vector.circle?.['circle-pitch-alignment'] || 'viewport',
+                            'circle-pitch-scale': newConfig.style['circle-pitch-scale'] || this._defaultStyles.vector.circle?.['circle-pitch-scale'] || 'map'
                         },
                         layout: {
                             visibility: 'none'
