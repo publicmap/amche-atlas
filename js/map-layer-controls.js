@@ -38,6 +38,7 @@ export class MapLayerControl {
         this._config.showPopupsOnClick = this._config.showPopupsOnClick !== undefined ? this._config.showPopupsOnClick : false;
 
         // sourceLayerLinks functionality has been moved to MapFeatureControl
+        this._sourceLayerLinks = this._config.sourceLayerLinks || [];
 
         // Default styles will be loaded from config/index.atlas.json styles object
         this._defaultStyles = {};
