@@ -29,11 +29,31 @@ class TransitExplorer {
         // Initialize URL manager for deep linking
         this.urlManager = null;
         
+        // City configuration with bounds and display info
+        this.cities = [
+            {
+                id: 'mumbai',
+                name: 'Mumbai',
+                bounds: [
+                    [72.7746, 18.8900], // Southwest corner
+                    [72.9884, 19.2700]  // Northeast corner
+                ],
+                center: [72.8777, 19.0760],
+                zoom: 11
+            }
+            // Additional cities can be added here in the future
+        ];
+        
+        this.currentCity = this.cities[0]; // Default to first city (Mumbai)
+        
         this.init();
     }
 
     async init() {
         console.log('🚌 Initializing Transit Explorer...');
+        
+        // Render city buttons first
+        this.renderCityButtons();
         
         // Initialize map first
         this.initMap();
@@ -55,6 +75,71 @@ class TransitExplorer {
         setTimeout(() => {
             this.applyURLParametersOnLoad(hasURLSelection);
         }, 1000);
+    }
+
+    // City management methods
+    renderCityButtons() {
+        const container = document.getElementById('city-buttons-container');
+        if (!container) return;
+
+        container.innerHTML = '';
+        
+        this.cities.forEach(city => {
+            const button = document.createElement('button');
+            button.className = `city-button ${city.id === this.currentCity.id ? 'active' : ''}`;
+            button.textContent = city.name;
+            button.setAttribute('data-city-id', city.id);
+            button.addEventListener('click', () => this.selectCity(city.id));
+            container.appendChild(button);
+        });
+    }
+
+    selectCity(cityId) {
+        const city = this.cities.find(c => c.id === cityId);
+        if (!city) return;
+
+        // Update current city
+        this.currentCity = city;
+        
+        // Update button states
+        document.querySelectorAll('.city-button').forEach(btn => {
+            if (btn.getAttribute('data-city-id') === cityId) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // Fly to city bounds
+        this.flyToCityBounds(city);
+        
+        console.log(`🏙️ Selected city: ${city.name}`);
+    }
+
+    flyToCityBounds(city) {
+        if (!this.map || !city.bounds) return;
+
+        this.map.fitBounds(city.bounds, {
+            padding: 50,
+            duration: 2000
+        });
+    }
+
+    isLocationWithinCityBounds(location, city) {
+        if (!location || !city.bounds) return false;
+
+        const [lng, lat] = [location.lng, location.lat];
+        const [[swLng, swLat], [neLng, neLat]] = city.bounds;
+
+        return lng >= swLng && lng <= neLng && lat >= swLat && lat <= neLat;
+    }
+
+    isLocationWithinAnyCityBounds(location) {
+        return this.cities.some(city => this.isLocationWithinCityBounds(location, city));
+    }
+
+    findCityForLocation(location) {
+        return this.cities.find(city => this.isLocationWithinCityBounds(location, city));
     }
 
     async applyURLParametersOnLoad(hasURLSelection = false) {
@@ -391,8 +476,8 @@ class TransitExplorer {
         this.map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/dark-v11',
-            center: [72.8777, 19.0760], // Mumbai center
-            zoom: 11,
+            center: this.currentCity.center,
+            zoom: this.currentCity.zoom,
             pitch: 45,
             bearing: 0,
             hash: true
@@ -1342,6 +1427,12 @@ class TransitExplorer {
         const currentStopId = this.currentStop?.properties?.id || 
                              this.currentStop?.properties?.stop_id;
         
+        // Debug: Log first stop's properties to see available fields
+        if (stops.length > 0) {
+            console.log('🔍 First stop properties:', stops[0].feature?.properties);
+            console.log('🔍 First stop displayInfo:', stops[0].getDisplayInfo());
+        }
+        
         // Add header with sorting info when location is unavailable
         let headerHTML = '';
         if (!this.userLocation && stops.length > 0) {
@@ -1361,15 +1452,17 @@ class TransitExplorer {
             const isSelected = stop.id === currentStopId;
             const routesInfo = stop.getRoutesFromTimetable();
             const topRoutes = routesInfo.slice(0, 3);
+            const displayInfo = stop.getDisplayInfo(); // Get once and reuse
+            
+            // Debug destination info
+            const towardsStop = stop.getProperty('towards_stop');
+            console.log(`🔍 Stop ${stop.name}: towards_stop="${towardsStop}", displayInfo.to="${displayInfo.to}"`);
             
             return `
                 <div class="stop-option ${isSelected ? 'stop-option-selected' : ''}" 
                      data-stop-id="${stop.id}">
                     <div class="stop-option-name">${stop.name}</div>
                     <div class="stop-option-details">
-                        ${stop.distance !== null ? `
-                            <span class="stop-option-distance">${(stop.distance * 1000).toFixed(0)}m</span>
-                        ` : ''}
                         <span>${routesInfo.length} routes</span>
                         <div class="status-indicator ${stop.hasLiveData ? 'status-live' : 'status-scheduled'}"></div>
                     </div>
@@ -1383,6 +1476,11 @@ class TransitExplorer {
                                 return DataUtils.getStyledRouteBadge(route.name, routeInfo, 'small');
                             }).join('')}
                             ${routesInfo.length > 3 ? `<span class="text-gray-400 text-xs">+${routesInfo.length - 3}</span>` : ''}
+                        </div>
+                    ` : ''}
+                    ${displayInfo.to ? `
+                        <div class="stop-option-destinations text-xs text-gray-400 mt-1">
+                            <span class="text-gray-500">To:</span> ${displayInfo.to}
                         </div>
                     ` : ''}
                 </div>
@@ -1441,13 +1539,12 @@ class TransitExplorer {
 
     updateStopSelectorButton(busStop) {
         const selectedStopName = document.getElementById('selected-stop-name');
-        const distance = busStop.distance ? ` • ${(busStop.distance * 1000).toFixed(0)}m` : '';
         
         selectedStopName.innerHTML = `
             <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
             </svg>
-            <span>${busStop.name}${distance}</span>
+            <span>${busStop.name}</span>
         `;
     }
 
@@ -1474,49 +1571,44 @@ class TransitExplorer {
     }
 
     handleLocationError(error) {
-        let message = 'Unable to retrieve your location.';
+        let message = 'Location information is unavailable';
         
         switch (error.code) {
             case error.PERMISSION_DENIED:
-                message = 'Location access denied. Please enable location services.';
-                this.showLocationBanner();
+                message = 'Location access denied';
                 break;
             case error.POSITION_UNAVAILABLE:
-                message = 'Location information is unavailable.';
-                this.showLocationBanner();
+                message = 'Location information is unavailable';
                 break;
             case error.TIMEOUT:
-                message = 'Location request timed out.';
-                this.showLocationBanner();
+                message = 'Location request timed out';
                 break;
         }
         
-        this.updateLocationStatus(message, 'status-scheduled');
+        this.updateLocationStatus(message, 'status-scheduled', true);
         console.warn('📍 Location error:', message);
         
         // Show fallback content to help user continue using the app
         this.showLocationFallbackContent();
     }
 
-    showLocationBanner() {
-        const banner = document.getElementById('location-banner');
-        if (banner) {
-            banner.classList.remove('hidden');
-            console.log('📍 Showing location banner');
-        }
-    }
 
-    hideLocationBanner() {
-        const banner = document.getElementById('location-banner');
-        if (banner) {
-            banner.classList.add('hidden');
-            console.log('📍 Hiding location banner');
-        }
-    }
 
     showLocationFallbackContent() {
         console.log('📍 Showing location fallback content');
         console.log('✅ App remains functional without location - user can manually select stops');
+        
+        // Set user location to current city center if not already set
+        if (!this.userLocation) {
+            this.userLocation = {
+                lng: this.currentCity.center[0],
+                lat: this.currentCity.center[1]
+            };
+            console.log(`📍 Set fallback location to ${this.currentCity.name} center`);
+        }
+        
+        // Update location status to show fallback
+        this.updateLocationStatus(`Using ${this.currentCity.name} (location unavailable)`, 'status-scheduled', false);
         
         // Display helpful message in departure board
         this.showDepartureFallbackMessage();
@@ -1526,6 +1618,9 @@ class TransitExplorer {
         
         // Update the stop selector button to be more prominent
         this.makeStopSelectorProminent();
+        
+        // Ensure map is positioned to show the city
+        this.flyToCityBounds(this.currentCity);
     }
 
     showDepartureFallbackMessage() {
@@ -1627,38 +1722,97 @@ class TransitExplorer {
                 });
             });
 
-            this.userLocation = {
+            const rawLocation = {
                 lng: position.coords.longitude,
                 lat: position.coords.latitude
             };
 
-            console.log('📍 Location acquired successfully:', this.userLocation);
+            console.log('📍 Raw location acquired:', rawLocation);
             
-            // Update UI immediately after successful location acquisition
-            this.updateLocationStatus('Location found', 'status-live');
-            this.hideLocationBanner(); // Ensure banner is hidden
-            this.enableCenterButton();
-            this.enableNearestStopButton();
+            // Check if user location is within any covered city
+            const userWithinCoverage = this.isLocationWithinAnyCityBounds(rawLocation);
             
-            // Add user location marker
-            this.addUserLocationMarker();
-            
-            // Only find nearest stop automatically if no URL selection exists
-            if (!hasURLSelection) {
-                console.log('📍 No URL selection, proceeding to find nearest stop');
-                // Wait for map sources to load before finding stops
-                await this.waitForMapSources();
-                await this.findNearestStop();
+            if (userWithinCoverage) {
+                // User is within coverage, use their actual location
+                this.userLocation = rawLocation;
+                console.log('📍 User location is within coverage area');
+                
+                // Find which city they're in and update current city if needed
+                const userCity = this.findCityForLocation(rawLocation);
+                if (userCity && userCity.id !== this.currentCity.id) {
+                    this.currentCity = userCity;
+                    this.renderCityButtons(); // Update button states
+                    console.log(`📍 Updated current city to: ${userCity.name}`);
+                }
+                
+                // Update UI immediately after successful location acquisition
+                this.updateLocationStatus('Location found', 'status-live', false);
+                this.enableCenterButton();
+                this.enableNearestStopButton();
+                
+                // Add user location marker
+                this.addUserLocationMarker();
+                
+                // Only find nearest stop automatically if no URL selection exists
+                if (!hasURLSelection) {
+                    console.log('📍 No URL selection, proceeding to find nearest stop');
+                    // Wait for map sources to load before finding stops
+                    await this.waitForMapSources();
+                    await this.findNearestStop();
+                } else {
+                    console.log('📍 URL selection exists, skipping automatic nearest stop finding');
+                }
+                
+                // Center map on user location
+                this.centerOnLocation();
             } else {
-                console.log('📍 URL selection exists, skipping automatic nearest stop finding');
+                // User is outside coverage, use default city location
+                console.log('📍 User location is outside coverage area, using default city location');
+                this.userLocation = {
+                    lng: this.currentCity.center[0],
+                    lat: this.currentCity.center[1]
+                };
+                
+                // Update UI to show fallback location
+                this.updateLocationStatus(`Using ${this.currentCity.name} (outside coverage)`, 'status-scheduled', false);
+                this.enableCenterButton();
+                this.enableNearestStopButton();
+                
+                // Fly to city bounds instead of centering on specific location
+                this.flyToCityBounds(this.currentCity);
+                
+                // Still find nearest stop within the city if no URL selection
+                if (!hasURLSelection) {
+                    console.log('📍 Finding nearest stop within city bounds');
+                    await this.waitForMapSources();
+                    await this.findNearestStop();
+                }
             }
-            
-            // Center map on user location
-            this.centerOnLocation();
 
         } catch (error) {
             console.error('📍 Location error caught:', error);
             this.handleLocationError(error);
+            
+            // Use default city location as fallback
+            this.userLocation = {
+                lng: this.currentCity.center[0],
+                lat: this.currentCity.center[1]
+            };
+            
+            console.log(`📍 Using default city location: ${this.currentCity.name}`);
+            this.updateLocationStatus(`Using ${this.currentCity.name} (location unavailable)`, 'status-scheduled', false);
+            this.enableCenterButton();
+            this.enableNearestStopButton();
+            
+            // Fly to city bounds
+            this.flyToCityBounds(this.currentCity);
+            
+            // Find nearest stop within the city if no URL selection
+            if (!hasURLSelection) {
+                console.log('📍 Finding nearest stop within city bounds after location error');
+                await this.waitForMapSources();
+                await this.findNearestStop();
+            }
             
             // Ensure fallback content is shown even if error handling fails
             setTimeout(() => {
@@ -1710,15 +1864,23 @@ class TransitExplorer {
         }
     }
 
-    updateLocationStatus(message, statusClass) {
+    updateLocationStatus(message, statusClass, showEnableButton = false) {
         const statusEl = document.getElementById('location-status');
         const indicator = statusEl.querySelector('.status-indicator');
         const text = statusEl.querySelector('span');
+        const enableBtn = document.getElementById('enable-location-btn');
         
         // Remove all status classes
         indicator.classList.remove('status-live', 'status-scheduled');
         indicator.classList.add(statusClass);
         text.textContent = message;
+        
+        // Show or hide the enable button
+        if (showEnableButton && enableBtn) {
+            enableBtn.classList.remove('hidden');
+        } else if (enableBtn) {
+            enableBtn.classList.add('hidden');
+        }
     }
 
     addUserLocationMarker() {
@@ -1745,11 +1907,21 @@ class TransitExplorer {
 
     centerOnLocation() {
         if (this.userLocation) {
-            this.map.flyTo({
-                center: [this.userLocation.lng, this.userLocation.lat],
-                zoom: 15,
-                duration: 2000
-            });
+            // Check if the current user location is actually a city center (fallback location)
+            const isCityCenter = this.userLocation.lng === this.currentCity.center[0] && 
+                                this.userLocation.lat === this.currentCity.center[1];
+            
+            if (isCityCenter) {
+                // If it's the city center, fly to city bounds instead of specific point
+                this.flyToCityBounds(this.currentCity);
+            } else {
+                // If it's an actual user location, zoom to it
+                this.map.flyTo({
+                    center: [this.userLocation.lng, this.userLocation.lat],
+                    zoom: 15,
+                    duration: 2000
+                });
+            }
         }
     }
 
@@ -1815,7 +1987,7 @@ class TransitExplorer {
         }
         
         // Also update the status
-        this.updateLocationStatus(message, 'status-scheduled');
+        this.updateLocationStatus(message, 'status-scheduled', true);
     }
 
     async findNearestStop() {
@@ -2059,13 +2231,6 @@ class TransitExplorer {
             <div class="space-y-4">
                 <!-- Stop Statistics -->
                 <div class="grid grid-cols-2 gap-4 text-sm">
-                    ${displayInfo.distance ? `
-                        <div>
-                            <span class="text-gray-400">Distance:</span>
-                            <span class="text-white font-medium">${displayInfo.distance}</span>
-                        </div>
-                    ` : ''}
-                    
                     <div>
                         <span class="text-gray-400">Routes:</span>
                         <span class="text-white font-medium">${routesWithInfo.length}</span>
@@ -2085,6 +2250,16 @@ class TransitExplorer {
                         </div>
                     ` : ''}
                 </div>
+                
+                <!-- Destinations -->
+                ${displayInfo.to ? `
+                    <div>
+                        <div class="text-gray-400 text-sm mb-2">Buses go to:</div>
+                        <div class="text-white text-sm bg-gray-700/30 rounded p-3 border-l-4 border-blue-500">
+                            ${displayInfo.to}
+                        </div>
+                    </div>
+                ` : ''}
                 
                 <!-- Live Data Status -->
                 <div class="flex items-center gap-2 pt-2 border-t border-gray-600">
@@ -2305,9 +2480,6 @@ class TransitExplorer {
                         <div class="flex-1">
                             <h5 class="font-medium text-white text-sm">${displayInfo.name}</h5>
                             <div class="flex items-center gap-2 mt-1">
-                                ${displayInfo.distance ? `
-                                    <span class="text-xs text-gray-400">${displayInfo.distance}</span>
-                                ` : ''}
                                 <span class="text-xs text-gray-400">${displayInfo.routeCount} routes</span>
                                 <span class="text-gray-500">•</span>
                                 <span class="text-xs text-gray-400">~${avgHeadway}min avg</span>
@@ -2330,6 +2502,12 @@ class TransitExplorer {
                             
                             ${displayInfo.description ? `
                                 <div class="text-xs text-gray-400 truncate">${displayInfo.description}</div>
+                            ` : ''}
+                            
+                            ${displayInfo.to ? `
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="text-gray-600">To:</span> ${displayInfo.to}
+                                </div>
                             ` : ''}
                         </div>
                         <button class="select-stop-btn text-green-400 hover:text-green-300 ml-2 flex-shrink-0">
@@ -2369,8 +2547,7 @@ class TransitExplorer {
         
         if (!this.userLocation) {
             console.warn('❌ Cannot find nearest stop: user location not available');
-            this.updateLocationStatus('Location required for nearest stop', 'status-scheduled');
-            this.showLocationBanner();
+            this.updateLocationStatus('Location required for nearest stop', 'status-scheduled', true);
             return;
         }
 
@@ -2384,7 +2561,7 @@ class TransitExplorer {
         await this.findNearestStop();
         
         // Update status
-        this.updateLocationStatus('Nearest stop selected', 'status-live');
+        this.updateLocationStatus('Nearest stop selected', 'status-live', false);
     }
 
     setupMapInteractions() {
@@ -2783,6 +2960,15 @@ class TransitExplorer {
         const scheduledDepartures = departures.filter(d => !d.isLive);
         
         console.log(`📊 Displaying ${liveDepartures.length} live and ${scheduledDepartures.length} scheduled departures`);
+        
+        // Auto-switch to scheduled tab if no live departures but scheduled ones exist
+        if (liveDepartures.length === 0 && scheduledDepartures.length > 0) {
+            console.log('🔄 No live departures available, switching to scheduled tab');
+            this.switchDepartureTab('scheduled');
+        } else if (liveDepartures.length > 0) {
+            // Switch back to live tab if we have live departures (in case we were on scheduled)
+            this.switchDepartureTab('live');
+        }
         
         // Display both tabs
         this.displayLiveDepartures(liveDepartures);

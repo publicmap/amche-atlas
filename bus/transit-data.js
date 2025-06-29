@@ -230,7 +230,16 @@ export class BusStop {
     
     getProperty(schemaKey) {
         const fieldName = this.schema.fields[schemaKey];
-        if (!fieldName) return null;
+        
+        // If no schema mapping exists, try direct property access
+        if (!fieldName) {
+            const directValue = this.properties[schemaKey];
+            if (directValue !== undefined) {
+                console.log(`🔍 Direct property access for ${schemaKey}: ${directValue}`);
+                return directValue;
+            }
+            return null;
+        }
         
         // Handle array of field names (try each one)
         if (Array.isArray(fieldName)) {
@@ -384,6 +393,51 @@ export class BusStop {
     getDisplayInfo(userLocation = null) {
         const distance = userLocation ? this.getDistance(userLocation) : null;
         
+        // Debug: Log all available properties
+        console.log(`🔍 Stop ${this.name} - All properties:`, Object.keys(this.properties));
+        
+        // Format towards_stop field for display
+        let toDestinations = null;
+        
+        // Debug: Check multiple possible field names for destinations
+        const possibleFields = ['towards_stop', 'destination', 'to', 'destinations', 'terminus', 'end_stops', 'last_stop'];
+        let towardsStop = null;
+        let foundField = null;
+        
+        for (const field of possibleFields) {
+            const value = this.getProperty(field);
+            if (value && typeof value === 'string' && value.trim()) {
+                towardsStop = value;
+                foundField = field;
+                break;
+            }
+        }
+        
+        console.log(`🔍 Stop ${this.name}: Found destination field "${foundField}" with value "${towardsStop}"`);
+        
+        // If no stop-level destination found, try extracting from route data
+        if (!towardsStop) {
+            const routesWithDestinations = this.getRoutesFromTimetable()
+                .map(route => route.destination)
+                .filter(dest => dest && dest !== 'Main Terminal') // Filter out fallback destinations
+                .slice(0, 3); // Limit to first 3 unique destinations
+            
+            if (routesWithDestinations.length > 0) {
+                toDestinations = [...new Set(routesWithDestinations)].join(', '); // Remove duplicates
+                console.log(`🔍 Stop ${this.name}: Using route destinations: ${toDestinations}`);
+            }
+        } else {
+            // Split by semicolon and clean up each destination
+            const destinations = towardsStop.split(';')
+                .map(dest => dest.trim())
+                .filter(dest => dest.length > 0);
+            
+            if (destinations.length > 0) {
+                // Join with commas for natural formatting
+                toDestinations = destinations.join(', ');
+            }
+        }
+        
         return {
             name: this.name || 'Bus Stop',
             description: this.description,
@@ -394,7 +448,8 @@ export class BusStop {
             tripCount: this.tripCount,
             avgWaitTime: this.avgWaitTime,
             hasLiveData: this.hasLiveData,
-            coordinates: this.coordinates
+            coordinates: this.coordinates,
+            to: toDestinations
         };
     }
 

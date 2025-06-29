@@ -254,6 +254,41 @@
             transform: translateY(0);
         }
         
+        /* City button styles */
+        .city-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.375rem 0.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .city-button:hover {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.5);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+        
+        .city-button.active {
+            background: rgba(34, 197, 94, 0.3);
+            border-color: rgba(34, 197, 94, 0.7);
+            color: #16a34a;
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+        }
+        
+        .city-button:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
         /* Mobile responsive styles for share button */
         @media (max-width: 768px) {
             .share-button {
@@ -265,6 +300,11 @@
             .share-button svg {
                 width: 1.25rem;
                 height: 1.25rem;
+            }
+            
+            .city-button {
+                font-size: 0.875rem;
+                padding: 0.25rem 0.5rem;
             }
         }
     </style>
@@ -280,18 +320,25 @@
                         <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/>
                     </svg>
                 </a>
-                <h1 class="text-2xl font-bold flex items-center gap-2">
-                    <svg class="w-8 h-8" fill="black" viewBox="0 0 361 439" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M 202,454 C 197,452 192,447 190,442 C 188,439 188,436 188,420 C 187,408 186,402 186,402 C 185,401 178,401 171,401 L 157,401 L 157,307 L 157,213 L 166,148 C 171,113 176,81 176,78 C 179,71 185,62 192,56 C 198,51 216,42 228,38 C 238,35 257,30 274,27 C 319,19 356,20 404,29 C 458,40 485,54 493,77 C 494,81 498,105 504,149 L 512,214 L 512,308 L 512,401 L 499,401 C 491,401 485,401 484,402 C 484,402 483,408 483,420 C 482,440 481,444 474,450 C 461,461 438,456 433,440 C 433,438 432,429 432,420 C 432,407 432,404 430,402 C 429,401 419,401 335,401 C 251,401 241,401 240,402 C 238,404 238,407 238,421 C 238,436 238,438 236,442 C 233,448 230,451 224,454 C 218,456 207,456 202,454 Z M 221,342 C 231,339 237,330 237,320 C 237,306 227,295 213,295 C 206,295 202,296 197,301 C 191,306 189,311 189,319 C 189,327 191,332 196,337 C 202,343 213,345 221,342 Z M 468,341 C 486,332 486,307 468,298 C 455,291 440,297 434,310 C 432,315 432,325 435,330 C 441,342 456,347 468,341 Z M 470,232 C 473,231 476,230 478,229 C 480,226 482,219 481,214 C 481,213 478,189 474,162 C 467,111 466,107 461,103 C 456,98 458,98 336,98 C 253,98 219,98 215,99 C 210,100 205,105 204,111 C 201,120 188,218 189,222 C 190,227 194,231 199,232 C 206,233 464,233 470,232 Z M 411,76 C 415,75 418,72 419,67 C 419,63 417,58 413,56 C 412,55 389,55 334,55 C 263,55 257,55 255,57 C 251,60 250,66 253,72 C 254,73 256,75 258,75 C 259,76 261,76 262,76 C 264,77 407,77 411,76 Z"/>
-                    </svg>
-                    Bus Route Explorer
-                </h1>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-2xl font-bold flex items-center gap-2">
+                        <svg class="w-8 h-8" fill="black" viewBox="0 0 361 439" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M 202,454 C 197,452 192,447 190,442 C 188,439 188,436 188,420 C 187,408 186,402 186,402 C 185,401 178,401 171,401 L 157,401 L 157,307 L 157,213 L 166,148 C 171,113 176,81 176,78 C 179,71 185,62 192,56 C 198,51 216,42 228,38 C 238,35 257,30 274,27 C 319,19 356,20 404,29 C 458,40 485,54 493,77 C 494,81 498,105 504,149 L 512,214 L 512,308 L 512,401 L 499,401 C 491,401 485,401 484,402 C 484,402 483,408 483,420 C 482,440 481,444 474,450 C 461,461 438,456 433,440 C 433,438 432,429 432,420 C 432,407 432,404 430,402 C 429,401 419,401 335,401 C 251,401 241,401 240,402 C 238,404 238,407 238,421 C 238,436 238,438 236,442 C 233,448 230,451 224,454 C 218,456 207,456 202,454 Z M 221,342 C 231,339 237,330 237,320 C 237,306 227,295 213,295 C 206,295 202,296 197,301 C 191,306 189,311 189,319 C 189,327 191,332 196,337 C 202,343 213,345 221,342 Z M 468,341 C 486,332 486,307 468,298 C 455,291 440,297 434,310 C 432,315 432,325 435,330 C 441,342 456,347 468,341 Z M 470,232 C 473,231 476,230 478,229 C 480,226 482,219 481,214 C 481,213 478,189 474,162 C 467,111 466,107 461,103 C 456,98 458,98 336,98 C 253,98 219,98 215,99 C 210,100 205,105 204,111 C 201,120 188,218 189,222 C 190,227 194,231 199,232 C 206,233 464,233 470,232 Z M 411,76 C 415,75 418,72 419,67 C 419,63 417,58 413,56 C 412,55 389,55 334,55 C 263,55 257,55 255,57 C 251,60 250,66 253,72 C 254,73 256,75 258,75 C 259,76 261,76 262,76 C 264,77 407,77 411,76 Z"/>
+                        </svg>
+                        Bus Route Explorer
+                    </h1>
+                    <div id="city-buttons-container" class="flex items-center gap-1 ml-2">
+                        <!-- City buttons will be rendered here -->
+                    </div>
+                </div>
             </div>
             <div class="flex items-center gap-4">
-                <sl-badge variant="success" class="sim-badge">Mumbai</sl-badge>
                 <div id="location-status" class="flex items-center gap-2 text-sm">
                     <div class="status-indicator status-scheduled"></div>
                     <span>Locating...</span>
+                    <button id="enable-location-btn" class="hidden ml-2 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors">
+                        Enable
+                    </button>
                 </div>
                 <!-- Share button container for ShareLink plugin -->
                 <div id="share-button-container"></div>
@@ -301,21 +348,7 @@
 
     <!-- Main Content -->
     <main class="container mx-auto px-4 py-6">
-        <!-- Location Permission Banner -->
-        <div id="location-banner" class="sim-container rounded-lg p-4 mb-6 border-l-4 border-transit-orange hidden">
-            <div class="flex items-center gap-3">
-                <svg class="w-6 h-6 text-transit-orange" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                </svg>
-                <div>
-                    <h3 class="font-semibold text-white">Location Access Required</h3>
-                    <p class="text-gray-300 text-sm">Enable location access to find the nearest bus stop and real-time departures.</p>
-                </div>
-                <sl-button id="enable-location-btn" variant="primary" size="small">
-                    Enable Location
-                </sl-button>
-            </div>
-        </div>
+
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Left Panel - Stop Information -->
