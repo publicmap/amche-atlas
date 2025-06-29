@@ -3770,6 +3770,9 @@ export class MapFeatureControl {
             }
         });
 
+        // Apply visual feedback to layer details UI elements
+        this._applyLayerDetailsOpacityEffect(layerId);
+
         // Update hover state
         this._layerHoverState = {
             isActive: true,
@@ -3796,6 +3799,9 @@ export class MapFeatureControl {
         });
 
         console.log(`Restored ${this._layerHoverState.hiddenLayers.length} layers`);
+
+        // Restore opacity of all layer details UI elements
+        this._restoreLayerDetailsOpacity();
 
         // Reset hover state
         this._layerHoverState = {
@@ -3852,6 +3858,51 @@ export class MapFeatureControl {
         console.log(`Total unique basemap style layer IDs:`, uniqueBasemapIds);
         
         return uniqueBasemapIds;
+    }
+
+    /**
+     * Apply opacity effect to layer details UI elements when a layer is isolated
+     * Sets opacity to 0.5 for all layer details except the hovered one
+     */
+    _applyLayerDetailsOpacityEffect(hoveredLayerId) {
+        if (!this._layersContainer) return;
+
+        // Get all layer details elements
+        const layerDetailsElements = this._layersContainer.querySelectorAll('.layer-details');
+        
+        layerDetailsElements.forEach(element => {
+            const elementLayerId = element.getAttribute('data-layer-id');
+            
+            if (elementLayerId !== hoveredLayerId) {
+                // Set opacity to 0.5 for non-hovered layers with smooth transition
+                element.style.transition = 'opacity 0.2s ease-in-out';
+                element.style.opacity = '0.5';
+            } else {
+                // Ensure hovered layer stays fully opaque
+                element.style.transition = 'opacity 0.2s ease-in-out';
+                element.style.opacity = '1';
+            }
+        });
+
+        console.log(`Applied opacity effect - ${hoveredLayerId} remains opaque, others set to 0.5`);
+    }
+
+    /**
+     * Restore opacity of all layer details UI elements to full opacity
+     */
+    _restoreLayerDetailsOpacity() {
+        if (!this._layersContainer) return;
+
+        // Get all layer details elements
+        const layerDetailsElements = this._layersContainer.querySelectorAll('.layer-details');
+        
+        layerDetailsElements.forEach(element => {
+            // Restore full opacity with smooth transition
+            element.style.transition = 'opacity 0.2s ease-in-out';
+            element.style.opacity = '1';
+        });
+
+        console.log(`Restored opacity for all layer details elements`);
     }
 }
 
