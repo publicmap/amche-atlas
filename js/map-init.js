@@ -489,7 +489,10 @@ async function initializeMap() {
         console.log('[MapInit] Initialized centralized feature state manager');
         
         // Initialize layer control
-        const layerControl = new MapLayerControl(layers);
+        const layerControl = new MapLayerControl({
+            groups: layers,
+            showPopupsOnClick: true
+        });
         const container = document.getElementById('layer-controls-container');
         
         // Hide loader and show controls
