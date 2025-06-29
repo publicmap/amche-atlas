@@ -164,60 +164,12 @@
               1
             ]
           ],
-          "line-opacity": 1,
-          "line-sort-key": [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            10,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            9,
-            0
-          ]
+          "line-opacity": 1
         },
         "text": {
-          "text-field": [
-            "get",
-            "name"
-          ],
-          "text-size": 12,
-          "text-halo-color": [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            "red",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            "yellow",
-            "white"
-          ],
+          "text-color": "#000000",
+          "text-halo-color": "#ffffff",
           "text-halo-width": 1,
-          "text-halo-blur": 1,
           "text-opacity": [
             "case",
             [
@@ -237,20 +189,17 @@
               ],
               false
             ],
-            0.95,
-            0.9
+            0.9,
+            0.7
           ],
-          "text-anchor": "bottom",
-          "text-line-height": 1,
-          "text-max-width": 8,
-          "text-justify": "center",
-          "text-allow-overlap": false,
-          "text-transform": "none",
           "text-offset": [
             0,
             0
-          ]
-          
+          ],
+          "text-anchor": "center",
+          "text-justify": "center",
+          "text-allow-overlap": false,
+          "text-transform": "none"
         },
         "circle": {
           "circle-radius": 5,
@@ -258,6 +207,71 @@
           "circle-opacity": 0.8,
           "circle-stroke-width": 1,
           "circle-stroke-color": "#FFFFFF",
+          "circle-stroke-opacity": 1,
+          "circle-blur": 0,
+          "circle-translate": [
+            0,
+            0
+          ],
+          "circle-translate-anchor": "map",
+          "circle-pitch-alignment": "viewport",
+          "circle-pitch-scale": "map"
+        }
+      },
+      "geojson": {
+        "fill": {
+          "fill-color": "#ff0000",
+          "fill-opacity": 0.5
+        },
+        "line": {
+          "line-color": [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            "yellow",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            "red",
+            "black"
+          ],
+          "line-width": 2
+        },
+        "text": {
+          "text-field": [
+            "get",
+            "name"
+          ],
+          "text-size": 12,
+          "text-color": "#000000",
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 2,
+          "text-offset": [
+            0,
+            0
+          ],
+          "text-anchor": "center",
+          "text-justify": "center",
+          "text-allow-overlap": false,
+          "text-transform": "none"
+        },
+        "circle": {
+          "circle-radius": 5,
+          "circle-color": "#ff0000",
+          "circle-opacity": 0.5,
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#ffffff",
           "circle-stroke-opacity": 1,
           "circle-blur": 0,
           "circle-translate": [

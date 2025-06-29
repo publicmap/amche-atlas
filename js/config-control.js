@@ -9,7 +9,6 @@ export class ConfigControl {
         this.configCache = new Map();
         this.currentLayerControl = null;
         this.initialized = false;
-        this.layerLibrary = null; // Cache for the layer library
     }
 
     /**
@@ -24,32 +23,10 @@ export class ConfigControl {
         }
         
         try {
-            // Load the layer library first to avoid multiple requests
-            await this.loadLayerLibrary();
             await this.expandNavigationMenu();
             this.initialized = true;
         } catch (error) {
             console.error('Failed to initialize config control:', error);
-        }
-    }
-
-    /**
-     * Load and cache the layer library
-     */
-    async loadLayerLibrary() {
-        if (this.layerLibrary) {
-            return; // Already loaded
-        }
-        
-        try {
-            const libraryResponse = await fetch('config/_map-layer-presets.json');
-            if (!libraryResponse.ok) {
-                throw new Error(`Failed to load layer library: ${libraryResponse.status}`);
-            }
-            this.layerLibrary = await libraryResponse.json();
-        } catch (error) {
-            console.warn('Could not load layer library for config processing:', error);
-            this.layerLibrary = { layers: [] }; // Fallback to empty library
         }
     }
 
@@ -242,23 +219,24 @@ export class ConfigControl {
      * @param {Object} config - The config object to process
      */
     async processConfigLayers(config) {
-        // Use the cached layer library instead of fetching it
-        if (!this.layerLibrary || !this.layerLibrary.layers) {
-            console.warn('Layer library not available for config processing');
-            return;
-        }
-        
-        if (config.layers && Array.isArray(config.layers)) {
-            config.layers = config.layers.map(layerConfig => {
-                // If the layer only has an id, look it up in the library
-                if (layerConfig.id && !layerConfig.type) {
-                    const libraryLayer = this.layerLibrary.layers.find(lib => lib.id === layerConfig.id);
-                    if (libraryLayer) {
-                        return { ...libraryLayer, ...layerConfig };
+        try {
+            const libraryResponse = await fetch('config/_map-layer-presets.json');
+            const layerLibrary = await libraryResponse.json();
+            
+            if (config.layers && Array.isArray(config.layers)) {
+                config.layers = config.layers.map(layerConfig => {
+                    // If the layer only has an id, look it up in the library
+                    if (layerConfig.id && !layerConfig.type) {
+                        const libraryLayer = layerLibrary.layers.find(lib => lib.id === layerConfig.id);
+                        if (libraryLayer) {
+                            return { ...libraryLayer, ...layerConfig };
+                        }
                     }
-                }
-                return layerConfig;
-            });
+                    return layerConfig;
+                });
+            }
+        } catch (error) {
+            console.warn('Could not load layer library for config processing:', error);
         }
     }
 
