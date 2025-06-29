@@ -85,7 +85,8 @@ class TransitExplorer {
             console.log('📍 User location available, finding nearest stop...');
             await this.findNearestStop();
         } else {
-            console.log('📍 User location not available, skipping nearest stop finding');
+            console.log('📍 User location not available, showing fallback content');
+            this.showLocationFallbackContent();
         }
     }
 
@@ -1285,10 +1286,12 @@ class TransitExplorer {
                     } else {
                         busStop.distance = null;
                     }
+                    // Add route count for better sorting when no location
+                    busStop.routeCount = busStop.getRoutesFromTimetable().length;
                     return busStop;
                 })
                 .sort((a, b) => {
-                    // Sort by distance if available, otherwise by name
+                    // Sort by distance if available
                     if (a.distance !== null && b.distance !== null) {
                         return a.distance - b.distance;
                     } else if (a.distance !== null) {
@@ -1296,6 +1299,10 @@ class TransitExplorer {
                     } else if (b.distance !== null) {
                         return 1;
                     } else {
+                        // When no location, sort by route count (busier stops first), then by name
+                        if (a.routeCount !== b.routeCount) {
+                            return b.routeCount - a.routeCount; // More routes first
+                        }
                         return a.name.localeCompare(b.name);
                     }
                 })
@@ -1303,6 +1310,11 @@ class TransitExplorer {
             
             this.visibleStops = visibleStops;
             this.displayStopOptions(visibleStops);
+            
+            // If no location and this is the first load, show a hint
+            if (!this.userLocation && visibleStops.length > 0) {
+                console.log(`📍 Loaded ${visibleStops.length} stops (sorted by activity since no location available)`);
+            }
             
         } catch (error) {
             console.error('Error loading visible stops:', error);
@@ -1314,16 +1326,36 @@ class TransitExplorer {
         const stopOptionsList = document.getElementById('stop-options-list');
         
         if (stops.length === 0) {
-            stopOptionsList.innerHTML = `
-                <div class="px-4 py-3 text-gray-400 text-sm text-center">
+            const noLocationMessage = !this.userLocation ? 
+                `<div class="px-4 py-3 text-center">
+                    <div class="text-gray-400 text-sm mb-2">No stops found in current view</div>
+                    <div class="text-xs text-gray-500">Try zooming out or moving the map</div>
+                </div>` :
+                `<div class="px-4 py-3 text-gray-400 text-sm text-center">
                     No stops found in current view
-                </div>
-            `;
+                </div>`;
+            
+            stopOptionsList.innerHTML = noLocationMessage;
             return;
         }
         
         const currentStopId = this.currentStop?.properties?.id || 
                              this.currentStop?.properties?.stop_id;
+        
+        // Add header with sorting info when location is unavailable
+        let headerHTML = '';
+        if (!this.userLocation && stops.length > 0) {
+            headerHTML = `
+                <div class="px-4 py-2 border-b border-gray-600 text-xs text-gray-400">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Sorted by activity (busiest stops first)
+                    </div>
+                </div>
+            `;
+        }
         
         const optionsHTML = stops.map(stop => {
             const isSelected = stop.id === currentStopId;
@@ -1335,7 +1367,7 @@ class TransitExplorer {
                      data-stop-id="${stop.id}">
                     <div class="stop-option-name">${stop.name}</div>
                     <div class="stop-option-details">
-                        ${stop.distance ? `
+                        ${stop.distance !== null ? `
                             <span class="stop-option-distance">${(stop.distance * 1000).toFixed(0)}m</span>
                         ` : ''}
                         <span>${routesInfo.length} routes</span>
@@ -1357,7 +1389,7 @@ class TransitExplorer {
             `;
         }).join('');
         
-        stopOptionsList.innerHTML = optionsHTML;
+        stopOptionsList.innerHTML = headerHTML + optionsHTML;
         
         // Add click handlers
         stopOptionsList.querySelectorAll('.stop-option').forEach(option => {
@@ -1460,8 +1492,10 @@ class TransitExplorer {
         }
         
         this.updateLocationStatus(message, 'status-scheduled');
-        // Don't show location error in departure board - just update status
         console.warn('📍 Location error:', message);
+        
+        // Show fallback content to help user continue using the app
+        this.showLocationFallbackContent();
     }
 
     showLocationBanner() {
@@ -1477,6 +1511,99 @@ class TransitExplorer {
         if (banner) {
             banner.classList.add('hidden');
             console.log('📍 Hiding location banner');
+        }
+    }
+
+    showLocationFallbackContent() {
+        console.log('📍 Showing location fallback content');
+        console.log('✅ App remains functional without location - user can manually select stops');
+        
+        // Display helpful message in departure board
+        this.showDepartureFallbackMessage();
+        
+        // Pre-load popular stops to make selection easier
+        this.preloadPopularStops();
+        
+        // Update the stop selector button to be more prominent
+        this.makeStopSelectorProminent();
+    }
+
+    showDepartureFallbackMessage() {
+        const departureList = document.getElementById('departure-list');
+        const liveList = document.getElementById('live-departure-list');
+        const scheduledList = document.getElementById('scheduled-departure-list');
+        
+        const fallbackHTML = `
+            <div class="text-center py-8">
+                <div class="mb-4">
+                    <svg class="w-16 h-16 mx-auto text-blue-400 mb-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-white mb-2">Select a Bus Stop</h3>
+                <p class="text-gray-300 mb-4">Choose a stop from the dropdown above to see live departures</p>
+                <div class="space-y-2 text-sm text-gray-400">
+                    <p>• Click on the map to explore stops</p>
+                    <p>• Use the search to find specific stops</p>
+                    <p>• Enable location for automatic nearest stop</p>
+                </div>
+                <button id="open-stop-selector-btn" class="mt-6 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                    Browse Stops
+                </button>
+            </div>
+        `;
+        
+        // Update all departure lists
+        if (departureList) departureList.innerHTML = fallbackHTML;
+        if (liveList) liveList.innerHTML = fallbackHTML;
+        if (scheduledList) scheduledList.innerHTML = fallbackHTML;
+        
+        // Add click handler for the browse button
+        setTimeout(() => {
+            const browseBtn = document.getElementById('open-stop-selector-btn');
+            if (browseBtn) {
+                browseBtn.addEventListener('click', () => {
+                    this.showStopDropdown();
+                });
+            }
+        }, 100);
+    }
+
+    makeStopSelectorProminent() {
+        const stopSelectorBtn = document.getElementById('stop-selector-btn');
+        const selectedStopName = document.getElementById('selected-stop-name');
+        
+        if (stopSelectorBtn && selectedStopName) {
+            // Add attention-grabbing styles
+            stopSelectorBtn.classList.add('ring-2', 'ring-blue-400', 'ring-opacity-50');
+            
+            // Update button text to be more inviting
+            selectedStopName.innerHTML = `
+                <svg class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                </svg>
+                <span class="text-blue-400">Choose a bus stop to get started</span>
+            `;
+            
+            // Remove prominence after first interaction
+            const removeProminence = () => {
+                stopSelectorBtn.classList.remove('ring-2', 'ring-blue-400', 'ring-opacity-50');
+                stopSelectorBtn.removeEventListener('click', removeProminence);
+            };
+            stopSelectorBtn.addEventListener('click', removeProminence);
+        }
+    }
+
+    async preloadPopularStops() {
+        try {
+            // Wait for map sources to be available
+            await this.waitForMapSources();
+            
+            // Load some stops in the current map view
+            this.loadVisibleStops();
+            
+        } catch (error) {
+            console.warn('Could not preload stops:', error);
         }
     }
 
@@ -1532,6 +1659,14 @@ class TransitExplorer {
         } catch (error) {
             console.error('📍 Location error caught:', error);
             this.handleLocationError(error);
+            
+            // Ensure fallback content is shown even if error handling fails
+            setTimeout(() => {
+                if (!this.currentStop && !this.userLocation) {
+                    console.log('🔄 Ensuring fallback content is displayed after location error');
+                    this.showLocationFallbackContent();
+                }
+            }, 500);
         }
     }
 
