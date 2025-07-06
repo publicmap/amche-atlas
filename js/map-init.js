@@ -473,6 +473,34 @@ async function initializeMap() {
             });
         }
         
+        // Setup proper cursor handling for map dragging
+        const canvas = map.getCanvas();
+        
+        // Set default cursor
+        canvas.style.cursor = 'grab';
+        
+        // Handle mouse events for proper cursor states
+        map.on('mousedown', () => {
+            canvas.style.cursor = 'grabbing';
+        });
+        
+        map.on('mouseup', () => {
+            canvas.style.cursor = 'grab';
+        });
+        
+        map.on('mouseleave', () => {
+            canvas.style.cursor = 'grab';
+        });
+        
+        // Handle drag events
+        map.on('dragstart', () => {
+            canvas.style.cursor = 'grabbing';
+        });
+        
+        map.on('dragend', () => {
+            canvas.style.cursor = 'grab';
+        });
+        
         // Initialize geolocation
         const geolocationManager = new GeolocationManager(map);
         

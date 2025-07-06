@@ -1088,8 +1088,10 @@ header .icon-button {
     transition: color 0.15s ease !important;
 }
 
-sl-details::part(header) {
+#map-controls-drawer sl-details::part(header) {
     padding: 0;
+}
+sl-details::part(header) {
     opacity: 0.9;
 }
 sl-details::part(header):hover {
@@ -2078,9 +2080,13 @@ sl-menu {
     letter-spacing: 0.05em;
 }
 
-/* Bus location layer cursor */
+/* Default map cursor - hand for dragging */
 .mapboxgl-canvas {
-    cursor: crosshair;
+    cursor: grab;
+}
+
+.mapboxgl-canvas:active {
+    cursor: grabbing;
 }
 
 /* Nearby stops panel */

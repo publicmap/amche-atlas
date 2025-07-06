@@ -1,10 +1,10 @@
-**Amche Goa Atlas** is your handy digital guide to exploring [Goa's](https://en.wikipedia.org/wiki/Goa) geography, development, and community resources on a map.
+## Introduction 
+
+This is a 3D atlas to explore various layers of [Goa's](https://en.wikipedia.org/wiki/Goa) geography, development, and community resources on a map.
 
 ![](../assets/img/og_image.jpg)
 
-This interactive map platform brings together spatial data from various government and community sources to help you understand and navigate Goa better.
-
-This is a free and open source tool built with community resources. Please see [amche-atlas](https://github.com/publicmap/amche-atlas/tree/main)
+This is a free and open source tool built with community resources. Please see the [amche-atlas project](https://github.com/publicmap/amche-atlas/tree/main) for details.
 
 ## Available Data Layers
 

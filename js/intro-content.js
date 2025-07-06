@@ -29,21 +29,22 @@ class IntroContentManager {
       },
       contentFiles: [
         {
-          en: 'docs/0_controls.en.md',
-          kok: 'docs/0_controls.kok.md',
-          titles: {
-            en: 'Controls & Navigation',
-            kok: 'नियंत्रणे आणि नेव्हिगेशन'
-          }
-        },
-        {
           en: 'docs/1_intro.en.md',
           kok: 'docs/1_intro.kok.md',
           titles: {
-            en: 'Welcome to Amche Goa',
-            kok: 'अमचे गोव्यात येवकार'
+            en: 'Welcome to amche.in',
+            kok: 'amche.in चेर तुमकां येवकार'
+          }
+        },
+        {
+          en: 'docs/0_controls.en.md',
+          kok: 'docs/0_controls.kok.md',
+          titles: {
+            en: 'Map controls',
+            kok: 'नकाशाचेर नियंत्रण दवरतात'
           }
         }
+        
       ]
     };
     
@@ -110,8 +111,12 @@ class IntroContentManager {
     const modalHTML = `
       <sl-dialog id="${this.modalId}" label="Welcome to Amche Goa Map" class="intro-modal" no-header>
         <div class="intro-modal-content">
-          <!-- Header with language switcher -->
+          <!-- Header with help title and language switcher -->
           <div class="intro-header">
+            <div class="help-title">
+              <sl-icon name="question-circle-fill" class="help-icon"></sl-icon>
+              <span>Help</span>
+            </div>
             <div class="language-switcher">
               ${Object.entries(this.config.languages).map(([code, name]) => 
                 `<button class="lang-btn ${code === this.currentLanguage ? 'active' : ''}" data-lang="${code}">${name}</button>`
@@ -214,8 +219,8 @@ class IntroContentManager {
         `;
       }).join('');
       
-      // First details section is open by default
-      const isOpen = index === 0 ? 'open' : '';
+      // Second details section (controls) is open by default
+      const isOpen = index === 1 ? 'open' : '';
       
       return `
         <sl-details summary="${contentData.title}" ${isOpen}>
@@ -229,12 +234,24 @@ class IntroContentManager {
     }).join('');
     
     const html = `
-      <sl-details-group>
+      <div class="details-group-example">
         ${detailsHtml}
-      </sl-details-group>
+      </div>
     `;
     
     document.getElementById(this.contentId).innerHTML = html;
+    
+    // Set up accordion behavior - close all other details when one is shown
+    const container = document.querySelector('.details-group-example');
+    if (container) {
+      container.addEventListener('sl-show', event => {
+        if (event.target.localName === 'sl-details') {
+          [...container.querySelectorAll('sl-details')].forEach(details => {
+            details.open = event.target === details;
+          });
+        }
+      });
+    }
   }
 
   parseMarkdownSections(markdown) {
@@ -454,6 +471,20 @@ const styles = `
   background: var(--sl-color-neutral-50);
 }
 
+.help-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--sl-color-neutral-800);
+}
+
+.help-icon {
+  font-size: 1.5rem;
+  color: var(--sl-color-primary-600);
+}
+
 .language-switcher {
   display: flex;
   gap: 0.5rem;
@@ -523,8 +554,6 @@ const styles = `
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--sl-color-primary-700);
-  border-bottom: 2px solid var(--sl-color-primary-200);
-  padding-bottom: 0.5rem;
 }
 
 .section-body {
@@ -573,7 +602,9 @@ const styles = `
   max-width: 100%;
   height: auto;
   border-radius: 4px;
-  margin: 1rem 0;
+  margin: 0.5rem 0.25rem;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .section-body a {
@@ -583,6 +614,11 @@ const styles = `
 
 .section-body a:hover {
   text-decoration: underline;
+}
+
+/* Accordion styling */
+.details-group-example sl-details:not(:last-of-type) {
+  margin-bottom: var(--sl-spacing-2x-small);
 }
 
 /* GPS icon styling */
