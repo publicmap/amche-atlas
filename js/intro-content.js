@@ -7,6 +7,7 @@ class IntroContentManager {
   constructor(options = {}) {
     this.currentLanguage = 'en';
     this.autoCloseTimer = null;
+    this.countdownTimer = null;
     this.autoCloseDelay = 10000; // 10 seconds
     this.markedLoaded = false;
     
@@ -17,8 +18,6 @@ class IntroContentManager {
     // Generate unique IDs for this instance to avoid conflicts
     this.modalId = `intro-modal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.contentId = `intro-content-${this.modalId}`;
-    this.checkboxId = `auto-close-checkbox-${this.modalId}`;
-    this.textId = `auto-close-text-${this.modalId}`;
     this.closeBtnId = `close-modal-btn-${this.modalId}`;
     
     // Configuration for intro content files
@@ -123,12 +122,9 @@ class IntroContentManager {
               ).join(' | ')}
             </div>
             <div class="close-controls">
-              <sl-checkbox id="${this.checkboxId}" ${this.autoCloseEnabled ? 'checked' : ''}>
-                <span id="${this.textId}">Auto closing in 5 seconds...</span>
-              </sl-checkbox>
               <sl-button variant="default" size="small" id="${this.closeBtnId}">
                 <sl-icon slot="prefix" name="x-lg"></sl-icon>
-                Close
+                <span class="close-btn-text">Close</span>
               </sl-button>
             </div>
           </div>
@@ -147,23 +143,11 @@ class IntroContentManager {
   setupEventListeners() {
     const modal = document.getElementById(this.modalId);
     const closeBtn = document.getElementById(this.closeBtnId);
-    const autoCloseCheckbox = document.getElementById(this.checkboxId);
     const langButtons = modal.querySelectorAll('.lang-btn');
 
     // Close button
     closeBtn.addEventListener('click', () => {
       this.closeModal();
-    });
-
-    // Auto-close checkbox
-    autoCloseCheckbox.addEventListener('sl-change', (event) => {
-      this.autoCloseEnabled = event.target.checked;
-      if (this.autoCloseEnabled) {
-        this.startAutoCloseTimer();
-      } else {
-        this.stopAutoCloseTimer();
-        this.hideAutoCloseControls();
-      }
     });
 
     // Language switcher
@@ -174,6 +158,14 @@ class IntroContentManager {
           this.switchLanguage(newLang);
         }
       });
+    });
+
+    // Handle clicking outside the close button to cancel auto-close
+    modal.addEventListener('click', (event) => {
+      // Check if click is outside the close button
+      if (!closeBtn.contains(event.target)) {
+        this.cancelAutoClose();
+      }
     });
 
     // Allow modal to close when clicking outside
@@ -386,12 +378,6 @@ class IntroContentManager {
     
     if (this.autoCloseEnabled) {
       this.startAutoCloseTimer();
-    } else {
-      // Hide auto-close controls when auto-close is disabled
-      // Use a small delay to ensure the modal is fully rendered
-      setTimeout(() => {
-        this.hideAutoCloseControls();
-      }, 100);
     }
   }
 
@@ -399,6 +385,7 @@ class IntroContentManager {
     const modal = document.getElementById(this.modalId);
     modal.hide();
     this.stopAutoCloseTimer();
+    this.stopCountdownTimer();
     
     // Mark that the modal has been shown at least once
     // This prevents auto-close from being enabled on subsequent opens
@@ -407,17 +394,18 @@ class IntroContentManager {
 
   startAutoCloseTimer() {
     this.stopAutoCloseTimer(); // Clear any existing timer
+    this.stopCountdownTimer(); // Clear any existing countdown
     
     let remainingTime = this.autoCloseDelay / 1000; // Convert to seconds
-    const textElement = document.getElementById(this.textId);
+    const closeBtnText = document.querySelector(`#${this.closeBtnId} .close-btn-text`);
     
     // Update countdown every second
-    const countdown = setInterval(() => {
+    this.countdownTimer = setInterval(() => {
       remainingTime--;
       if (remainingTime > 0) {
-        textElement.textContent = `Auto closing in ${remainingTime} seconds...`;
+        closeBtnText.textContent = `Closing in ${remainingTime}s...`;
       } else {
-        clearInterval(countdown);
+        clearInterval(this.countdownTimer);
       }
     }, 1000);
     
@@ -434,12 +422,25 @@ class IntroContentManager {
     }
   }
 
-  hideAutoCloseControls() {
-    const textElement = document.getElementById(this.textId);
-    const checkbox = document.getElementById(this.checkboxId);
+  stopCountdownTimer() {
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
+  }
+
+  cancelAutoClose() {
+    this.stopAutoCloseTimer();
+    this.stopCountdownTimer();
     
-    if (textElement) textElement.style.display = 'none';
-    if (checkbox) checkbox.style.display = 'none';
+    // Reset button text to normal
+    const closeBtnText = document.querySelector(`#${this.closeBtnId} .close-btn-text`);
+    if (closeBtnText) {
+      closeBtnText.textContent = 'Close';
+    }
+    
+    // Disable auto-close for this session
+    this.autoCloseEnabled = false;
   }
 }
 
@@ -645,9 +646,8 @@ const styles = `
   color: var(--sl-color-danger-600);
 }
 
-#auto-close-text {
+.close-btn-text {
   font-size: 0.875rem;
-  color: var(--sl-color-neutral-600);
 }
 </style>
 `;
