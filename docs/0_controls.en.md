@@ -1,5 +1,7 @@
 ## 🎯 Live location
 
+![](../assets/img/help-geolocate.gif)
+
 - Click <button class="geolocate">Geolocate</button> to allow the map to access your device location using GPS.
 - Clicking the GPS control again allows locking the device movement with the map. 
 

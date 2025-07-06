@@ -7,9 +7,19 @@ class IntroContentManager {
   constructor(options = {}) {
     this.currentLanguage = 'en';
     this.autoCloseTimer = null;
-    this.autoCloseEnabled = options.autoClose !== false; // Default to true, but allow disabling
-    this.autoCloseDelay = 50000; // 5 seconds
+    this.autoCloseDelay = 10000; // 10 seconds
     this.markedLoaded = false;
+    
+    // Track if this is the first time showing the modal
+    // Auto-close should only happen on the very first load
+    this.autoCloseEnabled = options.enableAutoClose !== false && !IntroContentManager.hasBeenShown;
+    
+    // Generate unique IDs for this instance to avoid conflicts
+    this.modalId = `intro-modal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    this.contentId = `intro-content-${this.modalId}`;
+    this.checkboxId = `auto-close-checkbox-${this.modalId}`;
+    this.textId = `auto-close-text-${this.modalId}`;
+    this.closeBtnId = `close-modal-btn-${this.modalId}`;
     
     // Configuration for intro content files
     this.config = {
@@ -98,7 +108,7 @@ class IntroContentManager {
 
   createModalHTML() {
     const modalHTML = `
-      <sl-dialog id="intro-modal" label="Welcome to Amche Goa Map" class="intro-modal" no-header>
+      <sl-dialog id="${this.modalId}" label="Welcome to Amche Goa Map" class="intro-modal" no-header>
         <div class="intro-modal-content">
           <!-- Header with language switcher -->
           <div class="intro-header">
@@ -108,17 +118,18 @@ class IntroContentManager {
               ).join(' | ')}
             </div>
             <div class="close-controls">
-              ${this.autoCloseEnabled ? `
-                <sl-checkbox id="auto-close-checkbox" checked>
-                  <span id="auto-close-text">Auto closing in 5 seconds...</span>
-                </sl-checkbox>
-              ` : ''}
-              <sl-icon-button name="x-lg" label="Close" id="close-modal-btn"></sl-icon-button>
+              <sl-checkbox id="${this.checkboxId}" ${this.autoCloseEnabled ? 'checked' : ''}>
+                <span id="${this.textId}">Auto closing in 5 seconds...</span>
+              </sl-checkbox>
+              <sl-button variant="default" size="small" id="${this.closeBtnId}">
+                <sl-icon slot="prefix" name="x-lg"></sl-icon>
+                Close
+              </sl-button>
             </div>
           </div>
 
           <!-- Content area -->
-          <div class="intro-content" id="intro-content">
+          <div class="intro-content" id="${this.contentId}">
             <div class="loading">Loading content...</div>
           </div>
         </div>
@@ -129,28 +140,26 @@ class IntroContentManager {
   }
 
   setupEventListeners() {
-    const modal = document.getElementById('intro-modal');
-    const closeBtn = document.getElementById('close-modal-btn');
-    const autoCloseCheckbox = document.getElementById('auto-close-checkbox');
-    const langButtons = document.querySelectorAll('.lang-btn');
+    const modal = document.getElementById(this.modalId);
+    const closeBtn = document.getElementById(this.closeBtnId);
+    const autoCloseCheckbox = document.getElementById(this.checkboxId);
+    const langButtons = modal.querySelectorAll('.lang-btn');
 
     // Close button
     closeBtn.addEventListener('click', () => {
       this.closeModal();
     });
 
-    // Auto-close checkbox (only if auto-close is enabled)
-    if (autoCloseCheckbox && this.autoCloseEnabled) {
-      autoCloseCheckbox.addEventListener('sl-change', (event) => {
-        this.autoCloseEnabled = event.target.checked;
-        if (this.autoCloseEnabled) {
-          this.startAutoCloseTimer();
-        } else {
-          this.stopAutoCloseTimer();
-          this.hideAutoCloseControls();
-        }
-      });
-    }
+    // Auto-close checkbox
+    autoCloseCheckbox.addEventListener('sl-change', (event) => {
+      this.autoCloseEnabled = event.target.checked;
+      if (this.autoCloseEnabled) {
+        this.startAutoCloseTimer();
+      } else {
+        this.stopAutoCloseTimer();
+        this.hideAutoCloseControls();
+      }
+    });
 
     // Language switcher
     langButtons.forEach(btn => {
@@ -162,9 +171,10 @@ class IntroContentManager {
       });
     });
 
-    // Prevent modal from closing when clicking outside
+    // Allow modal to close when clicking outside
     modal.addEventListener('sl-request-close', (event) => {
-      event.preventDefault();
+      // Don't prevent the close event - allow clicking outside to close
+      this.closeModal();
     });
   }
 
@@ -224,7 +234,7 @@ class IntroContentManager {
       </sl-details-group>
     `;
     
-    document.getElementById('intro-content').innerHTML = html;
+    document.getElementById(this.contentId).innerHTML = html;
   }
 
   parseMarkdownSections(markdown) {
@@ -334,7 +344,7 @@ class IntroContentManager {
   }
 
   renderErrorContent() {
-    document.getElementById('intro-content').innerHTML = `
+    document.getElementById(this.contentId).innerHTML = `
       <div class="error-content">
         <p>Unable to load intro content. Please try refreshing the page.</p>
       </div>
@@ -354,30 +364,40 @@ class IntroContentManager {
   }
 
   showModal() {
-    const modal = document.getElementById('intro-modal');
+    const modal = document.getElementById(this.modalId);
     modal.show();
     
     if (this.autoCloseEnabled) {
       this.startAutoCloseTimer();
+    } else {
+      // Hide auto-close controls when auto-close is disabled
+      // Use a small delay to ensure the modal is fully rendered
+      setTimeout(() => {
+        this.hideAutoCloseControls();
+      }, 100);
     }
   }
 
   closeModal() {
-    const modal = document.getElementById('intro-modal');
+    const modal = document.getElementById(this.modalId);
     modal.hide();
     this.stopAutoCloseTimer();
+    
+    // Mark that the modal has been shown at least once
+    // This prevents auto-close from being enabled on subsequent opens
+    IntroContentManager.hasBeenShown = true;
   }
 
   startAutoCloseTimer() {
     this.stopAutoCloseTimer(); // Clear any existing timer
     
     let remainingTime = this.autoCloseDelay / 1000; // Convert to seconds
-    const textElement = document.getElementById('auto-close-text');
+    const textElement = document.getElementById(this.textId);
     
-    // Update countdown every second (only if text element exists)
+    // Update countdown every second
     const countdown = setInterval(() => {
       remainingTime--;
-      if (remainingTime > 0 && textElement) {
+      if (remainingTime > 0) {
         textElement.textContent = `Auto closing in ${remainingTime} seconds...`;
       } else {
         clearInterval(countdown);
@@ -398,13 +418,16 @@ class IntroContentManager {
   }
 
   hideAutoCloseControls() {
-    const textElement = document.getElementById('auto-close-text');
-    const checkbox = document.getElementById('auto-close-checkbox');
+    const textElement = document.getElementById(this.textId);
+    const checkbox = document.getElementById(this.checkboxId);
     
     if (textElement) textElement.style.display = 'none';
     if (checkbox) checkbox.style.display = 'none';
   }
 }
+
+// Static property to track if modal has been shown before
+IntroContentManager.hasBeenShown = false;
 
 // CSS Styles
 const styles = `
@@ -596,13 +619,13 @@ const styles = `
 // Add styles to document
 document.head.insertAdjacentHTML('beforeend', styles);
 
-// Auto-initialize when DOM is ready (with auto-close enabled)
+// Auto-initialize when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    new IntroContentManager({ autoClose: true });
+    new IntroContentManager();
   });
 } else {
-  new IntroContentManager({ autoClose: true });
+  new IntroContentManager();
 }
 
 // Export for manual initialization if needed
