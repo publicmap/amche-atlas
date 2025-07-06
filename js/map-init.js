@@ -474,7 +474,10 @@ async function initializeMap() {
         }
         
         // Initialize geolocation
-        new GeolocationManager(map);
+        const geolocationManager = new GeolocationManager(map);
+        
+        // Make geolocation manager globally accessible
+        window.geolocationManager = geolocationManager;
         
         // Add view control
         map.addControl(new ViewControl(), 'top-right');
@@ -524,6 +527,15 @@ async function initializeMap() {
         setTimeout(() => {
             localization.forceUpdateUIElements();
         }, 100);
+        
+        // Set up click listener for geolocate buttons in documentation
+        $(document).on('click', '.geolocate', function(e) {
+            e.preventDefault();
+            if (window.geolocationManager && window.geolocationManager.geolocate) {
+                // Trigger the Mapbox geolocation control
+                window.geolocationManager.geolocate.trigger();
+            }
+        });
         
         // Initialize config control after layer control is ready
         configControl.initialize(layerControl);

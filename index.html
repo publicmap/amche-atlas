@@ -62,6 +62,7 @@
     <script type="module" src="js/map-layer-controls.js"></script>
     <script type="module" src="js/config-control.js"></script>
     <script type="module" src="js/map-feature-control.js"></script>
+    <script type="module" src="js/intro-content.js"></script>
     <script type="module" src="js/map-init.js"></script>
     <!-- Service Worker Registration -->
     <script src="js/pwa/register-sw.js"></script>
@@ -118,10 +119,10 @@
                     </svg>
                 </sl-button>
                 <sl-menu>
-                    <sl-menu-label>
-                        <a href="https://amche.in"
-                            class="text-orange-500 hover:text-orange-400 font-semibold text-lg">amche.in</a>
-                    </sl-menu-label>
+                    <sl-menu-item id="help-menu-item">
+                        <sl-icon slot="prefix" name="question-circle-fill"></sl-icon>
+                        Help
+                    </sl-menu-item>
                     <sl-divider></sl-divider>
                     <sl-menu-item>
                         <svg slot="prefix" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -129,7 +130,7 @@
                                 d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM17.707 5.293L14 1.586v12.828l2.293 2.293A1 1 0 0018 16V6a1 1 0 00-.293-.707z"
                                 clip-rule="evenodd" />
                         </svg>
-                        Maps
+                        Atlas
                         <sl-menu slot="submenu">
                             <sl-menu-item href="./" class="nav-active">
                                 Goa
@@ -339,6 +340,16 @@
 
         // Handle navigation dropdown menu clicks
         customElements.whenDefined('sl-menu-item').then(() => {
+            // Handle help menu item click
+            const helpMenuItem = document.getElementById('help-menu-item');
+            if (helpMenuItem) {
+                helpMenuItem.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    // Create new IntroContentManager instance without auto-close
+                    new IntroContentManager({ autoClose: false });
+                });
+            }
+
             document.querySelectorAll('sl-menu-item[href]').forEach(item => {
                 item.addEventListener('click', (event) => {
                     const href = item.getAttribute('href');

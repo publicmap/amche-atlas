@@ -1,0 +1,609 @@
+/**
+ * Intro Modal Content Manager
+ * Handles the full-screen intro modal with multilingual support and auto-close functionality
+ */
+
+class IntroContentManager {
+  constructor(options = {}) {
+    this.currentLanguage = 'en';
+    this.autoCloseTimer = null;
+    this.autoCloseEnabled = options.autoClose !== false; // Default to true, but allow disabling
+    this.autoCloseDelay = 50000; // 5 seconds
+    this.markedLoaded = false;
+    
+    // Configuration for intro content files
+    this.config = {
+      languages: {
+        en: 'English',
+        kok: 'कोंकणी'
+      },
+      contentFiles: [
+        {
+          en: 'docs/0_controls.en.md',
+          kok: 'docs/0_controls.kok.md',
+          titles: {
+            en: 'Controls & Navigation',
+            kok: 'नियंत्रणे आणि नेव्हिगेशन'
+          }
+        },
+        {
+          en: 'docs/1_intro.en.md',
+          kok: 'docs/1_intro.kok.md',
+          titles: {
+            en: 'Welcome to Amche Goa',
+            kok: 'अमचे गोव्यात येवकार'
+          }
+        }
+      ]
+    };
+    
+    this.init();
+  }
+
+  async init() {
+    await this.loadMarkdownParser();
+    this.createModalHTML();
+    this.setupEventListeners();
+    await this.loadContent();
+    this.showModal();
+  }
+
+  async loadMarkdownParser() {
+    if (this.markedLoaded || window.marked) {
+      this.markedLoaded = true;
+      return;
+    }
+
+    try {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js';
+      script.onload = () => {
+        this.markedLoaded = true;
+        // Configure marked globally when it loads
+        if (window.marked) {
+          marked.setOptions({
+            breaks: true,
+            gfm: true,
+            sanitize: false,
+            smartLists: true,
+            smartypants: false
+          });
+          
+          // For newer versions of marked, we need to configure the renderer to allow HTML
+          const renderer = new marked.Renderer();
+          renderer.html = function(html) {
+            return html;
+          };
+          
+          marked.setOptions({
+            renderer: renderer,
+            breaks: true,
+            gfm: true,
+            sanitize: false,
+            smartLists: true,
+            smartypants: false
+          });
+        }
+      };
+      document.head.appendChild(script);
+      
+      // Wait for script to load
+      await new Promise((resolve) => {
+        script.onload = resolve;
+      });
+    } catch (error) {
+      console.error('Failed to load marked.js:', error);
+    }
+  }
+
+  createModalHTML() {
+    const modalHTML = `
+      <sl-dialog id="intro-modal" label="Welcome to Amche Goa Map" class="intro-modal" no-header>
+        <div class="intro-modal-content">
+          <!-- Header with language switcher -->
+          <div class="intro-header">
+            <div class="language-switcher">
+              ${Object.entries(this.config.languages).map(([code, name]) => 
+                `<button class="lang-btn ${code === this.currentLanguage ? 'active' : ''}" data-lang="${code}">${name}</button>`
+              ).join(' | ')}
+            </div>
+            <div class="close-controls">
+              ${this.autoCloseEnabled ? `
+                <sl-checkbox id="auto-close-checkbox" checked>
+                  <span id="auto-close-text">Auto closing in 5 seconds...</span>
+                </sl-checkbox>
+              ` : ''}
+              <sl-icon-button name="x-lg" label="Close" id="close-modal-btn"></sl-icon-button>
+            </div>
+          </div>
+
+          <!-- Content area -->
+          <div class="intro-content" id="intro-content">
+            <div class="loading">Loading content...</div>
+          </div>
+        </div>
+      </sl-dialog>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+  }
+
+  setupEventListeners() {
+    const modal = document.getElementById('intro-modal');
+    const closeBtn = document.getElementById('close-modal-btn');
+    const autoCloseCheckbox = document.getElementById('auto-close-checkbox');
+    const langButtons = document.querySelectorAll('.lang-btn');
+
+    // Close button
+    closeBtn.addEventListener('click', () => {
+      this.closeModal();
+    });
+
+    // Auto-close checkbox (only if auto-close is enabled)
+    if (autoCloseCheckbox && this.autoCloseEnabled) {
+      autoCloseCheckbox.addEventListener('sl-change', (event) => {
+        this.autoCloseEnabled = event.target.checked;
+        if (this.autoCloseEnabled) {
+          this.startAutoCloseTimer();
+        } else {
+          this.stopAutoCloseTimer();
+          this.hideAutoCloseControls();
+        }
+      });
+    }
+
+    // Language switcher
+    langButtons.forEach(btn => {
+      btn.addEventListener('click', (event) => {
+        const newLang = event.target.dataset.lang;
+        if (newLang !== this.currentLanguage) {
+          this.switchLanguage(newLang);
+        }
+      });
+    });
+
+    // Prevent modal from closing when clicking outside
+    modal.addEventListener('sl-request-close', (event) => {
+      event.preventDefault();
+    });
+  }
+
+  async loadContent() {
+    try {
+      const contentPromises = this.config.contentFiles.map(async (fileConfig) => {
+        const filePath = fileConfig[this.currentLanguage];
+        const response = await fetch(filePath);
+        if (!response.ok) throw new Error(`Failed to load ${filePath}`);
+        
+        const markdownContent = await response.text();
+        return {
+          content: markdownContent,
+          title: fileConfig.titles[this.currentLanguage]
+        };
+      });
+      
+      const contentData = await Promise.all(contentPromises);
+      this.renderContent(contentData);
+    } catch (error) {
+      console.error('Error loading intro content:', error);
+      this.renderErrorContent();
+    }
+  }
+
+  renderContent(contentDataArray) {
+    const detailsHtml = contentDataArray.map((contentData, index) => {
+      const sections = this.parseMarkdownSections(contentData.content);
+      
+      const sectionsHtml = sections.map(section => {
+        const htmlContent = this.markdownToHtml(section.content);
+        return `
+          <section class="content-section">
+            <h3 class="section-title">${section.title}</h3>
+            <div class="section-body">${htmlContent}</div>
+          </section>
+        `;
+      }).join('');
+      
+      // First details section is open by default
+      const isOpen = index === 0 ? 'open' : '';
+      
+      return `
+        <sl-details summary="${contentData.title}" ${isOpen}>
+          <div class="section-content">
+            <div class="sections-grid">
+              ${sectionsHtml}
+            </div>
+          </div>
+        </sl-details>
+      `;
+    }).join('');
+    
+    const html = `
+      <sl-details-group>
+        ${detailsHtml}
+      </sl-details-group>
+    `;
+    
+    document.getElementById('intro-content').innerHTML = html;
+  }
+
+  parseMarkdownSections(markdown) {
+    const sections = [];
+    const lines = markdown.split('\n');
+    let currentSection = null;
+    let introContent = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      if (line.startsWith('## ')) {
+        // Save any intro content before first heading
+        if (!currentSection && introContent.trim()) {
+          sections.push({
+            title: 'Introduction',
+            content: introContent.trim()
+          });
+          introContent = '';
+        }
+        
+        // Save previous section if exists
+        if (currentSection) {
+          sections.push({
+            title: currentSection.title,
+            content: currentSection.content.trim()
+          });
+        }
+        
+        // Start new section
+        currentSection = {
+          title: line.replace(/^## /, '').trim(),
+          content: ''
+        };
+      } else if (currentSection) {
+        currentSection.content += line + '\n';
+      } else {
+        // Content before first heading
+        introContent += line + '\n';
+      }
+    }
+    
+    // Add any remaining intro content
+    if (!currentSection && introContent.trim()) {
+      sections.push({
+        title: 'Introduction',
+        content: introContent.trim()
+      });
+    }
+    
+    // Add the last section
+    if (currentSection) {
+      sections.push({
+        title: currentSection.title,
+        content: currentSection.content.trim()
+      });
+    }
+    
+    return sections;
+  }
+
+
+  markdownToHtml(markdown) {
+    if (window.marked) {
+      try {
+        let html = marked.parse(markdown);
+        
+        // Debug: Log the HTML before post-processing
+        if (markdown.includes('button')) {
+          console.log('Before post-processing:', html);
+        }
+        
+        // Post-process to unescape HTML entities in specific cases
+        html = html.replace(/&lt;span([^&]*?)&gt;/g, '<span$1>');
+        html = html.replace(/&lt;\/span&gt;/g, '</span>');
+        html = html.replace(/&lt;button([^&]*?)&gt;/g, '<button$1>');
+        html = html.replace(/&lt;\/button&gt;/g, '</button>');
+        html = html.replace(/&quot;/g, '"');
+        
+        // Debug: Log the HTML after post-processing
+        if (markdown.includes('button')) {
+          console.log('After post-processing:', html);
+        }
+        
+        return html;
+      } catch (error) {
+        console.error('Error parsing markdown:', error);
+        return this.fallbackMarkdownToHtml(markdown);
+      }
+    } else {
+      return this.fallbackMarkdownToHtml(markdown);
+    }
+  }
+
+  fallbackMarkdownToHtml(markdown) {
+    // Simple fallback markdown to HTML conversion
+    return markdown
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/`(.*?)`/g, '<code>$1</code>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/^(.+)$/gm, '<p>$1</p>')
+      .replace(/\n/g, '<br>');
+    // Note: HTML elements like <button> and <span> are preserved as-is in fallback
+  }
+
+  renderErrorContent() {
+    document.getElementById('intro-content').innerHTML = `
+      <div class="error-content">
+        <p>Unable to load intro content. Please try refreshing the page.</p>
+      </div>
+    `;
+  }
+
+  async switchLanguage(langCode) {
+    this.currentLanguage = langCode;
+    
+    // Update active language button
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.lang === langCode);
+    });
+    
+    // Reload content
+    await this.loadContent();
+  }
+
+  showModal() {
+    const modal = document.getElementById('intro-modal');
+    modal.show();
+    
+    if (this.autoCloseEnabled) {
+      this.startAutoCloseTimer();
+    }
+  }
+
+  closeModal() {
+    const modal = document.getElementById('intro-modal');
+    modal.hide();
+    this.stopAutoCloseTimer();
+  }
+
+  startAutoCloseTimer() {
+    this.stopAutoCloseTimer(); // Clear any existing timer
+    
+    let remainingTime = this.autoCloseDelay / 1000; // Convert to seconds
+    const textElement = document.getElementById('auto-close-text');
+    
+    // Update countdown every second (only if text element exists)
+    const countdown = setInterval(() => {
+      remainingTime--;
+      if (remainingTime > 0 && textElement) {
+        textElement.textContent = `Auto closing in ${remainingTime} seconds...`;
+      } else {
+        clearInterval(countdown);
+      }
+    }, 1000);
+    
+    // Set main timer to close modal
+    this.autoCloseTimer = setTimeout(() => {
+      this.closeModal();
+    }, this.autoCloseDelay);
+  }
+
+  stopAutoCloseTimer() {
+    if (this.autoCloseTimer) {
+      clearTimeout(this.autoCloseTimer);
+      this.autoCloseTimer = null;
+    }
+  }
+
+  hideAutoCloseControls() {
+    const textElement = document.getElementById('auto-close-text');
+    const checkbox = document.getElementById('auto-close-checkbox');
+    
+    if (textElement) textElement.style.display = 'none';
+    if (checkbox) checkbox.style.display = 'none';
+  }
+}
+
+// CSS Styles
+const styles = `
+<style>
+.intro-modal::part(panel) {
+  max-width: 95vw;
+  max-height: 95vh;
+  width: 100%;
+  height: 100%;
+}
+
+.intro-modal-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.intro-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--sl-color-neutral-200);
+  background: var(--sl-color-neutral-50);
+}
+
+.language-switcher {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.lang-btn {
+  background: none;
+  border: none;
+  color: var(--sl-color-primary-600);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.lang-btn:hover {
+  background: var(--sl-color-primary-100);
+}
+
+.lang-btn.active {
+  background: var(--sl-color-primary-600);
+  color: white;
+}
+
+.close-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.intro-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.section-content {
+  line-height: 1.6;
+  color: var(--sl-color-neutral-700);
+}
+
+.sections-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+/* Two-column layout for wide screens */
+@media (min-width: 1024px) {
+  .sections-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+}
+
+.content-section {
+  background: var(--sl-color-neutral-50);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--sl-color-neutral-200);
+  break-inside: avoid;
+}
+
+.section-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--sl-color-primary-700);
+  border-bottom: 2px solid var(--sl-color-primary-200);
+  padding-bottom: 0.5rem;
+}
+
+.section-body {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.section-body h1,
+.section-body h2,
+.section-body h3,
+.section-body h4,
+.section-body h5,
+.section-body h6 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--sl-color-neutral-800);
+}
+
+.section-body p {
+  margin-bottom: 1rem;
+}
+
+.section-body ul,
+.section-body ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.section-body li {
+  margin-bottom: 0.25rem;
+}
+
+.section-body strong {
+  color: var(--sl-color-neutral-900);
+}
+
+.section-body code {
+  background: var(--sl-color-neutral-100);
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.section-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+.section-body a {
+  color: var(--sl-color-primary-600);
+  text-decoration: none;
+}
+
+.section-body a:hover {
+  text-decoration: underline;
+}
+
+/* GPS icon styling */
+.section-body span[style*="background-image"] {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  vertical-align: middle;
+  margin: 0 4px;
+}
+
+.loading, .error-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--sl-color-neutral-500);
+}
+
+.error-content {
+  color: var(--sl-color-danger-600);
+}
+
+#auto-close-text {
+  font-size: 0.875rem;
+  color: var(--sl-color-neutral-600);
+}
+</style>
+`;
+
+// Add styles to document
+document.head.insertAdjacentHTML('beforeend', styles);
+
+// Auto-initialize when DOM is ready (with auto-close enabled)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    new IntroContentManager({ autoClose: true });
+  });
+} else {
+  new IntroContentManager({ autoClose: true });
+}
+
+// Export for manual initialization if needed
+window.IntroContentManager = IntroContentManager;

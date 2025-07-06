@@ -7,6 +7,117 @@
     z-index: 1;
 }
 
+/* General button styling */
+button {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    outline: none;
+}
+
+button:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+    color: #111827;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+button:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+button:disabled:hover {
+    background: #ffffff;
+    border-color: #d1d5db;
+    color: #374151;
+    transform: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Primary button variant */
+button.primary {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+button.primary:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: white;
+}
+
+/* Secondary button variant */
+button.secondary {
+    background: #6b7280;
+    border-color: #6b7280;
+    color: white;
+}
+
+button.secondary:hover {
+    background: #4b5563;
+    border-color: #4b5563;
+    color: white;
+}
+
+/* Danger button variant */
+button.danger {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: white;
+}
+
+button.danger:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: white;
+}
+
+/* Success button variant */
+button.success {
+    background: #10b981;
+    border-color: #10b981;
+    color: white;
+}
+
+button.success:hover {
+    background: #059669;
+    border-color: #059669;
+    color: white;
+}
+
+/* Small button variant */
+button.small {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* Large button variant */
+button.large {
+    padding: 12px 24px;
+    font-size: 16px;
+}
+
 /* Add new styles for the opacity control */
 .opacity-control {
     background: white;
@@ -2307,7 +2418,8 @@ sl-menu {
     background: rgba(0, 0, 0, 0.02);
     border: none;
     border-top: 1px solid #fafafa;
-/* Header background image styling - applied dynamically via JavaScript */
+    /* Header background image styling - applied dynamically via JavaScript */
+}
 
 .map-feature-control .layer-details::part(content) {
     padding: 0px 6px;
@@ -2598,3 +2710,5 @@ sl-menu {
 .map-feature-control .feature-inspector-additional-info a:hover {
     color: #93c5fd !important;
 }
+
+/* End of styles */
