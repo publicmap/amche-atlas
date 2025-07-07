@@ -143,15 +143,10 @@ export class ShareLink {
                 this._showToast('Link copied to clipboard!');
             }
             
-            // Generate QR code using the URL
-            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${this.qrCodeSize}x${this.qrCodeSize}&data=${encodeURIComponent(urlToShare)}`;
-            
-            // Create QR code image for button
-            const qrCode = document.createElement('img');
-            qrCode.src = qrCodeUrl;
-            qrCode.alt = 'QR Code';
-            qrCode.style.width = '30px';
-            qrCode.style.height = '30px';
+            // Create QR code using Shoelace component
+            const qrCode = document.createElement('sl-qr-code');
+            qrCode.value = urlToShare;
+            qrCode.size = 30;
             qrCode.style.cursor = 'pointer';
             
             // Store original button content
@@ -179,7 +174,7 @@ export class ShareLink {
                 resetButton();
                 
                 // Show full-screen QR code overlay
-                this._showQROverlay(qrCodeUrl);
+                this._showQROverlay(urlToShare);
             });
             
             // Auto-revert after 30 seconds (if user hasn't clicked the QR code)
@@ -199,7 +194,7 @@ export class ShareLink {
     /**
      * Show full-screen QR code overlay
      */
-    _showQROverlay(qrCodeUrl) {
+    _showQROverlay(urlToShare) {
         // Create full screen overlay
         const overlay = document.createElement('div');
         overlay.style.position = 'fixed';
@@ -215,22 +210,39 @@ export class ShareLink {
         overlay.style.cursor = 'pointer';
         overlay.style.padding = '10px';
         
-        // Create large QR code
-        const largeQRCode = document.createElement('img');
-        largeQRCode.src = qrCodeUrl;
-        largeQRCode.alt = 'QR Code';
-        largeQRCode.style.width = 'auto';
-        largeQRCode.style.height = 'auto';
-        largeQRCode.style.maxWidth = 'min(500px, 90vw)';
-        largeQRCode.style.maxHeight = '90vh';
-        largeQRCode.style.objectFit = 'contain';
+        // Create container for QR code and caption
+        const container = document.createElement('div');
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.alignItems = 'center';
+        container.style.gap = '20px';
+        
+        // Create large QR code using Shoelace component
+        const largeQRCode = document.createElement('sl-qr-code');
+        largeQRCode.value = urlToShare;
+        largeQRCode.size = Math.min(this.qrCodeSize, 400); // Cap at 400px for overlay
+        largeQRCode.style.maxWidth = '90vw';
+        largeQRCode.style.maxHeight = '70vh';
+        
+        // Create caption with the full URL
+        const caption = document.createElement('div');
+        caption.textContent = urlToShare;
+        caption.style.color = 'white';
+        caption.style.fontSize = '14px';
+        caption.style.textAlign = 'center';
+        caption.style.wordBreak = 'break-all';
+        caption.style.padding = '0 20px';
+        caption.style.maxWidth = '90vw';
+        caption.style.fontFamily = 'monospace';
         
         // Close overlay when clicked
         overlay.addEventListener('click', () => {
             document.body.removeChild(overlay);
         });
         
-        overlay.appendChild(largeQRCode);
+        container.appendChild(largeQRCode);
+        container.appendChild(caption);
+        overlay.appendChild(container);
         document.body.appendChild(overlay);
     }
 

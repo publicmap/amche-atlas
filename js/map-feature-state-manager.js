@@ -240,9 +240,6 @@ export class MapFeatureStateManager extends EventTarget {
             timestamp: Date.now()
         });
         
-        if (this._isDebug) {
-            console.debug('[StateManager] Map mouse leave - all hover states cleared');
-        }
     }
 
     /**

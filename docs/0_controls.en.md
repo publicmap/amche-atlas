@@ -5,11 +5,11 @@
 - Click <button class="geolocate">Geolocate</button> to allow the map to access your device location using GPS.
 - Clicking the GPS control again toggles movement lock
 
-## Help menu
+## Welcome menu
 
-![](../assets/img/help.gif)
+![](../assets/img/help-menu.gif)
 
-Use the help menu to open this screen
+Use the menu to open this welcome screen
 
 ## Rotate and Tilt 
 

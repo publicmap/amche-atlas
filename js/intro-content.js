@@ -113,8 +113,8 @@ class IntroContentManager {
           <!-- Header with help title and language switcher -->
           <div class="intro-header">
             <div class="help-title">
-              <sl-icon name="question-circle-fill" class="help-icon"></sl-icon>
-              <span>Help</span>
+              <sl-icon name="info-circle-fill" class="help-icon"></sl-icon>
+              <span>Welcome to Goa's 3D Atlas</span>
             </div>
             <div class="language-switcher">
               ${Object.entries(this.config.languages).map(([code, name]) => 
@@ -310,23 +310,13 @@ class IntroContentManager {
     if (window.marked) {
       try {
         let html = marked.parse(markdown);
-        
-        // Debug: Log the HTML before post-processing
-        if (markdown.includes('button')) {
-          console.log('Before post-processing:', html);
-        }
-        
+         
         // Post-process to unescape HTML entities in specific cases
         html = html.replace(/&lt;span([^&]*?)&gt;/g, '<span$1>');
         html = html.replace(/&lt;\/span&gt;/g, '</span>');
         html = html.replace(/&lt;button([^&]*?)&gt;/g, '<button$1>');
         html = html.replace(/&lt;\/button&gt;/g, '</button>');
         html = html.replace(/&quot;/g, '"');
-        
-        // Debug: Log the HTML after post-processing
-        if (markdown.includes('button')) {
-          console.log('After post-processing:', html);
-        }
         
         return html;
       } catch (error) {
