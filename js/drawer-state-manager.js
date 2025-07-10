@@ -189,6 +189,14 @@ export class DrawerStateManager {
     open() {
         if (!this._drawer) return;
         this._drawer.show();
+        
+        // Focus on the search input after drawer opens
+        setTimeout(() => {
+            const searchInput = document.getElementById('layer-search-input');
+            if (searchInput) {
+                searchInput.focus();
+            }
+        }, 100);
     }
 
     /**

@@ -9,7 +9,7 @@
 
 ![](../assets/img/help-menu.gif)
 
-Use the menu to open this welcome screen
+Use the menu to open this welcome screen at any time.
 
 ## Rotate and Tilt 
 

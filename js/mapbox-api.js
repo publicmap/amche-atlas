@@ -434,7 +434,7 @@ export class MapboxAPI {
                 style: {
                     ...(this._defaultStyles.raster || {}),
                     ...(config.style || {}),
-                    'raster-opacity': config.style?.['raster-opacity'] || config.opacity || 1
+                    'raster-opacity': config.style?.['raster-opacity'] || config.opacity || this._defaultStyles.raster?.['raster-opacity'] || 1
                 },
                 visible
             }, 'raster');

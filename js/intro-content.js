@@ -31,15 +31,15 @@ class IntroContentManager {
           en: 'docs/1_intro.en.md',
           kok: 'docs/1_intro.kok.md',
           titles: {
-            en: 'Welcome to amche.in',
-            kok: 'amche.in चेर तुमकां येवकार'
+            en: 'About',
+            kok: 'वळख'
           }
         },
         {
           en: 'docs/0_controls.en.md',
           kok: 'docs/0_controls.kok.md',
           titles: {
-            en: 'Map controls',
+            en: 'Help',
             kok: 'नकाशाचेर नियंत्रण दवरतात'
           }
         }
@@ -457,9 +457,6 @@ const styles = `
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid var(--sl-color-neutral-200);
-  background: var(--sl-color-neutral-50);
 }
 
 .help-title {
@@ -510,7 +507,7 @@ const styles = `
 .intro-content {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  margin-top: 1rem;
 }
 
 .section-content {
@@ -533,10 +530,7 @@ const styles = `
 }
 
 .content-section {
-  background: var(--sl-color-neutral-50);
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--sl-color-neutral-200);
+  padding: 1rem;
   break-inside: avoid;
 }
 
@@ -544,7 +538,6 @@ const styles = `
   margin: 0 0 1rem 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--sl-color-primary-700);
 }
 
 .section-body {
