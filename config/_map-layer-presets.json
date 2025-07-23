@@ -2008,7 +2008,6 @@
           "rgba(0, 100, 0, 0.4)",
           "rgba(128, 128, 128, 0.5)"
         ],
-        "fill-opacity": 0.4,
         "line-color": "blue",
         "line-width": [
           "interpolate",
@@ -2025,6 +2024,7 @@
         ]
       },
       "inspect": {
+        "id": "HYDRO_UNIT",
         "title": "Micro Watershed Code",
         "label": "HYDRO_UNIT",
         "fields": [
