@@ -2007,20 +2007,6 @@
           "Very Low",
           "rgba(0, 100, 0, 0.4)",
           "rgba(128, 128, 128, 0.5)"
-        ],
-        "line-color": "blue",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          12,
-          2,
-          18,
-          4
         ]
       },
       "inspect": {
