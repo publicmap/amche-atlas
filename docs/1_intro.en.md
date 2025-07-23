@@ -1,4 +1,4 @@
-## Introduction 
+# Introduction 
 
 This is a 3D atlas to explore various layers of [Goa's](https://en.wikipedia.org/wiki/Goa) geography, development, and community resources on a map.
 

@@ -4770,8 +4770,6 @@
       "headerImage": "assets/map-layers/map-layer-satellite.png",
       "styleLayer": "satellite",
       "style":{
-        "raster-contrast": 0.2,
-        "raster-saturation": 0.4,
         "raster-brightness-min": [
           "interpolate",
           ["linear"],

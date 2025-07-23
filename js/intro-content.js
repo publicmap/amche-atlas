@@ -109,29 +109,29 @@ class IntroContentManager {
   createModalHTML() {
     const modalHTML = `
       <sl-dialog id="${this.modalId}" label="Welcome to Amche Goa Map" class="intro-modal" no-header>
-        <div class="intro-modal-content">
+        <div class="h-full flex flex-col">
           <!-- Header with help title and language switcher -->
-          <div class="intro-header">
-            <div class="help-title">
-              <sl-icon name="info-circle-fill" class="help-icon"></sl-icon>
-              <span>Welcome to Goa's 3D Atlas</span>
-            </div>
-            <div class="language-switcher">
+          <div class="flex justify-between items-center">
+          <div class="flex gap-2 items-center">
               ${Object.entries(this.config.languages).map(([code, name]) => 
-                `<button class="lang-btn ${code === this.currentLanguage ? 'active' : ''}" data-lang="${code}">${name}</button>`
+                `<button class="lang-btn px-2 py-1 rounded transition-all duration-200 cursor-pointer border-none ${code === this.currentLanguage ? 'bg-blue-600 text-white' : 'bg-transparent text-blue-600 hover:bg-blue-100'}" data-lang="${code}">${name}</button>`
               ).join(' | ')}
+            </div>  
+          <div class="flex items-center gap-2 text-xl font-semibold text-gray-800">
+              <span>amche.in - Welcome to Goa's 3D Atlas</span>
             </div>
-            <div class="close-controls">
+            
+            <div class="flex items-center gap-4">
               <sl-button variant="default" size="small" id="${this.closeBtnId}">
                 <sl-icon slot="prefix" name="x-lg"></sl-icon>
-                <span class="close-btn-text">Close</span>
+                <span class="close-btn-text text-sm">Close</span>
               </sl-button>
             </div>
           </div>
 
           <!-- Content area -->
-          <div class="intro-content" id="${this.contentId}">
-            <div class="loading">Loading content...</div>
+          <div class="flex-1 overflow-y-auto mt-4" id="${this.contentId}">
+            <div class="flex items-center justify-center h-48 text-gray-500">Loading content...</div>
           </div>
         </div>
       </sl-dialog>
@@ -204,9 +204,9 @@ class IntroContentManager {
       const sectionsHtml = sections.map(section => {
         const htmlContent = this.markdownToHtml(section.content);
         return `
-          <section class="content-section">
-            <h3 class="section-title">${section.title}</h3>
-            <div class="section-body">${htmlContent}</div>
+          <section class="p-4 break-inside-avoid">
+            <h3 class="mb-4 text-xl font-semibold m-0">${section.title}</h3>
+            <div class="text-sm leading-relaxed prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:mt-4 prose-headings:mb-2 prose-p:mb-4 prose-ul:mb-4 prose-ol:mb-4 prose-ul:pl-6 prose-ol:pl-6 prose-li:mb-1 prose-strong:text-gray-900 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-img:max-w-full prose-img:h-auto prose-img:rounded prose-img:my-2 prose-img:mx-1 prose-img:inline prose-img:align-middle prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline">${htmlContent}</div>
           </section>
         `;
       }).join('');
@@ -216,8 +216,8 @@ class IntroContentManager {
       
       return `
         <sl-details summary="${contentData.title}" ${isOpen}>
-          <div class="section-content">
-            <div class="sections-grid">
+          <div class="leading-relaxed text-gray-700">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
               ${sectionsHtml}
             </div>
           </div>
@@ -226,7 +226,7 @@ class IntroContentManager {
     }).join('');
     
     const html = `
-      <div class="details-group-example">
+      <div class="details-group-example space-y-1">
         ${detailsHtml}
       </div>
     `;
@@ -344,7 +344,7 @@ class IntroContentManager {
 
   renderErrorContent() {
     document.getElementById(this.contentId).innerHTML = `
-      <div class="error-content">
+      <div class="flex items-center justify-center h-48 text-red-600">
         <p>Unable to load intro content. Please try refreshing the page.</p>
       </div>
     `;
@@ -437,7 +437,7 @@ class IntroContentManager {
 // Static property to track if modal has been shown before
 IntroContentManager.hasBeenShown = false;
 
-// CSS Styles
+// Minimal CSS for elements that can't be handled with Tailwind alone
 const styles = `
 <style>
 .intro-modal::part(panel) {
@@ -447,166 +447,8 @@ const styles = `
   height: 100%;
 }
 
-.intro-modal-content {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.intro-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.help-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--sl-color-neutral-800);
-}
-
-.help-icon {
-  font-size: 1.5rem;
-  color: var(--sl-color-primary-600);
-}
-
-.language-switcher {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.lang-btn {
-  background: none;
-  border: none;
-  color: var(--sl-color-primary-600);
-  cursor: pointer;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.lang-btn:hover {
-  background: var(--sl-color-primary-100);
-}
-
-.lang-btn.active {
-  background: var(--sl-color-primary-600);
-  color: white;
-}
-
-.close-controls {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.intro-content {
-  flex: 1;
-  overflow-y: auto;
-  margin-top: 1rem;
-}
-
-.section-content {
-  line-height: 1.6;
-  color: var(--sl-color-neutral-700);
-}
-
-.sections-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-}
-
-/* Two-column layout for wide screens */
-@media (min-width: 1024px) {
-  .sections-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-  }
-}
-
-.content-section {
-  padding: 1rem;
-  break-inside: avoid;
-}
-
-.section-title {
-  margin: 0 0 1rem 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.section-body {
-  font-size: 0.95rem;
-  line-height: 1.6;
-}
-
-.section-body h1,
-.section-body h2,
-.section-body h3,
-.section-body h4,
-.section-body h5,
-.section-body h6 {
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-  color: var(--sl-color-neutral-800);
-}
-
-.section-body p {
-  margin-bottom: 1rem;
-}
-
-.section-body ul,
-.section-body ol {
-  margin-bottom: 1rem;
-  padding-left: 1.5rem;
-}
-
-.section-body li {
-  margin-bottom: 0.25rem;
-}
-
-.section-body strong {
-  color: var(--sl-color-neutral-900);
-}
-
-.section-body code {
-  background: var(--sl-color-neutral-100);
-  padding: 0.125rem 0.25rem;
-  border-radius: 3px;
-  font-family: 'Courier New', monospace;
-  font-size: 0.9em;
-}
-
-.section-body img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 4px;
-  margin: 0.5rem 0.25rem;
-  display: inline-block;
-  vertical-align: middle;
-}
-
-.section-body a {
-  color: var(--sl-color-primary-600);
-  text-decoration: none;
-}
-
-.section-body a:hover {
-  text-decoration: underline;
-}
-
-/* Accordion styling */
-.details-group-example sl-details:not(:last-of-type) {
-  margin-bottom: var(--sl-spacing-2x-small);
-}
-
-/* GPS icon styling */
-.section-body span[style*="background-image"] {
+/* GPS icon styling for background images */
+.prose span[style*="background-image"] {
   display: inline-block;
   width: 20px;
   height: 20px;
@@ -617,20 +459,9 @@ const styles = `
   margin: 0 4px;
 }
 
-.loading, .error-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
-  color: var(--sl-color-neutral-500);
-}
-
-.error-content {
-  color: var(--sl-color-danger-600);
-}
-
-.close-btn-text {
-  font-size: 0.875rem;
+/* Accordion spacing */
+.details-group-example sl-details:not(:last-of-type) {
+  margin-bottom: var(--sl-spacing-2x-small);
 }
 </style>
 `;
