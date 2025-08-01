@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapbox GL Georeferencer</title>
+    
+    <!-- Mapbox GL JS -->
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css' rel='stylesheet' />
+    
+    <!-- Mapbox Geocoder -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: #f5f5f5;
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .input-group {
+            margin-bottom: 10px;
+        }
+        
+        .input-group label {
+            display: inline-block;
+            width: 120px;
+            font-weight: bold;
+        }
+        
+        .input-group input {
+            width: 400px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        
+        .btn {
+            padding: 8px 15px;
+            background: #007cba;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        .btn:hover {
+            background: #005a87;
+        }
+        
+        .btn.secondary {
+            background: #6c757d;
+        }
+        
+        .btn.secondary:hover {
+            background: #545b62;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            height: calc(100vh - 140px);
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+            border-right: 2px solid #ddd;
+        }
+        
+        .map-container:last-child {
+            border-right: none;
+        }
+        
+        .map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .map-title {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            z-index: 1000;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 50px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 3px;
+            z-index: 1000;
+        }
+        
+        .control-mode {
+            display: block;
+            margin: 5px 0;
+            padding: 5px 10px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .control-mode.active {
+            background: #007cba;
+            color: white;
+        }
+        
+        .control-mode:hover {
+            background: #e9ecef;
+        }
+        
+        .control-mode.active:hover {
+            background: #005a87;
+        }
+        
+        .reference-controls {
+            position: absolute;
+            top: 50px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 3px;
+            z-index: 1000;
+        }
+        
+        .output-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-top: 1px solid #ddd;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .output-textarea {
+            flex: 1;
+            width: 100%;
+            font-family: monospace;
+            font-size: 12px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 10px;
+            resize: none;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+        }
+        
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            width: 400px;
+        }
+        
+        .modal-header {
+            margin-bottom: 15px;
+            font-weight: bold;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .control-point {
+            width: 12px;
+            height: 12px;
+            background: #ff0000;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            position: absolute;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+        
+        .control-point.selected {
+            background: #00ff00;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.8);
+        }
+        
+        .geocoder-container {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="input-group">
+            <label>Map Warper URL:</label>
+            <input type="text" id="mapwarper-url" value="https://mapwarper.net/maps/94232">
+            <button class="btn" onclick="loadMapWarperMap()">Load Map</button>
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="map-container">
+            <div class="map-title">Source Map (WMS)</div>
+            <div class="controls">
+                <div class="control-mode active" data-mode="add" data-key="1">
+                    1 - Add Control Point
+                </div>
+                <div class="control-mode" data-mode="move" data-key="2">
+                    2 - Move Control Point
+                </div>
+                <div class="control-mode" data-mode="pan" data-key="3">
+                    3 - Move Map
+                </div>
+            </div>
+            <div id="source-map" class="map"></div>
+        </div>
+        
+        <div class="map-container">
+            <div class="map-title">Reference Map (Mapbox)</div>
+            <div class="reference-controls">
+                <div class="geocoder-container">
+                    <div id="geocoder"></div>
+                </div>
+                <button class="btn secondary" onclick="showAddLayerModal()">Add Layer</button>
+            </div>
+            <div class="controls">
+                <div class="control-mode active" data-mode="add" data-key="1">
+                    1 - Add Control Point
+                </div>
+                <div class="control-mode" data-mode="move" data-key="2">
+                    2 - Move Control Point
+                </div>
+                <div class="control-mode" data-mode="pan" data-key="3">
+                    3 - Move Map
+                </div>
+            </div>
+            <div id="reference-map" class="map"></div>
+        </div>
+    </div>
+    
+    <div class="output-section">
+        <div class="output-header">
+            <h3>Control Points (CSV Format)</h3>
+            <div>
+                <button class="btn secondary" onclick="clearControlPoints()">Clear All</button>
+                <button class="btn" onclick="saveCSV()">Save CSV</button>
+            </div>
+        </div>
+        <textarea class="output-textarea" id="csv-output" readonly>x,y,lon,lat</textarea>
+    </div>
+    
+    <!-- Add Layer Modal -->
+    <div id="add-layer-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Add Vector Layer</div>
+            <div class="input-group">
+                <label>URL:</label>
+                <input type="text" id="layer-url" value="https://indianopenmaps.fly.dev/not-so-open/cadastrals/goa/onemapgoagis/{z}/{x}/{y}.pbf" style="width: 100%;">
+            </div>
+            <div class="input-group">
+                <label>Source Layer:</label>
+                <input type="text" id="source-layer" value="Onemapgoa_GA_Cadastrals" style="width: 100%;">
+            </div>
+            <div class="input-group">
+                <label>Max Zoom:</label>
+                <input type="number" id="max-zoom" value="15" style="width: 100%;">
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn secondary" onclick="hideAddLayerModal()">Cancel</button>
+                <button class="btn" onclick="addVectorLayer()">Add Layer to Map</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const MAPBOX_TOKEN = 'pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2x2MzZwbGRyMGdheDJtbXVwdDA4aDNyaCJ9.nbvz6aNGQo68xa4NtWH26A';
+        mapboxgl.accessToken = MAPBOX_TOKEN;
+        
+        // Global variables
+        let sourceMap, referenceMap;
+        let currentMode = 'add';
+        let controlPoints = [];
+        let selectedPointIndex = -1;
+        let focusedMap = null;
+        let nextPointId = 1;
+        
+        // Initialize maps
+        function initializeMaps() {
+            // Initialize source map (for WMS overlay)
+            sourceMap = new mapboxgl.Map({
+                container: 'source-map',
+                style: 'mapbox://styles/mapbox/light-v11',
+                center: [74.0, 15.3],
+                zoom: 10
+            });
+            
+            // Initialize reference map
+            referenceMap = new mapboxgl.Map({
+                container: 'reference-map',
+                style: 'mapbox://styles/mapbox/satellite-v9',
+                center: [74.0, 15.3],
+                zoom: 10
+            });
+            
+            // Add geocoder to reference map
+            const geocoder = new MapboxGeocoder({
+                accessToken: mapboxgl.accessToken,
+                mapboxgl: mapboxgl,
+                marker: false
+            });
+            
+            document.getElementById('geocoder').appendChild(geocoder.onAdd(referenceMap));
+            
+            // Set up event listeners for both maps
+            setupMapEventListeners(sourceMap, 'source');
+            setupMapEventListeners(referenceMap, 'reference');
+            
+            // Load default map
+            loadMapWarperMap();
+        }
+        
+        function setupMapEventListeners(map, mapType) {
+            // Map focus tracking
+            map.getContainer().addEventListener('mouseenter', () => {
+                focusedMap = mapType;
+            });
+            
+            // Double click handler
+            map.on('dblclick', (e) => {
+                e.preventDefault();
+                addControlPoint(e, mapType);
+            });
+            
+            // Single click handler for move mode
+            map.on('click', (e) => {
+                if (currentMode === 'move' && selectedPointIndex >= 0) {
+                    moveControlPoint(e, mapType, selectedPointIndex);
+                } else if (currentMode === 'move') {
+                    selectControlPoint(e, mapType);
+                }
+            });
+            
+            // Disable default double-click zoom
+            map.doubleClickZoom.disable();
+        }
+        
+        function loadMapWarperMap() {
+            const url = document.getElementById('mapwarper-url').value;
+            const mapId = extractMapId(url);
+            
+            if (!mapId) {
+                alert('Invalid MapWarper URL. Please use format: https://mapwarper.net/maps/[ID]');
+                return;
+            }
+            
+            // Remove existing WMS layer if any
+            if (sourceMap.getLayer('wms-layer')) {
+                sourceMap.removeLayer('wms-layer');
+                sourceMap.removeSource('wms-source');
+            }
+            
+            // Add MapWarper tiles to source map
+            sourceMap.addSource('wms-source', {
+                type: 'raster',
+                tiles: [
+                    `https://mapwarper.net/maps/tile/${mapId}/{z}/{x}/{y}`
+                ],
+                tileSize: 256
+            });
+            
+            sourceMap.addLayer({
+                id: 'wms-layer',
+                type: 'raster',
+                source: 'wms-source',
+                paint: {}
+            });
+            
+            // Clear existing control points
+            clearControlPoints();
+        }
+        
+        function extractMapId(url) {
+            const match = url.match(/\/maps\/(\d+)/);
+            return match ? match[1] : null;
+        }
+        
+        function addControlPoint(e, mapType) {
+            const point = {
+                id: nextPointId++,
+                sourceCoords: mapType === 'source' ? [e.lngLat.lng, e.lngLat.lat] : null,
+                referenceCoords: mapType === 'reference' ? [e.lngLat.lng, e.lngLat.lat] : null,
+                sourcePixel: mapType === 'source' ? [e.point.x, e.point.y] : null,
+                referencePixel: mapType === 'reference' ? [e.point.x, e.point.y] : null
+            };
+            
+            controlPoints.push(point);
+            updateControlPointsDisplay();
+            updateCSVOutput();
+        }
+        
+        function moveControlPoint(e, mapType, pointIndex) {
+            if (pointIndex >= 0 && pointIndex < controlPoints.length) {
+                const point = controlPoints[pointIndex];
+                
+                if (mapType === 'source') {
+                    point.sourceCoords = [e.lngLat.lng, e.lngLat.lat];
+                    point.sourcePixel = [e.point.x, e.point.y];
+                } else {
+                    point.referenceCoords = [e.lngLat.lng, e.lngLat.lat];
+                    point.referencePixel = [e.point.x, e.point.y];
+                }
+                
+                updateControlPointsDisplay();
+                updateCSVOutput();
+                selectedPointIndex = -1;
+            }
+        }
+        
+        function selectControlPoint(e, mapType) {
+            // Find closest control point
+            const clickPoint = [e.point.x, e.point.y];
+            let closestIndex = -1;
+            let closestDistance = Infinity;
+            
+            controlPoints.forEach((point, index) => {
+                let pointPixel;
+                if (mapType === 'source' && point.sourcePixel) {
+                    pointPixel = point.sourcePixel;
+                } else if (mapType === 'reference' && point.referencePixel) {
+                    pointPixel = point.referencePixel;
+                } else {
+                    return;
+                }
+                
+                const distance = Math.sqrt(
+                    Math.pow(clickPoint[0] - pointPixel[0], 2) + 
+                    Math.pow(clickPoint[1] - pointPixel[1], 2)
+                );
+                
+                if (distance < 20 && distance < closestDistance) {
+                    closestDistance = distance;
+                    closestIndex = index;
+                }
+            });
+            
+            selectedPointIndex = closestIndex;
+            updateControlPointsDisplay();
+        }
+        
+        function updateControlPointsDisplay() {
+            // Remove existing point markers
+            document.querySelectorAll('.control-point').forEach(el => el.remove());
+            
+            controlPoints.forEach((point, index) => {
+                // Add marker to source map
+                if (point.sourcePixel) {
+                    const sourceMarker = document.createElement('div');
+                    sourceMarker.className = 'control-point' + (index === selectedPointIndex ? ' selected' : '');
+                    sourceMarker.style.left = point.sourcePixel[0] + 'px';
+                    sourceMarker.style.top = point.sourcePixel[1] + 'px';
+                    sourceMarker.onclick = () => {
+                        selectedPointIndex = index === selectedPointIndex ? -1 : index;
+                        updateControlPointsDisplay();
+                    };
+                    sourceMap.getContainer().appendChild(sourceMarker);
+                }
+                
+                // Add marker to reference map
+                if (point.referencePixel) {
+                    const refMarker = document.createElement('div');
+                    refMarker.className = 'control-point' + (index === selectedPointIndex ? ' selected' : '');
+                    refMarker.style.left = point.referencePixel[0] + 'px';
+                    refMarker.style.top = point.referencePixel[1] + 'px';
+                    refMarker.onclick = () => {
+                        selectedPointIndex = index === selectedPointIndex ? -1 : index;
+                        updateControlPointsDisplay();
+                    };
+                    referenceMap.getContainer().appendChild(refMarker);
+                }
+            });
+        }
+        
+        function updateCSVOutput() {
+            let csv = 'x,y,lon,lat\n';
+            
+            controlPoints.forEach(point => {
+                if (point.sourcePixel && point.referenceCoords) {
+                    csv += `${point.sourcePixel[0]},${point.sourcePixel[1]},${point.referenceCoords[0]},${point.referenceCoords[1]}\n`;
+                }
+            });
+            
+            document.getElementById('csv-output').value = csv;
+        }
+        
+        function clearControlPoints() {
+            controlPoints = [];
+            selectedPointIndex = -1;
+            nextPointId = 1;
+            updateControlPointsDisplay();
+            updateCSVOutput();
+        }
+        
+        function saveCSV() {
+            const csv = document.getElementById('csv-output').value;
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'control_points.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+        
+        function showAddLayerModal() {
+            document.getElementById('add-layer-modal').style.display = 'block';
+        }
+        
+        function hideAddLayerModal() {
+            document.getElementById('add-layer-modal').style.display = 'none';
+        }
+        
+        function addVectorLayer() {
+            const url = document.getElementById('layer-url').value;
+            const sourceLayer = document.getElementById('source-layer').value;
+            const maxZoom = parseInt(document.getElementById('max-zoom').value);
+            
+            const layerId = 'vector-layer-' + Date.now();
+            
+            // Remove existing vector layer if any
+            if (referenceMap.getLayer('vector-layer')) {
+                referenceMap.removeLayer('vector-layer');
+                referenceMap.removeSource('vector-source');
+            }
+            
+            referenceMap.addSource('vector-source', {
+                type: 'vector',
+                tiles: [url],
+                maxzoom: maxZoom
+            });
+            
+            // Add fill layer
+            referenceMap.addLayer({
+                id: 'vector-layer-fill',
+                type: 'fill',
+                source: 'vector-source',
+                'source-layer': sourceLayer,
+                paint: {
+                    'fill-color': '#088',
+                    'fill-opacity': 0.3
+                }
+            });
+            
+            // Add line layer
+            referenceMap.addLayer({
+                id: 'vector-layer-line',
+                type: 'line',
+                source: 'vector-source',
+                'source-layer': sourceLayer,
+                paint: {
+                    'line-color': '#088',
+                    'line-width': 2
+                }
+            });
+            
+            hideAddLayerModal();
+        }
+        
+        // Control mode handlers
+        document.querySelectorAll('.control-mode').forEach(button => {
+            button.addEventListener('click', function() {
+                const mode = this.dataset.mode;
+                currentMode = mode;
+                
+                // Update active state for all control buttons
+                document.querySelectorAll('.control-mode').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelectorAll(`[data-mode="${mode}"]`).forEach(btn => {
+                    btn.classList.add('active');
+                });
+                
+                // Reset selection when changing modes
+                selectedPointIndex = -1;
+                updateControlPointsDisplay();
+            });
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key >= '1' && e.key <= '3' && focusedMap) {
+                e.preventDefault();
+                const modes = ['add', 'move', 'pan'];
+                const mode = modes[parseInt(e.key) - 1];
+                currentMode = mode;
+                
+                // Update active state
+                document.querySelectorAll('.control-mode').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelectorAll(`[data-mode="${mode}"]`).forEach(btn => {
+                    btn.classList.add('active');
+                });
+                
+                selectedPointIndex = -1;
+                updateControlPointsDisplay();
+            }
+            
+            // Delete selected point
+            if (e.key === 'Delete' && selectedPointIndex >= 0) {
+                controlPoints.splice(selectedPointIndex, 1);
+                selectedPointIndex = -1;
+                updateControlPointsDisplay();
+                updateCSVOutput();
+            }
+        });
+        
+        // Initialize when page loads
+        window.addEventListener('load', initializeMaps);
+    </script>
+</body>
+</html>
