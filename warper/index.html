@@ -463,9 +463,18 @@
             
             // Single click handler for move mode
             map.on('click', (e) => {
+                // Only handle map clicks, not marker clicks
+                if (e.originalEvent && e.originalEvent.target && 
+                    (e.originalEvent.target.closest('.mapboxgl-marker') || 
+                     e.originalEvent.target.classList.contains('mapboxgl-marker'))) {
+                    return; // Ignore clicks on markers
+                }
+                
                 if (currentMode === 'move' && selectedPointIndex >= 0) {
+                    // If we have an active marker, move it to the clicked location
                     moveControlPoint(e, mapType, selectedPointIndex);
                 } else if (currentMode === 'move') {
+                    // If no active marker, try to select one near the click
                     selectControlPoint(e, mapType);
                 }
             });
@@ -1018,6 +1027,37 @@
             updateMarkers();
         }
         
+        function switchToMoveMode() {
+            currentMode = 'move';
+            
+            // Update active state for all control buttons
+            document.querySelectorAll('.control-mode').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('[data-mode="move"]').forEach(btn => {
+                btn.classList.add('active');
+            });
+            
+            // Update cursor style
+            updateMapCursor();
+        }
+        
+        function updateMapCursor() {
+            const shouldShowCrosshair = currentMode === 'move' && selectedPointIndex >= 0;
+            
+            // Update cursor for both map containers
+            const sourceContainer = sourceMap.getContainer();
+            const referenceContainer = referenceMap.getContainer();
+            
+            if (shouldShowCrosshair) {
+                sourceContainer.style.cursor = 'crosshair';
+                referenceContainer.style.cursor = 'crosshair';
+            } else {
+                sourceContainer.style.cursor = '';
+                referenceContainer.style.cursor = '';
+            }
+        }
+        
         function updateMarkers() {
             // Clear existing markers
             sourceMarkers.forEach(marker => marker.remove());
@@ -1046,10 +1086,35 @@
                         sourceMap
                     );
                     
-                    marker.getElement().onclick = () => {
+                    marker.getElement().onclick = (e) => {
+                        // Prevent map click event from firing when clicking marker
+                        e.stopPropagation();
                         selectedPointIndex = index === selectedPointIndex ? -1 : index;
+                        // Automatically switch to move mode when a marker is selected
+                        if (selectedPointIndex >= 0) {
+                            switchToMoveMode();
+                        }
                         updateMarkers();
                     };
+                    
+                    // Add drag event handlers for selected markers
+                    if (index === selectedPointIndex) {
+                        marker.on('dragend', () => {
+                            const lngLat = marker.getLngLat();
+                            // Update the control point coordinates
+                            if (point.sourceCoords) {
+                                point.sourceCoords = [lngLat.lng, lngLat.lat];
+                            } else {
+                                // Create sourceCoords if only pixel coords existed
+                                point.sourceCoords = [lngLat.lng, lngLat.lat];
+                                // Clear pixel coordinates since we're now using geographic
+                                if (point.sourcePixelCoords) {
+                                    delete point.sourcePixelCoords;
+                                }
+                            }
+                            updateCSVFromPoints();
+                        });
+                    }
                     
                     sourceMarkers.set(point.id, marker);
                 }
@@ -1063,20 +1128,40 @@
                         referenceMap
                     );
                     
-                    marker.getElement().onclick = () => {
+                    marker.getElement().onclick = (e) => {
+                        // Prevent map click event from firing when clicking marker
+                        e.stopPropagation();
                         selectedPointIndex = index === selectedPointIndex ? -1 : index;
+                        // Automatically switch to move mode when a marker is selected
+                        if (selectedPointIndex >= 0) {
+                            switchToMoveMode();
+                        }
                         updateMarkers();
                     };
+                    
+                    // Add drag event handlers for selected markers
+                    if (index === selectedPointIndex) {
+                        marker.on('dragend', () => {
+                            const lngLat = marker.getLngLat();
+                            // Update the control point coordinates
+                            point.referenceCoords = [lngLat.lng, lngLat.lat];
+                            updateCSVFromPoints();
+                        });
+                    }
                     
                     referenceMarkers.set(point.id, marker);
                 }
             });
+            
+            // Update cursor style after markers are updated
+            updateMapCursor();
         }
         
         function createNumberedMarker(lngLat, number, isSelected, map) {
             // Create the main marker using Mapbox's default marker
             const marker = new mapboxgl.Marker({
-                color: isSelected ? '#00ff00' : '#ff0000'
+                color: isSelected ? '#00ff00' : '#ff0000',
+                draggable: isSelected // Make selected markers draggable
             }).setLngLat(lngLat);
             
             // Add the marker to the map first
