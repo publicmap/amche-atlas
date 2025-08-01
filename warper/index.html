@@ -389,6 +389,9 @@
         let referenceMarkers = new Map();
         let deletedRowNumbers = new Set();
         
+        // Undo functionality for marker positions
+        let markerPositionHistory = [];
+        
         // Initialize maps
         function initializeMaps() {
             // Initialize source map (for WMS overlay)
@@ -447,6 +450,72 @@
             
             // Initialize row numbers display
             updateRowNumbers();
+            
+            // Set up URL input auto-loading
+            setupURLInputHandlers();
+        }
+        
+        function setupURLInputHandlers() {
+            const urlInput = document.getElementById('mapwarper-url');
+            
+            // Auto-load on paste
+            urlInput.addEventListener('paste', (e) => {
+                setTimeout(() => {
+                    const url = urlInput.value.trim();
+                    if (url && extractMapId(url)) {
+                        loadMapWarperMap();
+                    }
+                }, 100); // Small delay to let paste complete
+            });
+            
+            // Auto-load on input change (when URL is typed or modified)
+            let inputTimeout;
+            urlInput.addEventListener('input', (e) => {
+                clearTimeout(inputTimeout);
+                inputTimeout = setTimeout(() => {
+                    const url = urlInput.value.trim();
+                    if (url && extractMapId(url)) {
+                        loadMapWarperMap();
+                    }
+                }, 1000); // 1 second delay to avoid too many requests while typing
+            });
+        }
+        
+        function fitMapToControlPoints() {
+            if (controlPoints.length === 0) {
+                return;
+            }
+            
+            let bounds = new mapboxgl.LngLatBounds();
+            let hasValidPoints = false;
+            
+            controlPoints.forEach(point => {
+                // Add reference coordinates to bounds
+                if (point.referenceCoords) {
+                    bounds.extend(point.referenceCoords);
+                    hasValidPoints = true;
+                }
+                
+                // Add source coordinates to bounds if they exist
+                if (point.sourceCoords) {
+                    bounds.extend(point.sourceCoords);
+                    hasValidPoints = true;
+                }
+            });
+            
+            if (hasValidPoints) {
+                const padding = 50; // 50px padding
+                const options = {
+                    padding: padding,
+                    maxZoom: 13 // Don't zoom in too much
+                };
+                
+                // Fit both maps to the same bounds
+                sourceMap.fitBounds(bounds, options);
+                referenceMap.fitBounds(bounds, options);
+                
+                console.log(`Fitted maps to bounds of ${controlPoints.length} control points`);
+            }
         }
         
         function setupMapEventListeners(map, mapType) {
@@ -488,7 +557,12 @@
             const mapId = extractMapId(url);
             
             if (!mapId) {
-                alert('Invalid MapWarper URL. Please use format: https://mapwarper.net/maps/[ID]');
+                // Only show alert if user explicitly clicked the load button
+                // Don't show alert for auto-loading attempts
+                const wasTriggeredByUser = event && event.type === 'click';
+                if (wasTriggeredByUser) {
+                    alert('Invalid MapWarper URL. Please use format: https://mapwarper.net/maps/[ID]');
+                }
                 return;
             }
             
@@ -590,8 +664,8 @@
                     
                     console.log(`Successfully loaded ${controlPoints.length} control points`);
                     
-                    // Show success message to user
-                    alert(`Loaded ${controlPoints.length} existing control points from MapWarper. The reference coordinates are positioned correctly. You may need to adjust the source coordinates on the unwarped image.`);
+                    // Auto-fit map to include all control points
+                    fitMapToControlPoints();
                 } else {
                     console.log('No control points found in the response');
                 }
@@ -600,6 +674,11 @@
                 csvOutput.placeholder = originalPlaceholder;
             } catch (error) {
                 console.error('Error fetching control points:', error);
+                
+                // Only show alert for network errors or other serious issues
+                if (error.message && !error.message.includes('404')) {
+                    alert(`Error loading control points: ${error.message}`);
+                }
                 
                 // Restore original placeholder on error
                 const csvOutput = document.getElementById('csv-output');
@@ -969,6 +1048,9 @@
         
         function moveControlPoint(e, mapType, pointIndex) {
             if (pointIndex >= 0 && pointIndex < controlPoints.length) {
+                // Save position to history before making changes
+                saveMarkerPositionToHistory(pointIndex);
+                
                 const point = controlPoints[pointIndex];
                 
                 if (mapType === 'source') {
@@ -1025,6 +1107,79 @@
             
             selectedPointIndex = closestIndex;
             updateMarkers();
+        }
+        
+        function saveMarkerPositionToHistory(pointIndex) {
+            // Save the current position of the specified marker to history
+            if (pointIndex >= 0 && pointIndex < controlPoints.length) {
+                const point = controlPoints[pointIndex];
+                const historyEntry = {
+                    pointIndex: pointIndex,
+                    sourceCoords: point.sourceCoords ? [...point.sourceCoords] : null,
+                    referenceCoords: point.referenceCoords ? [...point.referenceCoords] : null,
+                    sourcePixelCoords: point.sourcePixelCoords ? [...point.sourcePixelCoords] : null
+                };
+                markerPositionHistory.push(historyEntry);
+                
+                // Keep only the last 10 history entries to prevent memory issues
+                if (markerPositionHistory.length > 10) {
+                    markerPositionHistory.shift();
+                }
+            }
+        }
+        
+        function undoLastMarkerPositionChange() {
+            if (markerPositionHistory.length === 0) return false;
+            
+            const lastChange = markerPositionHistory.pop();
+            if (lastChange.pointIndex >= 0 && lastChange.pointIndex < controlPoints.length) {
+                const point = controlPoints[lastChange.pointIndex];
+                
+                // Restore the previous position
+                if (lastChange.sourceCoords) {
+                    point.sourceCoords = [...lastChange.sourceCoords];
+                } else if (point.sourceCoords) {
+                    delete point.sourceCoords;
+                }
+                
+                if (lastChange.referenceCoords) {
+                    point.referenceCoords = [...lastChange.referenceCoords];
+                } else if (point.referenceCoords) {
+                    delete point.referenceCoords;
+                }
+                
+                if (lastChange.sourcePixelCoords) {
+                    point.sourcePixelCoords = [...lastChange.sourcePixelCoords];
+                } else if (point.sourcePixelCoords) {
+                    delete point.sourcePixelCoords;
+                }
+                
+                // Deselect the marker and switch to pan mode
+                deselectMarkerAndSwitchToPan();
+                
+                // Update the CSV and markers
+                updateCSVFromPoints();
+                updateMarkers();
+                
+                return true;
+            }
+            return false;
+        }
+        
+        function deselectMarkerAndSwitchToPan() {
+            selectedPointIndex = -1;
+            currentMode = 'pan';
+            
+            // Update active state for all control buttons
+            document.querySelectorAll('.control-mode').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('[data-mode="pan"]').forEach(btn => {
+                btn.classList.add('active');
+            });
+            
+            // Update cursor style
+            updateMapCursor();
         }
         
         function switchToMoveMode() {
@@ -1089,9 +1244,13 @@
                     marker.getElement().onclick = (e) => {
                         // Prevent map click event from firing when clicking marker
                         e.stopPropagation();
-                        selectedPointIndex = index === selectedPointIndex ? -1 : index;
-                        // Automatically switch to move mode when a marker is selected
-                        if (selectedPointIndex >= 0) {
+                        
+                        if (index === selectedPointIndex) {
+                            // Deselect and switch to pan mode
+                            deselectMarkerAndSwitchToPan();
+                        } else {
+                            // Select marker and switch to move mode
+                            selectedPointIndex = index;
                             switchToMoveMode();
                         }
                         updateMarkers();
@@ -1099,6 +1258,11 @@
                     
                     // Add drag event handlers for selected markers
                     if (index === selectedPointIndex) {
+                        // Save position before drag starts
+                        marker.on('dragstart', () => {
+                            saveMarkerPositionToHistory(index);
+                        });
+                        
                         marker.on('dragend', () => {
                             const lngLat = marker.getLngLat();
                             // Update the control point coordinates
@@ -1131,9 +1295,13 @@
                     marker.getElement().onclick = (e) => {
                         // Prevent map click event from firing when clicking marker
                         e.stopPropagation();
-                        selectedPointIndex = index === selectedPointIndex ? -1 : index;
-                        // Automatically switch to move mode when a marker is selected
-                        if (selectedPointIndex >= 0) {
+                        
+                        if (index === selectedPointIndex) {
+                            // Deselect and switch to pan mode
+                            deselectMarkerAndSwitchToPan();
+                        } else {
+                            // Select marker and switch to move mode
+                            selectedPointIndex = index;
                             switchToMoveMode();
                         }
                         updateMarkers();
@@ -1141,6 +1309,11 @@
                     
                     // Add drag event handlers for selected markers
                     if (index === selectedPointIndex) {
+                        // Save position before drag starts
+                        marker.on('dragstart', () => {
+                            saveMarkerPositionToHistory(index);
+                        });
+                        
                         marker.on('dragend', () => {
                             const lngLat = marker.getLngLat();
                             // Update the control point coordinates
@@ -1462,11 +1635,13 @@
                 // Reset selection when changing modes
                 selectedPointIndex = -1;
                 updateMarkers();
+                updateMapCursor();
             });
         });
         
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
+            // Mode selection (1-3 keys)
             if (e.key >= '1' && e.key <= '3' && focusedMap) {
                 e.preventDefault();
                 const modes = ['add', 'move', 'pan'];
@@ -1482,6 +1657,20 @@
                 });
                 
                 selectedPointIndex = -1;
+                updateMarkers();
+                updateMapCursor();
+            }
+            
+            // Undo marker position change (Ctrl+Z / Cmd+Z)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undoLastMarkerPositionChange();
+            }
+            
+            // Deselect active marker (Escape)
+            if (e.key === 'Escape' && selectedPointIndex >= 0) {
+                e.preventDefault();
+                deselectMarkerAndSwitchToPan();
                 updateMarkers();
             }
             
