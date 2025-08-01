@@ -429,7 +429,7 @@ export class MapFeatureControl {
             this._toggleLayerDrawer();
         });
 
-        // Create label for the drawer switch
+        // Create label for the drawer switch with icon
         const drawerSwitchLabel = document.createElement('label');
         drawerSwitchLabel.style.cssText = `
             font-size: 12px;
@@ -437,8 +437,17 @@ export class MapFeatureControl {
             font-weight: 500;
             cursor: pointer;
             user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         `;
-        drawerSwitchLabel.textContent = 'Layer List';
+        
+        const layersIcon = document.createElement('sl-icon');
+        layersIcon.name = 'layout-sidebar-inset';
+        layersIcon.style.fontSize = '12px';
+        
+        drawerSwitchLabel.appendChild(layersIcon);
+        drawerSwitchLabel.appendChild(document.createTextNode('Layer List'));
         
         // Make label clickable
         drawerSwitchLabel.addEventListener('click', () => {
@@ -474,11 +483,11 @@ export class MapFeatureControl {
         `;
         
         const inspectIcon = document.createElement('sl-icon');
-        inspectIcon.name = 'hand-index-thumb';
+        inspectIcon.name = 'chat-square';
         inspectIcon.style.fontSize = '12px';
         
         inspectSwitchLabel.appendChild(inspectIcon);
-        inspectSwitchLabel.appendChild(document.createTextNode('Inspect'));
+        inspectSwitchLabel.appendChild(document.createTextNode('Tooltips'));
         
         // Make label clickable
         inspectSwitchLabel.addEventListener('click', () => {

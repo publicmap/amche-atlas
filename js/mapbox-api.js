@@ -1464,6 +1464,14 @@ export class MapboxAPI {
             }
         });
 
+        // Special handling for text-halo-color: use fill-color as fallback if text-halo-color not provided
+        if (!userStyles['text-halo-color'] && userStyles['fill-color'] && defaultStyles['text-halo-color']) {
+            mergedStyles['text-halo-color'] = this._combineWithDefaultStyle(
+                userStyles['fill-color'], 
+                defaultStyles['text-halo-color']
+            );
+        }
+
         return mergedStyles;
     }
 
