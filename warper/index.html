@@ -259,8 +259,9 @@
     <div class="header">
         <div class="input-group">
             <label>Map Warper URL:</label>
-            <input type="text" id="mapwarper-url" value="https://mapwarper.net/maps/94232">
+                            <input type="text" id="mapwarper-url" value="https://mapwarper.net/maps/94232">
             <button class="btn" onclick="loadMapWarperMap()">Load Map</button>
+            <button class="btn secondary" onclick="showCenterModal()">Set Center</button>
         </div>
     </div>
     
@@ -288,6 +289,12 @@
                     <div id="geocoder"></div>
                 </div>
                 <button class="btn secondary" onclick="showAddLayerModal()">Add Layer</button>
+                <div style="margin-top: 10px;">
+                    <label style="display: flex; align-items: center; color: #333; font-size: 12px;">
+                        <input type="checkbox" id="warped-map-toggle" checked onchange="toggleWarpedMap()" style="margin-right: 5px;">
+                        Warped Map
+                    </label>
+                </div>
             </div>
             <div class="controls">
                 <div class="control-mode active" data-mode="add" data-key="1">
@@ -343,6 +350,29 @@
         </div>
     </div>
 
+    <!-- Set Center Modal -->
+    <div id="center-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Set Map Center</div>
+            <div class="input-group">
+                <label>Longitude:</label>
+                <input type="number" id="center-lng" step="0.000001" placeholder="e.g., 74.0" style="width: 100%;">
+            </div>
+            <div class="input-group">
+                <label>Latitude:</label>
+                <input type="number" id="center-lat" step="0.000001" placeholder="e.g., 15.3" style="width: 100%;">
+            </div>
+            <div class="input-group">
+                <label>Zoom Level:</label>
+                <input type="number" id="center-zoom" min="1" max="20" value="12" style="width: 100%;">
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn secondary" onclick="hideCenterModal()">Cancel</button>
+                <button class="btn" onclick="setCenterFromModal()">Set Center</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Configuration
         const MAPBOX_TOKEN = 'pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2x2MzZwbGRyMGdheDJtbXVwdDA4aDNyaCJ9.nbvz6aNGQo68xa4NtWH26A';
@@ -366,7 +396,29 @@
                 container: 'source-map',
                 style: 'mapbox://styles/mapbox/light-v11',
                 center: [74.0, 15.3],
-                zoom: 10
+                zoom: 10,
+                transformRequest: (url, resourceType) => {
+                    // Debug all mapwarper requests
+                    if (url.includes('mapwarper.net')) {
+                        console.log(`🌐 MapWarper ${resourceType} request:`, url);
+                        
+                        // Check for unsubstituted placeholders
+                        if (url.includes('{bbox-epsg-4326}') || url.includes('{bbox}') || url.includes('{z}') || url.includes('{x}') || url.includes('{y}')) {
+                            console.warn('❌ Unsubstituted placeholders found:', url);
+                        } else {
+                            console.log('✅ All placeholders appear to be substituted');
+                        }
+                        
+                        // Return the URL with appropriate headers
+                        return { 
+                            url: url,
+                            headers: {
+                                'Accept': url.includes('/wms/') ? 'image/png,image/*;q=0.8,*/*;q=0.5' : 'image/*'
+                            }
+                        };
+                    }
+                    return { url: url };
+                }
             });
             
             // Initialize reference map
@@ -422,7 +474,7 @@
             map.doubleClickZoom.disable();
         }
         
-        function loadMapWarperMap() {
+        async function loadMapWarperMap() {
             const url = document.getElementById('mapwarper-url').value;
             const mapId = extractMapId(url);
             
@@ -431,14 +483,21 @@
                 return;
             }
             
-            // Remove existing WMS layer if any
+            // Remove existing layers if any
             if (sourceMap.getLayer('wms-layer')) {
                 sourceMap.removeLayer('wms-layer');
                 sourceMap.removeSource('wms-source');
             }
+            if (referenceMap.getLayer('warped-layer')) {
+                referenceMap.removeLayer('warped-layer');
+                referenceMap.removeSource('warped-source');
+            }
             
-            // Add MapWarper tiles to source map
-            sourceMap.addSource('wms-source', {
+            // Load unwarped map via WMS to source map
+            loadUnwarpedMap(mapId);
+            
+            // Add warped map to reference map
+            referenceMap.addSource('warped-source', {
                 type: 'raster',
                 tiles: [
                     `https://mapwarper.net/maps/tile/${mapId}/{z}/{x}/{y}`
@@ -446,21 +505,414 @@
                 tileSize: 256
             });
             
-            sourceMap.addLayer({
-                id: 'wms-layer',
+            referenceMap.addLayer({
+                id: 'warped-layer',
                 type: 'raster',
-                source: 'wms-source',
+                source: 'warped-source',
                 paint: {}
             });
             
-            // Clear existing control points
-            clearControlPoints();
+            // Center maps based on map ID or use defaults
+            const center = getMapCenter(mapId);
+            sourceMap.setCenter(center.coords);
+            referenceMap.setCenter(center.coords);
+            sourceMap.setZoom(center.zoom);
+            referenceMap.setZoom(center.zoom);
+            
+            // Wait a moment for maps to settle before loading control points
+            setTimeout(() => {
+                clearControlPoints();
+                fetchExistingControlPoints(mapId);
+            }, 1000);
+            
+            // Enable warped map toggle
+            document.getElementById('warped-map-toggle').checked = true;
         }
         
         function extractMapId(url) {
             const match = url.match(/\/maps\/(\d+)/);
             return match ? match[1] : null;
         }
+        
+        function getMapCenter(mapId) {
+            // Known map centers - add more as needed
+            const mapCenters = {
+                '94232': { coords: [74.02, 15.32], zoom: 13 }, // Shiroda RDP
+                '95531': { coords: [73.8, 15.6], zoom: 14 },   // Siolim Sodiem Landuse
+                // Add more known maps here
+            };
+            
+            // Return specific center if known, otherwise default to Goa
+            return mapCenters[mapId] || { 
+                coords: [74.0, 15.3], // Central Goa
+                zoom: 12 
+            };
+        }
+        
+        async function fetchExistingControlPoints(mapId) {
+            try {
+                console.log(`Fetching existing control points for map ${mapId}...`);
+                
+                // Show loading indicator
+                const csvOutput = document.getElementById('csv-output');
+                const originalPlaceholder = csvOutput.placeholder;
+                csvOutput.placeholder = 'Loading existing control points...';
+                
+                const response = await fetch(`https://mapwarper.net/api/v1/maps/${mapId}/gcps`);
+                
+                if (!response.ok) {
+                    console.warn(`No existing control points found for map ${mapId}. Status: ${response.status}`);
+                    csvOutput.placeholder = originalPlaceholder;
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (data.data && data.data.length > 0) {
+                    console.log(`Found ${data.data.length} existing control points`);
+                    
+                    // Wait for the warped layer to be loaded before converting coordinates
+                    await convertMapWarperGCPs(data.data, mapId);
+                    
+                    // Update the UI
+                    updateMarkers();
+                    updateCSVFromPoints();
+                    updateRowNumbers();
+                    
+                    console.log(`Successfully loaded ${controlPoints.length} control points`);
+                    
+                    // Show success message to user
+                    alert(`Loaded ${controlPoints.length} existing control points from MapWarper. The reference coordinates are positioned correctly. You may need to adjust the source coordinates on the unwarped image.`);
+                } else {
+                    console.log('No control points found in the response');
+                }
+                
+                // Restore original placeholder
+                csvOutput.placeholder = originalPlaceholder;
+            } catch (error) {
+                console.error('Error fetching control points:', error);
+                
+                // Restore original placeholder on error
+                const csvOutput = document.getElementById('csv-output');
+                csvOutput.placeholder = 'x,y,lon,lat';
+            }
+        }
+        
+        let isLoadingUnwarpedMap = false;
+        
+        async function loadUnwarpedMap(mapId) {
+            if (isLoadingUnwarpedMap) {
+                console.log('loadUnwarpedMap already in progress, skipping...');
+                return;
+            }
+            
+            isLoadingUnwarpedMap = true;
+            try {
+                console.log(`Loading unwarped map for ${mapId}...`);
+                
+                // Remove existing layers if any
+                if (sourceMap.getLayer('wms-layer')) {
+                    sourceMap.removeLayer('wms-layer');
+                    sourceMap.removeSource('wms-source');
+                }
+                if (sourceMap.getLayer('image-layer')) {
+                    sourceMap.removeLayer('image-layer');
+                    sourceMap.removeSource('image-source');
+                }
+                
+                // Set a minimal style that loads quickly, but avoid conflicts if already loading
+                if (!sourceMap.isStyleLoaded()) {
+                    console.log('Waiting for current style to finish loading...');
+                    await new Promise(resolve => {
+                        const checkCurrent = () => {
+                            if (sourceMap.isStyleLoaded()) {
+                                resolve();
+                            } else {
+                                setTimeout(checkCurrent, 100);
+                            }
+                        };
+                        checkCurrent();
+                    });
+                }
+                
+                console.log('Setting minimal style for source map...');
+                sourceMap.setStyle({
+                    version: 8,
+                    sources: {},
+                    layers: []
+                });
+                
+                // Wait for new style to load completely before adding sources
+                console.log('Waiting for minimal style to load...');
+                await new Promise(resolve => {
+                    const checkStyle = () => {
+                        if (sourceMap.isStyleLoaded()) {
+                            console.log('Style loaded, ready to add WMS source');
+                            resolve();
+                        } else {
+                            setTimeout(checkStyle, 100);
+                        }
+                    };
+                    checkStyle();
+                });
+                
+                // Attempt to load WMS tiles directly (let them fail naturally if needed)
+                console.log('Attempting to load WMS tiles for unwarped map...');
+                
+                try {
+                    // Since bbox substitution isn't working properly, let's try using TMS-style tiles instead
+                    // MapWarper often supports TMS endpoints alongside WMS
+                    const tileTemplates = [
+                        // Try TMS tiles first (similar to how warped tiles work)
+                        `https://mapwarper.net/maps/tile/${mapId}/{z}/{x}/{y}?unwarped=true`,
+                        // Fallback to WMS with different bbox format
+                        `https://mapwarper.net/maps/wms/${mapId}?FORMAT=image%2Fpng&STATUS=unwarped&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=&EXCEPTIONS=application%2Fvnd.ogc.se_inimage&SRS=EPSG%3A4326&BBOX={bbox-epsg-4326}&WIDTH=256&HEIGHT=256`
+                    ];
+                    
+                    console.log('Trying TMS-style tiles first:', tileTemplates[0]);
+                    
+                    sourceMap.addSource('wms-source', {
+                        type: 'raster',
+                        tiles: [tileTemplates[0]],
+                        tileSize: 256,
+                        scheme: 'xyz',
+                        attribution: 'MapWarper'
+                    });
+                    
+                    sourceMap.addLayer({
+                        id: 'wms-layer',
+                        type: 'raster',
+                        source: 'wms-source',
+                        paint: {}
+                    });
+                    
+                    console.log('WMS source and layer added. Checking for tile loading...');
+                    
+                    // Set up error handling for tile failures with multiple fallbacks
+                    let tileFailureDetected = false;
+                    let fallbackAttempted = false;
+                    
+                    const tileErrorHandler = (e) => {
+                        if (e.source && e.source.id === 'wms-source' && !tileFailureDetected) {
+                            tileFailureDetected = true;
+                            console.warn('Tile loading failed:', e);
+                            
+                            if (!fallbackAttempted) {
+                                fallbackAttempted = true;
+                                console.log('Attempting fallback to WMS service...');
+                                
+                                // Try the WMS fallback
+                                sourceMap.removeLayer('wms-layer');
+                                sourceMap.removeSource('wms-source');
+                                
+                                // Add WMS source as fallback
+                                sourceMap.addSource('wms-fallback-source', {
+                                    type: 'raster',
+                                    tiles: [tileTemplates[1]], // Use the WMS template
+                                    tileSize: 256,
+                                    scheme: 'xyz'
+                                });
+                                
+                                sourceMap.addLayer({
+                                    id: 'wms-fallback-layer',
+                                    type: 'raster',
+                                    source: 'wms-fallback-source',
+                                    paint: {}
+                                });
+                                
+                                console.log('WMS fallback added');
+                                
+                                // Set up error handling for WMS fallback
+                                const wmsFallbackHandler = (e2) => {
+                                    if (e2.source && e2.source.id === 'wms-fallback-source') {
+                                        console.warn('WMS fallback also failed. Switching to direct image.');
+                                        // Remove WMS fallback
+                                        if (sourceMap.getLayer('wms-fallback-layer')) {
+                                            sourceMap.removeLayer('wms-fallback-layer');
+                                            sourceMap.removeSource('wms-fallback-source');
+                                        }
+                                        // Load image directly as final fallback
+                                        loadMapImageDirectly(mapId);
+                                        sourceMap.off('error', wmsFallbackHandler);
+                                    }
+                                };
+                                sourceMap.on('error', wmsFallbackHandler);
+                                
+                            } else {
+                                console.warn('All tile methods failed. Switching to direct image fallback.');
+                                // Load image directly as final fallback
+                                loadMapImageDirectly(mapId);
+                            }
+                            
+                            // Remove the error listener
+                            sourceMap.off('error', tileErrorHandler);
+                        }
+                    };
+                    
+                    sourceMap.on('error', tileErrorHandler);
+                    
+                    // Also set a timeout to fall back if no tiles load within reasonable time
+                    setTimeout(() => {
+                        if (!tileFailureDetected && sourceMap.getLayer('wms-layer')) {
+                            console.log('WMS timeout reached, checking if tiles loaded successfully...');
+                            // If we reach here and no errors occurred, WMS might be working
+                            // Let's keep it, but if there are still issues, user will see the network errors
+                        }
+                    }, 5000);
+                    
+                } catch (wmsError) {
+                    console.error('Error setting up WMS source:', wmsError);
+                    await loadMapImageDirectly(mapId);
+                }
+                
+                console.log(`Successfully loaded unwarped map ${mapId}`);
+                
+            } catch (error) {
+                console.error('Error loading unwarped map:', error);
+                // Fallback: try to load map image directly
+                await loadMapImageDirectly(mapId);
+            } finally {
+                isLoadingUnwarpedMap = false;
+            }
+        }
+        
+        async function loadMapImageDirectly(mapId) {
+            try {
+                console.log(`Attempting to load map ${mapId} using direct image...`);
+                
+                // Try to get map metadata to find the original image
+                const response = await fetch(`https://mapwarper.net/api/v1/maps/${mapId}.json`);
+                if (response.ok) {
+                    const mapData = await response.json();
+                    const imageUrl = mapData.data.attributes.image_url;
+                    
+                    if (imageUrl) {
+                        console.log(`Loading direct image: ${imageUrl}`);
+                        console.log(`Map data:`, mapData.data.attributes);
+                        
+                        // Set a minimal style first
+                        sourceMap.setStyle({
+                            version: 8,
+                            sources: {},
+                            layers: []
+                        });
+                        
+                        // Wait for style to load
+                        await new Promise(resolve => {
+                            const checkStyle = () => {
+                                if (sourceMap.isStyleLoaded()) {
+                                    resolve();
+                                } else {
+                                    setTimeout(checkStyle, 50);
+                                }
+                            };
+                            checkStyle();
+                        });
+                        
+                        // Try to get the map bounds from the API
+                        let imageCoords = [
+                            [74.0, 15.35],   // top-left
+                            [74.06, 15.35],  // top-right  
+                            [74.06, 15.31],  // bottom-right
+                            [74.0, 15.31]    // bottom-left
+                        ];
+                        
+                        // If bbox is available, use it for better positioning
+                        const bbox = mapData.data.attributes.bbox;
+                        if (bbox) {
+                            const bounds = bbox.split(',').map(parseFloat);
+                            if (bounds.length === 4) {
+                                // bbox format: "minLng,minLat,maxLng,maxLat"
+                                imageCoords = [
+                                    [bounds[0], bounds[3]], // top-left: minLng, maxLat
+                                    [bounds[2], bounds[3]], // top-right: maxLng, maxLat
+                                    [bounds[2], bounds[1]], // bottom-right: maxLng, minLat  
+                                    [bounds[0], bounds[1]]  // bottom-left: minLng, minLat
+                                ];
+                                console.log(`Using bbox coordinates: ${bbox}`);
+                            }
+                        }
+                        
+                        // Add the image as an overlay
+                        console.log('Image coordinates being used:', imageCoords);
+                        try {
+                            sourceMap.addSource('image-source', {
+                                type: 'image',
+                                url: imageUrl,
+                                coordinates: imageCoords
+                            });
+                            
+                            sourceMap.addLayer({
+                                id: 'image-layer',
+                                type: 'raster',
+                                source: 'image-source',
+                                paint: {}
+                            });
+                            
+                            console.log('Image layer added to source map');
+                            console.log('Successfully loaded unwarped map using direct image');
+                            
+                            // Listen for source errors (e.g., CORS issues)
+                            sourceMap.on('error', (e) => {
+                                if (e.source && e.source.id === 'image-source') {
+                                    console.warn('Image loading failed, likely due to CORS. Using basemap fallback.');
+                                    // Remove the failed image layer and use basemap
+                                    if (sourceMap.getLayer('image-layer')) {
+                                        sourceMap.removeLayer('image-layer');
+                                        sourceMap.removeSource('image-source');
+                                    }
+                                    sourceMap.setStyle('mapbox://styles/mapbox/light-v11');
+                                }
+                            });
+                            
+                        } catch (imageError) {
+                            console.warn('Could not add image source:', imageError);
+                            sourceMap.setStyle('mapbox://styles/mapbox/light-v11');
+                        }
+                    } else {
+                        console.warn('No image URL found in map data');
+                        // Fallback to basic basemap
+                        sourceMap.setStyle('mapbox://styles/mapbox/light-v11');
+                    }
+                } else {
+                    console.warn('Could not fetch map metadata for fallback');
+                    // Just use a basic basemap
+                    sourceMap.setStyle('mapbox://styles/mapbox/light-v11');
+                }
+            } catch (error) {
+                console.error('Error in fallback image loading:', error);
+                // Final fallback: just use a basic basemap
+                sourceMap.setStyle('mapbox://styles/mapbox/light-v11');
+            }
+        }
+
+        async function convertMapWarperGCPs(gcpData, mapId) {
+            // For each GCP from MapWarper, preserve the original pixel coordinates
+            gcpData.forEach((gcp) => {
+                const attrs = gcp.attributes;
+                
+                // The reference coordinates are straightforward - they're already geographic
+                const referenceCoords = [parseFloat(attrs.lon), parseFloat(attrs.lat)];
+                
+                // IMPORTANT: Preserve the original pixel coordinates from MapWarper
+                // These are in the original image pixel space, not screen coordinates
+                const sourcePixelCoords = [parseFloat(attrs.x), parseFloat(attrs.y)];
+                
+                // Create control point with preserved pixel coordinates
+                const point = {
+                    id: nextPointId,
+                    rowNumber: getNextRowNumber(),
+                    sourcePixelCoords: sourcePixelCoords, // Store original pixel coordinates
+                    referenceCoords: referenceCoords
+                };
+                
+                controlPoints.push(point);
+                nextPointId++;
+            });
+            
+            console.log(`Successfully converted and loaded ${controlPoints.length} control points with original pixel coordinates preserved`);
+        }
+
         
         function addControlPoint(e, mapType) {
             // Find existing incomplete point or create new one
@@ -511,7 +963,13 @@
                 const point = controlPoints[pointIndex];
                 
                 if (mapType === 'source') {
+                    // For source map, always store as geographic coordinates
+                    // This will override any existing pixel coordinates
                     point.sourceCoords = [e.lngLat.lng, e.lngLat.lat];
+                    // Clear pixel coordinates if they exist since we're now using geographic
+                    if (point.sourcePixelCoords) {
+                        delete point.sourcePixelCoords;
+                    }
                 } else {
                     point.referenceCoords = [e.lngLat.lng, e.lngLat.lat];
                 }
@@ -530,8 +988,15 @@
             
             controlPoints.forEach((point, index) => {
                 let pointCoords;
-                if (mapType === 'source' && point.sourceCoords) {
-                    pointCoords = point.sourceCoords;
+                if (mapType === 'source') {
+                    if (point.sourceCoords) {
+                        pointCoords = point.sourceCoords;
+                    } else if (point.sourcePixelCoords && point.referenceCoords) {
+                        // For MapWarper points with pixel coordinates, use reference coordinates as approximation
+                        pointCoords = point.referenceCoords;
+                    } else {
+                        return;
+                    }
                 } else if (mapType === 'reference' && point.referenceCoords) {
                     pointCoords = point.referenceCoords;
                 } else {
@@ -562,9 +1027,20 @@
             
             controlPoints.forEach((point, index) => {
                 // Add marker to source map
+                let sourceMapCoords = null;
+                
                 if (point.sourceCoords) {
+                    // Use geographic coordinates directly for manually added points
+                    sourceMapCoords = point.sourceCoords;
+                } else if (point.sourcePixelCoords && point.referenceCoords) {
+                    // For MapWarper points with pixel coordinates, use reference coordinates
+                    // as an approximation since we don't have the exact image-to-geo transformation
+                    sourceMapCoords = point.referenceCoords;
+                }
+                
+                if (sourceMapCoords) {
                     const marker = createNumberedMarker(
-                        point.sourceCoords, 
+                        sourceMapCoords, 
                         point.rowNumber, 
                         index === selectedPointIndex,
                         sourceMap
@@ -640,15 +1116,26 @@
             const sortedPoints = [...controlPoints].sort((a, b) => a.rowNumber - b.rowNumber);
             
             sortedPoints.forEach(point => {
-                if (point.sourceCoords && point.referenceCoords) {
-                    // Convert geographic coordinates to pixel coordinates for source map
+                if (point.sourcePixelCoords && point.referenceCoords) {
+                    // Use original pixel coordinates from MapWarper (preserved exactly)
+                    lines.push(`${point.sourcePixelCoords[0].toFixed(1)},${point.sourcePixelCoords[1].toFixed(1)},${point.referenceCoords[0].toFixed(7)},${point.referenceCoords[1].toFixed(7)}`);
+                } else if (point.sourceCoords && point.referenceCoords) {
+                    // For manually added points, convert geographic coordinates to pixel coordinates
                     const sourcePixel = sourceMap.project(point.sourceCoords);
                     lines.push(`${sourcePixel.x.toFixed(1)},${sourcePixel.y.toFixed(1)},${point.referenceCoords[0].toFixed(7)},${point.referenceCoords[1].toFixed(7)}`);
-                } else if (point.sourceCoords || point.referenceCoords) {
+                } else if (point.sourcePixelCoords || point.sourceCoords || point.referenceCoords) {
                     // Partial point - add placeholder
-                    const sourcePixel = point.sourceCoords ? sourceMap.project(point.sourceCoords) : { x: '', y: '' };
+                    let sourceX = '', sourceY = '';
+                    if (point.sourcePixelCoords) {
+                        sourceX = point.sourcePixelCoords[0];
+                        sourceY = point.sourcePixelCoords[1];
+                    } else if (point.sourceCoords) {
+                        const sourcePixel = sourceMap.project(point.sourceCoords);
+                        sourceX = sourcePixel.x;
+                        sourceY = sourcePixel.y;
+                    }
                     const refCoords = point.referenceCoords || ['', ''];
-                    lines.push(`${sourcePixel.x || ''},${sourcePixel.y || ''},${refCoords[0] || ''},${refCoords[1] || ''}`);
+                    lines.push(`${sourceX || ''},${sourceY || ''},${refCoords[0] || ''},${refCoords[1] || ''}`);
                 }
             });
             
@@ -783,6 +1270,50 @@
             document.getElementById('add-layer-modal').style.display = 'none';
         }
         
+        function toggleWarpedMap() {
+            const checkbox = document.getElementById('warped-map-toggle');
+            const isVisible = checkbox.checked;
+            
+            if (referenceMap.getLayer('warped-layer')) {
+                referenceMap.setLayoutProperty('warped-layer', 'visibility', isVisible ? 'visible' : 'none');
+            }
+        }
+        
+        function showCenterModal() {
+            // Pre-fill current center
+            const center = sourceMap.getCenter();
+            const zoom = sourceMap.getZoom();
+            
+            document.getElementById('center-lng').value = center.lng.toFixed(6);
+            document.getElementById('center-lat').value = center.lat.toFixed(6);
+            document.getElementById('center-zoom').value = Math.round(zoom);
+            
+            document.getElementById('center-modal').style.display = 'block';
+        }
+        
+        function hideCenterModal() {
+            document.getElementById('center-modal').style.display = 'none';
+        }
+        
+        function setCenterFromModal() {
+            const lng = parseFloat(document.getElementById('center-lng').value);
+            const lat = parseFloat(document.getElementById('center-lat').value);
+            const zoom = parseInt(document.getElementById('center-zoom').value);
+            
+            if (isNaN(lng) || isNaN(lat) || isNaN(zoom)) {
+                alert('Please enter valid coordinates and zoom level');
+                return;
+            }
+            
+            // Set center for both maps
+            sourceMap.setCenter([lng, lat]);
+            referenceMap.setCenter([lng, lat]);
+            sourceMap.setZoom(zoom);
+            referenceMap.setZoom(zoom);
+            
+            hideCenterModal();
+        }
+        
         function addVectorLayer() {
             const url = document.getElementById('layer-url').value;
             const sourceLayer = document.getElementById('source-layer').value;
@@ -886,6 +1417,13 @@
             const csvTextarea = document.getElementById('csv-output');
             csvTextarea.addEventListener('input', () => {
                 updatePointsFromCSV();
+            });
+            
+            // Close modals when clicking outside
+            window.addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal')) {
+                    e.target.style.display = 'none';
+                }
             });
         });
     </script>
