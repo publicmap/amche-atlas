@@ -389,6 +389,12 @@
         let referenceMarkers = new Map();
         let deletedRowNumbers = new Set();
         
+        // Camera position save/restore for marker selection
+        let savedCameraPositions = {
+            sourceMap: null,
+            referenceMap: null
+        };
+        
         // Undo functionality for marker positions
         let markerPositionHistory = [];
         
@@ -1167,6 +1173,9 @@
         }
         
         function deselectMarkerAndSwitchToPan() {
+            // Restore saved camera positions before deselecting
+            restoreSavedCameraPositions();
+            
             selectedPointIndex = -1;
             currentMode = 'pan';
             
@@ -1195,6 +1204,81 @@
             
             // Update cursor style
             updateMapCursor();
+        }
+        
+        function saveCameraPositionsAndPanToMarker(markerIndex) {
+            const point = controlPoints[markerIndex];
+            if (!point) return;
+            
+            // Save current camera positions
+            savedCameraPositions.sourceMap = {
+                center: sourceMap.getCenter(),
+                zoom: sourceMap.getZoom(),
+                bearing: sourceMap.getBearing(),
+                pitch: sourceMap.getPitch()
+            };
+            
+            savedCameraPositions.referenceMap = {
+                center: referenceMap.getCenter(),
+                zoom: referenceMap.getZoom(),
+                bearing: referenceMap.getBearing(),
+                pitch: referenceMap.getPitch()
+            };
+            
+            // Pan and zoom to marker on both maps (zoom to z17)
+            const targetZoom = 17;
+            
+            if (point.sourceCoords) {
+                const sourceCoords = point.sourceCoords;
+                sourceMap.flyTo({
+                    center: sourceCoords,
+                    zoom: targetZoom,
+                    duration: 1000
+                });
+            } else if (point.sourcePixelCoords && point.referenceCoords) {
+                // For MapWarper points with pixel coordinates, use reference coordinates as approximation on source map
+                const refCoords = point.referenceCoords;
+                sourceMap.flyTo({
+                    center: refCoords,
+                    zoom: targetZoom,
+                    duration: 1000
+                });
+            }
+            
+            if (point.referenceCoords) {
+                const refCoords = point.referenceCoords;
+                referenceMap.flyTo({
+                    center: refCoords,
+                    zoom: targetZoom,
+                    duration: 1000
+                });
+            }
+        }
+        
+        function restoreSavedCameraPositions() {
+            if (savedCameraPositions.sourceMap) {
+                sourceMap.flyTo({
+                    center: savedCameraPositions.sourceMap.center,
+                    zoom: savedCameraPositions.sourceMap.zoom,
+                    bearing: savedCameraPositions.sourceMap.bearing,
+                    pitch: savedCameraPositions.sourceMap.pitch,
+                    duration: 1000
+                });
+            }
+            
+            if (savedCameraPositions.referenceMap) {
+                referenceMap.flyTo({
+                    center: savedCameraPositions.referenceMap.center,
+                    zoom: savedCameraPositions.referenceMap.zoom,
+                    bearing: savedCameraPositions.referenceMap.bearing,
+                    pitch: savedCameraPositions.referenceMap.pitch,
+                    duration: 1000
+                });
+            }
+            
+            // Clear saved positions
+            savedCameraPositions.sourceMap = null;
+            savedCameraPositions.referenceMap = null;
         }
         
         function updateMapCursor() {
@@ -1250,6 +1334,7 @@
                             deselectMarkerAndSwitchToPan();
                         } else {
                             // Select marker and switch to move mode
+                            saveCameraPositionsAndPanToMarker(index);
                             selectedPointIndex = index;
                             switchToMoveMode();
                         }
@@ -1301,6 +1386,7 @@
                             deselectMarkerAndSwitchToPan();
                         } else {
                             // Select marker and switch to move mode
+                            saveCameraPositionsAndPanToMarker(index);
                             selectedPointIndex = index;
                             switchToMoveMode();
                         }
