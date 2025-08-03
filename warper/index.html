@@ -291,6 +291,24 @@
                 <button class="btn secondary" onclick="showAddLayerModal()">Add Layer</button>
                 <div style="margin-top: 10px;">
                     <label style="display: flex; align-items: center; color: #333; font-size: 12px;">
+                        <input type="checkbox" id="local-body-toggle" checked onchange="toggleLocalBodyLayer()" style="margin-right: 5px;">
+                        Local Body Boundaries (Goa)
+                    </label>
+                </div>
+                <div style="margin-top: 5px;">
+                    <label style="display: flex; align-items: center; color: #333; font-size: 12px;">
+                        <input type="checkbox" id="village-toggle" onchange="toggleVillageLayer()" style="margin-right: 5px;">
+                        Village Boundaries
+                    </label>
+                </div>
+                <div style="margin-top: 5px;">
+                    <label style="display: flex; align-items: center; color: #333; font-size: 12px;">
+                        <input type="checkbox" id="cadastral-toggle" checked onchange="toggleCadastralLayer()" style="margin-right: 5px;">
+                        Cadastral Plot Boundaries
+                    </label>
+                </div>
+                <div style="margin-top: 5px;">
+                    <label style="display: flex; align-items: center; color: #333; font-size: 12px;">
                         <input type="checkbox" id="warped-map-toggle" checked onchange="toggleWarpedMap()" style="margin-right: 5px;">
                         Warped Map
                     </label>
@@ -446,6 +464,161 @@
             });
             
             document.getElementById('geocoder').appendChild(geocoder.onAdd(referenceMap));
+            
+            // Add local body, village and cadastral layers to reference map when it loads
+            referenceMap.on('load', () => {
+                // Add local body source
+                referenceMap.addSource('local-body-source', {
+                    type: 'vector',
+                    url: 'mapbox://planemad.2bqa1pq1',
+                    maxzoom: 10
+                });
+                
+                
+                // Add local body boundary lines
+                referenceMap.addLayer({
+                    id: 'local-body-lines',
+                    type: 'line',
+                    source: 'local-body-source',
+                    'source-layer': 'goa-local-body-boundaries',
+                    paint: {
+                        'line-color': 'white',
+                        'line-width': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            8, 2,
+                            12, 3
+                        ]
+                    }
+                });
+                
+                // Add local body labels
+                referenceMap.addLayer({
+                    id: 'local-body-labels',
+                    type: 'symbol',
+                    source: 'local-body-source',
+                    'source-layer': 'goa-local-body-boundaries',
+                    layout: {
+                        'text-field': ['step', ['zoom'], '', 9, ['to-string', ['get', 'Name']]],
+                        'text-font': ['Open Sans SemiBold'],
+                        'text-size': 12,
+                        'text-transform': 'uppercase'
+                    },
+                    paint: {
+                        'text-color': 'white',
+                        'text-halo-color': 'black',
+                        'text-halo-width': 1,
+                        'text-opacity': 0.7
+                    }
+                });
+                
+                // Add village source
+                referenceMap.addSource('village-source', {
+                    type: 'vector',
+                    tiles: ['https://indianopenmaps.fly.dev/not-so-open/villages/lgd/{z}/{x}/{y}.pbf'],
+                    maxzoom: 10
+                });
+                
+                // Add village fill layer
+                referenceMap.addLayer({
+                    id: 'village-fill',
+                    type: 'fill',
+                    source: 'village-source',
+                    'source-layer': 'LGD_Villages',
+                    layout: {
+                        'visibility': 'none'
+                    },
+                    paint: {
+                        'fill-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            8, 'rgba(0, 0, 0, 0)',
+                            12, 'rgba(0, 0, 0, 0.1)'
+                        ]
+                    }
+                });
+                
+                // Add village boundary lines
+                referenceMap.addLayer({
+                    id: 'village-lines',
+                    type: 'line',
+                    source: 'village-source',
+                    'source-layer': 'LGD_Villages',
+                    layout: {
+                        'visibility': 'none'
+                    },
+                    paint: {
+                        'line-color': 'white',
+                        'line-width': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            8, 1,
+                            12, 2
+                        ]
+                    }
+                });
+                
+                // Add village labels
+                referenceMap.addLayer({
+                    id: 'village-labels',
+                    type: 'symbol',
+                    source: 'village-source',
+                    'source-layer': 'LGD_Villages',
+                    layout: {
+                        'visibility': 'none',
+                        'text-field': ['get', 'vilnam_soi'],
+                        'text-font': ['Open Sans SemiBold'],
+                        'text-size': 13
+                    },
+                    paint: {
+                        'text-color': 'white',
+                        'text-halo-color': 'black',
+                        'text-halo-width': 5
+                    }
+                });
+                
+                // Add cadastral source
+                referenceMap.addSource('cadastral-source', {
+                    type: 'vector',
+                    tiles: ['https://indianopenmaps.fly.dev/not-so-open/cadastrals/goa/onemapgoagis/{z}/{x}/{y}.pbf'],
+                    maxzoom: 15
+                });
+                
+                // Add cadastral layer
+                referenceMap.addLayer({
+                    id: 'cadastral-layer',
+                    type: 'line',
+                    source: 'cadastral-source',
+                    'source-layer': 'Onemapgoa_GA_Cadastrals',
+                    paint: {
+                        'line-color': '#ff6b6b',
+                        'line-width': 1,
+                        'line-opacity': 0.7
+                    }
+                });
+                
+                // Add cadastral labels
+                referenceMap.addLayer({
+                    id: 'cadastral-labels',
+                    type: 'symbol',
+                    source: 'cadastral-source',
+                    'source-layer': 'Onemapgoa_GA_Cadastrals',
+                    layout: {
+                        'text-field': ['step', ['zoom'], '', 16, ['to-string', ['get', 'plot']]],
+                        'text-font': ['Open Sans SemiBold'],
+                        'text-size': 10,
+                        'text-padding': 10
+                    },
+                    paint: {
+                        'text-color': '#333',
+                        'text-halo-color': '#fff',
+                        'text-halo-width': 1
+                    }
+                });
+            });
             
             // Set up event listeners for both maps
             setupMapEventListeners(sourceMap, 'source');
@@ -1620,6 +1793,53 @@
             
             if (referenceMap.getLayer('warped-layer')) {
                 referenceMap.setLayoutProperty('warped-layer', 'visibility', isVisible ? 'visible' : 'none');
+            }
+        }
+        
+        function toggleCadastralLayer() {
+            const checkbox = document.getElementById('cadastral-toggle');
+            const isVisible = checkbox.checked;
+            
+            if (referenceMap.getLayer('cadastral-layer')) {
+                referenceMap.setLayoutProperty('cadastral-layer', 'visibility', isVisible ? 'visible' : 'none');
+            }
+            
+            if (referenceMap.getLayer('cadastral-labels')) {
+                referenceMap.setLayoutProperty('cadastral-labels', 'visibility', isVisible ? 'visible' : 'none');
+            }
+        }
+        
+        function toggleVillageLayer() {
+            const checkbox = document.getElementById('village-toggle');
+            const isVisible = checkbox.checked;
+            
+            if (referenceMap.getLayer('village-fill')) {
+                referenceMap.setLayoutProperty('village-fill', 'visibility', isVisible ? 'visible' : 'none');
+            }
+            
+            if (referenceMap.getLayer('village-lines')) {
+                referenceMap.setLayoutProperty('village-lines', 'visibility', isVisible ? 'visible' : 'none');
+            }
+            
+            if (referenceMap.getLayer('village-labels')) {
+                referenceMap.setLayoutProperty('village-labels', 'visibility', isVisible ? 'visible' : 'none');
+            }
+        }
+        
+        function toggleLocalBodyLayer() {
+            const checkbox = document.getElementById('local-body-toggle');
+            const isVisible = checkbox.checked;
+            
+            if (referenceMap.getLayer('local-body-fill')) {
+                referenceMap.setLayoutProperty('local-body-fill', 'visibility', isVisible ? 'visible' : 'none');
+            }
+            
+            if (referenceMap.getLayer('local-body-lines')) {
+                referenceMap.setLayoutProperty('local-body-lines', 'visibility', isVisible ? 'visible' : 'none');
+            }
+            
+            if (referenceMap.getLayer('local-body-labels')) {
+                referenceMap.setLayoutProperty('local-body-labels', 'visibility', isVisible ? 'visible' : 'none');
             }
         }
         
