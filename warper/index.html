@@ -505,7 +505,7 @@
                     source: 'cadastral-source',
                     'source-layer': 'Onemapgoa_GA_Cadastrals',
                     paint: {
-                        'line-color': '#ff6b6b',
+                        'line-color': 'black',
                         'line-width': 1,
                         'line-opacity': 0.7
                     }
@@ -723,12 +723,16 @@
                 tileSize: 256
             });
             
+            // Add warped layer before overlay layers so overlays remain visible on top
+            // Insert before the first overlay layer (village-fill) if it exists, otherwise add normally
+            const beforeLayerId = referenceMap.getLayer('village-fill') ? 'village-fill' : undefined;
+            
             referenceMap.addLayer({
                 id: 'warped-layer',
                 type: 'raster',
                 source: 'warped-source',
                 paint: {}
-            });
+            }, beforeLayerId);
             
             // Center maps based on map ID or use defaults
             const center = getMapCenter(mapId);
