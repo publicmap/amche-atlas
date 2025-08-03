@@ -13,6 +13,28 @@
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
     
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- DataTables -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/searchbuilder/1.6.0/css/searchBuilder.dataTables.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/colreorder/1.7.0/css/colReorder.dataTables.min.css">
+    
+    <!-- jQuery (required for DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <!-- DataTables JS -->
+    <script type="text/javascript" src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/searchbuilder/1.6.0/js/dataTables.searchBuilder.min.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/colreorder/1.7.0/js/dataTables.colReorder.min.js"></script>
+    
+    <!-- Custom DataTable Plugin -->
+    <script src="dataTable.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -112,6 +134,39 @@
             padding: 10px;
             border-radius: 3px;
             z-index: 1000;
+        }
+        
+        /* Ensure DataTable modal is above everything */
+        #warper-datatable-modal {
+            z-index: 99999 !important;
+        }
+        
+        /* Style for DataTable */
+        .dataTables_wrapper {
+            font-size: 14px;
+        }
+        
+        .dataTables_filter input {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 14px;
+            width: 300px;
+        }
+        
+        .dataTables_filter label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        /* Action button styles */
+        .load-map-btn, .view-map-btn {
+            transition: all 0.2s;
+        }
+        
+        .load-map-btn:hover, .view-map-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         .control-mode {
@@ -259,7 +314,8 @@
     <div class="header">
         <div class="input-group">
             <label>Map Warper URL:</label>
-                            <input type="text" id="mapwarper-url" value="https://mapwarper.net/maps/94232">
+            <button class="btn secondary" id="map-list-btn">Map List</button>
+            <input type="text" id="mapwarper-url" value="https://mapwarper.net/maps/94232">
             <button class="btn" onclick="loadMapWarperMap()">Load Map</button>
             <button class="btn secondary" onclick="showCenterModal()">Set Center</button>
         </div>
@@ -465,54 +521,8 @@
             
             document.getElementById('geocoder').appendChild(geocoder.onAdd(referenceMap));
             
-            // Add local body, village and cadastral layers to reference map when it loads
+            // Add village, cadastral and local body layers to reference map when it loads
             referenceMap.on('load', () => {
-                // Add local body source
-                referenceMap.addSource('local-body-source', {
-                    type: 'vector',
-                    url: 'mapbox://planemad.2bqa1pq1',
-                    maxzoom: 10
-                });
-                
-                
-                // Add local body boundary lines
-                referenceMap.addLayer({
-                    id: 'local-body-lines',
-                    type: 'line',
-                    source: 'local-body-source',
-                    'source-layer': 'goa-local-body-boundaries',
-                    paint: {
-                        'line-color': 'white',
-                        'line-width': [
-                            'interpolate',
-                            ['linear'],
-                            ['zoom'],
-                            8, 2,
-                            12, 3
-                        ]
-                    }
-                });
-                
-                // Add local body labels
-                referenceMap.addLayer({
-                    id: 'local-body-labels',
-                    type: 'symbol',
-                    source: 'local-body-source',
-                    'source-layer': 'goa-local-body-boundaries',
-                    layout: {
-                        'text-field': ['step', ['zoom'], '', 9, ['to-string', ['get', 'Name']]],
-                        'text-font': ['Open Sans SemiBold'],
-                        'text-size': 12,
-                        'text-transform': 'uppercase'
-                    },
-                    paint: {
-                        'text-color': 'white',
-                        'text-halo-color': 'black',
-                        'text-halo-width': 1,
-                        'text-opacity': 0.7
-                    }
-                });
-                
                 // Add village source
                 referenceMap.addSource('village-source', {
                     type: 'vector',
@@ -616,6 +626,51 @@
                         'text-color': '#333',
                         'text-halo-color': '#fff',
                         'text-halo-width': 1
+                    }
+                });
+                
+                // Add local body source
+                referenceMap.addSource('local-body-source', {
+                    type: 'vector',
+                    url: 'mapbox://planemad.2bqa1pq1',
+                    maxzoom: 10
+                });
+                
+                // Add local body boundary lines
+                referenceMap.addLayer({
+                    id: 'local-body-lines',
+                    type: 'line',
+                    source: 'local-body-source',
+                    'source-layer': 'goa-local-body-boundaries',
+                    paint: {
+                        'line-color': 'white',
+                        'line-width': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            8, 2,
+                            12, 3
+                        ]
+                    }
+                });
+                
+                // Add local body labels
+                referenceMap.addLayer({
+                    id: 'local-body-labels',
+                    type: 'symbol',
+                    source: 'local-body-source',
+                    'source-layer': 'goa-local-body-boundaries',
+                    layout: {
+                        'text-field': ['step', ['zoom'], '', 9, ['to-string', ['get', 'Name']]],
+                        'text-font': ['Open Sans SemiBold'],
+                        'text-size': 12,
+                        'text-transform': 'uppercase'
+                    },
+                    paint: {
+                        'text-color': 'white',
+                        'text-halo-color': 'black',
+                        'text-halo-width': 1,
+                        'text-opacity': 0.7
                     }
                 });
             });
@@ -1989,9 +2044,51 @@
             }
         });
         
+        // Initialize DataTable plugin
+        let warperDataTable = null;
+        
+        function initializeDataTable() {
+            warperDataTable = new WarperDataTable({
+                url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTChLW_Qr9M9huy7LZIlR3-1_JW_8hmospOHSZmbL0-VRbjyHtTfv2tzh3VVlO-g0LP2GXcyfX8P6Te/pub?output=csv',
+                title: 'Goa Reference Map Index',
+                name: ['Name', 'Taluka', 'District','Collection','Year','Level'],
+                type: 'Level',
+                click: 'Mapwarper'
+            });
+        }
+        
+        function showMapList() {
+            if (warperDataTable) {
+                warperDataTable.show();
+            }
+        }
+        
         // Initialize when page loads
         window.addEventListener('load', () => {
             initializeMaps();
+            
+            // Initialize DataTable plugin
+            initializeDataTable();
+            
+            // Set up Map List button
+            const mapListBtn = document.getElementById('map-list-btn');
+            if (mapListBtn) {
+                mapListBtn.addEventListener('click', showMapList);
+            }
+            
+            // Listen for loadMapwarperUrl event from DataTable
+            document.addEventListener('loadMapwarperUrl', (event) => {
+                const url = event.detail.url;
+                if (url) {
+                    // Update the input field
+                    const urlInput = document.getElementById('mapwarper-url');
+                    if (urlInput) {
+                        urlInput.value = url;
+                        // Trigger map loading
+                        loadMapWarperMap();
+                    }
+                }
+            });
             
             // Set up CSV textarea event listener for live sync
             const csvTextarea = document.getElementById('csv-output');
