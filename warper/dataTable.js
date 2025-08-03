@@ -18,44 +18,9 @@ class WarperDataTable {
         this.dataTable = null;
         this.modal = null;
         this.isInitializing = false;
-        
-        // Set up global handlers for button clicks
-        this.setupGlobalHandlers();
+        this.isShowing = false; // Flag to prevent multiple shows
         
         this.init();
-    }
-    
-    setupGlobalHandlers() {
-        // Set up event delegation for button clicks
-        document.addEventListener('click', (event) => {
-            if (event.target.classList.contains('load-map-btn')) {
-                event.stopPropagation();
-                const url = event.target.getAttribute('data-url');
-                if (url) {
-                    // Unescape the URL
-                    const decodedUrl = url.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-                    
-                    // Fire custom event for loading map
-                    const customEvent = new CustomEvent('loadMapwarperUrl', {
-                        detail: { url: decodedUrl }
-                    });
-                    document.dispatchEvent(customEvent);
-                    
-                    // Auto-close modal
-                    this.hide();
-                }
-            } else if (event.target.classList.contains('view-map-btn')) {
-                event.stopPropagation();
-                const url = event.target.getAttribute('data-url');
-                if (url) {
-                    // Unescape the URL
-                    const decodedUrl = url.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-                    
-                    // Open mapwarper URL in new tab
-                    window.open(decodedUrl, '_blank');
-                }
-            }
-        });
     }
     
     async init() {
@@ -66,7 +31,11 @@ class WarperDataTable {
         }
         
         await this.loadCSVData();
-        this.createModal();
+        const modalCreated = await this.createModal();
+        if (!modalCreated) {
+            console.error('Failed to create modal during initialization');
+            return;
+        }
         this.setupEventListeners();
     }
     
@@ -201,9 +170,15 @@ class WarperDataTable {
             existingModal.remove();
         }
         
-        // Create modal HTML
-        const modalHTML = `
-            <div id="warper-datatable-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[9999] hidden">
+        // Clean up any existing event listeners
+        this.removeEventListeners();
+        
+        // Create modal using DOM methods for better reliability
+        const modal = document.createElement('div');
+        modal.id = 'warper-datatable-modal';
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[9999] hidden';
+        
+        modal.innerHTML = `
                 <div class="flex items-center justify-center min-h-screen p-4">
                     <div class="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
                         <!-- Header -->
@@ -243,11 +218,31 @@ class WarperDataTable {
                         </div>
                     </div>
                 </div>
-            </div>
         `;
         
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-        this.modal = document.getElementById('warper-datatable-modal');
+        // Append to body
+        document.body.appendChild(modal);
+        
+        // Force DOM reflow to ensure HTML is processed
+        document.body.offsetHeight;
+        
+        this.modal = modal;
+        
+        // Small delay to ensure DOM is fully processed
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                // Verify table element exists in the modal
+                const tableElement = document.getElementById('warper-datatable');
+                if (!tableElement) {
+                    console.error('Table element not found in created modal');
+                    console.log('Modal HTML:', this.modal.innerHTML);
+                    resolve(false);
+                } else {
+                    console.log('Modal created successfully with table element');
+                    resolve(true);
+                }
+            }, 20); // Slightly longer delay
+        });
     }
     
     getGoogleSheetsEditUrl() {
@@ -267,42 +262,147 @@ class WarperDataTable {
     }
     
     setupEventListeners() {
-        // Close button listeners
-        const closeButton = document.getElementById('warper-datatable-close');
-        const closeXButton = document.getElementById('warper-datatable-close-x');
+        // Don't set up listeners if they already exist
+        if (this.closeHandler) {
+            console.log('Event listeners already exist, skipping setup');
+            return;
+        }
         
-        closeButton?.addEventListener('click', () => this.hide());
-        closeXButton?.addEventListener('click', () => this.hide());
+        // Remove any existing listeners first to prevent duplicates
+        this.removeEventListeners();
         
-        // Close on backdrop click
-        this.modal.addEventListener('click', (e) => {
+        // Store references for removal later
+        this.closeHandler = () => this.hide();
+        this.backdropHandler = (e) => {
             if (e.target === this.modal) {
                 this.hide();
             }
-        });
-        
-        // Close on escape key
-        document.addEventListener('keydown', (e) => {
+        };
+        this.escapeHandler = (e) => {
             if (e.key === 'Escape' && !this.modal.classList.contains('hidden')) {
                 this.hide();
             }
-        });
+        };
+        this.buttonHandler = (event) => {
+            if (event.target.classList.contains('load-map-btn')) {
+                event.stopPropagation();
+                const url = event.target.getAttribute('data-url');
+                if (url) {
+                    // Unescape the URL
+                    const decodedUrl = url.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+                    
+                    // Fire custom event for loading map
+                    const customEvent = new CustomEvent('loadMapwarperUrl', {
+                        detail: { url: decodedUrl }
+                    });
+                    document.dispatchEvent(customEvent);
+                    
+                    // Auto-close modal
+                    this.hide();
+                }
+            } else if (event.target.classList.contains('view-map-btn')) {
+                event.stopPropagation();
+                const url = event.target.getAttribute('data-url');
+                if (url) {
+                    // Unescape the URL
+                    const decodedUrl = url.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+                    
+                    // Open mapwarper URL in new tab
+                    window.open(decodedUrl, '_blank');
+                }
+            }
+        };
+        
+        // Set up listeners with stored references
+        const closeButton = document.getElementById('warper-datatable-close');
+        const closeXButton = document.getElementById('warper-datatable-close-x');
+        
+        closeButton?.addEventListener('click', this.closeHandler);
+        closeXButton?.addEventListener('click', this.closeHandler);
+        this.modal?.addEventListener('click', this.backdropHandler);
+        document.addEventListener('keydown', this.escapeHandler);
+        this.modal?.addEventListener('click', this.buttonHandler);
+        
+        console.log('Event listeners set up successfully');
     }
     
-    show() {
+    removeEventListeners() {
+        // Remove existing listeners to prevent duplicates
+        if (this.closeHandler) {
+            const closeButton = document.getElementById('warper-datatable-close');
+            const closeXButton = document.getElementById('warper-datatable-close-x');
+            
+            closeButton?.removeEventListener('click', this.closeHandler);
+            closeXButton?.removeEventListener('click', this.closeHandler);
+            this.modal?.removeEventListener('click', this.backdropHandler);
+            document.removeEventListener('keydown', this.escapeHandler);
+            this.modal?.removeEventListener('click', this.buttonHandler);
+            
+            // Clear handler references
+            this.closeHandler = null;
+            this.backdropHandler = null;
+            this.escapeHandler = null;
+            this.buttonHandler = null;
+            
+            console.log('Event listeners removed');
+        }
+    }
+    
+    async show() {
+        // Prevent multiple simultaneous shows
+        if (this.isShowing) {
+            console.log('Modal is already being shown, skipping duplicate call');
+            return;
+        }
+        
         if (!this.csvData || this.csvData.length === 0) {
             console.error('No CSV data available for display');
             alert('No data available. Please check the CSV URL and your internet connection.');
             return;
         }
         
-        console.log('Showing modal with', this.csvData.length, 'data rows');
-        this.populateTable();
-        this.modal.classList.remove('hidden');
+        this.isShowing = true;
+        
+        try {
+            // Always ensure modal exists and is properly set up
+            const existingModal = document.getElementById('warper-datatable-modal');
+            if (!existingModal || !this.modal) {
+                console.log('Creating/recreating modal...');
+                const modalCreated = await this.createModal();
+                if (!modalCreated) {
+                    console.error('Failed to create modal, aborting show');
+                    this.isShowing = false;
+                    return;
+                }
+                this.setupEventListeners();
+            }
+            
+            console.log('Showing modal with', this.csvData.length, 'data rows');
+            this.modal.classList.remove('hidden');
+            
+            // Larger delay to ensure modal DOM is fully ready before populating table
+            setTimeout(async () => {
+                try {
+                    await this.populateTable();
+                } finally {
+                    this.isShowing = false;
+                }
+            }, 100);
+        } catch (error) {
+            console.error('Error in show():', error);
+            this.isShowing = false;
+        }
     }
     
     hide() {
-        this.modal.classList.add('hidden');
+        console.log('hide() called');
+        
+        if (this.modal) {
+            this.modal.classList.add('hidden');
+        }
+        
+        // Reset showing flag
+        this.isShowing = false;
         
         // Properly destroy existing DataTable instance
         this.destroyDataTable();
@@ -314,17 +414,6 @@ class WarperDataTable {
                 // Destroy DataTable instance
                 this.dataTable.destroy(true); // true removes from DOM completely
                 this.dataTable = null;
-                
-                // Clear the table HTML to reset state
-                const table = document.getElementById('warper-datatable');
-                if (table) {
-                    table.innerHTML = `
-                        <thead class="bg-gray-50 sticky top-0">
-                            <tr id="warper-datatable-header"></tr>
-                        </thead>
-                        <tbody id="warper-datatable-body"></tbody>
-                    `;
-                }
             } catch (error) {
                 console.warn('Error destroying DataTable:', error);
                 this.dataTable = null;
@@ -335,11 +424,81 @@ class WarperDataTable {
         this.isInitializing = false;
     }
     
-    populateTable() {
+    async ensureTableStructure() {
+        const table = document.getElementById('warper-datatable');
+        if (!table) {
+            console.error('Table element not found - modal may not be ready yet');
+            
+            // Check if modal exists at all
+            const modal = document.getElementById('warper-datatable-modal');
+            if (!modal) {
+                console.error('Modal not found in DOM, recreating...');
+                const modalCreated = await this.createModal();
+                if (!modalCreated) {
+                    console.error('Failed to create modal in ensureTableStructure');
+                    return false;
+                }
+                this.setupEventListeners();
+                
+                // Try again after modal recreation
+                const newTable = document.getElementById('warper-datatable');
+                if (!newTable) {
+                    console.error('Still cannot find table element after modal recreation');
+                    return false;
+                }
+            } else {
+                console.error('Modal exists but table element is missing');
+                console.log('Modal content:', modal.innerHTML);
+                
+                // The table element is missing from the modal, let's recreate it directly
+                console.log('Recreating table element in existing modal...');
+                const tableContainer = modal.querySelector('.overflow-auto');
+                if (tableContainer) {
+                    tableContainer.innerHTML = `
+                        <table id="warper-datatable" class="display compact stripe hover cell-border" style="width:100%">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr id="warper-datatable-header"></tr>
+                            </thead>
+                            <tbody id="warper-datatable-body"></tbody>
+                        </table>
+                    `;
+                    console.log('Table element recreated in existing modal');
+                } else {
+                    console.error('Could not find table container in modal');
+                    return false;
+                }
+            }
+        }
+        
+        const currentTable = document.getElementById('warper-datatable');
+        if (currentTable) {
+            // Clear and recreate the table structure
+            currentTable.innerHTML = `
+                <thead class="bg-gray-50 sticky top-0">
+                    <tr id="warper-datatable-header"></tr>
+                </thead>
+                <tbody id="warper-datatable-body"></tbody>
+            `;
+            
+            console.log('Table structure recreated successfully');
+            return true;
+        }
+        
+        return false;
+    }
+    
+    async populateTable() {
         if (!this.csvData || this.csvData.length === 0) return;
         
         // Ensure we start with a clean table
         this.destroyDataTable();
+        
+        // Ensure table structure exists
+        const structureReady = await this.ensureTableStructure();
+        if (!structureReady) {
+            console.error('Cannot ensure table structure exists, aborting populate');
+            return;
+        }
         
         // Get all unique column names from the data
         const allColumns = new Set();
@@ -352,7 +511,21 @@ class WarperDataTable {
         const columns = ['Actions', ...dataColumns];
         
         // Create table header
-        const headerRow = document.getElementById('warper-datatable-header');
+        let headerRow = document.getElementById('warper-datatable-header');
+        if (!headerRow) {
+            console.error('Header row element not found, retrying table structure creation');
+            const structureReady = await this.ensureTableStructure();
+            if (!structureReady) {
+                console.error('Failed to recreate table structure');
+                return;
+            }
+            headerRow = document.getElementById('warper-datatable-header');
+            if (!headerRow) {
+                console.error('Still cannot find header row after recreation');
+                return;
+            }
+        }
+        
         headerRow.innerHTML = '';
         columns.forEach(col => {
             const th = document.createElement('th');
@@ -365,7 +538,21 @@ class WarperDataTable {
         });
         
         // Create table body
-        const tbody = document.getElementById('warper-datatable-body');
+        let tbody = document.getElementById('warper-datatable-body');
+        if (!tbody) {
+            console.error('Body element not found, retrying table structure creation');
+            const structureReady = await this.ensureTableStructure();
+            if (!structureReady) {
+                console.error('Failed to recreate table structure');
+                return;
+            }
+            tbody = document.getElementById('warper-datatable-body');
+            if (!tbody) {
+                console.error('Still cannot find table body after recreation');
+                return;
+            }
+        }
+        
         tbody.innerHTML = '';
         this.csvData.forEach(row => {
             const tr = document.createElement('tr');
@@ -388,12 +575,12 @@ class WarperDataTable {
         });
         
         // Initialize DataTables with a small delay to ensure DOM is ready
-        setTimeout(() => {
-            this.initDataTable(columns);
+        setTimeout(async () => {
+            await this.initDataTable(columns);
         }, 100);
     }
     
-    initDataTable(columns) {
+    async initDataTable(columns) {
         // Prevent concurrent initializations
         if (this.isInitializing) {
             console.warn('DataTable initialization already in progress, skipping...');
@@ -405,8 +592,22 @@ class WarperDataTable {
         // Destroy existing instance if it exists
         this.destroyDataTable();
         
+        // Ensure table structure exists
+        const structureReady = await this.ensureTableStructure();
+        if (!structureReady) {
+            console.error('Cannot create table structure for DataTable initialization');
+            this.isInitializing = false;
+            return;
+        }
+        
         // Check if table element already has DataTables initialized
         const tableElement = document.getElementById('warper-datatable');
+        if (!tableElement) {
+            console.error('Table element not found during DataTable initialization after structure creation');
+            this.isInitializing = false;
+            return;
+        }
+        
         if ($.fn.DataTable.isDataTable(tableElement)) {
             console.warn('DataTable already initialized, destroying first...');
             $(tableElement).DataTable().destroy(true);
@@ -594,6 +795,13 @@ class WarperDataTable {
                     tableElement.unwrap();
                 }
                 
+                // Ensure table structure exists before fallback
+                const structureReady = await this.ensureTableStructure();
+                if (!structureReady) {
+                    console.error('Cannot ensure table structure for fallback initialization');
+                    throw new Error('Table structure creation failed');
+                }
+                
                 // Try to initialize without complex column definitions
                 this.dataTable = tableElement.DataTable({
                     paging: false, // Show all entries
@@ -628,6 +836,13 @@ class WarperDataTable {
                 
                 // Last resort: try the most basic initialization possible
                 try {
+                    // Ensure table structure exists for basic fallback
+                    const structureReady = await this.ensureTableStructure();
+                    if (!structureReady) {
+                        console.error('Cannot ensure table structure for basic fallback');
+                        throw new Error('Table structure creation failed for basic fallback');
+                    }
+                    
                     this.dataTable = $('#warper-datatable').dataTable({
                         destroy: true,
                         searching: true,
@@ -647,4 +862,5 @@ class WarperDataTable {
 }
 
 // Make it available globally
+window.WarperDataTable = WarperDataTable;
 window.WarperDataTable = WarperDataTable;
