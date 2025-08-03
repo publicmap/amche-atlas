@@ -49,93 +49,6 @@
             flex-direction: column;
         }
         
-        .header {
-            background: #f5f5f5;
-            padding: 15px;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .input-group {
-            margin-bottom: 10px;
-        }
-        
-        .input-group label {
-            display: inline-block;
-            width: 120px;
-            font-weight: bold;
-        }
-        
-        .input-group input {
-            width: 400px;
-            padding: 5px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-        }
-        
-        .btn {
-            padding: 8px 15px;
-            background: #007cba;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-left: 10px;
-        }
-        
-        .btn:hover {
-            background: #005a87;
-        }
-        
-        .btn.secondary {
-            background: #6c757d;
-        }
-        
-        .btn.secondary:hover {
-            background: #545b62;
-        }
-        
-        .main-content {
-            flex: 1;
-            display: flex;
-            height: calc(100vh - 140px);
-        }
-        
-        .map-container {
-            flex: 1;
-            position: relative;
-            border-right: 2px solid #ddd;
-        }
-        
-        .map-container:last-child {
-            border-right: none;
-        }
-        
-        .map {
-            width: 100%;
-            height: 100%;
-        }
-        
-        .map-title {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 5px 10px;
-            border-radius: 3px;
-            font-weight: bold;
-            z-index: 1000;
-        }
-        
-        .controls {
-            position: absolute;
-            top: 50px;
-            left: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 3px;
-            z-index: 1000;
-        }
-        
         /* Ensure DataTable modal is above everything */
         #warper-datatable-modal {
             z-index: 99999 !important;
@@ -169,38 +82,9 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
-        .control-mode {
-            display: block;
-            margin: 5px 0;
-            padding: 5px 10px;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 3px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
         .control-mode.active {
-            background: #007cba;
-            color: white;
-        }
-        
-        .control-mode:hover {
-            background: #e9ecef;
-        }
-        
-        .control-mode.active:hover {
-            background: #005a87;
-        }
-        
-        .reference-controls {
-            position: absolute;
-            top: 50px;
-            right: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 3px;
-            z-index: 1000;
+            background-color: #2563eb !important;
+            color: white !important;
         }
         
         .output-section {
@@ -305,83 +189,100 @@
         
 
         
-        .geocoder-container {
-            margin-bottom: 10px;
+        /* Geocoder styling */
+        .mapboxgl-ctrl-geocoder {
+            min-width: 100% !important;
+            max-width: 100% !important;
+            width: 100% !important;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="input-group">
-            <label>Map Warper URL:</label>
-            <button class="btn secondary" id="map-list-btn">Map List</button>
-            <input type="text" id="mapwarper-url" value="https://mapwarper.net/maps/94232">
-            <button class="btn" onclick="loadMapWarperMap()">Load Map</button>
-            <button class="btn secondary" onclick="showCenterModal()">Set Center</button>
+    <!-- First row: Map load controls -->
+    <div class="bg-gray-100 p-4 border-b border-gray-300">
+        <div class="flex items-center gap-4">
+            <button class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700" id="map-list-btn">Map List</button>
+            <input type="text" id="mapwarper-url" value="https://mapwarper.net/maps/94232" 
+                   class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
     </div>
     
-    <div class="main-content">
-        <div class="map-container">
-            <div class="map-title">Source Map (WMS)</div>
-            <div class="controls">
-                <div class="control-mode active" data-mode="add" data-key="1">
-                    1 - Add Control Point
-                </div>
-                <div class="control-mode" data-mode="move" data-key="2">
-                    2 - Move Control Point
-                </div>
-                <div class="control-mode" data-mode="pan" data-key="3">
-                    3 - Move Map
-                </div>
+    <!-- Second row: Maps and Controls -->
+    <div class="flex h-[calc(100vh-140px)]">
+        <!-- Source Map - 40% -->
+        <div class="w-2/5 relative border-r-2 border-gray-300">
+            <div class="absolute top-2 left-2 bg-white/90 px-3 py-1 rounded text-sm font-semibold z-10">
+                Source Map (WMS)
             </div>
-            <div id="source-map" class="map"></div>
+            <div id="source-map" class="w-full h-full"></div>
         </div>
         
-        <div class="map-container">
-            <div class="map-title">Reference Map (Mapbox)</div>
-            <div class="reference-controls">
-                <div class="geocoder-container">
+        <!-- Reference Map - 40% -->
+        <div class="w-2/5 relative border-r-2 border-gray-300">
+            <div class="absolute top-2 left-2 bg-white/90 px-3 py-1 rounded text-sm font-semibold z-10">
+                Reference Map (Mapbox)
+            </div>
+            <div id="reference-map" class="w-full h-full"></div>
+        </div>
+        
+        <!-- Controls Panel - 20% -->
+        <div class="w-1/5 bg-gray-50 p-4 overflow-y-auto">
+            <div class="space-y-6">
+                <!-- Geocoder -->
+                <div>
                     <div id="geocoder"></div>
                 </div>
-                <button class="btn secondary" onclick="showAddLayerModal()">Add Layer</button>
-                <div style="margin-top: 10px;">
-                    <label style="display: flex; align-items: center; color: #333; font-size: 12px;">
-                        <input type="checkbox" id="local-body-toggle" checked onchange="toggleLocalBodyLayer()" style="margin-right: 5px;">
-                        Local Body Boundaries (Goa)
-                    </label>
+                
+                <!-- Map Control Modes -->
+                <div>
+                    <h3 class="text-sm font-semibold mb-3 text-gray-700">Control Mode</h3>
+                    <div class="space-y-2">
+                        <div class="control-mode active bg-blue-600 text-white px-3 py-2 rounded cursor-pointer hover:bg-blue-700 transition-colors text-sm" data-mode="add" data-key="1">
+                            1 - Add Control Point
+                        </div>
+                        <div class="control-mode bg-gray-200 text-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-300 transition-colors text-sm" data-mode="move" data-key="2">
+                            2 - Move Control Point
+                        </div>
+                        <div class="control-mode bg-gray-200 text-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-300 transition-colors text-sm" data-mode="pan" data-key="3">
+                            3 - Pan Map
+                        </div>
+                    </div>
                 </div>
-                <div style="margin-top: 5px;">
-                    <label style="display: flex; align-items: center; color: #333; font-size: 12px;">
-                        <input type="checkbox" id="village-toggle" onchange="toggleVillageLayer()" style="margin-right: 5px;">
-                        Village Boundaries
-                    </label>
+                
+                <!-- Overlay Layers -->
+                <div>
+                    <h3 class="text-sm font-semibold mb-3 text-gray-700">Overlay Layers</h3>
+                    <button class="w-full mb-3 px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm" onclick="showAddLayerModal()">Add Layer</button>
+                    <div class="space-y-2">
+                        <label class="flex items-center text-xs text-gray-600">
+                            <input type="checkbox" id="local-body-toggle" checked onchange="toggleLocalBodyLayer()" class="mr-2">
+                            Local Body Boundaries (Goa)
+                        </label>
+                        <label class="flex items-center text-xs text-gray-600">
+                            <input type="checkbox" id="village-toggle" onchange="toggleVillageLayer()" class="mr-2">
+                            Village Boundaries
+                        </label>
+                        <label class="flex items-center text-xs text-gray-600">
+                            <input type="checkbox" id="cadastral-toggle" checked onchange="toggleCadastralLayer()" class="mr-2">
+                            Cadastral Plot Boundaries
+                        </label>
+                        <label class="flex items-center text-xs text-gray-600">
+                            <input type="checkbox" id="warped-map-toggle" checked onchange="toggleWarpedMap()" class="mr-2">
+                            Warped Map
+                        </label>
+                    </div>
                 </div>
-                <div style="margin-top: 5px;">
-                    <label style="display: flex; align-items: center; color: #333; font-size: 12px;">
-                        <input type="checkbox" id="cadastral-toggle" checked onchange="toggleCadastralLayer()" style="margin-right: 5px;">
-                        Cadastral Plot Boundaries
-                    </label>
-                </div>
-                <div style="margin-top: 5px;">
-                    <label style="display: flex; align-items: center; color: #333; font-size: 12px;">
-                        <input type="checkbox" id="warped-map-toggle" checked onchange="toggleWarpedMap()" style="margin-right: 5px;">
-                        Warped Map
-                    </label>
+                
+                <!-- Instructions -->
+                <div class="space-y-3">
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        Add at least 3 matching pairs of control points that are spaced as far apart from each other for best results.
+                    </p>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        Use keyboard shortcuts 1, 2, 3 to change the control mode.
+                    </p>
                 </div>
             </div>
-            <div class="controls">
-                <div class="control-mode active" data-mode="add" data-key="1">
-                    1 - Add Control Point
-                </div>
-                <div class="control-mode" data-mode="move" data-key="2">
-                    2 - Move Control Point
-                </div>
-                <div class="control-mode" data-mode="pan" data-key="3">
-                    3 - Move Map
-                </div>
-            </div>
-            <div id="reference-map" class="map"></div>
         </div>
     </div>
     
