@@ -35,6 +35,9 @@
     <!-- Custom DataTable Plugin -->
     <script src="dataTable.js"></script>
     
+    <!-- Navbar Component -->
+    <script src="../mapwarper/navbar.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -82,9 +85,22 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
+        .control-mode {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+        
+        .control-mode:hover {
+            background-color: #d1d5db;
+        }
+        
         .control-mode.active {
             background-color: #2563eb !important;
             color: white !important;
+        }
+        
+        .control-mode.active:hover {
+            background-color: #1d4ed8 !important;
         }
         
         .output-section {
@@ -260,13 +276,13 @@
                 <div>
                     <h3 class="text-sm font-semibold mb-3 text-gray-700">Control Mode</h3>
                     <div class="space-y-2">
-                        <div class="control-mode active bg-blue-600 text-white px-3 py-2 rounded cursor-pointer hover:bg-blue-700 transition-colors text-sm" data-mode="add" data-key="1">
+                        <div class="control-mode px-3 py-2 rounded cursor-pointer transition-colors text-sm" data-mode="add" data-key="1">
                             1 - Add Control Point
                         </div>
-                        <div class="control-mode bg-gray-200 text-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-300 transition-colors text-sm" data-mode="move" data-key="2">
+                        <div class="control-mode px-3 py-2 rounded cursor-pointer transition-colors text-sm" data-mode="move" data-key="2">
                             2 - Move Control Point
                         </div>
-                        <div class="control-mode bg-gray-200 text-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-300 transition-colors text-sm" data-mode="pan" data-key="3">
+                        <div class="control-mode active px-3 py-2 rounded cursor-pointer transition-colors text-sm" data-mode="pan" data-key="3">
                             3 - Pan Map
                         </div>
                     </div>
@@ -378,7 +394,7 @@
         
         // Global variables
         let sourceMap, referenceMap;
-        let currentMode = 'add';
+        let currentMode = 'pan';
         let controlPoints = [];
         let selectedPointIndex = -1;
         let focusedMap = null;
@@ -639,13 +655,45 @@
             });
         }
         
+        function convertUrlsToLinks(text) {
+            if (!text) return text;
+            
+            // Escape HTML to prevent XSS attacks
+            const escapeHtml = (unsafe) => {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            };
+            
+            // Escape the text first
+            const escapedText = escapeHtml(text);
+            
+            // Regular expression to match URLs (http and https)
+            const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
+            
+            // Replace URLs with clickable links
+            return escapedText.replace(urlRegex, (url) => {
+                // Clean up common punctuation at the end of URLs
+                const cleanedUrl = url.replace(/[.,;:!?)]+$/, '');
+                const punctuation = url.substring(cleanedUrl.length);
+                
+                return `<a href="${cleanedUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">${cleanedUrl}</a>${punctuation}`;
+            });
+        }
+        
         function displayMapMetadata(mapData, mapId, baseUrl) {
             const metadata = mapData.data.attributes;
             const metadataDiv = document.getElementById('map-metadata');
             
             // Populate metadata fields
             document.getElementById('map-title').textContent = metadata.title || 'Untitled Map';
-            document.getElementById('map-description').textContent = metadata.description || 'No description available';
+            
+            // Convert URLs in description to clickable links
+            const description = metadata.description || 'No description available';
+            document.getElementById('map-description').innerHTML = convertUrlsToLinks(description);
             
             // Status with appropriate styling
             const statusElement = document.getElementById('map-status');
