@@ -199,7 +199,7 @@ class WarperDataTable {
                         
                         <!-- Table Container -->
                         <div class="p-6">
-                            <div class="overflow-auto max-h-[calc(90vh-200px)] border border-gray-200 rounded">
+                            <div class="overflow-auto max-h-[calc(90vh-200px)]">
                                 <table id="warper-datatable" class="display compact stripe hover cell-border" style="width:100%">
                                     <thead class="bg-gray-50 sticky top-0">
                                         <tr id="warper-datatable-header"></tr>
@@ -210,11 +210,18 @@ class WarperDataTable {
                         </div>
                         
                         <!-- Footer -->
-                        <div class="bg-gray-50 px-6 py-4 flex justify-end">
-                            <button id="warper-datatable-close" 
-                                    class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
-                                Close
-                            </button>
+                        <div class="bg-gray-50 px-6 py-3 border-t">
+                            <!-- Info row for dataTables_info -->
+                            <div id="warper-datatable-info-container" class="mb-3 text-sm text-gray-600">
+                                <!-- DataTables info will be moved here -->
+                            </div>
+                            <!-- Close button row -->
+                            <div class="flex justify-end">
+                                <button id="warper-datatable-close" 
+                                        class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                                    Close
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -685,7 +692,7 @@ class WarperDataTable {
                 scrollCollapse: true,
                 scrollX: true,
                 autoWidth: false,
-                dom: 'fBrtip', // f=filter, B=buttons - puts search before buttons
+                dom: '<"flex justify-between items-center mb-4"<"flex-1"f><"flex-shrink-0"B>>rtip', // Custom layout: search left, buttons right
                 buttons: [
                     {
                         extend: 'colvis',
@@ -694,8 +701,8 @@ class WarperDataTable {
                     }
                 ],
                 language: {
-                    search: "<strong>Search all columns:</strong>",
-                    searchPlaceholder: `Search ${this.options.name.join(', ')}...`,
+                    search: "<strong>Search:</strong>",
+                    searchPlaceholder: `${this.options.name.join(', ')}...`,
                     info: "Showing all _TOTAL_ entries",
                     infoEmpty: "No entries found",
                     infoFiltered: "(filtered from _MAX_ total entries)",
@@ -713,14 +720,39 @@ class WarperDataTable {
                         const api = this.api();
                         console.log('DataTable initComplete called successfully');
                         
-                        // Auto-focus the search input
+                        // Auto-focus the search input and apply custom styling
                         setTimeout(() => {
                             const searchInput = $(api.table().container()).find('.dataTables_filter input');
                             if (searchInput.length) {
                                 searchInput.focus();
                                 console.log('Search input focused');
                             }
+                            
+                            // Apply float:left to the filter container
+                            $('#warper-datatable_filter').css('float', 'left');
                         }, 100);
+                        
+                        // Move the dataTables_info element to the footer container
+                        setTimeout(() => {
+                            const infoElement = $(api.table().container()).find('.dataTables_info');
+                            const infoContainer = $('#warper-datatable-info-container');
+                            
+                            if (infoElement.length && infoContainer.length) {
+                                // Move the info element to our custom footer container
+                                infoElement.appendTo(infoContainer);
+                                
+                                // Hide any empty containers that may have held the info element
+                                $(api.table().container()).find('.dataTables_wrapper .dataTables_info').parent().each(function() {
+                                    if ($(this).is(':empty') || $(this).children().length === 0) {
+                                        $(this).hide();
+                                    }
+                                });
+                                
+                                console.log('DataTables info element moved to footer');
+                            } else {
+                                console.warn('Could not find info element or container for moving');
+                            }
+                        }, 200);
                         
                         // Only add column filters if we have nameColumns defined
                         if (nameColumns && nameColumns.length > 0) {
@@ -826,6 +858,9 @@ class WarperDataTable {
                             if (searchInput.length) {
                                 searchInput.focus();
                             }
+                            
+                            // Apply float:left to the filter container in fallback mode
+                            $('#warper-datatable_filter').css('float', 'left');
                         }, 100);
                     }
                 });

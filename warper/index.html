@@ -731,7 +731,9 @@
                 id: 'warped-layer',
                 type: 'raster',
                 source: 'warped-source',
-                paint: {}
+                paint: {
+                    'raster-opacity': 0.5
+                }
             }, beforeLayerId);
             
             // Center maps based on map ID or use defaults
