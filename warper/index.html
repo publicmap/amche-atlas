@@ -203,7 +203,8 @@
         <div class="flex items-center gap-4">
             <button class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700" id="map-list-btn">Map List</button>
             or
-            <input type="text" id="mapwarper-url" value="https://mapwarper.net/maps/94232" 
+            <input type="text" id="mapwarper-url" value="https://warper.wmflabs.org/maps/8933" 
+                   placeholder="Enter MapWarper URL (e.g., https://mapwarper.net/maps/12345 or https://warper.wmflabs.org/maps/8933)"
                    class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         
@@ -405,7 +406,7 @@
                 zoom: 10,
                 transformRequest: (url, resourceType) => {
                     // Debug all mapwarper requests
-                    if (url.includes('mapwarper.net')) {
+                    if (url.includes('/maps/') || url.includes('/api/v1/maps/')) {
                         console.log(`🌐 MapWarper ${resourceType} request:`, url);
                         
                         // Check for unsubstituted placeholders
@@ -638,7 +639,7 @@
             });
         }
         
-        function displayMapMetadata(mapData, mapId) {
+        function displayMapMetadata(mapData, mapId, baseUrl) {
             const metadata = mapData.data.attributes;
             const metadataDiv = document.getElementById('map-metadata');
             
@@ -683,7 +684,7 @@
             }
             
             const mapwarperLink = document.getElementById('mapwarper-link');
-            mapwarperLink.href = `https://mapwarper.net/maps/${mapId}`;
+            mapwarperLink.href = `${baseUrl}/maps/${mapId}`;
             
             // Show the metadata div
             metadataDiv.classList.remove('hidden');
@@ -766,25 +767,27 @@
         
         async function loadMapWarperMap() {
             const url = document.getElementById('mapwarper-url').value;
-            const mapId = extractMapId(url);
+            const urlData = parseMapwarperUrl(url);
             
-            if (!mapId) {
+            if (!urlData) {
                 // Only show alert if user explicitly clicked the load button
                 // Don't show alert for auto-loading attempts
                 const wasTriggeredByUser = event && event.type === 'click';
                 if (wasTriggeredByUser) {
-                    alert('Invalid MapWarper URL. Please use format: https://mapwarper.net/maps/[ID]');
+                    alert('Invalid MapWarper URL. Please use format: https://[mapwarper-server]/maps/[ID]');
                 }
                 hideMapMetadata();
                 return;
             }
             
+            const { baseUrl, mapId } = urlData;
+            
             // Fetch and display map metadata
             try {
-                const response = await fetch(`https://mapwarper.net/api/v1/maps/${mapId}.json`);
+                const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}.json`);
                 if (response.ok) {
                     const mapData = await response.json();
-                    displayMapMetadata(mapData, mapId);
+                    displayMapMetadata(mapData, mapId, baseUrl);
                 } else {
                     console.warn('Failed to fetch map metadata:', response.status);
                     hideMapMetadata();
@@ -805,13 +808,13 @@
             }
             
             // Load unwarped map via WMS to source map
-            loadUnwarpedMap(mapId);
+            loadUnwarpedMap(mapId, baseUrl);
             
             // Add warped map to reference map
             referenceMap.addSource('warped-source', {
                 type: 'raster',
                 tiles: [
-                    `https://mapwarper.net/maps/tile/${mapId}/{z}/{x}/{y}`
+                    `${baseUrl}/maps/tile/${mapId}/{z}/{x}/{y}`
                 ],
                 tileSize: 256
             });
@@ -839,7 +842,7 @@
             // Wait a moment for maps to settle before loading control points
             setTimeout(() => {
                 clearControlPoints();
-                fetchExistingControlPoints(mapId);
+                fetchExistingControlPoints(mapId, baseUrl);
             }, 1000);
             
             // Enable warped map toggle
@@ -849,6 +852,21 @@
         function extractMapId(url) {
             const match = url.match(/\/maps\/(\d+)/);
             return match ? match[1] : null;
+        }
+        
+        // New function to parse mapwarper URLs from different servers
+        function parseMapwarperUrl(url) {
+            // Support different mapwarper servers
+            const mapwarperPattern = /^(https?:\/\/[^\/]+)\/maps\/(\d+)/;
+            const match = url.match(mapwarperPattern);
+            
+            if (match) {
+                return {
+                    baseUrl: match[1],
+                    mapId: match[2]
+                };
+            }
+            return null;
         }
         
         function getMapCenter(mapId) {
@@ -866,7 +884,7 @@
             };
         }
         
-        async function fetchExistingControlPoints(mapId) {
+        async function fetchExistingControlPoints(mapId, baseUrl) {
             try {
                 console.log(`Fetching existing control points for map ${mapId}...`);
                 
@@ -875,7 +893,7 @@
                 const originalPlaceholder = csvOutput.placeholder;
                 csvOutput.placeholder = 'Loading existing control points...';
                 
-                const response = await fetch(`https://mapwarper.net/api/v1/maps/${mapId}/gcps`);
+                const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}/gcps`);
                 
                 if (!response.ok) {
                     console.warn(`No existing control points found for map ${mapId}. Status: ${response.status}`);
@@ -922,7 +940,7 @@
         
         let isLoadingUnwarpedMap = false;
         
-        async function loadUnwarpedMap(mapId) {
+        async function loadUnwarpedMap(mapId, baseUrl) {
             if (isLoadingUnwarpedMap) {
                 console.log('loadUnwarpedMap already in progress, skipping...');
                 return;
@@ -986,9 +1004,9 @@
                     // MapWarper often supports TMS endpoints alongside WMS
                     const tileTemplates = [
                         // Try TMS tiles first (similar to how warped tiles work)
-                        `https://mapwarper.net/maps/tile/${mapId}/{z}/{x}/{y}?unwarped=true`,
+                        `${baseUrl}/maps/tile/${mapId}/{z}/{x}/{y}?unwarped=true`,
                         // Fallback to WMS with different bbox format
-                        `https://mapwarper.net/maps/wms/${mapId}?FORMAT=image%2Fpng&STATUS=unwarped&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=&EXCEPTIONS=application%2Fvnd.ogc.se_inimage&SRS=EPSG%3A4326&BBOX={bbox-epsg-4326}&WIDTH=256&HEIGHT=256`
+                        `${baseUrl}/maps/wms/${mapId}?FORMAT=image%2Fpng&STATUS=unwarped&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=&EXCEPTIONS=application%2Fvnd.ogc.se_inimage&SRS=EPSG%3A4326&BBOX={bbox-epsg-4326}&WIDTH=256&HEIGHT=256`
                     ];
                     
                     console.log('Trying TMS-style tiles first:', tileTemplates[0]);
@@ -1054,7 +1072,7 @@
                                             sourceMap.removeSource('wms-fallback-source');
                                         }
                                         // Load image directly as final fallback
-                                        loadMapImageDirectly(mapId);
+                                        loadMapImageDirectly(mapId, baseUrl);
                                         sourceMap.off('error', wmsFallbackHandler);
                                     }
                                 };
@@ -1063,7 +1081,7 @@
                             } else {
                                 console.warn('All tile methods failed. Switching to direct image fallback.');
                                 // Load image directly as final fallback
-                                loadMapImageDirectly(mapId);
+                                loadMapImageDirectly(mapId, baseUrl);
                             }
                             
                             // Remove the error listener
@@ -1084,7 +1102,7 @@
                     
                 } catch (wmsError) {
                     console.error('Error setting up WMS source:', wmsError);
-                    await loadMapImageDirectly(mapId);
+                    await loadMapImageDirectly(mapId, baseUrl);
                 }
                 
                 console.log(`Successfully loaded unwarped map ${mapId}`);
@@ -1098,12 +1116,12 @@
             }
         }
         
-        async function loadMapImageDirectly(mapId) {
+        async function loadMapImageDirectly(mapId, baseUrl) {
             try {
                 console.log(`Attempting to load map ${mapId} using direct image...`);
                 
                 // Try to get map metadata to find the original image
-                const response = await fetch(`https://mapwarper.net/api/v1/maps/${mapId}.json`);
+                const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}.json`);
                 if (response.ok) {
                     const mapData = await response.json();
                     const imageUrl = mapData.data.attributes.image_url;
