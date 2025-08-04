@@ -36,7 +36,7 @@
     <script src="dataTable.js"></script>
     
     <!-- Navbar Component -->
-    <script src="../mapwarper/navbar.js"></script>
+    <script src="./navbar.js"></script>
     
     <style>
         * {
@@ -222,6 +222,11 @@
             <input type="text" id="mapwarper-url" value="https://warper.wmflabs.org/maps/8933" 
                    placeholder="Enter MapWarper URL (e.g., https://mapwarper.net/maps/12345 or https://warper.wmflabs.org/maps/8933)"
                    class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        
+        <!-- Helper text for mapwarper URL input -->
+        <div class="mt-2">
+            <p class="text-sm text-gray-600">Paste a map link from <a href="https://mapwarper.net" target="_blank" class="text-blue-600 hover:text-blue-800">https://mapwarper.net</a> or <a href="https://warper.wmflabs.org" target="_blank" class="text-blue-600 hover:text-blue-800">https://warper.wmflabs.org/</a></p>
         </div>
         
         <!-- Map Metadata Display -->
@@ -422,14 +427,10 @@
                 zoom: 10,
                 transformRequest: (url, resourceType) => {
                     // Debug all mapwarper requests
-                    if (url.includes('/maps/') || url.includes('/api/v1/maps/')) {
-                        console.log(`🌐 MapWarper ${resourceType} request:`, url);
-                        
+                    if (url.includes('/maps/') || url.includes('/api/v1/maps/')) {                        
                         // Check for unsubstituted placeholders
                         if (url.includes('{bbox-epsg-4326}') || url.includes('{bbox}') || url.includes('{z}') || url.includes('{x}') || url.includes('{y}')) {
                             console.warn('❌ Unsubstituted placeholders found:', url);
-                        } else {
-                            console.log('✅ All placeholders appear to be substituted');
                         }
                         
                         // Return the URL with appropriate headers
@@ -449,7 +450,8 @@
                 container: 'reference-map',
                 style: 'mapbox://styles/mapbox/satellite-v9',
                 center: [74.0, 15.3],
-                zoom: 10
+                zoom: 10,
+                hash: true
             });
             
             // Add geocoder to reference map
