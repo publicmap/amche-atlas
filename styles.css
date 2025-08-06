@@ -2717,4 +2717,61 @@ sl-menu {
     color: #93c5fd !important;
 }
 
+  /* Language Radio Button Group Styling */
+.language-radio-group sl-radio-button {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.language-radio-group sl-radio-button::part(button) {
+    transition: all 0.2s ease;
+    border: 1px solid #d1d5db;
+}
+
+.language-radio-group sl-radio-button:hover::part(button) {
+    border-color: #60a5fa;
+    background-color: #eff6ff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.language-radio-group sl-radio-button::part(button--checked) {
+    background-color: #2563eb;
+    border-color: #2563eb;
+    color: white;
+}
+
+.language-radio-group sl-radio-button:hover::part(button--checked) {
+    background-color: #1d4ed8;
+    border-color: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+/* Connected button group styling */
+.language-radio-group sl-radio-button:first-of-type::part(button) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.language-radio-group sl-radio-button:last-of-type::part(button) {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: 0;
+}
+
+.language-radio-group sl-radio-button:not(:first-of-type):not(:last-of-type)::part(button) {
+    border-radius: 0;
+    border-left: 0;
+}
+
+/* Ensure borders connect properly on hover */
+.language-radio-group sl-radio-button:not(:last-of-type):hover::part(button) {
+    border-right: 1px solid #60a5fa;
+}
+
+.language-radio-group sl-radio-button:not(:last-of-type):hover::part(button--checked) {
+    border-right: 1px solid #1d4ed8;
+}
+
 /* End of styles */

@@ -113,12 +113,14 @@ class IntroContentManager {
           <!-- Header with help title and language switcher -->
           <div class="flex justify-between items-center">
           <div class="flex gap-2 items-center">
-              ${Object.entries(this.config.languages).map(([code, name]) => 
-                `<button class="lang-btn px-2 py-1 rounded transition-all duration-200 cursor-pointer border-none ${code === this.currentLanguage ? 'bg-blue-600 text-white' : 'bg-transparent text-blue-600 hover:bg-blue-100'}" data-lang="${code}">${name}</button>`
-              ).join(' | ')}
+              <sl-radio-group id="language-selector-${this.modalId}" size="small" value="${this.currentLanguage}" class="language-radio-group">
+                ${Object.entries(this.config.languages).map(([code, name]) => 
+                  `<sl-radio-button value="${code}">${name}</sl-radio-button>`
+                ).join('')}
+              </sl-radio-group>
             </div>  
-          <div class="flex items-center gap-2 text-xl font-semibold text-gray-800">
-              <span>amche.in - Welcome to Goa's 3D Atlas</span>
+          <div class="flex items-center gap-2 text-xl text-gray-800">
+              <span>amche.in - 3D Atlas of Goa</span>
             </div>
             
             <div class="flex items-center gap-4">
@@ -143,21 +145,65 @@ class IntroContentManager {
   setupEventListeners() {
     const modal = document.getElementById(this.modalId);
     const closeBtn = document.getElementById(this.closeBtnId);
-    const langButtons = modal.querySelectorAll('.lang-btn');
+    const languageSelector = modal.querySelector(`#language-selector-${this.modalId}`);
 
     // Close button
     closeBtn.addEventListener('click', () => {
       this.closeModal();
     });
 
-    // Language switcher
-    langButtons.forEach(btn => {
-      btn.addEventListener('click', (event) => {
-        const newLang = event.target.dataset.lang;
-        if (newLang !== this.currentLanguage) {
-          this.switchLanguage(newLang);
+    // Language switcher - handle both hover and click
+    const radioButtons = languageSelector.querySelectorAll('sl-radio-button');
+    let hoverTimeout = null;
+    let originalLanguage = this.currentLanguage;
+
+    // Handle hover for quick preview
+    radioButtons.forEach(button => {
+      button.addEventListener('mouseenter', () => {
+        const previewLang = button.value;
+        if (previewLang !== this.currentLanguage) {
+          // Clear any existing timeout
+          if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+          }
+          
+          // Switch language after a short delay to avoid rapid switching
+          hoverTimeout = setTimeout(() => {
+            this.switchLanguage(previewLang);
+          }, 200);
         }
       });
+
+      button.addEventListener('mouseleave', () => {
+        // Clear timeout if mouse leaves before delay
+        if (hoverTimeout) {
+          clearTimeout(hoverTimeout);
+          hoverTimeout = null;
+        }
+      });
+    });
+
+    // Handle mouse leave from entire radio group - revert if not clicked
+    languageSelector.addEventListener('mouseleave', () => {
+      if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = null;
+      }
+      
+      // Only revert if the current language is different from the originally selected one
+      // and no actual selection was made (radio group value hasn't changed)
+      if (this.currentLanguage !== originalLanguage && languageSelector.value === originalLanguage) {
+        this.switchLanguage(originalLanguage);
+      }
+    });
+
+    // Handle actual selection (click) - commit the change
+    languageSelector.addEventListener('sl-change', (event) => {
+      const newLang = event.target.value;
+      originalLanguage = newLang; // Update the "committed" language
+      if (newLang !== this.currentLanguage) {
+        this.switchLanguage(newLang);
+      }
     });
 
     // Handle clicking outside the close button to cancel auto-close
@@ -203,16 +249,26 @@ class IntroContentManager {
       
       const sectionsHtml = sections.map(section => {
         const htmlContent = this.markdownToHtml(section.content);
-        return `
-          <section class="p-4 break-inside-avoid">
-            <h3 class="mb-4 text-xl font-semibold m-0">${section.title}</h3>
-            <div class="text-sm leading-relaxed prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:mt-4 prose-headings:mb-2 prose-p:mb-4 prose-ul:mb-4 prose-ol:mb-4 prose-ul:pl-6 prose-ol:pl-6 prose-li:mb-1 prose-strong:text-gray-900 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-img:max-w-full prose-img:h-auto prose-img:rounded prose-img:my-2 prose-img:mx-1 prose-img:inline prose-img:align-middle prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline">${htmlContent}</div>
-          </section>
-        `;
+        
+        // For intro sections, don't add the redundant h3 title since the content already has h1
+        if (section.isIntroSection) {
+          return `
+            <section class="p-4 break-inside-avoid">
+              <div class="text-sm leading-relaxed prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:mt-4 prose-headings:mb-2 prose-p:mb-4 prose-ul:mb-4 prose-ol:mb-4 prose-ul:pl-6 prose-ol:pl-6 prose-li:mb-1 prose-strong:text-gray-900 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-img:max-w-full prose-img:h-auto prose-img:rounded prose-img:my-2 prose-img:mx-1 prose-img:inline prose-img:align-middle prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline intro-section-content">${htmlContent}</div>
+            </section>
+          `;
+        } else {
+          return `
+            <section class="p-4 break-inside-avoid">
+              <h3 class="mb-4 text-xl font-semibold m-0">${section.title}</h3>
+              <div class="text-sm leading-relaxed prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:mt-4 prose-headings:mb-2 prose-p:mb-4 prose-ul:mb-4 prose-ol:mb-4 prose-ul:pl-6 prose-ol:pl-6 prose-li:mb-1 prose-strong:text-gray-900 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-img:max-w-full prose-img:h-auto prose-img:rounded prose-img:my-2 prose-img:mx-1 prose-img:inline prose-img:align-middle prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline">${htmlContent}</div>
+            </section>
+          `;
+        }
       }).join('');
       
-      // Second details section (controls) is open by default
-      const isOpen = index === 1 ? 'open' : '';
+      // First details section (about) is open by default
+      const isOpen = index === 0 ? 'open' : '';
       
       return `
         <sl-details summary="${contentData.title}" ${isOpen}>
@@ -255,12 +311,26 @@ class IntroContentManager {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       
-      if (line.startsWith('## ')) {
-        // Save any intro content before first heading
+      if (line.startsWith('# ')) {
+        // Handle h1 headings - extract title from first h1 and include it in intro content
+        if (!currentSection && introContent.trim() === '') {
+          // This is the first h1, use it as the section title but keep the content
+          const h1Title = line.replace(/^# /, '').trim();
+          introContent += line + '\n';
+        } else {
+          introContent += line + '\n';
+        }
+      } else if (line.startsWith('## ')) {
+        // Save any intro content before first h2 heading
         if (!currentSection && introContent.trim()) {
+          // Extract the first h1 title if it exists, otherwise use a default
+          const firstH1Match = introContent.match(/^# (.+)$/m);
+          const sectionTitle = firstH1Match ? firstH1Match[1].trim() : 'Introduction';
+          
           sections.push({
-            title: 'Introduction',
-            content: introContent.trim()
+            title: sectionTitle,
+            content: introContent.trim(),
+            isIntroSection: true
           });
           introContent = '';
         }
@@ -281,16 +351,21 @@ class IntroContentManager {
       } else if (currentSection) {
         currentSection.content += line + '\n';
       } else {
-        // Content before first heading
+        // Content before first h2 heading
         introContent += line + '\n';
       }
     }
     
     // Add any remaining intro content
     if (!currentSection && introContent.trim()) {
+      // Extract the first h1 title if it exists, otherwise use a default
+      const firstH1Match = introContent.match(/^# (.+)$/m);
+      const sectionTitle = firstH1Match ? firstH1Match[1].trim() : 'Introduction';
+      
       sections.push({
-        title: 'Introduction',
-        content: introContent.trim()
+        title: sectionTitle,
+        content: introContent.trim(),
+        isIntroSection: true
       });
     }
     
@@ -353,10 +428,11 @@ class IntroContentManager {
   async switchLanguage(langCode) {
     this.currentLanguage = langCode;
     
-    // Update active language button
-    document.querySelectorAll('.lang-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.lang === langCode);
-    });
+    // Update active language radio button
+    const languageSelector = document.querySelector(`#language-selector-${this.modalId}`);
+    if (languageSelector) {
+      languageSelector.value = langCode;
+    }
     
     // Reload content
     await this.loadContent();
@@ -462,6 +538,24 @@ const styles = `
 /* Accordion spacing */
 .details-group-example sl-details:not(:last-of-type) {
   margin-bottom: var(--sl-spacing-2x-small);
+}
+
+/* H1 styling for intro sections */
+.intro-section-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  margin-top: 0;
+  color: rgb(31 41 55);
+}
+
+/* Ensure H2 in intro sections are styled properly too */
+.intro-section-content h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  margin-top: 1.5rem;
+  color: rgb(31 41 55);
 }
 </style>
 `;

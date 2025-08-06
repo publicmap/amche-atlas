@@ -1,20 +1,11 @@
 # Introduction 
 
-This is a 3D atlas to explore various layers of [Goa's](https://en.wikipedia.org/wiki/Goa) geography, development, and community resources on a map.
+The amche.in atlas is a free citizen resource to find, create and share various reference maps and plans for the state of Goa, India
 
 ![](../assets/img/og_image.jpg)
 
-This is a free and open source tool built with community resources. Please see the [amche-atlas project](https://github.com/publicmap/amche-atlas/tree/main) for details.
+The source code is licensed under public domain CC-0 and available at [amche-atlas project](https://github.com/publicmap/amche-atlas/tree/main).
 
-
-
-**Interactive Elements**: Click on map features to view detailed information and attributes.
-
-**Layer Opacity**: Adjust the transparency of layers to see multiple datasets simultaneously.
-
-**Permalinks**: Share specific map views with others using generated URLs.
-
-**Mobile Friendly**: The map works on both desktop and mobile devices for field use.
 
 ## Available Data Layers
 

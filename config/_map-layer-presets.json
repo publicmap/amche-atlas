@@ -889,7 +889,7 @@
             "zoom"
           ],
           "",
-          16,
+          15,
           [
             "to-string",
             [
@@ -899,7 +899,7 @@
           ]
         ],
         "text-color": "black",
-        "text-size": 14,
+        "text-size": 12,
         "fill-color": [
           "interpolate",
           [
