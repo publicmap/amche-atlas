@@ -414,6 +414,9 @@ class IntroContentManager {
         html = html.replace(/&lt;\/button&gt;/g, '</button>');
         html = html.replace(/&quot;/g, '"');
         
+        // Fix relative image paths to be relative to the site root
+        html = this.fixImagePaths(html);
+        
         return html;
       } catch (error) {
         console.error('Error parsing markdown:', error);
@@ -424,9 +427,47 @@ class IntroContentManager {
     }
   }
 
+  fixImagePaths(html) {
+    // Get the current base path from the window location
+    // This handles both local development and deployed environments
+    const currentPath = window.location.pathname;
+    let basePath = '';
+    
+    // If we're in a subdirectory (like /dev/), extract that as the base path
+    if (currentPath !== '/' && currentPath !== '') {
+      const pathParts = currentPath.split('/').filter(part => part !== '');
+      if (pathParts.length > 0 && pathParts[pathParts.length - 1] !== 'index.html') {
+        // If the last part is not index.html, it might be a directory
+        if (!currentPath.endsWith('/')) {
+          // Remove the last part if it's likely a file
+          pathParts.pop();
+        }
+        basePath = '/' + pathParts.join('/');
+        if (basePath !== '/' && !basePath.endsWith('/')) {
+          basePath += '/';
+        }
+      }
+    }
+    
+    // Fix relative image paths that start with ../
+    // Convert ../assets/img/file.gif to /dev/assets/img/file.gif (or just /assets/img/file.gif for root)
+    html = html.replace(/src="\.\.\/([^"]+)"/g, (match, relativePath) => {
+      const fixedPath = basePath + relativePath;
+      return `src="${fixedPath}"`;
+    });
+    
+    // Also handle markdown image syntax in case it wasn't converted yet
+    html = html.replace(/!\[([^\]]*)\]\(\.\.\/([^)]+)\)/g, (match, alt, relativePath) => {
+      const fixedPath = basePath + relativePath;
+      return `![${alt}](${fixedPath})`;
+    });
+    
+    return html;
+  }
+
   fallbackMarkdownToHtml(markdown) {
     // Simple fallback markdown to HTML conversion
-    return markdown
+    let html = markdown
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/`(.*?)`/g, '<code>$1</code>')
@@ -435,6 +476,11 @@ class IntroContentManager {
       .replace(/\n\n/g, '</p><p>')
       .replace(/^(.+)$/gm, '<p>$1</p>')
       .replace(/\n/g, '<br>');
+    
+    // Fix image paths in fallback mode too
+    html = this.fixImagePaths(html);
+    
+    return html;
     // Note: HTML elements like <button> and <span> are preserved as-is in fallback
   }
 
