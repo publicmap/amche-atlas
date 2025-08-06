@@ -23,8 +23,8 @@ class IntroContentManager {
     // Configuration for intro content files
     this.config = {
       languages: {
-        en: 'English',
-        kok: 'कोंकणी'
+        en: 'En',
+        kok: 'कों'
       },
       contentFiles: [
         {
@@ -119,8 +119,11 @@ class IntroContentManager {
                 ).join('')}
               </sl-radio-group>
             </div>  
-          <div class="flex items-center gap-2 text-xl text-gray-800">
-              <span>amche.in - 3D Atlas of Goa</span>
+          <div class="flex items-center gap-2 text-xl intro-title">
+              <div class="text-center">
+                <div class="text-base font-normal">amche.in</div>
+                <div class="text-xl font-bold">3D Atlas of Goa</div>
+              </div>
             </div>
             
             <div class="flex items-center gap-4">
@@ -587,7 +590,7 @@ const styles = `
   font-weight: 700;
   margin-bottom: 1.5rem;
   margin-top: 0;
-  color: rgb(31 41 55);
+  color: #ffffff;
 }
 
 /* Ensure H2 in intro sections are styled properly too */
@@ -596,7 +599,7 @@ const styles = `
   font-weight: 600;
   margin-bottom: 1rem;
   margin-top: 1.5rem;
-  color: rgb(31 41 55);
+  color: #ffffff;
 }
 
 /* Comprehensive markdown content styling */
@@ -609,7 +612,7 @@ const styles = `
   font-weight: 700;
   margin-bottom: 1.5rem;
   margin-top: 0;
-  color: rgb(31 41 55);
+  color: #ffffff;
 }
 
 .markdown-content h2 {
@@ -617,7 +620,7 @@ const styles = `
   font-weight: 600;
   margin-bottom: 1rem;
   margin-top: 1.5rem;
-  color: rgb(31 41 55);
+  color: #ffffff;
 }
 
 .markdown-content h3 {
@@ -625,17 +628,17 @@ const styles = `
   font-weight: 600;
   margin-bottom: 0.75rem;
   margin-top: 1.25rem;
-  color: rgb(31 41 55);
+  color: #ffffff;
 }
 
 .markdown-content p {
   margin-bottom: 1rem;
-  color: rgb(55 65 81);
+  color: #f9fafb;
 }
 
 .markdown-content strong {
   font-weight: 600;
-  color: rgb(17 24 39);
+  color: #ffffff;
 }
 
 .markdown-content ul {
@@ -652,7 +655,7 @@ const styles = `
 
 .markdown-content li {
   margin-bottom: 0.25rem;
-  color: rgb(55 65 81);
+  color: #f9fafb;
 }
 
 .markdown-content ul ul {
@@ -666,16 +669,18 @@ const styles = `
 }
 
 .markdown-content a {
-  color: rgb(37 99 235);
-  text-decoration: none;
+  color: #60a5fa;
+  text-decoration: underline;
 }
 
 .markdown-content a:hover {
+  color: #93c5fd;
   text-decoration: underline;
 }
 
 .markdown-content code {
-  background-color: rgb(243 244 246);
+  background-color: #1f2937;
+  color: #e5e7eb;
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
   font-size: 0.875rem;
@@ -691,50 +696,79 @@ const styles = `
   vertical-align: middle;
 }
 
-/* Auto-close button animation */
+/* Close button styling - Match Language Switcher Style */
+/* Base styling for close button (both normal and auto-close states) */
+.intro-modal sl-button[id*="close-modal-btn"] {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.intro-modal sl-button[id*="close-modal-btn"]::part(base) {
+  transition: all 0.2s ease;
+  border: 1px solid #4b5563;
+  border-color: hsl(0, 0%, 51%);
+  color: #f9fafb;
+  background-color: #6b7280; /* Bright grey background */
+}
+
+.intro-modal sl-button[id*="close-modal-btn"]:hover::part(base) {
+  border-color: #60a5fa;
+  background-color: #9ca3af; /* Brighter grey on hover */
+  border-color: hsl(0, 0%, 51%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.intro-modal sl-button[id*="close-modal-btn"] .close-btn-text,
+.intro-modal sl-button[id*="close-modal-btn"] sl-icon {
+  color: #f9fafb;
+  transition: color 0.3s ease;
+}
+
+/* Additional styling when auto-close is active */
 .auto-close-button {
-  position: relative;
-  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.auto-close-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(to bottom, #3b82f6 0%, #1d4ed8 100%);
-  z-index: 1;
-  pointer-events: none;
+.auto-close-button::part(base) {
+  transition: all 0.2s ease;
+  border: 1px solid #4b5563;
+  border-color: hsl(0, 0%, 51%);
+  color: #f9fafb;
+  background-color: #6b7280; /* Bright grey background */
 }
 
-.auto-close-button.draining::before {
-  animation: drainFromTop 10s linear forwards;
+.auto-close-button:hover::part(base) {
+  border-color: #60a5fa;
+  background-color: #9ca3af; /* Brighter grey on hover */
+  border-color: hsl(0, 0%, 51%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.auto-close-button.draining::part(base) {
+  background-color: #9ca3af; /* Bright grey when draining */
+  border-color: hsl(0, 0%, 51%);
+  color: #ffffff;
+}
+
+.auto-close-button.draining:hover::part(base) {
+  background-color: #d1d5db; /* Even brighter grey on hover when draining */
+  border-color: hwb(0 74% 26%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(156, 163, 175, 0.4);
 }
 
 .auto-close-button .close-btn-text,
 .auto-close-button sl-icon {
-  position: relative;
-  z-index: 2;
-  color: black;
+  color: #f9fafb;
   transition: color 0.3s ease;
 }
 
 .auto-close-button.draining .close-btn-text,
 .auto-close-button.draining sl-icon {
-  color: black;
-}
-
-@keyframes drainFromTop {
-  0% {
-    transform: translateY(0%);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100%);
-    opacity: 0;
-  }
+  color: #ffffff;
 }
 </style>
 `;

@@ -2717,7 +2717,7 @@ sl-menu {
     color: #93c5fd !important;
 }
 
-  /* Language Radio Button Group Styling */
+  /* Language Radio Button Group Styling - Dark Theme */
 .language-radio-group sl-radio-button {
     cursor: pointer;
     transition: all 0.2s ease;
@@ -2725,53 +2725,191 @@ sl-menu {
 
 .language-radio-group sl-radio-button::part(button) {
     transition: all 0.2s ease;
-    border: 1px solid #d1d5db;
+    border: 1px solid #4b5563;
+    border-color: hsl(0, 0%, 51%);
+    color: #f9fafb;
 }
 
 .language-radio-group sl-radio-button:hover::part(button) {
     border-color: #60a5fa;
-    background-color: #eff6ff;
+    background-color: hsl(240, 1%, 30%);
+    border-color: hsl(0, 0%, 51%);
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .language-radio-group sl-radio-button::part(button--checked) {
-    background-color: #2563eb;
-    border-color: #2563eb;
-    color: white;
+    background-color: hwb(216 39% 53%);
+    border-color: hsl(0, 0%, 51%);
+    color: #ffffff;
 }
 
 .language-radio-group sl-radio-button:hover::part(button--checked) {
-    background-color: #1d4ed8;
-    border-color: #1d4ed8;
+    background-color: hwb(217 27% 62%);
+    border-color: hwb(0 74% 26%);
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+    box-shadow: 0 2px 4px rgba(96, 165, 250, 0.4);
 }
 
-/* Connected button group styling */
-.language-radio-group sl-radio-button:first-of-type::part(button) {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
+/* Document Viewer Dialog Styles */
+/* General sl-dialog styling for document viewer appearance */
+sl-dialog::part(base) {
+    /* Subtle drop shadow for depth */
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-.language-radio-group sl-radio-button:last-of-type::part(button) {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-    border-left: 0;
+sl-dialog::part(panel) {
+    /* Document viewer appearance with rounded corners */
+    border-radius: 12px;
+    overflow: hidden;
+    background: #ffffff;
 }
 
-.language-radio-group sl-radio-button:not(:first-of-type):not(:last-of-type)::part(button) {
-    border-radius: 0;
-    border-left: 0;
+sl-dialog::part(body) {
+    /* Dark grey body for document viewer look */
+    background-color: #374151;
+    color: #f9fafb;
+    padding: 1.5rem;
+    font-family: system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
 }
 
-/* Ensure borders connect properly on hover */
-.language-radio-group sl-radio-button:not(:last-of-type):hover::part(button) {
-    border-right: 1px solid #60a5fa;
+sl-dialog::part(header) {
+    /* Clean header styling */
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 1rem 1.5rem;
 }
 
-.language-radio-group sl-radio-button:not(:last-of-type):hover::part(button--checked) {
-    border-right: 1px solid #1d4ed8;
+sl-dialog::part(footer) {
+    /* Clean footer styling */
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    padding: 1rem 1.5rem;
+}
+
+sl-dialog::part(title) {
+    /* Title styling */
+    color: #111827;
+    font-weight: 600;
+    font-size: 1.125rem;
+}
+
+/* Overlay styling for better contrast */
+sl-dialog::part(overlay) {
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+/* Specific styling for intro modal to maintain its no-header appearance */
+.intro-modal::part(body) {
+    background-color: #374151;
+    color: #f9fafb;
+    padding: 2rem;
+}
+
+/* Intro modal title styling */
+.intro-title {
+    color: #ffffff !important;
+}
+
+.intro-title div {
+    color: #ffffff !important;
+    line-height: 1.2;
+}
+
+/* Dark theme for sl-details within dialogs */
+sl-dialog sl-details::part(base) {
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+    background-color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+sl-dialog sl-details::part(header) {
+    background-color: #374151;
+    color: #f9fafb;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #4b5563;
+    font-weight: 500;
+}
+
+sl-dialog sl-details::part(content) {
+    background-color: #1f2937;
+    color: #f9fafb;
+    padding: 1rem;
+    line-height: 1.6;
+}
+
+sl-dialog sl-details::part(summary-icon) {
+    color: #9ca3af;
+}
+
+/* Hover effects for details */
+sl-dialog sl-details:hover::part(header) {
+    background-color: #4b5563;
+}
+
+/* Open state styling */
+sl-dialog sl-details[open]::part(header) {
+    background-color: #4b5563;
+}
+
+/* Ensure text content in dialogs is readable with high contrast */
+sl-dialog p, sl-dialog div, sl-dialog span {
+    color: #f9fafb;
+}
+
+/* Make headings more white for better contrast */
+sl-dialog h1, sl-dialog h2, sl-dialog h3, sl-dialog h4, sl-dialog h5, sl-dialog h6 {
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+/* Ensure strong/bold text is also highly visible */
+sl-dialog strong, sl-dialog b {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+/* Make list items more white */
+sl-dialog li {
+    color: #f9fafb;
+}
+
+/* Style any links in dialog content */
+sl-dialog a {
+    color: #60a5fa;
+    text-decoration: underline;
+}
+
+sl-dialog a:hover {
+    color: #93c5fd;
+}
+
+/* Ensure code blocks and inline code are visible */
+sl-dialog code {
+    background-color: #1f2937;
+    color: #e5e7eb;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+}
+
+sl-dialog pre {
+    background-color: #1f2937;
+    color: #e5e7eb;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+}
+
+/* Make blockquotes more visible */
+sl-dialog blockquote {
+    color: #d1d5db;
+    border-left: 4px solid #4b5563;
+    padding-left: 1rem;
+    font-style: italic;
 }
 
 /* End of styles */
