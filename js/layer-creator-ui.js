@@ -178,6 +178,7 @@ function makeLayerConfig(url, tilejson, metadata = null) {
             },
             attribution: metadata ? (metadata.attribution || `© MapWarper - <a href="${metadata.originalUrl}" target="_blank">View Original</a>`) : undefined,
             headerImage: metadata ? metadata.thumbnail : undefined,
+            metadata: metadata, // Store full metadata including bbox
             initiallyChecked: false
         };
         
@@ -266,7 +267,8 @@ async function handleUrlInput(url) {
                                 thumbnail: links.thumb ? `${baseUrl}${links.thumb}` : null,
                                 baseUrl: baseUrl,
                                 mapId: mapId,
-                                originalUrl: url
+                                originalUrl: url,
+                                bbox: mapData.bbox || null
                             };
                         }
                     } catch (apiError) {
@@ -320,6 +322,55 @@ async function handleUrlInput(url) {
         config = makeLayerConfig(actualUrl, tilejson, mapwarperMetadata);
     }
     return config;
+}
+
+/**
+ * Fit map bounds to mapwarper layer bbox if available and valid
+ * @param {Object} layerConfig - The layer configuration object
+ */
+function fitBoundsToMapwarperLayer(layerConfig) {
+    // Check if this is a mapwarper layer with bbox metadata
+    if (!layerConfig?.metadata?.bbox || !window.map) {
+        return;
+    }
+    
+    const bbox = layerConfig.metadata.bbox;
+    
+    // Check if bbox is valid (not unrectified map)
+    if (!bbox || bbox === "0.0,0.0,0.0,0.0") {
+        console.log('Skipping fitBounds: mapwarper layer has no valid bbox (unrectified map)');
+        return;
+    }
+    
+    try {
+        // Parse bbox string "minLng,minLat,maxLng,maxLat"
+        const [minLng, minLat, maxLng, maxLat] = bbox.split(',').map(parseFloat);
+        
+        // Validate coordinates
+        if (isNaN(minLng) || isNaN(minLat) || isNaN(maxLng) || isNaN(maxLat)) {
+            console.warn('Invalid bbox coordinates:', bbox);
+            return;
+        }
+        
+        // Create bounds array for Mapbox: [[minLng, minLat], [maxLng, maxLat]]
+        const bounds = [[minLng, minLat], [maxLng, maxLat]];
+        
+        console.log('Fitting map to mapwarper layer bounds:', bounds);
+        
+        // Fit map to bounds with some padding
+        window.map.fitBounds(bounds, {
+            padding: {
+                top: 50,
+                bottom: 50,
+                left: 50,
+                right: 50
+            },
+            maxZoom: 16, // Don't zoom in too close
+            duration: 1000 // Smooth animation
+        });
+    } catch (error) {
+        console.error('Error fitting bounds to mapwarper layer:', error);
+    }
 }
 
 function getShareableUrl() {
@@ -378,11 +429,6 @@ function openLayerCreatorDialog() {
     
     dialog.show();
     
-    // Focus the URL input by default when modal opens
-    setTimeout(() => {
-        urlInput.focus();
-    }, 100);
-    
     let lastUrl = '';
     let lastConfig = '';
     
@@ -425,6 +471,10 @@ function openLayerCreatorDialog() {
         if (!configJson) return;
         try {
             const configObj = JSON.parse(configJson);
+            
+            // Fit bounds to mapwarper layer if applicable
+            fitBoundsToMapwarperLayer(configObj);
+            
             // Use the current shareable URL as base
             let baseUrl = getShareableUrl();
             let url = new URL(baseUrl);

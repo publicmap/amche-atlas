@@ -31,16 +31,16 @@ class IntroContentManager {
           en: 'docs/1_intro.en.md',
           kok: 'docs/1_intro.kok.md',
           titles: {
-            en: 'About',
-            kok: 'वळख'
+            en: '1.About',
+            kok: '1.वळख'
           }
         },
         {
-          en: 'docs/0_controls.en.md',
-          kok: 'docs/0_controls.kok.md',
+          en: 'docs/2_controls.en.md',
+          kok: 'docs/2_controls.kok.md',
           titles: {
-            en: 'Help',
-            kok: 'नकाशाचेर नियंत्रण दवरतात'
+            en: '2. Help',
+            kok: '2. नकाशाचेर नियंत्रण दवरतात'
           }
         }
         
@@ -214,11 +214,29 @@ class IntroContentManager {
       }
     });
 
+    // Handle scrolling in the content area to cancel auto-close
+    const contentArea = document.getElementById(this.contentId);
+    if (contentArea) {
+      contentArea.addEventListener('scroll', () => {
+        this.cancelAutoClose();
+      });
+    }
+
     // Allow modal to close when clicking outside
     modal.addEventListener('sl-request-close', (event) => {
       // Don't prevent the close event - allow clicking outside to close
       this.closeModal();
     });
+
+    // Keyboard shortcut 'x' to force close the modal
+    this.keyboardHandler = (event) => {
+      if (event.key === 'x' || event.key === 'X') {
+        this.closeModal();
+      }
+    };
+    
+    // Add keyboard event listener when modal is shown
+    document.addEventListener('keydown', this.keyboardHandler);
   }
 
   async loadContent() {
@@ -254,14 +272,14 @@ class IntroContentManager {
         if (section.isIntroSection) {
           return `
             <section class="p-4 break-inside-avoid">
-              <div class="text-sm leading-relaxed prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:mt-4 prose-headings:mb-2 prose-p:mb-4 prose-ul:mb-4 prose-ol:mb-4 prose-ul:pl-6 prose-ol:pl-6 prose-li:mb-1 prose-strong:text-gray-900 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-img:max-w-full prose-img:h-auto prose-img:rounded prose-img:my-2 prose-img:mx-1 prose-img:inline prose-img:align-middle prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline intro-section-content">${htmlContent}</div>
+              <div class="text-sm leading-relaxed max-w-none intro-section-content markdown-content">${htmlContent}</div>
             </section>
           `;
         } else {
           return `
             <section class="p-4 break-inside-avoid">
               <h3 class="mb-4 text-xl font-semibold m-0">${section.title}</h3>
-              <div class="text-sm leading-relaxed prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:mt-4 prose-headings:mb-2 prose-p:mb-4 prose-ul:mb-4 prose-ol:mb-4 prose-ul:pl-6 prose-ol:pl-6 prose-li:mb-1 prose-strong:text-gray-900 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-img:max-w-full prose-img:h-auto prose-img:rounded prose-img:my-2 prose-img:mx-1 prose-img:inline prose-img:align-middle prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline">${htmlContent}</div>
+              <div class="text-sm leading-relaxed max-w-none markdown-content">${htmlContent}</div>
             </section>
           `;
         }
@@ -453,6 +471,18 @@ class IntroContentManager {
     this.stopAutoCloseTimer();
     this.stopCountdownTimer();
     
+    // Clean up animation classes
+    const closeBtn = document.getElementById(this.closeBtnId);
+    if (closeBtn) {
+      closeBtn.classList.remove('auto-close-button', 'draining');
+    }
+    
+    // Remove keyboard event listener to prevent memory leaks
+    if (this.keyboardHandler) {
+      document.removeEventListener('keydown', this.keyboardHandler);
+      this.keyboardHandler = null;
+    }
+    
     // Mark that the modal has been shown at least once
     // This prevents auto-close from being enabled on subsequent opens
     IntroContentManager.hasBeenShown = true;
@@ -464,6 +494,10 @@ class IntroContentManager {
     
     let remainingTime = this.autoCloseDelay / 1000; // Convert to seconds
     const closeBtnText = document.querySelector(`#${this.closeBtnId} .close-btn-text`);
+    const closeBtn = document.getElementById(this.closeBtnId);
+    
+    // Add animation classes to the button
+    closeBtn.classList.add('auto-close-button', 'draining');
     
     // Update countdown every second
     this.countdownTimer = setInterval(() => {
@@ -501,8 +535,15 @@ class IntroContentManager {
     
     // Reset button text to normal
     const closeBtnText = document.querySelector(`#${this.closeBtnId} .close-btn-text`);
+    const closeBtn = document.getElementById(this.closeBtnId);
+    
     if (closeBtnText) {
       closeBtnText.textContent = 'Close';
+    }
+    
+    // Remove animation classes
+    if (closeBtn) {
+      closeBtn.classList.remove('auto-close-button', 'draining');
     }
     
     // Disable auto-close for this session
@@ -556,6 +597,144 @@ const styles = `
   margin-bottom: 1rem;
   margin-top: 1.5rem;
   color: rgb(31 41 55);
+}
+
+/* Comprehensive markdown content styling */
+.markdown-content {
+  line-height: 1.6;
+}
+
+.markdown-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  margin-top: 0;
+  color: rgb(31 41 55);
+}
+
+.markdown-content h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  margin-top: 1.5rem;
+  color: rgb(31 41 55);
+}
+
+.markdown-content h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  margin-top: 1.25rem;
+  color: rgb(31 41 55);
+}
+
+.markdown-content p {
+  margin-bottom: 1rem;
+  color: rgb(55 65 81);
+}
+
+.markdown-content strong {
+  font-weight: 600;
+  color: rgb(17 24 39);
+}
+
+.markdown-content ul {
+  list-style-type: disc;
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.markdown-content ol {
+  list-style-type: decimal;
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.markdown-content li {
+  margin-bottom: 0.25rem;
+  color: rgb(55 65 81);
+}
+
+.markdown-content ul ul {
+  list-style-type: circle;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.markdown-content ul ul ul {
+  list-style-type: square;
+}
+
+.markdown-content a {
+  color: rgb(37 99 235);
+  text-decoration: none;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
+}
+
+.markdown-content code {
+  background-color: rgb(243 244 246);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.markdown-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+  margin: 0.5rem 0.25rem;
+  display: inline;
+  vertical-align: middle;
+}
+
+/* Auto-close button animation */
+.auto-close-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.auto-close-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, #3b82f6 0%, #1d4ed8 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.auto-close-button.draining::before {
+  animation: drainFromTop 10s linear forwards;
+}
+
+.auto-close-button .close-btn-text,
+.auto-close-button sl-icon {
+  position: relative;
+  z-index: 2;
+  color: black;
+  transition: color 0.3s ease;
+}
+
+.auto-close-button.draining .close-btn-text,
+.auto-close-button.draining sl-icon {
+  color: black;
+}
+
+@keyframes drainFromTop {
+  0% {
+    transform: translateY(0%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
 }
 </style>
 `;

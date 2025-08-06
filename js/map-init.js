@@ -592,6 +592,38 @@ async function initializeMap() {
             }, 2000);
         }
         
+        // Add global keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            // Toggle layer drawer with '/' key
+            if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                // Prevent default behavior (e.g., quick search in browsers)
+                event.preventDefault();
+                
+                // Check if we're in an input field
+                const activeElement = document.activeElement;
+                const isInputField = activeElement && (
+                    activeElement.tagName === 'INPUT' ||
+                    activeElement.tagName === 'TEXTAREA' ||
+                    activeElement.contentEditable === 'true' ||
+                    activeElement.tagName === 'SL-INPUT'
+                );
+                
+                // Special case: if focused on the layer search input, blur it and toggle
+                const isLayerSearchInput = activeElement && activeElement.id === 'layer-search-input';
+                
+                if (isLayerSearchInput) {
+                    // Blur the search input and toggle the drawer
+                    activeElement.blur();
+                    if (window.drawerStateManager) {
+                        window.drawerStateManager.toggle();
+                    }
+                } else if (!isInputField && window.drawerStateManager) {
+                    // Normal case: not in any input field
+                    window.drawerStateManager.toggle();
+                }
+            }
+        });
+        
         // Emit mapReady event for plugins
         const mapReadyEvent = new CustomEvent('mapReady', {
             detail: { map: map }

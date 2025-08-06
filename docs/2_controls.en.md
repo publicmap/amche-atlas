@@ -1,3 +1,9 @@
+# Atlas controls
+
+The following keyboard shortcuts are available:
+- `x` Close the intro modal
+- `/` Toggle layer list search
+
 ## 🎯 Live location
 
 ![](../assets/img/help-geolocate.gif)

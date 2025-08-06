@@ -455,13 +455,16 @@ export class MapFeatureControl {
             this._toggleLayerDrawer();
         });
 
-        // Create inspect mode toggle switch
+        // Create inspect mode toggle switch - hide on touch devices
+        const isTouchDevice = this._isMobileScreen();
+        
         this._inspectSwitch = document.createElement('sl-switch');
         this._inspectSwitch.size = 'small';
         this._inspectSwitch.checked = this.options.inspectMode;
         this._inspectSwitch.style.cssText = `
             --sl-color-primary-600: #f59e0b;
             --sl-color-primary-500: #f59e0b;
+            ${isTouchDevice ? 'display: none;' : ''}
         `;
         
         // Add click handler to toggle inspect mode
@@ -480,6 +483,7 @@ export class MapFeatureControl {
             display: flex;
             align-items: center;
             gap: 4px;
+            ${isTouchDevice ? 'display: none;' : ''}
         `;
         
         const inspectIcon = document.createElement('sl-icon');
@@ -526,18 +530,21 @@ export class MapFeatureControl {
         actionsSection.appendChild(this._drawerSwitch);
         actionsSection.appendChild(drawerSwitchLabel);
         
-        // Add separator
-        const separator1 = document.createElement('div');
-        separator1.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
-        actionsSection.appendChild(separator1);
-        
-        actionsSection.appendChild(this._inspectSwitch);
-        actionsSection.appendChild(inspectSwitchLabel);
-        
-        // Add separator
-        const separator2 = document.createElement('div');
-        separator2.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
-        actionsSection.appendChild(separator2);
+        // Only add tooltip controls and separators on non-touch devices
+        if (!isTouchDevice) {
+            // Add separator
+            const separator1 = document.createElement('div');
+            separator1.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
+            actionsSection.appendChild(separator1);
+            
+            actionsSection.appendChild(this._inspectSwitch);
+            actionsSection.appendChild(inspectSwitchLabel);
+            
+            // Add separator
+            const separator2 = document.createElement('div');
+            separator2.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
+            actionsSection.appendChild(separator2);
+        }
         
         actionsSection.appendChild(this._clearSelectionBtn);
 
