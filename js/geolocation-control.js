@@ -17,7 +17,9 @@ class GeolocationManager {
             showUserHeading: true,
             showAccuracyCircle: true,
             fitBoundsOptions: {
-                zoom: 18
+                zoom: 18,
+                padding: 20,
+                maxZoom: 20
             }
         });
         
@@ -91,20 +93,9 @@ class GeolocationManager {
             this.lastPosition = event;
             this.locationErrorCount = 0;
             
-            // Update both center and bearing if tracking is active
-            if (this.isTracking) {
-                const easeToOptions = {
-                    center: [event.coords.longitude, event.coords.latitude],
-                    duration: 300
-                };
-                
-                // Include bearing if heading is available
-                if (typeof event.coords.heading === 'number' && !isNaN(event.coords.heading)) {
-                    easeToOptions.bearing = event.coords.heading;
-                }
-                
-                this.map.easeTo(easeToOptions);
-            }
+            // Let the GeolocateControl handle positioning and centering automatically
+            // when tracking is active. Only handle bearing updates separately via handleOrientation.
+            // This prevents our manual map movements from interfering with the tracking behavior.
             
             if (!this.locationLabelSet) {
                 try {

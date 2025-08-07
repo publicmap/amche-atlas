@@ -473,8 +473,39 @@ async function initializeMap() {
             });
         }
         
+        // Setup proper cursor handling for map dragging
+        const canvas = map.getCanvas();
+        
+        // Set default cursor
+        canvas.style.cursor = 'grab';
+        
+        // Handle mouse events for proper cursor states
+        map.on('mousedown', () => {
+            canvas.style.cursor = 'grabbing';
+        });
+        
+        map.on('mouseup', () => {
+            canvas.style.cursor = 'grab';
+        });
+        
+        map.on('mouseleave', () => {
+            canvas.style.cursor = 'grab';
+        });
+        
+        // Handle drag events
+        map.on('dragstart', () => {
+            canvas.style.cursor = 'grabbing';
+        });
+        
+        map.on('dragend', () => {
+            canvas.style.cursor = 'grab';
+        });
+        
         // Initialize geolocation
-        new GeolocationManager(map);
+        const geolocationManager = new GeolocationManager(map);
+        
+        // Make geolocation manager globally accessible
+        window.geolocationManager = geolocationManager;
         
         // Add view control
         map.addControl(new ViewControl(), 'top-right');
@@ -525,6 +556,15 @@ async function initializeMap() {
             localization.forceUpdateUIElements();
         }, 100);
         
+        // Set up click listener for geolocate buttons in documentation
+        $(document).on('click', '.geolocate', function(e) {
+            e.preventDefault();
+            if (window.geolocationManager && window.geolocationManager.geolocate) {
+                // Trigger the Mapbox geolocation control
+                window.geolocationManager.geolocate.trigger();
+            }
+        });
+        
         // Initialize config control after layer control is ready
         configControl.initialize(layerControl);
         
@@ -551,6 +591,38 @@ async function initializeMap() {
                 map.flyTo(flyToOptions);
             }, 2000);
         }
+        
+        // Add global keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            // Toggle layer drawer with '/' key
+            if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                // Prevent default behavior (e.g., quick search in browsers)
+                event.preventDefault();
+                
+                // Check if we're in an input field
+                const activeElement = document.activeElement;
+                const isInputField = activeElement && (
+                    activeElement.tagName === 'INPUT' ||
+                    activeElement.tagName === 'TEXTAREA' ||
+                    activeElement.contentEditable === 'true' ||
+                    activeElement.tagName === 'SL-INPUT'
+                );
+                
+                // Special case: if focused on the layer search input, blur it and toggle
+                const isLayerSearchInput = activeElement && activeElement.id === 'layer-search-input';
+                
+                if (isLayerSearchInput) {
+                    // Blur the search input and toggle the drawer
+                    activeElement.blur();
+                    if (window.drawerStateManager) {
+                        window.drawerStateManager.toggle();
+                    }
+                } else if (!isInputField && window.drawerStateManager) {
+                    // Normal case: not in any input field
+                    window.drawerStateManager.toggle();
+                }
+            }
+        });
         
         // Emit mapReady event for plugins
         const mapReadyEvent = new CustomEvent('mapReady', {

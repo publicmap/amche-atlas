@@ -84,9 +84,11 @@ function createLayerCreatorDialog() {
                 <sl-icon slot="prefix" name="link"></sl-icon>
             </sl-input>
             <div id="layer-url-help" class="text-xs text-gray-500">
-                Supported: Raster/Vector tile URLs, GeoJSON, Atlas JSON.<br>
+                Supported: Raster/Vector tile URLs, GeoJSON, Atlas JSON, MapWarper URLs.<br>
                 Examples:<br>
                 <span class="block">Raster: <code>https://warper.wmflabs.org/maps/tile/4749/{z}/{x}/{y}.png</code></span>
+                <span class="block">MapWarper: <code>https://mapwarper.net/maps/95676#Export_tab</code></span>
+                <span class="block">MapWarper: <code>https://warper.wmflabs.org/maps/8940#Show_tab</code></span>
                 <span class="block">Vector: <code>https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt</code></span>
                 <span class="block">GeoJSON: <code>https://gist.githubusercontent.com/planemad/e5ccc47bf2a1aa458a86d6839476f539/raw/6922fcc2d5ffd4d58b0fb069b9f57334f13cd953/goa-water-bodies.geojson</code></span>
                 <span class="block">Atlas: <code>https://jsonkeeper.com/b/RQ0Y</code></span>
@@ -110,7 +112,7 @@ function guessLayerType(url) {
     return 'unknown';
 }
 
-function makeLayerConfig(url, tilejson) {
+function makeLayerConfig(url, tilejson, metadata = null) {
     const type = guessLayerType(url);
     let config = {};
     if (type === 'vector') {
@@ -162,17 +164,30 @@ function makeLayerConfig(url, tilejson) {
         }
     } else if (type === 'raster') {
         config = {
-            title: 'Raster Layer',
+            title: metadata ? metadata.title : 'Raster Layer',
+            description: metadata ? metadata.description : undefined,
+            source: metadata ? metadata.source : undefined,
+            dateDepicted: metadata ? metadata.dateDepicted : undefined,
             type: 'tms',
-            id: 'raster-' + Math.random().toString(36).slice(2, 8),
+            id: metadata ? `mapwarper-${metadata.mapId}` : 'raster-' + Math.random().toString(36).slice(2, 8),
             url,
             style: {
                 'raster-opacity': [
                     'interpolate', ['linear'], ['zoom'], 6, 0.95, 18, 0.8, 19, 0.3
                 ]
             },
+            attribution: metadata ? (metadata.attribution || `© MapWarper - <a href="${metadata.originalUrl}" target="_blank">View Original</a>`) : undefined,
+            headerImage: metadata ? metadata.thumbnail : undefined,
+            metadata: metadata, // Store full metadata including bbox
             initiallyChecked: false
         };
+        
+        // Remove undefined properties to keep config clean
+        Object.keys(config).forEach(key => {
+            if (config[key] === undefined) {
+                delete config[key];
+            }
+        });
     } else if (type === 'geojson') {
         config = {
             title: 'GeoJSON Layer',
@@ -209,9 +224,65 @@ function makeLayerConfig(url, tilejson) {
 async function handleUrlInput(url) {
     let actualUrl = url;
     let tilejson = null;
+    let mapwarperMetadata = null;
     
+    // Special handling for MapWarper URLs
+    if (url.includes('mapwarper.net/maps/') || url.includes('warper.wmflabs.org/maps/')) {
+        try {
+            // Extract map ID and construct tile URL
+            // Examples: 
+            // https://mapwarper.net/maps/95676#Export_tab -> https://mapwarper.net/maps/tile/95676/{z}/{x}/{y}.png
+            // https://warper.wmflabs.org/maps/8940#Show_tab -> https://warper.wmflabs.org/maps/tile/8940/{z}/{x}/{y}.png
+            
+            const mapIdMatch = url.match(/\/maps\/(\d+)/);
+            if (mapIdMatch) {
+                const mapId = mapIdMatch[1];
+                let baseUrl;
+                
+                if (url.includes('mapwarper.net')) {
+                    baseUrl = 'https://mapwarper.net';
+                } else if (url.includes('warper.wmflabs.org')) {
+                    baseUrl = 'https://warper.wmflabs.org';
+                }
+                
+                if (baseUrl) {
+                    actualUrl = `${baseUrl}/maps/tile/${mapId}/{z}/{x}/{y}.png`;
+                    
+                    // Fetch map metadata from MapWarper API
+                    try {
+                        const apiUrl = `${baseUrl}/api/v1/maps/${mapId}`;
+                        const response = await fetch(apiUrl);
+                        if (response.ok) {
+                            const apiResponse = await response.json();
+                            const mapData = apiResponse.data?.attributes || {};
+                            const links = apiResponse.data?.links || {};
+                            
+                            // Store the metadata for use in config generation
+                            mapwarperMetadata = {
+                                title: mapData.title || `MapWarper Map ${mapId}`,
+                                description: mapData.description || '',
+                                source: mapData.source_uri || '',
+                                attribution: mapData.attribution || '',
+                                dateDepicted: mapData.date_depicted || '',
+                                thumbnail: links.thumb ? `${baseUrl}${links.thumb}` : null,
+                                baseUrl: baseUrl,
+                                mapId: mapId,
+                                originalUrl: url,
+                                bbox: mapData.bbox || null
+                            };
+                        }
+                    } catch (apiError) {
+                        console.warn('Failed to fetch MapWarper API data:', apiError);
+                        // Still proceed with tile URL, just without metadata
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to process MapWarper URL:', error);
+        }
+    }
     // Special handling for indianopenmaps.fly.dev view URLs
-    if (url.includes('indianopenmaps.fly.dev') && url.includes('/view')) {
+    else if (url.includes('indianopenmaps.fly.dev') && url.includes('/view')) {
         try {
             // Convert view URL to tile URL pattern
             // Example: https://indianopenmaps.fly.dev/not-so-open/cultural/monuments/zones/asi/bhuvan/view#6.81/22.273/74.559
@@ -246,11 +317,60 @@ async function handleUrlInput(url) {
             tilejson = await fetchTileJSON(actualUrl);
         }
         
-        config = makeLayerConfig(actualUrl, tilejson);
+        config = makeLayerConfig(actualUrl, tilejson, mapwarperMetadata);
     } else {
-        config = makeLayerConfig(actualUrl);
+        config = makeLayerConfig(actualUrl, tilejson, mapwarperMetadata);
     }
     return config;
+}
+
+/**
+ * Fit map bounds to mapwarper layer bbox if available and valid
+ * @param {Object} layerConfig - The layer configuration object
+ */
+function fitBoundsToMapwarperLayer(layerConfig) {
+    // Check if this is a mapwarper layer with bbox metadata
+    if (!layerConfig?.metadata?.bbox || !window.map) {
+        return;
+    }
+    
+    const bbox = layerConfig.metadata.bbox;
+    
+    // Check if bbox is valid (not unrectified map)
+    if (!bbox || bbox === "0.0,0.0,0.0,0.0") {
+        console.log('Skipping fitBounds: mapwarper layer has no valid bbox (unrectified map)');
+        return;
+    }
+    
+    try {
+        // Parse bbox string "minLng,minLat,maxLng,maxLat"
+        const [minLng, minLat, maxLng, maxLat] = bbox.split(',').map(parseFloat);
+        
+        // Validate coordinates
+        if (isNaN(minLng) || isNaN(minLat) || isNaN(maxLng) || isNaN(maxLat)) {
+            console.warn('Invalid bbox coordinates:', bbox);
+            return;
+        }
+        
+        // Create bounds array for Mapbox: [[minLng, minLat], [maxLng, maxLat]]
+        const bounds = [[minLng, minLat], [maxLng, maxLat]];
+        
+        console.log('Fitting map to mapwarper layer bounds:', bounds);
+        
+        // Fit map to bounds with some padding
+        window.map.fitBounds(bounds, {
+            padding: {
+                top: 50,
+                bottom: 50,
+                left: 50,
+                right: 50
+            },
+            maxZoom: 16, // Don't zoom in too close
+            duration: 1000 // Smooth animation
+        });
+    } catch (error) {
+        console.error('Error fitting bounds to mapwarper layer:', error);
+    }
 }
 
 function getShareableUrl() {
@@ -287,7 +407,7 @@ function openLayerCreatorDialog() {
     // Add empty option
     const emptyOption = document.createElement('sl-option');
     emptyOption.value = '';
-    emptyOption.textContent = 'Select a layer...';
+    emptyOption.textContent = 'Duplicate existing layer...';
     presetDropdown.appendChild(emptyOption);
     
     // Add layers to dropdown
@@ -351,6 +471,10 @@ function openLayerCreatorDialog() {
         if (!configJson) return;
         try {
             const configObj = JSON.parse(configJson);
+            
+            // Fit bounds to mapwarper layer if applicable
+            fitBoundsToMapwarperLayer(configObj);
+            
             // Use the current shareable URL as base
             let baseUrl = getShareableUrl();
             let url = new URL(baseUrl);

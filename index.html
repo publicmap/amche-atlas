@@ -18,16 +18,15 @@
 
      -->
 
-     <meta name="keywords"
-     content="community mapping, community atlas,  Goa maps, land use zones, cadastral maps, Goa construction sites, Goa coastal zones, CZMP, Survey of India, Goa terrain, Goa RDP, Goa hill slopes, interactive mapping, Goa community mapping, Goa land records, decentralized planning, masterplans, land records, land use zones, cadastral maps, construction sites, coastal zones, hill slopes, regional development plans, user contributed map annotations" />
+    <meta name="keywords"
+        content="community mapping, community atlas,  Goa maps, land use zones, cadastral maps, Goa construction sites, Goa coastal zones, CZMP, Survey of India, Goa terrain, Goa RDP, Goa hill slopes, interactive mapping, Goa community mapping, Goa land records, decentralized planning, masterplans, land records, land use zones, cadastral maps, construction sites, coastal zones, hill slopes, regional development plans, user contributed map annotations" />
 
     <meta name="description"
         content="Explore and create various maps for free using this citizen maintained digital mapping resource. Made in Goa, for the world." />
 
     <!-- Open Graph Meta Tags for Social Media -->
-    <meta property="og:title" 
-        content="amche.in - 3D Atlas of Goa" />
-    <meta property="og:description" 
+    <meta property="og:title" content="amche.in - 3D Atlas of Goa" />
+    <meta property="og:description"
         content="Explore and create various maps for free using this citizen maintained digital mapping resource. Made in Goa, for the world." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://amche.in" />
@@ -37,8 +36,7 @@
 
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" 
-        content="amche.in - Interactive Map of Goa" />
+    <meta name="twitter:title" content="amche.in - Interactive Map of Goa" />
     <meta name="twitter:description"
         content="Explore and create various maps for free using this citizen maintained digital mapping resource. Made in Goa, for the world." />
     <meta name="twitter:image" content="https://amche.in/assets/img/og_image.jpg" />
@@ -62,6 +60,7 @@
     <script type="module" src="js/map-layer-controls.js"></script>
     <script type="module" src="js/config-control.js"></script>
     <script type="module" src="js/map-feature-control.js"></script>
+    <script type="module" src="js/intro-content.js"></script>
     <script type="module" src="js/map-init.js"></script>
     <!-- Service Worker Registration -->
     <script src="js/pwa/register-sw.js"></script>
@@ -70,8 +69,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Mapbox GL JS -->
-    <link href='https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.css' rel='stylesheet' />
-    <script src='https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.css' rel='stylesheet' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.js'></script>
 
     <!-- Mapbox Search JS -->
     <script src="https://api.mapbox.com/search-js/v1.0.0/web.js"></script>
@@ -118,10 +117,10 @@
                     </svg>
                 </sl-button>
                 <sl-menu>
-                    <sl-menu-label>
-                        <a href="https://amche.in"
-                            class="text-orange-500 hover:text-orange-400 font-semibold text-lg">amche.in</a>
-                    </sl-menu-label>
+                    <sl-menu-item id="help-menu-item">
+                        <sl-icon slot="prefix" name="info-circle-fill"></sl-icon>
+                        Welcome
+                    </sl-menu-item>
                     <sl-divider></sl-divider>
                     <sl-menu-item>
                         <svg slot="prefix" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -129,7 +128,7 @@
                                 d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM17.707 5.293L14 1.586v12.828l2.293 2.293A1 1 0 0018 16V6a1 1 0 00-.293-.707z"
                                 clip-rule="evenodd" />
                         </svg>
-                        Maps
+                        Atlas
                         <sl-menu slot="submenu">
                             <sl-menu-item href="./" class="nav-active">
                                 Goa
@@ -162,7 +161,8 @@
                     </sl-menu-item>
                     <sl-menu-item href="./bus/">
                         <svg slot="prefix" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M 202,454 C 197,452 192,447 190,442 C 188,439 188,436 188,420 C 187,408 186,402 186,402 C 185,401 178,401 171,401 L 157,401 L 157,307 L 157,213 L 166,148 C 171,113 176,81 176,78 C 179,71 185,62 192,56 C 198,51 216,42 228,38 C 238,35 257,30 274,27 C 319,19 356,20 404,29 C 458,40 485,54 493,77 C 494,81 498,105 504,149 L 512,214 L 512,308 L 512,401 L 499,401 C 491,401 485,401 484,402 C 484,402 483,408 483,420 C 482,440 481,444 474,450 C 461,461 438,456 433,440 C 433,438 432,429 432,420 C 432,407 432,404 430,402 C 429,401 419,401 335,401 C 251,401 241,401 240,402 C 238,404 238,407 238,421 C 238,436 238,438 236,442 C 233,448 230,451 224,454 C 218,456 207,456 202,454 Z M 221,342 C 231,339 237,330 237,320 C 237,306 227,295 213,295 C 206,295 202,296 197,301 C 191,306 189,311 189,319 C 189,327 191,332 196,337 C 202,343 213,345 221,342 Z M 468,341 C 486,332 486,307 468,298 C 455,291 440,297 434,310 C 432,315 432,325 435,330 C 441,342 456,347 468,341 Z M 470,232 C 473,231 476,230 478,229 C 480,226 482,219 481,214 C 481,213 478,189 474,162 C 467,111 466,107 461,103 C 456,98 458,98 336,98 C 253,98 219,98 215,99 C 210,100 205,105 204,111 C 201,120 188,218 189,222 C 190,227 194,231 199,232 C 206,233 464,233 470,232 Z M 411,76 C 415,75 418,72 419,67 C 419,63 417,58 413,56 C 412,55 389,55 334,55 C 263,55 257,55 255,57 C 251,60 250,66 253,72 C 254,73 256,75 258,75 C 259,76 261,76 262,76 C 264,77 407,77 411,76 Z"/>
+                            <path
+                                d="M 202,454 C 197,452 192,447 190,442 C 188,439 188,436 188,420 C 187,408 186,402 186,402 C 185,401 178,401 171,401 L 157,401 L 157,307 L 157,213 L 166,148 C 171,113 176,81 176,78 C 179,71 185,62 192,56 C 198,51 216,42 228,38 C 238,35 257,30 274,27 C 319,19 356,20 404,29 C 458,40 485,54 493,77 C 494,81 498,105 504,149 L 512,214 L 512,308 L 512,401 L 499,401 C 491,401 485,401 484,402 C 484,402 483,408 483,420 C 482,440 481,444 474,450 C 461,461 438,456 433,440 C 433,438 432,429 432,420 C 432,407 432,404 430,402 C 429,401 419,401 335,401 C 251,401 241,401 240,402 C 238,404 238,407 238,421 C 238,436 238,438 236,442 C 233,448 230,451 224,454 C 218,456 207,456 202,454 Z M 221,342 C 231,339 237,330 237,320 C 237,306 227,295 213,295 C 206,295 202,296 197,301 C 191,306 189,311 189,319 C 189,327 191,332 196,337 C 202,343 213,345 221,342 Z M 468,341 C 486,332 486,307 468,298 C 455,291 440,297 434,310 C 432,315 432,325 435,330 C 441,342 456,347 468,341 Z M 470,232 C 473,231 476,230 478,229 C 480,226 482,219 481,214 C 481,213 478,189 474,162 C 467,111 466,107 461,103 C 456,98 458,98 336,98 C 253,98 219,98 215,99 C 210,100 205,105 204,111 C 201,120 188,218 189,222 C 190,227 194,231 199,232 C 206,233 464,233 470,232 Z M 411,76 C 415,75 418,72 419,67 C 419,63 417,58 413,56 C 412,55 389,55 334,55 C 263,55 257,55 255,57 C 251,60 250,66 253,72 C 254,73 256,75 258,75 C 259,76 261,76 262,76 C 264,77 407,77 411,76 Z" />
                         </svg>
                         Bus
                     </sl-menu-item>
@@ -237,11 +237,7 @@
                 </div>
                 <div id="map-layer-filter" class="sticky top-0 z-10 hidden">
                     <div class="relative">
-                        <sl-input
-                            id="layer-search-input"
-                            placeholder="Search layers..."
-                            clearable
-                            class="w-full">
+                        <sl-input id="layer-search-input" placeholder="Search layers..." clearable class="w-full">
                             <sl-icon slot="prefix" name="search"></sl-icon>
                         </sl-input>
                     </div>
@@ -264,20 +260,6 @@
         </main>
     </div>
 
-    <!-- Google tag (gtag.js) -->
-    <script>
-        if (window.location.hostname === 'amche.in') {
-            // Load Google Analytics
-            const gtagScript = document.createElement('script');
-            gtagScript.async = true;
-            gtagScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-FBVGZ4HJV0';
-            document.head.appendChild(gtagScript);
-            window.dataLayer = window.dataLayer || [];
-            function gtag() { dataLayer.push(arguments); }
-            gtag('js', new Date());
-            gtag('config', 'G-FBVGZ4HJV0');
-        }
-    </script>
     <script>
         function navigateToSound(event) {
             event.preventDefault();
@@ -339,6 +321,16 @@
 
         // Handle navigation dropdown menu clicks
         customElements.whenDefined('sl-menu-item').then(() => {
+            // Handle help menu item click
+            const helpMenuItem = document.getElementById('help-menu-item');
+            if (helpMenuItem) {
+                helpMenuItem.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    // Create new IntroContentManager instance without auto-close
+                    new IntroContentManager({ enableAutoClose: false });
+                });
+            }
+
             document.querySelectorAll('sl-menu-item[href]').forEach(item => {
                 item.addEventListener('click', (event) => {
                     const href = item.getAttribute('href');
@@ -406,6 +398,21 @@
 
     <!-- Add layer-creator-ui.js module loader -->
     <script type="module" src="js/layer-creator-ui.js"></script>
+
+    <!-- Google Analytics -->
+    <script>
+        if (window.location.hostname === 'amche.in') {
+            // Load Google Analytics
+            const gtagScript = document.createElement('script');
+            gtagScript.async = true;
+            gtagScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-FBVGZ4HJV0';
+            document.head.appendChild(gtagScript);
+            window.dataLayer = window.dataLayer || [];
+            function gtag() { dataLayer.push(arguments); }
+            gtag('js', new Date());
+            gtag('config', 'G-FBVGZ4HJV0');
+        }
+    </script>
 </body>
 
 </html>

@@ -434,7 +434,7 @@ export class MapboxAPI {
                 style: {
                     ...(this._defaultStyles.raster || {}),
                     ...(config.style || {}),
-                    'raster-opacity': config.style?.['raster-opacity'] || config.opacity || 1
+                    'raster-opacity': config.style?.['raster-opacity'] || config.opacity || this._defaultStyles.raster?.['raster-opacity'] || 1
                 },
                 visible
             }, 'raster');
@@ -1463,6 +1463,14 @@ export class MapboxAPI {
                 mergedStyles[property] = userValue;
             }
         });
+
+        // Special handling for text-halo-color: use fill-color as fallback if text-halo-color not provided
+        if (!userStyles['text-halo-color'] && userStyles['fill-color'] && defaultStyles['text-halo-color']) {
+            mergedStyles['text-halo-color'] = this._combineWithDefaultStyle(
+                userStyles['fill-color'], 
+                defaultStyles['text-halo-color']
+            );
+        }
 
         return mergedStyles;
     }

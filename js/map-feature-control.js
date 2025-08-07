@@ -79,6 +79,9 @@ export class MapFeatureControl {
         // Layer settings modal - initialize after map is available
         this._layerSettingsModal = null;
         
+        // Animation state tracking to prevent mouse interference during camera movements
+        this._isAnimating = false;
+        
         // Initialized
     }
 
@@ -426,7 +429,7 @@ export class MapFeatureControl {
             this._toggleLayerDrawer();
         });
 
-        // Create label for the drawer switch
+        // Create label for the drawer switch with icon
         const drawerSwitchLabel = document.createElement('label');
         drawerSwitchLabel.style.cssText = `
             font-size: 12px;
@@ -434,8 +437,17 @@ export class MapFeatureControl {
             font-weight: 500;
             cursor: pointer;
             user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         `;
-        drawerSwitchLabel.textContent = 'Layer List';
+        
+        const layersIcon = document.createElement('sl-icon');
+        layersIcon.name = 'layout-sidebar-inset';
+        layersIcon.style.fontSize = '12px';
+        
+        drawerSwitchLabel.appendChild(layersIcon);
+        drawerSwitchLabel.appendChild(document.createTextNode('Layer List'));
         
         // Make label clickable
         drawerSwitchLabel.addEventListener('click', () => {
@@ -443,13 +455,16 @@ export class MapFeatureControl {
             this._toggleLayerDrawer();
         });
 
-        // Create inspect mode toggle switch
+        // Create inspect mode toggle switch - hide on touch devices
+        const isTouchDevice = this._isMobileScreen();
+        
         this._inspectSwitch = document.createElement('sl-switch');
         this._inspectSwitch.size = 'small';
         this._inspectSwitch.checked = this.options.inspectMode;
         this._inspectSwitch.style.cssText = `
             --sl-color-primary-600: #f59e0b;
             --sl-color-primary-500: #f59e0b;
+            ${isTouchDevice ? 'display: none;' : ''}
         `;
         
         // Add click handler to toggle inspect mode
@@ -468,14 +483,15 @@ export class MapFeatureControl {
             display: flex;
             align-items: center;
             gap: 4px;
+            ${isTouchDevice ? 'display: none;' : ''}
         `;
         
         const inspectIcon = document.createElement('sl-icon');
-        inspectIcon.name = 'hand-index-thumb';
+        inspectIcon.name = 'chat-square';
         inspectIcon.style.fontSize = '12px';
         
         inspectSwitchLabel.appendChild(inspectIcon);
-        inspectSwitchLabel.appendChild(document.createTextNode('Inspect'));
+        inspectSwitchLabel.appendChild(document.createTextNode('Tooltips'));
         
         // Make label clickable
         inspectSwitchLabel.addEventListener('click', () => {
@@ -514,18 +530,21 @@ export class MapFeatureControl {
         actionsSection.appendChild(this._drawerSwitch);
         actionsSection.appendChild(drawerSwitchLabel);
         
-        // Add separator
-        const separator1 = document.createElement('div');
-        separator1.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
-        actionsSection.appendChild(separator1);
-        
-        actionsSection.appendChild(this._inspectSwitch);
-        actionsSection.appendChild(inspectSwitchLabel);
-        
-        // Add separator
-        const separator2 = document.createElement('div');
-        separator2.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
-        actionsSection.appendChild(separator2);
+        // Only add tooltip controls and separators on non-touch devices
+        if (!isTouchDevice) {
+            // Add separator
+            const separator1 = document.createElement('div');
+            separator1.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
+            actionsSection.appendChild(separator1);
+            
+            actionsSection.appendChild(this._inspectSwitch);
+            actionsSection.appendChild(inspectSwitchLabel);
+            
+            // Add separator
+            const separator2 = document.createElement('div');
+            separator2.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
+            actionsSection.appendChild(separator2);
+        }
         
         actionsSection.appendChild(this._clearSelectionBtn);
 
@@ -3209,8 +3228,11 @@ export class MapFeatureControl {
             if (interactiveFeatures.length > 0) {
                 this._stateManager.handleFeatureClicks(interactiveFeatures);
                 
-                // Ease map to center on clicked location with mobile offset
-                this._easeToCenterWithOffset(e.lngLat);
+                // Delay camera movement to let selection state settle and avoid deselection
+                // This prevents the camera animation from triggering mouse leave events that deselect features
+                setTimeout(() => {
+                    this._easeToCenterWithOffset(e.lngLat);
+                }, 100); // 100ms delay to let selection state stabilize
             } else {
                 // Clear selections if clicking on empty area
                 this._stateManager.clearAllSelections();
@@ -3489,6 +3511,12 @@ export class MapFeatureControl {
         this._removeHoverPopup();
         this._currentHoveredFeature = null;
         
+        // Reset cursor to default grab state
+        this._updateCursorForFeatures([]);
+        
+        // Reset animation state
+        this._isAnimating = false;
+        
         this._lastRenderState.clear();
     }
 
@@ -3534,6 +3562,9 @@ export class MapFeatureControl {
         // This ensures clean state when mouse moves off map
         this._removeHoverPopup();
         this._currentHoveredFeature = null;
+        
+        // Reset cursor to default grab when no features are hovered
+        this._updateCursorForFeatures([]);
     }
 
 
@@ -3920,6 +3951,11 @@ export class MapFeatureControl {
      * Handle mousemove using queryRenderedFeatures with deduplication
      */
     _handleMouseMoveWithQueryRendered(e) {
+        // Skip mouse tracking during camera animations to prevent interference with feature selection
+        if (this._isAnimating) {
+            return;
+        }
+        
         // Query all features at the mouse point once
         const features = this._map.queryRenderedFeatures(e.point);
         
@@ -3984,6 +4020,9 @@ export class MapFeatureControl {
                 });
             }
         });
+        
+        // Update cursor based on whether we have interactive features
+        this._updateCursorForFeatures(interactiveFeatures);
                 
         // Pass all interactive features to the state manager for batch processing
         this._stateManager.handleFeatureHovers(interactiveFeatures, e.lngLat);
@@ -3996,6 +4035,23 @@ export class MapFeatureControl {
         if (!this._hoverPopup) return;
         
         this._hoverPopup.setLngLat(lngLat);
+    }
+
+    /**
+     * Update cursor based on whether there are interactive features under the mouse
+     */
+    _updateCursorForFeatures(interactiveFeatures) {
+        if (!this._map) return;
+        
+        const canvas = this._map.getCanvas();
+        
+        if (interactiveFeatures && interactiveFeatures.length > 0) {
+            // Change cursor to pointer when hovering over interactive features
+            canvas.style.cursor = 'pointer';
+        } else {
+            // Reset cursor to default grab when no interactive features
+            canvas.style.cursor = 'grab';
+        }
     }
 
     /**
@@ -4018,6 +4074,9 @@ export class MapFeatureControl {
             offsetY = -mapHeight * 0.25; // Negative offset moves center point UP
         }
         
+        // Temporarily disable mouse tracking during animation to prevent deselection
+        this._isAnimating = true;
+        
         // Ease to the clicked location with smooth animation
         this._map.easeTo({
             center: lngLat,
@@ -4025,6 +4084,11 @@ export class MapFeatureControl {
             duration: 600, // Smooth 600ms animation
             essential: true // Ensures animation runs even if user prefers reduced motion
         });
+        
+        // Re-enable mouse tracking after animation completes
+        setTimeout(() => {
+            this._isAnimating = false;
+        }, 650); // Slightly longer than animation duration to ensure it's complete
     }
 
     /**

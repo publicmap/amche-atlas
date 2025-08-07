@@ -669,6 +669,15 @@
       "id": "notified-wetlands"
     },
     {
+      "title": "Notified wetland buffer areas",
+      "description": "Maps of notified wetland 50m buffer zones and 10m zones of influence. Only Pilerne Lake is available currently.",
+      "headerImage": "assets/map-layers/map-layer-wetland-buffer.png",
+      "type": "tms",
+      "id": "notified-wetland-buffer",
+      "url": "https://mapwarper.net/maps/tile/94562/{z}/{x}/{y}.png",
+      "attribution": "<a href='https://gswa.goa.gov.in/gazette-notification/'>Gazette Notifications, Goa State Wetland Authority</a>. Georeferenced using <a href='https://mapwarper.net/maps/94562#Show_tab'>Mapwarper</a>"
+    },
+    {
       "id": "notified-khazan"
     },
     {

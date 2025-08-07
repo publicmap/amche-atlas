@@ -889,7 +889,7 @@
             "zoom"
           ],
           "",
-          16,
+          15,
           [
             "to-string",
             [
@@ -899,8 +899,7 @@
           ]
         ],
         "text-color": "black",
-        "text-halo-width": 0.1,
-        "text-size": 14,
+        "text-size": 12,
         "fill-color": [
           "interpolate",
           [
@@ -923,7 +922,7 @@
           [
             "zoom"
           ],
-          12,
+          13,
           [
             "case",
             [
@@ -944,7 +943,7 @@
               false
             ],
             1,
-            0.01
+            0
           ],
           18,
           [
@@ -1162,7 +1161,10 @@
       "sourceLayer": "vector",
       "maxzoom": 14,
       "attribution": "<a href='https://czmp.ncscm.res.in'>Coastal Zone Management Plan 2019, Ministry of Environment, Forest and Climate Change</a> - via <a href='https://www.maphub.co/map/ece88d0e-2c10-4b78-a163-904a4cf16dd4'>Maphub</a>",
-      "filter": ["!=", "match_status", "unmatched"],
+      "filter": ["all",
+      ["!=", "match_status", "unmatched"],
+      ["==", "Class", "Khazan Land"]
+    ],
       "style": {
         "text-padding": 30,
         "text-field": [
@@ -1176,37 +1178,60 @@
             "match",
             [
               "get",
-              "Class"
+              "CRZ_IA"
             ],
-            ["Khazan Land"],
+            "Nesting Grounds of Birds - CRZ IA",
+            "Bird Nesting Grounds",
+            "Salt Marsh - CRZ IA",
+            "Salt Marsh",
+            "Mangroves - CRZ IA",
+            "Mangroves",
             [
               "match",
               [
                 "get",
-                "CRZ_IA"
+                "Class_2"
               ],
-              "Nesting Grounds of Birds - CRZ IA",
-              "Bird Nesting Grounds",
-              "Salt Marsh - CRZ IA",
-              "Salt Marsh",
-              "Mangroves - CRZ IA",
-              "Mangroves",
-              [
-                "match",
-                [
-                  "get",
-                  "Class_2"
-                ],
-                "Aquaculture/Saltpan",
-                "Aquaculture",
-                "Khazan"
-              ]
-            ],
-            "CRZ-IA Zone"
+              "Aquaculture/Saltpan",
+              "Aquaculture",
+              "Khazan"
+            ]
           ]
         ]
         ,
         "fill-opacity": 1,
+        "text-halo-color": [
+          "match",
+          [
+            "get",
+            "Class"
+          ],
+          ["Khazan Land"],
+          [
+            "match",
+            [
+              "get",
+              "CRZ_IA"
+            ],
+            "Nesting Grounds of Birds - CRZ IA",
+            "darkgreen",
+            ["Salt Marsh - CRZ IA"],
+            "cyan",
+            ["Mangroves - CRZ IA"],
+            "green",
+            [
+              "match",
+              [
+                "get",
+                "Class_2"
+              ],
+              "Aquaculture/Saltpan",
+              "cyan",
+              "#b3ff0f"
+            ]
+          ],
+          "#ccc"
+        ],
         "fill-color": [
           "match",
           [
@@ -1981,9 +2006,9 @@
     },
     {
       "id": "micro-watersheds",
-      "title": "Micro Watershed Boundaries",
+      "title": "Micro Watershed Atlas of India",
       "headerImage": "assets/map-layers/map-layer-micro-watersheds.png",
-      "description": "Micro Watershed Boundaries",
+      "description": "Micro Watershed Atlas with <a href='https://slusi.da.gov.in/mwa.pdf'>micro watershed code</a>",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/micro-watersheds/priorities/slusi/{z}/{x}/{y}.pbf",
       "sourceLayer": "SLUSI_Priority_MicroWatersheds",
@@ -2007,24 +2032,10 @@
           "Very Low",
           "rgba(0, 100, 0, 0.4)",
           "rgba(128, 128, 128, 0.5)"
-        ],
-        "fill-opacity": 0.4,
-        "line-color": "blue",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          12,
-          2,
-          18,
-          4
         ]
       },
       "inspect": {
+        "id": "HYDRO_UNIT",
         "title": "Micro Watershed Code",
         "label": "HYDRO_UNIT",
         "fields": [
@@ -4069,62 +4080,7 @@
         ],
         "text-halo-width": 5,
         "text-size": 13,
-        "line-color": "black",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          11,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            4,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            1,
-            0
-          ],
-          18,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            8,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            5,
-            0.1
-          ]
-        ],
+        "line-color": "grey",
         "fill-color": [
           "match",
           [
@@ -4784,8 +4740,6 @@
       "headerImage": "assets/map-layers/map-layer-satellite.png",
       "styleLayer": "satellite",
       "style":{
-        "raster-contrast": 0.2,
-        "raster-saturation": 0.4,
         "raster-brightness-min": [
           "interpolate",
           ["linear"],

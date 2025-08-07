@@ -7,6 +7,117 @@
     z-index: 1;
 }
 
+/* General button styling */
+button {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    outline: none;
+}
+
+button:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+    color: #111827;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+button:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+button:disabled:hover {
+    background: #ffffff;
+    border-color: #d1d5db;
+    color: #374151;
+    transform: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Primary button variant */
+button.primary {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+button.primary:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: white;
+}
+
+/* Secondary button variant */
+button.secondary {
+    background: #6b7280;
+    border-color: #6b7280;
+    color: white;
+}
+
+button.secondary:hover {
+    background: #4b5563;
+    border-color: #4b5563;
+    color: white;
+}
+
+/* Danger button variant */
+button.danger {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: white;
+}
+
+button.danger:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: white;
+}
+
+/* Success button variant */
+button.success {
+    background: #10b981;
+    border-color: #10b981;
+    color: white;
+}
+
+button.success:hover {
+    background: #059669;
+    border-color: #059669;
+    color: white;
+}
+
+/* Small button variant */
+button.small {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* Large button variant */
+button.large {
+    padding: 12px 24px;
+    font-size: 16px;
+}
+
 /* Add new styles for the opacity control */
 .opacity-control {
     background: white;
@@ -977,8 +1088,10 @@ header .icon-button {
     transition: color 0.15s ease !important;
 }
 
-sl-details::part(header) {
+#map-controls-drawer sl-details::part(header) {
     padding: 0;
+}
+sl-details::part(header) {
     opacity: 0.9;
 }
 sl-details::part(header):hover {
@@ -1967,9 +2080,13 @@ sl-menu {
     letter-spacing: 0.05em;
 }
 
-/* Bus location layer cursor */
+/* Default map cursor - hand for dragging */
 .mapboxgl-canvas {
-    cursor: crosshair;
+    cursor: grab;
+}
+
+.mapboxgl-canvas:active {
+    cursor: grabbing;
 }
 
 /* Nearby stops panel */
@@ -2307,7 +2424,8 @@ sl-menu {
     background: rgba(0, 0, 0, 0.02);
     border: none;
     border-top: 1px solid #fafafa;
-/* Header background image styling - applied dynamically via JavaScript */
+    /* Header background image styling - applied dynamically via JavaScript */
+}
 
 .map-feature-control .layer-details::part(content) {
     padding: 0px 6px;
@@ -2598,3 +2716,200 @@ sl-menu {
 .map-feature-control .feature-inspector-additional-info a:hover {
     color: #93c5fd !important;
 }
+
+  /* Language Radio Button Group Styling - Dark Theme */
+.language-radio-group sl-radio-button {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.language-radio-group sl-radio-button::part(button) {
+    transition: all 0.2s ease;
+    border: 1px solid #4b5563;
+    border-color: hsl(0, 0%, 51%);
+    color: #f9fafb;
+}
+
+.language-radio-group sl-radio-button:hover::part(button) {
+    border-color: #60a5fa;
+    background-color: hsl(240, 1%, 30%);
+    border-color: hsl(0, 0%, 51%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.language-radio-group sl-radio-button::part(button--checked) {
+    background-color: hwb(216 39% 53%);
+    border-color: hsl(0, 0%, 51%);
+    color: #ffffff;
+}
+
+.language-radio-group sl-radio-button:hover::part(button--checked) {
+    background-color: hwb(217 27% 62%);
+    border-color: hwb(0 74% 26%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(96, 165, 250, 0.4);
+}
+
+/* Document Viewer Dialog Styles */
+/* General sl-dialog styling for document viewer appearance */
+sl-dialog::part(base) {
+    /* Subtle drop shadow for depth */
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+sl-dialog::part(panel) {
+    /* Document viewer appearance with rounded corners */
+    border-radius: 12px;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+sl-dialog::part(body) {
+    /* Dark grey body for document viewer look */
+    background-color: #374151;
+    color: #f9fafb;
+    padding: 1.5rem;
+    font-family: system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+}
+
+sl-dialog::part(header) {
+    /* Clean header styling */
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 1rem 1.5rem;
+}
+
+sl-dialog::part(footer) {
+    /* Clean footer styling */
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    padding: 1rem 1.5rem;
+}
+
+sl-dialog::part(title) {
+    /* Title styling */
+    color: #111827;
+    font-weight: 600;
+    font-size: 1.125rem;
+}
+
+/* Overlay styling for better contrast */
+sl-dialog::part(overlay) {
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+/* Specific styling for intro modal to maintain its no-header appearance */
+.intro-modal::part(body) {
+    background-color: #374151;
+    color: #f9fafb;
+    padding: 2rem;
+}
+
+/* Intro modal title styling */
+.intro-title {
+    color: #ffffff !important;
+}
+
+.intro-title div {
+    color: #ffffff !important;
+    line-height: 1.2;
+}
+
+/* Dark theme for sl-details within dialogs */
+sl-dialog sl-details::part(base) {
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+    background-color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+sl-dialog sl-details::part(header) {
+    background-color: #374151;
+    color: #f9fafb;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #4b5563;
+    font-weight: 500;
+}
+
+sl-dialog sl-details::part(content) {
+    background-color: #1f2937;
+    color: #f9fafb;
+    padding: 1rem;
+    line-height: 1.6;
+}
+
+sl-dialog sl-details::part(summary-icon) {
+    color: #9ca3af;
+}
+
+/* Hover effects for details */
+sl-dialog sl-details:hover::part(header) {
+    background-color: #4b5563;
+}
+
+/* Open state styling */
+sl-dialog sl-details[open]::part(header) {
+    background-color: #4b5563;
+}
+
+/* Ensure text content in dialogs is readable with high contrast */
+sl-dialog p, sl-dialog div, sl-dialog span {
+    color: #f9fafb;
+}
+
+/* Make headings more white for better contrast */
+sl-dialog h1, sl-dialog h2, sl-dialog h3, sl-dialog h4, sl-dialog h5, sl-dialog h6 {
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+/* Ensure strong/bold text is also highly visible */
+sl-dialog strong, sl-dialog b {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+/* Make list items more white */
+sl-dialog li {
+    color: #f9fafb;
+}
+
+/* Style any links in dialog content */
+sl-dialog a {
+    color: #60a5fa;
+    text-decoration: underline;
+}
+
+sl-dialog a:hover {
+    color: #93c5fd;
+}
+
+/* Ensure code blocks and inline code are visible */
+sl-dialog code {
+    background-color: #1f2937;
+    color: #e5e7eb;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+}
+
+sl-dialog pre {
+    background-color: #1f2937;
+    color: #e5e7eb;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+}
+
+/* Make blockquotes more visible */
+sl-dialog blockquote {
+    color: #d1d5db;
+    border-left: 4px solid #4b5563;
+    padding-left: 1rem;
+    font-style: italic;
+}
+
+/* End of styles */
