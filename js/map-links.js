@@ -60,13 +60,13 @@ export class MapLinks {
                 flex-direction: column;
                 align-items: center;
                 padding: 1.5rem;
-                border: 1px solid #e2e8f0;
+                border: 1px solid #4b5563;
                 border-radius: 8px;
                 cursor: pointer;
                 transition: all 0.2s ease;
                 text-decoration: none;
-                color: inherit;
-                background: white;
+                color: #f9fafb;
+                background:hsl(218, 12.30%, 30.40%);
             }
             
             .map-link-card:hover {

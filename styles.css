@@ -2762,7 +2762,7 @@ sl-dialog::part(panel) {
     /* Document viewer appearance with rounded corners */
     border-radius: 12px;
     overflow: hidden;
-    background: #ffffff;
+    background-color: #374151;
 }
 
 sl-dialog::part(body) {
@@ -2776,21 +2776,21 @@ sl-dialog::part(body) {
 
 sl-dialog::part(header) {
     /* Clean header styling */
-    background: #ffffff;
+    background-color: #374151;
     border-bottom: 1px solid #e5e7eb;
     padding: 1rem 1.5rem;
 }
 
 sl-dialog::part(footer) {
     /* Clean footer styling */
-    background: #f9fafb;
+    background-color: #374151;
     border-top: 1px solid #e5e7eb;
     padding: 1rem 1.5rem;
 }
 
 sl-dialog::part(title) {
     /* Title styling */
-    color: #111827;
+    color: hsl(0, 0%, 99%);
     font-weight: 600;
     font-size: 1.125rem;
 }
