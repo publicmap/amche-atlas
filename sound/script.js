@@ -98,7 +98,7 @@ let isPaused = false;
 let locationAccuracy = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
-    mapboxgl.accessToken = 'pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ'; // Mapbox Token by @planemad. Migrate to community token.
+    mapboxgl.accessToken = window.amche.MAPBOXGL_ACCESS_TOKEN;
 
     map = new mapboxgl.Map({
         container: 'map',

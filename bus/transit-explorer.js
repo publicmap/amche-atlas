@@ -20,7 +20,7 @@ class TransitExplorer {
         this.userLocation = null;
         this.currentStop = null;
         this.refreshInterval = null;
-        this.mapboxToken = 'pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ';
+        this.mapboxToken = window.amche.MAPBOXGL_ACCESS_TOKEN;
         this.tilesets = {
             routes: 'planemad.byjf1hw6',
             stops: 'planemad.2e4x2hzw'

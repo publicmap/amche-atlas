@@ -11,11 +11,11 @@ function navigateToSound(event) {
 /**
  * This will execute the google analytics script for the amche.in domain
  */
-if (window.location.hostname === 'amche.in') {
+if (window.location.hostname === window.amche.DOMAIN_URL) {
     // Load Google Analytics
     const gtagScript = document.createElement('script');
     gtagScript.async = true;
-    gtagScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-FBVGZ4HJV0';
+    gtagScript.src = 'https://www.googletagmanager.com/gtag/js?id=' + window.amche.GOOGLE_ANALYTICS;
     document.head.appendChild(gtagScript);
     window.dataLayer = window.dataLayer || [];
 
@@ -24,7 +24,7 @@ if (window.location.hostname === 'amche.in') {
     }
 
     gtag('js', new Date());
-    gtag('config', 'G-FBVGZ4HJV0');
+    gtag('config', window.amche.GOOGLE_ANALYTICS);
 }
 
 /**
@@ -155,3 +155,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     shareLink.render();
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    const parentElement = document.getElementById('mapbox-search-box-container');
+    var searchbox = document.createElement('mapbox-search-box');
+    Object.assign(searchbox, {
+        'access-token' : window.amche.MAPBOXGL_ACCESS_TOKEN,
+        types : "place,locality,postcode,region,district,street,address,poi",
+        country : "IN",
+        language : "en",
+        proximity : "73.87916,15.26032"
+    });
+    parentElement.appendChild(searchbox);
+})

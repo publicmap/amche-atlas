@@ -614,7 +614,7 @@ function isObject(item) {
 }
 
 // Initialize the map
-mapboxgl.accessToken = 'pk.eyJ1Ijoib3NtaW5kaWEiLCJhIjoiY202czRpbWdpMDNyZjJwczJqZXdkMGR1eSJ9.eQQf--msfqtZIamJN-KKVQ';
+mapboxgl.accessToken = window.amche.MAPBOXGL_ACCESS_TOKEN;
 
 // Default map options
 const defaultMapOptions = {

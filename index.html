@@ -2,6 +2,14 @@
 <html lang="en">
 
 <head>
+    <!-- Global Variables -->
+    <script>
+        window.amche = {};
+        window.amche.ENABLE_INTRO_CONTENT = false; // Set to true to enable intro content auto-loading
+        window.amche.MAPBOXGL_ACCESS_TOKEN = 'pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ'; // Mapbox Token by @planemad. Migrate to community token.
+        window.amche.GOOGLE_ANALYTICS = 'G-FBVGZ4HJV0';
+        window.amche.DOMAIN_URL = 'amche.in';
+    </script>
 
     <title>amche.in - Interactive 3D Atlas</title>
     <link rel="canonical" href="https://amche.in" />
@@ -73,10 +81,6 @@
     <script defer type="module" src="js/config-control.js"></script>
     <script defer type="module" src="js/map-feature-control.js"></script>
     <script defer type="module" src="js/map-attribution-control.js"></script>
-    <!-- Intro content configuration: set to true to enable auto-loading -->
-    <script>
-        window.ENABLE_INTRO_CONTENT = false; // Set to true to enable intro content auto-loading
-    </script>
     <script defer type="module" src="js/intro-content.js"></script>
     <script defer type="module" src="js/atlas-layer-registry.js"></script>
     <script defer type="module" src="js/map-init.js"></script>
@@ -207,13 +211,7 @@
                 </sl-menu>
             </sl-dropdown>
 
-            <div>
-                <mapbox-search-box id="search-box"
-                    access-token="pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ"
-                    proximity="73.87916,15.26032" country="IN" language="en"
-                    types="place,locality,postcode,region,district,street,address,poi">
-                </mapbox-search-box>
-            </div>
+            <div id="mapbox-search-box-container"></div>
         </div>
         <div class="flex gap-4 items-center">
             <!-- Add Layer button for new data source/atlas -->
