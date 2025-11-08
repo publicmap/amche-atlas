@@ -3038,3 +3038,568 @@ sl-dialog blockquote {
     display: block;
     line-height: 1;
 }
+
+/*
+Styles moved from the Intro Content
+ */
+
+.intro-modal::part(panel) {
+    max-width: 95vw;
+    max-height: 95vh;
+    width: 100%;
+    height: 100%;
+}
+
+/* GPS icon styling for background images */
+.prose span[style*="background-image"] {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    vertical-align: middle;
+    margin: 0 4px;
+}
+
+/* Accordion spacing */
+.details-group-example sl-details:not(:last-of-type) {
+    margin-bottom: var(--sl-spacing-2x-small);
+}
+
+/* H1 styling for intro sections */
+.intro-section-content h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    margin-top: 0;
+    color: #ffffff;
+}
+
+/* Ensure H2 in intro sections are styled properly too */
+.intro-section-content h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    margin-top: 1.5rem;
+    color: #ffffff;
+}
+
+/* Comprehensive markdown content styling */
+.markdown-content {
+    line-height: 1.6;
+}
+
+.markdown-content h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    margin-top: 0;
+    color: #ffffff;
+}
+
+.markdown-content h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    margin-top: 1.5rem;
+    color: #ffffff;
+}
+
+.markdown-content h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    margin-top: 1.25rem;
+    color: #ffffff;
+}
+
+.markdown-content p {
+    margin-bottom: 1rem;
+    color: #f9fafb;
+}
+
+.markdown-content strong {
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.markdown-content ul {
+    list-style-type: disc;
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+}
+
+.markdown-content ol {
+    list-style-type: decimal;
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+}
+
+.markdown-content li {
+    margin-bottom: 0.25rem;
+    color: #f9fafb;
+}
+
+.markdown-content ul ul {
+    list-style-type: circle;
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+.markdown-content ul ul ul {
+    list-style-type: square;
+}
+
+.markdown-content a {
+    color: #60a5fa;
+    text-decoration: underline;
+}
+
+.markdown-content a:hover {
+    color: #93c5fd;
+    text-decoration: underline;
+}
+
+.markdown-content code {
+    background-color: #1f2937;
+    color: #e5e7eb;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.markdown-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.375rem;
+    margin: 0.5rem 0.25rem;
+    display: inline;
+    vertical-align: middle;
+}
+
+/* Close button styling - Match Language Switcher Style */
+/* Base styling for close button (both normal and auto-close states) */
+.intro-modal sl-button[id*="close-modal-btn"] {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.intro-modal sl-button[id*="close-modal-btn"]::part(base) {
+    transition: all 0.2s ease;
+    border: 1px solid #4b5563;
+    border-color: hsl(0, 0%, 51%);
+    color: #f9fafb;
+    background-color: #6b7280; /* Bright grey background */
+}
+
+.intro-modal sl-button[id*="close-modal-btn"]:hover::part(base) {
+    border-color: #60a5fa;
+    background-color: #9ca3af; /* Brighter grey on hover */
+    border-color: hsl(0, 0%, 51%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.intro-modal sl-button[id*="close-modal-btn"] .close-btn-text,
+.intro-modal sl-button[id*="close-modal-btn"] sl-icon {
+    color: #f9fafb;
+    transition: color 0.3s ease;
+}
+
+/* Additional styling when auto-close is active */
+.auto-close-button {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.auto-close-button::part(base) {
+    transition: all 0.2s ease;
+    border: 1px solid #4b5563;
+    border-color: hsl(0, 0%, 51%);
+    color: #f9fafb;
+    background-color: #6b7280; /* Bright grey background */
+}
+
+.auto-close-button:hover::part(base) {
+    border-color: #60a5fa;
+    background-color: #9ca3af; /* Brighter grey on hover */
+    border-color: hsl(0, 0%, 51%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.auto-close-button.draining::part(base) {
+    background-color: #9ca3af; /* Bright grey when draining */
+    border-color: hsl(0, 0%, 51%);
+    color: #ffffff;
+}
+
+.auto-close-button.draining:hover::part(base) {
+    background-color: #d1d5db; /* Even brighter grey on hover when draining */
+    border-color: hwb(0 74% 26%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(156, 163, 175, 0.4);
+}
+
+.auto-close-button .close-btn-text,
+.auto-close-button sl-icon {
+    color: #f9fafb;
+    transition: color 0.3s ease;
+}
+
+.auto-close-button.draining .close-btn-text,
+.auto-close-button.draining sl-icon {
+    color: #ffffff;
+}
+
+/*
+Styles moved from layer-creator-ui.js
+ */
+.layer-creator-modal::part(panel) {
+    max-width: 95vw;
+    max-height: 95vh;
+    width: 100%;
+    height: auto;
+    background-color: hsl(218, 12.30%, 30.40%);
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+}
+
+.layer-creator-modal::part(header) {
+    background-color: hsl(218, 12.30%, 30.40%);
+    color: #f9fafb;
+    border-bottom: 1px solid #4b5563;
+}
+
+.layer-creator-modal::part(body) {
+    background-color: hsl(218, 12.30%, 30.40%);
+    color: #f9fafb;
+}
+
+.layer-creator-modal::part(footer) {
+    background-color: hsl(218, 12.30%, 30.40%);
+    border-top: 1px solid #4b5563;
+}
+
+.layer-creator-btn {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.layer-creator-btn::part(base) {
+    transition: all 0.2s ease;
+    border: 1px solid #4b5563;
+    border-color: hsl(0, 0%, 51%);
+    color: #f9fafb;
+    background-color: #6b7280;
+}
+
+.layer-creator-btn:hover::part(base) {
+    border-color: #60a5fa;
+    background-color: #9ca3af;
+    border-color: hsl(0, 0%, 51%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.layer-creator-btn[variant="primary"]::part(base) {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.layer-creator-btn[variant="primary"]:hover::part(base) {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+
+.layer-creator-modal sl-input::part(base),
+.layer-creator-modal sl-select::part(base),
+.layer-creator-modal sl-textarea::part(base) {
+    background-color: #ffffff;
+    border-color: #4b5563;
+    color: #1f2937;
+}
+
+.layer-creator-modal sl-input::part(base):focus,
+.layer-creator-modal sl-select::part(base):focus,
+.layer-creator-modal sl-textarea::part(base):focus {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+}
+
+.layer-creator-modal code {
+    background-color: #1f2937;
+    color: #e5e7eb;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+/*
+Styles moved from map-links.js
+ */
+.map-links-modal {
+    --width: 90vw;
+    --height: 80vh;
+}
+
+.map-links-modal::part(panel) {
+    max-width: 1200px;
+    max-width: 95vw;
+    max-height: 95vh;
+    width: 100%;
+    height: auto;
+    background-color: hsl(218, 12.30%, 30.40%);
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+}
+
+.map-links-modal::part(header) {
+    background-color: hsl(218, 12.30%, 30.40%);
+    color: #f9fafb;
+    border-bottom: 1px solid #4b5563;
+}
+
+.map-links-modal::part(body) {
+    background-color: hsl(218, 12.30%, 30.40%);
+    color: #f9fafb;
+}
+
+.map-links-modal::part(footer) {
+    background-color: hsl(218, 12.30%, 30.40%);
+    border-top: 1px solid #4b5563;
+}
+
+.map-links-btn {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.map-links-btn::part(base) {
+    transition: all 0.2s ease;
+    border: 1px solid #4b5563;
+    border-color: hsl(0, 0%, 51%);
+    color: #f9fafb;
+    background-color: #6b7280;
+}
+
+.map-links-btn:hover::part(base) {
+    border-color: #60a5fa;
+    background-color: #9ca3af;
+    border-color: hsl(0, 0%, 51%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.map-links-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.map-link-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem;
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    color: #f9fafb;
+    background: hsl(218, 12.30%, 30.40%);
+}
+
+.map-link-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-color: #3b82f6;
+}
+
+.map-link-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0.75rem;
+    border-radius: 4px;
+    object-fit: contain;
+}
+
+.map-link-text-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0.75rem;
+    border-radius: 4px;
+    background: #3b82f6;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.map-link-name {
+    font-weight: 600;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/*
+Styles moved from layer-settings.js
+ */
+
+.layer-settings-dialog::part(panel) {
+    max-width: 95vw;
+    max-height: 95vh;
+    width: 100%;
+    height: auto;
+    background-color: hsl(218, 12.30%, 30.40%);
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+}
+
+.layer-settings-dialog::part(header) {
+    background-color: hsl(218, 12.30%, 30.40%);
+    color: #f9fafb;
+    border-bottom: 1px solid #4b5563;
+}
+
+.layer-settings-dialog::part(body) {
+    background-color: hsl(218, 12.30%, 30.40%);
+    color: #f9fafb;
+}
+
+.layer-settings-dialog::part(footer) {
+    background-color: hsl(218, 12.30%, 30.40%);
+    border-top: 1px solid #4b5563;
+}
+
+.layer-settings-btn {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.layer-settings-btn::part(base) {
+    transition: all 0.2s ease;
+    border: 1px solid #4b5563;
+    border-color: hsl(0, 0%, 51%);
+    color: #f9fafb;
+    background-color: #6b7280;
+}
+
+.layer-settings-btn:hover::part(base) {
+    border-color: #60a5fa;
+    background-color: #9ca3af;
+    border-color: hsl(0, 0%, 51%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.layer-settings-btn[variant="primary"]::part(base) {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.layer-settings-btn[variant="primary"]:hover::part(base) {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+
+.layer-settings-dialog sl-input::part(base),
+.layer-settings-dialog sl-select::part(base),
+.layer-settings-dialog sl-textarea::part(base) {
+    background-color: #1f2937;
+    border-color: #4b5563;
+    color: #f9fafb;
+}
+
+.layer-settings-dialog sl-input::part(base):focus,
+.layer-settings-dialog sl-select::part(base):focus,
+.layer-settings-dialog sl-textarea::part(base):focus {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+}
+
+.layer-settings-dialog sl-details::part(summary) {
+    background-color: #374151;
+    color: #f9fafb;
+    border: 1px solid #4b5563;
+    border-radius: 4px;
+    padding: 0.5rem;
+}
+
+.layer-settings-dialog sl-details::part(content) {
+    background-color: #1f2937;
+    border: 1px solid #4b5563;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    padding: 1rem;
+}
+
+.layer-settings-dialog .source-details-content {
+    background-color: #1f2937 !important;
+    color: #f9fafb !important;
+    border: 1px solid #4b5563;
+    border-radius: 4px;
+    padding: 1rem;
+}
+
+.layer-settings-dialog .source-details-content .text-gray-600 {
+    color: #9ca3af !important;
+}
+
+.layer-settings-dialog .tilejson-content .bg-gray-100 {
+    background-color: #1f2937 !important;
+    color: #f9fafb !important;
+    border: 1px solid #4b5563;
+    border-radius: 4px;
+    padding: 1rem;
+}
+
+.layer-settings-dialog .legend-container {
+    background-color: #1f2937 !important;
+    color: #f9fafb !important;
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+}
+
+.layer-settings-dialog .text-sm {
+    color: #f9fafb;
+}
+
+.layer-settings-dialog .text-xs {
+    color: #d1d5db;
+}
+
+.layer-settings-dialog .font-bold {
+    color: #ffffff;
+}
+
+.layer-settings-dialog .font-mono {
+    color: #e5e7eb;
+}
+
+.layer-settings-dialog pre {
+    color: #e5e7eb;
+    background-color: #1f2937;
+    padding: 1rem;
+    border-radius: 4px;
+    border: 1px solid #4b5563;
+}
+
+.layer-settings-dialog code {
+    background-color: #1f2937;
+    color: #e5e7eb;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
