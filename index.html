@@ -2,6 +2,9 @@
 <html lang="en">
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <!-- Global Variables -->
     <script>
         window.amche = {};
@@ -52,24 +55,22 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="amche.in">
 
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <!-- Application Stylesheets -->
     <!-- Open Sans font -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap" />
-    <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css' /><!-- Mapbox GL JS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css" /><!-- Shoelace Components -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
     <link rel="preload" as="fetch" crossorigin="anonymous" href="config/_defaults.json" /><!-- Add this in the head section, before the map-init.js script -->
-    <link rel="stylesheet" href="styles.css" />
+
+    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap">
+    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="https://cdn.jsdelivr.net/npm/mapbox-gl@3.16.0/dist/mapbox-gl.min.css">
+    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css">
+    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="styles.css">
 
     <!-- Application Scripts -->
-    <script defer src="https://code.jquery.com/jquery-3.7.1.min.js"></script><!-- Add jQuery -->
     <script defer src="https://cdn.tailwindcss.com"></script><!-- Tailwind CSS via CDN -->
-    <script defer src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script><!-- Mapbox GL JS -->
-    <script defer src="https://api.mapbox.com/search-js/v1.0.0/web.js"></script><!-- Mapbox Search JS -->
+    <script defer src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script><!-- Add jQuery -->
+    <script defer src="https://cdn.jsdelivr.net/npm/mapbox-gl@3.16.0/dist/mapbox-gl.min.js"></script><!-- Mapbox GL JS -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@mapbox/search-js-web@1.5.0/dist/index.js"></script><!-- Mapbox Search JS -->
     <script defer type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace.js"></script><!-- Shoelace Components -->
     <script defer src="js/geolocation-control.js"></script>
     <script defer src="js/mapbox-gl-view-control.js"></script>
