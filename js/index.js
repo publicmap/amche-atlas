@@ -18,7 +18,11 @@ if (window.location.hostname === 'amche.in') {
     gtagScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-FBVGZ4HJV0';
     document.head.appendChild(gtagScript);
     window.dataLayer = window.dataLayer || [];
-    function gtag() { dataLayer.push(arguments); }
+
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
     gtag('js', new Date());
     gtag('config', 'G-FBVGZ4HJV0');
 }
@@ -30,7 +34,7 @@ if (window.location.hostname === 'amche.in') {
 const skeletonContainer = document.getElementById('skeleton-container');
 const numberOfSkeletons = 15;
 
-Array.from({ length: numberOfSkeletons }).forEach(() => {
+Array.from({length: numberOfSkeletons}).forEach(() => {
     const skeleton = document.createElement('sl-skeleton');
     skeleton.className = 'skeleton-map-controls';
     skeleton.setAttribute('effect', 'pulse');
@@ -136,7 +140,7 @@ window.addEventListener('mapReady', (event) => {
 /**
  * ShareLink plugin initialization
  */
-import { ShareLink } from './share-link.js';
+import {ShareLink} from './share-link.js';
 
 // Initialize ShareLink plugin when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {

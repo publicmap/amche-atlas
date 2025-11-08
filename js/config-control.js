@@ -4,7 +4,7 @@
  * and adding them to the currently loaded configuration
  */
 
-import { layerRegistry } from './atlas-layer-registry.js';
+import {layerRegistry} from './atlas-layer-registry.js';
 
 export class ConfigControl {
     constructor() {
@@ -20,11 +20,11 @@ export class ConfigControl {
      */
     async initialize(layerControl) {
         this.currentLayerControl = layerControl;
-        
+
         if (this.initialized) {
             return;
         }
-        
+
         try {
             // Load the layer library first to avoid multiple requests
             await this.loadLayerLibrary();
@@ -42,7 +42,7 @@ export class ConfigControl {
         if (this.layerLibrary) {
             return; // Already loaded
         }
-        
+
         try {
             const libraryResponse = await fetch('config/_map-layer-presets.json');
             if (!libraryResponse.ok) {
@@ -51,7 +51,7 @@ export class ConfigControl {
             this.layerLibrary = await libraryResponse.json();
         } catch (error) {
             console.warn('Could not load layer library for config processing:', error);
-            this.layerLibrary = { layers: [] }; // Fallback to empty library
+            this.layerLibrary = {layers: []}; // Fallback to empty library
         }
     }
 
@@ -90,23 +90,23 @@ export class ConfigControl {
      */
     extractConfigMenuItems() {
         const configMenuItems = [];
-        
+
         // Find all menu items with href attributes
         const menuItems = document.querySelectorAll('sl-menu-item[href]');
-        
+
         for (const menuItem of menuItems) {
             const href = menuItem.getAttribute('href');
             const displayName = menuItem.textContent.trim();
-            
+
             let configName = null;
-            
+
             // Parse the href to extract config name
             if (href === './') {
                 configName = 'index';
             } else if (href.startsWith('./?atlas=')) {
                 configName = href.replace('./?atlas=', '');
             }
-            
+
             // Only include items that have atlas configs (skip other navigation items)
             if (configName) {
                 configMenuItems.push({
@@ -115,7 +115,7 @@ export class ConfigControl {
                 });
             }
         }
-        
+
         return configMenuItems;
     }
 
@@ -129,7 +129,7 @@ export class ConfigControl {
             const menuItems = document.querySelectorAll('sl-menu-item[href]');
             let targetMenuItem = null;
             const expectedHref = (configFile === 'index') ? './' : `./?atlas=${configFile}`;
-            
+
             for (const item of menuItems) {
                 const href = item.getAttribute('href');
                 if (href === expectedHref) {
@@ -152,26 +152,26 @@ export class ConfigControl {
 
             // Group layers by type for better organization
             const layersByType = this.groupLayersByType(config.layers);
-            
+
             // Create submenu for this config
             const submenu = document.createElement('sl-menu');
             submenu.setAttribute('slot', 'submenu');
-            
+
             // Add layers organized by type
             for (const [type, layers] of Object.entries(layersByType)) {
                 if (layers.length === 0) continue;
-                
+
                 // Add type header
                 const typeLabel = document.createElement('sl-menu-label');
                 typeLabel.textContent = this.getTypeDisplayName(type);
                 submenu.appendChild(typeLabel);
-                
+
                 // Add layers of this type
                 for (const layer of layers) {
                     const layerItem = this.createLayerMenuItem(layer, configFile);
                     submenu.appendChild(layerItem);
                 }
-                
+
                 // Add divider after each type (except the last one)
                 const types = Object.keys(layersByType);
                 if (type !== types[types.length - 1]) {
@@ -189,7 +189,7 @@ export class ConfigControl {
                 </svg>
                 ${configNameForLabel}
             `;
-            
+
             // Add the original navigation functionality
             const originalHref = targetMenuItem.getAttribute('href');
             newMenuItem.addEventListener('click', (event) => {
@@ -198,13 +198,13 @@ export class ConfigControl {
                     window.location.href = originalHref;
                 }
             });
-            
+
             // Add submenu
             newMenuItem.appendChild(submenu);
-            
+
             // Replace the original menu item
             targetMenuItem.parentNode.replaceChild(newMenuItem, targetMenuItem);
-            
+
         } catch (error) {
             console.error(`Failed to expand config menu for ${configName}:`, error);
         }
@@ -224,17 +224,17 @@ export class ConfigControl {
         if (layerRegistry.isInitialized() && configFile !== 'index') {
             const atlasLayers = layerRegistry.getAtlasLayers(configFile);
             const atlasMetadata = layerRegistry.getAtlasMetadata(configFile);
-            
+
             if (atlasLayers && atlasLayers.length > 0) {
                 // Reconstruct config object from registry data
                 const config = {
                     layers: atlasLayers,
                     ...atlasMetadata
                 };
-                
+
                 // Process layers with library lookup (similar to map-init.js)
                 await this.processConfigLayers(config);
-                
+
                 this.configCache.set(configFile, config);
                 return config;
             }
@@ -250,19 +250,19 @@ export class ConfigControl {
                 configPath = `config/${configFile}.atlas.json`;
             }
             const response = await fetch(configPath);
-            
+
             if (!response.ok) {
                 throw new Error(`Failed to load config: ${response.status}`);
             }
-            
+
             const config = await response.json();
-            
+
             // Process layers with library lookup (similar to map-init.js)
             await this.processConfigLayers(config);
-            
+
             this.configCache.set(configFile, config);
             return config;
-            
+
         } catch (error) {
             console.error(`Error loading config ${configFile}:`, error);
             return null;
@@ -279,14 +279,14 @@ export class ConfigControl {
             console.warn('Layer library not available for config processing');
             return;
         }
-        
+
         if (config.layers && Array.isArray(config.layers)) {
             config.layers = config.layers.map(layerConfig => {
                 // If the layer only has an id, look it up in the library
                 if (layerConfig.id && !layerConfig.type) {
                     const libraryLayer = this.layerLibrary.layers.find(lib => lib.id === layerConfig.id);
                     if (libraryLayer) {
-                        return { ...libraryLayer, ...layerConfig };
+                        return {...libraryLayer, ...layerConfig};
                     }
                 }
                 return layerConfig;
@@ -311,7 +311,7 @@ export class ConfigControl {
 
         for (const layer of layers) {
             if (!layer.title) continue; // Skip layers without titles (like base maps)
-            
+
             const type = layer.type || 'other';
             if (groups[type]) {
                 groups[type].push(layer);
@@ -339,7 +339,7 @@ export class ConfigControl {
         const typeNames = {
             'base': 'Base Maps',
             'geojson': 'GeoJSON Layers',
-            'vector': 'Vector Layers', 
+            'vector': 'Vector Layers',
             'tms': 'Tile Layers',
             'csv': 'Data Layers',
             'other': 'Other Layers'
@@ -355,13 +355,13 @@ export class ConfigControl {
      */
     createLayerMenuItem(layer, configFile) {
         const menuItem = document.createElement('sl-menu-item');
-        
+
         // Add CSS class for styling
         menuItem.classList.add('config-layer-item');
-        
+
         // Create icon based on layer type
         const icon = this.getLayerTypeIcon(layer.type);
-        
+
         menuItem.innerHTML = `
             <svg slot="prefix" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 ${icon}
@@ -415,11 +415,11 @@ export class ConfigControl {
         try {
             // Check if layer already exists to avoid duplicates
             const currentState = this.currentLayerControl._state;
-            const existingLayer = currentState.groups.find(g => 
-                g.id === `${sourceConfig}-${layer.id}` || 
+            const existingLayer = currentState.groups.find(g =>
+                g.id === `${sourceConfig}-${layer.id}` ||
                 (g._originalId === layer.id && g._sourceConfig === sourceConfig)
             );
-            
+
             if (existingLayer) {
                 this.showToast(`Layer "${layer.title}" from ${sourceConfig} is already added`, 'warning');
                 return;
@@ -435,15 +435,15 @@ export class ConfigControl {
                 initiallyChecked: true // Auto-enable imported layers
             };
 
-            
+
             // Find the position to insert the new layer
             const insertPosition = this.findInsertPosition(currentState.groups, newLayer);
-            
+
             // Create new state with the added layer
             const newGroups = [...currentState.groups];
             newGroups.splice(insertPosition, 0, newLayer);
-            
-            
+
+
             // Update the layer control state
             this.currentLayerControl._updateState({
                 groups: newGroups
@@ -451,7 +451,7 @@ export class ConfigControl {
 
             // Show success message
             this.showToast(`Added and enabled "${layer.title}" from ${sourceConfig} config`, 'success');
-            
+
         } catch (error) {
             console.error('Failed to add layer to current config:', error);
             this.showToast(`Failed to add layer: ${error.message}`, 'error');
@@ -466,7 +466,7 @@ export class ConfigControl {
      */
     findInsertPosition(currentGroups, newLayer) {
         const newLayerType = newLayer.type || 'other';
-        
+
         // Define type priority order (higher priority types go first)
         const typePriority = {
             'geojson': 1,
@@ -475,19 +475,19 @@ export class ConfigControl {
             'tms': 4,
             'other': 5
         };
-        
+
         const newLayerPriority = typePriority[newLayerType] || typePriority['other'];
-        
+
         // Find the position to insert based on type priority
         for (let i = 0; i < currentGroups.length; i++) {
             const currentType = currentGroups[i].type || 'other';
             const currentPriority = typePriority[currentType] || typePriority['other'];
-            
+
             // If we find a layer with lower priority (higher number), insert before it
             if (currentPriority > newLayerPriority) {
                 return i;
             }
-            
+
             // If same priority, find the last layer of the same type and insert after it
             if (currentPriority === newLayerPriority) {
                 let lastSameTypeIndex = i;
@@ -504,7 +504,7 @@ export class ConfigControl {
                 return lastSameTypeIndex + 1;
             }
         }
-        
+
         // If no suitable position found, append at the end
         return currentGroups.length;
     }

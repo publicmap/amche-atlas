@@ -7,15 +7,15 @@ export class MapLinks {
         this.buttonId = options.buttonId;
         this.map = options.map;
         this.modalId = `${this.buttonId}-modal`;
-        
+
         this._init();
     }
-    
+
     _init() {
         this._createModal();
         this._attachEventListeners();
     }
-    
+
     _createModal() {
         // Create modal HTML
         const modalHTML = `
@@ -26,14 +26,14 @@ export class MapLinks {
                 <sl-button slot="footer" variant="neutral" id="${this.modalId}-close" class="map-links-btn">Close</sl-button>
             </sl-dialog>
         `;
-        
+
         // Append to body
         document.body.insertAdjacentHTML('beforeend', modalHTML);
-        
+
         // Add styles
         this._addStyles();
     }
-    
+
     _addStyles() {
         const style = document.createElement('style');
         style.textContent = `
@@ -150,52 +150,52 @@ export class MapLinks {
         `;
         document.head.appendChild(style);
     }
-    
+
     _attachEventListeners() {
         const button = document.getElementById(this.buttonId);
         const modal = document.getElementById(this.modalId);
         const closeButton = document.getElementById(`${this.modalId}-close`);
-        
+
         if (button) {
             button.addEventListener('click', () => {
                 this._showModal();
             });
         }
-        
+
         if (closeButton) {
             closeButton.addEventListener('click', () => {
                 modal.hide();
             });
         }
     }
-    
+
     _showModal() {
         const modal = document.getElementById(this.modalId);
         const grid = modal.querySelector('.map-links-grid');
-        
+
         // Get current map context
         const center = this.map.getCenter();
         const zoom = Math.round(this.map.getZoom());
         const lat = center.lat;
         const lng = center.lng;
-        
+
         // Generate links
         const links = this._generateNavigationLinks(lat, lng, zoom);
-        
+
         // Populate grid
         grid.innerHTML = links.map(link => this._createLinkCard(link)).join('');
-        
+
         // Show modal
         modal.show();
     }
-    
+
     _createLinkCard(link) {
-        const iconHTML = link.icon 
+        const iconHTML = link.icon
             ? `<img src="${link.icon}" alt="${link.name}" class="map-link-icon" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
             : '';
-        
+
         const textIconHTML = `<div class="map-link-text-icon" ${link.icon ? 'style="display:none;"' : ''}>${link.text || link.name.substring(0, 2).toUpperCase()}</div>`;
-        
+
         return `
             <a href="${link.url}" target="_blank" rel="noopener noreferrer" class="map-link-card">
                 ${iconHTML}
@@ -204,12 +204,12 @@ export class MapLinks {
             </a>
         `;
     }
-    
+
     _generateNavigationLinks(lat, lng, zoom) {
         // Calculate mercator coordinates for One Map Goa
         const mercatorCoords = this._latLngToMercator(lat, lng);
         const oneMapGoaLayerList = "&cl=goa_village%2Cgoa_taluka%2Cgoa_district%2Cgoa_collectorate%2Cgoa_constituency%2Cgoa_panchayat%2Cgoa_cadastral_survey_settlement%2Cgoa_mining_lease%2Cgoa_ecologically_sensitive_area%2Cgoa_forest_land%2Cgoa_road%2Cgoa_landmark%2Cgoa_railway%2Cgoa_water_body&l=goa_village%2Cgoa_taluka%2Cgoa_district%2Cgoa_collectorate%2Cgoa_constituency%2Cgoa_panchayat%2Cgoa_cadastral_survey_settlement%2Cgoa_mining_lease%2Cgoa_ecologically_sensitive_area%2Cgoa_forest_land%2Cgoa_road%2Cgoa_landmark%2Cgoa_railway%2Cgoa_water_body";
-        
+
         return [
             {
                 name: 'OpenStreetMap',
@@ -348,21 +348,21 @@ export class MapLinks {
             }
         ];
     }
-    
+
     _latLngToMercator(lat, lng) {
         const x = lng * 20037508.34 / 180;
         let y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180);
         y = y * 20037508.34 / 180;
-        return { x, y };
+        return {x, y};
     }
-    
+
     _calculateBbox(centerLng, centerLat, zoom) {
         const earthRadius = 6378137;
         const tileSize = 256;
         const resolution = 2 * Math.PI * earthRadius / (tileSize * Math.pow(2, zoom));
         const halfWidth = resolution * tileSize / 2;
         const halfHeight = resolution * tileSize / 2;
-        
+
         return {
             west: centerLng - halfWidth / (earthRadius * Math.cos(centerLat * Math.PI / 180)) * 180 / Math.PI,
             south: centerLat - halfHeight / earthRadius * 180 / Math.PI,
@@ -370,7 +370,7 @@ export class MapLinks {
             north: centerLat + halfHeight / earthRadius * 180 / Math.PI
         };
     }
-    
+
     destroy() {
         const modal = document.getElementById(this.modalId);
         if (modal) {

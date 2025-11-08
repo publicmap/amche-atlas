@@ -13,7 +13,7 @@ export class LayerRegistry {
 
     async initialize() {
         if (this._initialized) return;
-                
+
         // Load layer library first
         try {
             const libraryResponse = await fetch('/config/_map-layer-presets.json');
@@ -45,11 +45,11 @@ export class LayerRegistry {
             // Fallback to default list if loading fails
             atlasConfigs = [
                 'osm', 'index', 'goa', 'mumbai', 'bengaluru-flood', 'bombay', 'madras',
-                'gurugram', 'maharashtra', 'telangana', 'kerala', 'india', 
+                'gurugram', 'maharashtra', 'telangana', 'kerala', 'india',
                 'world', 'historic', 'community', 'mhadei', 'mapbox'
             ];
         }
-        
+
         // Create a Set for fast lookup of known atlas IDs
         const knownAtlases = new Set(atlasConfigs);
 
@@ -59,12 +59,12 @@ export class LayerRegistry {
                 const response = await fetch(`/config/${atlasId}.atlas.json`);
                 if (response.ok) {
                     const config = await response.json();
-                    return { atlasId, config, success: true };
+                    return {atlasId, config, success: true};
                 } else {
-                    return { atlasId, error: `HTTP ${response.status}`, success: false };
+                    return {atlasId, error: `HTTP ${response.status}`, success: false};
                 }
             } catch (error) {
-                return { atlasId, error: error.message, success: false };
+                return {atlasId, error: error.message, success: false};
             }
         });
 
@@ -74,18 +74,18 @@ export class LayerRegistry {
         // Process all successfully loaded atlas configurations
         for (const result of atlasResults) {
             if (result.status === 'fulfilled' && result.value.success) {
-                const { atlasId, config } = result.value;
-                
+                const {atlasId, config} = result.value;
+
                 // Store atlas metadata (color, name, etc.)
                 this._atlasMetadata.set(atlasId, {
                     color: config.color || '#2563eb', // Default to blue if not specified
                     name: config.name || atlasId,
                     areaOfInterest: config.areaOfInterest || ''
                 });
-                
+
                 if (config.layers && Array.isArray(config.layers)) {
                     this._atlasLayers.set(atlasId, config.layers);
-                    
+
                     // Register each layer with appropriate ID
                     config.layers.forEach(layer => {
                         const resolvedLayer = this._resolveLayer(layer, atlasId);
@@ -94,7 +94,7 @@ export class LayerRegistry {
                             const layerId = resolvedLayer.id;
                             let prefixedId;
                             let sourceAtlas = atlasId; // Default to current atlas
-                            
+
                             // If the ID already contains a dash and might be prefixed, check if it's a valid atlas prefix
                             if (layerId.includes('-')) {
                                 const potentialPrefix = layerId.split('-')[0];
@@ -111,10 +111,10 @@ export class LayerRegistry {
                                 // No dash, definitely not prefixed
                                 prefixedId = `${atlasId}-${layerId}`;
                             }
-                            
+
                             // Check if layer is already in registry
                             const existingEntry = this._registry.get(prefixedId);
-                            
+
                             if (!existingEntry) {
                                 // Not in registry yet, add it
                                 this._registry.set(prefixedId, {
@@ -137,21 +137,21 @@ export class LayerRegistry {
                                     _prefixedId: prefixedId,
                                     _originalId: layerId,
                                     // Preserve any metadata from the incomplete entry
-                                    ...(existingEntry._crossAtlasReference && { _crossAtlasReference: existingEntry._crossAtlasReference })
+                                    ...(existingEntry._crossAtlasReference && {_crossAtlasReference: existingEntry._crossAtlasReference})
                                 });
                             }
                             // If entry exists and is complete, leave it as-is (first complete definition wins)
-                            
+
                         }
                     });
                 }
             } else {
                 // Handle failed atlas loads
-                const atlasId = result.status === 'fulfilled' 
-                    ? result.value.atlasId 
+                const atlasId = result.status === 'fulfilled'
+                    ? result.value.atlasId
                     : 'unknown';
-                const error = result.status === 'fulfilled' 
-                    ? result.value.error 
+                const error = result.status === 'fulfilled'
+                    ? result.value.error
                     : result.reason?.message || 'Unknown error';
                 console.warn(`[LayerRegistry] Failed to load atlas ${atlasId}:`, error);
             }
@@ -159,7 +159,7 @@ export class LayerRegistry {
 
         // After all atlases are loaded, resolve cross-atlas references
         this._resolveCrossAtlasReferences();
-        
+
         // Create consolidated index of atlas to layer IDs
         const layerIndex = {};
         for (const [layerId, layer] of this._registry.entries()) {
@@ -173,8 +173,8 @@ export class LayerRegistry {
             });
         }
         console.log(`[AtlasLayerRegistry] Loaded ${this._registry.size} layers from ${this._atlasLayers.size} atlases`, layerIndex);
-        
-        
+
+
         this._initialized = true;
     }
 
@@ -188,15 +188,15 @@ export class LayerRegistry {
             // Check if layer is incomplete - missing type or title (or both)
             const isIncomplete = (!layer.type || !layer.title) && layer.id.includes('-');
             if (isIncomplete) {
-                incompleteLayers.push({ layerId, layer });
+                incompleteLayers.push({layerId, layer});
             }
         }
-        
+
         // Try to resolve each incomplete layer
-        for (const { layerId, layer } of incompleteLayers) {
+        for (const {layerId, layer} of incompleteLayers) {
             const potentialAtlas = layer.id.split('-')[0];
             const originalId = layer.id.substring(potentialAtlas.length + 1);
-            
+
             // Try to find the original layer in the potential atlas
             const crossAtlasLayers = this._atlasLayers.get(potentialAtlas);
             if (crossAtlasLayers) {
@@ -212,7 +212,7 @@ export class LayerRegistry {
                         _sourceAtlas: layer._sourceAtlas || potentialAtlas, // Use potentialAtlas as source if not set
                         _prefixedId: layer._prefixedId || layerId // Preserve the prefixed ID
                     };
-                    
+
                     console.debug(`[LayerRegistry] Resolved incomplete cross-atlas layer ${layerId} from ${potentialAtlas} atlas: ${originalId} -> type: ${originalLayer.type || 'missing'}`);
                     this._registry.set(layerId, resolvedLayer);
                 }
@@ -235,7 +235,7 @@ export class LayerRegistry {
         if (layer.id && !layer.type) {
             const libraryLayer = this._libraryLayers.get(layer.id);
             if (libraryLayer) {
-                return { ...libraryLayer, ...layer };
+                return {...libraryLayer, ...layer};
             }
         }
         return layer;
@@ -293,13 +293,13 @@ export class LayerRegistry {
             }
 
             // Search in layer properties
-            const matches = 
+            const matches =
                 (layer.id && layer.id.toLowerCase().includes(term)) ||
                 (layer.title && layer.title.toLowerCase().includes(term)) ||
                 (layer.name && layer.name.toLowerCase().includes(term)) ||
                 (layer.description && layer.description.toLowerCase().includes(term)) ||
-                (layer.tags && Array.isArray(layer.tags) && 
-                 layer.tags.some(tag => tag.toLowerCase().includes(term)));
+                (layer.tags && Array.isArray(layer.tags) &&
+                    layer.tags.some(tag => tag.toLowerCase().includes(term)));
 
             if (matches) {
                 results.push(layer);
@@ -316,11 +316,11 @@ export class LayerRegistry {
     normalizeLayerId(layerId, currentAtlas = null) {
         const contextAtlas = currentAtlas || this._currentAtlas;
         const prefix = `${contextAtlas}-`;
-        
+
         if (layerId.startsWith(prefix)) {
             return layerId.substring(prefix.length);
         }
-        
+
         return layerId;
     }
 
@@ -329,7 +329,7 @@ export class LayerRegistry {
      */
     getPrefixedLayerId(layerId, atlasId = null) {
         const contextAtlas = atlasId || this._currentAtlas;
-        
+
         // If already prefixed, return as-is
         if (layerId.includes('-')) {
             const potentialPrefix = layerId.split('-')[0];
@@ -337,7 +337,7 @@ export class LayerRegistry {
                 return layerId;
             }
         }
-        
+
         return `${contextAtlas}-${layerId}`;
     }
 
@@ -347,13 +347,13 @@ export class LayerRegistry {
     isSameLayer(layerId1, layerId2) {
         const layer1 = this.getLayer(layerId1);
         const layer2 = this.getLayer(layerId2);
-        
+
         if (!layer1 || !layer2) return false;
-        
+
         // Compare the base IDs
         const baseId1 = layer1.id || layerId1;
         const baseId2 = layer2.id || layerId2;
-        
+
         return baseId1 === baseId2;
     }
 
@@ -399,4 +399,4 @@ if (typeof window !== 'undefined') {
     window.layerRegistry = layerRegistry;
 }
 
-export { layerRegistry };
+export {layerRegistry};

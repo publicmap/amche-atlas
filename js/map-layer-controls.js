@@ -1,11 +1,11 @@
-import { localization } from './localization.js';
-import { LayerSettingsModal } from './layer-settings.js';
-import { MapboxAPI } from './mapbox-api.js';
-import { deepMerge } from './map-utils.js';
+import {localization} from './localization.js';
+import {LayerSettingsModal} from './layer-settings.js';
+import {MapboxAPI} from './mapbox-api.js';
+import {deepMerge} from './map-utils.js';
 
 /**
  * MapLayerControl - UI control for managing map layers using MapboxAPI abstraction
- * 
+ *
  * This refactored version delegates all Mapbox-specific operations to the MapboxAPI class,
  * keeping this class focused on UI management and configuration handling.
  */
@@ -13,16 +13,15 @@ export class MapLayerControl {
     constructor(options) {
         // Handle options structure for groups and configuration
         if (Array.isArray(options)) {
-            this._state = { groups: options };
+            this._state = {groups: options};
             this._config = {};
         } else if (options && options.groups) {
-            this._state = { groups: options.groups };
+            this._state = {groups: options.groups};
             this._config = options;
         } else {
-            this._state = { groups: [options] };
+            this._state = {groups: [options]};
             this._config = {};
         }
-
 
 
         this._domCache = {};
@@ -31,7 +30,7 @@ export class MapLayerControl {
         this._initialized = false;
         this._sourceControls = [];
         this._editMode = false;
-        
+
         // Cache for loaded legend images to avoid reloading
         this._legendImageCache = new Map();
 
@@ -93,7 +92,7 @@ export class MapLayerControl {
                     this._initializeFilterControls();
                 }
             }, 1000);
-            
+
             this._map.on('style.load', () => {
                 clearTimeout(fallbackTimeout);
                 this._initializeControl($(container));
@@ -101,7 +100,7 @@ export class MapLayerControl {
             });
         }
 
-        $(container).append($('<div>', { class: 'layer-control' }));
+        $(container).append($('<div>', {class: 'layer-control'}));
     }
 
     /**
@@ -154,12 +153,12 @@ export class MapLayerControl {
     _getFallbackStyles() {
         return {
             vector: {
-                fill: { 'fill-color': '#000000', 'fill-opacity': 0.5 },
-                line: { 'line-color': '#000000', 'line-width': 1 },
-                text: { 'text-color': '#000000', 'text-halo-width': 1 },
-                circle: { 'circle-radius': 5, 'circle-color': '#000000' }
+                fill: {'fill-color': '#000000', 'fill-opacity': 0.5},
+                line: {'line-color': '#000000', 'line-width': 1},
+                text: {'text-color': '#000000', 'text-halo-width': 1},
+                circle: {'circle-radius': 5, 'circle-color': '#000000'}
             },
-            raster: { 'raster-opacity': 1 }
+            raster: {'raster-opacity': 1}
         };
     }
 
@@ -182,7 +181,7 @@ export class MapLayerControl {
             ...this._state,
             groups: newState.groups.map(newGroup => {
                 const existingGroup = this._state.groups.find(g => g.id === newGroup.id);
-                return existingGroup ? { ...existingGroup, ...newGroup } : newGroup;
+                return existingGroup ? {...existingGroup, ...newGroup} : newGroup;
             })
         };
 
@@ -200,7 +199,6 @@ export class MapLayerControl {
      */
     _cleanupLayers() {
         if (!this._mapboxAPI) return;
-
 
 
         // Remove all custom layers and sources using MapboxAPI
@@ -240,7 +238,7 @@ export class MapLayerControl {
                 config = extractConfig();
             } else {
                 fullConfig = JSON.parse(configText);
-                config = fullConfig.layers && Array.isArray(fullConfig.layers) ? 
+                config = fullConfig.layers && Array.isArray(fullConfig.layers) ?
                     fullConfig.layers : fullConfig;
             }
 
@@ -250,7 +248,7 @@ export class MapLayerControl {
                 setTimeout(() => localization.forceUpdateUIElements(), 100);
             }
 
-            this._updateState({ groups: config });
+            this._updateState({groups: config});
 
         } catch (error) {
             console.error('Error loading external config:', error);
@@ -293,7 +291,7 @@ export class MapLayerControl {
                 // This is especially important for style layers which are visible by default
                 // For style layers, we need to ensure the map style is loaded before hiding
                 const shouldDelay = group.type === 'style' && !this._map.getStyle();
-                
+
                 if (shouldDelay) {
                     // Wait for style to load before hiding style layers
                     this._map.once('style.load', () => {
@@ -318,7 +316,7 @@ export class MapLayerControl {
             class: 'group-header w-full map-controls-group',
             open: group.initiallyChecked || false
         });
-        
+
         $groupHeader.attr('data-layer-id', group.id);
         this._sourceControls[groupIndex] = $groupHeader[0];
 
@@ -401,7 +399,7 @@ export class MapLayerControl {
     _handleOpacityToggle(group, $opacityButton) {
         const currentOpacity = parseFloat($opacityButton.attr('data-opacity'));
         const newOpacity = currentOpacity === 0.4 ? 0.9 : 0.4;
-        
+
         $opacityButton.attr('data-opacity', newOpacity);
         $opacityButton.attr('name', newOpacity === 0.9 ? 'lightbulb-fill' : 'lightbulb');
 
@@ -415,7 +413,7 @@ export class MapLayerControl {
     _setupGroupHeaderEvents($groupHeader, group, groupIndex, $opacityButton, $settingsButton) {
         $groupHeader[0].addEventListener('sl-show', (event) => {
             this._handleGroupShow(event, group, groupIndex, $opacityButton, $settingsButton);
-            
+
             // Load legend image when details panel is expanded (if layer is enabled)
             const toggleInput = event.target.querySelector('.toggle-switch input[type="checkbox"]');
             if (toggleInput && toggleInput.checked && group.legendImage) {
@@ -433,7 +431,7 @@ export class MapLayerControl {
      */
     _handleGroupShow(event, group, groupIndex, $opacityButton, $settingsButton) {
         const toggleInput = event.target.querySelector('.toggle-switch input[type="checkbox"]');
-        
+
         if (toggleInput && !toggleInput.checked) {
             toggleInput.checked = true;
         }
@@ -446,20 +444,24 @@ export class MapLayerControl {
         // Determine if this is a cross-atlas layer
         const isCrossAtlas = $(event.target).hasClass('cross-atlas-layer');
         const effectiveGroupIndex = isCrossAtlas ? -1 : groupIndex;
-        
+
         this._toggleLayerGroup(effectiveGroupIndex, true);
-        
+
         $opacityButton.toggleClass('hidden', false);
         $settingsButton.toggleClass('hidden', false);
         $(event.target).closest('.group-header').addClass('active');
-        
+
         // Load legend image if it exists and hasn't been loaded yet
         this._loadLegendImageIfNeeded(event.target, group.legendImage);
-        
+
         // Dispatch custom event for URL sync
-        console.log('🔗 LayerControl: Dispatching layer-toggled event (show)', { layerId: group.id, visible: true, isCrossAtlas: isCrossAtlas });
-        window.dispatchEvent(new CustomEvent('layer-toggled', { 
-            detail: { layerId: group.id, visible: true, isCrossAtlas: isCrossAtlas }
+        console.log('🔗 LayerControl: Dispatching layer-toggled event (show)', {
+            layerId: group.id,
+            visible: true,
+            isCrossAtlas: isCrossAtlas
+        });
+        window.dispatchEvent(new CustomEvent('layer-toggled', {
+            detail: {layerId: group.id, visible: true, isCrossAtlas: isCrossAtlas}
         }));
     }
 
@@ -468,7 +470,7 @@ export class MapLayerControl {
      */
     _handleGroupHide(event, group, groupIndex, $opacityButton, $settingsButton) {
         const toggleInput = event.target.querySelector('.toggle-switch input[type="checkbox"]');
-        
+
         if (toggleInput && toggleInput.checked) {
             toggleInput.checked = false;
         }
@@ -481,17 +483,21 @@ export class MapLayerControl {
         // Determine if this is a cross-atlas layer
         const isCrossAtlas = $(event.target).hasClass('cross-atlas-layer');
         const effectiveGroupIndex = isCrossAtlas ? -1 : groupIndex;
-        
+
         this._toggleLayerGroup(effectiveGroupIndex, false);
-        
+
         $opacityButton.toggleClass('hidden', true);
         $settingsButton.toggleClass('hidden', true);
         $(event.target).closest('.group-header').removeClass('active');
-        
+
         // Dispatch custom event for URL sync
-        console.log('🔗 LayerControl: Dispatching layer-toggled event (hide)', { layerId: group.id, visible: false, isCrossAtlas: isCrossAtlas });
-        window.dispatchEvent(new CustomEvent('layer-toggled', { 
-            detail: { layerId: group.id, visible: false, isCrossAtlas: isCrossAtlas }
+        console.log('🔗 LayerControl: Dispatching layer-toggled event (hide)', {
+            layerId: group.id,
+            visible: false,
+            isCrossAtlas: isCrossAtlas
+        });
+        window.dispatchEvent(new CustomEvent('layer-toggled', {
+            detail: {layerId: group.id, visible: false, isCrossAtlas: isCrossAtlas}
         }));
     }
 
@@ -500,7 +506,7 @@ export class MapLayerControl {
      */
     _syncStyleLayerSubToggles(groupElement, group, isVisible) {
         const $sublayerToggles = $(groupElement).find('.layer-controls .toggle-switch input[type="checkbox"]');
-        
+
         if (isVisible) {
             // When showing, set sublayer toggles to match actual layer visibility
             $sublayerToggles.each((index, toggle) => {
@@ -524,7 +530,7 @@ export class MapLayerControl {
      */
     async _toggleLayerGroup(groupIndex, visible) {
         let group;
-        
+
         // Handle cross-atlas layers (groupIndex = -1)
         if (groupIndex === -1) {
             // For cross-atlas layers, we need to find the group by the element that triggered this
@@ -541,7 +547,7 @@ export class MapLayerControl {
         } else {
             group = this._state.groups[groupIndex];
         }
-        
+
         if (!this._mapboxAPI) {
             console.warn('MapboxAPI not initialized');
             return;
@@ -553,7 +559,7 @@ export class MapLayerControl {
                 const resolvedLayer = window.layerRegistry.getLayer(group.id);
                 if (resolvedLayer && resolvedLayer.type) {
                     console.warn(`[MapLayerControl] Resolved missing type for layer ${group.id} from registry: ${resolvedLayer.type}`);
-                    group = { ...group, type: resolvedLayer.type };
+                    group = {...group, type: resolvedLayer.type};
                     // Update the group in state so we don't have to resolve it again
                     const stateGroupIndex = this._state.groups.findIndex(g => g.id === group.id);
                     if (stateGroupIndex !== -1) {
@@ -561,24 +567,24 @@ export class MapLayerControl {
                     }
                 }
             }
-            
+
             // Validate that group has required properties
             if (!group.type) {
                 console.error(`[MapLayerControl] Cannot toggle layer ${group.id} - missing type property. This usually indicates a registry resolution issue.`);
                 return;
             }
-            
+
             if (visible) {
                 // Create or show the layer group
-                await this._mapboxAPI.createLayerGroup(group.id, group, { visible: true });
-                
+                await this._mapboxAPI.createLayerGroup(group.id, group, {visible: true});
+
                 // Apply initial opacity from config if it exists
                 // Note: Pass 1.0 as the opacity value so the multiplier logic in mapbox-api.js
                 // correctly applies config.opacity (e.g., 1.0 * 0.44 = 0.44)
                 if (group.opacity !== undefined && group.opacity !== 1) {
                     this._mapboxAPI.updateLayerOpacity(group.id, group, 1.0);
                 }
-                
+
                 // For style layers, ensure sublayers are properly synchronized
                 if (group.type === 'style' && group.layers) {
                     // Find the group header element to sync sublayer toggles
@@ -590,12 +596,12 @@ export class MapLayerControl {
                         }, 50);
                     }
                 }
-                
+
                 // Register with state manager if available
                 if (this._stateManager) {
                     this._registerLayerWithStateManager(group);
                 }
-                
+
                 // Update attribution after layer is added
                 if (window.attributionControl) {
                     window.attributionControl._updateAttribution();
@@ -603,12 +609,12 @@ export class MapLayerControl {
             } else {
                 // Hide the layer group
                 this._mapboxAPI.updateLayerGroupVisibility(group.id, group, false);
-                
+
                 // Unregister with state manager if available
                 if (this._stateManager) {
                     this._unregisterLayerWithStateManager(group.id);
                 }
-                
+
                 // Update attribution after layer is removed (with small delay to ensure layer is fully removed)
                 setTimeout(() => {
                     if (window.attributionControl) {
@@ -631,16 +637,16 @@ export class MapLayerControl {
         if (group._sourceAtlas) {
             return group._sourceAtlas;
         }
-        
+
         // Try to get from layer registry
         if (window.layerRegistry) {
             const resolvedLayer = window.layerRegistry.getLayer(group.id);
-            
+
             if (resolvedLayer && resolvedLayer._sourceAtlas) {
                 return resolvedLayer._sourceAtlas;
             }
         }
-        
+
         return null;
     }
 
@@ -659,19 +665,19 @@ export class MapLayerControl {
 
         const $toggleTitleContainer = this._createToggleTitle(group);
         $contentWrapper.append($toggleTitleContainer);
-        
+
         // Add atlas badge (right-aligned)
         const atlasId = this._getAtlasIdForLayer(group);
         if (atlasId) {
             // Capitalize first letter
             const displayName = atlasId.charAt(0).toUpperCase() + atlasId.slice(1);
-            
+
             // Get color from registry, fallback to blue-600 if not available
             let badgeColor = '#2563eb'; // Default blue
             if (window.layerRegistry) {
                 badgeColor = window.layerRegistry.getAtlasColor(atlasId);
             }
-            
+
             const $atlasBadge = $('<span>', {
                 class: 'text-xs text-white px-2 py-1 rounded ml-auto',
                 style: `background-color: ${badgeColor};`,
@@ -679,7 +685,7 @@ export class MapLayerControl {
             });
             $contentWrapper.append($atlasBadge);
         }
-        
+
         $contentWrapper.append($settingsButton, $opacityButton);
 
         // If headerImage is missing, try to resolve from registry
@@ -714,12 +720,12 @@ export class MapLayerControl {
      * Create toggle title section
      */
     _createToggleTitle(group) {
-        const $toggleLabel = $('<label>', { class: 'toggle-switch' });
+        const $toggleLabel = $('<label>', {class: 'toggle-switch'});
         const $toggleInput = $('<input>', {
             type: 'checkbox',
             checked: group.initiallyChecked || false
         });
-        const $toggleSlider = $('<span>', { class: 'toggle-slider' });
+        const $toggleSlider = $('<span>', {class: 'toggle-slider'});
 
         $toggleLabel.append($toggleInput, $toggleSlider);
 
@@ -732,7 +738,7 @@ export class MapLayerControl {
                 console.warn(`[MapLayerControl] Had to resolve title for ${group.id} from registry: ${title}`);
             }
         }
-        
+
         const $titleSpan = $('<span>', {
             text: title || group.id || 'Unknown Layer',
             class: 'control-title text-sm font-medium font-bold text-white'
@@ -741,7 +747,7 @@ export class MapLayerControl {
         const $toggleTitleContainer = $('<div>', {
             class: 'flex items-center gap-2 cursor-pointer'
         });
-        
+
         $toggleTitleContainer.append($toggleLabel, $titleSpan);
         return $toggleTitleContainer;
     }
@@ -753,7 +759,7 @@ export class MapLayerControl {
         // If metadata is missing, try to resolve from registry
         let description = group.description;
         let attribution = group.attribution;
-        
+
         if ((!description || !attribution) && group.id && window.layerRegistry) {
             const resolvedLayer = window.layerRegistry.getLayer(group.id);
             if (resolvedLayer) {
@@ -761,9 +767,9 @@ export class MapLayerControl {
                 attribution = attribution || resolvedLayer.attribution;
             }
         }
-        
+
         if (description || attribution) {
-            const $contentArea = $('<div>', { class: 'description-area' });
+            const $contentArea = $('<div>', {class: 'description-area'});
 
             if (description) {
                 const $description = $('<div>', {
@@ -796,7 +802,7 @@ export class MapLayerControl {
             case 'style':
                 this._addStyleLayerContent($groupHeader, group);
                 break;
-            
+
             default:
                 // Most layer types don't need special content
                 break;
@@ -819,8 +825,8 @@ export class MapLayerControl {
     _addLayerGroupContent($groupHeader, group) {
         if (!group.groups) return;
 
-        const $radioGroup = $('<div>', { class: 'radio-group mt-2' });
-        
+        const $radioGroup = $('<div>', {class: 'radio-group mt-2'});
+
         group.groups.forEach((subGroup, index) => {
             const $radioLabel = this._createRadioOption(subGroup, group, index);
             $radioGroup.append($radioLabel);
@@ -835,7 +841,7 @@ export class MapLayerControl {
      * Create radio option for layer groups
      */
     _createRadioOption(subGroup, parentGroup, index) {
-        const $radioLabel = $('<label>', { class: 'radio-label' });
+        const $radioLabel = $('<label>', {class: 'radio-label'});
         const $radio = $('<input>', {
             type: 'radio',
             name: `layer-group-${this._instanceId}-${parentGroup.id}`,
@@ -849,7 +855,7 @@ export class MapLayerControl {
 
         $radioLabel.append(
             $radio,
-            $('<span>', { text: subGroup.title })
+            $('<span>', {text: subGroup.title})
         );
 
         // Add attribution and location links
@@ -902,7 +908,7 @@ export class MapLayerControl {
     _addStyleLayerContent($groupHeader, group) {
         if (!group.layers) return;
 
-        const $layerControls = $('<div>', { class: 'layer-controls mt-3' });
+        const $layerControls = $('<div>', {class: 'layer-controls mt-3'});
 
         group.layers.forEach((layer, index) => {
             const $layerControl = this._createStyleLayerControl(layer, group, index);
@@ -917,19 +923,19 @@ export class MapLayerControl {
      */
     _createStyleLayerControl(layer, parentGroup, index) {
         const layerId = `sublayer-${parentGroup.id}-${index}`;
-        const $layerControl = $('<div>', { class: 'flex items-center gap-2 text-black' });
+        const $layerControl = $('<div>', {class: 'flex items-center gap-2 text-black'});
 
-        const $sublayerToggleLabel = $('<label>', { class: 'toggle-switch' });
-        
+        const $sublayerToggleLabel = $('<label>', {class: 'toggle-switch'});
+
         // Check actual layer visibility instead of just parentGroup.initiallyChecked
         const isLayerVisible = this._getStyleLayerVisibility(layer);
-        
+
         const $sublayerToggleInput = $('<input>', {
             type: 'checkbox',
             id: layerId,
             checked: isLayerVisible
         });
-        const $sublayerToggleSlider = $('<span>', { class: 'toggle-slider' });
+        const $sublayerToggleSlider = $('<span>', {class: 'toggle-slider'});
 
         $sublayerToggleLabel.append($sublayerToggleInput, $sublayerToggleSlider);
 
@@ -951,13 +957,13 @@ export class MapLayerControl {
      */
     _getStyleLayerVisibility(layer) {
         if (!this._map || !layer.sourceLayer) return false;
-        
+
         try {
             const styleLayers = this._map.getStyle().layers;
-            const matchingLayers = styleLayers.filter(styleLayer => 
+            const matchingLayers = styleLayers.filter(styleLayer =>
                 styleLayer['source-layer'] === layer.sourceLayer
             );
-            
+
             // If any matching layer is visible, consider the layer visible
             return matchingLayers.some(styleLayer => {
                 const layerVisibility = this._map.getLayoutProperty(styleLayer.id, 'visibility');
@@ -994,14 +1000,12 @@ export class MapLayerControl {
      */
 
 
-
-
     /**
      * Create terrain controls (simplified version)
      */
     _createTerrainControls() {
-        const $controlsContainer = $('<div>', { class: 'terrain-controls' });
-        
+        const $controlsContainer = $('<div>', {class: 'terrain-controls'});
+
         // Add exaggeration slider
         const $exaggerationSlider = $('<input>', {
             type: 'range',
@@ -1011,12 +1015,12 @@ export class MapLayerControl {
             value: '1.5',
             class: 'w-full'
         });
-        
+
         const $exaggerationValue = $('<span>', {
             class: 'text-sm text-gray-600 ml-2',
             text: '1.5x'
         });
-        
+
         $exaggerationSlider.on('input', (e) => {
             const value = parseFloat(e.target.value);
             $exaggerationValue.text(`${value}x`);
@@ -1027,12 +1031,12 @@ export class MapLayerControl {
                 });
             }
         });
-        
+
         $controlsContainer.append(
-            $('<label>', { class: 'block text-sm text-gray-700 mb-1', text: 'Terrain Exaggeration' }),
-            $('<div>', { class: 'flex items-center' }).append($exaggerationSlider, $exaggerationValue)
+            $('<label>', {class: 'block text-sm text-gray-700 mb-1', text: 'Terrain Exaggeration'}),
+            $('<div>', {class: 'flex items-center'}).append($exaggerationSlider, $exaggerationValue)
         );
-        
+
         return $controlsContainer;
     }
 
@@ -1041,14 +1045,14 @@ export class MapLayerControl {
      */
     _loadLegendImageIfNeeded(groupElement, legendImageUrl) {
         if (!legendImageUrl || !groupElement) return;
-        
+
         const $legendContainer = $(groupElement).find('.legend-container');
         if ($legendContainer.length === 0) return;
-        
+
         // Check if already loaded
         const isLoaded = $legendContainer.attr('data-legend-loaded') === 'true';
         if (isLoaded) return;
-        
+
         // Check if image is cached
         if (this._legendImageCache.has(legendImageUrl)) {
             const cachedContent = this._legendImageCache.get(legendImageUrl);
@@ -1056,12 +1060,12 @@ export class MapLayerControl {
             $legendContainer.attr('data-legend-loaded', 'true');
             return;
         }
-        
+
         // Render and cache the legend image
         const legendContent = this._renderLegendImage(legendImageUrl);
         $legendContainer.html(legendContent);
         $legendContainer.attr('data-legend-loaded', 'true');
-        
+
         // Cache the content for future use
         this._legendImageCache.set(legendImageUrl, legendContent);
     }
@@ -1092,7 +1096,7 @@ export class MapLayerControl {
      */
     _initializeWithAnimation() {
         const allToggles = this._container.querySelectorAll('.group-header .toggle-switch input[type="checkbox"]');
-        const groupHeaders = Array.from(allToggles).filter(toggle => 
+        const groupHeaders = Array.from(allToggles).filter(toggle =>
             !toggle.closest('.layer-controls')
         );
 
@@ -1169,7 +1173,7 @@ export class MapLayerControl {
      */
     _registerAllActiveLayers() {
         if (!this._stateManager) return;
-        
+
         this._state.groups.forEach(group => {
             if (group.initiallyChecked) {
                 this._registerLayerWithStateManager(group);
@@ -1182,21 +1186,21 @@ export class MapLayerControl {
      */
     _registerLayerWithStateManager(layerConfig) {
         if (!this._stateManager) return;
-        
+
         // Skip style layers as they don't have their own sources/features
         if (layerConfig.type === 'style') {
             return;
         }
-        
+
         // Skip layers without a type - they can't be properly handled
         if (!layerConfig.type) {
             console.warn(`[MapLayerControl] Skipping state manager registration for layer ${layerConfig.id} - missing type property`);
             return;
         }
-        
+
         // Register the layer - MapFeatureStateManager will handle raster vs vector distinction
         this._stateManager.registerLayer(layerConfig);
-        
+
         // Register layer attribution if available
         if (layerConfig.attribution && window.attributionControl) {
             window.attributionControl.addLayerAttribution(layerConfig.id, layerConfig.attribution);
@@ -1210,7 +1214,7 @@ export class MapLayerControl {
         if (this._stateManager) {
             this._stateManager.unregisterLayer(layerId);
         }
-        
+
         // Remove layer attribution
         if (window.attributionControl) {
             window.attributionControl.removeLayerAttribution(layerId);
@@ -1230,7 +1234,7 @@ export class MapLayerControl {
             const newGroups = [...this._state.groups];
             newGroups[groupIndex] = newConfig;
 
-            this._updateState({ groups: newGroups });
+            this._updateState({groups: newGroups});
         } catch (error) {
             console.error('Error saving layer settings:', error);
             alert('Failed to save layer settings. Please check the console for details.');
@@ -1263,10 +1267,10 @@ export class MapLayerControl {
             if (window.urlManager) {
                 // Let URL manager handle the URL update
                 window.urlManager.syncURL();
-                
+
                 // Get the current URL from the URL manager
                 const currentUrl = window.urlManager.getCurrentURL();
-                
+
                 navigator.clipboard.writeText(currentUrl).then(() => {
                     this._showToast('Link copied to clipboard!');
                     this._showQRCode(shareButton, currentUrl);
@@ -1307,16 +1311,16 @@ export class MapLayerControl {
 
         // Check all layer controls (including cross-atlas layers)
         const allLayerControls = document.querySelectorAll('.group-header');
-        
+
         allLayerControls.forEach((groupHeader) => {
             const toggleInput = groupHeader.querySelector('.toggle-switch input[type="checkbox"]');
-            
+
             if (toggleInput && toggleInput.checked) {
                 const layerId = groupHeader.getAttribute('data-layer-id');
                 if (layerId) {
                     // Find the group in state
                     const group = this._state.groups.find(g => g.id === layerId || g._prefixedId === layerId);
-                    
+
                     if (group) {
                         if (group.type === 'layer-group') {
                             const radioGroup = groupHeader.querySelector('.radio-group');
@@ -1498,7 +1502,7 @@ export class MapLayerControl {
         setTimeout(() => {
             const searchInput = document.getElementById('layer-search-input');
             const hideInactiveSwitch = document.getElementById('hide-inactive-switch');
-            
+
             if (searchInput) {
                 searchInput.addEventListener('sl-input', (e) => {
                     this._applyAllFilters();
@@ -1507,7 +1511,7 @@ export class MapLayerControl {
                     this._applyAllFilters();
                 });
             }
-            
+
             if (hideInactiveSwitch) {
                 hideInactiveSwitch.addEventListener('sl-change', (e) => {
                     this._applyAllFilters();
@@ -1522,70 +1526,70 @@ export class MapLayerControl {
     _applyAllFilters() {
         try {
             if (!this._container || !window.layerRegistry) return;
-            
+
             const searchInput = document.getElementById('layer-search-input');
             const hideInactiveSwitch = document.getElementById('hide-inactive-switch');
-            
+
             const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
             const hideInactive = hideInactiveSwitch ? hideInactiveSwitch.checked : false;
             const isSearching = searchTerm.length > 0;
-            
+
             const layerGroups = this._container.querySelectorAll('.group-header');
-            
+
             // If searching, use the layer registry to find cross-atlas matches
             let crossAtlasResults = [];
             if (isSearching) {
                 const currentAtlas = window.layerRegistry._currentAtlas;
                 crossAtlasResults = window.layerRegistry.searchLayers(searchTerm, currentAtlas);
             }
-            
+
             // Get current atlas layer IDs for deduplication
             const currentLayerIds = new Set();
             this._state.groups.forEach(group => {
                 currentLayerIds.add(group.id);
             });
-            
+
             // Apply visibility to existing layers
             layerGroups.forEach(groupElement => {
                 const groupId = groupElement.getAttribute('data-layer-id');
                 if (!groupId) return;
-                
+
                 // Find group data
                 const groupData = this._state.groups.find(g => g.id === groupId);
                 if (!groupData) return;
-                
+
                 const searchMatches = this._layerMatchesSearch(groupData, searchTerm);
-                
+
                 const toggleInput = groupElement.querySelector('.toggle-switch input[type="checkbox"]');
                 const isActive = toggleInput && toggleInput.checked;
                 const activeMatches = !hideInactive || isActive;
-                
+
                 // Show if matches search and active filter
                 groupElement.style.display = (searchMatches && activeMatches) ? '' : 'none';
             });
-            
+
             // Add cross-atlas search results dynamically (if not already in current atlas)
             if (isSearching && crossAtlasResults.length > 0) {
                 this._showCrossAtlasSearchResults(crossAtlasResults, currentLayerIds);
-                } else {
+            } else {
                 this._hideCrossAtlasSearchResults();
-                }
+            }
         } catch (error) {
             console.error('[Filter] Error applying filters:', error);
         }
     }
-    
+
     /**
      * Check if a layer matches the search term
      */
     _layerMatchesSearch(groupData, searchTerm) {
         if (!searchTerm) return true;
-        
+
         return (groupData.id && groupData.id.toLowerCase().includes(searchTerm)) ||
-               (groupData.name && groupData.name.toLowerCase().includes(searchTerm)) ||
-               (groupData.title && groupData.title.toLowerCase().includes(searchTerm)) ||
-               (groupData.description && groupData.description.toLowerCase().includes(searchTerm)) ||
-               (groupData.tags && Array.isArray(groupData.tags) && 
+            (groupData.name && groupData.name.toLowerCase().includes(searchTerm)) ||
+            (groupData.title && groupData.title.toLowerCase().includes(searchTerm)) ||
+            (groupData.description && groupData.description.toLowerCase().includes(searchTerm)) ||
+            (groupData.tags && Array.isArray(groupData.tags) &&
                 groupData.tags.some(tag => tag && tag.toLowerCase().includes(searchTerm)));
     }
 
@@ -1595,7 +1599,7 @@ export class MapLayerControl {
     _showCrossAtlasSearchResults(results, currentLayerIds) {
         // Check if we already have a cross-atlas container
         let $crossAtlasContainer = $(this._container).find('.cross-atlas-results');
-        
+
         if ($crossAtlasContainer.length === 0) {
             // Create container for cross-atlas results
             $crossAtlasContainer = $('<div>', {
@@ -1603,23 +1607,23 @@ export class MapLayerControl {
             });
             $(this._container).append($crossAtlasContainer);
         }
-        
+
         // Clear existing results
         $crossAtlasContainer.empty();
-        
+
         // Add header
         $crossAtlasContainer.append($('<div>', {
             class: 'text-sm text-gray-400 mb-2 px-2',
             text: 'From other atlases:'
         }));
-        
+
         // Add each result (skipping duplicates)
         results.forEach(layer => {
             // Skip if already in current atlas
             if (currentLayerIds.has(layer.id)) {
                 return;
             }
-            
+
             // Create layer element with cross-atlas styling
             const $layerElement = this._createCrossAtlasLayerElement(layer);
             $crossAtlasContainer.append($layerElement);
@@ -1654,9 +1658,9 @@ export class MapLayerControl {
         });
 
         // Add toggle and title
-        const $toggleLabel = $('<label>', { class: 'toggle-switch' });
-        const $toggleInput = $('<input>', { type: 'checkbox', checked: false });
-        const $toggleSlider = $('<span>', { class: 'toggle-slider' });
+        const $toggleLabel = $('<label>', {class: 'toggle-switch'});
+        const $toggleInput = $('<input>', {type: 'checkbox', checked: false});
+        const $toggleSlider = $('<span>', {class: 'toggle-slider'});
         $toggleLabel.append($toggleInput, $toggleSlider);
 
         const $titleSpan = $('<span>', {
@@ -1666,13 +1670,13 @@ export class MapLayerControl {
 
         // Add atlas badge
         const displayAtlasName = layer._sourceAtlas.charAt(0).toUpperCase() + layer._sourceAtlas.slice(1);
-        
+
         // Get color from registry, fallback to blue-600 if not available
         let badgeColor = '#2563eb'; // Default blue
         if (window.layerRegistry) {
             badgeColor = window.layerRegistry.getAtlasColor(layer._sourceAtlas);
         }
-        
+
         const $atlasBadge = $('<span>', {
             class: 'text-xs text-white px-2 py-1 rounded ml-auto',
             style: `background-color: ${badgeColor};`,
@@ -1742,37 +1746,37 @@ export class MapLayerControl {
             id: layer._prefixedId || layer.id,
             initiallyChecked: true
         };
-        
+
         // Set the normalized ID for URL serialization using the registry
         if (window.layerRegistry) {
             layerWithPrefix._normalizedId = window.layerRegistry.normalizeLayerId(layerWithPrefix.id);
         }
-        
+
         this._state.groups.push(layerWithPrefix);
-        
+
         // Activate the layer
         if (this._mapboxAPI) {
-            await this._mapboxAPI.createLayerGroup(layerWithPrefix.id, layerWithPrefix, { visible: true });
+            await this._mapboxAPI.createLayerGroup(layerWithPrefix.id, layerWithPrefix, {visible: true});
         }
-        
+
         // Register with state manager if available
         if (this._stateManager) {
             this._registerLayerWithStateManager(layerWithPrefix);
         }
-        
+
         // Update attribution after layer is added
         if (window.attributionControl) {
             window.attributionControl._updateAttribution();
         }
-        
+
         // Update URL to reflect the change
         if (window.urlManager) {
             window.urlManager.onLayersChanged();
         }
-        
+
         // Dispatch custom event for URL sync
-        window.dispatchEvent(new CustomEvent('layer-toggled', { 
-            detail: { layerId: layerWithPrefix.id, visible: true, isCrossAtlas: true }
+        window.dispatchEvent(new CustomEvent('layer-toggled', {
+            detail: {layerId: layerWithPrefix.id, visible: true, isCrossAtlas: true}
         }));
     }
 
@@ -1786,36 +1790,36 @@ export class MapLayerControl {
             console.warn(`[LayerControl] Layer ${layerId} not found in state for removal`);
             return;
         }
-        
+
         // Save layer reference before removing from array
         const layer = this._state.groups[index];
-        
+
         // Hide the layer first
         if (this._mapboxAPI && layer) {
             this._mapboxAPI.updateLayerGroupVisibility(layerId, layer, false);
         }
-        
+
         // Now remove from state
         this._state.groups.splice(index, 1);
-        
+
         // Unregister with state manager if available
         if (this._stateManager) {
             this._unregisterLayerWithStateManager(layerId);
         }
-        
+
         // Update attribution after layer removal
         if (window.attributionControl) {
             window.attributionControl._updateAttribution();
         }
-        
+
         // Update URL to reflect the change
         if (window.urlManager) {
             window.urlManager.onLayersChanged();
         }
-        
+
         // Dispatch custom event for URL sync
-        window.dispatchEvent(new CustomEvent('layer-toggled', { 
-            detail: { layerId: layerId, visible: false, isCrossAtlas: true }
+        window.dispatchEvent(new CustomEvent('layer-toggled', {
+            detail: {layerId: layerId, visible: false, isCrossAtlas: true}
         }));
     }
 

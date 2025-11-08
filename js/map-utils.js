@@ -19,11 +19,11 @@ export function deepMerge(target, source) {
         Object.keys(source).forEach(key => {
             if (isObject(source[key])) {
                 if (!(key in target))
-                    Object.assign(output, { [key]: source[key] });
+                    Object.assign(output, {[key]: source[key]});
                 else
                     output[key] = deepMerge(target[key], source[key]);
             } else {
-                Object.assign(output, { [key]: source[key] });
+                Object.assign(output, {[key]: source[key]});
             }
         });
     }
@@ -50,7 +50,7 @@ function escapeXml(unsafe) {
 
 export function convertToKML(feature, options) {
     const {title, description} = options;
-    
+
     // Start KML document with escaped values
     let kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
@@ -77,7 +77,7 @@ export function convertToKML(feature, options) {
         <outerBoundaryIs>
           <LinearRing>
             <coordinates>`;
-        
+
         // Add coordinates (KML uses lon,lat,alt format)
         feature.geometry.coordinates[0].forEach(coord => {
             kml += `${coord[0]},${coord[1]},0 `;
@@ -104,7 +104,7 @@ export function convertToKML(feature, options) {
  * @returns {Array} Array of objects with column headers as keys
  */
 export function gstableToArray(tableData) {
-    const { cols, rows } = tableData;
+    const {cols, rows} = tableData;
     const headers = cols.map(col => col.label);
     const result = rows.map(row => {
         const obj = {};
@@ -159,7 +159,7 @@ export function convertToWebMercator(lng, lat) {
     const x = (lng * 20037508.34) / 180;
     let y = Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180);
     y = (y * 20037508.34) / 180;
-    return { x, y };
+    return {x, y};
 }
 
 /**
@@ -171,7 +171,7 @@ export function convertStyleToLegend(style) {
     if (!style) return [];
 
     const legend = [];
-    
+
     // Helper function to convert camelCase/kebab-case to Title Case
     const formatPropertyName = (prop) => {
         return prop
@@ -212,7 +212,7 @@ export function convertStyleToLegend(style) {
     // Process common style properties
     const styleProperties = {
         // Fill properties
-        'fill-color': { 
+        'fill-color': {
             category: 'Fill',
             format: formatColorValue
         },
@@ -220,7 +220,7 @@ export function convertStyleToLegend(style) {
             category: 'Fill',
             format: formatNumericValue
         },
-        
+
         // Line properties
         'line-color': {
             category: 'Line',
@@ -307,9 +307,9 @@ export function convertStyleToLegend(style) {
     // Process each style property
     for (const [prop, value] of Object.entries(style)) {
         if (styleProperties[prop]) {
-            const { category, format } = styleProperties[prop];
+            const {category, format} = styleProperties[prop];
             const formattedValue = format(value);
-            
+
             legend.push({
                 category,
                 property: formatPropertyName(prop),
@@ -348,38 +348,38 @@ export function rowsToGeoJSON(rows, debug = false) {
     // Coordinate field name patterns to look for
     const lonPatterns = ['lon', 'lng', 'longitude', 'x', 'long'];
     const latPatterns = ['lat', 'latitude', 'y'];
-    
+
     // Find coordinate field names
     let lonField = null;
     let latField = null;
-    
+
     const firstRow = rows[0];
     if (debug) console.log('Available fields for GeoJSON conversion:', Object.keys(firstRow).join(', '));
-    
+
     // Helper function to check if a field matches a pattern
     const matchesPattern = (field, pattern) => {
         const fieldLower = field.toLowerCase();
         const patternLower = pattern.toLowerCase();
-        
+
         // First try exact match
         if (fieldLower === patternLower) {
             if (debug) console.log(`Found exact match for "${pattern}": ${field}`);
             return 2; // Higher score for exact match
         }
-        
+
         // Then try contains match
         if (fieldLower.includes(patternLower)) {
             if (debug) console.log(`Found partial match for "${pattern}": ${field}`);
             return 1; // Lower score for partial match
         }
-        
+
         return 0; // No match
     };
-    
+
     // Find best matching fields
     let bestLonScore = 0;
     let bestLatScore = 0;
-    
+
     for (const field of Object.keys(firstRow)) {
         // Check longitude patterns
         for (const pattern of lonPatterns) {
@@ -389,7 +389,7 @@ export function rowsToGeoJSON(rows, debug = false) {
                 lonField = field;
             }
         }
-        
+
         // Check latitude patterns
         for (const pattern of latPatterns) {
             const score = matchesPattern(field, pattern);
@@ -399,9 +399,9 @@ export function rowsToGeoJSON(rows, debug = false) {
             }
         }
     }
-    
+
     if (debug) console.log(`Selected coordinate fields - Longitude: "${lonField}" (score: ${bestLonScore}), Latitude: "${latField}" (score: ${bestLatScore})`);
-    
+
     if (!lonField || !latField) {
         if (debug) {
             console.warn('Could not find coordinate fields in the data. Available fields:', Object.keys(firstRow));
@@ -410,12 +410,12 @@ export function rowsToGeoJSON(rows, debug = false) {
         }
         return null;
     }
-    
+
     // Validate that we found the correct fields by checking first row values
     const sampleLon = firstRow[lonField];
     const sampleLat = firstRow[latField];
     if (debug) console.log(`Validating coordinate fields - Longitude: ${sampleLon}, Latitude: ${sampleLat}`);
-    
+
     // Basic validation of coordinate values
     const parsedLon = parseFloat(sampleLon);
     const parsedLat = parseFloat(sampleLat);
@@ -426,22 +426,22 @@ export function rowsToGeoJSON(rows, debug = false) {
             console.error('Invalid coordinate values in first row:', {
                 [lonField]: sampleLon,
                 [latField]: sampleLat,
-                parsed: { lon: parsedLon, lat: parsedLat }
+                parsed: {lon: parsedLon, lat: parsedLat}
             });
         }
         return null;
     }
-    
+
     // Helper function to parse coordinates correctly
     const parseCoordinate = (value) => {
         if (value === null || value === undefined || value === '') {
             return NaN;
         }
-        
+
         if (typeof value === 'number') {
             return value;
         }
-        
+
         // Handle string values
         if (typeof value === 'string') {
             // Replace any commas with periods (for European number format)
@@ -452,49 +452,49 @@ export function rowsToGeoJSON(rows, debug = false) {
                 return parseFloat(match[0]);
             }
         }
-        
+
         return parseFloat(value);
     };
-    
+
     // Helper function to detect and parse property values
     const parsePropertyValue = (value) => {
         if (value === null || value === undefined || value === '') {
             return value;
         }
-        
+
         // Already a non-string type
         if (typeof value !== 'string') {
             return value;
         }
-        
+
         // Check for boolean values
         if (value.toLowerCase() === 'true') return true;
         if (value.toLowerCase() === 'false') return false;
-        
+
         // Check for integer
         if (/^-?\d+$/.test(value)) {
             return parseInt(value, 10);
         }
-        
+
         // Check for float
         if (/^-?\d+\.\d+$/.test(value)) {
             return parseFloat(value);
         }
-        
+
         // Handle European number format (comma as decimal separator)
         if (/^-?\d+,\d+$/.test(value)) {
             return parseFloat(value.replace(',', '.'));
         }
-        
+
         // Return original string if no numeric pattern detected
         return value;
     };
-    
+
     // Convert rows to GeoJSON features
     const features = [];
     let validCount = 0;
     let invalidCount = 0;
-    
+
     rows.forEach((row, index) => {
         // Check if coordinate fields exist in this row
         if (!(lonField in row) || !(latField in row)) {
@@ -502,38 +502,38 @@ export function rowsToGeoJSON(rows, debug = false) {
             invalidCount++;
             return;
         }
-        
+
         const lon = parseCoordinate(row[lonField]);
         const lat = parseCoordinate(row[latField]);
-        
+
         // Skip invalid or missing coordinates
         if (isNaN(lon) || isNaN(lat)) {
             invalidCount++;
             if (debug && invalidCount <= 5) {
-                console.warn(`Invalid coordinates at row ${index}:`, { 
-                    [lonField]: row[lonField], 
+                console.warn(`Invalid coordinates at row ${index}:`, {
+                    [lonField]: row[lonField],
                     [latField]: row[latField],
-                    parsed: { lon, lat }
+                    parsed: {lon, lat}
                 });
             }
             return;
         }
-        
+
         // Skip obviously invalid coordinates
         if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
             invalidCount++;
             if (debug && invalidCount <= 5) {
-                console.warn(`Out of range coordinates at row ${index}:`, { lon, lat });
+                console.warn(`Out of range coordinates at row ${index}:`, {lon, lat});
             }
             return;
         }
-        
+
         // Parse property values to appropriate types
         const parsedProperties = {};
         for (const [key, value] of Object.entries(row)) {
             parsedProperties[key] = parsePropertyValue(value);
         }
-        
+
         validCount++;
         features.push({
             type: 'Feature',
@@ -544,9 +544,9 @@ export function rowsToGeoJSON(rows, debug = false) {
             properties: parsedProperties
         });
     });
-    
+
     if (debug) console.log(`GeoJSON conversion results: ${validCount} valid features, ${invalidCount} invalid coordinates skipped`);
-    
+
     if (validCount === 0 && rows.length > 0) {
         if (debug) {
             console.error('Failed to generate any valid GeoJSON features despite having input rows');
@@ -555,7 +555,7 @@ export function rowsToGeoJSON(rows, debug = false) {
             console.log(`Latitude field (${latField})`, rows[0][latField], typeof rows[0][latField]);
         }
     }
-    
+
     return {
         type: 'FeatureCollection',
         features: features
@@ -569,48 +569,48 @@ export function rowsToGeoJSON(rows, debug = false) {
  */
 export function parseCSV(csvText) {
     if (!csvText) return [];
-    
+
     // Split into lines and remove empty lines
     const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
     if (lines.length === 0) return [];
-    
+
     // Find the first header line
     // Some CSV APIs may include duplicate headers, so we need to find the first one
     let headerLine = lines[0];
     let dataStartIndex = 1;
-    
+
     // Parse the header fields
     const headers = parseCSVLine(headerLine);
-    
+
     // Handle cases where the same header appears multiple times
     for (let i = 1; i < lines.length; i++) {
         const currentLine = parseCSVLine(lines[i]);
         // If this line has the same fields as the header, it's a duplicate header
-        if (currentLine.length === headers.length && 
+        if (currentLine.length === headers.length &&
             currentLine.every((val, idx) => val.trim() === headers[idx].trim())) {
             dataStartIndex = i + 1;
         } else {
             break;
         }
     }
-    
+
     // Parse data rows
     const rows = [];
     for (let i = dataStartIndex; i < lines.length; i++) {
         const values = parseCSVLine(lines[i]);
-        
+
         // Skip rows with incorrect number of fields
         if (values.length !== headers.length) continue;
-        
+
         // Create object with header keys and row values
         const row = {};
         headers.forEach((header, index) => {
             row[header.trim()] = values[index];
         });
-        
+
         rows.push(row);
     }
-    
+
     return rows;
 }
 
@@ -623,10 +623,10 @@ function parseCSVLine(line) {
     const result = [];
     let current = '';
     let inQuotes = false;
-    
+
     for (let i = 0; i < line.length; i++) {
         const char = line[i];
-        
+
         if (char === '"') {
             // Handle escaped quotes
             if (i + 1 < line.length && line[i + 1] === '"') {
@@ -643,10 +643,10 @@ function parseCSVLine(line) {
             current += char;
         }
     }
-    
+
     // Add the last field
     result.push(current);
-    
+
     return result;
 }
 
@@ -655,14 +655,14 @@ export async function fetchTileJSON(url) {
         // Handle different URL formats
         let tileJSONUrl = url;
         let isApiMain = false;
-        
+
         // Handle maphub.co API URLs
         if (url.includes('api-main')) {
             isApiMain = true;
             // Extract map_id from URL if present
             const urlObj = new URL(url);
             const mapId = urlObj.searchParams.get('map_id');
-            
+
             if (mapId) {
                 // Construct the layer_info endpoint
                 const baseUrl = url.split('/tiler/')[0];

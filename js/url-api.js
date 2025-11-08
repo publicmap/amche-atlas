@@ -8,10 +8,10 @@ class URLManager {
         this.geolocationManager = geolocationManager;
         this.isUpdatingFromURL = false; // Prevent circular updates
         this.pendingURLUpdate = null; // Debounce URL updates
-        
+
         // Set up browser history handling
         this.setupHistoryHandling();
-        
+
     }
 
     /**
@@ -23,35 +23,35 @@ class URLManager {
         if (layer._originalJson && layer.opacity === undefined) {
             return layer._originalJson;
         }
-        
+
         // Use normalized ID if available (removes current atlas prefix)
         let layerId = layer._normalizedId || layer.id;
-        
+
         // If we don't have a normalized ID, try to get it from the registry
         if (!layer._normalizedId && window.layerRegistry) {
             layerId = window.layerRegistry.normalizeLayerId(layer.id);
         }
-        
+
         // If it's a simple layer with just an ID (no opacity or other properties), return the normalized ID
         if (layer.id && Object.keys(layer).filter(k => !k.startsWith('_')).length === 1) {
             return layerId;
         }
-        
+
         // If it's a layer with opacity or other properties, create a clean object
-        const cleanLayer = { id: layerId };
+        const cleanLayer = {id: layerId};
         Object.keys(layer).forEach(key => {
-            if (key !== '_originalJson' && key !== '_normalizedId' && 
-                key !== '_sourceAtlas' && key !== '_prefixedId' && 
+            if (key !== '_originalJson' && key !== '_normalizedId' &&
+                key !== '_sourceAtlas' && key !== '_prefixedId' &&
                 key !== 'id' && key !== 'initiallyChecked') {
                 cleanLayer[key] = layer[key];
             }
         });
-        
+
         // If it's just an ID, return it as string
         if (Object.keys(cleanLayer).length === 1) {
             return layerId;
         }
-        
+
         // If it's a complex layer, return minified JSON
         const minified = JSON.stringify(cleanLayer);
         return minified;
@@ -62,34 +62,34 @@ class URLManager {
      */
     parseLayersFromUrl(layersParam) {
         if (!layersParam) return [];
-        
-        
+
+
         const layers = [];
         let currentItem = '';
         let braceCount = 0;
         let inQuotes = false;
         let escapeNext = false;
-        
+
         // Parse the comma-separated string, being careful about JSON objects
         for (let i = 0; i < layersParam.length; i++) {
             const char = layersParam[i];
-            
+
             if (escapeNext) {
                 currentItem += char;
                 escapeNext = false;
                 continue;
             }
-            
+
             if (char === '\\') {
                 currentItem += char;
                 escapeNext = true;
                 continue;
             }
-            
+
             if (char === '"' && !escapeNext) {
                 inQuotes = !inQuotes;
             }
-            
+
             if (!inQuotes) {
                 if (char === '{') {
                     braceCount++;
@@ -97,7 +97,7 @@ class URLManager {
                     braceCount--;
                 }
             }
-            
+
             if (char === ',' && braceCount === 0 && !inQuotes) {
                 // Found a separator, process current item
                 const trimmedItem = currentItem.trim();
@@ -108,10 +108,10 @@ class URLManager {
                             layers.push(parsedLayer);
                         } catch (error) {
                             console.warn('Failed to parse layer JSON:', trimmedItem, error);
-                            layers.push({ id: trimmedItem });
+                            layers.push({id: trimmedItem});
                         }
                     } else {
-                        layers.push({ id: trimmedItem });
+                        layers.push({id: trimmedItem});
                     }
                 }
                 currentItem = '';
@@ -119,7 +119,7 @@ class URLManager {
                 currentItem += char;
             }
         }
-        
+
         // Process the last item
         const trimmedItem = currentItem.trim();
         if (trimmedItem) {
@@ -129,13 +129,13 @@ class URLManager {
                     layers.push(parsedLayer);
                 } catch (error) {
                     console.warn('Failed to parse layer JSON:', trimmedItem, error);
-                    layers.push({ id: trimmedItem });
+                    layers.push({id: trimmedItem});
                 }
             } else {
-                layers.push({ id: trimmedItem });
+                layers.push({id: trimmedItem});
             }
         }
-        
+
         return layers;
     }
 
@@ -149,14 +149,14 @@ class URLManager {
         }
 
         const activeLayers = [];
-        
+
         // Iterate through all groups in the layer control
         this.mapLayerControl._state.groups.forEach((group, groupIndex) => {
             if (this.isGroupActive(groupIndex)) {
                 // Use the original layer configuration if it exists
                 if (group._originalJson) {
                     // If this is a custom layer from URL, preserve the original JSON string
-                    const layerObj = { 
+                    const layerObj = {
                         _originalJson: group._originalJson,
                         id: group.id,
                         _normalizedId: group._normalizedId
@@ -172,9 +172,9 @@ class URLManager {
                     if (!normalizedId && window.layerRegistry) {
                         normalizedId = window.layerRegistry.normalizeLayerId(group.id);
                     }
-                    
+
                     // Simple layer with just an ID
-                    const layerObj = { 
+                    const layerObj = {
                         id: group.id,
                         _normalizedId: normalizedId
                     };
@@ -192,7 +192,7 @@ class URLManager {
                         if (!normalizedId && window.layerRegistry) {
                             normalizedId = window.layerRegistry.normalizeLayerId(group.id);
                         }
-                        
+
                         // Create a representation for this group's active sublayers
                         const layerObj = {
                             id: group.title || `group-${groupIndex}`,
@@ -211,7 +211,7 @@ class URLManager {
                     if (!normalizedId && window.layerRegistry) {
                         normalizedId = window.layerRegistry.normalizeLayerId(group.id);
                     }
-                    
+
                     // Generic group
                     const layerObj = {
                         id: group.title || `group-${groupIndex}`,
@@ -247,7 +247,7 @@ class URLManager {
         const $groupControl = $(this.mapLayerControl._sourceControls[groupIndex]);
         const $toggle = $groupControl.find('.toggle-switch input[type="checkbox"]');
         const isChecked = $toggle.length > 0 && $toggle.prop('checked');
-        
+
         return isChecked;
     }
 
@@ -280,14 +280,14 @@ class URLManager {
      */
     getActiveCrossAtlasLayers() {
         const activeLayers = [];
-        
+
         // Find all cross-atlas layer elements that are currently active
         const $crossAtlasLayers = $('.cross-atlas-layer');
-        
+
         $crossAtlasLayers.each((index, element) => {
             const $element = $(element);
             const $toggleInput = $element.find('.toggle-switch input[type="checkbox"]');
-            
+
             if ($toggleInput.length > 0 && $toggleInput.prop('checked')) {
                 const layerId = $element.attr('data-layer-id');
                 if (layerId) {
@@ -299,23 +299,23 @@ class URLManager {
                         if (!normalizedId && window.layerRegistry) {
                             normalizedId = window.layerRegistry.normalizeLayerId(layerId);
                         }
-                        
+
                         const layerObj = {
                             id: layerId,
                             _normalizedId: normalizedId
                         };
-                        
+
                         // Include opacity if it exists and is different from default (1)
                         if (layer.opacity !== undefined && layer.opacity !== 1) {
                             layerObj.opacity = layer.opacity;
                         }
-                        
+
                         activeLayers.push(layerObj);
                     }
                 }
             }
         });
-        
+
         return activeLayers;
     }
 
@@ -355,7 +355,7 @@ class URLManager {
             const activeLayers = this.getCurrentActiveLayers();
             const newLayersParam = this.serializeLayersForURL(activeLayers);
             const currentLayersParam = urlParams.get('layers');
-            
+
             console.log('🔗 URLManager: Layers comparison:', {
                 activeLayers,
                 newLayersParam,
@@ -368,17 +368,17 @@ class URLManager {
                 // Check if this is just a formatting difference (encoded vs unencoded)
                 const normalizedNew = decodeURIComponent(newLayersParam || '');
                 const normalizedCurrent = decodeURIComponent(currentLayersParam || '');
-                
+
                 console.log('🔗 URLManager: Normalized comparison:', {
                     normalizedNew,
                     normalizedCurrent,
                     areEqual: normalizedNew === normalizedCurrent
                 });
-                
+
                 if (normalizedNew !== normalizedCurrent) {
                     layersParam = newLayersParam;
                     hasChanges = true;
-                } 
+                }
             }
         }
 
@@ -498,7 +498,7 @@ class URLManager {
             // Create a pretty, readable URL without URL encoding
             const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
             const params = [];
-            
+
             // Get other parameters (excluding the ones we manage)
             const otherParams = new URLSearchParams(window.location.search);
             otherParams.delete('layers');
@@ -509,20 +509,20 @@ class URLManager {
             otherParams.delete('fog');
             otherParams.delete('wireframe');
             otherParams.delete('terrainSource');
-            
+
             // Add other parameters first (these will be URL-encoded by URLSearchParams)
             const otherParamsString = otherParams.toString();
             if (otherParamsString) {
                 params.push(otherParamsString);
             }
-            
+
             // Add atlas parameter if it exists (either new or preserved from current URL)
             const currentAtlas = atlasParam || (options.atlas === undefined ? urlParams.get('atlas') : null);
             if (currentAtlas) {
                 // For atlas, we may need to preserve JSON, so add it manually
                 params.push('atlas=' + encodeURIComponent(currentAtlas));
             }
-            
+
             // Add layers parameter if present - this is the key fix for pretty URLs
             if (layersParam) {
                 // Don't URL-encode the layers parameter to keep it readable
@@ -540,60 +540,60 @@ class URLManager {
                 // This effectively removes the layers parameter from the URL
                 console.log('🔗 URLManager: No layers param to add (layers are empty)');
             }
-            
+
             // Add geolocate parameter if active (either new or preserved from current URL)
             const currentGeolocate = geolocateParam || (options.geolocate === undefined ? urlParams.get('geolocate') : null);
             if (currentGeolocate === 'true') {
                 params.push('geolocate=true');
             }
-            
+
             // Add terrain parameter (either new or preserved from current URL)
             const currentTerrain = terrainParam || (options.terrain === undefined ? urlParams.get('terrain') : null);
             if (currentTerrain) {
                 params.push('terrain=' + currentTerrain);
             }
-            
+
             // Add animate parameter (either new or preserved from current URL)
             const currentAnimate = animateParam || (options.animate === undefined ? urlParams.get('animate') : null);
             if (currentAnimate === 'true') {
                 params.push('animate=true');
             }
-            
+
             // Add fog parameter (either new or preserved from current URL)
             const currentFog = fogParam || (options.fog === undefined ? urlParams.get('fog') : null);
             if (currentFog === 'false') {
                 params.push('fog=false');
             }
-            
+
             // Add wireframe parameter (either new or preserved from current URL)
             const currentWireframe = wireframeParam || (options.wireframe === undefined ? urlParams.get('wireframe') : null);
             if (currentWireframe === 'true') {
                 params.push('wireframe=true');
             }
-            
+
             // Add terrain source parameter (either new or preserved from current URL)
             const currentTerrainSource = terrainSourceParam || (options.terrainSource === undefined ? urlParams.get('terrainSource') : null);
             if (currentTerrainSource && currentTerrainSource !== 'mapbox') {
                 params.push('terrainSource=' + currentTerrainSource);
             }
-            
+
             // Build the final pretty URL
             let newUrl = baseUrl;
             if (params.length > 0) {
                 newUrl += '?' + params.join('&');
             }
-            
+
             // Add hash if it exists
             if (window.location.hash) {
                 newUrl += window.location.hash;
             }
-            
+
             console.log('🔗 URLManager: Final URL:', newUrl);
             window.history.replaceState(null, '', newUrl);
-            
+
             // Trigger custom event for other components (like ShareLink)
-            window.dispatchEvent(new CustomEvent('urlUpdated', { 
-                detail: { url: newUrl, activeLayers: this.getCurrentActiveLayers() }
+            window.dispatchEvent(new CustomEvent('urlUpdated', {
+                detail: {url: newUrl, activeLayers: this.getCurrentActiveLayers()}
             }));
         }
     }
@@ -610,7 +610,7 @@ class URLManager {
         const serialized = layers.map(layer => {
             return this.layerToURL(layer);
         }).join(',');
-        
+
         console.log('🔗 URLManager: Serialized layers:', serialized);
         return serialized;
     }
@@ -619,7 +619,7 @@ class URLManager {
      * Update URL when layers change
      */
     onLayersChanged() {
-        this.updateURL({ updateLayers: true });
+        this.updateURL({updateLayers: true});
     }
 
     /**
@@ -634,13 +634,13 @@ class URLManager {
         const fogParam = urlParams.get('fog');
         const wireframeParam = urlParams.get('wireframe');
         const terrainSourceParam = urlParams.get('terrainSource');
-        
+
         // Auto-add terrain parameter if not present
         if (!terrainParam) {
             console.log('[URL API] No terrain parameter found, auto-adding default');
             this.autoAddTerrainParameter();
         }
-        
+
         if (!layersParam && !geolocateParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam) {
             return false;
         }
@@ -649,10 +649,10 @@ class URLManager {
         let applied = false;
 
         try {
-            
+
             // Wait for map and layer control to be ready
             await this.waitForMapReady();
-            
+
             // Parse layers from URL
             if (layersParam) {
                 // Check if layers were already processed during initialization
@@ -665,7 +665,7 @@ class URLManager {
                     applied = await this.applyLayerState(urlLayers);
                 }
             }
-            
+
             // Handle geolocate parameter
             if (geolocateParam === 'true') {
                 applied = true;
@@ -674,7 +674,7 @@ class URLManager {
                     this.triggerGeolocation();
                 }, 1000);
             }
-            
+
             // Handle terrain parameter
             if (terrainParam && window.terrain3DControl) {
                 applied = true;
@@ -805,17 +805,17 @@ class URLManager {
 
         // Store original method
         const originalToggleSourceControl = this.mapLayerControl._toggleSourceControl;
-        
+
         // Patch the toggle method
         this.mapLayerControl._toggleSourceControl = (groupIndex, visible) => {
             // Call original method
             const result = originalToggleSourceControl.call(this.mapLayerControl, groupIndex, visible);
-            
+
             // Update URL after layer change
             if (!this.isUpdatingFromURL) {
                 this.onLayersChanged();
             }
-            
+
             return result;
         };
 
@@ -849,7 +849,7 @@ class URLManager {
         // Listen for state manager events to catch layer registration/unregistration
         if (window.stateManager) {
             this._stateManagerListener = (event) => {
-                const { eventType } = event.detail;
+                const {eventType} = event.detail;
                 if (eventType === 'layer-registered' || eventType === 'layer-unregistered') {
                     if (!this.isUpdatingFromURL) {
                         // Use a small delay to ensure the layer control state is updated
@@ -875,7 +875,7 @@ class URLManager {
      * Manual sync method for external use
      */
     syncURL() {
-        this.updateURL({ updateLayers: true });
+        this.updateURL({updateLayers: true});
     }
 
     /**
@@ -893,7 +893,7 @@ class URLManager {
      * Update geolocate parameter in URL
      */
     updateGeolocateParam(isActive) {
-        this.updateURL({ geolocate: isActive });
+        this.updateURL({geolocate: isActive});
     }
 
     /**
@@ -901,10 +901,10 @@ class URLManager {
      */
     autoAddTerrainParameter() {
         if (!this.map) return;
-        
+
         // Get the default exaggeration from the map style or use 1.5 as fallback
         let defaultExaggeration = 1.5;
-        
+
         try {
             const style = this.map.getStyle();
             if (style && style.terrain && style.terrain.exaggeration) {
@@ -920,12 +920,12 @@ class URLManager {
         } catch (error) {
             console.debug('Could not get terrain exaggeration from style, using default:', defaultExaggeration);
         }
-        
+
         console.log('[URL API] Auto-adding terrain parameter with exaggeration:', defaultExaggeration);
-        
+
         // Add terrain parameter to URL
-        this.updateURL({ terrain: defaultExaggeration });
-        
+        this.updateURL({terrain: defaultExaggeration});
+
         // Also initialize the 3D control if available
         if (window.terrain3DControl) {
             console.log('[URL API] Initializing 3D control with exaggeration:', defaultExaggeration);
@@ -938,37 +938,37 @@ class URLManager {
      * Update terrain parameter in URL
      */
     updateTerrainParam(exaggeration) {
-        this.updateURL({ terrain: exaggeration });
+        this.updateURL({terrain: exaggeration});
     }
 
     /**
      * Update animate parameter in URL
      */
     updateAnimateParam(animate) {
-        this.updateURL({ animate: animate });
+        this.updateURL({animate: animate});
     }
 
     /**
      * Update fog parameter in URL
      */
     updateFogParam(enableFog) {
-        this.updateURL({ fog: enableFog });
+        this.updateURL({fog: enableFog});
     }
 
     /**
      * Update wireframe parameter in URL
      */
     updateWireframeParam(showWireframe) {
-        this.updateURL({ wireframe: showWireframe });
+        this.updateURL({wireframe: showWireframe});
     }
 
     /**
      * Update terrain source parameter in URL
      */
     updateTerrainSourceParam(terrainSource) {
-        this.updateURL({ terrainSource: terrainSource });
+        this.updateURL({terrainSource: terrainSource});
     }
 }
 
 // Export the URLManager class
-export { URLManager }; 
+export {URLManager};

@@ -1,4 +1,4 @@
-import { fetchTileJSON } from './map-utils.js';
+import {fetchTileJSON} from './map-utils.js';
 
 /**
  * LayerSettingsModal - Handles the layer settings modal functionality
@@ -8,7 +8,7 @@ export class LayerSettingsModal {
         this.mapLayerControl = mapLayerControl;
         this._initialized = false;
         this._originalConfig = null;
-        
+
         this._initializeModal();
     }
 
@@ -483,7 +483,7 @@ export class LayerSettingsModal {
             matches.forEach(match => {
                 const key = `${match.field}:${match.value}`;
                 if (!allMatches.has(key)) {
-                    allMatches.set(key, { ...match, styles: {} });
+                    allMatches.set(key, {...match, styles: {}});
                 }
                 allMatches.get(key).styles[type] = match.result;
             });

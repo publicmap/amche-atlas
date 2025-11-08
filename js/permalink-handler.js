@@ -31,13 +31,13 @@ class PermalinkHandler {
      */
     async resolvePermalink(permalinkId) {
         await this.loadPromise;
-        
+
         if (!permalinkId || !this.permalinks[permalinkId]) {
             return null;
         }
 
         const permalink = this.permalinks[permalinkId];
-        
+
         // Handle aliases
         if (permalink.alias_for) {
             return this.resolvePermalink(permalink.alias_for);
@@ -47,7 +47,7 @@ class PermalinkHandler {
         try {
             const url = new URL(permalink.url);
             const params = new URLSearchParams(url.search);
-            
+
             return {
                 atlas: params.get('atlas'),
                 layers: params.get('layers'),
@@ -69,11 +69,11 @@ class PermalinkHandler {
     async checkForPermalink() {
         const urlParams = new URLSearchParams(window.location.search);
         const permalinkId = urlParams.get('map') || urlParams.get('permalink');
-        
+
         if (permalinkId) {
             console.log('🔗 Found permalink:', permalinkId);
             const resolved = await this.resolvePermalink(permalinkId);
-            
+
             if (resolved) {
                 console.log('✅ Resolved permalink:', resolved);
                 return resolved;
@@ -81,7 +81,7 @@ class PermalinkHandler {
                 console.warn('❌ Permalink not found:', permalinkId);
             }
         }
-        
+
         return null;
     }
 
@@ -94,32 +94,32 @@ class PermalinkHandler {
 
         const url = new URL(window.location);
         const baseUrl = `${url.protocol}//${url.host}${url.pathname}`;
-        
+
         // Preserve original hash if it exists, otherwise use permalink hash
         const originalHash = url.hash;
-        
+
         // Build new URL with resolved parameters
         const params = new URLSearchParams();
-        
+
         if (resolvedParams.atlas) {
             params.set('atlas', resolvedParams.atlas);
         }
-        
+
         if (resolvedParams.layers) {
             params.set('layers', resolvedParams.layers);
         }
-        
+
         let newUrl = baseUrl;
         if (params.toString()) {
             newUrl += '?' + params.toString();
         }
-        
+
         // Add hash - prefer original hash over permalink hash
         const hashToUse = originalHash || resolvedParams.hash;
         if (hashToUse) {
             newUrl += hashToUse;
         }
-        
+
         console.log('🔄 Applying permalink URL:', newUrl);
         if (originalHash) {
             console.log('✅ Preserved original hash:', originalHash);
@@ -144,12 +144,12 @@ class PermalinkHandler {
      */
     async createPermalink(id, config) {
         await this.loadPromise;
-        
+
         if (!id || !config.url) {
             console.error('❌ Invalid permalink configuration');
             return false;
         }
-        
+
         this.permalinks[id] = {
             url: config.url,
             title: config.title || id,
@@ -158,7 +158,7 @@ class PermalinkHandler {
             created: new Date().toISOString(),
             ...config
         };
-        
+
         console.log('✅ Created permalink:', id);
         return true;
     }

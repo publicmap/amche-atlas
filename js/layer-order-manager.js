@@ -45,13 +45,13 @@ function getSlotForLayerType(type, layerType) {
     if (rasterTypes.includes(type)) {
         return 'bottom';
     }
-    
+
     // Vector layers (vector, geojson, csv) go to middle slot
     const vectorTypes = ['vector', 'geojson', 'csv', 'markers'];
     if (vectorTypes.includes(type)) {
         return 'middle';
     }
-    
+
     // Default to middle for unknown types
     return 'middle';
 }
@@ -69,16 +69,16 @@ function getInsertPosition(map, type, layerType, currentGroup, orderedGroups) {
     // Use slot-based insertion instead of layer ID-based insertion
     // This ensures proper layer ordering: rasters at bottom, vectors in middle
     const slot = getSlotForLayerType(type, layerType);
-    
+
     console.log(`[LayerOrder] Layer type: ${type}, assigned to slot: ${slot}`);
-    
+
     // Return the slot name - Mapbox will handle insertion into the correct slot
     return slot;
 
     // Legacy layer ID-based insertion code below (kept for reference but not executed)
     // ==================================================================================
     const layers = map.getStyle().layers;
-    
+
     // Try to extract URL parameter order from the current URL
     const urlParams = new URLSearchParams(window.location.search);
     const urlLayersParam = urlParams.get('layers');
@@ -86,10 +86,10 @@ function getInsertPosition(map, type, layerType, currentGroup, orderedGroups) {
     if (urlLayersParam) {
         urlLayerOrder = urlLayersParam.split(',').map(id => id.trim());
     }
-    
-    
+
+
     // Find current layer's index in the configuration
-    const currentGroupIndex = orderedGroups.findIndex(group => 
+    const currentGroupIndex = orderedGroups.findIndex(group =>
         group.id === currentGroup?.id
     );
 
@@ -98,18 +98,16 @@ function getInsertPosition(map, type, layerType, currentGroup, orderedGroups) {
     // For vector layers, use the main type ('vector') not the sublayer type ('fill', 'line', etc.)
     const lookupType = (type === 'vector') ? type : (layerType || type);
     const currentTypeOrder = LAYER_TYPE_ORDER[lookupType] || Infinity;
-    
+
     // Special case for layer ID-specific ordering
     const currentIdOrder = currentGroup && LAYER_ID_ORDER[currentGroup.id];
     const orderValue = currentIdOrder !== undefined ? currentIdOrder : currentTypeOrder;
-    
-    
 
 
     // For all other cases, go through layers in reverse to find insertion point
     for (let i = layers.length - 1; i >= 0; i--) {
         const layer = layers[i];
-        
+
         // Skip layers that don't have metadata (likely base layers)
         if (!layer.metadata || !layer.metadata.groupId) {
             // For layers without metadata, try to match by ID instead
@@ -122,41 +120,41 @@ function getInsertPosition(map, type, layerType, currentGroup, orderedGroups) {
             }
             continue;
         }
-        
+
         const groupId = layer.metadata.groupId;
         const layerGroupIndex = orderedGroups.findIndex(g => g.id === groupId);
-        
+
         // Use explicit layer ID ordering if available
         const layerIdOrder = LAYER_ID_ORDER[groupId];
-        
+
         // Get order value based on type or ID override
         // For vector layers, always use 'vector' as the lookup type regardless of sublayer type
-        const existingLayerLookupType = layer.metadata.layerType === 'fill' || 
-                                       layer.metadata.layerType === 'line' || 
-                                       layer.metadata.layerType === 'circle' || 
-                                       layer.metadata.layerType === 'symbol' 
-                                       ? 'vector' 
-                                       : layer.metadata.layerType;
-        const thisLayerOrderValue = layerIdOrder !== undefined 
-            ? layerIdOrder 
+        const existingLayerLookupType = layer.metadata.layerType === 'fill' ||
+        layer.metadata.layerType === 'line' ||
+        layer.metadata.layerType === 'circle' ||
+        layer.metadata.layerType === 'symbol'
+            ? 'vector'
+            : layer.metadata.layerType;
+        const thisLayerOrderValue = layerIdOrder !== undefined
+            ? layerIdOrder
             : LAYER_TYPE_ORDER[existingLayerLookupType] || 0;
-        
+
         // If this layer should be rendered before our new layer
         // Check if we're dealing with URL-specified layers by seeing if there are custom layers already loaded
         const customLayersAlreadyLoaded = layers.filter(l => l.metadata?.groupId);
         const isUrlBasedOrdering = urlLayerOrder.length > 0;
-        
+
         if (isUrlBasedOrdering && customLayersAlreadyLoaded.length > 0) {
             // For URL-based ordering, find the correct position based on URL parameter sequence
             const currentLayerId = currentGroup?.id;
             const currentUrlIndex = urlLayerOrder.indexOf(currentLayerId);
-            
+
             if (currentUrlIndex !== -1) {
                 // For URL parameter order like "A,B,C,D":
                 // A should be on top, B below A, C below B, D at bottom
                 // When adding any layer, find the first already-loaded layer and insert before it
                 // This puts each new layer at the bottom of the stack
-                
+
                 // Find ANY earlier layer in the URL sequence to insert before
                 const firstExistingLayer = customLayersAlreadyLoaded[0]; // Get the first (bottommost) layer
                 if (firstExistingLayer && currentUrlIndex > 0) {
@@ -172,7 +170,7 @@ function getInsertPosition(map, type, layerType, currentGroup, orderedGroups) {
                 while (firstLayerOfGroup > 0 && layers[firstLayerOfGroup - 1].metadata?.groupId === groupId) {
                     firstLayerOfGroup--;
                 }
-                
+
                 return layers[firstLayerOfGroup].id;
             }
         }
@@ -181,15 +179,15 @@ function getInsertPosition(map, type, layerType, currentGroup, orderedGroups) {
     // Fallback: look for specific layer IDs to insert before based on type
     if (type === 'vector' || type === 'geojson') {
         // Insert vector/geojson layers before labels
-        const labelsLayers = layers.filter(layer => 
-            layer.type === 'symbol' && (
-                layer.id.includes('label') || 
-                layer.id.includes('place-') || 
-                layer.id.includes('-name') ||
-                layer.id === 'poi-label'
-            )
+        const labelsLayers = layers.filter(layer =>
+                layer.type === 'symbol' && (
+                    layer.id.includes('label') ||
+                    layer.id.includes('place-') ||
+                    layer.id.includes('-name') ||
+                    layer.id === 'poi-label'
+                )
         );
-        
+
         if (labelsLayers.length > 0) {
             return labelsLayers[0].id;
         }
@@ -205,12 +203,12 @@ function getInsertPosition(map, type, layerType, currentGroup, orderedGroups) {
  */
 function logLayerStack(map, label = '') {
     if (!map) return;
-    
+
     const layers = map.getStyle().layers;
     const layerStack = layers
         .filter(l => l.metadata?.groupId)
         .map((l, index) => `${index}: ${l.metadata.groupId} (${l.metadata.layerType})`);
-    
+
     console.log(`[LayerOrder] ${label} - Layer stack (bottom to top):`, layerStack);
 }
 
@@ -225,4 +223,4 @@ function fixLayerOrdering(map) {
 }
 
 // Export the functions so they can be called from elsewhere
-export { getInsertPosition, getSlotForLayerType, LAYER_TYPE_ORDER, LAYER_ID_ORDER, fixLayerOrdering, logLayerStack };
+export {getInsertPosition, getSlotForLayerType, LAYER_TYPE_ORDER, LAYER_ID_ORDER, fixLayerOrdering, logLayerStack};

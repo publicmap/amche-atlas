@@ -7,7 +7,7 @@ export class Terrain3DControl {
             step: 0.5,
             ...options
         };
-        
+
         this._enabled = true; // Default to enabled
         this._exaggeration = this.options.initialExaggeration;
         this._animate = false; // Default to disabled
@@ -18,7 +18,7 @@ export class Terrain3DControl {
         this._map = null;
         this._terrainSource = 'mapbox'; // Default to Mapbox terrain
         this._initializing = false; // Flag to prevent URL updates during initialization
-        
+
         // Define terrain sources
         this._terrainSources = {
             'mapbox': {
@@ -49,12 +49,12 @@ export class Terrain3DControl {
 
     onAdd(map) {
         this._map = map;
-        
+
         // Create container with jQuery
         this._container = $('<div>', {
             class: 'mapboxgl-ctrl mapboxgl-ctrl-group'
         })[0];
-        
+
         // Create button with jQuery
         const $button = $('<button>', {
             class: 'mapboxgl-ctrl-icon',
@@ -75,7 +75,7 @@ export class Terrain3DControl {
         // Create 3D text
         const $text = $('<span>', {
             text: '3D',
-            css: { 
+            css: {
                 display: 'block',
                 lineHeight: '1'
             }
@@ -87,10 +87,10 @@ export class Terrain3DControl {
             .on('click', () => {
                 this._togglePanel();
             })
-            .on('mouseenter', function() {
+            .on('mouseenter', function () {
                 $(this).css('backgroundColor', '#f0f0f0');
             })
-            .on('mouseleave', function() {
+            .on('mouseleave', function () {
                 $(this).css('backgroundColor', '#ffffff');
             })
             .appendTo(this._container);
@@ -104,7 +104,7 @@ export class Terrain3DControl {
     onRemove() {
         // Stop animation if running
         this._stopAnimation();
-        
+
         if (this._panel) {
             $(this._panel).remove();
         }
@@ -431,7 +431,7 @@ export class Terrain3DControl {
 
     _updateTerrain() {
         if (!this._map) return;
-        
+
         // Skip terrain updates during initialization to prevent interference with layer creation
         if (this._initializing) {
             return;
@@ -447,7 +447,7 @@ export class Terrain3DControl {
             // Check if we already have the correct terrain source active
             const currentTerrain = this._map.getTerrain();
             const targetSourceExists = this._map.getSource(terrainConfig.sourceId);
-            
+
             if (currentTerrain && currentTerrain.source === terrainConfig.sourceId && targetSourceExists) {
                 // Same source is already active, just update exaggeration
                 this._map.setTerrain({
@@ -508,7 +508,7 @@ export class Terrain3DControl {
                 if (config.hillshadeLayerId && this._map.getLayer(config.hillshadeLayerId)) {
                     this._map.removeLayer(config.hillshadeLayerId);
                 }
-                
+
                 // Remove source if it exists
                 if (this._map.getSource(config.sourceId)) {
                     this._map.removeSource(config.sourceId);
@@ -524,7 +524,7 @@ export class Terrain3DControl {
         if (this._initializing) {
             return;
         }
-        
+
         // Use URL API if available, otherwise fall back to direct URL manipulation
         if (window.urlManager && window.urlManager.updateTerrainParam) {
             if (this._enabled) {
@@ -540,7 +540,7 @@ export class Terrain3DControl {
             } else {
                 url.searchParams.set('terrain', '0'); // Set to 0 when disabled
             }
-            
+
             // Update URL without reloading the page
             window.history.replaceState({}, '', url);
         }
@@ -552,22 +552,22 @@ export class Terrain3DControl {
         } else {
             this._stopAnimation();
         }
-        
+
         // Update URL parameter
         this._updateAnimationURLParameter();
     }
 
     _startAnimation() {
         if (!this._map || this._animationFrame) return;
-        
+
         const rotateCamera = (timestamp) => {
             // clamp the rotation between 0 -360 degrees
             // Divide timestamp by 100 to slow rotation to ~10 degrees / sec
-            this._map.rotateTo((timestamp / 100) % 360, { duration: 0 });
+            this._map.rotateTo((timestamp / 100) % 360, {duration: 0});
             // Request the next frame of the animation.
             this._animationFrame = requestAnimationFrame(rotateCamera);
         };
-        
+
         // Start the animation
         this._animationFrame = requestAnimationFrame(rotateCamera);
     }
@@ -584,7 +584,7 @@ export class Terrain3DControl {
         if (this._initializing) {
             return;
         }
-        
+
         // Use URL API if available, otherwise fall back to direct URL manipulation
         if (window.urlManager && window.urlManager.updateAnimateParam) {
             window.urlManager.updateAnimateParam(this._animate);
@@ -596,7 +596,7 @@ export class Terrain3DControl {
             } else {
                 url.searchParams.delete('animate');
             }
-            
+
             // Update URL without reloading the page
             window.history.replaceState({}, '', url);
         }
@@ -604,7 +604,7 @@ export class Terrain3DControl {
 
     _updateFog() {
         if (!this._map) return;
-        
+
         if (this._enableFog) {
             // Set fog with the specified configuration
             this._map.setFog({
@@ -617,17 +617,17 @@ export class Terrain3DControl {
             // Disable fog
             this._map.setFog(null);
         }
-        
+
         // Update URL parameter
         this._updateFogURLParameter();
     }
 
     _updateWireframe() {
         if (!this._map) return;
-        
+
         // Toggle the terrain wireframe debug feature
         this._map.showTerrainWireframe = this._showWireframe;
-        
+
         // Update URL parameter
         this._updateWireframeURLParameter();
     }
@@ -637,7 +637,7 @@ export class Terrain3DControl {
         if (this._initializing) {
             return;
         }
-        
+
         // Use URL API if available, otherwise fall back to direct URL manipulation
         if (window.urlManager && window.urlManager.updateWireframeParam) {
             window.urlManager.updateWireframeParam(this._showWireframe);
@@ -649,7 +649,7 @@ export class Terrain3DControl {
             } else {
                 url.searchParams.delete('wireframe');
             }
-            
+
             // Update URL without reloading the page
             window.history.replaceState({}, '', url);
         }
@@ -660,7 +660,7 @@ export class Terrain3DControl {
         if (this._initializing) {
             return;
         }
-        
+
         // Use URL API if available, otherwise fall back to direct URL manipulation
         if (window.urlManager && window.urlManager.updateFogParam) {
             window.urlManager.updateFogParam(this._enableFog);
@@ -672,7 +672,7 @@ export class Terrain3DControl {
             } else {
                 url.searchParams.delete('fog');
             }
-            
+
             // Update URL without reloading the page
             window.history.replaceState({}, '', url);
         }
@@ -683,7 +683,7 @@ export class Terrain3DControl {
         if (this._initializing) {
             return;
         }
-        
+
         // Use URL API if available, otherwise fall back to direct URL manipulation
         if (window.urlManager && window.urlManager.updateTerrainSourceParam) {
             window.urlManager.updateTerrainSourceParam(this._terrainSource);
@@ -695,7 +695,7 @@ export class Terrain3DControl {
             } else {
                 url.searchParams.delete('terrainSource');
             }
-            
+
             // Update URL without reloading the page
             window.history.replaceState({}, '', url);
         }
@@ -711,8 +711,8 @@ export class Terrain3DControl {
     }
 
     setExaggeration(exaggeration) {
-        this._exaggeration = Math.max(this.options.minExaggeration, 
-                                    Math.min(this.options.maxExaggeration, exaggeration));
+        this._exaggeration = Math.max(this.options.minExaggeration,
+            Math.min(this.options.maxExaggeration, exaggeration));
         $('input[type="range"]', this._panel).val(this._exaggeration);
         $('.terrain-3d-panel span').text(this._exaggeration.toFixed(1));
         if (this._enabled) {
@@ -775,30 +775,30 @@ export class Terrain3DControl {
     initializeFromURL() {
         // Set initialization flag to prevent URL updates during initialization
         this._initializing = true;
-        
+
         const urlParams = new URLSearchParams(window.location.search);
         const terrainParam = urlParams.get('terrain');
         const animateParam = urlParams.get('animate');
         const wireframeParam = urlParams.get('wireframe');
         const terrainSourceParam = urlParams.get('terrainSource');
         const fogParam = urlParams.get('fog');
-        
-        
+
+
         // Handle terrain source parameter first
         if (terrainSourceParam && this._terrainSources[terrainSourceParam]) {
             this.setTerrainSource(terrainSourceParam);
         } else {
             this.setTerrainSource('mapbox');
         }
-        
+
         if (terrainParam) {
             const exaggeration = parseFloat(terrainParam);
             if (!isNaN(exaggeration)) {
                 if (exaggeration === 0) {
                     // Explicitly disabled
                     this.setEnabled(false);
-                } else if (exaggeration >= this.options.minExaggeration && 
-                          exaggeration <= this.options.maxExaggeration) {
+                } else if (exaggeration >= this.options.minExaggeration &&
+                    exaggeration <= this.options.maxExaggeration) {
                     // Valid exaggeration value
                     this.setExaggeration(exaggeration);
                     this.setEnabled(true);
@@ -830,7 +830,7 @@ export class Terrain3DControl {
         } else {
             this.setFog(true);
         }
-        
+
         // Clear initialization flag to allow normal URL updates
         this._initializing = false;
     }

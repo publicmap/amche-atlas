@@ -1,5 +1,5 @@
-import { getInsertPosition, logLayerStack } from './layer-order-manager.js';
-import { parseCSV, rowsToGeoJSON, gstableToArray } from './map-utils.js';
+import {getInsertPosition, logLayerStack} from './layer-order-manager.js';
+import {parseCSV, rowsToGeoJSON, gstableToArray} from './map-utils.js';
 
 /**
  * MapboxAPI - Abstracts Mapbox GL JS operations for layer management
@@ -16,10 +16,10 @@ export class MapboxAPI {
         this._refreshTimers = new Map(); // Cache for refresh timers
         this._eventListeners = new Map(); // Cache for event listeners
         this._timeBasedLayers = new Map(); // Cache for layers with time parameters
-        
+
         // Initialize style property mapping for different layer types
         this._stylePropertyMapping = this._initializeStylePropertyMapping();
-        
+
         // Set up time change event listener
         this._setupTimeChangeListener();
     }
@@ -30,14 +30,14 @@ export class MapboxAPI {
     _setupTimeChangeListener() {
         // Listen for time change events from TimeControl
         const timeChangeHandler = (event) => {
-            const { selectedDate, isoString, urlFormat } = event.detail;
+            const {selectedDate, isoString, urlFormat} = event.detail;
             this._updateTimeBasedLayers(urlFormat);
         };
 
         // Listen on both map container and window for maximum compatibility
         this._map.getContainer().addEventListener('timechange', timeChangeHandler);
         window.addEventListener('timechange', timeChangeHandler);
-        
+
         // Store handler for cleanup
         this._timeChangeHandler = timeChangeHandler;
     }
@@ -47,14 +47,14 @@ export class MapboxAPI {
      * @param {string} timeString - ISO time string for URL parameters
      */
     _updateTimeBasedLayers(timeString) {
-        
+
         this._timeBasedLayers.forEach((layerInfo, groupId) => {
-            const { config, visible } = layerInfo;
-            
+            const {config, visible} = layerInfo;
+
             if (!visible) {
                 return;
             }
-            
+
             try {
                 this._updateLayerTime(groupId, config, timeString);
             } catch (error) {
@@ -77,7 +77,7 @@ export class MapboxAPI {
 
         // Generate new URL with time parameter
         const newUrl = this._generateTimeBasedUrl(config.url, config.urlTimeParam, timeString);
-        
+
         // Update the source based on layer type
         switch (config.type) {
             case 'wmts':
@@ -115,10 +115,10 @@ export class MapboxAPI {
             const day = String(date.getDate()).padStart(2, '0');
             formattedTimeString = `${year}-${month}-${day}`;
         }
-        
+
         // Replace the time placeholder in the timeParam with the formatted time
         const timeValue = timeParam.replace('{time}', formattedTimeString);
-        
+
         // If the base URL already has the time parameter, replace it
         if (baseUrl.includes(timeParam.split('=')[0] + '=')) {
             // Find and replace existing time parameter
@@ -144,21 +144,21 @@ export class MapboxAPI {
     _updateWMTSLayerTime(groupId, config, newUrl) {
         const sourceId = `wmts-${groupId}`;
         const source = this._map.getSource(sourceId);
-        
+
         if (source) {
             // Store current config for URL conversion
             this._currentConfig = config;
-            
+
             // Convert WMTS URL to XYZ tile format
             const tileUrl = this._convertWMTSToXYZ(newUrl);
-            
+
             // Remove and re-add source with new URL
             const layerId = `wmts-layer-${groupId}`;
             if (this._map.getLayer(layerId)) {
                 this._map.removeLayer(layerId);
             }
             this._map.removeSource(sourceId);
-            
+
             // Add source with new URL
             const sourceConfig = {
                 type: 'raster',
@@ -188,7 +188,7 @@ export class MapboxAPI {
 
             this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'wmts', null, config, this._orderedGroups));
             logLayerStack(this._map, `After adding WMTS layer: ${config.id}`);
-            
+
         }
     }
 
@@ -198,7 +198,7 @@ export class MapboxAPI {
     _updateTMSLayerTime(groupId, config, newUrl) {
         const sourceId = `tms-${groupId}`;
         const source = this._map.getSource(sourceId);
-        
+
         if (source) {
             // Remove and re-add source with new URL
             const layerId = `tms-layer-${groupId}`;
@@ -206,7 +206,7 @@ export class MapboxAPI {
                 this._map.removeLayer(layerId);
             }
             this._map.removeSource(sourceId);
-            
+
             // Add source with new URL
             const sourceConfig = {
                 type: 'raster',
@@ -236,7 +236,7 @@ export class MapboxAPI {
 
             this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'tms', null, config, this._orderedGroups));
             logLayerStack(this._map, `After adding TMS layer: ${config.id}`);
-            
+
         }
     }
 
@@ -245,11 +245,11 @@ export class MapboxAPI {
      */
     _updateImageLayerTime(groupId, config, newUrl) {
         const source = this._map.getSource(groupId);
-        
+
         if (source && source.updateImage) {
             // For image layers, update the image source
             const bounds = config.bounds || config.bbox;
-            
+
             source.updateImage({
                 url: newUrl,
                 coordinates: [
@@ -259,7 +259,7 @@ export class MapboxAPI {
                     [bounds[0], bounds[1]]  // bottom-left
                 ]
             });
-            
+
         }
     }
 
@@ -299,13 +299,13 @@ export class MapboxAPI {
      */
     async createLayerGroup(groupId, config, options = {}) {
         try {
-            const { visible = false, currentGroup = null } = options;
-            
+            const {visible = false, currentGroup = null} = options;
+
             // Register time-based layers
             if (config.urlTimeParam) {
-                this._timeBasedLayers.set(groupId, { config, visible });
+                this._timeBasedLayers.set(groupId, {config, visible});
             }
-            
+
             switch (config.type) {
                 case 'style':
                     return this._createStyleLayer(groupId, config, visible);
@@ -355,7 +355,7 @@ export class MapboxAPI {
                 layerInfo.visible = visible;
                 this._timeBasedLayers.set(groupId, layerInfo);
             }
-            
+
             switch (config.type) {
                 case 'style':
                     return this._updateStyleLayerVisibility(groupId, config, visible);
@@ -479,7 +479,7 @@ export class MapboxAPI {
         if (config.layers) {
             const styleLayers = this._map.getStyle().layers;
             let totalLayersProcessed = 0;
-            
+
             config.layers.forEach(layer => {
                 const layerIds = styleLayers
                     .filter(styleLayer => styleLayer['source-layer'] === layer.sourceLayer)
@@ -499,7 +499,7 @@ export class MapboxAPI {
                     }
                 });
             });
-            
+
             return true;
         }
         return false;
@@ -517,7 +517,7 @@ export class MapboxAPI {
     // Vector layer methods
     _createVectorLayer(groupId, config, visible) {
         const sourceId = `vector-${groupId}`;
-        
+
         if (!this._map.getSource(sourceId)) {
             // Add source
             const sourceConfig = {
@@ -532,7 +532,7 @@ export class MapboxAPI {
             }
 
             if (config.inspect?.id) {
-                sourceConfig.promoteId = { [config.sourceLayer]: config.inspect.id };
+                sourceConfig.promoteId = {[config.sourceLayer]: config.inspect.id};
             }
 
             // Add attribution if available
@@ -548,36 +548,36 @@ export class MapboxAPI {
             // Update visibility only
             this._updateVectorLayerVisibility(groupId, config, visible);
         }
-        
+
         return true;
     }
 
     _addVectorLayers(groupId, config, sourceId, visible) {
         // Get default styles for checking what layer types should be created
         const defaultStyles = this._defaultStyles.vector || {};
-        
+
         // Check if user has explicitly defined any styles
         const userHasFillStyles = config.style && (config.style['fill-color'] || config.style['fill-opacity']);
         const userHasLineStyles = config.style && (config.style['line-color'] || config.style['line-width']);
         const userHasTextStyles = config.style && config.style['text-field'];
         const userHasCircleStyles = config.style && (config.style['circle-radius'] || config.style['circle-color']);
-        
+
         // If user has only line styles defined (with or without text), treat this as a linestring layer and don't apply fill styles
         const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles && !userHasCircleStyles;
-        
+
         // Check if fill layer should be created
         // If user only has line styles, don't create fill layer even if defaults exist
-        const hasFillStyles = userHasFillStyles || 
-                             (!userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity']));
-        
+        const hasFillStyles = userHasFillStyles ||
+            (!userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity']));
+
         // Check if line layer should be created (user styles or defaults)
         const hasLineStyles = userHasLineStyles ||
-                             (defaultStyles.line && (defaultStyles.line['line-color'] || defaultStyles.line['line-width']));
-        
+            (defaultStyles.line && (defaultStyles.line['line-color'] || defaultStyles.line['line-width']));
+
         // Check if text layer should be created (user styles or defaults)
         const hasTextStyles = userHasTextStyles ||
-                             (defaultStyles.text && defaultStyles.text['text-field']);
-        
+            (defaultStyles.text && defaultStyles.text['text-field']);
+
         // Check if circle layer should be created (only if user explicitly defines circle properties)
         const hasCircleStyles = userHasCircleStyles;
 
@@ -585,7 +585,7 @@ export class MapboxAPI {
         if (hasFillStyles) {
             // Filter style to only include fill-related properties
             const fillStyle = this._filterStyleForLayerType(config.style, 'fill');
-            
+
             const layerConfig = this._createLayerConfig({
                 id: `vector-layer-${groupId}`,
                 groupId: groupId,
@@ -604,7 +604,7 @@ export class MapboxAPI {
         if (hasLineStyles) {
             // Filter style to only include line-related properties
             const lineStyle = this._filterStyleForLayerType(config.style, 'line');
-            
+
             const layerConfig = this._createLayerConfig({
                 id: `vector-layer-${groupId}-outline`,
                 groupId: groupId,
@@ -623,7 +623,7 @@ export class MapboxAPI {
         if (hasCircleStyles) {
             // Filter style to only include circle-related properties
             const circleStyle = this._filterStyleForLayerType(config.style, 'circle');
-            
+
             const layerConfig = this._createLayerConfig({
                 id: `vector-layer-${groupId}-circle`,
                 groupId: groupId,
@@ -642,7 +642,7 @@ export class MapboxAPI {
         if (hasTextStyles) {
             // Filter style to only include symbol/text-related properties
             const symbolStyle = this._filterStyleForLayerType(config.style, 'symbol');
-            
+
             const layerConfig = this._createLayerConfig({
                 id: `vector-layer-${groupId}-text`,
                 groupId: groupId,
@@ -701,10 +701,10 @@ export class MapboxAPI {
 
     _updateVectorLayerOpacity(groupId, config, opacity) {
         // Apply config.opacity as a multiplier if it exists
-        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1) 
-            ? opacity * config.opacity 
+        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1)
+            ? opacity * config.opacity
             : opacity;
-            
+
         if (this._map.getLayer(`vector-layer-${groupId}`)) {
             this._map.setPaintProperty(`vector-layer-${groupId}`, 'fill-opacity', finalOpacity);
         }
@@ -788,10 +788,10 @@ export class MapboxAPI {
 
     _updateTMSLayerOpacity(groupId, config, opacity) {
         // Apply config.opacity as a multiplier if it exists
-        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1) 
-            ? opacity * config.opacity 
+        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1)
+            ? opacity * config.opacity
             : opacity;
-            
+
         const layerId = `tms-layer-${groupId}`;
         if (this._map.getLayer(layerId)) {
             this._map.setPaintProperty(layerId, 'raster-opacity', finalOpacity);
@@ -807,10 +807,10 @@ export class MapboxAPI {
         if (!this._map.getSource(sourceId)) {
             // Store current config for URL conversion
             this._currentConfig = config;
-            
+
             // Convert WMTS URL to XYZ tile format for Mapbox GL JS
             const tileUrl = this._convertWMTSToXYZ(config.url);
-            
+
             const sourceConfig = {
                 type: 'raster',
                 tileSize: config.tileSize || 256,
@@ -863,22 +863,22 @@ export class MapboxAPI {
      */
     _convertWMTSToXYZ(wmtsUrl) {
         let xyzUrl = wmtsUrl;
-        
+
         // Replace WMTS tile matrix parameters with XYZ placeholders
         xyzUrl = xyzUrl.replace(/TileMatrix=\d+/gi, 'TileMatrix={z}');
         xyzUrl = xyzUrl.replace(/TileCol=\d+/gi, 'TileCol={x}');
         xyzUrl = xyzUrl.replace(/TileRow=\d+/gi, 'TileRow={y}');
-        
+
         // NASA GIBS: Keep EPSG:4326 for better compatibility
         // GIBS doesn't natively store data in EPSG:3857, and many layers
         // are not available for on-the-fly reprojection to Web Mercator
-        
+
         // For layers that support EPSG:3857, we can try conversion
         if (this._shouldConvertToWebMercator(wmtsUrl, this._currentConfig)) {
             // Convert EPSG:4326 to EPSG:3857 for Web Mercator projection
             xyzUrl = xyzUrl.replace(/epsg4326/gi, 'epsg3857');
             xyzUrl = xyzUrl.replace(/epsg:4326/gi, 'epsg:3857');
-            
+
             // Update tilematrixset for Web Mercator projection
             if (xyzUrl.includes('tilematrixset=31.25m')) {
                 xyzUrl = xyzUrl.replace(/tilematrixset=31\.25m/, 'tilematrixset=GoogleMapsCompatible_Level9');
@@ -889,10 +889,10 @@ export class MapboxAPI {
                 xyzUrl = xyzUrl.replace(/tilematrixset=[^&]+/, 'tilematrixset=GoogleMapsCompatible_Level9');
             }
         }
-        
+
         // Log the converted URL for debugging
         console.debug(`[MapboxAPI] Converted WMTS URL: ${wmtsUrl} -> ${xyzUrl}`);
-        
+
         return xyzUrl;
     }
 
@@ -910,7 +910,7 @@ export class MapboxAPI {
         if (config.forceWebMercator === false) {
             return false;
         }
-        
+
         // Mapbox GL JS requires Web Mercator (EPSG:3857) tiles
         // So we must attempt conversion for all layers
         // Let individual layers fail gracefully if they don't support EPSG:3857
@@ -940,10 +940,10 @@ export class MapboxAPI {
 
     _updateWMTSLayerOpacity(groupId, config, opacity) {
         // Apply config.opacity as a multiplier if it exists
-        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1) 
-            ? opacity * config.opacity 
+        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1)
+            ? opacity * config.opacity
             : opacity;
-            
+
         const layerId = `wmts-layer-${groupId}`;
         if (this._map.getLayer(layerId)) {
             this._map.setPaintProperty(layerId, 'raster-opacity', finalOpacity);
@@ -959,7 +959,7 @@ export class MapboxAPI {
         if (!this._map.getSource(sourceId)) {
             // Convert WMS URL to tile format for Mapbox GL JS
             const tileUrl = this._convertWMSToTiles(config.url);
-            
+
             const sourceConfig = {
                 type: 'raster',
                 tileSize: config.tileSize || 256,
@@ -1012,7 +1012,7 @@ export class MapboxAPI {
     _convertWMSToTiles(wmsUrl) {
         // For WMS, we need to ensure the URL has the correct parameters for tiled access
         let tileUrl = wmsUrl;
-        
+
         // Ensure BBOX parameter uses the correct placeholder
         if (!tileUrl.includes('BBOX=')) {
             // Add BBOX parameter if not present
@@ -1022,7 +1022,7 @@ export class MapboxAPI {
             // Replace existing BBOX with the tile placeholder
             tileUrl = tileUrl.replace(/BBOX=[^&]+/, 'BBOX={bbox-epsg-3857}');
         }
-        
+
         // Ensure proper WIDTH and HEIGHT (replace if they exist with wrong values)
         if (tileUrl.includes('WIDTH=')) {
             tileUrl = tileUrl.replace(/WIDTH=\d+/, 'WIDTH=256');
@@ -1034,7 +1034,7 @@ export class MapboxAPI {
         } else {
             tileUrl += '&HEIGHT=256';
         }
-        
+
         // Ensure CRS/SRS is set to EPSG:3857 for Web Mercator
         // WMS 1.1.1 and earlier use SRS parameter, WMS 1.3.0+ use CRS parameter
         if (tileUrl.includes('CRS=')) {
@@ -1043,16 +1043,16 @@ export class MapboxAPI {
             tileUrl = tileUrl.replace(/SRS=[^&]+/, 'SRS=EPSG:3857');
         } else {
             // Default to SRS for WMS 1.1.1 or CRS for 1.3.0+ based on VERSION parameter
-            const usesCRS = tileUrl.includes('VERSION=1.3') || 
-                           tileUrl.includes('VERSION=1.4') || 
-                           tileUrl.includes('VERSION=2.') || 
-                           tileUrl.includes('VERSION=3.');
+            const usesCRS = tileUrl.includes('VERSION=1.3') ||
+                tileUrl.includes('VERSION=1.4') ||
+                tileUrl.includes('VERSION=2.') ||
+                tileUrl.includes('VERSION=3.');
             const crsParam = usesCRS ? 'CRS=EPSG:3857' : 'SRS=EPSG:3857';
             tileUrl += `&${crsParam}`;
         }
-        
+
         console.debug(`[MapboxAPI] Converted WMS URL: ${wmsUrl} -> ${tileUrl}`);
-        
+
         return tileUrl;
     }
 
@@ -1062,18 +1062,18 @@ export class MapboxAPI {
     _updateWMSLayerTime(groupId, config, newUrl) {
         const sourceId = `wms-${groupId}`;
         const source = this._map.getSource(sourceId);
-        
+
         if (source) {
             // Convert the new time-based URL to tile format
             const tileUrl = this._convertWMSToTiles(newUrl);
-            
+
             // Remove and re-add source with new URL
             const layerId = `wms-layer-${groupId}`;
             if (this._map.getLayer(layerId)) {
                 this._map.removeLayer(layerId);
             }
             this._map.removeSource(sourceId);
-            
+
             // Add source with new URL
             const sourceConfig = {
                 type: 'raster',
@@ -1102,7 +1102,7 @@ export class MapboxAPI {
             }, 'raster');
 
             this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'wms', null, config, this._orderedGroups));
-            
+
             console.log(`[MapboxAPI] Updated WMS layer ${groupId} with new time URL: ${tileUrl}`);
         }
     }
@@ -1130,10 +1130,10 @@ export class MapboxAPI {
 
     _updateWMSLayerOpacity(groupId, config, opacity) {
         // Apply config.opacity as a multiplier if it exists
-        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1) 
-            ? opacity * config.opacity 
+        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1)
+            ? opacity * config.opacity
             : opacity;
-            
+
         const layerId = `wms-layer-${groupId}`;
         if (this._map.getLayer(layerId)) {
             this._map.setPaintProperty(layerId, 'raster-opacity', finalOpacity);
@@ -1147,7 +1147,7 @@ export class MapboxAPI {
 
         if (!this._map.getSource(sourceId) && visible) {
             let dataSource;
-            
+
             if (config.data) {
                 dataSource = this._processGeoJSONData(config.data);
             } else if (config.url) {
@@ -1184,11 +1184,11 @@ export class MapboxAPI {
         if (data.type === 'FeatureCollection') {
             return data;
         } else if (data.type === 'Feature') {
-            return { type: 'FeatureCollection', features: [data] };
+            return {type: 'FeatureCollection', features: [data]};
         } else if (data.type && data.coordinates) {
             return {
                 type: 'FeatureCollection',
-                features: [{ type: 'Feature', geometry: data, properties: {} }]
+                features: [{type: 'Feature', geometry: data, properties: {}}]
             };
         }
         throw new Error('Invalid GeoJSON data format');
@@ -1197,29 +1197,29 @@ export class MapboxAPI {
     _addGeoJSONLayers(groupId, config, sourceId, visible) {
         // Get default styles for checking what layer types should be created
         const defaultStyles = this._defaultStyles.vector || {};
-        
+
         // Check if user has explicitly defined any styles
         const userHasFillStyles = config.style && (config.style['fill-color'] || config.style['fill-opacity']);
         const userHasLineStyles = config.style && (config.style['line-color'] || config.style['line-width']);
         const userHasTextStyles = config.style && config.style['text-field'];
         const userHasCircleStyles = config.style && (config.style['circle-radius'] || config.style['circle-color']);
-        
+
         // If user has only line styles defined (with or without text), treat this as a linestring layer and don't apply fill styles
         const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles && !userHasCircleStyles;
-        
+
         // Check if fill layer should be created (user styles or defaults)
         // If user only has line styles, don't create fill layer even if defaults exist
-        const hasFillStyles = userHasFillStyles || 
-                             (!userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity']));
-        
+        const hasFillStyles = userHasFillStyles ||
+            (!userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity']));
+
         // Check if line layer should be created (user styles or defaults)
         const hasLineStyles = userHasLineStyles ||
-                             (defaultStyles.line && (defaultStyles.line['line-color'] || defaultStyles.line['line-width']));
-        
+            (defaultStyles.line && (defaultStyles.line['line-color'] || defaultStyles.line['line-width']));
+
         // Check if text layer should be created (user styles or defaults)
         const hasTextStyles = userHasTextStyles ||
-                             (defaultStyles.text && defaultStyles.text['text-field']);
-        
+            (defaultStyles.text && defaultStyles.text['text-field']);
+
         // Check if circle layer should be created (only if user explicitly defines circle properties)
         const hasCircleStyles = userHasCircleStyles;
 
@@ -1227,7 +1227,7 @@ export class MapboxAPI {
         if (hasFillStyles) {
             // Filter style to only include fill-related properties
             const fillStyle = this._filterStyleForLayerType(config.style, 'fill');
-            
+
             const fillLayerConfig = this._createLayerConfig({
                 id: `${sourceId}-fill`,
                 groupId: groupId,
@@ -1244,7 +1244,7 @@ export class MapboxAPI {
         if (hasLineStyles) {
             // Filter style to only include line-related properties
             const lineStyle = this._filterStyleForLayerType(config.style, 'line');
-            
+
             const lineLayerConfig = this._createLayerConfig({
                 id: `${sourceId}-line`,
                 groupId: groupId,
@@ -1261,7 +1261,7 @@ export class MapboxAPI {
         if (hasCircleStyles) {
             // Filter style to only include circle-related properties
             const circleStyle = this._filterStyleForLayerType(config.style, 'circle');
-            
+
             const circleLayerConfig = this._createLayerConfig({
                 id: `${sourceId}-circle`,
                 groupId: groupId,
@@ -1278,7 +1278,7 @@ export class MapboxAPI {
         if (hasTextStyles) {
             // Filter style to only include symbol/text-related properties
             const symbolStyle = this._filterStyleForLayerType(config.style, 'symbol');
-            
+
             const textLayerConfig = this._createLayerConfig({
                 id: `${sourceId}-label`,
                 groupId: groupId,
@@ -1324,12 +1324,12 @@ export class MapboxAPI {
 
     _updateGeoJSONLayerOpacity(groupId, config, opacity) {
         // Apply config.opacity as a multiplier if it exists
-        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1) 
-            ? opacity * config.opacity 
+        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1)
+            ? opacity * config.opacity
             : opacity;
-            
+
         const sourceId = `geojson-${groupId}`;
-        
+
         if (this._map.getLayer(`${sourceId}-fill`)) {
             this._map.setPaintProperty(`${sourceId}-fill`, 'fill-opacity', finalOpacity * 0.5);
         }
@@ -1369,7 +1369,7 @@ export class MapboxAPI {
                 this._map.addSource(sourceId, {
                     type: 'geojson',
                     data: geojson,
-                    ...(config.attribution && { attribution: config.attribution })
+                    ...(config.attribution && {attribution: config.attribution})
                 });
 
                 const layerConfig = this._createLayerConfig({
@@ -1573,7 +1573,7 @@ export class MapboxAPI {
             }
 
             try {
-                const url = config.refresh ? 
+                const url = config.refresh ?
                     (config.url.includes('?') ? `${config.url}&_t=${Date.now()}` : `${config.url}?_t=${Date.now()}`) :
                     config.url;
 
@@ -1589,7 +1589,7 @@ export class MapboxAPI {
                         [bounds[2], bounds[1]], // bottom-right
                         [bounds[0], bounds[1]]  // bottom-left
                     ],
-                    ...(config.attribution && { attribution: config.attribution })
+                    ...(config.attribution && {attribution: config.attribution})
                 });
 
                 const layerConfig = this._createLayerConfig({
@@ -1647,7 +1647,7 @@ export class MapboxAPI {
                     `${config.url}?_t=${timestamp}`;
 
                 await this._loadImage(url);
-                
+
                 const source = this._map.getSource(groupId);
                 source.updateImage({
                     url: url,
@@ -1688,10 +1688,10 @@ export class MapboxAPI {
 
     _updateImageLayerOpacity(groupId, config, opacity) {
         // Apply config.opacity as a multiplier if it exists
-        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1) 
-            ? opacity * config.opacity 
+        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1)
+            ? opacity * config.opacity
             : opacity;
-            
+
         if (this._map.getLayer(groupId)) {
             this._map.setPaintProperty(groupId, 'raster-opacity', finalOpacity);
         }
@@ -1701,10 +1701,10 @@ export class MapboxAPI {
     // Raster style layer methods
     _createRasterStyleLayer(groupId, config, visible) {
         const styleLayerId = config.styleLayer || groupId;
-        
+
         if (this._map.getLayer(styleLayerId)) {
             this._map.setLayoutProperty(styleLayerId, 'visibility', visible ? 'visible' : 'none');
-            
+
             if (visible && config.style) {
                 this._applyStyleProperties(styleLayerId, config.style);
             }
@@ -1712,14 +1712,14 @@ export class MapboxAPI {
             console.warn(`Style layer '${styleLayerId}' not found in map style`);
             return false;
         }
-        
+
         return true;
     }
 
     _applyStyleProperties(layerId, style) {
         const existingLayer = this._map.getLayer(layerId);
         const layerType = existingLayer.type;
-        const { paint, layout } = this._categorizeStyleProperties(style, layerType);
+        const {paint, layout} = this._categorizeStyleProperties(style, layerType);
 
         Object.entries(paint).forEach(([property, value]) => {
             try {
@@ -1750,10 +1750,10 @@ export class MapboxAPI {
 
     _updateRasterStyleLayerOpacity(groupId, config, opacity) {
         // Apply config.opacity as a multiplier if it exists
-        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1) 
-            ? opacity * config.opacity 
+        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1)
+            ? opacity * config.opacity
             : opacity;
-            
+
         const styleLayerId = config.styleLayer || groupId;
         if (this._map.getLayer(styleLayerId)) {
             const existingLayer = this._map.getLayer(styleLayerId);
@@ -1763,7 +1763,6 @@ export class MapboxAPI {
         }
         return true;
     }
-
 
 
     // Layer group toggle methods
@@ -1855,7 +1854,7 @@ export class MapboxAPI {
      */
     _categorizeStyleProperties(style, layerType) {
         if (!style || typeof style !== 'object') {
-            return { paint: {}, layout: {} };
+            return {paint: {}, layout: {}};
         }
 
         const paint = {};
@@ -1902,7 +1901,7 @@ export class MapboxAPI {
             }
         });
 
-        return { paint, layout };
+        return {paint, layout};
     }
 
     /**
@@ -1965,7 +1964,7 @@ export class MapboxAPI {
         }
 
         const filteredStyle = {};
-        
+
         Object.keys(style).forEach(property => {
             if (this._isPropertyValidForLayerType(property, layerType)) {
                 filteredStyle[property] = style[property];
@@ -1984,7 +1983,7 @@ export class MapboxAPI {
     _addLayerWithSlot(layerConfig, insertPosition) {
         // Check if insertPosition is a slot name
         const slotNames = ['bottom', 'middle', 'top'];
-        
+
         if (insertPosition && slotNames.includes(insertPosition)) {
             // Use slot-based insertion
             // Reference: https://docs.mapbox.com/style-spec/reference/layers/#layer-properties
@@ -2011,11 +2010,11 @@ export class MapboxAPI {
     _createLayerConfig(config, layerType) {
         // Get default styles for this layer type
         const defaultStyles = this._getDefaultStylesForLayerType(layerType);
-        
+
         // Intelligently merge user styles with defaults (preserving feature-state logic)
         const mergedStyles = this._intelligentStyleMerge(config.style || {}, defaultStyles);
-        
-        const { paint, layout } = this._categorizeStyleProperties(mergedStyles, layerType);
+
+        const {paint, layout} = this._categorizeStyleProperties(mergedStyles, layerType);
 
         const layerConfig = {
             id: config.id,
@@ -2190,7 +2189,7 @@ export class MapboxAPI {
         // Special handling for text-halo-color: use fill-color as fallback if text-halo-color not provided
         if (!userStyles['text-halo-color'] && userStyles['fill-color'] && defaultStyles['text-halo-color']) {
             mergedStyles['text-halo-color'] = this._combineWithDefaultStyle(
-                userStyles['fill-color'], 
+                userStyles['fill-color'],
                 defaultStyles['text-halo-color']
             );
         }
@@ -2212,7 +2211,7 @@ export class MapboxAPI {
             }
             this._timeChangeHandler = null;
         }
-        
+
         // Clean up all event listeners
         this._eventListeners.forEach((listeners, eventType) => {
             listeners.forEach(listener => {
@@ -2223,21 +2222,21 @@ export class MapboxAPI {
                 }
             });
         });
-        
+
         // Clear all refresh timers
         this._refreshTimers.forEach(timer => clearInterval(timer));
         this._refreshTimers.clear();
-        
+
         // Clear caches
         this._layerCache.clear();
         this._sourceCache.clear();
         this._timeBasedLayers.clear();
-        
+
         // Clean up all layer groups
         this._layerGroups.forEach((groupData, groupId) => {
             this.removeLayerGroup(groupId, groupData.config);
         });
-        
+
         this._layerGroups.clear();
         this._eventListeners.clear();
         this._map = null;

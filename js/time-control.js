@@ -6,7 +6,7 @@ export class TimeControl {
             stepHours: 24,     // Step by 24 hours
             ...options
         };
-        
+
         this._selectedDate = new Date(); // Default to current date/time
         this._panel = null;
         this._map = null;
@@ -14,14 +14,14 @@ export class TimeControl {
         this._eventListeners = new Set();
         this._isVisible = false; // Track visibility state
         this._stateManager = null; // Reference to state manager for layer monitoring
-        
+
         // Calculate min and max dates
         this._updateDateRange();
     }
 
     onAdd(map) {
         this._map = map;
-        
+
         // Create container with jQuery
         this._container = $('<div>', {
             class: 'mapboxgl-ctrl mapboxgl-ctrl-group time-control',
@@ -29,7 +29,7 @@ export class TimeControl {
                 display: 'none' // Start hidden until we check for time-based layers
             }
         })[0];
-        
+
         // Create button with jQuery
         const $button = $('<button>', {
             class: 'mapboxgl-ctrl-icon',
@@ -49,7 +49,7 @@ export class TimeControl {
         // Create clock icon (using unicode clock symbol)
         const $icon = $('<span>', {
             text: '🕐',
-            css: { 
+            css: {
                 display: 'block',
                 lineHeight: '1'
             }
@@ -61,10 +61,10 @@ export class TimeControl {
             .on('click', () => {
                 this._togglePanel();
             })
-            .on('mouseenter', function() {
+            .on('mouseenter', function () {
                 $(this).css('backgroundColor', '#f0f0f0');
             })
-            .on('mouseleave', function() {
+            .on('mouseleave', function () {
                 $(this).css('backgroundColor', '#ffffff');
             })
             .appendTo(this._container);
@@ -86,14 +86,14 @@ export class TimeControl {
     onRemove() {
         // Clean up layer monitoring
         this._cleanupLayerMonitoring();
-        
+
         if (this._panel) {
             $(this._panel).remove();
         }
         $(this._container).remove();
         this._map = undefined;
         this._stateManager = null;
-        
+
         // Clean up event listeners
         this._eventListeners.clear();
     }
@@ -278,7 +278,7 @@ export class TimeControl {
     _updateDateRange() {
         // Max date is always the selected date
         this._maxDate = new Date(this._selectedDate);
-        
+
         // Min date is 7 days before the selected date
         this._minDate = new Date(this._selectedDate);
         this._minDate.setDate(this._minDate.getDate() - this.options.maxDaysBack);
@@ -293,11 +293,11 @@ export class TimeControl {
         // Calculate how many days back the current selected date is from max
         const timeDiff = this._maxDate.getTime() - this._selectedDate.getTime();
         const daysBack = Math.round(timeDiff / (1000 * 60 * 60 * 24));
-        
+
         // Update slider
         $slider.attr('max', this.options.maxDaysBack);
         $slider.val(daysBack);
-        
+
         this._updateSliderLabel($sliderValue, daysBack);
     }
 
@@ -318,7 +318,7 @@ export class TimeControl {
         const day = String(this._selectedDate.getDate()).padStart(2, '0');
         const hours = String(this._selectedDate.getHours()).padStart(2, '0');
         const minutes = String(this._selectedDate.getMinutes()).padStart(2, '0');
-        
+
         const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
         $input.val(dateTimeString);
     }
@@ -352,7 +352,7 @@ export class TimeControl {
 
         // Emit on map container
         this._map.getContainer().dispatchEvent(event);
-        
+
         // Also emit on window for global listeners
         window.dispatchEvent(event);
     }
@@ -366,17 +366,17 @@ export class TimeControl {
         if (date instanceof Date && !isNaN(date.getTime())) {
             this._selectedDate = new Date(date);
             this._updateDateRange();
-            
+
             // Update UI elements if panel exists
             if (this._panel) {
                 const $input = $('#time-control-datetime');
                 const $slider = $('#time-control-slider');
                 const $sliderValue = $('#time-control-slider-value');
-                
+
                 this._updateDateTimeInput($input);
                 this._updateSliderFromDate($slider, $sliderValue);
             }
-            
+
             this._emitTimeChangeEvent();
             return true;
         }
@@ -402,7 +402,7 @@ export class TimeControl {
         // Listen for layer state changes
         if (this._stateManager) {
             this._layerStateListener = (event) => {
-                const { eventType } = event.detail;
+                const {eventType} = event.detail;
                 if (eventType === 'layer-registered' || eventType === 'layer-unregistered') {
                     setTimeout(() => this._checkTimeBasedLayers(), 100);
                 }
@@ -414,7 +414,7 @@ export class TimeControl {
                 this._getStateManagerReference();
                 if (this._stateManager && !this._layerStateListener) {
                     this._layerStateListener = (event) => {
-                        const { eventType } = event.detail;
+                        const {eventType} = event.detail;
                         if (eventType === 'layer-registered' || eventType === 'layer-unregistered') {
                             setTimeout(() => this._checkTimeBasedLayers(), 100);
                         }
@@ -431,7 +431,7 @@ export class TimeControl {
         window.addEventListener('layer-toggled', this._globalLayerListener);
         window.addEventListener('layer-registered', this._globalLayerListener);
         window.addEventListener('layer-unregistered', this._globalLayerListener);
-        
+
         // Also listen for Shoelace events that might be fired from layer toggles
         this._shoelaceListener = (event) => {
             if (event.target && event.target.matches && event.target.matches('input[type="checkbox"]')) {
@@ -485,7 +485,7 @@ export class TimeControl {
         // Retry after a delay as controls might not be initialized yet
         if (!this._retryCount) this._retryCount = 0;
         this._retryCount++;
-        
+
         if (this._retryCount < 10) {
             setTimeout(() => {
                 if (!this._stateManager) {
@@ -500,7 +500,7 @@ export class TimeControl {
      */
     _checkTimeBasedLayers() {
         const hasTimeBasedLayers = this._hasActiveTimeBasedLayers();
-        
+
         if (hasTimeBasedLayers !== this._isVisible) {
             this._setVisibility(hasTimeBasedLayers);
         }
@@ -513,7 +513,7 @@ export class TimeControl {
         // Method 1: Check via state manager (most reliable)
         if (this._stateManager) {
             const activeLayers = this._stateManager.getActiveLayers();
-            
+
             for (const [layerId, layerData] of activeLayers) {
                 if (layerData.config && layerData.config.urlTimeParam) {
                     return true;
@@ -525,7 +525,7 @@ export class TimeControl {
         if (window.mapboxAPI) {
             if (window.mapboxAPI._timeBasedLayers) {
                 const timeBasedLayers = window.mapboxAPI._timeBasedLayers;
-                
+
                 for (const [layerId, layerInfo] of timeBasedLayers) {
                     if (layerInfo.visible) {
                         return true;
@@ -537,7 +537,7 @@ export class TimeControl {
         // Method 3: Check via global layer control as fallback
         if (window.layerControl) {
             const layerControl = window.layerControl;
-            
+
             // Try to get active layers from different methods
             let activeLayers = [];
             if (layerControl.getActiveLayers) {
@@ -552,14 +552,14 @@ export class TimeControl {
                     })
                     .map(group => group.id);
             }
-            
+
             for (const layerId of activeLayers) {
                 // Find layer config in the state
                 let layerConfig = null;
                 if (layerControl._state && layerControl._state.groups) {
                     layerConfig = layerControl._state.groups.find(group => group.id === layerId);
                 }
-                
+
                 if (layerConfig && layerConfig.urlTimeParam) {
                     return true;
                 }
@@ -592,7 +592,7 @@ export class TimeControl {
             }, 200, () => {
                 $(this._container).css('display', 'none');
             });
-            
+
             // Also hide panel if it's open
             this._hidePanel();
         }

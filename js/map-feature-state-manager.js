@@ -1,4 +1,4 @@
-import { MapboxAPI } from './mapbox-api.js';
+import {MapboxAPI} from './mapbox-api.js';
 
 /**
  * MapFeatureStateManager - Centralized feature state management
@@ -20,21 +20,21 @@ export class MapFeatureStateManager extends EventTarget {
         this._retryDelay = 2000; // 2 seconds
         this._eventListenerRefs = new Map(); // Store event listener references for cleanup
         this._featureControl = null; // Reference to feature control for inspect mode checking
-        
+
         // Performance optimization
         this._batchedUpdates = new Set();
         this._batchUpdateTimeout = null;
-        
+
         // Map state tracking for re-registration after style changes
         this._isStyleChanging = false;
         this._pendingRegistrations = new Map();
-        
+
         // Start cleanup process
         this._setupCleanup();
-        
+
         // Set up map change listeners to handle dynamic layer additions
         this._setupMapChangeListeners();
-        
+
         // Update the flag to track Cmd/Ctrl key state
         this._isCmdCtrlPressed = false;
 
@@ -81,15 +81,15 @@ export class MapFeatureStateManager extends EventTarget {
      */
     registerLayer(layerConfig) {
         const layerId = layerConfig.id;
-        
+
         if (this._registeredLayers.has(layerId)) {
             // Layer already registered, skipping
             return;
         }
-        
+
         this._registeredLayers.set(layerId, layerConfig);
         // Layer registered successfully
-        
+
         // Check if this is a raster layer that doesn't need feature interaction
         if (this._isRasterLayer(layerConfig)) {
             // For raster layers, we still register them for inspection but don't set up feature events
@@ -100,10 +100,10 @@ export class MapFeatureStateManager extends EventTarget {
             });
             return;
         }
-        
+
         // Set up layer events with retry mechanism for vector layers
         this._setupLayerEventsWithRetry(layerConfig);
-        
+
         // Emit registration event
         this._emitStateChange('layer-registered', {
             layerId,
@@ -120,21 +120,21 @@ export class MapFeatureStateManager extends EventTarget {
         if (!this._registeredLayers.has(layerId)) {
             return;
         }
-        
+
         // Clean up all features for this layer
         this._cleanupLayerFeatures(layerId);
-        
+
         // Remove layer events
         this._removeLayerEvents(layerId);
-        
+
         // Remove from registered layers
         this._registeredLayers.delete(layerId);
-        
+
         // Remove retry attempts
         this._retryAttempts.delete(layerId);
-        
+
         // Layer unregistered successfully
-        
+
         // Emit unregistration event
         this._emitStateChange('layer-unregistered', {
             layerId
@@ -149,16 +149,16 @@ export class MapFeatureStateManager extends EventTarget {
      */
     onFeatureHover(feature, layerId, lngLat) {
         if (!feature || !layerId) return;
-        
+
         const featureId = this._getFeatureId(feature);
         const compositeKey = this._getCompositeKey(layerId, featureId);
-        
+
         // Clear existing hover timeout for this feature if any
         if (this._hoverTimeouts.has(compositeKey)) {
             clearTimeout(this._hoverTimeouts.get(compositeKey));
             this._hoverTimeouts.delete(compositeKey);
         }
-        
+
         // Update feature state
         this._updateFeatureState(compositeKey, {
             feature,
@@ -167,10 +167,10 @@ export class MapFeatureStateManager extends EventTarget {
             lngLat,
             timestamp: Date.now()
         });
-        
+
         // Set mapbox feature state for visual feedback
-        this._setMapboxFeatureState(featureId, layerId, { hover: true });
-        
+        this._setMapboxFeatureState(featureId, layerId, {hover: true});
+
         // Emit hover event
         this._emitStateChange('feature-hover', {
             featureId,
@@ -178,9 +178,9 @@ export class MapFeatureStateManager extends EventTarget {
             feature,
             lngLat
         });
-        
+
         // Removed verbose hover logging
-        
+
         // DON'T set a timeout to clear hover state when mouse stops moving
         // Hover states should persist until mouse actually moves away from features
         // The timeout mechanism was causing premature clearing of hover states
@@ -196,20 +196,20 @@ export class MapFeatureStateManager extends EventTarget {
             this.handleMapMouseLeave();
             return;
         }
-        
+
         // Clear all existing hover states first
         this._clearAllHover();
-        
+
         const affectedLayers = new Set();
         const processedFeatures = [];
-        
+
         // Process each hovered feature
-        hoveredFeatures.forEach(({ feature, layerId, lngLat }) => {
+        hoveredFeatures.forEach(({feature, layerId, lngLat}) => {
             if (!feature || !layerId) return;
-            
+
             const featureId = this._getFeatureId(feature);
             const compositeKey = this._getCompositeKey(layerId, featureId);
-            
+
             // Update feature state
             this._updateFeatureState(compositeKey, {
                 feature,
@@ -218,38 +218,38 @@ export class MapFeatureStateManager extends EventTarget {
                 lngLat: lngLat || globalLngLat,
                 timestamp: Date.now()
             });
-            
+
             // Set mapbox feature state for visual feedback
-            this._setMapboxFeatureState(featureId, layerId, { hover: true });
-            
+            this._setMapboxFeatureState(featureId, layerId, {hover: true});
+
             affectedLayers.add(layerId);
             processedFeatures.push({
                 featureId,
                 layerId,
                 feature
             });
-            
+
             // Removed verbose batch hover logging
         });
-        
+
         // Emit batch hover event for more efficient UI updates
         this._emitStateChange('features-batch-hover', {
             hoveredFeatures: processedFeatures,
             affectedLayers: Array.from(affectedLayers),
             lngLat: globalLngLat
         });
-        
+
         // Clear any existing hover timeout
         this._hoverTimeouts.forEach(timeout => clearTimeout(timeout));
         this._hoverTimeouts.clear();
-        
+
         // DON'T set a timeout to clear hover states when mouse stops moving
         // Hover states should persist until mouse actually moves away from features
         // Only clear hover states when:
         // 1. Mouse moves to different features (handled by _clearAllHover above)
         // 2. Mouse leaves map area (handled by handleMapMouseLeave)
         // 3. Explicit clear is called
-        
+
         // Removed verbose hover state logging
     }
 
@@ -260,15 +260,15 @@ export class MapFeatureStateManager extends EventTarget {
         // Clear all hover timeouts
         this._hoverTimeouts.forEach(timeout => clearTimeout(timeout));
         this._hoverTimeouts.clear();
-        
+
         // Clear all hover states
         this._clearAllHover();
-        
+
         // Emit map mouse leave event
         this._emitStateChange('map-mouse-leave', {
             timestamp: Date.now()
         });
-        
+
     }
 
     /**
@@ -276,16 +276,16 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _clearAllHover() {
         const clearedFeatures = [];
-        
+
         this._featureStates.forEach((featureState, compositeKey) => {
             if (featureState.isHovered) {
                 featureState.isHovered = false;
-                
+
                 // Remove mapbox feature state
-                const { layerId, feature } = featureState;
+                const {layerId, feature} = featureState;
                 const featureId = this._getFeatureId(feature);
                 this._removeMapboxFeatureState(featureId, layerId, 'hover');
-                
+
                 clearedFeatures.push({
                     featureId,
                     layerId,
@@ -293,9 +293,9 @@ export class MapFeatureStateManager extends EventTarget {
                 });
             }
         });
-        
+
         // Removed verbose cleared hover logging
-        
+
         return clearedFeatures;
     }
 
@@ -349,7 +349,7 @@ export class MapFeatureStateManager extends EventTarget {
         // Process clicked features and select them
         const newSelections = [];
 
-        clickedFeatures.forEach(({ feature, layerId, lngLat }) => {
+        clickedFeatures.forEach(({feature, layerId, lngLat}) => {
             if (!feature || !layerId) return;
 
             const featureId = this._getFeatureId(feature);
@@ -374,7 +374,7 @@ export class MapFeatureStateManager extends EventTarget {
             this._selectedFeatures.add(compositeKey);
 
             // Set mapbox feature state for visual feedback
-            this._setMapboxFeatureState(featureId, layerId, { selected: true });
+            this._setMapboxFeatureState(featureId, layerId, {selected: true});
 
             newSelections.push({
                 featureId,
@@ -411,13 +411,13 @@ export class MapFeatureStateManager extends EventTarget {
      */
     onFeatureLeave(layerId) {
         this._clearLayerHover(layerId);
-        
+
         // Emit feature leave event
         this._emitStateChange('feature-leave', {
             layerId,
             timestamp: Date.now()
         });
-        
+
         // Removed verbose feature leave logging
     }
 
@@ -434,7 +434,7 @@ export class MapFeatureStateManager extends EventTarget {
                 found = true;
             }
         });
-        
+
         if (!found && this._isDebug) {
             console.warn(`[StateManager] Feature not found for closing: ${featureId}`);
         }
@@ -447,7 +447,7 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _deselectFeature(featureId, layerId) {
         this._deselectFeatureInternal(featureId, layerId);
-        
+
         // Emit deselection event
         this._emitStateChange('feature-deselected', {
             featureId,
@@ -461,22 +461,22 @@ export class MapFeatureStateManager extends EventTarget {
     _deselectFeatureInternal(featureId, layerId) {
         const compositeKey = this._getCompositeKey(layerId, featureId);
         const featureState = this._featureStates.get(compositeKey);
-        
+
         if (!featureState || !featureState.isSelected) {
             return false;
         }
-        
+
         // Update state
         featureState.isSelected = false;
-        
+
         // Remove from selected set
         this._selectedFeatures.delete(compositeKey);
-        
+
         // Remove mapbox feature state
         this._removeMapboxFeatureState(featureId, layerId, 'selected');
-        
+
         // Removed verbose deselection logging
-        
+
         return true;
     }
 
@@ -494,17 +494,17 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _clearAllSelections(suppressEvent = false) {
         const clearedFeatures = [];
-        
+
         // Deselect all features
         this._selectedFeatures.forEach(compositeKey => {
             const featureState = this._featureStates.get(compositeKey);
             if (featureState && featureState.isSelected) {
                 featureState.isSelected = false;
-                
+
                 // Remove mapbox feature state
                 const featureId = this._getFeatureId(featureState.feature);
                 this._removeMapboxFeatureState(featureId, featureState.layerId, 'selected');
-                
+
                 clearedFeatures.push({
                     featureId,
                     layerId: featureState.layerId,
@@ -512,17 +512,17 @@ export class MapFeatureStateManager extends EventTarget {
                 });
             }
         });
-        
+
         this._selectedFeatures.clear();
-        
+
         if (!suppressEvent && clearedFeatures.length > 0) {
             this._emitStateChange('selections-cleared', {
                 clearedFeatures
             });
         }
-        
+
         // Removed verbose selection clearing logging
-        
+
         return clearedFeatures;
     }
 
@@ -531,14 +531,14 @@ export class MapFeatureStateManager extends EventTarget {
      */
     getLayerFeatures(layerId) {
         const layerFeatures = new Map();
-        
+
         this._featureStates.forEach((featureState, compositeKey) => {
             if (featureState.layerId === layerId) {
                 const featureId = this._getFeatureId(featureState.feature);
-                
+
                 // Check if this feature is selected
                 const isSelected = this._selectedFeatures.has(compositeKey) || false;
-                
+
                 // Enhance state with computed properties
                 layerFeatures.set(featureId, {
                     ...featureState,
@@ -547,7 +547,7 @@ export class MapFeatureStateManager extends EventTarget {
                 });
             }
         });
-        
+
         return layerFeatures;
     }
 
@@ -557,12 +557,12 @@ export class MapFeatureStateManager extends EventTarget {
      */
     getActiveLayers() {
         const activeLayers = new Map();
-        
+
         // Include all visible layers (both inspectable and non-inspectable)
         this._registeredLayers.forEach((layerConfig, layerId) => {
             const features = this.getLayerFeatures(layerId);
             const isRaster = this._isRasterLayer(layerConfig);
-            
+
             activeLayers.set(layerId, {
                 config: layerConfig,
                 features,
@@ -570,7 +570,7 @@ export class MapFeatureStateManager extends EventTarget {
                 isInteractive: !isRaster
             });
         });
-        
+
         return activeLayers;
     }
 
@@ -591,7 +591,7 @@ export class MapFeatureStateManager extends EventTarget {
     isLayerInteractive(layerId) {
         const layerConfig = this._registeredLayers.get(layerId);
         if (!layerConfig) return false;
-        
+
         // Raster layers are registered but not interactive for feature selection
         return !this._isRasterLayer(layerConfig);
     }
@@ -641,7 +641,7 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _setupLayerEventsWithRetry(layerConfig, retryCount = 0) {
         const success = this._setupLayerEvents(layerConfig);
-        
+
         if (!success && retryCount < this._maxRetries) {
             // Immediate retry for first few attempts
             if (retryCount < 3) {
@@ -664,11 +664,11 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _setupLongTermRetry(layerConfig) {
         const currentAttempts = this._retryAttempts.get(layerConfig.id) || 0;
-        
+
         if (currentAttempts < 5) { // Limit long-term retries to 5
             this._retryAttempts.set(layerConfig.id, currentAttempts + 1);
-            
-            
+
+
             setTimeout(() => {
                 // Check if layer is still registered before retrying
                 if (this._registeredLayers.has(layerConfig.id)) {
@@ -694,18 +694,18 @@ export class MapFeatureStateManager extends EventTarget {
     _setupLayerEvents(layerConfig) {
         try {
             const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
-            
+
             if (matchingLayerIds.length === 0) {
                 console.warn(`[StateManager] No matching layers found for ${layerConfig.id}`);
                 return false;
             }
-            
-            
+
+
             // Set up events for all matching layer IDs
             matchingLayerIds.forEach(actualLayerId => {
                 this._setupSingleLayerEvents(actualLayerId, layerConfig);
             });
-            
+
             return true;
         } catch (error) {
             console.error(`[StateManager] Error setting up events for ${layerConfig.id}:`, error);
@@ -734,23 +734,23 @@ export class MapFeatureStateManager extends EventTarget {
     _getMatchingLayerIds(layerConfig) {
         const style = this._mapboxAPI.getStyle();
         if (!style.layers) return [];
-        
+
         const layerId = layerConfig.id;
         const matchingIds = [];
-        
+
         // Strategy 1: Direct ID match (HIGHEST PRIORITY)
         const directMatches = style.layers.filter(l => l.id === layerId).map(l => l.id);
         matchingIds.push(...directMatches);
-        
+
         // Strategy 2: Prefix matches (for geojson layers and others)
         const prefixMatches = style.layers
             .filter(l => l.id.startsWith(layerId + '-') || l.id.startsWith(layerId + ' '))
             .map(l => l.id);
         matchingIds.push(...prefixMatches);
-        
+
         // Strategy 2.5: MapboxAPI generated layer names (vector-layer-{id}, tms-layer-{id}, wmts-layer-{id}, wms-layer-{id}, etc.)
         const generatedMatches = style.layers
-            .filter(l => 
+            .filter(l =>
                 l.id.startsWith(`vector-layer-${layerId}`) ||
                 l.id.startsWith(`tms-layer-${layerId}`) ||
                 l.id.startsWith(`wmts-layer-${layerId}`) ||
@@ -761,15 +761,15 @@ export class MapFeatureStateManager extends EventTarget {
             )
             .map(l => l.id);
         matchingIds.push(...generatedMatches);
-        
+
         // Strategy 2.6: raster-style-layer styleLayer property (for layers like mapbox-satellite)
-        const styleLayerMatches = layerConfig.styleLayer ? 
+        const styleLayerMatches = layerConfig.styleLayer ?
             style.layers.filter(l => l.id === layerConfig.styleLayer).map(l => l.id) : [];
         matchingIds.push(...styleLayerMatches);
-        
+
         // If we have direct matches, prioritize them and be more restrictive with fallback strategies
         const hasDirectMatches = directMatches.length > 0 || prefixMatches.length > 0 || generatedMatches.length > 0 || styleLayerMatches.length > 0;
-        
+
         // Strategy 3: Source layer matches (ONLY if no direct matches found)
         if (!hasDirectMatches && layerConfig.sourceLayer) {
             const sourceLayerMatches = style.layers
@@ -777,7 +777,7 @@ export class MapFeatureStateManager extends EventTarget {
                 .map(l => l.id);
             matchingIds.push(...sourceLayerMatches);
         }
-        
+
         // Strategy 4: Source matches (ONLY if no direct matches found)
         if (!hasDirectMatches && layerConfig.source) {
             const sourceMatches = style.layers
@@ -785,7 +785,7 @@ export class MapFeatureStateManager extends EventTarget {
                 .map(l => l.id);
             matchingIds.push(...sourceMatches);
         }
-        
+
         // Strategy 5: Legacy source layers array
         if (layerConfig.sourceLayers && Array.isArray(layerConfig.sourceLayers)) {
             const legacyMatches = style.layers
@@ -793,7 +793,7 @@ export class MapFeatureStateManager extends EventTarget {
                 .map(l => l.id);
             matchingIds.push(...legacyMatches);
         }
-        
+
         // Strategy 6: Grouped layers
         if (layerConfig.layers && Array.isArray(layerConfig.layers)) {
             layerConfig.layers.forEach(subLayer => {
@@ -805,10 +805,10 @@ export class MapFeatureStateManager extends EventTarget {
                 }
             });
         }
-        
+
         // Remove duplicates and return
         const finalMatches = [...new Set(matchingIds)];
-        
+
         return finalMatches;
     }
 
@@ -820,12 +820,12 @@ export class MapFeatureStateManager extends EventTarget {
         const layerConfig = this._registeredLayers.get(layerId);
         if (layerConfig) {
             const matchingIds = this._getMatchingLayerIds(layerConfig);
-            
+
             matchingIds.forEach(actualLayerId => {
                 // Remove events using the MapboxAPI
                 const refs = this._eventListenerRefs.get(layerId);
                 if (refs) {
-                    refs.forEach(({ type, listener, layerIdOrOptions }) => {
+                    refs.forEach(({type, listener, layerIdOrOptions}) => {
                         try {
                             this._mapboxAPI.off(type, listener, layerIdOrOptions);
                         } catch (error) {
@@ -834,7 +834,7 @@ export class MapFeatureStateManager extends EventTarget {
                     });
                 }
             });
-            
+
             // Clear the references
             this._eventListenerRefs.delete(layerId);
         }
@@ -857,9 +857,9 @@ export class MapFeatureStateManager extends EventTarget {
             console.error('[StateManager] LayerId required for feature state updates');
             return;
         }
-        
+
         const existing = this._featureStates.get(compositeKey) || {};
-        this._featureStates.set(compositeKey, { ...existing, ...updates });
+        this._featureStates.set(compositeKey, {...existing, ...updates});
     }
 
     /**
@@ -867,15 +867,15 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _clearLayerHover(layerId) {
         const clearedFeatures = [];
-        
+
         this._featureStates.forEach((featureState, compositeKey) => {
             if (featureState.layerId === layerId && featureState.isHovered) {
                 featureState.isHovered = false;
-                
+
                 // Remove mapbox feature state
                 const featureId = this._getFeatureId(featureState.feature);
                 this._removeMapboxFeatureState(featureId, layerId, 'hover');
-                
+
                 clearedFeatures.push({
                     featureId,
                     layerId,
@@ -883,7 +883,7 @@ export class MapFeatureStateManager extends EventTarget {
                 });
             }
         });
-        
+
         // Removed verbose layer hover clearing logging
     }
 
@@ -892,23 +892,23 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _cleanupLayerFeatures(layerId) {
         const removedFeatures = [];
-        
+
         // Remove all feature states for this layer
         this._featureStates.forEach((featureState, compositeKey) => {
             if (featureState.layerId === layerId) {
                 const featureId = this._getFeatureId(featureState.feature);
-                
+
                 // Remove mapbox feature states
                 this._removeMapboxFeatureState(featureId, layerId, 'hover');
                 this._removeMapboxFeatureState(featureId, layerId, 'selected');
-                
+
                 this._featureStates.delete(compositeKey);
                 this._selectedFeatures.delete(compositeKey);
-                
+
                 removedFeatures.push(featureId);
             }
         });
-        
+
         // Clear hover timeouts for this layer
         this._hoverTimeouts.forEach((timeout, key) => {
             if (key.startsWith(`${layerId}:`)) {
@@ -916,7 +916,7 @@ export class MapFeatureStateManager extends EventTarget {
                 this._hoverTimeouts.delete(key);
             }
         });
-        
+
         // Emit cleanup event if features were removed
         if (removedFeatures.length > 0) {
             this._emitStateChange('cleanup', {
@@ -938,7 +938,7 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _emitStateChange(eventType, data) {
         this.dispatchEvent(new CustomEvent('state-change', {
-            detail: { eventType, data }
+            detail: {eventType, data}
         }));
     }
 
@@ -950,22 +950,22 @@ export class MapFeatureStateManager extends EventTarget {
         if (feature.id !== undefined && feature.id !== null) {
             return `feature-${feature.id}`;
         }
-        
+
         // Priority 2: Use properties.id
         if (feature.properties?.id !== undefined && feature.properties?.id !== null) {
             return `feature-${feature.properties.id}`;
         }
-        
+
         // Priority 3: Use properties.fid (common in vector tiles)
         if (feature.properties?.fid !== undefined && feature.properties?.fid !== null) {
             return `feature-${feature.properties.fid}`;
         }
-        
+
         // Priority 4: Use layer-specific identifiers
         if (feature.properties?.giscode) {
             return `feature-${feature.properties.giscode}`;
         }
-        
+
         // Priority 5: Combination approach using layer metadata + properties
         if (feature.layer?.metadata?.groupId && feature.properties) {
             const layerId = feature.layer.metadata.groupId;
@@ -977,7 +977,7 @@ export class MapFeatureStateManager extends EventTarget {
                 }
             }
         }
-        
+
         // Fallback: Geometry hash with layer prefix for consistency
         const layerId = feature.layer?.metadata?.groupId || 'unknown';
         const geomStr = JSON.stringify(feature.geometry);
@@ -1003,17 +1003,17 @@ export class MapFeatureStateManager extends EventTarget {
     _extractRawFeatureId(internalFeatureId) {
         // Remove the 'feature-' prefix and any layer prefix to get the raw ID
         let rawId = internalFeatureId;
-        
+
         if (rawId.startsWith('feature-')) {
             rawId = rawId.substring(8); // Remove 'feature-' prefix
         }
-        
+
         // If it contains a layer prefix (format: layerId-actualId), extract just the actual ID
         const layerPrefixMatch = rawId.match(/^[^-]+-(.+)$/);
         if (layerPrefixMatch) {
             rawId = layerPrefixMatch[1];
         }
-        
+
         return rawId;
     }
 
@@ -1026,22 +1026,22 @@ export class MapFeatureStateManager extends EventTarget {
         if (feature.id !== undefined && feature.id !== null) {
             return feature.id;
         }
-        
+
         // Priority 2: Use properties.id  
         if (feature.properties?.id !== undefined && feature.properties?.id !== null) {
             return feature.properties.id;
         }
-        
+
         // Priority 3: Use properties.fid
         if (feature.properties?.fid !== undefined && feature.properties?.fid !== null) {
             return feature.properties.fid;
         }
-        
+
         // Fallback: Use a property that's likely to be unique
         if (feature.properties?.giscode) {
             return feature.properties.giscode;
         }
-        
+
         // Final fallback: generate a hash (not ideal for Mapbox feature state)
         const geomStr = JSON.stringify(feature.geometry);
         return this._hashCode(geomStr);
@@ -1063,19 +1063,19 @@ export class MapFeatureStateManager extends EventTarget {
         const now = Date.now();
         const maxAge = 5 * 60 * 1000; // 5 minutes
         const toRemove = [];
-        
+
         this._featureStates.forEach((featureState, compositeKey) => {
-            if (!featureState.isSelected && 
-                !featureState.isHovered && 
+            if (!featureState.isSelected &&
+                !featureState.isHovered &&
                 (now - featureState.timestamp) > maxAge) {
                 toRemove.push(compositeKey);
             }
         });
-        
+
         toRemove.forEach(compositeKey => {
             this._featureStates.delete(compositeKey);
         });
-        
+
         // Removed verbose cleanup logging
     }
 
@@ -1088,22 +1088,22 @@ export class MapFeatureStateManager extends EventTarget {
             clearInterval(this._cleanupInterval);
             this._cleanupInterval = null;
         }
-        
+
         // Clear all hover timeouts
         this._hoverTimeouts.forEach(timeout => clearTimeout(timeout));
         this._hoverTimeouts.clear();
-        
+
         // Clear batch update timeout
         if (this._batchUpdateTimeout) {
             clearTimeout(this._batchUpdateTimeout);
             this._batchUpdateTimeout = null;
         }
-        
+
         // Remove all event listeners
         this._registeredLayers.forEach((layerConfig, layerId) => {
             this._removeLayerEvents(layerId);
         });
-        
+
         this._featureStates.clear();
         this._selectedFeatures.clear();
         this._registeredLayers.clear();
@@ -1147,7 +1147,7 @@ export class MapFeatureStateManager extends EventTarget {
             }
 
             this._mapboxAPI.setFeatureState(featureIdentifier, state);
-            
+
             // Removed verbose feature state set logging
         } catch (error) {
             if (this._isDebug) {
@@ -1186,7 +1186,7 @@ export class MapFeatureStateManager extends EventTarget {
             }
 
             this._mapboxAPI.removeFeatureState(featureIdentifier, stateKey);
-            
+
             // Removed verbose feature state removal logging
         } catch (error) {
             if (this._isDebug) {
@@ -1228,7 +1228,7 @@ export class MapFeatureStateManager extends EventTarget {
             if (this._isStyleChanging) {
                 console.debug('[StateManager] Style change complete, re-registering layers');
                 this._isStyleChanging = false;
-                
+
                 // Re-register all layers after style change
                 const layersToReregister = Array.from(this._registeredLayers.entries());
                 layersToReregister.forEach(([layerId, layerConfig]) => {
@@ -1248,8 +1248,8 @@ export class MapFeatureStateManager extends EventTarget {
 
         // Store references for cleanup
         this._eventListenerRefs.set('map-events', [
-            { type: 'styledata', listener: handleStyleData },
-            { type: 'style.load', listener: handleStyleStart }
+            {type: 'styledata', listener: handleStyleData},
+            {type: 'style.load', listener: handleStyleStart}
         ]);
     }
 
@@ -1258,9 +1258,9 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _retryFailedLayers() {
         console.debug('[StateManager] Retrying failed layer registrations');
-        
+
         const failedLayers = [];
-        
+
         this._registeredLayers.forEach((config, layerId) => {
             // Check if layer setup was successful by looking for matching style layers
             const matchingIds = this._getMatchingLayerIds(config);
@@ -1268,7 +1268,7 @@ export class MapFeatureStateManager extends EventTarget {
                 failedLayers.push(config);
             }
         });
-        
+
         if (failedLayers.length > 0) {
             console.debug(`[StateManager] Found ${failedLayers.length} failed layers, retrying...`);
             failedLayers.forEach(config => {

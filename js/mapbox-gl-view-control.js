@@ -14,12 +14,12 @@ class ViewControl {
 
     onAdd(map) {
         this._map = map;
-        
+
         // Create container with jQuery
         this._container = $('<div>', {
             class: 'mapboxgl-ctrl mapboxgl-ctrl-group'
         })[0];
-        
+
         // Create button with jQuery
         const $button = $('<button>', {
             class: 'mapboxgl-ctrl-icon',
@@ -40,7 +40,7 @@ class ViewControl {
             alt: 'Fit Map to Goa',
             width: 20,
             height: 20,
-            css: { display: 'block' }
+            css: {display: 'block'}
         });
 
         // Add event handlers using jQuery
@@ -55,10 +55,10 @@ class ViewControl {
                     speed: 0.6
                 });
             })
-            .on('mouseenter', function() {
+            .on('mouseenter', function () {
                 $(this).css('backgroundColor', '#f0f0f0');
             })
-            .on('mouseleave', function() {
+            .on('mouseleave', function () {
                 $(this).css('backgroundColor', '#ffffff');
             })
             .appendTo(this._container);

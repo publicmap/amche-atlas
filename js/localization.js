@@ -8,7 +8,7 @@ export class Localization {
             title: "Maps",
             shareButton: "Share"
         };
-        this.currentStrings = { ...this.defaultStrings };
+        this.currentStrings = {...this.defaultStrings};
     }
 
     /**
@@ -17,10 +17,10 @@ export class Localization {
      */
     setDefaults(defaultStrings) {
         if (defaultStrings) {
-            this.defaultStrings = { ...this.defaultStrings, ...defaultStrings };
+            this.defaultStrings = {...this.defaultStrings, ...defaultStrings};
             // If no current strings are set yet, use the new defaults
             if (!this.currentStrings || Object.keys(this.currentStrings).length === 0) {
-                this.currentStrings = { ...this.defaultStrings };
+                this.currentStrings = {...this.defaultStrings};
             }
         }
     }
@@ -34,14 +34,14 @@ export class Localization {
         if (config && config.defaults && config.defaults.ui) {
             this.setDefaults(config.defaults.ui);
         }
-        
+
         // Then apply specific UI strings if they exist
         if (config && config.ui) {
-            this.currentStrings = { ...this.defaultStrings, ...config.ui };
+            this.currentStrings = {...this.defaultStrings, ...config.ui};
             this.updateUIElements();
         } else {
             // Reset to default if no UI config provided
-            this.currentStrings = { ...this.defaultStrings };
+            this.currentStrings = {...this.defaultStrings};
             this.updateUIElements();
         }
     }
@@ -73,7 +73,7 @@ export class Localization {
         const drawer = document.getElementById('map-controls-drawer');
         if (drawer) {
             drawer.setAttribute('label', this.currentStrings.title);
-            
+
             // Also update the slot label content
             const labelSlot = drawer.querySelector('[slot="label"]');
             if (labelSlot) {
@@ -114,7 +114,7 @@ export class Localization {
      * Reset to default strings
      */
     reset() {
-        this.currentStrings = { ...this.defaultStrings };
+        this.currentStrings = {...this.defaultStrings};
         this.updateUIElements();
     }
 }

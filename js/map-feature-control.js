@@ -1,18 +1,18 @@
 /**
  * MapFeatureControl - Enhanced version using event-driven architecture
- * 
+ *
  * This control displays a toggle button and panel for layer inspection.
  * When users interact with features, it shows the feature information under the relevant layer
  * instead of using overlapping popups.
- * 
+ *
  * Now uses centralized MapFeatureStateManager for all state management.
  * Updated to use config JSON as source of truth for active layers.
  * UI uses a panel-based approach similar to 3D control with Shoelace details components.
  */
 
-import { drawerStateManager } from './drawer-state-manager.js';
-import { convertToKML } from './map-utils.js';
-import { LayerSettingsModal } from './layer-settings.js';
+import {drawerStateManager} from './drawer-state-manager.js';
+import {convertToKML} from './map-utils.js';
+import {LayerSettingsModal} from './layer-settings.js';
 
 export class MapFeatureControl {
     constructor(options = {}) {
@@ -33,26 +33,26 @@ export class MapFeatureControl {
         this._panel = null; // Main panel component
         this._drawerSwitch = null; // Drawer toggle switch
         this._config = null; // Store config reference
-        
+
         // UI optimization - only re-render changed layers
         this._lastRenderState = new Map();
         this._stateChangeListener = null;
         this._renderScheduled = false;
-        
+
         // Layer collapse state management
         this._layerCollapseStates = new Map(); // Track collapsed state for each layer
-        
+
         // Hover popup management
         this._hoverPopup = null;
         this._currentHoveredFeature = null;
-        
+
         // Drawer state tracking via centralized manager
         this._drawerStateListener = null;
-        
+
         // Inspection mode controls
         this._inspectModeEnabled = false; // Default off as requested
         this._inspectSwitch = null;
-        
+
         // Source layer links functionality moved from map-layer-controls.js
         /**
          * sourceLayerLinks: Array of link objects that appear in feature details for specific source layers
@@ -61,30 +61,30 @@ export class MapFeatureControl {
          * - sourceLayer: String or Array of strings specifying which source layers this link applies to
          * - renderHTML: Function that returns HTML content for the additional information
          *   - Functions receive: { feature, layerConfig, lat, lng, zoom, mercatorCoords }
-         * 
+         *
          * The renderHTML function should return HTML that will be displayed in an additional table
          * below the main properties table in the feature details.
          */
         this._sourceLayerLinks = [];
-        
+
         // Layer isolation state management
         this._layerHoverState = {
             isActive: false,
             hiddenLayers: [], // Track which layers we've hidden
             hoveredLayerId: null
         };
-        
+
         // Layer settings modal - initialize after map is available
         this._layerSettingsModal = null;
-        
+
         // Animation state tracking to prevent mouse interference during camera movements
         this._isAnimating = false;
-        
+
         // Drag event listeners storage for cleanup
         this._dragListeners = null;
-        
+
         // Initialized
-        
+
         // Set up resize listener for responsive height adjustments
         this._resizeListener = this._handleResize.bind(this);
         window.addEventListener('resize', this._resizeListener);
@@ -97,10 +97,10 @@ export class MapFeatureControl {
     onAdd(map) {
         this._map = map;
         this._createContainer();
-        
+
         // Initialize layer settings modal now that we have a map reference
         this._layerSettingsModal = new LayerSettingsModal(this);
-        
+
         return this._container;
     }
 
@@ -138,36 +138,36 @@ export class MapFeatureControl {
     initialize(stateManager, config = null) {
         this._stateManager = stateManager;
         this._config = config;
-        
+
         // If no config provided, try to get it from global state
         if (!this._config && window.layerControl && window.layerControl._config) {
             this._config = window.layerControl._config;
         }
-        
+
         // Set up a periodic sync to ensure config stays up to date
         setInterval(() => {
             if (!this._config && window.layerControl && window.layerControl._config) {
                 this._config = window.layerControl._config;
             }
         }, 1000);
-        
+
         // Initialize sourceLayerLinks from config or set default
         this._initializeSourceLayerLinks();
-        
+
         // State manager and config set
-        
+
         // Link the state manager to this control for inspect mode checking
         this._stateManager.setFeatureControl(this);
-        
+
         // Listen to state changes from the centralized manager
         this._stateChangeListener = (event) => {
             this._handleStateChange(event.detail);
         };
         this._stateManager.addEventListener('state-change', this._stateChangeListener);
-        
+
         // Set up drawer state tracking
         this._setupDrawerStateTracking();
-        
+
         // Set up initial switch state once drawer state manager is ready
         // Use a longer delay to ensure mobile/desktop drawer initialization is complete
         setTimeout(() => {
@@ -175,18 +175,18 @@ export class MapFeatureControl {
             // Initialize inspect mode state
             this._inspectModeEnabled = this.options.inspectMode;
         }, 300);
-        
+
         // Set up global click handler for feature interactions
         this._setupGlobalClickHandler();
-        
+
         // Initial render
         this._render();
-        
+
         // Set initial clear button visibility (should be hidden initially)
         setTimeout(() => {
             this._updateClearSelectionButtonVisibility();
         }, 100);
-        
+
         return this;
     }
 
@@ -208,7 +208,7 @@ export class MapFeatureControl {
             name: 'Bhunaksha',
             sourceLayer: 'Onemapgoa_GA_Cadastrals',
 
-            renderHTML: ({ feature }) => {
+            renderHTML: ({feature}) => {
                 const plot = feature.properties.plot || '';
                 const giscode = feature.properties.giscode || '';
 
@@ -254,10 +254,10 @@ export class MapFeatureControl {
                         if (container) {
                             if (data.info && data.has_data === 'Y') {
                                 let infoText;
-                                
+
                                 // Check if info contains HTML tags
                                 const isHTML = /<[^>]*>/g.test(data.info);
-                                
+
                                 if (isHTML) {
                                     // If it's HTML, extract content from HTML tags and use directly
                                     // Remove outer <html> tags if present and clean up
@@ -273,7 +273,7 @@ export class MapFeatureControl {
                                     const formattedText = rawText.replace(/^([^:\n]+:)/gm, '<strong>$1</strong><br>');
                                     infoText = formattedText.replace(/\n/g, '<br>');
                                 }
-                                
+
                                 container.innerHTML = `
                                     <div class="text-xs" style="color: #d1d5db;">
                                         <div class="mb-2 font-semibold" style="color: #f3f4f6;">Additional Information from Bhunaksha</div>
@@ -328,7 +328,7 @@ export class MapFeatureControl {
     _createContainer() {
         this._container = document.createElement('div');
         this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
-        
+
         // Create button
         const button = document.createElement('button');
         button.className = 'mapboxgl-ctrl-icon';
@@ -354,16 +354,16 @@ export class MapFeatureControl {
         `;
 
         button.appendChild(icon);
-        
+
         // Add event handlers
         button.addEventListener('click', () => {
             this._togglePanel();
         });
-        
+
         button.addEventListener('mouseenter', () => {
             button.style.backgroundColor = '#f0f0f0';
         });
-        
+
         button.addEventListener('mouseleave', () => {
             button.style.backgroundColor = '#ffffff';
         });
@@ -400,7 +400,7 @@ export class MapFeatureControl {
             overflow: auto;
             resize: both;
         `;
-        
+
 
         // Create panel content
         const content = document.createElement('div');
@@ -422,7 +422,7 @@ export class MapFeatureControl {
             cursor: move;
             user-select: none;
         `;
-        
+
         // Add drag functionality to the title
         this._setupPanelDrag(title);
 
@@ -520,7 +520,7 @@ export class MapFeatureControl {
         const drag = (e) => {
             if (isDragging) {
                 e.preventDefault();
-                
+
                 if (e.type === "touchmove") {
                     currentX = e.touches[0].clientX - initialX;
                     currentY = e.touches[0].clientY - initialY;
@@ -545,13 +545,13 @@ export class MapFeatureControl {
         // Add event listeners
         dragHandle.addEventListener("mousedown", dragStart);
         dragHandle.addEventListener("touchstart", dragStart);
-        
+
         document.addEventListener("mouseup", dragEnd);
         document.addEventListener("touchend", dragEnd);
-        
+
         document.addEventListener("mousemove", drag);
         document.addEventListener("touchmove", drag);
-        
+
         // Store listeners for cleanup
         this._dragListeners = {
             dragHandle,
@@ -606,15 +606,15 @@ export class MapFeatureControl {
             font-size: 11px;
             font-weight: 500;
         `;
-        
+
         const addIcon = document.createElement('sl-icon');
         addIcon.name = 'plus';
         addIcon.setAttribute('slot', 'prefix');
         addIcon.style.fontSize = '12px';
-        
+
         this._addLayerBtn.appendChild(addIcon);
         this._addLayerBtn.appendChild(document.createTextNode('Add Map Layer'));
-        
+
         // Add click handler to open layer drawer
         this._addLayerBtn.addEventListener('click', (e) => {
             this._openLayerDrawer();
@@ -622,7 +622,7 @@ export class MapFeatureControl {
 
         // Create inspect mode toggle switch - hide on touch devices
         const isTouchDevice = this._isMobileScreen();
-        
+
         this._inspectSwitch = document.createElement('sl-switch');
         this._inspectSwitch.size = 'small';
         this._inspectSwitch.checked = this.options.inspectMode;
@@ -631,7 +631,7 @@ export class MapFeatureControl {
             --sl-color-primary-500: #f59e0b;
             ${isTouchDevice ? 'display: none;' : ''}
         `;
-        
+
         // Add click handler to toggle inspect mode
         this._inspectSwitch.addEventListener('sl-change', (e) => {
             this._toggleInspectMode();
@@ -650,14 +650,14 @@ export class MapFeatureControl {
             gap: 4px;
             ${isTouchDevice ? 'display: none;' : ''}
         `;
-        
+
         const inspectIcon = document.createElement('sl-icon');
         inspectIcon.name = 'chat-square';
         inspectIcon.style.fontSize = '12px';
-        
+
         inspectSwitchLabel.appendChild(inspectIcon);
         inspectSwitchLabel.appendChild(document.createTextNode('Tooltips'));
-        
+
         // Make label clickable
         inspectSwitchLabel.addEventListener('click', () => {
             this._inspectSwitch.checked = !this._inspectSwitch.checked;
@@ -675,15 +675,15 @@ export class MapFeatureControl {
             font-size: 11px;
             display: none;
         `;
-        
+
         const clearIcon = document.createElement('sl-icon');
         clearIcon.name = 'x-circle';
         clearIcon.setAttribute('slot', 'prefix');
         clearIcon.style.fontSize = '12px';
-        
+
         this._clearSelectionBtn.appendChild(clearIcon);
         this._clearSelectionBtn.appendChild(document.createTextNode('Clear Selection'));
-        
+
         // Add click handler to clear all selections
         this._clearSelectionBtn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -693,23 +693,23 @@ export class MapFeatureControl {
 
         // Add all controls to the actions section
         actionsSection.appendChild(this._addLayerBtn);
-        
+
         // Only add tooltip controls and separators on non-touch devices
         if (!isTouchDevice) {
             // Add separator
             const separator1 = document.createElement('div');
             separator1.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
             actionsSection.appendChild(separator1);
-            
+
             actionsSection.appendChild(this._inspectSwitch);
             actionsSection.appendChild(inspectSwitchLabel);
-            
+
             // Add separator
             const separator2 = document.createElement('div');
             separator2.style.cssText = 'width: 1px; height: 16px; background: rgba(0,0,0,0.1); margin: 0 4px;';
             actionsSection.appendChild(separator2);
         }
-        
+
         actionsSection.appendChild(this._clearSelectionBtn);
 
         return actionsSection;
@@ -728,7 +728,7 @@ export class MapFeatureControl {
     _setupDrawerStateTracking() {
         // Listen to drawer state changes from the centralized manager
         this._drawerStateListener = (event) => {
-            const { isOpen, eventType } = event.detail;
+            const {isOpen, eventType} = event.detail;
             // No longer need to update switch state since we use an action button
         };
 
@@ -749,7 +749,7 @@ export class MapFeatureControl {
     _toggleInspectMode() {
         this._inspectModeEnabled = this._inspectSwitch.checked;
         this.options.showHoverPopups = this._inspectModeEnabled;
-        
+
         // If inspect mode is disabled, clear any existing hover popups
         if (!this._inspectModeEnabled) {
             this._removeHoverPopup();
@@ -757,7 +757,7 @@ export class MapFeatureControl {
                 this._stateManager.handleMapMouseLeave();
             }
         }
-        
+
         // Inspect mode toggled silently to reduce noise
     }
 
@@ -782,10 +782,10 @@ export class MapFeatureControl {
      */
     _updateClearSelectionButtonVisibility() {
         if (!this._clearSelectionBtn) return;
-        
+
         // Check if any layer elements have the 'has-selection' class
         const hasSelections = this._layersContainer.querySelector('.has-selection') !== null;
-        
+
         if (hasSelections) {
             this._clearSelectionBtn.style.display = 'inline-flex';
         } else {
@@ -797,21 +797,21 @@ export class MapFeatureControl {
      * Handle state changes from the state manager
      */
     _handleStateChange(detail) {
-        const { eventType, data } = detail;
-        
+        const {eventType, data} = detail;
+
         // Optimize rendering based on event type
         switch (eventType) {
             case 'feature-hover':
                 this._handleFeatureHover(data);
                 // Update layer visual state for hover
-                this._updateLayerVisualState(data.layerId, { hasHover: true });
+                this._updateLayerVisualState(data.layerId, {hasHover: true});
                 break;
             case 'features-batch-hover':
                 // Handle batch hover events (PERFORMANCE OPTIMIZED)
                 this._handleBatchFeatureHover(data);
                 // Update layer visual state for all affected layers
                 data.affectedLayers.forEach(layerId => {
-                    this._updateLayerVisualState(layerId, { hasHover: true });
+                    this._updateLayerVisualState(layerId, {hasHover: true});
                 });
                 break;
             case 'features-hover-cleared':
@@ -830,7 +830,7 @@ export class MapFeatureControl {
                 this._renderLayer(data.layerId);
                 this._expandLayerForFeatureSelection(data.layerId);
                 // Update layer visual state for selection
-                this._updateLayerVisualState(data.layerId, { hasSelection: true });
+                this._updateLayerVisualState(data.layerId, {hasSelection: true});
                 break;
             case 'feature-click-multiple':
                 // Handle multiple feature selections from overlapping click
@@ -843,7 +843,7 @@ export class MapFeatureControl {
                     this._renderLayer(layerId);
                     this._expandLayerForFeatureSelection(layerId);
                     // Update layer visual state for selection
-                    this._updateLayerVisualState(layerId, { hasSelection: true });
+                    this._updateLayerVisualState(layerId, {hasSelection: true});
                 });
                 break;
             case 'selections-cleared':
@@ -851,7 +851,7 @@ export class MapFeatureControl {
                 // Update visual states for all layers that had selections cleared
                 const clearedLayerIds = [...new Set(data.clearedFeatures.map(item => item.layerId))];
                 clearedLayerIds.forEach(layerId => {
-                    this._updateLayerVisualState(layerId, { hasSelection: false });
+                    this._updateLayerVisualState(layerId, {hasSelection: false});
                 });
                 break;
             case 'feature-close':
@@ -881,7 +881,7 @@ export class MapFeatureControl {
             case 'layer-registered':
                 // Re-render when layers are registered (turned on)
                 this._scheduleRender();
-                
+
                 // Ensure URL is updated when layers are turned on
                 if (window.urlManager) {
                     setTimeout(() => {
@@ -893,7 +893,7 @@ export class MapFeatureControl {
                 // Re-render when layers are unregistered (turned off)
                 // This ensures the feature control stays in sync with layer toggles
                 this._scheduleRender();
-                
+
                 // Ensure URL is updated when layers are turned off
                 if (window.urlManager) {
                     setTimeout(() => {
@@ -918,19 +918,19 @@ export class MapFeatureControl {
         if (layerElement) {
             // Expand the main layer details
             layerElement.open = true;
-            
+
             // Find and expand the features details specifically
             const featuresDetails = layerElement.querySelector('.features-details');
             if (featuresDetails) {
                 featuresDetails.open = true;
             }
         }
-        
+
         // Ensure the panel is visible when a feature is selected
         if (this._panel && this._panel.style.display === 'none') {
             this._showPanel();
         }
-        
+
         // Close the layer list drawer to prevent it from obscuring feature details
         if (drawerStateManager && drawerStateManager.isOpen()) {
             drawerStateManager.close();
@@ -944,7 +944,7 @@ export class MapFeatureControl {
     _updateLayerVisualState(layerId, states) {
         const layerElement = this._layersContainer.querySelector(`[data-layer-id="${layerId}"]`);
         if (!layerElement) return;
-        
+
         // Update CSS classes based on states
         // Always update hover visual state (inspect mode only affects popups)
         if (states.hasHover === true) {
@@ -952,7 +952,7 @@ export class MapFeatureControl {
         } else if (states.hasHover === false) {
             layerElement.classList.remove('has-hover');
         }
-        
+
         // Selection state is sticky - only changes when explicitly set
         if (states.hasSelection === true) {
             layerElement.classList.add('has-selection');
@@ -970,18 +970,18 @@ export class MapFeatureControl {
      */
     _updateLayerVisualStateFromFeatures(layerId) {
         if (!this._stateManager) return;
-        
+
         const layerFeatures = this._stateManager.getLayerFeatures(layerId);
         let hasHover = false;
         let hasSelection = false;
-        
+
         layerFeatures.forEach((featureState) => {
             if (featureState.isHovered) hasHover = true;
             if (featureState.isSelected) hasSelection = true;
         });
-        
+
         // Always update both states to ensure correct visual state
-        this._updateLayerVisualState(layerId, { hasHover, hasSelection });
+        this._updateLayerVisualState(layerId, {hasHover, hasSelection});
     }
 
     /**
@@ -992,7 +992,7 @@ export class MapFeatureControl {
         layerElements.forEach(layerElement => {
             // Only remove hover, not selection - selection should be persistent
             layerElement.classList.remove('has-hover');
-            
+
             // Update selection state based on actual feature states
             const layerId = layerElement.getAttribute('data-layer-id');
             if (layerId) {
@@ -1007,19 +1007,19 @@ export class MapFeatureControl {
     _handleSelectionsCleared(clearedFeatures) {
         // Get unique layer IDs that had selections cleared
         const affectedLayerIds = [...new Set(clearedFeatures.map(item => item.layerId))];
-        
+
         // Force re-render of all affected layers by clearing their hash cache
         // This ensures the UI properly reflects the cleared state
         affectedLayerIds.forEach(layerId => {
             this._lastRenderState.delete(layerId); // Force update by clearing hash
             this._renderLayer(layerId);
         });
-        
+
         // If no layers had selections, do a full render to ensure clean state
         if (affectedLayerIds.length === 0) {
             this._scheduleRender();
         }
-        
+
         // Update clear button visibility after selections are cleared
         this._updateClearSelectionButtonVisibility();
     }
@@ -1033,7 +1033,7 @@ export class MapFeatureControl {
         if (!this._stateManager) {
             return new Map();
         }
-        
+
         const activeLayers = this._stateManager.getActiveLayers();
         return activeLayers;
     }
@@ -1043,7 +1043,7 @@ export class MapFeatureControl {
      */
     _scheduleRender() {
         if (this._renderScheduled) return;
-        
+
         this._renderScheduled = true;
         // Use immediate requestAnimationFrame for better responsiveness
         requestAnimationFrame(() => {
@@ -1067,7 +1067,7 @@ export class MapFeatureControl {
 
         // Get active layers from state manager (single source of truth)
         const activeLayers = this._getActiveLayersFromConfig();
-        
+
         // Don't show empty state immediately - layers might be loading
         if (activeLayers.size === 0) {
             // Only show empty state after a brief delay to avoid flicker during layer loading
@@ -1093,7 +1093,7 @@ export class MapFeatureControl {
         const configOrder = this._getConfigLayerOrder();
         const currentLayerIds = new Set(activeLayers.keys());
         const previousLayerIds = new Set(this._lastRenderState.keys());
-        
+
         // Remove layers that are no longer active
         previousLayerIds.forEach(layerId => {
             if (!currentLayerIds.has(layerId)) {
@@ -1108,7 +1108,7 @@ export class MapFeatureControl {
                 const layerData = activeLayers.get(layerId);
                 const layerHash = this._getLayerDataHash(layerData);
                 const previousHash = this._lastRenderState.get(layerId);
-                
+
                 if (layerHash !== previousHash) {
                     this._updateSingleLayer(layerId, layerData);
                     this._lastRenderState.set(layerId, layerHash);
@@ -1126,12 +1126,12 @@ export class MapFeatureControl {
     _getLayerConfig(layerId) {
         // First try state manager
         let config = this._stateManager.getLayerConfig(layerId);
-        
+
         // If not found and registry is available, try the registry
         if (!config && window.layerRegistry) {
             config = window.layerRegistry.getLayer(layerId);
         }
-        
+
         return config;
     }
 
@@ -1146,7 +1146,7 @@ export class MapFeatureControl {
                 return Array.from(activeLayers.keys());
             }
         }
-        
+
         // Use the layers array from config to maintain the exact order specified
         if (this._config.layers && Array.isArray(this._config.layers)) {
             return this._config.layers
@@ -1156,7 +1156,7 @@ export class MapFeatureControl {
                 })
                 .map(layer => layer.id);
         }
-        
+
         // Fallback to groups if layers array doesn't exist (older config format)
         if (this._config.groups && Array.isArray(this._config.groups)) {
             return this._config.groups
@@ -1166,7 +1166,7 @@ export class MapFeatureControl {
                 })
                 .map(group => group.id);
         }
-        
+
         // Final fallback
         const activeLayers = this._stateManager.getActiveLayers();
         return Array.from(activeLayers.keys());
@@ -1176,12 +1176,12 @@ export class MapFeatureControl {
      * Update a single layer (preserves position, only updates content)
      */
     _updateSingleLayer(layerId, layerData) {
-        const { config, features } = layerData;
-        
+        const {config, features} = layerData;
+
         // Find existing layer element or create new one
         let layerElement = this._layersContainer.querySelector(`[data-layer-id="${layerId}"]`);
         let isNewElement = false;
-        
+
         if (!layerElement) {
             layerElement = this._createLayerDetailsElement(layerId, config);
             isNewElement = true;
@@ -1189,7 +1189,7 @@ export class MapFeatureControl {
 
         // Update layer content
         this._updateLayerContent(layerElement, layerId, config, features);
-        
+
         // Add to container if it's a new element, maintaining config order
         if (isNewElement) {
             this._insertLayerInOrder(layerElement, layerId);
@@ -1204,7 +1204,7 @@ export class MapFeatureControl {
         layerDetails.className = 'layer-details';
         layerDetails.setAttribute('data-layer-id', layerId);
         layerDetails.open = false; // Collapsed by default
-        
+
         // Set custom styles for layer details
         layerDetails.style.cssText = `
             --sl-panel-background-color: #777;
@@ -1219,7 +1219,7 @@ export class MapFeatureControl {
         const summary = document.createElement('div');
         summary.setAttribute('slot', 'summary');
         summary.className = 'layer-summary';
-        
+
         let summaryStyle = `
             font-size: 13px;
             font-weight: 600;
@@ -1231,27 +1231,27 @@ export class MapFeatureControl {
             align-items: center;
             background: transparent;
         `;
-        
+
         summary.style.cssText = summaryStyle;
-        
+
         // Add background image class if available
         if (config.headerImage) {
             layerDetails.classList.add('has-header-image');
             layerDetails.setAttribute('data-header-image', config.headerImage);
             this._addHeaderImageCSS(layerId, config.headerImage);
         }
-        
+
         // Create title text
         const title = document.createElement('span');
         title.textContent = config.title || config.id;
         title.style.cssText = 'position: relative; z-index: 2; flex: 1;';
         summary.appendChild(title);
-        
+
         layerDetails.appendChild(summary);
-        
+
         // Add hover event handlers for layer isolation
         this._addLayerIsolationHoverHandlers(layerDetails, layerId, config);
-        
+
         return layerDetails;
     }
 
@@ -1334,12 +1334,12 @@ export class MapFeatureControl {
             margin-right:5px;
             text-decoration: none;
         `;
-        
+
         // Add hover effect for underline
         removeBtn.addEventListener('mouseenter', () => {
             removeBtn.style.textDecoration = 'underline';
         });
-        
+
         removeBtn.addEventListener('mouseleave', () => {
             removeBtn.style.textDecoration = 'none';
         });
@@ -1381,7 +1381,7 @@ export class MapFeatureControl {
             cursor: pointer;
             user-select: none;
         `;
-        
+
         // Create icon container for layered effect
         const iconContainer = document.createElement('div');
         iconContainer.style.cssText = `
@@ -1392,7 +1392,7 @@ export class MapFeatureControl {
             align-items: center;
             justify-content: center;
         `;
-        
+
         // Base lightbulb icon
         const iconBase = document.createElement('sl-icon');
         iconBase.name = 'lightbulb';
@@ -1402,7 +1402,7 @@ export class MapFeatureControl {
             top: 0;
             left: 0;
         `;
-        
+
         // Dark overlay lightbulb icon (opacity will be inversely controlled)
         const iconOverlay = document.createElement('sl-icon');
         iconOverlay.name = 'lightbulb-fill';
@@ -1414,13 +1414,13 @@ export class MapFeatureControl {
             left: 0;
             transition: opacity 0.15s ease;
         `;
-        
+
         iconContainer.appendChild(iconBase);
         iconContainer.appendChild(iconOverlay);
-        
+
         const labelText = document.createElement('span');
         labelText.textContent = 'Opacity';
-        
+
         label.appendChild(iconContainer);
         label.appendChild(labelText);
 
@@ -1430,7 +1430,7 @@ export class MapFeatureControl {
         slider.max = 100;
         slider.step = 1;
         slider.tooltip = 'right';
-        
+
         // Set initial value - convert from 0-1 scale to 0-100 scale
         // First check if config.opacity exists (from URL or layer config), otherwise query the map
         let currentOpacity;
@@ -1439,17 +1439,17 @@ export class MapFeatureControl {
         } else {
             currentOpacity = this._getCurrentLayerOpacity(layerId, config);
         }
-        const opacityPercent = (!isNaN(currentOpacity) && isFinite(currentOpacity)) 
+        const opacityPercent = (!isNaN(currentOpacity) && isFinite(currentOpacity))
             ? Math.round(currentOpacity * 100)
             : 90; // Default to 90%
         slider.value = opacityPercent;
-        
+
         // Set initial overlay opacity (inverse of slider value)
         iconOverlay.style.opacity = (1 - (opacityPercent / 100)).toString();
-        
+
         // Custom tooltip formatter to show percentage
         slider.tooltipFormatter = (value) => `${value}%`;
-        
+
         slider.style.cssText = `
             flex: 1;
             --track-height: 4px;
@@ -1462,7 +1462,7 @@ export class MapFeatureControl {
         label.addEventListener('click', () => {
             const currentValue = parseInt(slider.value);
             let newValue;
-            
+
             // Toggle logic: if not 0 or 100, go to 0 first
             if (currentValue !== 0 && currentValue !== 100) {
                 newValue = 0;
@@ -1471,20 +1471,20 @@ export class MapFeatureControl {
             } else {
                 newValue = 0;
             }
-            
+
             // Update slider value
             slider.value = newValue;
-            
+
             // Update overlay opacity (inverse of slider value)
             iconOverlay.style.opacity = (1 - (newValue / 100)).toString();
-            
+
             // Apply the new opacity
             const opacityValue = newValue / 100;
             this._applyLayerOpacity(layerId, config, opacityValue);
-            
+
             // Update config.opacity to persist the value
             config.opacity = opacityValue;
-            
+
             // Trigger URL update if urlManager is available
             if (window.urlManager) {
                 window.urlManager.updateURL();
@@ -1495,7 +1495,7 @@ export class MapFeatureControl {
         label.addEventListener('mouseenter', () => {
             label.style.color = '#374151';
         });
-        
+
         label.addEventListener('mouseleave', () => {
             label.style.color = '#6b7280';
         });
@@ -1504,10 +1504,10 @@ export class MapFeatureControl {
         slider.addEventListener('sl-input', (e) => {
             const opacityPercent = parseInt(e.target.value);
             const opacityValue = opacityPercent / 100;
-            
+
             // Update overlay opacity (inverse of slider value)
             iconOverlay.style.opacity = (1 - (opacityPercent / 100)).toString();
-            
+
             // Apply opacity to layer in real-time
             this._applyLayerOpacity(layerId, config, opacityValue);
         });
@@ -1516,16 +1516,16 @@ export class MapFeatureControl {
         slider.addEventListener('sl-change', (e) => {
             const opacityPercent = parseInt(e.target.value);
             const opacityValue = opacityPercent / 100;
-            
+
             // Update overlay opacity (inverse of slider value)
             iconOverlay.style.opacity = (1 - (opacityPercent / 100)).toString();
-            
+
             // Ensure final opacity is applied
             this._applyLayerOpacity(layerId, config, opacityValue);
-            
+
             // Update config.opacity to persist the value
             config.opacity = opacityValue;
-            
+
             // Trigger URL update if urlManager is available
             if (window.urlManager) {
                 window.urlManager.updateURL();
@@ -1569,35 +1569,35 @@ export class MapFeatureControl {
     _zoomToLayerBounds(layerId, config) {
         // Get bbox from either direct property or metadata
         const bbox = config.bbox || config.metadata?.bbox;
-        
+
         if (!bbox || !this._map) {
             console.warn('No bbox available for layer or map not initialized');
             return;
         }
-        
+
         // Check if bbox is valid (not unrectified map)
         if (bbox === "0.0,0.0,0.0,0.0") {
             console.log('Cannot zoom: layer has no valid bbox (unrectified map)');
             this._showToast('Cannot zoom to layer: no valid geographic bounds available', 'warning');
             return;
         }
-        
+
         try {
             // Parse bbox string "minLng,minLat,maxLng,maxLat"
             const [minLng, minLat, maxLng, maxLat] = bbox.split(',').map(parseFloat);
-            
+
             // Validate coordinates
             if (isNaN(minLng) || isNaN(minLat) || isNaN(maxLng) || isNaN(maxLat)) {
                 console.warn('Invalid bbox coordinates:', bbox);
                 this._showToast('Cannot zoom to layer: invalid coordinates', 'error');
                 return;
             }
-            
+
             // Create bounds array for Mapbox: [[minLng, minLat], [maxLng, maxLat]]
             const bounds = [[minLng, minLat], [maxLng, maxLat]];
-            
+
             console.log('Zooming to layer bounds:', bounds);
-            
+
             // Fit map to bounds with some padding
             this._map.fitBounds(bounds, {
                 padding: {
@@ -1609,10 +1609,10 @@ export class MapFeatureControl {
                 maxZoom: 16, // Don't zoom in too close
                 duration: 1000 // Smooth animation
             });
-            
+
             // Show success toast
             this._showToast(`Zoomed to ${config.title || layerId}`, 'success', 2000);
-            
+
         } catch (error) {
             console.error('Error zooming to layer bounds:', error);
             this._showToast('Error zooming to layer', 'error');
@@ -1699,7 +1699,7 @@ export class MapFeatureControl {
         const sourceDetails = document.createElement('sl-details');
         sourceDetails.className = 'source-details';
         sourceDetails.open = false; // Collapsed by default
-        
+
         sourceDetails.style.cssText = `
             font-size: 11px;
         `;
@@ -1768,7 +1768,7 @@ export class MapFeatureControl {
         const legendDetails = document.createElement('sl-details');
         legendDetails.className = 'legend-details';
         legendDetails.open = false; // Collapsed by default
-        
+
         legendDetails.style.cssText = `
             margin-bottom: 2px;
             font-size: 11px;
@@ -1803,12 +1803,12 @@ export class MapFeatureControl {
                 border-radius: 4px;
                 cursor: pointer;
             `;
-            
+
             // Add click handler for modal view
             img.addEventListener('click', () => {
                 this._showLegendModal(config.legendImage);
             });
-            
+
             content.appendChild(img);
         } else if (config.legend) {
             const legendDiv = document.createElement('div');
@@ -1830,7 +1830,7 @@ export class MapFeatureControl {
         featuresDetails.setAttribute('data-layer-features', layerId);
         featuresDetails.id = `features-container-${layerId}`;
         featuresDetails.open = false; // Collapsed by default
-        
+
         featuresDetails.style.cssText = `
             margin-bottom: 2px;
             font-size: 11px;
@@ -1851,7 +1851,7 @@ export class MapFeatureControl {
         summary.textContent = selectedCount > 0 ? `Features (${selectedCount})` : 'Features';
         featuresDetails.appendChild(summary);
 
-                // Create content container for features
+        // Create content container for features
         const content = document.createElement('div');
         content.className = 'features-content';
         content.style.cssText = `
@@ -1897,14 +1897,14 @@ export class MapFeatureControl {
     _renderFeatureInDetails(container, featureState, layerConfig, layerId) {
         const featureElement = document.createElement('div');
         const featureId = this._getFeatureId(featureState.feature);
-        
+
         featureElement.className = 'feature-control-feature selected';
         featureElement.setAttribute('data-feature-id', featureId);
         featureElement.setAttribute('data-layer-id', layerId);
-        
+
         // Add standardized ID for direct targeting: inspector-{layerId}-{featureId}
         featureElement.id = `inspector-${layerId}-${featureId}`;
-        
+
         // Selected feature styling for the details structure
         featureElement.style.cssText = `
             border-bottom: 1px solid #555;
@@ -1931,13 +1931,13 @@ export class MapFeatureControl {
         const content = document.createElement('div');
         content.className = 'feature-inspector-content';
         content.id = `content-${layerId}-${featureId}`;
-        
+
         // Properties table content with compact styling for nested view
         const tableContent = document.createElement('div');
         tableContent.className = 'feature-inspector-table-content';
         tableContent.id = `table-content-${layerId}-${featureId}`;
         tableContent.style.cssText = 'overflow-y: auto;';
-        
+
         // Build the properties table with intelligent formatting (reuse existing logic)
         const table = document.createElement('table');
         table.className = 'feature-inspector-properties-table';
@@ -1952,15 +1952,15 @@ export class MapFeatureControl {
             overflow: hidden;
             font-size: 10px;
         `;
-        
+
         const properties = featureState.feature.properties || {};
         const inspect = layerConfig.inspect || {};
-        
+
         // Get field configuration (reuse existing logic)
         const priorityFields = inspect.fields || [];
         const fieldTitles = inspect.fieldTitles || [];
         const labelField = inspect.label;
-        
+
         // Create field title mapping
         const fieldTitleMap = {};
         priorityFields.forEach((field, index) => {
@@ -1968,10 +1968,10 @@ export class MapFeatureControl {
                 fieldTitleMap[field] = fieldTitles[index];
             }
         });
-        
+
         // Organize properties: label first, then priority fields, then remaining fields
         const organizedFields = [];
-        
+
         // 1. Add label field first if it exists and has a value
         if (labelField && properties[labelField] !== undefined && properties[labelField] !== null && properties[labelField] !== '') {
             organizedFields.push({
@@ -1981,7 +1981,7 @@ export class MapFeatureControl {
                 displayName: inspect.title || fieldTitleMap[labelField] || labelField
             });
         }
-        
+
         // 2. Add priority fields in order (excluding label field to avoid duplication)
         priorityFields.forEach(field => {
             if (field !== labelField && properties[field] !== undefined && properties[field] !== null && properties[field] !== '') {
@@ -1993,25 +1993,25 @@ export class MapFeatureControl {
                 });
             }
         });
-        
+
         // 3. Add remaining fields for completeness
         Object.entries(properties).forEach(([key, value]) => {
             // Skip if already added as label or priority field
             if (key === labelField || priorityFields.includes(key)) {
                 return;
             }
-            
+
             // Skip empty values and internal/system fields
             if (value === undefined || value === null || value === '') {
                 return;
             }
-            
+
             // Skip common internal/system fields that aren't useful to display
             const systemFields = ['id', 'fid', '_id', 'objectid', 'gid', 'osm_id', 'way_id'];
             if (systemFields.includes(key.toLowerCase())) {
                 return;
             }
-            
+
             organizedFields.push({
                 key: key,
                 value: value,
@@ -2019,11 +2019,11 @@ export class MapFeatureControl {
                 displayName: key
             });
         });
-        
+
         // Render the organized fields with compact styling
         organizedFields.forEach(field => {
             const row = document.createElement('tr');
-            
+
             // Set row background with darker theme for nested view
             let rowBackgroundColor = '#2a2a2a';
             if (field.isLabel) {
@@ -2031,13 +2031,13 @@ export class MapFeatureControl {
             } else if (field.isPriority) {
                 rowBackgroundColor = '#2d2d2d';
             }
-            
+
             row.style.cssText = `
                 border-bottom: 1px solid #444;
                 background-color: ${rowBackgroundColor};
                 transition: background-color 0.1s ease;
             `;
-            
+
             const keyCell = document.createElement('td');
             keyCell.style.cssText = `
                 padding: 4px 6px;
@@ -2049,7 +2049,7 @@ export class MapFeatureControl {
                 font-size: 9px;
             `;
             keyCell.textContent = field.displayName;
-            
+
             const valueCell = document.createElement('td');
             valueCell.style.cssText = `
                 padding: 4px 6px;
@@ -2061,21 +2061,21 @@ export class MapFeatureControl {
                 vertical-align: top;
             `;
             valueCell.textContent = String(field.value);
-            
+
             row.appendChild(keyCell);
             row.appendChild(valueCell);
             table.appendChild(row);
         });
-        
+
         tableContent.appendChild(table);
         content.appendChild(tableContent);
-        
+
         // Add source layer links content if applicable (simplified for nested view)
         this._addSourceLayerLinksContentToDetails(content, featureState, layerConfig);
-        
+
         // Add feature actions footer
         this._addFeatureActionsToContent(content, featureState, layerConfig, layerId, featureId);
-        
+
         return content;
     }
 
@@ -2089,11 +2089,11 @@ export class MapFeatureControl {
 
         const feature = featureState.feature;
         const sourceLayer = feature.sourceLayer || feature.layer?.sourceLayer;
-        
+
         // Find applicable source layer links
         const applicableLinks = this._sourceLayerLinks.filter(link => {
             if (!link.sourceLayer) return false;
-            
+
             // Handle both string and array for sourceLayer
             if (Array.isArray(link.sourceLayer)) {
                 return link.sourceLayer.includes(sourceLayer);
@@ -2138,14 +2138,14 @@ export class MapFeatureControl {
                         linkContainer.className = `source-layer-link-${index}`;
                         linkContainer.innerHTML = linkHTML;
                         linkContainer.style.fontSize = '9px'; // Override for compact view
-                        
+
                         // Add separator between multiple links
                         if (index > 0) {
                             const separator = document.createElement('div');
                             separator.style.cssText = 'border-top: 1px solid #444; margin: 4px 0; padding-top: 4px;';
                             additionalInfoContainer.appendChild(separator);
                         }
-                        
+
                         additionalInfoContainer.appendChild(linkContainer);
                     }
                 } catch (error) {
@@ -2165,7 +2165,7 @@ export class MapFeatureControl {
      */
     _addFeatureActionsToContent(content, featureState, layerConfig, layerId, featureId) {
         const feature = featureState.feature;
-        
+
         // Create container for action buttons
         const actionContainer = document.createElement('div');
         actionContainer.className = 'feature-actions';
@@ -2202,7 +2202,7 @@ export class MapFeatureControl {
             min-width: auto;
             flex: 1 1 auto;
         `;
-        
+
         settingsButton.innerHTML = `
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2216,7 +2216,7 @@ export class MapFeatureControl {
             settingsButton.style.backgroundColor = '#444';
             settingsButton.style.color = '#fff';
         });
-        
+
         settingsButton.addEventListener('mouseleave', () => {
             settingsButton.style.backgroundColor = 'transparent';
             settingsButton.style.color = '#bbb';
@@ -2251,7 +2251,7 @@ export class MapFeatureControl {
                 min-width: auto;
                 flex: 1 1 auto;
             `;
-            
+
             exportButton.innerHTML = `
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2264,7 +2264,7 @@ export class MapFeatureControl {
                 exportButton.style.backgroundColor = '#444';
                 exportButton.style.color = '#fff';
             });
-            
+
             exportButton.addEventListener('mouseleave', () => {
                 exportButton.style.backgroundColor = 'transparent';
                 exportButton.style.color = '#bbb';
@@ -2306,9 +2306,9 @@ export class MapFeatureControl {
                 return;
             }
 
-            const kmlContent = convertToKML(feature, { title, description });
+            const kmlContent = convertToKML(feature, {title, description});
 
-            const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
+            const blob = new Blob([kmlContent], {type: 'application/vnd.google-earth.kml+xml'});
             const url = URL.createObjectURL(blob);
 
             // Check if we're on iOS/iPadOS
@@ -2435,59 +2435,59 @@ export class MapFeatureControl {
         try {
             // Use jQuery to find the layer element
             const $layerElement = $(`sl-details[data-layer-id="${layerId}"]`);
-            
+
             if ($layerElement.length === 0) {
                 console.warn(`[FeatureControl] Layer element with data-layer-id="${layerId}" not found`);
                 return;
             }
-            
+
             const layerElement = $layerElement[0];
-            
+
             // Wait for Shoelace component to finish updating
             if (layerElement.updateComplete) {
                 await layerElement.updateComplete;
             }
-            
+
             // Use jQuery to find the toggle input with multiple selector attempts
             let $toggleInput = $layerElement.find('.toggle-switch input[type="checkbox"]');
-            
+
             // Fallback selectors if the first one doesn't work
             if ($toggleInput.length === 0) {
                 $toggleInput = $layerElement.find('input[type="checkbox"]');
             }
-            
+
             // Additional fallback - search more broadly
             if ($toggleInput.length === 0) {
                 $toggleInput = $layerElement.find('input');
             }
-            
-            
+
+
             if ($toggleInput.length > 0) {
                 // Use jQuery to uncheck and trigger change event
                 $toggleInput.prop('checked', false);
                 $toggleInput.trigger('change');
-                
+
                 // Close the details and remove active state using jQuery
                 $layerElement.prop('open', false);
                 $layerElement.removeClass('active');
-                
+
                 // IMPORTANT: Restore all layers that may have been hidden by layer isolation
                 this._restoreAllLayers();
-                
+
             } else {
                 console.error(`[FeatureControl] No checkbox input found for layer ${layerId}`);
-                
+
                 // Last resort: try to find any clickable element that might toggle the layer
                 const $anyToggle = $layerElement.find('[type="checkbox"], .toggle-switch, .toggle-slider');
                 if ($anyToggle.length > 0) {
                     $anyToggle.first().click();
                 }
             }
-            
+
         } catch (error) {
             console.error(`[FeatureControl] Error removing layer ${layerId}:`, error);
         }
-        
+
         // IMPORTANT: Always restore all layers after removal attempt to fix layer isolation issue
         this._restoreAllLayers();
     }
@@ -2579,17 +2579,17 @@ export class MapFeatureControl {
     _insertLayerInOrder(layerElement, layerId) {
         const configOrder = this._getConfigLayerOrder();
         const layerIndex = configOrder.indexOf(layerId);
-        
+
         if (layerIndex === -1) {
             // Not found in config, append at end
             this._layersContainer.appendChild(layerElement);
             return;
         }
-        
+
         // Find the position to insert based on config order
         const existingLayers = Array.from(this._layersContainer.children);
         let insertBeforeElement = null;
-        
+
         for (let i = layerIndex + 1; i < configOrder.length; i++) {
             const nextLayerId = configOrder[i];
             const nextElement = existingLayers.find(el => el.getAttribute('data-layer-id') === nextLayerId);
@@ -2598,7 +2598,7 @@ export class MapFeatureControl {
                 break;
             }
         }
-        
+
         if (insertBeforeElement) {
             this._layersContainer.insertBefore(layerElement, insertBeforeElement);
         } else {
@@ -2612,7 +2612,7 @@ export class MapFeatureControl {
     _renderEmptyState() {
         // Clear existing content first
         this._layersContainer.innerHTML = '';
-        
+
         const emptyState = document.createElement('div');
         emptyState.className = 'feature-control-empty';
         emptyState.style.cssText = `
@@ -2623,7 +2623,7 @@ export class MapFeatureControl {
         `;
         emptyState.textContent = 'No active layers to display';
         this._layersContainer.appendChild(emptyState);
-        
+
         // Don't update header button here - let drawer state tracking handle it
         // The button state should be independent of layer state
     }
@@ -2633,10 +2633,10 @@ export class MapFeatureControl {
      */
     _renderLayer(layerId) {
         if (!this._stateManager) return;
-        
+
         const activeLayers = this._stateManager.getActiveLayers();
         const layerData = activeLayers.get(layerId);
-        
+
         if (layerData) {
             this._updateSingleLayer(layerId, layerData);
             this._lastRenderState.set(layerId, this._getLayerDataHash(layerData));
@@ -2649,7 +2649,7 @@ export class MapFeatureControl {
     _createLayerHeader(config, layerId) {
         const layerHeader = document.createElement('div');
         layerHeader.className = 'feature-control-layer-header';
-        
+
         let headerStyle = `
             padding: 8px 12px;
             font-size: 10px;
@@ -2667,7 +2667,7 @@ export class MapFeatureControl {
             transition: background-color 0.2s ease;
             min-height: 32px;
         `;
-        
+
         if (config.headerImage) {
             headerStyle += `
                 background-image: url('${config.headerImage}');
@@ -2675,7 +2675,7 @@ export class MapFeatureControl {
                 background-position: center;
                 background-repeat: no-repeat;
             `;
-            
+
             const overlay = document.createElement('div');
             overlay.style.cssText = `
                 position: absolute;
@@ -2688,9 +2688,9 @@ export class MapFeatureControl {
             `;
             layerHeader.appendChild(overlay);
         }
-        
+
         layerHeader.style.cssText = headerStyle;
-        
+
         // Header text container
         const headerText = document.createElement('span');
         headerText.style.cssText = 'position: relative; z-index: 2; flex: 1;';
@@ -2719,28 +2719,28 @@ export class MapFeatureControl {
 
         // Add click handler for header (collapse/expand functionality only for inspectable layers)
         const isInspectable = config.inspect || config.type === 'geojson' || config.type === 'vector' || config.type === 'csv';
-        
+
         if (isInspectable) {
             layerHeader.addEventListener('click', (e) => {
                 // Check if click was on the action button
                 if (actionBtn.contains(e.target)) {
                     return; // Let the button handle its own click
                 }
-                
+
                 e.stopPropagation(); // Prevent event bubbling
-                
+
                 // Toggle collapse state
                 const currentState = this._layerCollapseStates.get(layerId) || false;
                 const newState = !currentState;
                 this._layerCollapseStates.set(layerId, newState);
-                
+
                 // Update action button
                 this._updateActionButton(actionBtn, layerId, config);
-                
+
                 // Find and toggle the features container
                 const layerElement = layerHeader.closest('.feature-control-layer');
                 const featuresContainer = layerElement.querySelector(`[data-layer-features="${layerId}"]`);
-                
+
                 if (featuresContainer) {
                     featuresContainer.style.display = newState ? 'none' : 'block';
                 }
@@ -2756,7 +2756,7 @@ export class MapFeatureControl {
                 layerHeader.style.backgroundColor = '#404040';
             }
         });
-        
+
         layerHeader.addEventListener('mouseleave', () => {
             if (!config.headerImage) {
                 layerHeader.style.backgroundColor = '#333';
@@ -2772,10 +2772,10 @@ export class MapFeatureControl {
     _updateActionButton(actionBtn, layerId, config) {
         const isInspectable = config.inspect || config.type === 'geojson' || config.type === 'vector' || config.type === 'csv';
         const isCollapsed = this._layerCollapseStates.get(layerId) || false;
-        
+
         // Clear existing content
         actionBtn.innerHTML = '';
-        
+
         // For non-inspectable layers, always show only the close button
         if (!isInspectable || isCollapsed) {
             // Show close button when collapsed
@@ -2800,25 +2800,25 @@ export class MapFeatureControl {
                 padding: 0;
                 margin: 0;
             `;
-            
+
             // Hover effect
             closeBtn.addEventListener('mouseenter', () => {
                 closeBtn.style.backgroundColor = 'rgba(255,0,0,0.2)';
             });
-            
+
             closeBtn.addEventListener('mouseleave', () => {
                 closeBtn.style.backgroundColor = 'transparent';
             });
-            
+
             // Click handler to turn off layer
             closeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this._toggleLayerOff(layerId);
             });
-            
+
             closeBtn.title = 'Turn off layer';
             actionBtn.appendChild(closeBtn);
-            
+
         } else {
             // Show opacity lightbulb button when expanded
             const opacityBtn = document.createElement('sl-icon-button');
@@ -2840,62 +2840,62 @@ export class MapFeatureControl {
                 padding: 0;
                 margin: 0;
             `;
-            
+
             // Store original layer opacity for hover preview
             const originalOpacity = this._getCurrentLayerOpacity(layerId, config);
-            
+
             // Hover handler - preview opacity change
             opacityBtn.addEventListener('mouseenter', (e) => {
                 opacityBtn.style.opacity = '1.0';
                 // Preview the opposite opacity state
                 const currentOpacity = parseFloat(opacityBtn.getAttribute('data-opacity'));
                 const previewOpacity = currentOpacity === 0.4 ? 0.9 : 0.4;
-                
+
                 // Store current icon state for restoration
                 const currentIcon = opacityBtn.getAttribute('name');
                 opacityBtn.setAttribute('data-original-icon', currentIcon);
-                
+
                 // Change icon to preview target state
                 const previewIcon = previewOpacity === 0.9 ? 'lightbulb-fill' : 'lightbulb';
                 opacityBtn.setAttribute('name', previewIcon);
-                
+
                 this._applyLayerOpacity(layerId, config, previewOpacity);
                 opacityBtn.setAttribute('data-hover-state', 'true');
             });
-            
+
             // Mouse leave handler - restore original opacity
             opacityBtn.addEventListener('mouseleave', (e) => {
                 opacityBtn.style.opacity = '0.5';
                 // Only restore if we haven't clicked (committed the change)
                 if (opacityBtn.getAttribute('data-hover-state') === 'true') {
                     const currentOpacity = parseFloat(opacityBtn.getAttribute('data-opacity'));
-                    
+
                     // Restore original icon
                     const originalIcon = opacityBtn.getAttribute('data-original-icon');
                     if (originalIcon) {
                         opacityBtn.setAttribute('name', originalIcon);
                     }
-                    
+
                     this._applyLayerOpacity(layerId, config, currentOpacity);
                     opacityBtn.setAttribute('data-hover-state', 'false');
                 }
             });
-            
+
             // Click handler - commit opacity toggle
             opacityBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const currentOpacity = parseFloat(opacityBtn.getAttribute('data-opacity'));
                 const newOpacityFactor = currentOpacity === 0.4 ? 0.9 : 0.4;
-                
+
                 // Update button state
                 opacityBtn.setAttribute('data-opacity', newOpacityFactor);
                 opacityBtn.setAttribute('name', newOpacityFactor === 0.9 ? 'lightbulb-fill' : 'lightbulb');
                 opacityBtn.setAttribute('data-hover-state', 'false'); // Clear hover state
-                
+
                 // Apply the new opacity (this commits the change)
                 this._applyLayerOpacity(layerId, config, newOpacityFactor);
             });
-            
+
             actionBtn.appendChild(opacityBtn);
         }
     }
@@ -2908,51 +2908,51 @@ export class MapFeatureControl {
         try {
             // Use jQuery to find the layer element
             const $layerElement = $(`sl-details[data-layer-id="${layerId}"]`);
-            
+
             if ($layerElement.length === 0) {
                 console.warn(`[FeatureControl] Layer element with data-layer-id="${layerId}" not found`);
                 return;
             }
-            
+
             const layerElement = $layerElement[0];
-            
+
             // Wait for Shoelace component to finish updating
             if (layerElement.updateComplete) {
                 await layerElement.updateComplete;
             }
-            
+
             // Use jQuery to find the toggle input with multiple selector attempts
             let $toggleInput = $layerElement.find('.toggle-switch input[type="checkbox"]');
-            
+
             // Fallback selectors if the first one doesn't work
             if ($toggleInput.length === 0) {
                 $toggleInput = $layerElement.find('input[type="checkbox"]');
             }
-            
+
             // Additional fallback - search more broadly
             if ($toggleInput.length === 0) {
                 $toggleInput = $layerElement.find('input');
             }
-            
+
             if ($toggleInput.length > 0) {
                 // Use jQuery to uncheck and trigger change event
                 $toggleInput.prop('checked', false);
                 $toggleInput.trigger('change');
-                
+
                 // Close the details and remove active state using jQuery
                 $layerElement.prop('open', false);
                 $layerElement.removeClass('active');
-                
+
             } else {
                 console.error(`[FeatureControl] No checkbox input found for layer ${layerId}`);
-                
+
                 // Last resort: try to find any clickable element that might toggle the layer
                 const $anyToggle = $layerElement.find('[type="checkbox"], .toggle-switch, .toggle-slider');
                 if ($anyToggle.length > 0) {
                     $anyToggle.first().click();
                 }
             }
-            
+
         } catch (error) {
             console.error(`[FeatureControl] Error toggling layer ${layerId}:`, error);
         }
@@ -3062,7 +3062,7 @@ export class MapFeatureControl {
      */
     _getSortedFeatures(featuresMap) {
         const features = Array.from(featuresMap.entries());
-        
+
         return features.sort(([aId, aData], [bId, bData]) => {
             // Sort by timestamp (most recent first)
             return bData.timestamp - aData.timestamp;
@@ -3075,14 +3075,14 @@ export class MapFeatureControl {
     _renderFeature(container, featureState, layerConfig, layerId) {
         const featureElement = document.createElement('div');
         const featureId = this._getFeatureId(featureState.feature);
-        
+
         featureElement.className = 'feature-control-feature selected';
         featureElement.setAttribute('data-feature-id', featureId);
         featureElement.setAttribute('data-layer-id', layerId);
-        
+
         // Add standardized ID for direct targeting: inspector-{layerId}-{featureId}
         featureElement.id = `inspector-${layerId}-${featureId}`;
-        
+
         // Selected feature styling
         featureElement.style.cssText = `
             border-bottom: 1px solid #f0f0f0;
@@ -3107,13 +3107,13 @@ export class MapFeatureControl {
         content.className = 'feature-inspector-content';
         content.id = `content-${layerId}-${featureId}`;
         content.style.cssText = 'padding: 0;';
-        
+
         // Properties table content
         const tableContent = document.createElement('div');
         tableContent.className = 'feature-inspector-table-content';
         tableContent.id = `table-content-${layerId}-${featureId}`;
         tableContent.style.cssText = 'padding: 12px; max-height: 250px; overflow-y: auto;';
-        
+
         // Build the properties table with intelligent formatting
         const table = document.createElement('table');
         table.className = 'feature-inspector-properties-table';
@@ -3128,15 +3128,15 @@ export class MapFeatureControl {
             overflow: hidden;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         `;
-        
+
         const properties = featureState.feature.properties || {};
         const inspect = layerConfig.inspect || {};
-        
+
         // Get field configuration
         const priorityFields = inspect.fields || [];
         const fieldTitles = inspect.fieldTitles || [];
         const labelField = inspect.label;
-        
+
         // Create field title mapping
         const fieldTitleMap = {};
         priorityFields.forEach((field, index) => {
@@ -3144,10 +3144,10 @@ export class MapFeatureControl {
                 fieldTitleMap[field] = fieldTitles[index];
             }
         });
-        
+
         // Organize properties: label first, then priority fields, then remaining fields
         const organizedFields = [];
-        
+
         // 1. Add label field first if it exists and has a value
         if (labelField && properties[labelField] !== undefined && properties[labelField] !== null && properties[labelField] !== '') {
             organizedFields.push({
@@ -3157,7 +3157,7 @@ export class MapFeatureControl {
                 displayName: inspect.title || fieldTitleMap[labelField] || labelField
             });
         }
-        
+
         // 2. Add priority fields in order (excluding label field to avoid duplication)
         priorityFields.forEach(field => {
             if (field !== labelField && properties[field] !== undefined && properties[field] !== null && properties[field] !== '') {
@@ -3169,26 +3169,26 @@ export class MapFeatureControl {
                 });
             }
         });
-        
+
         // 3. Add remaining fields (for layers without inspect, show all non-empty properties)
         Object.entries(properties).forEach(([key, value]) => {
             // Skip if already added as label or priority field
             if (key === labelField || priorityFields.includes(key)) {
                 return;
             }
-            
+
             // For layers without inspect properties, be more inclusive
             // Skip empty values and internal/system fields
             if (value === undefined || value === null || value === '') {
                 return;
             }
-            
+
             // Skip common internal/system fields that aren't useful to display
             const systemFields = ['id', 'fid', '_id', 'objectid', 'gid', 'osm_id', 'way_id'];
             if (systemFields.includes(key.toLowerCase())) {
                 return;
             }
-            
+
             organizedFields.push({
                 key: key,
                 value: value,
@@ -3196,14 +3196,14 @@ export class MapFeatureControl {
                 displayName: key
             });
         });
-        
+
         // For layers without inspect properties, show at least some basic info if no fields were found
         if (organizedFields.length === 0 && !layerConfig.inspect) {
             // Show the first few properties or a generic message
             const basicFields = Object.entries(properties)
                 .filter(([key, value]) => value !== undefined && value !== null && value !== '')
                 .slice(0, 5); // Show first 5 non-empty properties
-            
+
             if (basicFields.length > 0) {
                 basicFields.forEach(([key, value]) => {
                     organizedFields.push({
@@ -3223,11 +3223,11 @@ export class MapFeatureControl {
                 });
             }
         }
-        
+
         // Render the organized fields
         organizedFields.forEach(field => {
             const row = document.createElement('tr');
-            
+
             // Set row background based on field type
             let rowBackgroundColor = '#ffffff'; // Default white background
             if (field.isLabel) {
@@ -3235,13 +3235,13 @@ export class MapFeatureControl {
             } else if (field.isPriority) {
                 rowBackgroundColor = '#f9fafb'; // Very light gray for priority fields
             }
-            
+
             row.style.cssText = `
                 border-bottom: 1px solid #e5e7eb;
                 background-color: ${rowBackgroundColor};
                 transition: background-color 0.1s ease;
             `;
-            
+
             // Add subtle hover effect for better UX
             row.addEventListener('mouseenter', () => {
                 if (field.isLabel) {
@@ -3252,11 +3252,11 @@ export class MapFeatureControl {
                     row.style.backgroundColor = '#f9fafb';
                 }
             });
-            
+
             row.addEventListener('mouseleave', () => {
                 row.style.backgroundColor = rowBackgroundColor;
             });
-            
+
             const keyCell = document.createElement('td');
             keyCell.style.cssText = `
                 padding: 6px 8px;
@@ -3267,7 +3267,7 @@ export class MapFeatureControl {
                 line-height: 1.3;
                 font-size: ${field.isLabel ? '11px' : '10px'};
             `;
-            
+
             // Simplified field name display - show only field title, add tooltip for original field name
             if (field.displayName !== field.key) {
                 keyCell.textContent = field.displayName;
@@ -3276,7 +3276,7 @@ export class MapFeatureControl {
             } else {
                 keyCell.textContent = field.displayName;
             }
-            
+
             const valueCell = document.createElement('td');
             valueCell.style.cssText = `
                 padding: 6px 8px;
@@ -3288,19 +3288,19 @@ export class MapFeatureControl {
                 vertical-align: top;
             `;
             valueCell.textContent = String(field.value);
-            
+
             row.appendChild(keyCell);
             row.appendChild(valueCell);
             table.appendChild(row);
         });
-        
+
         tableContent.appendChild(table);
-        
+
         content.appendChild(tableContent);
-        
+
         // Add source layer links content if applicable
         this._addSourceLayerLinksContent(content, featureState, layerConfig);
-        
+
         return content;
     }
 
@@ -3314,11 +3314,11 @@ export class MapFeatureControl {
 
         const feature = featureState.feature;
         const sourceLayer = feature.sourceLayer || feature.layer?.sourceLayer;
-        
+
         // Find applicable source layer links
         const applicableLinks = this._sourceLayerLinks.filter(link => {
             if (!link.sourceLayer) return false;
-            
+
             // Handle both string and array for sourceLayer
             if (Array.isArray(link.sourceLayer)) {
                 return link.sourceLayer.includes(sourceLayer);
@@ -3361,14 +3361,14 @@ export class MapFeatureControl {
                         const linkContainer = document.createElement('div');
                         linkContainer.className = `source-layer-link-${index}`;
                         linkContainer.innerHTML = linkHTML;
-                        
+
                         // Add separator between multiple links
                         if (index > 0) {
                             const separator = document.createElement('div');
                             separator.style.cssText = 'border-top: 1px solid #e5e7eb; margin: 8px 0; padding-top: 8px;';
                             additionalInfoContainer.appendChild(separator);
                         }
-                        
+
                         additionalInfoContainer.appendChild(linkContainer);
                     }
                 } catch (error) {
@@ -3388,15 +3388,14 @@ export class MapFeatureControl {
      */
     _getMercatorCoords(lngLat) {
         if (!lngLat) return null;
-        
+
         // Convert to Web Mercator coordinates
         const x = lngLat.lng * 20037508.34 / 180;
         const y = Math.log(Math.tan((90 + lngLat.lat) * Math.PI / 360)) / (Math.PI / 180);
         const mercatorY = y * 20037508.34 / 180;
-        
-        return { x, y: mercatorY };
-    }
 
+        return {x, y: mercatorY};
+    }
 
 
     /**
@@ -3408,22 +3407,22 @@ export class MapFeatureControl {
         if (feature.id !== undefined && feature.id !== null) {
             return `feature-${feature.id}`;
         }
-        
+
         // Priority 2: Use properties.id
         if (feature.properties?.id !== undefined && feature.properties?.id !== null) {
             return `feature-${feature.properties.id}`;
         }
-        
+
         // Priority 3: Use properties.fid (common in vector tiles)
         if (feature.properties?.fid !== undefined && feature.properties?.fid !== null) {
             return `feature-${feature.properties.fid}`;
         }
-        
+
         // Priority 4: Use layer-specific identifiers from the sample
         if (feature.properties?.giscode) {
             return `feature-${feature.properties.giscode}`;
         }
-        
+
         // Priority 5: Combination approach using layer metadata + properties
         if (feature.layer?.metadata?.groupId && feature.properties) {
             const layerId = feature.layer.metadata.groupId;
@@ -3435,7 +3434,7 @@ export class MapFeatureControl {
                 }
             }
         }
-        
+
         // Fallback: Geometry hash with layer prefix for consistency
         const layerId = feature.layer?.metadata?.groupId || 'unknown';
         const geomStr = JSON.stringify(feature.geometry);
@@ -3451,10 +3450,10 @@ export class MapFeatureControl {
         if (feature.id !== undefined) return feature.id;
         if (feature.properties?.id) return feature.properties.id;
         if (feature.properties?.fid) return feature.properties.fid;
-        
+
         // For features without explicit IDs, use a combination of key properties
         const props = feature.properties || {};
-        
+
         // Try common identifying properties
         const identifyingProps = ['name', 'title', 'label', 'gid', 'objectid', 'osm_id'];
         for (const prop of identifyingProps) {
@@ -3462,7 +3461,7 @@ export class MapFeatureControl {
                 return `${prop}:${props[prop]}`;
             }
         }
-        
+
         // Fallback to geometry hash for features without identifying properties
         const geomStr = JSON.stringify(feature.geometry);
         return `geom:${this._hashCode(geomStr)}`;
@@ -3487,7 +3486,7 @@ export class MapFeatureControl {
         if (existing) {
             existing.remove();
         }
-        
+
         // Clean up header image CSS for this layer
         this._removeHeaderImageCSS(layerId);
     }
@@ -3543,7 +3542,6 @@ export class MapFeatureControl {
     }
 
 
-
     /**
      * Get a feature inspector element using feature object directly
      * @param {Object} feature - The feature object
@@ -3552,9 +3550,9 @@ export class MapFeatureControl {
     getFeatureInspectorElementByFeature(feature) {
         const layerId = feature.layer?.metadata?.groupId;
         const featureId = this._getFeatureId(feature);
-        
+
         if (!layerId || !featureId) return null;
-        
+
         return this.getFeatureInspectorElement(layerId, featureId);
     }
 
@@ -3568,7 +3566,7 @@ export class MapFeatureControl {
                 timestamp: featureState.timestamp
             });
         });
-        
+
         return JSON.stringify({
             layerId: layerData.config.id,
             featureCount: features.length,
@@ -3588,7 +3586,7 @@ export class MapFeatureControl {
      */
     _setupGlobalClickHandler() {
         if (this._globalClickHandlerAdded) return;
-        
+
         this._map.on('click', (e) => {
             // Query all features at the click point with error handling for DEM data
             let features = [];
@@ -3606,10 +3604,10 @@ export class MapFeatureControl {
                     throw error;
                 }
             }
-            
+
             // Filter for interactive features from registered layers
             const interactiveFeatures = [];
-            
+
             features.forEach(feature => {
                 // Find which registered layer this feature belongs to
                 const layerId = this._findLayerIdForFeature(feature);
@@ -3621,11 +3619,11 @@ export class MapFeatureControl {
                     });
                 }
             });
-            
+
             // Pass all interactive features to the state manager
             if (interactiveFeatures.length > 0) {
                 this._stateManager.handleFeatureClicks(interactiveFeatures);
-                
+
                 // Map recentering disabled - features are selected without changing map center
                 // Previously: setTimeout(() => { this._easeToCenterWithOffset(e.lngLat); }, 100);
             } else {
@@ -3633,21 +3631,21 @@ export class MapFeatureControl {
                 this._stateManager.clearAllSelections();
             }
         });
-        
+
         // Set up global mousemove handler for better performance
         this._map.on('mousemove', (e) => {
             // Use queryRenderedFeatures with deduplication for optimal performance
             this._handleMouseMoveWithQueryRendered(e);
-            
+
             // Update hover popup position to follow mouse smoothly
             this._updateHoverPopupPosition(e.lngLat);
         });
-        
+
         // Set up global mouseleave handler for the entire map
         this._map.on('mouseleave', () => {
             this._stateManager.handleMapMouseLeave();
         });
-        
+
         // Set up mouseout handler to ensure hover states are cleared when mouse moves to other DOM elements
         // mouseout is more reliable than mouseleave for detecting mouse leaving map area
         this._map.on('mouseout', () => {
@@ -3655,7 +3653,7 @@ export class MapFeatureControl {
             // Force clear hover popup immediately when mouse leaves map area
             this._removeHoverPopup();
         });
-        
+
         this._globalClickHandlerAdded = true;
     }
 
@@ -3666,52 +3664,52 @@ export class MapFeatureControl {
      */
     _findLayerIdForFeature(feature) {
         if (!feature.layer || !feature.layer.id) return null;
-        
+
         // OPTIMIZATION: Use metadata.groupId directly if available
         // This avoids expensive layer matching loops and is most reliable
         if (feature.layer.metadata && feature.layer.metadata.groupId) {
             const groupId = feature.layer.metadata.groupId;
-            
+
             // Verify this layer is actually registered and interactive
             if (this._stateManager.isLayerInteractive(groupId)) {
                 return groupId;
             }
         }
-        
+
         // Fallback to improved method if metadata is not available
         const actualLayerId = feature.layer.id;
-        
+
         // IMPROVED: Check for exact ID matches first to avoid cross-contamination
         const activeLayers = this._stateManager.getActiveLayers();
-        
+
         // Pass 1: Look for direct/exact matches only
         for (const [layerId, layerData] of activeLayers) {
             const layerConfig = layerData.config;
-            
+
             // Check for exact ID match first
             if (actualLayerId === layerId) {
                 return layerId;
             }
-            
+
             // Check for exact prefix matches (geojson, vector patterns)
             if (actualLayerId.startsWith(layerId + '-') || actualLayerId.startsWith(layerId + ' ')) {
                 return layerId;
             }
-            
+
             // Check type-specific exact patterns
             if (layerConfig.type === 'vector' && actualLayerId.startsWith(`vector-layer-${layerId}`)) {
                 return layerId;
             }
-            
+
             if (layerConfig.type === 'geojson' && actualLayerId.startsWith(`geojson-${layerId}-`)) {
                 return layerId;
             }
-            
+
             if (layerConfig.type === 'csv' && actualLayerId.startsWith(`csv-${layerId}-`)) {
                 return layerId;
             }
         }
-        
+
         // Pass 2: Only if no exact matches found, use broader matching
         // This prevents features from matching multiple layers with shared sources
         for (const [layerId, layerData] of activeLayers) {
@@ -3721,7 +3719,7 @@ export class MapFeatureControl {
                 return layerId;
             }
         }
-        
+
         return null;
     }
 
@@ -3732,23 +3730,23 @@ export class MapFeatureControl {
     _getMatchingLayerIds(layerConfig) {
         const style = this._map.getStyle();
         if (!style.layers) return [];
-        
+
         const layerId = layerConfig.id;
         const matchingIds = [];
-        
+
         // Strategy 1: Direct ID match (HIGHEST PRIORITY)
         const directMatches = style.layers.filter(l => l.id === layerId).map(l => l.id);
         matchingIds.push(...directMatches);
-        
+
         // Strategy 2: Prefix matches (for geojson layers and others)
         const prefixMatches = style.layers
             .filter(l => l.id.startsWith(layerId + '-') || l.id.startsWith(layerId + ' '))
             .map(l => l.id);
         matchingIds.push(...prefixMatches);
-        
+
         // If we have direct matches, prioritize them and be more restrictive with fallback strategies
         const hasDirectMatches = directMatches.length > 0 || prefixMatches.length > 0;
-        
+
         // Strategy 3: Source layer matches with additional layer ID filtering (ONLY if no direct matches found)
         // This prevents cross-matches when multiple configs share the same sourceLayer
         if (!hasDirectMatches && layerConfig.sourceLayer) {
@@ -3756,7 +3754,7 @@ export class MapFeatureControl {
                 .filter(l => {
                     // Must match the sourceLayer
                     if (l['source-layer'] !== layerConfig.sourceLayer) return false;
-                    
+
                     // Additional filtering to prevent cross-matches:
                     // Only include style layers that contain the config layerId in their ID
                     // This ensures we don't pick up style layers from other config layers
@@ -3765,7 +3763,7 @@ export class MapFeatureControl {
                 .map(l => l.id);
             matchingIds.push(...sourceLayerMatches);
         }
-        
+
         // Strategy 4: Source matches with additional layer ID filtering (ONLY if no direct matches found)
         // This prevents cross-matches when multiple configs share the same source
         if (!hasDirectMatches && layerConfig.source) {
@@ -3773,7 +3771,7 @@ export class MapFeatureControl {
                 .filter(l => {
                     // Must match the source
                     if (l.source !== layerConfig.source) return false;
-                    
+
                     // Additional filtering to prevent cross-matches:
                     // Only include style layers that contain the config layerId in their ID
                     // This ensures we don't pick up style layers from other config layers
@@ -3782,7 +3780,7 @@ export class MapFeatureControl {
                 .map(l => l.id);
             matchingIds.push(...sourceMatches);
         }
-        
+
         // Strategy 5: Legacy source layers array
         if (layerConfig.sourceLayers && Array.isArray(layerConfig.sourceLayers)) {
             const legacyMatches = style.layers
@@ -3790,7 +3788,7 @@ export class MapFeatureControl {
                 .map(l => l.id);
             matchingIds.push(...legacyMatches);
         }
-        
+
         // Strategy 6: Grouped layers
         if (layerConfig.layers && Array.isArray(layerConfig.layers)) {
             layerConfig.layers.forEach(subLayer => {
@@ -3802,17 +3800,17 @@ export class MapFeatureControl {
                 }
             });
         }
-        
+
         // Strategy 7: GeoJSON source matching (enhanced)
         if (layerConfig.type === 'geojson') {
             const sourceId = `geojson-${layerId}`;
-            
+
             // Check for source match
             const geojsonSourceMatches = style.layers
                 .filter(l => l.source === sourceId)
                 .map(l => l.id);
             matchingIds.push(...geojsonSourceMatches);
-            
+
             // Check for specific geojson layer patterns
             const geojsonLayerPatterns = [
                 `${sourceId}-fill`,
@@ -3820,7 +3818,7 @@ export class MapFeatureControl {
                 `${sourceId}-circle`,
                 `${sourceId}-symbol`
             ];
-            
+
             geojsonLayerPatterns.forEach(pattern => {
                 const patternMatches = style.layers
                     .filter(l => l.id === pattern)
@@ -3828,7 +3826,7 @@ export class MapFeatureControl {
                 matchingIds.push(...patternMatches);
             });
         }
-        
+
         // Strategy 8: CSV layer matching
         if (layerConfig.type === 'csv') {
             const sourceId = `csv-${layerId}`;
@@ -3837,7 +3835,7 @@ export class MapFeatureControl {
                 .map(l => l.id);
             matchingIds.push(...csvMatches);
         }
-        
+
         // Strategy 9: Vector layer matching (enhanced)
         if (layerConfig.type === 'vector') {
             const sourceId = `vector-${layerId}`;
@@ -3845,13 +3843,13 @@ export class MapFeatureControl {
                 .filter(l => l.source === sourceId)
                 .map(l => l.id);
             matchingIds.push(...vectorSourceMatches);
-            
+
             const vectorLayerPatterns = [
                 `vector-layer-${layerId}`,
                 `vector-layer-${layerId}-outline`,
                 `vector-layer-${layerId}-text`
             ];
-            
+
             vectorLayerPatterns.forEach(pattern => {
                 const patternMatches = style.layers
                     .filter(l => l.id === pattern)
@@ -3859,7 +3857,7 @@ export class MapFeatureControl {
                 matchingIds.push(...patternMatches);
             });
         }
-        
+
         // Strategy 10: TMS layer matching
         if (layerConfig.type === 'tms') {
             const tmsMatches = style.layers
@@ -3867,7 +3865,7 @@ export class MapFeatureControl {
                 .map(l => l.id);
             matchingIds.push(...tmsMatches);
         }
-        
+
         // Strategy 11: IMG layer matching
         if (layerConfig.type === 'img') {
             const imgMatches = style.layers
@@ -3875,7 +3873,7 @@ export class MapFeatureControl {
                 .map(l => l.id);
             matchingIds.push(...imgMatches);
         }
-        
+
         // Strategy 12: WMS layer matching
         if (layerConfig.type === 'wms') {
             const wmsMatches = style.layers
@@ -3883,7 +3881,7 @@ export class MapFeatureControl {
                 .map(l => l.id);
             matchingIds.push(...wmsMatches);
         }
-        
+
         // Strategy 13: WMTS layer matching
         if (layerConfig.type === 'wmts') {
             const wmtsMatches = style.layers
@@ -3891,7 +3889,7 @@ export class MapFeatureControl {
                 .map(l => l.id);
             matchingIds.push(...wmtsMatches);
         }
-        
+
         // Strategy 14: Raster style layer matching
         if (layerConfig.type === 'raster-style-layer') {
             const styleLayerId = layerConfig.styleLayer || layerId;
@@ -3900,7 +3898,7 @@ export class MapFeatureControl {
                 .map(l => l.id);
             matchingIds.push(...rasterMatches);
         }
-        
+
         // Strategy 14: Style layer matching (for layers with sublayers)
         if (layerConfig.type === 'style' && layerConfig.layers) {
             layerConfig.layers.forEach(layer => {
@@ -3912,7 +3910,7 @@ export class MapFeatureControl {
                 }
             });
         }
-        
+
         // Remove duplicates and return
         return [...new Set(matchingIds)];
     }
@@ -3924,23 +3922,23 @@ export class MapFeatureControl {
         if (this._stateManager && this._stateChangeListener) {
             this._stateManager.removeEventListener('state-change', this._stateChangeListener);
         }
-        
+
         // Clean up drawer state listener
         if (this._drawerStateListener) {
             window.removeEventListener('drawer-state-change', this._drawerStateListener);
             this._drawerStateListener = null;
         }
-        
+
         // Clean up resize listener
         if (this._resizeListener) {
             window.removeEventListener('resize', this._resizeListener);
             window.removeEventListener('orientationchange', this._resizeListener);
             this._resizeListener = null;
         }
-        
+
         // Clean up drag listeners
         if (this._dragListeners) {
-            const { dragHandle, dragStart, dragEnd, drag } = this._dragListeners;
+            const {dragHandle, dragStart, dragEnd, drag} = this._dragListeners;
             dragHandle.removeEventListener("mousedown", dragStart);
             dragHandle.removeEventListener("touchstart", dragStart);
             document.removeEventListener("mouseup", dragEnd);
@@ -3949,20 +3947,20 @@ export class MapFeatureControl {
             document.removeEventListener("touchmove", drag);
             this._dragListeners = null;
         }
-        
+
         // Clean up layer isolation state
         this._restoreAllLayers();
-        
+
         // Clean up hover popup completely on cleanup
         this._removeHoverPopup();
         this._currentHoveredFeature = null;
-        
+
         // Reset cursor to default grab state
         this._updateCursorForFeatures([]);
-        
+
         // Reset animation state
         this._isAnimating = false;
-        
+
         this._lastRenderState.clear();
     }
 
@@ -3972,14 +3970,14 @@ export class MapFeatureControl {
      * Handle feature hover - create popup at mouse location
      */
     _handleFeatureHover(data) {
-        const { featureId, layerId, lngLat, feature } = data;
-        
+        const {featureId, layerId, lngLat, feature} = data;
+
         // Skip if inspect mode is disabled
         if (!this._inspectModeEnabled || !this.options.showHoverPopups) return;
-        
+
         // Skip on mobile devices to avoid conflicts with touch interactions
         if ('ontouchstart' in window) return;
-        
+
         // Update popup with all currently hovered features
         this._updateHoverPopup(lngLat);
     }
@@ -3988,14 +3986,14 @@ export class MapFeatureControl {
      * Handle batch feature hover (PERFORMANCE OPTIMIZED)
      */
     _handleBatchFeatureHover(data) {
-        const { hoveredFeatures, lngLat, affectedLayers } = data;
-        
+        const {hoveredFeatures, lngLat, affectedLayers} = data;
+
         // Skip if inspect mode is disabled
         if (!this._inspectModeEnabled || !this.options.showHoverPopups) return;
-        
+
         // Skip on mobile devices to avoid conflicts with touch interactions
         if ('ontouchstart' in window) return;
-        
+
         // Update popup with all currently hovered features in a single operation
         this._updateHoverPopupFromBatch(hoveredFeatures, lngLat);
     }
@@ -4008,11 +4006,10 @@ export class MapFeatureControl {
         // This ensures clean state when mouse moves off map
         this._removeHoverPopup();
         this._currentHoveredFeature = null;
-        
+
         // Reset cursor to default grab when no features are hovered
         this._updateCursorForFeatures([]);
     }
-
 
 
     /**
@@ -4021,7 +4018,7 @@ export class MapFeatureControl {
     _handleFeatureLeave(data) {
         // Check if there are any remaining hovered features
         const hasHoveredFeatures = this._hasAnyHoveredFeatures();
-        
+
         if (!hasHoveredFeatures) {
             // No more hovered features, hide popup smoothly
             this._hideHoverPopup();
@@ -4037,7 +4034,7 @@ export class MapFeatureControl {
      */
     _hasAnyHoveredFeatures() {
         if (!this._stateManager) return false;
-        
+
         const activeLayers = this._stateManager.getActiveLayers();
         for (const [layerId, layerData] of activeLayers) {
             for (const [featureId, featureState] of layerData.features) {
@@ -4054,33 +4051,33 @@ export class MapFeatureControl {
      */
     _updateHoverPopup(lngLat = null) {
         if (!this._map) return;
-        
+
         // Get all currently hovered features from state manager
         const hoveredFeatures = this._getAllHoveredFeatures();
-        
+
         if (hoveredFeatures.length === 0) {
             this._removeHoverPopup();
             return;
         }
-        
+
         // Use provided lngLat or get from the first hovered feature
         const popupLocation = lngLat || hoveredFeatures[0].featureState.lngLat;
         if (!popupLocation) return;
-        
+
         const content = this._createHoverPopupContent(hoveredFeatures);
         if (!content) return;
-        
+
         // Remove existing popup and create new one
         this._removeHoverPopup();
-        
+
         this._hoverPopup = new mapboxgl.Popup({
             closeButton: false,
             closeOnClick: false,
             className: 'hover-popup'
         })
-        .setLngLat(popupLocation)
-        .setDOMContent(content)
-        .addTo(this._map);
+            .setLngLat(popupLocation)
+            .setDOMContent(content)
+            .addTo(this._map);
     }
 
     /**
@@ -4089,20 +4086,20 @@ export class MapFeatureControl {
      */
     _getAllHoveredFeatures() {
         if (!this._stateManager) return [];
-        
+
         const activeLayers = this._stateManager.getActiveLayers();
         const configOrder = this._getConfigLayerOrder();
         const hoveredFeatures = [];
-        
+
         // Process layers in config order to maintain consistent ordering with main display
         configOrder.forEach(layerId => {
             const layerData = activeLayers.get(layerId);
             if (!layerData) return;
-            
+
             const layerConfig = layerData.config;
             layerData.features.forEach((featureState, featureId) => {
                 // Show hover popup for all interactive layers (geojson, vector, csv), not just those with inspect
-                if (featureState.isHovered && (layerConfig.inspect || 
+                if (featureState.isHovered && (layerConfig.inspect ||
                     layerConfig.type === 'geojson' || layerConfig.type === 'vector' || layerConfig.type === 'csv')) {
                     hoveredFeatures.push({
                         featureId,
@@ -4113,7 +4110,7 @@ export class MapFeatureControl {
                 }
             });
         });
-        
+
         return hoveredFeatures;
     }
 
@@ -4133,7 +4130,7 @@ export class MapFeatureControl {
      */
     _createHoverPopupContent(hoveredFeatures) {
         if (hoveredFeatures.length === 0) return null;
-        
+
         const container = document.createElement('div');
         container.className = 'map-popup';
         container.style.cssText = `
@@ -4149,23 +4146,23 @@ export class MapFeatureControl {
 
         // Render each feature with layer context
         hoveredFeatures.forEach((item, index) => {
-            const { featureState, layerConfig, layerId } = item;
+            const {featureState, layerConfig, layerId} = item;
             const feature = featureState.feature;
-            
+
             // Add separator between features
             if (index > 0) {
                 const separator = document.createElement('div');
                 separator.style.cssText = 'border-top: 1px solid #e5e7eb; margin: 6px -2px; padding-top: 6px;';
                 container.appendChild(separator);
             }
-            
+
             const featureDiv = document.createElement('div');
             featureDiv.style.cssText = 'padding: 2px;';
-            
+
             // Get feature title from label field or fallback
             const inspect = layerConfig.inspect || {};
             let featureTitle = 'Feature';
-            
+
             if (inspect.label && feature.properties[inspect.label]) {
                 featureTitle = String(feature.properties[inspect.label]);
             } else if (feature.properties.name) {
@@ -4173,43 +4170,43 @@ export class MapFeatureControl {
             } else if (feature.properties.title) {
                 featureTitle = String(feature.properties.title);
             }
-            
+
             // Feature title with emphasis
             const titleDiv = document.createElement('div');
             titleDiv.style.cssText = 'font-weight: 700; color: #111827; margin-bottom: 3px; font-size: 12px;';
             titleDiv.textContent = featureTitle;
             featureDiv.appendChild(titleDiv);
-            
+
             // Additional fields (up to 2) - handle layers with or without inspect properties
             const fieldsContainer = document.createElement('div');
             fieldsContainer.style.cssText = 'margin-bottom: 3px;';
-            
+
             let fieldCount = 0;
             const maxFields = 2;
-            
+
             if (inspect.fields && inspect.fields.length > 0) {
                 // Use configured fields if available
                 inspect.fields.forEach((field, fieldIndex) => {
                     if (fieldCount >= maxFields) return;
                     if (field === inspect.label) return; // Skip label field as it's the title
-                    
+
                     const value = feature.properties[field];
                     if (value !== undefined && value !== null && value !== '') {
                         const fieldDiv = document.createElement('div');
                         fieldDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 1px;';
-                        
+
                         const fieldName = document.createElement('span');
                         fieldName.style.cssText = 'color: #6b7280; font-size: 10px; font-weight: 500; flex-shrink: 0;';
                         fieldName.textContent = (inspect.fieldTitles && inspect.fieldTitles[fieldIndex]) || field;
-                        
+
                         const fieldValue = document.createElement('span');
                         fieldValue.style.cssText = 'color: #374151; font-size: 10px; text-align: right; word-break: break-word;';
                         fieldValue.textContent = String(value);
-                        
+
                         fieldDiv.appendChild(fieldName);
                         fieldDiv.appendChild(fieldValue);
                         fieldsContainer.appendChild(fieldDiv);
-                        
+
                         fieldCount++;
                     }
                 });
@@ -4217,51 +4214,51 @@ export class MapFeatureControl {
                 // For layers without inspect, show first few meaningful properties
                 const properties = feature.properties || {};
                 const systemFields = ['id', 'fid', '_id', 'objectid', 'gid', 'osm_id', 'way_id'];
-                
+
                 Object.entries(properties).forEach(([field, value]) => {
                     if (fieldCount >= maxFields) return;
-                    
+
                     // Skip system fields and empty values
-                    if (systemFields.includes(field.toLowerCase()) || 
+                    if (systemFields.includes(field.toLowerCase()) ||
                         value === undefined || value === null || value === '') {
                         return;
                     }
-                    
+
                     // Skip if this is the field used as title
                     if ((field === 'name' && featureTitle === String(value)) ||
                         (field === 'title' && featureTitle === String(value))) {
                         return;
                     }
-                    
+
                     const fieldDiv = document.createElement('div');
                     fieldDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 1px;';
-                    
+
                     const fieldName = document.createElement('span');
                     fieldName.style.cssText = 'color: #6b7280; font-size: 10px; font-weight: 500; flex-shrink: 0;';
                     fieldName.textContent = field;
-                    
+
                     const fieldValue = document.createElement('span');
                     fieldValue.style.cssText = 'color: #374151; font-size: 10px; text-align: right; word-break: break-word;';
                     fieldValue.textContent = String(value);
-                    
+
                     fieldDiv.appendChild(fieldName);
                     fieldDiv.appendChild(fieldValue);
                     fieldsContainer.appendChild(fieldDiv);
-                    
+
                     fieldCount++;
                 });
             }
-            
+
             if (fieldsContainer.children.length > 0) {
                 featureDiv.appendChild(fieldsContainer);
             }
-            
+
             // Layer name
             const layerDiv = document.createElement('div');
             layerDiv.style.cssText = 'font-size: 9px; color: #9ca3af; font-style: italic; margin-top: 2px;';
             layerDiv.textContent = `from ${layerConfig.title || layerId}`;
             featureDiv.appendChild(layerDiv);
-            
+
             container.appendChild(featureDiv);
         });
 
@@ -4279,19 +4276,19 @@ export class MapFeatureControl {
      */
     _updateHoverPopupFromBatch(hoveredFeatures, lngLat) {
         if (!this._map) return;
-        
+
         // If no features to show, hide popup but keep it alive for smooth transitions
         if (!hoveredFeatures || hoveredFeatures.length === 0) {
             this._hideHoverPopup();
             return;
         }
-        
+
         // Convert batch data to format expected by popup creation
         const featuresByLayer = new Map();
-        hoveredFeatures.forEach(({ featureId, layerId, feature }) => {
+        hoveredFeatures.forEach(({featureId, layerId, feature}) => {
             const layerConfig = this._stateManager.getLayerConfig(layerId);
             // Include all interactive layers (geojson, vector, csv), not just those with inspect
-            if (layerConfig && (layerConfig.inspect || 
+            if (layerConfig && (layerConfig.inspect ||
                 layerConfig.type === 'geojson' || layerConfig.type === 'vector' || layerConfig.type === 'csv')) {
                 featuresByLayer.set(layerId, {
                     featureId,
@@ -4306,28 +4303,28 @@ export class MapFeatureControl {
                 });
             }
         });
-        
+
         // Order features by config layer order to match main display
         const configOrder = this._getConfigLayerOrder();
         const formattedFeatures = [];
-        
+
         configOrder.forEach(layerId => {
             if (featuresByLayer.has(layerId)) {
                 formattedFeatures.push(featuresByLayer.get(layerId));
             }
         });
-        
+
         if (formattedFeatures.length === 0) {
             this._hideHoverPopup();
             return;
         }
-        
+
         const content = this._createHoverPopupContent(formattedFeatures);
         if (!content) {
             this._hideHoverPopup();
             return;
         }
-        
+
         // Create popup if it doesn't exist, or update existing popup
         if (!this._hoverPopup) {
             this._createHoverPopup(lngLat, content);
@@ -4336,7 +4333,7 @@ export class MapFeatureControl {
             this._hoverPopup.setDOMContent(content);
             this._hoverPopup.setLngLat(lngLat);
         }
-        
+
         // Show popup if it was hidden
         this._showHoverPopup();
     }
@@ -4353,10 +4350,10 @@ export class MapFeatureControl {
             maxWidth: '280px',
             offset: [0, -2] // Position 2px above the cursor as requested
         })
-        .setLngLat(lngLat)
-        .setDOMContent(content)
-        .addTo(this._map);
-        
+            .setLngLat(lngLat)
+            .setDOMContent(content)
+            .addTo(this._map);
+
         // Make popup non-interactive so it doesn't interfere with mouse events
         const popupElement = this._hoverPopup.getElement();
         if (popupElement) {
@@ -4372,7 +4369,7 @@ export class MapFeatureControl {
      */
     _showHoverPopup() {
         if (!this._hoverPopup) return;
-        
+
         const popupElement = this._hoverPopup.getElement();
         if (popupElement) {
             popupElement.style.opacity = '1';
@@ -4385,7 +4382,7 @@ export class MapFeatureControl {
      */
     _hideHoverPopup() {
         if (!this._hoverPopup) return;
-        
+
         const popupElement = this._hoverPopup.getElement();
         if (popupElement) {
             popupElement.style.opacity = '0';
@@ -4401,7 +4398,7 @@ export class MapFeatureControl {
         if (this._isAnimating) {
             return;
         }
-        
+
         // Query all features at the mouse point once with error handling for DEM data
         let features = [];
         try {
@@ -4419,7 +4416,7 @@ export class MapFeatureControl {
                 throw error;
             }
         }
-        
+
         // Debug: Log all features found
         if (features.length > 0) {
             const featureInfo = features.map(f => ({
@@ -4428,22 +4425,22 @@ export class MapFeatureControl {
                 sourceLayer: f.sourceLayer
             }));
         }
-        
+
         // Group features by layerId to ensure only one feature per layer
         const layerGroups = new Map(); // key: layerId, value: features array
         features.forEach(feature => {
             // Find which registered layer this feature belongs to
             const layerId = this._findLayerIdForFeature(feature);
-            
+
             if (layerId && this._stateManager.isLayerInteractive(layerId)) {
                 if (!layerGroups.has(layerId)) {
                     layerGroups.set(layerId, []);
                 }
-                
+
                 // Get the actual map layer to check its type
                 const mapLayer = this._map.getLayer(feature.layer.id);
                 const layerType = mapLayer?.type;
-                
+
                 layerGroups.get(layerId).push({
                     feature,
                     layerId,
@@ -4452,17 +4449,17 @@ export class MapFeatureControl {
                 });
             }
         });
-        
+
         // Process each layer group to select only the first/topmost feature per layer
         const interactiveFeatures = [];
-        
+
         layerGroups.forEach((featuresInLayer, layerId) => {
             // Prioritize fill over line layers if both exist
             const fillFeatures = featuresInLayer.filter(f => f.layerType === 'fill');
             const lineFeatures = featuresInLayer.filter(f => f.layerType === 'line');
-            
+
             let selectedFeature = null;
-            
+
             // Strategy: Pick the first fill feature if available, otherwise first line feature, otherwise first of any type
             if (fillFeatures.length > 0) {
                 selectedFeature = fillFeatures[0]; // First (topmost) fill feature
@@ -4471,7 +4468,7 @@ export class MapFeatureControl {
             } else {
                 selectedFeature = featuresInLayer[0]; // First feature of any type
             }
-            
+
             // Add the single selected feature for this layer
             if (selectedFeature) {
                 interactiveFeatures.push({
@@ -4481,10 +4478,10 @@ export class MapFeatureControl {
                 });
             }
         });
-        
+
         // Update cursor based on whether we have interactive features
         this._updateCursorForFeatures(interactiveFeatures);
-                
+
         // Pass all interactive features to the state manager for batch processing
         this._stateManager.handleFeatureHovers(interactiveFeatures, e.lngLat);
     }
@@ -4494,7 +4491,7 @@ export class MapFeatureControl {
      */
     _updateHoverPopupPosition(lngLat) {
         if (!this._hoverPopup) return;
-        
+
         this._hoverPopup.setLngLat(lngLat);
     }
 
@@ -4503,9 +4500,9 @@ export class MapFeatureControl {
      */
     _updateCursorForFeatures(interactiveFeatures) {
         if (!this._map) return;
-        
+
         const canvas = this._map.getCanvas();
-        
+
         if (interactiveFeatures && interactiveFeatures.length > 0) {
             // Change cursor to pointer when hovering over interactive features
             canvas.style.cursor = 'pointer';
@@ -4521,23 +4518,23 @@ export class MapFeatureControl {
      */
     _easeToCenterWithOffset(lngLat) {
         if (!this._map || !lngLat) return;
-        
+
         // Detect mobile/small screens
         const isMobile = this._isMobileScreen();
-        
+
         // Calculate offset based on screen type
         let offsetY = 0; // Default: center of screen (50%)
-        
+
         if (isMobile) {
             // On mobile, offset upward so content centers at ~25% from top
             // This accounts for the inspector panel covering bottom half
             const mapHeight = this._map.getContainer().clientHeight;
             offsetY = -mapHeight * 0.25; // Negative offset moves center point UP
         }
-        
+
         // Temporarily disable mouse tracking during animation to prevent deselection
         this._isAnimating = true;
-        
+
         // Ease to the clicked location with smooth animation
         this._map.easeTo({
             center: lngLat,
@@ -4545,7 +4542,7 @@ export class MapFeatureControl {
             duration: 600, // Smooth 600ms animation
             essential: true // Ensures animation runs even if user prefers reduced motion
         });
-        
+
         // Re-enable mouse tracking after animation completes
         setTimeout(() => {
             this._isAnimating = false;
@@ -4560,7 +4557,7 @@ export class MapFeatureControl {
         const hasTouch = 'ontouchstart' in window;
         const smallScreen = window.innerWidth <= 768; // Common mobile breakpoint
         const userAgent = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
+
         // Consider it mobile if any of these conditions are true
         return hasTouch || smallScreen || userAgent;
     }
@@ -4575,7 +4572,7 @@ export class MapFeatureControl {
             if (this._layerHoverState.isActive && this._layerHoverState.hoveredLayerId === layerId) {
                 return;
             }
-            
+
             this._isolateLayer(layerId, config);
         });
 
@@ -4593,10 +4590,10 @@ export class MapFeatureControl {
 
         // Get matching style layers for the hovered config layer
         const hoveredLayerIds = this._getMatchingLayerIds(config);
-        
+
         // Get all basemap layer IDs from config
         const basemapLayerIds = this._getBasemapLayerIds();
-        
+
         // Get all currently visible layers from the map
         const style = this._map.getStyle();
         if (!style.layers) return;
@@ -4609,22 +4606,22 @@ export class MapFeatureControl {
         // Build list of layers to hide
         const layersToHide = [];
         const layersToKeep = [];
-        
+
         visibleLayers.forEach(layer => {
             const styleLayerId = layer.id;
-            
+
             // Skip if this layer belongs to the hovered config layer
             if (hoveredLayerIds.includes(styleLayerId)) {
                 layersToKeep.push(styleLayerId + ' (hovered layer)');
                 return;
             }
-            
+
             // Skip if this layer belongs to a basemap config layer
             if (basemapLayerIds.includes(styleLayerId)) {
                 layersToKeep.push(styleLayerId + ' (basemap)');
                 return;
             }
-            
+
             // Add to hide list
             layersToHide.push(styleLayerId);
         });
@@ -4638,7 +4635,7 @@ export class MapFeatureControl {
                 if (!layer || layer.type === 'slot') {
                     return;
                 }
-                
+
                 this._map.setLayoutProperty(styleLayerId, 'visibility', 'none');
             } catch (error) {
                 console.warn(`Failed to hide layer ${styleLayerId}:`, error);
@@ -4677,7 +4674,7 @@ export class MapFeatureControl {
                 if (!layer || layer.type === 'slot') {
                     return;
                 }
-                
+
                 this._map.setLayoutProperty(layerId, 'visibility', 'visible');
             } catch (error) {
                 console.warn(`Failed to restore layer ${layerId}:`, error);
@@ -4711,7 +4708,7 @@ export class MapFeatureControl {
         if (!config && window.layerControl && window.layerControl._config) {
             config = window.layerControl._config;
         }
-        
+
         if (!config) {
             console.warn('[MapFeatureControl] No config available for basemap detection');
             return [];
@@ -4719,7 +4716,7 @@ export class MapFeatureControl {
 
         const basemapLayerIds = [];
         const basemapConfigs = [];
-        
+
         // Find all config layers tagged with 'basemap'
         if (config.layers && Array.isArray(config.layers)) {
             config.layers.forEach(layer => {
@@ -4743,7 +4740,7 @@ export class MapFeatureControl {
         }
 
         const uniqueBasemapIds = [...new Set(basemapLayerIds)];
-        
+
         return uniqueBasemapIds;
     }
 
@@ -4756,10 +4753,10 @@ export class MapFeatureControl {
 
         // Get all layer details elements
         const layerDetailsElements = this._layersContainer.querySelectorAll('.layer-details');
-        
+
         layerDetailsElements.forEach(element => {
             const elementLayerId = element.getAttribute('data-layer-id');
-            
+
             if (elementLayerId !== hoveredLayerId) {
                 // Set opacity to 0.5 for non-hovered layers with smooth transition
                 element.style.transition = 'opacity 0.2s ease-in-out';
@@ -4781,7 +4778,7 @@ export class MapFeatureControl {
 
         // Get all layer details elements
         const layerDetailsElements = this._layersContainer.querySelectorAll('.layer-details');
-        
+
         layerDetailsElements.forEach(element => {
             // Restore full opacity with smooth transition
             element.style.transition = 'opacity 0.2s ease-in-out';
@@ -4795,11 +4792,11 @@ export class MapFeatureControl {
      */
     _handleResize() {
         if (!this._container) return;
-        
+
         // Calculate new responsive max height based on current screen height
         const screenHeight = window.innerHeight;
         const maxHeightValue = this.options.maxHeight;
-        
+
         // Handle both pixel and viewport height values
         let responsiveMaxHeight;
         if (maxHeightValue.includes('vh')) {
@@ -4811,15 +4808,15 @@ export class MapFeatureControl {
             const pixelValue = parseInt(maxHeightValue);
             responsiveMaxHeight = Math.min(screenHeight * 0.5, pixelValue);
         }
-        
+
         // Update container max height
         this._container.style.maxHeight = `${responsiveMaxHeight}px`;
-        
+
         // Update layers container max height
         if (this._layersContainer) {
             this._layersContainer.style.maxHeight = `calc(50vh - 90px)`;
         }
-        
+
     }
 }
 

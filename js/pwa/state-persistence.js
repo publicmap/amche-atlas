@@ -13,7 +13,7 @@ class StatePersistence {
      */
     initialize() {
         if (this.isInitialized) return;
-        
+
         this.setupEventListeners();
         this.restoreStateOnLoad();
         this.isInitialized = true;
@@ -101,7 +101,7 @@ class StatePersistence {
     restoreStateOnLoad() {
         // Only restore if there are no URL parameters (fresh app load)
         const hasURLParams = window.location.search.length > 0 || window.location.hash.length > 0;
-        
+
         if (hasURLParams) {
             return false;
         }
@@ -113,7 +113,7 @@ class StatePersistence {
             }
 
             const savedState = JSON.parse(savedStateStr);
-            
+
             // Check if saved state is recent (within last 7 days)
             const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
             if (Date.now() - savedState.timestamp > maxAge) {
@@ -125,7 +125,7 @@ class StatePersistence {
             // Extract just the search params and hash from saved URL
             const savedUrl = new URL(savedState.url);
             const currentUrl = new URL(window.location.href);
-            
+
             // Only restore if it's a different state
             if (savedUrl.search === currentUrl.search && savedUrl.hash === currentUrl.hash) {
                 console.debug('🔄 Current URL matches saved state');
@@ -140,13 +140,13 @@ class StatePersistence {
             if (savedUrl.hash) {
                 restoredUrl += savedUrl.hash;
             }
-            
+
             // Replace current URL without triggering navigation
             window.history.replaceState(null, '', restoredUrl);
-            
+
             // If map state was saved and map is available, restore map position
             this.restoreMapState(savedState.mapState);
-            
+
             return true;
         } catch (error) {
             console.warn('Failed to restore state:', error);
@@ -209,4 +209,4 @@ class StatePersistence {
 window.statePersistence = new StatePersistence();
 
 // Export the class
-export { StatePersistence };
+export {StatePersistence};

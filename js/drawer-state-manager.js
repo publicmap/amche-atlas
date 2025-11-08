@@ -1,6 +1,6 @@
 /**
  * Centralized Drawer State Manager
- * 
+ *
  * Manages the layer drawer state and provides a unified event system
  * for components to listen to drawer state changes.
  */
@@ -9,10 +9,10 @@ export class DrawerStateManager {
         this._drawer = null;
         this._isOpen = false;
         this._listeners = [];
-        
+
         // Custom event target for event dispatching
         this._eventTarget = new EventTarget();
-        
+
         this._initialize();
     }
 
@@ -101,23 +101,23 @@ export class DrawerStateManager {
             // Use multiple methods to determine initial state
             // Check Shoelace's internal state first
             const shoelaceOpen = this._drawer.open;
-            
+
             // Check for the 'open' attribute
             const hasOpenAttribute = this._drawer.hasAttribute('open');
-            
+
             // Check computed style visibility
             const computedStyle = getComputedStyle(this._drawer);
-            const isVisible = computedStyle.display !== 'none' && 
-                             computedStyle.visibility !== 'hidden' &&
-                             computedStyle.opacity !== '0';
-            
+            const isVisible = computedStyle.display !== 'none' &&
+                computedStyle.visibility !== 'hidden' &&
+                computedStyle.opacity !== '0';
+
             // Check for Shoelace's open class
             const hasOpenClass = this._drawer.classList.contains('sl-drawer--open');
-            
+
             // Mobile detection - if we're on mobile and none of the above indicates open,
             // then the drawer is likely hidden by the mobile initialization logic
             const isMobile = window.innerWidth <= 768;
-            
+
             // On mobile, drawer should be closed by default unless explicitly opened
             // On desktop, drawer should be open by default unless explicitly closed
             let initialState;
@@ -128,9 +128,9 @@ export class DrawerStateManager {
                 // On desktop, consider open if any indicator suggests it's open
                 initialState = shoelaceOpen || hasOpenAttribute || hasOpenClass || isVisible;
             }
-            
+
             this._isOpen = initialState;
-            
+
             // Emit initial state after all checks
             this._emitStateChange('initial-state');
         }, 200); // Increased delay to ensure all initialization is complete
@@ -151,7 +151,7 @@ export class DrawerStateManager {
         // Dispatch to both the custom event target and window
         this._eventTarget.dispatchEvent(event);
         window.dispatchEvent(event);
-        
+
     }
 
     /**
@@ -180,7 +180,7 @@ export class DrawerStateManager {
     open() {
         if (!this._drawer) return;
         this._drawer.show();
-        
+
         // Focus on the search input after drawer opens
         setTimeout(() => {
             const searchInput = document.getElementById('layer-search-input');
@@ -216,7 +216,7 @@ export class DrawerStateManager {
      * Clean up
      */
     destroy() {
-        this._listeners.forEach(({ element, event, listener }) => {
+        this._listeners.forEach(({element, event, listener}) => {
             element.removeEventListener(event, listener);
         });
         this._listeners = [];
