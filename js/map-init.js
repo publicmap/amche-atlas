@@ -6,7 +6,7 @@ import { localization } from './localization.js';
 import { URLManager } from './url-api.js';
 import { permalinkHandler } from './permalink-handler.js';
 import { Terrain3DControl } from './3d-control.js';
-import { TimeControl } from './timeControl.js';
+import { TimeControl } from './time-control.js';
 import { StatePersistence } from './pwa/state-persistence.js';
 import { MapAttributionControl } from './map-attribution-control.js';
 import { layerRegistry } from './atlas-layer-registry.js';
