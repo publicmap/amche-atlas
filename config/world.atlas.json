@@ -19,8 +19,8 @@
       "description": "Observations from iNaturalist",
       "attribution": "<a href='https://inaturalist.org/'>iNaturalist</a>",
       "url": "https://api.inaturalist.org/v1/points/{z}/{x}/{y}.png",
-      "headerImage": "assets/map-layers/map-layer-inaturalist.png",
-      "legendImage": "assets/map-layers/map-layer-inaturalist-legend.png",
+      "headerImage": "assets/map-layers/world/map-layer-inaturalist.png",
+      "legendImage": "assets/map-layers/world/legend-inaturalist.png",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -46,32 +46,47 @@
       "title": "Open Buildings 2016",
       "description": "Building presence in 2016 generated using ML from 10m satellite imagery. See <a href='https://research.google/blog/open-buildings-25d-temporal-dataset-tracks-building-changes-across-the-global-south'>methodology</a> for details.",
       "attribution": "<a href='https://mmeka-ee.projects.earthengine.app/view/open-buildings-temporal-dataset'>Open Buildings 2.5D Temporal Dataset, Google Research</a>",
-      "headerImage": "assets/map-layers/map-layer-open-buildings-2016.png",
+      "headerImage": "assets/map-layers/world/map-layer-open-buildings-2016.png",
       "style": {
         "raster-opacity": [
           "interpolate",
-          ["linear"],
-          ["zoom"],
-          12, 0.99,
-          16, 0.9,
-          18, 0.2
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          0.99,
+          16,
+          0.9,
+          18,
+          0.2
         ],
         "raster-hue-rotate": 55,
         "raster-color": [
           "interpolate",
-          ["linear"],
-          ["raster-value"],
-          0, "white",
-          0.1, "hsla(0, 100%, 90%, 1)",
-          0.5, "hsla(0, 100%, 80%, 0.95)",
-          1, "hsla(0, 100%, 40%, 0.5)"
+          [
+            "linear"
+          ],
+          [
+            "raster-value"
+          ],
+          0,
+          "white",
+          0.1,
+          "hsla(0, 100%, 90%, 1)",
+          0.5,
+          "hsla(0, 100%, 80%, 0.95)",
+          1,
+          "hsla(0, 100%, 40%, 0.5)"
         ]
       }
     },
     {
       "title": "Open Building Footprints 2023 ",
       "description": "Open data of AI generated building footprints from satellite imagery upto 2023. For technical details see <a href='https://arxiv.org/abs/2107.12283'>Continental-Scale Building Detection from High Resolution Satellite Imagery</a>.",
-      "headerImage": "assets/map-layers/map-layer-open-buildings.png",
+      "headerImage": "assets/map-layers/world/map-layer-open-buildings.png",
       "type": "vector",
       "id": "2023-open-buildings",
       "url": "https://indianopenmaps.fly.dev/google-buildings/{z}/{x}/{y}.pbf",
@@ -84,11 +99,32 @@
         "line-width": 0,
         "fill-color": [
           "case",
-          [">", ["get", "confidence"], 0.8],
+          [
+            ">",
+            [
+              "get",
+              "confidence"
+            ],
+            0.8
+          ],
           "black",
-          [">", ["get", "confidence"], 0.6],
+          [
+            ">",
+            [
+              "get",
+              "confidence"
+            ],
+            0.6
+          ],
           "#222",
-          [">", ["get", "confidence"], 0.2],
+          [
+            ">",
+            [
+              "get",
+              "confidence"
+            ],
+            0.2
+          ],
           "#444",
           "#777"
         ],
@@ -110,8 +146,8 @@
     {
       "title": "Real-time Weather Satellite",
       "description": "Cloud top temperatures colorized to reveal areas of intensity using the infrared band of weather satellite. Imagery updated every 10 minutes.",
-      "headerImage": "assets/map-layers/map-layer-weather-satellite.png",
-      "legendImage": "assets/map-layers/map-layer-weather-satellite-legend.png.webp",
+      "headerImage": "assets/map-layers/world/map-layer-weather-satellite.png",
+      "legendImage": "assets/map-layers/world/legend-weather-satellite.png",
       "type": "tms",
       "maxzoom": 9,
       "id": "weather-satellite",
@@ -155,8 +191,8 @@
     {
       "title": "Tactical Pilotage Charts",
       "description": "1:500K Tactical Pilotage Charts compiled between 1960-2000. Check <a href='https://maps.lib.utexas.edu/maps/tpc/'>individual charts</a> for specific details. <br><i>Not for navigational use</i>",
-      "headerImage": "assets/map-layers/map-layer-tpc.png",
-      "legendImage": "assets/map-layers/map-layer-tpc-legend.jpg",
+      "headerImage": "assets/map-layers/world/map-layer-tpc.png",
+      "legendImage": "assets/map-layers/world/legend-tpc.jpg",
       "type": "tms",
       "id": "tpc",
       "url": "https://indianopenmaps.fly.dev/world/topo/american/tpc/{z}/{x}/{y}.webp",
@@ -165,8 +201,8 @@
     {
       "title": "Operational Navigation Charts",
       "description": "1:1M Operational Navigation Charts compiled between 1960-1981. Check <a href='https://maps.lib.utexas.edu/maps/onc/'>individual charts</a> for specific details. <br><i>Not for navigational use</i>",
-      "headerImage": "assets/map-layers/map-layer-onc.png",
-      "legendImage": "assets/map-layers/map-layer-onc-legend.jpg",
+      "headerImage": "assets/map-layers/world/map-layer-onc.png",
+      "legendImage": "assets/map-layers/world/legend-onc.jpg",
       "type": "tms",
       "id": "onc",
       "url": "https://indianopenmaps.fly.dev/world/topo/american/onc/{z}/{x}/{y}.webp",
@@ -315,7 +351,10 @@
     },
     {
       "title": "GEBCO Bathymetry",
-      "tags": ["basemap", "bathymetry"],
+      "tags": [
+        "basemap",
+        "bathymetry"
+      ],
       "description": "A color shaded relief visualization of the General Bathymetric Chart of the <a href='https://www.gebco.net/data_and_products/gridded_bathymetry_data/'>Oceans GEBCO_2024 grid</a>, combined with generalized land cover coloration from the Natural Earth 1 dataset.",
       "headerImage": null,
       "legendImage": null,

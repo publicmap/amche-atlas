@@ -1,109 +1,125 @@
 {
-    "name": "Open Street Map Atlas",
-    "areaOfInterest": "World",
-    "version": "0.1.0",
-    "url": "https://github.com/publicmap/amche-goa/blob/main/config/osm.atlas.json",
-    "color": "#16a34a",
-    "map": {
-      "center": [
-        76,
-        25
-      ],
-      "zoom": 2.2
+  "name": "Open Street Map Atlas",
+  "areaOfInterest": "World",
+  "version": "0.1.0",
+  "url": "https://github.com/publicmap/amche-goa/blob/main/config/osm.atlas.json",
+  "color": "#16a34a",
+  "map": {
+    "center": [
+      76,
+      25
+    ],
+    "zoom": 2.2
+  },
+  "layers": [
+    {
+      "id": "places",
+      "title": "Places",
+      "description": "Places from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Place'>OpenStreetMap India Wiki</a> for details.",
+      "type": "vector",
+      "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+      "sourceLayer": "place_labels",
+      "maxzoom": 15,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "style": {
+        "circle-radius": 10,
+        "circle-color": "#4c7fff",
+        "circle-stroke-width": 1.5,
+        "circle-stroke-color": "#ffffff"
+      }
     },
-    "layers": [
-      {
-        "id": "places",
-        "title": "Places",
-        "description": "Places from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Place'>OpenStreetMap India Wiki</a> for details.",
-        "type": "vector",
-        "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
-        "sourceLayer": "place_labels",
-        "maxzoom": 15,
-        "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
-        "style": {
-          "circle-radius": 10,
-          "circle-color": "#4c7fff",
-          "circle-stroke-width": 1.5,
-          "circle-stroke-color": "#ffffff"
-        }
-      },
-
-      {
-        "title": "Railways",
-        "description": "Railway network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
-        "headerImage": "assets/map-layers/map-layer-osm-railways.png",
-        "type": "vector",
-        "id": "railways",
-        "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
-        "sourceLayer": "streets",
-        "maxzoom": 15,
-        "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
-        "filter": [
+    {
+      "title": "Railways",
+      "description": "Railway network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
+      "headerImage": "assets/map-layers/osm/map-layer-osm-railways.png",
+      "type": "vector",
+      "id": "railways",
+      "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+      "sourceLayer": "streets",
+      "maxzoom": 15,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "filter": [
+        "match",
+        [
+          "get",
+          "kind"
+        ],
+        [
+          "tram",
+          "narrow_gauge",
+          "light_rail",
+          "subway",
+          "rail"
+        ],
+        true,
+        false
+      ],
+      "style": {
+        "line-opacity": 0.9,
+        "line-color": [
           "match",
           [
             "get",
             "kind"
           ],
           [
-            "tram",
-            "narrow_gauge",
-            "light_rail",
-            "subway",
             "rail"
           ],
-          true,
-          false
+          "darkred",
+          [
+            "subway"
+          ],
+          "blue",
+          "green"
         ],
-        "style": {
-          "line-opacity": 0.9,
-          "line-color": [
-            "match",
-            [
-              "get",
-              "kind"
-            ],
-            [
-              "rail"
-            ],
-            "darkred",
-            [
-              "subway"
-            ],
-            "blue",
-            "green"
+        "line-width": [
+          "case",
+          [
+            "has",
+            "service"
           ],
-          "line-width": [
-            "case",
-            ["has",
-            "service"],
-            1,
-            5
-          ]
-        },
-        "inspect": {
-          "id": "kind",
-          "title": "OSM Type",
-          "label": "kind",
-          "fields": [
-            "surface"
-          ],
-          "fieldTitles": [
-            "Surface"
-          ]
-        }
+          1,
+          5
+        ]
       },
-      {
-        "title": "Pedestrian Paths and Trails",
-        "description": "Footpaths and trails from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
-        "headerImage": "assets/map-layers/map-layer-osm-paths.png",
-        "type": "vector",
-        "id": "paths",
-        "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
-        "sourceLayer": "streets",
-        "maxzoom": 15,
-        "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
-        "filter": [
+      "inspect": {
+        "id": "kind",
+        "title": "OSM Type",
+        "label": "kind",
+        "fields": [
+          "surface"
+        ],
+        "fieldTitles": [
+          "Surface"
+        ]
+      }
+    },
+    {
+      "title": "Pedestrian Paths and Trails",
+      "description": "Footpaths and trails from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
+      "headerImage": "assets/map-layers/osm/map-layer-osm-paths.png",
+      "type": "vector",
+      "id": "paths",
+      "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+      "sourceLayer": "streets",
+      "maxzoom": 15,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "filter": [
+        "match",
+        [
+          "get",
+          "kind"
+        ],
+        [
+          "pedestrian",
+          "footway",
+          "path"
+        ],
+        true,
+        false
+      ],
+      "style": {
+        "line-color": [
           "match",
           [
             "get",
@@ -114,179 +130,130 @@
             "footway",
             "path"
           ],
-          true,
-          false
+          "cyan",
+          "black"
         ],
-        "style": {
-          "line-color": [
-            "match",
-            [
-              "get",
-              "kind"
-            ],
-            [
-              "pedestrian",
-              "footway",
-              "path"
-            ],
-            "cyan",
-            "black"
-          ],
-          "line-width": 2
-        },
-        "inspect": {
-          "id": "kind",
-          "title": "OSM Type",
-          "label": "kind",
-          "fields": [
-            "surface"
-          ],
-          "fieldTitles": [
-            "Surface"
-          ]
-        }
+        "line-width": 2
       },
-      {
-        "title": "Motorable Roads",
-        "description": "Road network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
-        "headerImage": "assets/map-layers/map-layer-osm-roads.png",
-        "type": "vector",
-        "id": "roads",
-        "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
-        "sourceLayer": "streets",
-        "maxzoom": 15,
-        "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
-        "filter": [
+      "inspect": {
+        "id": "kind",
+        "title": "OSM Type",
+        "label": "kind",
+        "fields": [
+          "surface"
+        ],
+        "fieldTitles": [
+          "Surface"
+        ]
+      }
+    },
+    {
+      "title": "Motorable Roads",
+      "description": "Road network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
+      "headerImage": "assets/map-layers/osm/map-layer-osm-roads.png",
+      "type": "vector",
+      "id": "roads",
+      "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+      "sourceLayer": "streets",
+      "maxzoom": 15,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "filter": [
+        "match",
+        [
+          "get",
+          "kind"
+        ],
+        [
+          "pedestrian",
+          "footway",
+          "path",
+          "track",
+          "rail",
+          "narrow_gauge",
+          "light_rail",
+          "subway"
+        ],
+        false,
+        true
+      ],
+      "style": {
+        "line-color": [
           "match",
           [
             "get",
             "kind"
           ],
           [
-            "pedestrian",
-            "footway",
-            "path",
-            "track",
-            "rail",
-            "narrow_gauge",
-            "light_rail",
-            "subway"
+            "motorway",
+            "trunk"
           ],
-          false,
-          true
+          "#111",
+          [
+            "primary",
+            "secondary"
+          ],
+          "#222",
+          [
+            "tertiary"
+          ],
+          "#333",
+          [
+            "residential",
+            "living_street",
+            "unclassified",
+            "service"
+          ],
+          "#555",
+          [
+            "track"
+          ],
+          "red",
+          "black"
         ],
-        "style": {
-          "line-color": [
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          [
             "match",
             [
               "get",
               "kind"
             ],
             [
-              "motorway",
+              "motorway"
+            ],
+            2,
+            [
               "trunk"
             ],
-            "#111",
+            1,
             [
-              "primary",
+              "primary"
+            ],
+            0.5,
+            [
               "secondary"
             ],
-            "#222",
+            0.2,
             [
               "tertiary"
             ],
-            "#333",
+            0.1,
             [
               "residential",
-              "living_street",
-              "unclassified",
-              "service"
+              "unclassified"
             ],
-            "#555",
-            [
-              "track"
-            ],
-            "red",
-            "black"
+            0,
+            0
           ],
-          "line-width": [
-            "interpolate",
-            [
-              "linear"
-            ],
-            [
-              "zoom"
-            ],
-            8,
-            [
-              "match",
-              [
-                "get",
-                "kind"
-              ],
-              [
-                "motorway"
-              ],
-              2,
-              [
-                "trunk"
-              ],
-              1,
-              [
-                "primary"
-              ],
-              0.5,
-              [
-                "secondary"
-              ],
-              0.2,
-              [
-                "tertiary"
-              ],
-              0.1,
-              [
-                "residential",
-                "unclassified"
-              ],
-              0,
-              0
-            ],
-            12,
-            [
-              "match",
-              [
-                "get",
-                "kind"
-              ],
-              [
-                "motorway"
-              ],
-              5,
-              [
-                "trunk"
-              ],
-              3,
-              [
-                "primary"
-              ],
-              3,
-              [
-                "secondary"
-              ],
-              3,
-              [
-                "tertiary"
-              ],
-              2,
-              [
-                "residential",
-                "unclassified"
-              ],
-              1.5,
-              1
-            ]
-          ],
-          "line-sort-key": [
+          12,
+          [
             "match",
             [
               "get",
@@ -316,539 +283,580 @@
               "residential",
               "unclassified"
             ],
-            0,
-            0
-          ]
-        },
-        "inspect": {
-          "id": "kind",
-          "title": "OSM Type",
-          "label": "kind",
-          "fields": [
-            "surface"
-          ],
-          "fieldTitles": [
-            "Surface"
-          ]
-        }
-      },
-      {
-        "title": "Water Bodies",
-        "description": "Water body polygons data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
-        "headerImage": "assets/map-layers/map-layer-osm-waterways.png",
-        "type": "vector",
-        "id": "waterbodies",
-        "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
-        "sourceLayer": "water_polygons",
-        "maxzoom": 15,
-        "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
-        "style": {
-          "line-opacity": 0.9,
-          "fill-opacity": 0.95,
-          "fill-color": "lightblue",
-          "line-color": "blue",
-          "line-width": 1
-        },
-        "inspect": {
-          "id": "kind",
-          "title": "OSM Type",
-          "label": "kind",
-          "fields": [
-            "way_area"
-          ]
-        }
-      },
-      {
-        "title": "Waterways",
-        "description": "Waterways network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
-        "headerImage": "assets/map-layers/map-layer-osm-waterways.png",
-        "type": "vector",
-        "id": "waterways",
-        "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
-        "sourceLayer": "water_lines",
-        "maxzoom": 15,
-        "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
-        "style": {
-          "line-opacity": 0.9,
-          "line-color": [
-            "match",
-            [
-              "get",
-              "kind"
-            ],
-            [
-              "river","stream"
-            ],
-            "blue",
-            "lightblue"
-          ],
-          "line-width": [
-            "match",
-            [
-              "get",
-              "kind"
-            ],
-            ["river","canal"],
-            3,
-            ["stream","drain"],
-            2,
+            1.5,
             1
           ]
-        },
-        "inspect": {
-          "id": "kind",
-          "title": "OSM Type",
-          "label": "kind",
-          "fields": [
-            "surface"
+        ],
+        "line-sort-key": [
+          "match",
+          [
+            "get",
+            "kind"
           ],
-          "fieldTitles": [
-            "Surface"
-          ]
-        }
+          [
+            "motorway"
+          ],
+          5,
+          [
+            "trunk"
+          ],
+          3,
+          [
+            "primary"
+          ],
+          3,
+          [
+            "secondary"
+          ],
+          3,
+          [
+            "tertiary"
+          ],
+          2,
+          [
+            "residential",
+            "unclassified"
+          ],
+          0,
+          0
+        ]
       },
-      {
-        "title": "OSM Landuse Sites",
-        "description": "High resolution landuse polygons for institutional sites and amenities from the OpenStreetMap project.",
-        "headerImage": "assets/map-layers/map-layer-osm-landuse.png",
-        "type": "vector",
-        "id": "sites",
-        "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
-        "sourceLayer": "sites",
-        "maxzoom": 15,
-        "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread OSMF vector tiles</a>",
-        "style": {
-          "text-font": [
-            "Open Sans Regular"
+      "inspect": {
+        "id": "kind",
+        "title": "OSM Type",
+        "label": "kind",
+        "fields": [
+          "surface"
+        ],
+        "fieldTitles": [
+          "Surface"
+        ]
+      }
+    },
+    {
+      "title": "Water Bodies",
+      "description": "Water body polygons data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
+      "headerImage": "assets/map-layers/map-layer-osm-waterways.png",
+      "type": "vector",
+      "id": "waterbodies",
+      "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+      "sourceLayer": "water_polygons",
+      "maxzoom": 15,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "style": {
+        "line-opacity": 0.9,
+        "fill-opacity": 0.95,
+        "fill-color": "lightblue",
+        "line-color": "blue",
+        "line-width": 1
+      },
+      "inspect": {
+        "id": "kind",
+        "title": "OSM Type",
+        "label": "kind",
+        "fields": [
+          "way_area"
+        ]
+      }
+    },
+    {
+      "title": "Waterways",
+      "description": "Waterways network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
+      "headerImage": "assets/map-layers/map-layer-osm-waterways.png",
+      "type": "vector",
+      "id": "waterways",
+      "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+      "sourceLayer": "water_lines",
+      "maxzoom": 15,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "style": {
+        "line-opacity": 0.9,
+        "line-color": [
+          "match",
+          [
+            "get",
+            "kind"
           ],
-          "text-field": [
-            "step",
-            [
-              "zoom"
-            ],
-            "",
-            15,
-            [
-              "to-string",
-              [
-                "get",
-                "kind"
-              ]
-            ]
+          [
+            "river",
+            "stream"
           ],
-          "text-color": [
-            "match",
+          "blue",
+          "lightblue"
+        ],
+        "line-width": [
+          "match",
+          [
+            "get",
+            "kind"
+          ],
+          [
+            "river",
+            "canal"
+          ],
+          3,
+          [
+            "stream",
+            "drain"
+          ],
+          2,
+          1
+        ]
+      },
+      "inspect": {
+        "id": "kind",
+        "title": "OSM Type",
+        "label": "kind",
+        "fields": [
+          "surface"
+        ],
+        "fieldTitles": [
+          "Surface"
+        ]
+      }
+    },
+    {
+      "title": "OSM Landuse Sites",
+      "description": "High resolution landuse polygons for institutional sites and amenities from the OpenStreetMap project.",
+      "headerImage": "assets/map-layers/osm/osm/map-layer-osm-landuse.png",
+      "type": "vector",
+      "id": "sites",
+      "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+      "sourceLayer": "sites",
+      "maxzoom": 15,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread OSMF vector tiles</a>",
+      "style": {
+        "text-font": [
+          "Open Sans Regular"
+        ],
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          15,
+          [
+            "to-string",
             [
               "get",
               "kind"
-            ],
-            [
-              "sports_centre"
-            ],
-            "black",
-            "white"
-          ],
-          "text-halo-color": [
-            "match",
-            [
-              "get",
-              "kind"
-            ],
-            [
-              "parking",
-              "bicycle_parking"
-            ],
-            "red",
-            [
-              "construction"
-            ],
-            "brown",
-            [
-              "school",
-              "college",
-              "university",
-              "hospital",
-              "prison"
-            ],
-            "red",
-            "grey"
-          ],
-          "text-halo-width": 5,
-          "text-size": 13,
-          "fill-color": [
-            "match",
-            [
-              "get",
-              "kind"
-            ],
-            [
-              "parking",
-              "bicycle_parking"
-            ],
-            "red",
-            [
-              "construction"
-            ],
-            "brown",
-            [
-              "school",
-              "college",
-              "university",
-              "hospital",
-              "prison"
-            ],
-            "red",
-            "grey"
-          ],
-          "fill-opacity": 0.7,
-          "line-color": "black",
-          "line-width": [
-            "interpolate",
-            [
-              "linear"
-            ],
-            [
-              "zoom"
-            ],
-            11,
-            [
-              "case",
-              [
-                "boolean",
-                [
-                  "feature-state",
-                  "selected"
-                ],
-                false
-              ],
-              1.5,
-              [
-                "boolean",
-                [
-                  "feature-state",
-                  "hover"
-                ],
-                false
-              ],
-              0.5,
-              0
-            ],
-            14,
-            [
-              "case",
-              [
-                "boolean",
-                [
-                  "feature-state",
-                  "selected"
-                ],
-                false
-              ],
-              2,
-              [
-                "boolean",
-                [
-                  "feature-state",
-                  "hover"
-                ],
-                false
-              ],
-              1,
-              0
             ]
           ]
-        },
-        "inspect": {
-          "id": "kind",
-          "title": "OSM Type",
-          "label": "kind"
-        }
+        ],
+        "text-color": [
+          "match",
+          [
+            "get",
+            "kind"
+          ],
+          [
+            "sports_centre"
+          ],
+          "black",
+          "white"
+        ],
+        "text-halo-color": [
+          "match",
+          [
+            "get",
+            "kind"
+          ],
+          [
+            "parking",
+            "bicycle_parking"
+          ],
+          "red",
+          [
+            "construction"
+          ],
+          "brown",
+          [
+            "school",
+            "college",
+            "university",
+            "hospital",
+            "prison"
+          ],
+          "red",
+          "grey"
+        ],
+        "text-halo-width": 5,
+        "text-size": 13,
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "kind"
+          ],
+          [
+            "parking",
+            "bicycle_parking"
+          ],
+          "red",
+          [
+            "construction"
+          ],
+          "brown",
+          [
+            "school",
+            "college",
+            "university",
+            "hospital",
+            "prison"
+          ],
+          "red",
+          "grey"
+        ],
+        "fill-opacity": 0.7,
+        "line-color": "black",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          11,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            1.5,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            0.5,
+            0
+          ],
+          14,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            2,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            1,
+            0
+          ]
+        ]
       },
-      {
-        "title": "OSM Landuse",
-        "description": "High resolution landuse polygons from the OpenStreetMap project.",
-        "headerImage": "assets/map-layers/map-layer-osm-landuse.png",
-        "type": "vector",
-        "id": "landuse",
-        "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
-        "sourceLayer": "land",
-        "maxzoom": 17,
-        "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread OSMF vector tiles</a>",
-        "style": {
-          "text-font": [
-            "Open Sans Regular"
+      "inspect": {
+        "id": "kind",
+        "title": "OSM Type",
+        "label": "kind"
+      }
+    },
+    {
+      "title": "OSM Landuse",
+      "description": "High resolution landuse polygons from the OpenStreetMap project.",
+      "headerImage": "assets/map-layers/map-layer-osm-landuse.png",
+      "type": "vector",
+      "id": "landuse",
+      "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+      "sourceLayer": "land",
+      "maxzoom": 17,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread OSMF vector tiles</a>",
+      "style": {
+        "text-font": [
+          "Open Sans Regular"
+        ],
+        "text-field": [
+          "step",
+          [
+            "zoom"
           ],
-          "text-field": [
-            "step",
-            [
-              "zoom"
-            ],
-            "",
-            12,
-            [
-              "to-string",
-              [
-                "get",
-                "kind"
-              ]
-            ]
-          ],
-          "text-color": [
-            "match",
+          "",
+          12,
+          [
+            "to-string",
             [
               "get",
               "kind"
-            ],
-            [
-              "farmland",
-              "allotments"
-            ],
-            "black",
-            [
-              "recreation_ground",
-              "park",
-              "playground",
-              "garden",
-              "golf_course",
-              "village_green"
-            ],
-            "black",
-            [
-              "beach"
-            ],
-            "black",
-            "white"
-          ],
-          "text-halo-color": [
-            "match",
-            [
-              "get",
-              "kind"
-            ],
-            [
-              "landfill",
-              "quarry",
-              "brownfield"
-            ],
-            "brown",
-            [
-              "railway"
-            ],
-            "maroon",
-            [
-              "industrial"
-            ],
-            "purple",
-            [
-              "commercial"
-            ],
-            "blue",
-            [
-              "retail"
-            ],
-            "navy",
-            [
-              "residential"
-            ],
-            "orange",
-            [
-              "farmland",
-              "allotments"
-            ],
-            "lightgreen",
-            [
-              "recreation_ground",
-              "park",
-              "playground",
-              "garden",
-              "golf_course",
-              "village_green"
-            ],
-            "lime",
-            [
-              "cemetery"
-            ],
-            "teal",
-            [
-              "orchard",
-              "scrub",
-              "grassland",
-              "grass",
-              "meadow"
-            ],
-            "green",
-            [
-              "forest"
-            ],
-            "darkgreen",
-            [
-              "swamp"
-            ],
-            "seagreen",
-            [
-              "marsh",
-              "wet_meadow"
-            ],
-            "lightblue",
-            [
-              "beach"
-            ],
-            "gold",
-            "grey"
-          ],
-          "text-halo-width": 5,
-          "text-size": 13,
-          "text-padding": 50,
-          "fill-color": [
-            "match",
-            [
-              "get",
-              "kind"
-            ],
-            [
-              "landfill",
-              "quarry",
-              "brownfield"
-            ],
-            "brown",
-            [
-              "railway"
-            ],
-            "maroon",
-            [
-              "industrial"
-            ],
-            "purple",
-            [
-              "commercial"
-            ],
-            "blue",
-            [
-              "retail"
-            ],
-            "navy",
-            [
-              "residential"
-            ],
-            "orange",
-            [
-              "farmland",
-              "allotments"
-            ],
-            "lightgreen",
-            [
-              "recreation_ground",
-              "park",
-              "playground",
-              "garden",
-              "golf_course",
-              "village_green"
-            ],
-            "lime",
-            [
-              "cemetery"
-            ],
-            "teal",
-            [
-              "orchard",
-              "scrub",
-              "grassland",
-              "grass",
-              "meadow"
-            ],
-            "green",
-            [
-              "forest"
-            ],
-            "darkgreen",
-            [
-              "swamp"
-            ],
-            "seagreen",
-            [
-              "marsh",
-              "wet_meadow"
-            ],
-            "lightblue",
-            [
-              "beach"
-            ],
-            "gold",
-            "grey"
-          ],
-          "line-color": "black",
-          "line-width": [
-            "interpolate",
-            [
-              "linear"
-            ],
-            [
-              "zoom"
-            ],
-            11,
-            [
-              "case",
-              [
-                "boolean",
-                [
-                  "feature-state",
-                  "selected"
-                ],
-                false
-              ],
-              1.5,
-              [
-                "boolean",
-                [
-                  "feature-state",
-                  "hover"
-                ],
-                false
-              ],
-              0.5,
-              0
-            ],
-            14,
-            [
-              "case",
-              [
-                "boolean",
-                [
-                  "feature-state",
-                  "selected"
-                ],
-                false
-              ],
-              2,
-              [
-                "boolean",
-                [
-                  "feature-state",
-                  "hover"
-                ],
-                false
-              ],
-              1,
-              0
             ]
           ]
-        },
-        "inspect": {
-          "id": "kind",
-          "title": "OSM Type",
-          "label": "kind"
-        }
+        ],
+        "text-color": [
+          "match",
+          [
+            "get",
+            "kind"
+          ],
+          [
+            "farmland",
+            "allotments"
+          ],
+          "black",
+          [
+            "recreation_ground",
+            "park",
+            "playground",
+            "garden",
+            "golf_course",
+            "village_green"
+          ],
+          "black",
+          [
+            "beach"
+          ],
+          "black",
+          "white"
+        ],
+        "text-halo-color": [
+          "match",
+          [
+            "get",
+            "kind"
+          ],
+          [
+            "landfill",
+            "quarry",
+            "brownfield"
+          ],
+          "brown",
+          [
+            "railway"
+          ],
+          "maroon",
+          [
+            "industrial"
+          ],
+          "purple",
+          [
+            "commercial"
+          ],
+          "blue",
+          [
+            "retail"
+          ],
+          "navy",
+          [
+            "residential"
+          ],
+          "orange",
+          [
+            "farmland",
+            "allotments"
+          ],
+          "lightgreen",
+          [
+            "recreation_ground",
+            "park",
+            "playground",
+            "garden",
+            "golf_course",
+            "village_green"
+          ],
+          "lime",
+          [
+            "cemetery"
+          ],
+          "teal",
+          [
+            "orchard",
+            "scrub",
+            "grassland",
+            "grass",
+            "meadow"
+          ],
+          "green",
+          [
+            "forest"
+          ],
+          "darkgreen",
+          [
+            "swamp"
+          ],
+          "seagreen",
+          [
+            "marsh",
+            "wet_meadow"
+          ],
+          "lightblue",
+          [
+            "beach"
+          ],
+          "gold",
+          "grey"
+        ],
+        "text-halo-width": 5,
+        "text-size": 13,
+        "text-padding": 50,
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "kind"
+          ],
+          [
+            "landfill",
+            "quarry",
+            "brownfield"
+          ],
+          "brown",
+          [
+            "railway"
+          ],
+          "maroon",
+          [
+            "industrial"
+          ],
+          "purple",
+          [
+            "commercial"
+          ],
+          "blue",
+          [
+            "retail"
+          ],
+          "navy",
+          [
+            "residential"
+          ],
+          "orange",
+          [
+            "farmland",
+            "allotments"
+          ],
+          "lightgreen",
+          [
+            "recreation_ground",
+            "park",
+            "playground",
+            "garden",
+            "golf_course",
+            "village_green"
+          ],
+          "lime",
+          [
+            "cemetery"
+          ],
+          "teal",
+          [
+            "orchard",
+            "scrub",
+            "grassland",
+            "grass",
+            "meadow"
+          ],
+          "green",
+          [
+            "forest"
+          ],
+          "darkgreen",
+          [
+            "swamp"
+          ],
+          "seagreen",
+          [
+            "marsh",
+            "wet_meadow"
+          ],
+          "lightblue",
+          [
+            "beach"
+          ],
+          "gold",
+          "grey"
+        ],
+        "line-color": "black",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          11,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            1.5,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            0.5,
+            0
+          ],
+          14,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            2,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            1,
+            0
+          ]
+        ]
       },
-      {
-        "id": "mapnik",
-        "title": "OpenStreetMap",
-        "description": "Map data contributed by the <a href='https://www.openstreetmap.in/'>OpenStreetMap India Community.</a>",
-        "headerImage": "assets/map-layers/map-layer-osm.png",
-        "type": "tms",
-        "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
-        "style": {
-          "raster-opacity": [
+      "inspect": {
+        "id": "kind",
+        "title": "OSM Type",
+        "label": "kind"
+      }
+    },
+    {
+      "id": "mapnik",
+      "title": "OpenStreetMap",
+      "description": "Map data contributed by the <a href='https://www.openstreetmap.in/'>OpenStreetMap India Community.</a>",
+      "headerImage": "assets/map-layers/osm/map-layer-osm.png",
+      "type": "tms",
+      "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+      "style": {
+        "raster-opacity": [
           "interpolate",
           [
             "linear"
@@ -867,11 +875,11 @@
           19,
           0
         ]
-        }      
-      },
-      {
-        "initiallyChecked": true,
-        "id": "mapbox-satellite"
       }
-    ]
-  }
+    },
+    {
+      "initiallyChecked": true,
+      "id": "mapbox-satellite"
+    }
+  ]
+}

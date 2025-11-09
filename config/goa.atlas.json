@@ -15,7 +15,7 @@
     {
       "title": "Live Fire Trucks",
       "description": "Live locations of fire trucks from the Directorate of Fire Emergency Services. Location updated every 5 minutes from <a href='https://github.com/publicmap/goa-fire-trucks-geojson/'>Goa Fire Trucks API</a>.",
-      "headerImage": "assets/map-layers/map-layer-fire-trucks.png",
+      "headerImage": "assets/map-layers/goa/map-layer-fire-trucks.png",
       "type": "geojson",
       "id": "firetrucks",
       "url": "https://raw.githubusercontent.com/publicmap/goa-fire-trucks-geojson/refs/heads/main/data/goa-fire-trucks.geojson",
@@ -85,7 +85,7 @@
     {
       "title": "Schools",
       "description": "Schools locations by capacity",
-      "headerImage": "assets/map-layers/map-layer-schools.png",
+      "headerImage": "assets/map-layers/goa/map-layer-schools.png",
       "type": "csv",
       "id": "goa-schools",
       "url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQAjIaxmEf4dv9eGjASL9YSlVGJLsmvfggZpGApiUP4YD6uexFG4otpwy0wQAWUFW4De4Pz4QKy79yV/pub?gid=1786282296&single=true&output=csv",
@@ -145,8 +145,8 @@
       "title": "Slope Zoning",
       "description": "Slope zone classification using <a href='https://asterweb.jpl.nasa.gov/gdem.asp'>NASA NASADEM 30m</a> for entire Goa and <a href='https://bhuvan-app3.nrsc.gov.in/data/'>ISRO CartoDEM 2.5m (Bardez)</a> terrain data for Bardez taluka.<br>The output is a 30x30m grid indicating the minimum gradient within that cell. Details of the algorithm are in the <a href='https://github.com/publicmap/amche-goa/blob/main/data/slope/dem_slope_processor.py'>slope processor script</a>.",
       "type": "layer-group",
-      "headerImage": "assets/map-layers/map-layer-slope.png",
-      "legendImage": "assets/map-layers/map-layer-slope-legend.png",
+      "headerImage": "assets/map-layers/goa/map-layer-slope.png",
+      "legendImage": "assets/map-layers/goa/legend-slope.png",
       "groups": [
         {
           "id": "nasadem-30-m",
@@ -165,7 +165,7 @@
     {
       "title": "Goa Community Maps",
       "description": "Sketches, maps and plans by the people of Goa",
-      "headerImage": "assets/map-layers/map-layer-community-maps.png",
+      "headerImage": "assets/map-layers/goa/map-layer-community-maps.png",
       "type": "tms",
       "id": "community-maps",
       "url": "https://mapwarper.net/mosaics/tile/2157/{z}/{x}/{y}.png",
@@ -174,8 +174,8 @@
     {
       "title": "Regional Development Plan for Goa 2021",
       "description": "Regional landuse plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
-      "headerImage": "assets/map-layers/map-layer-rdp.png",
-      "legendImage": "assets/map-layers/map-layer-rdp-legend.jpg",
+      "headerImage": "assets/map-layers/goa/map-layer-rdp.png",
+      "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
       "type": "tms",
       "id": "2021-regional-plan",
       "url": "https://mapwarper.net/mosaics/tile/2054/{z}/{x}/{y}.png",
@@ -201,7 +201,7 @@
     {
       "title": "Water Body Atlas 2025",
       "description": "Springs, lakes and other minor water bodies surveyed by the Department of Water Resources, Government of Goa.",
-      "headerImage": "assets/map-layers/map-layer-water-bodies.png",
+      "headerImage": "assets/map-layers/goa/map-layer-water-bodies.png",
       "type": "geojson",
       "id": "2025-water-body-atlas",
       "url": "https://gist.githubusercontent.com/planemad/e5ccc47bf2a1aa458a86d6839476f539/raw/6922fcc2d5ffd4d58b0fb069b9f57334f13cd953/goa-water-bodies.geojson",
@@ -239,7 +239,7 @@
       "initiallyChecked": true,
       "title": "Local Body Boundaries",
       "description": "Municipal and Panchayat local body boundaries. Please see <a href='https://grammanchitra.gov.in/gm4MVC' target='_blank'>Gramanchiitra</a> for panchayat demographic profile and information on elected representatives.",
-      "headerImage": "assets/map-layers/map-layer-local-boundaries.png",
+      "headerImage": "assets/map-layers/goa/map-layer-local-boundaries.png",
       "type": "vector",
       "id": "local-body",
       "url": "mapbox://planemad.2bqa1pq1",
@@ -264,10 +264,17 @@
         ],
         "symbol-sort-key": [
           "match",
-          ["get", "Class"],
-          ["Urban"],
+          [
+            "get",
+            "Class"
+          ],
+          [
+            "Urban"
+          ],
           2,
-          ["Rurban"],
+          [
+            "Rurban"
+          ],
           3,
           4
         ],
@@ -277,19 +284,35 @@
         "text-transform": "uppercase",
         "text-size": [
           "match",
-          ["get", "Class"],
-          ["Urban"],
+          [
+            "get",
+            "Class"
+          ],
+          [
+            "Urban"
+          ],
           12,
-          ["Rurban"],
+          [
+            "Rurban"
+          ],
           11,
           10
         ],
         "text-font": [
           "match",
-          ["get", "Class"],
-          ["Urban"],
-          ["Open Sans Bold"],
-          ["Open Sans Regular"]
+          [
+            "get",
+            "Class"
+          ],
+          [
+            "Urban"
+          ],
+          [
+            "Open Sans Bold"
+          ],
+          [
+            "Open Sans Regular"
+          ]
         ],
         "fill-color": "rgba(255, 255, 255, 0.2)",
         "line-color": "purple"
@@ -317,8 +340,8 @@
     {
       "title": "Plots with No Development Slopes",
       "description": "Survey numbers with No Development Slopes (NDS). The output location of plots having atleast 25% of the plot area with NDS or slopes greater than 1:4 (25% slope).<br>Processed using slope computed with NASADEM 30m data and cadastral boundaries from OneMapGoa GIS. See <a href='https://github.com/publicmap/amche-goa/tree/main/data/slope'>processing code</a> for details.",
-      "headerImage": "assets/map-layers/map-layer-nds-plots.png",
-      "legendImage": "assets/map-layers/map-layer-slope-legend.png",
+      "headerImage": "assets/map-layers/goa/map-layer-nds-plots.png",
+      "legendImage": "assets/map-layers/goa/legend-slope.png",
       "type": "geojson",
       "id": "plot-slopes",
       "url": "https://gist.githubusercontent.com/planemad/f378d37b120b0ffc93db27d9541baa70/raw/56ecc74a6fdd3ea8170ee58a4cd2a87ba4f83f3d/goa-steep-plots.geojson",
@@ -506,7 +529,7 @@
     {
       "title": "Cadastral Plot Boundaries",
       "description": "Cadastral Boundaries from the <a href='Directorate of Settlement & Land Records'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31' target='_blank' rel='noopener noreferrer'>Goa Online</a> and <a href='https://dslr.goa.gov.in/f114new.aspx' target='_blank' rel='noopener noreferrer'>Directorate of Settlement & Land Records (Form 1 & 14)</a>",
-      "headerImage": "assets/map-layers/map-layer-survey.png",
+      "headerImage": "assets/map-layers/goa/map-layer-survey.png",
       "type": "vector",
       "id": "plots",
       "url": "https://indianopenmaps.fly.dev/not-so-open/cadastrals/goa/onemapgoagis/{z}/{x}/{y}.pbf",
@@ -621,12 +644,11 @@
         "customHtml": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/' target='_blank'>Bhunaksha Goa</a> | <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31' target='_blank'>View RoR</a> | <a href='https://davepaiva.github.io/goa-cadastral-duckdb-demo/' target='_blank'>Search</a>"
       }
     },
-
     {
       "id": "communidade-plots-bhunaksha",
       "title": "Communidade Lands (Bhunaksha)",
       "description": "Land parcels with Bhunaksha RoR includes 'Communidade' in the list of occupant info.",
-      "headerImage": "assets/map-layers/map-layer-communidade-land.png",
+      "headerImage": "assets/map-layers/goa/map-layer-communidade-land.png",
       "type": "vector",
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=6bd0b9f7-fef3-4a97-8926-016ef6155293",
       "sourceLayer": "vector",
@@ -642,15 +664,21 @@
         "id": "id",
         "title": "Owners",
         "label": "Owners",
-        "fields": ["Plot","Village"],
-        "fieldTitles": ["Plot","Village"]
+        "fields": [
+          "Plot",
+          "Village"
+        ],
+        "fieldTitles": [
+          "Plot",
+          "Village"
+        ]
       }
     },
     {
       "id": "communidade-plots",
       "title": "Communidade Land",
       "description": "Land parcels governed by the <a href='https://cdn.s3waas.gov.in/s3d840cc5d906c3e9c84374c8919d2074e/uploads/2018/07/2018070597.pdf'>Code of Communidades</a>. Prepared using survey numbers submitted by the following communidadeds: Goltim, Saligao.",
-      "headerImage": "assets/map-layers/map-layer-communidade-land.png",
+      "headerImage": "assets/map-layers/goa/map-layer-communidade-land.png",
       "type": "geojson",
       "url": "https://gist.githubusercontent.com/planemad/6fda9bc0c90e2ede5c53ee03c33dec3a/raw/5716157141c52286de3a3ef24cb98393623668a4/goltim-communidade-plots.geojson",
       "attribution": "<a href='https://docs.google.com/spreadsheets/d/18ws6fp8x5UxD7xq_LW-8qVq1qAPoEPR8qEF8jWyR0lI/edit?gid=0#gid=0'>Communidades of Goltim and Saligao</a>",
@@ -669,7 +697,7 @@
     {
       "title": "Notified Private Forests",
       "description": "Private forests identified by Thomas and Arujao expert committees",
-      "headerImage": "assets/map-layers/map-layer-forest.png",
+      "headerImage": "assets/map-layers/goa/map-layer-forest.png",
       "type": "geojson",
       "id": "private-forests",
       "url": "https://gist.githubusercontent.com/planemad/54b84c11fc0325889f1127e49b5740db/raw/1f99740ddb55a1528d76a5364aa9a95c1fe800da/goa_private_forest_plots-jun-2026.geojson",
@@ -695,8 +723,8 @@
     {
       "title": "Notified Wetlands",
       "description": "Maps of notified wetland 50m buffer zones and 10m zones of influence.",
-      "headerImage": "assets/map-layers/map-layer-wetland-buffer.png",
-      "legendImage": "assets/map-layers/map-layer-wetland-legend.jpeg",
+      "headerImage": "assets/map-layers/goa/map-layer-wetland-buffer.png",
+      "legendImage": "assets/map-layers/india/legend-wetland.jpeg",
       "type": "tms",
       "id": "notified-wetlands",
       "url": "https://mapwarper.net/mosaics/tile/2359/{z}/{x}/{y}.png",
@@ -706,13 +734,17 @@
       "id": "notified-wetland-plots",
       "title": "Notified Wetlands Plots",
       "description": "Notified Wetlands as per the <a href='https://gswa.goa.gov.in/gazette-notification/'>Goa State Wetland Authority Notifications</a>",
-      "headerImage": "assets/map-layers/map-layer-notified-wetlands.png",
+      "headerImage": "assets/map-layers/goa/map-layer-notified-wetlands.png",
       "type": "vector",
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=37001657-13b7-4065-8b80-cdb5594f15b1",
       "sourceLayer": "vector",
       "maxzoom": 14,
       "attribution": "<a href='https://docs.google.com/spreadsheets/d/19dREaWRkcxG00UmGGCQa_5tdoouuVi5EfCQZ_BmB064/edit?gid=0#gid=0'>Goa Gazettes collected by amche.in community</a> - via <a href='https://www.maphub.co/map/37001657-13b7-4065-8b80-cdb5594f15b1'>Maphub</a>",
-      "filter": ["!=", "match_status", "unmatched"],
+      "filter": [
+        "!=",
+        "match_status",
+        "unmatched"
+      ],
       "style": {
         "text-field": [
           "step",
@@ -721,34 +753,51 @@
           ],
           [
             "to-string",
-            ["get", "Wetland Name"]
+            [
+              "get",
+              "Wetland Name"
+            ]
           ],
           14,
           [
             "concat",
             [
               "to-string",
-              ["get", "match_notes"]
+              [
+                "get",
+                "match_notes"
+              ]
             ],
             "\n",
             [
               "to-string",
-              ["get", "Category"]
+              [
+                "get",
+                "Category"
+              ]
             ]
           ]
-        ]
-        ,
-        "text-halo-color":[
+        ],
+        "text-halo-color": [
           "match",
           [
             "get",
             "Category"
           ],
-          ["Wetland","Wetland & Zone of influence"],
+          [
+            "Wetland",
+            "Wetland & Zone of influence"
+          ],
           "#67abee",
-          ["Buffer Zone","Buffer zone"],
+          [
+            "Buffer Zone",
+            "Buffer zone"
+          ],
           "#7feeff",
-          ["Zone of Influence","Zone of influence"],
+          [
+            "Zone of Influence",
+            "Zone of influence"
+          ],
           "#b2b2c1",
           "black"
         ],
@@ -768,14 +817,23 @@
             "get",
             "Category"
           ],
-          ["Wetland","Wetland & Zone of influence"],
+          [
+            "Wetland",
+            "Wetland & Zone of influence"
+          ],
           "#67abee",
-          ["Buffer Zone","Buffer zone"],
+          [
+            "Buffer Zone",
+            "Buffer zone"
+          ],
           "#7feeff",
-          ["Zone of Influence","Zone of influence"],
+          [
+            "Zone of Influence",
+            "Zone of influence"
+          ],
           "#b2b2c1",
           "black"
-        ], 
+        ],
         "line-width": [
           "match",
           [
@@ -786,17 +844,26 @@
           3,
           0.1
         ],
-        "line-color":[
+        "line-color": [
           "match",
           [
             "get",
             "Category"
           ],
-          ["Wetland","Wetland & Zone of influence"],
+          [
+            "Wetland",
+            "Wetland & Zone of influence"
+          ],
           "#67abee",
-          ["Buffer Zone","Buffer zone"],
+          [
+            "Buffer Zone",
+            "Buffer zone"
+          ],
           "#7feeff",
-          ["Zone of Influence","Zone of influence"],
+          [
+            "Zone of Influence",
+            "Zone of influence"
+          ],
           "#b2b2c1",
           "black"
         ],
@@ -806,7 +873,10 @@
             "get",
             "Category"
           ],
-          ["Wetland","Wetland & Zone of influence"],
+          [
+            "Wetland",
+            "Wetland & Zone of influence"
+          ],
           5,
           "Buffer Zone",
           4,
@@ -817,8 +887,14 @@
         "id": "id",
         "title": "Wetland Name",
         "label": "Wetland Name",
-        "fields" : ["Category","match_notes"],
-        "fieldTitles": ["Type"," Coverage"],
+        "fields": [
+          "Category",
+          "match_notes"
+        ],
+        "fieldTitles": [
+          "Type",
+          " Coverage"
+        ],
         "customHtml": "<a href='https://www.fao.org/soils-portal/data-hub/soil-maps-and-databases/faounesco-soil-map-of-the-world/en/' target='_blank'>Soil Code Lookup</a> | <a href='https://www.fao.org/soils-portal/data-hub/soil-maps-and-databases/faounesco-soil-map-of-the-world/en/'>Soil Unit Lookup</a> | <a href='https://www.fao.org/fileadmin/user_upload/soils/docs/Soil_map_FAOUNESCO/acrobat/South_Asia_VII_II.pdf' target='_blank'>South Asia Soil Unit Map</a>"
       }
     },
@@ -841,7 +917,13 @@
           ],
           "",
           13,
-          [ "to-string", ["get", "Name"] ]
+          [
+            "to-string",
+            [
+              "get",
+              "Name"
+            ]
+          ]
         ],
         "circle-radius": 2,
         "circle-color": "blue",
@@ -872,13 +954,45 @@
           [
             "zoom"
           ],
-          [ "to-string", ["get", "Name"] ],
+          [
+            "to-string",
+            [
+              "get",
+              "Name"
+            ]
+          ],
           14,
-          ["concat",[ "to-string", ["get", "Name"] ],"\n",[ "to-string", ["get", "Type"] ]]
+          [
+            "concat",
+            [
+              "to-string",
+              [
+                "get",
+                "Name"
+              ]
+            ],
+            "\n",
+            [
+              "to-string",
+              [
+                "get",
+                "Type"
+              ]
+            ]
+          ]
         ],
-        "line-color": [ "match", 
-        ["get", "Type"], 
-        ["Notified"], "darkgreen", "blue" ],
+        "line-color": [
+          "match",
+          [
+            "get",
+            "Type"
+          ],
+          [
+            "Notified"
+          ],
+          "darkgreen",
+          "blue"
+        ],
         "line-width": 3
       },
       "inspect": {
@@ -904,7 +1018,7 @@
       "id": "notified-khazan",
       "title": "Notified Khazan Lands",
       "description": "Notified and protected Khazan Lands from Goa CZMP. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a> <br><small>The ground truthing of the Marginal bunds, sluice gates and the defended Khazan lands was carried out by the Water Resources Department, along with the Members of Bio Diversity, Surveyors of DSLR. Soil Conservation Engineers of the Agriculture department, Forest officials.</p><p>It is further certified that the ground truthing is carried with details enumerated on the Toposheets published by the Survey of India in the year 1964, Cadastral village maps published by the land survey department in the year 1972-76. The Khazan land, bunds sluice gates mapped by the village Panchayat were also used utilised for identification and ground truthing. Thus, the Bunds/Sluice gates and Khazan Lands shown in this map are verified and it is certified that the Bunds and Sluice gates shown in this map exist now and were constructed in the past, prior to the date of notification issued vide S. O. 114(E) dated 19th February 1999.</small>",
-      "headerImage": "assets/map-layers/map-layer-notified-khazan.png",
+      "headerImage": "assets/map-layers/goa/map-layer-notified-khazan.png",
       "type": "vector",
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=c2f4f183-2526-4cbd-bc8b-985928a84222",
       "sourceLayer": "vector",
@@ -913,9 +1027,9 @@
       "style": {
         "fill-opacity": 1,
         "text-halo-color": "#b3ff0f",
-        "fill-color": "#b3ff0f", 
+        "fill-color": "#b3ff0f",
         "line-width": 1,
-        "line-color":"grey"
+        "line-color": "grey"
       },
       "inspect": {
         "id": "fid"
@@ -925,7 +1039,7 @@
       "id": "crz-1a",
       "title": "CRZ-1A Protected Areas",
       "description": "Protected coastal features of mangroves, sand dunes, mudflats, salt pans, corals, nesting sites and archaeological sites falling under CRZ-1A zone from Goa CZMP. View <a href='https://drive.google.com/file/d/1uo4bHGPvci1uR3cMhzvke7LzF_onKqLK/view?usp=sharing'>Coastal Sand Dunes of Goa Report by NCSCM</a> - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a> for more information.",
-      "headerImage": "assets/map-layers/map-layer-crz.png",
+      "headerImage": "assets/map-layers/goa/map-layer-crz.png",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/regulation-zones/parivesh/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bharatmaps_Parivesh_CRZ_Regulatory_Zones",
@@ -933,14 +1047,20 @@
       "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>Final CZMP, Goa Coastal Zone Management Authority</a> - via <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
       "filter": [
         "==",
-          [
-            "get",
-            "layer"
-          ],
-          "CRZ_I_A"
+        [
+          "get",
+          "layer"
+        ],
+        "CRZ_I_A"
       ],
       "style": {
-        "text-field": [ "to-string", ["get", "crz_class"] ],
+        "text-field": [
+          "to-string",
+          [
+            "get",
+            "crz_class"
+          ]
+        ],
         "line-color": "black",
         "symbol-sort-key": [
           "match",
@@ -950,9 +1070,15 @@
           ],
           "Archaeological and heritage sites - CRZ IA",
           1,
-          ["Nesting Grounds of Birds - CRZ IA","Turtle Nesting Grounds - CRZ IA"],
+          [
+            "Nesting Grounds of Birds - CRZ IA",
+            "Turtle Nesting Grounds - CRZ IA"
+          ],
           2,
-          ["Corals and coral reefs - CRZ IA","Salt Marsh - CRZ IA"],
+          [
+            "Corals and coral reefs - CRZ IA",
+            "Salt Marsh - CRZ IA"
+          ],
           3,
           "Sand Dunes - CRZ IA",
           4,
@@ -980,7 +1106,10 @@
           "deepskyblue",
           "Corals and coral reefs - CRZ IA",
           "magenta",
-          ["Nesting Grounds of Birds - CRZ IA","Turtle Nesting Grounds - CRZ IA"],
+          [
+            "Nesting Grounds of Birds - CRZ IA",
+            "Turtle Nesting Grounds - CRZ IA"
+          ],
           "blue",
           "black"
         ],
@@ -1002,7 +1131,10 @@
           "deepskyblue",
           "Corals and coral reefs - CRZ IA",
           "magenta",
-          ["Nesting Grounds of Birds - CRZ IA","Turtle Nesting Grounds - CRZ IA"],
+          [
+            "Nesting Grounds of Birds - CRZ IA",
+            "Turtle Nesting Grounds - CRZ IA"
+          ],
           "blue",
           "black"
         ]
@@ -1016,7 +1148,7 @@
     {
       "title": "Current Landuse Map (Panjim)",
       "description": "Current Land-Use data for Panaji Urban Agglomeration collected in 2020-2023 under <a href='http://164.100.87.10/DocumentOMs.aspx'>Atal Mission for Rejuvenation and Urban Transformation (AMRUT)</a> at 1:4000 scale.",
-      "headerImage": "assets/map-layers/map-layer-landuse-amrut.png",
+      "headerImage": "assets/map-layers/goa/map-layer-landuse-amrut.png",
       "type": "vector",
       "id": "amrut-panjim-landuse",
       "url": "https://indianopenmaps.fly.dev/not-so-open/goa/urban/land-use/amrut/{z}/{x}/{y}.pbf",
@@ -1517,7 +1649,7 @@
     {
       "title": "AMS Goa Maps (1970s)",
       "description": "1:250000 maps from the U.S. Army Map Service created 1955-1970s",
-      "headerImage": "assets/map-layers/map-layer-ams.png",
+      "headerImage": "assets/map-layers/goa/map-layer-ams.png",
       "type": "tms",
       "id": "ams-map",
       "url": "https://mapwarper.net/maps/tile/89833/{z}/{x}/{y}.png",
@@ -1527,7 +1659,7 @@
       "title": "Kadamba Bus Routes",
       "id": "bus",
       "description": "Bus route network operated by Kadamba Transport Corporation Limited (KTCL) in Goa as on January 2025.Bus route lines are scaled by trip count.",
-      "headerImage": "assets/map-layers/map-layer-bus.png",
+      "headerImage": "assets/map-layers/goa/map-layer-bus.png",
       "type": "img",
       "url": "https://upload.wikimedia.org/wikipedia/commons/4/43/Goa_Bus_Network_Map_2025.png",
       "bounds": [
@@ -1595,14 +1727,14 @@
         ]
       },
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg' target='_blank'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a> via <a href='https://warper.wmflabs.org/maps/9257#Rectify_tab' target='_blank'>MapWarper</a>",
-      "headerImage": "assets/map-layers/map-layer-goa-forest.png",
+      "headerImage": "assets/map-layers/goa/map-layer-goa-forest.png",
       "bbox": "73.6475218,14.8655995,74.379549,15.8221062",
       "initiallyChecked": false
     },
     {
       "title": "District",
       "description": "Mask for the district of Goa.",
-      "headerImage": "assets/map-layers/map-layer-goa-districts.png",
+      "headerImage": "assets/map-layers/goa/map-layer-goa-districts.png",
       "type": "vector",
       "id": "goa-mask",
       "url": "https://indianopenmaps.fly.dev/not-so-open/districts/lgd/{z}/{x}/{y}.pbf ",
@@ -1610,7 +1742,7 @@
       "maxzoom": 10,
       "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>LGD/Bharatmaps</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/districts'>Datameet Community:LGD_Districts</a>",
       "style": {
-        "fill-color":[
+        "fill-color": [
           "interpolate",
           [
             "linear"
@@ -1690,8 +1822,12 @@
         "id": "dtname",
         "title": "District",
         "label": "dtname",
-        "fields": ["stname"],
-        "fieldTitles": ["State"]
+        "fields": [
+          "stname"
+        ],
+        "fieldTitles": [
+          "State"
+        ]
       }
     },
     {
@@ -1777,8 +1913,8 @@
     {
       "title": "Tillari Command Area Development Scheme",
       "description": "Notified Command Area Development Scheme for the Tillari Irrigation Project covering talukas of Bicholim, Pernem and Bardez in North Goa.",
-      "headerImage": "assets/map-layers/map-layer-tillari.png",
-      "legendImage": "assets/map-layers/map-layer-tillari-legend.jpg",
+      "headerImage": "assets/map-layers/goa/map-layer-tillari.png",
+      "legendImage": "assets/map-layers/goa/legend-tillari.jpg",
       "type": "tms",
       "id": "tillari-cads",
       "url": "https://mapwarper.net/mosaics/tile/2267/{z}/{x}/{y}.png",
@@ -1963,7 +2099,7 @@
     {
       "title": "Goa Admiralty Chart (1914)",
       "description": "Nautical chart of the West Coast of India from Achra River to Cape Ramas. Surveyed by Lieut. A.D. Taylor 1853-4 for Eat India Company. Not current - not to be used for navigation!",
-      "headerImage": "assets/map-layers/map-layer-1914-admiralty-chart.png",
+      "headerImage": "assets/map-layers/goa/map-layer-1914-admiralty-chart.png",
       "type": "tms",
       "id": "1914-admiralty-chart",
       "url": "https://warper.wmflabs.org/maps/tile/4749/{z}/{x}/{y}.png",
@@ -1972,7 +2108,7 @@
     {
       "title": "Goa Harbour Admiralty Chart (1775)",
       "description": "Nautical chart of the West Coast of India from Achra River to Cape Ramas. Surveyed by Lieut. A.D. Taylor 1853-4 for Eat India Company. Not current - not to be used for navigation!",
-      "headerImage": "assets/map-layers/map-layer-1775-admiralty-chart.png",
+      "headerImage": "assets/map-layers/goa/map-layer-1775-admiralty-chart.png",
       "type": "tms",
       "id": "1775-admiralty-chart",
       "url": "https://warper.wmflabs.org/maps/tile/8717/{z}/{x}/{y}.png",
@@ -1981,6 +2117,6 @@
     {
       "initiallyChecked": true,
       "id": "mapbox-satellite"
-          }
-    ]
+    }
+  ]
 }

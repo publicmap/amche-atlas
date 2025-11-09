@@ -109,12 +109,12 @@ export class MapLinks {
             {
                 name: 'ISRO Bhuvan',
                 url: `https://bhuvanmaps.nrsc.gov.in/?mode=Hybrid#${zoom}/${lat}/${lng}`,
-                icon: './assets/map-layers/icon-bhuvan.png'
+                icon: './assets/img/icon-bhuvan.png'
             },
             {
                 name: 'Bhuvan Data Hub',
                 url: `https://bhuvanmaps.nrsc.gov.in/science?dataHubTab=0&mode=Satellite#${zoom}/${lat}/${lng}`,
-                icon: './assets/map-layers/icon-bhuvan.png'
+                icon: './assets/img/icon-bhuvan.png'
             },
             {
                 name: 'NIC Bharatmaps',
@@ -124,7 +124,7 @@ export class MapLinks {
             {
                 name: 'One Map Goa GIS',
                 url: `https://onemapgoagis.goa.gov.in/map/?ct=LayerTree${oneMapGoaLayerList}&bl=mmi_hybrid&t=goa_default&c=${mercatorCoords.x}%2C${mercatorCoords.y}&s=500`,
-                icon: './assets/map-layers/icon-onemapgoa.png'
+                icon: './assets/img/icon-onemapgoa.png'
             },
             {
                 name: 'ESRI Living Atlas Landcover',

@@ -16,7 +16,7 @@
     {
       "title": "Landuse Plan for Bombay Twin Cities (1964)",
       "description": "Cover illustrating plans for the future twin city and abandoned State Government capitol complex at New Bombay proposed by Charles Correa, Pravina Mehta and Shirish B. Patel and plans for Western and Eastern Island Expressways and trans-harbour links via road and rail bridges proposed by Wilbur Smith Associates.",
-      "headerImage": "assets/map-layers/map-layer-1964-bombay-masterplan.png",
+      "headerImage": "assets/map-layers/bombay/map-layer-1964-bombay-masterplan.png",
       "type": "tms",
       "id": "1964-bombay-masterplan",
       "url": "https://mapwarper.net/maps/tile/93402/{z}/{x}/{y}.png",
@@ -26,30 +26,30 @@
       "initiallyChecked": true,
       "title": "Bombay Guide Map (1933)",
       "description": "Published under the direction of Colner H.J.Couchman, Officiating Surveyor General of India, 1933",
-      "headerImage": "assets/map-layers/map-layer-1933-bombay-guide.png",
+      "headerImage": "assets/map-layers/bombay/map-layer-1933-bombay-guide.png",
       "type": "tms",
       "id": "1933-bombay-guide",
       "url": "https://mapwarper.net/maps/tile/29682/{z}/{x}/{y}.png",
       "attribution": "<a href='https://www.geographicus.com/P/AntiqueMap/Bombay-surveyindia-1933'>Survey Of India</a> via <a href='https://mapwarper.net/maps/29682'>Map Warper</a>",
       "style": {
         "raster-opacity": [
-        "interpolate",
-        [
-          "linear"
-        ],
-        [
-          "zoom"
-        ],
-        6,
-        0.9,
-        12,
-        0.8,
-        15,
-        0.6,
-        17,
-        0.2
-      ]
-      }    
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.9,
+          12,
+          0.8,
+          15,
+          0.6,
+          17,
+          0.2
+        ]
+      }
     },
     {
       "title": "Map of Bombay (1914)",
@@ -66,7 +66,7 @@
     {
       "title": "Bombay Survey (1898)",
       "description": "Sheet 138 of 2 inch : 1 mile survey map showing the western suburbs of Bombay. Surveyed in 1880-1881 and published by Survey of India in 1885 and corrected upto 1898.",
-      "headerImage": "assets/map-layers/map-layer-1898-bombay-survey.png",
+      "headerImage": "assets/map-layers/bombay/map-layer-1898-bombay-survey.png",
       "type": "tms",
       "id": "1898-bombay-survey",
       "url": "https://warper.wmflabs.org/maps/tile/8744/{z}/{x}/{y}.png",
@@ -92,8 +92,8 @@
     },
     {
       "id": "1855-india-geology"
-     },
-     {
+    },
+    {
       "title": "Bombay Native Town Plan (1855)",
       "description": "Map of the native town of Bombay, completed to 1855",
       "headerImage": "assets/map-layers/map-layer-1855-bombay",
@@ -103,23 +103,23 @@
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Map_of_the_native_town_of_Bombay,_completed_to_1855.png'>Wikimedia Commons: Map of the native town of Bombay, completed to 1855</a> via <a href='https://warper.wmflabs.org/maps/8739'>Wikimaps Warper</a> released in public domain",
       "style": {
         "raster-opacity": [
-        "interpolate",
-        [
-          "linear"
-        ],
-        [
-          "zoom"
-        ],
-        6,
-        0.9,
-        14,
-        0.8,
-        18,
-        0.7,
-        19,
-        0.2
-      ]
-      }    
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.9,
+          14,
+          0.8,
+          18,
+          0.7,
+          19,
+          0.2
+        ]
+      }
     },
     {
       "title": "Murphy Map of Island of Bombay and Colaba (1843)",
@@ -134,15 +134,17 @@
       "initiallyChecked": true,
       "title": "Niebuhr's Map of Bombay (1764)",
       "description": "Map by Carsten Niebuhr, a Danish traveler and scholar who was part of the Danish East India Company's expedition to the region.",
-      "headerImage": "assets/map-layers/map-layer-1764-niebuhr-map.png",
+      "headerImage": "assets/map-layers/bombay/map-layer-1764-niebuhr-map.png",
       "type": "tms",
       "id": "1764",
       "url": "https://warper.wmflabs.org/maps/tile/1848/{z}/{x}/{y}.png",
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Bombay_Niebuhr%27s_Map_1764.jpg'>Wikimedia Commons/British Library: Bombay Niebuhr's Map 1764</a> via <a href='https://warper.wmflabs.org/mosaics/13#Show_tab'>Wikimaps Warper</a> released in public domain"
     },
-    { "id": "1792-general-atlas" },
     {
-      "id": "osm"      
-          }
-    ]
+      "id": "1792-general-atlas"
+    },
+    {
+      "id": "osm"
+    }
+  ]
 }

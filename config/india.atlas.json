@@ -91,7 +91,7 @@
     {
       "id": "pincodes",
       "title": "Pincode Boundaries",
-      "headerImage": "assets/map-layers/map-layer-pincode.png",
+      "headerImage": "assets/map-layers/india/map-layer-pincode.png",
       "description": "Government open data of pincode boundaries published May 2025.",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/pincodes/datagovin/{z}/{x}/{y}.pbf",
@@ -254,7 +254,7 @@
     {
       "id": "village",
       "title": "Village Boundaries",
-      "headerImage": "assets/map-layers/map-layer-village.png",
+      "headerImage": "assets/map-layers/india/map-layer-village.png",
       "description": "Revenue village boundaries with <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory</a> attributes.",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/not-so-open/villages/lgd/{z}/{x}/{y}.pbf ",
@@ -401,7 +401,7 @@
     {
       "id": "municipal-wards",
       "title": "Municipal Ward Boundaries",
-      "headerImage": "assets/map-layers/map-layer-ulb-wards.png",
+      "headerImage": "assets/map-layers/india/map-layer-ulb-wards.png",
       "description": "Ward boundaries for Panaji Municipal Corporation and Municipal Councils (partial coverage)",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/not-so-open/urban/wards/sbm/{z}/{x}/{y}.pbf",
@@ -521,7 +521,7 @@
     {
       "title": "Assembly Constituencies",
       "description": "Members of Legislative Assembly (MLA) constituencies.",
-      "headerImage": "assets/map-layers/map-layer-assembly-boundaries.png",
+      "headerImage": "assets/map-layers/india/map-layer-assembly-boundaries.png",
       "type": "vector",
       "id": "assembly-constituencies",
       "url": "https://indianopenmaps.fly.dev/not-so-open/constituencies/assembly/lgd/{z}/{x}/{y}.pbf ",
@@ -572,7 +572,7 @@
     {
       "title": "Parliamentary Constituencies",
       "description": "Members of Parliament (MP) constituencies",
-      "headerImage": "assets/map-layers/map-layer-parliament-boundaries.png",
+      "headerImage": "assets/map-layers/india/map-layer-parliament-boundaries.png",
       "type": "vector",
       "id": "parliamentary-constituencies",
       "url": "https://indianopenmaps.fly.dev/not-so-open/constituencies/parliament/lgd/{z}/{x}/{y}.pbf ",
@@ -685,7 +685,7 @@
     {
       "title": "Wetlands",
       "description": "Wetlands and low lying estuarine areas classified from remote sensing imagery. For methodological details, see <a href='https://vedas.sac.gov.in/static/downloads/atlas/Wetlands/NWIA_Goa_Atlas.pdf'>2009 National Wetland Atlas of Goa, Space Applications Centre, ISRO / Ministry of Environment and Forests</a>.",
-      "headerImage": "assets/map-layers/map-layer-wetland.png",
+      "headerImage": "assets/map-layers/india/map-layer-wetland.png",
       "type": "vector",
       "id": "wetlands",
       "url": "https://indianopenmaps.fly.dev/not-so-open/wetlands/parivesh/{z}/{x}/{y}.pbf",
@@ -764,7 +764,7 @@
     {
       "title": "Rivers",
       "description": "Rivers and streams with stream order",
-      "headerImage": "assets/map-layers/map-layer-rivers.png",
+      "headerImage": "assets/map-layers/india/map-layer-rivers.png",
       "type": "vector",
       "id": "rivers",
       "url": "https://indianopenmaps.fly.dev/streams/wris/{z}/{x}/{y}.pbf",
@@ -861,7 +861,7 @@
     {
       "id": "watersheds",
       "title": "Watershed Boundaries",
-      "headerImage": "assets/map-layers/map-layer-watersheds.png",
+      "headerImage": "assets/map-layers/india/map-layer-watersheds.png",
       "description": "Watershed Boundaries",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/watersheds/wris/{z}/{x}/{y}.pbf",
@@ -894,7 +894,7 @@
     {
       "id": "micro-watersheds",
       "title": "Micro Watershed Atlas of India",
-      "headerImage": "assets/map-layers/map-layer-micro-watersheds.png",
+      "headerImage": "assets/map-layers/india/map-layer-micro-watersheds.png",
       "description": "Micro Watershed Atlas with <a href='https://slusi.da.gov.in/mwa.pdf'>micro watershed code</a>",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/micro-watersheds/priorities/slusi/{z}/{x}/{y}.pbf",
@@ -936,7 +936,7 @@
     {
       "title": "Reserve Forests",
       "description": "Forest areas notified and protectedunder the <a href='http://nbaindia.org/uploaded/Biodiversityindia/Legal/3.%20Indian%20forest%20act.pdf'>Indian Forest Act, 1927</a>",
-      "headerImage": "assets/map-layers/map-layer-forest.png",
+      "headerImage": "assets/map-layers/india/map-layer-forest.png",
       "type": "vector",
       "id": "forests",
       "url": "https://indianopenmaps.fly.dev/not-so-open/forests/beats/fsi/{z}/{x}/{y}.pbf",
@@ -1015,7 +1015,7 @@
     {
       "title": "Eco Sensitive Zones",
       "description": "Eco Sensitive Zones as defined in the <a href='https://moef.gov.in/eco-sensitive-zone-esz'>National Environment Policy, MoEF</a>",
-      "headerImage": "assets/map-layers/map-layer-esz.png",
+      "headerImage": "assets/map-layers/india/map-layer-esz.png",
       "type": "vector",
       "id": "esz",
       "url": "https://indianopenmaps.fly.dev/not-so-open/forests/esz/parivesh/{z}/{x}/{y}.pbf",
@@ -1098,7 +1098,7 @@
     {
       "title": "Wildlife Reserves and Corridors",
       "description": "National parks, wildlife sanctuaries and <a href='https://ntca.gov.in/assets/map-layers/uploads/Reports/corridor/connecting_tiger_populations.pdf'>tiger conservations corridors</a>",
-      "headerImage": "assets/map-layers/map-layer-wildlife-reserve.png",
+      "headerImage": "assets/map-layers/india/map-layer-wildlife-reserve.png",
       "type": "vector",
       "id": "wildlife-reserve",
       "tags": [
@@ -1127,7 +1127,7 @@
     {
       "title": "Coastal Regulation Zone Lines",
       "description": "Regulatory lines for Coastal Regulation Zones",
-      "headerImage": "assets/map-layers/map-layer-crz-line.png",
+      "headerImage": "assets/map-layers/india/map-layer-crz-line.png",
       "type": "vector",
       "id": "crz-line",
       "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/regulation-lines/parivesh/{z}/{x}/{y}.pbf",
@@ -1174,7 +1174,7 @@
     {
       "title": "Coastal Regulation Zones",
       "description": "Coastal Regulation Zones",
-      "headerImage": "assets/map-layers/map-layer-crz.png",
+      "headerImage": "assets/map-layers/india/map-layer-crz.png",
       "type": "vector",
       "id": "crz",
       "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/regulation-zones/parivesh/{z}/{x}/{y}.pbf",
@@ -1248,7 +1248,7 @@
     {
       "title": "Protected Archaeological Sites",
       "description": "Ancient monuments and archaeological sites protected by the Archaeological Survey of India (ASI).",
-      "headerImage": "assets/map-layers/map-layer-asi.png",
+      "headerImage": "assets/map-layers/india/map-layer-asi.png",
       "type": "vector",
       "id": "monuments",
       "url": "https://indianopenmaps.fly.dev/not-so-open/cultural/monuments/zones/asi/bhuvan/{z}/{x}/{y}.pbf",
@@ -1352,7 +1352,7 @@
     {
       "title": "Mining Leases",
       "description": "Major mining lease boundaries",
-      "headerImage": "assets/map-layers/map-layer-mines.png",
+      "headerImage": "assets/map-layers/india/map-layer-mines.png",
       "type": "vector",
       "id": "mining",
       "url": " https://indianopenmaps.fly.dev/not-so-open/mining/leases/major/ncog/{z}/{x}/{y}.pbf",
@@ -1609,14 +1609,14 @@
       "title": "Indian Landslide Susceptibility Map 2024",
       "description": "Potential of slope failure for given geo-environmental conditions.  landslide susceptibility mapping using ensemble machine learning and geospatial big data. See <a href='https://github.com/hydrosenselab/ILSM'>source code</a> for technical details.",
       "attribution": "<a href='https://hydrosense.users.earthengine.app/view/ilsm'>Indian Landslide Susceptibility Map (ILSM) (100m), Hydrosense Lab, IIT-Delhi</a>",
-      "headerImage": "assets/map-layers/map-layer-landslide-risk.png",
-      "legendImage": "assets/map-layers/map-layer-landslide-risk-legend.png"
+      "headerImage": "assets/map-layers/india/map-layer-landslide-risk.png",
+      "legendImage": "assets/map-layers/india/legend-landslide-risk.png"
     },
     {
       "title": "SOI Toposheets",
       "description": "Survey of India",
-      "headerImage": "assets/map-layers/map-layer-soi.png",
-      "legendImage": "assets/map-layers/map-layer-soi-legend.png",
+      "headerImage": "assets/map-layers/india/map-layer-soi.png",
+      "legendImage": "assets/map-layers/india/legend-soi.png",
       "type": "tms",
       "id": "soi-map",
       "url": "https://indianopenmaps.fly.dev/soi/osm/{z}/{x}/{y}.webp",
@@ -1625,8 +1625,8 @@
     {
       "title": "Coastal Zone Management Plan",
       "description": "Coastal Zone Management Plan 2019",
-      "headerImage": "assets/map-layers/map-layer-czmp.png",
-      "legendImage": "assets/map-layers/map-layer-czmp-legend.png",
+      "headerImage": "assets/map-layers/india/map-layer-czmp.png",
+      "legendImage": "assets/map-layers/india/legend-czmp.png",
       "type": "tms",
       "id": "2019-czmp-map",
       "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/goa/regulation/ncscm/{z}/{x}/{y}.webp",
@@ -1635,7 +1635,7 @@
     {
       "title": "Landcover",
       "description": "Space based Information Support for Decentralized Planning (SISDP) Phase 2 10k Land Usage Land Cover data. Check the <a href='https://bhuvanpanchayat.nrsc.gov.in/SISDP/BP-lrdpwrdpmanual.pdf'>SISDP technical manual</a> for background about the project and <a href='https://bhuvanpanchayat.nrsc.gov.in/SISDP/BP-lrdpwrdpmanual.pdf'>Bhuvan Panchayat Portal User Manual</a> for more details.",
-      "headerImage": "assets/map-layers/map-layer-landcover.png",
+      "headerImage": "assets/map-layers/india/map-layer-landcover.png",
       "type": "vector",
       "id": "landcover",
       "url": "https://indianopenmaps.fly.dev/not-so-open/landuse/10k/sisdpv2/bhuvan/{z}/{x}/{y}.pbf",
@@ -1835,7 +1835,7 @@
     {
       "title": "Geomorphological Lineaments",
       "description": "Geomorphological lineaments based on <a href='https://bhuvan-app1.nrsc.gov.in/2dresources/thematic/gm/gm.pdf'>genesis based classification schema</a>.",
-      "headerImage": "assets/map-layers/map-layer-lineament.png",
+      "headerImage": "assets/map-layers/india/map-layer-lineament.png",
       "type": "vector",
       "id": "lineament",
       "url": "https://indianopenmaps.fly.dev/not-so-open/lineament/50k/bhuvan/{z}/{x}/{y}.pbf",
@@ -1925,8 +1925,8 @@
     {
       "title": "Groundwater Prospects",
       "description": "Groundwater prospect maps prepared at 1:50k scale. Refer to the <a href='https://bhuvan-app1.nrsc.gov.in/gwis/docs/GW_Manual.pdf'>methodology</a> and <a href='https://www.nrsc.gov.in/sites/default/files/pdf/ebooks/RGNationalDrinkingWater_UserManual.pdf'>user manual</a> for more details. Check <a href'https://ingres.iith.ac.in/gecdataonline/gis/INDIA'>INDIA-Groundwater Resource Estimation System (IN-GRES)</a> for taluk level groundwater assessment reports.<br>View  <a href='https://www.cgwb.gov.in/old_website/GW-Assessment/GWR-2022-Reports%20State/Goa.pdf'>Dynamic Groundwater Report of Goa State 2022</a> | <a href='https://www.cgwb.gov.in/cgwbpnm/public/uploads/documents/1705640315968744698file.pdf'>2024</a>.",
-      "headerImage": "assets/map-layers/map-layer-groundwater.png",
-      "legendImage": "assets/map-layers/map-layer-groundwater-legend.pdf",
+      "headerImage": "assets/map-layers/india/map-layer-groundwater.png",
+      "legendImage": "assets/map-layers/india/legend-groundwater.png",
       "type": "vector",
       "id": "groundwater",
       "url": " https://indianopenmaps.fly.dev/not-so-open/groundwater-prospects/lgeom/bhuvan/{z}/{x}/{y}.pbf",
@@ -2051,7 +2051,7 @@
     {
       "title": "Geomorphological Ecozones",
       "description": "Geomorphological landforms based on <a href='https://bhuvan-app1.nrsc.gov.in/2dresources/thematic/gm/gm.pdf'>genesis based classification schema</a>.",
-      "headerImage": "assets/map-layers/map-layer-geomorphology.png",
+      "headerImage": "assets/map-layers/india/map-layer-geomorphology.png",
       "type": "vector",
       "id": "geomorphology",
       "url": "https://indianopenmaps.fly.dev/not-so-open/geomorphology/50k/bhuvan/{z}/{x}/{y}.pbf",
@@ -2247,7 +2247,7 @@
     {
       "title": "Atlas of India (1827-1906)",
       "description": "Historical atlas of India published in 1827-1906 by Survey of India",
-      "headerImage": "assets/map-layers/map-layer-1906-india-atlas.png",
+      "headerImage": "assets/map-layers/india/map-layer-1906-india-atlas.png",
       "type": "tms",
       "id": "1906-atlas",
       "url": "https://warper.wmflabs.org/mosaics/tile/15/{z}/{x}/{y}.png",
@@ -2261,7 +2261,7 @@
     {
       "title": "Geological Map of India (1855)",
       "description": "General sketch of the physical and geological features of British India. Compiled by Greenough, George Bellas (1778-1855)",
-      "headerImage": "assets/map-layers/map-layer-1855-geology.png",
+      "headerImage": "assets/map-layers/india/map-layer-1855-geology.png",
       "type": "tms",
       "id": "1855-geology",
       "url": "https://warper.wmflabs.org/maps/tile/2258/{z}/{x}/{y}.png",
@@ -2275,7 +2275,7 @@
     {
       "title": "Lambtons Peninsular Survey  (1802-1814)",
       "description": "Historical trignometrical survey plans by Colnel William Lambton of the Peninsula of India",
-      "headerImage": "assets/map-layers/map-layer-1814-lambton-survey.png",
+      "headerImage": "assets/map-layers/india/map-layer-1814-lambton-survey.png",
       "type": "tms",
       "id": "1814-lambton-survey",
       "url": "https://warper.wmflabs.org/mosaics/tile/13/{z}/{x}/{y}.png",
@@ -2289,7 +2289,7 @@
     {
       "title": "Robert Wilkinsons General Atlas  (1792)",
       "description": "Engraved by Thomas Conder and issued as plate no. 37 in the 1792 edition of Robert Wilkinsons General Atlas",
-      "headerImage": "assets/map-layers/map-layer-1792-general-atlas.png",
+      "headerImage": "assets/map-layers/india/map-layer-1792-general-atlas.png",
       "type": "tms",
       "id": "1792-general-atlas",
       "url": "https://warper.wmflabs.org/maps/tile/7050/{z}/{x}/{y}.png",

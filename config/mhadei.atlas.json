@@ -75,7 +75,7 @@
     {
       "title": "Mhadei DiversionProject",
       "description": "Construction Project Sites for Mhadei RiverDiversion Project by Karnataka",
-      "headerImage": "assets/map-layers/map-layer-construction.png",
+      "headerImage": "assets/map-layers/mhadei/map-layer-construction.png",
       "type": "geojson",
       "id": "mhadei-diversion-project",
       "url": "https://gist.githubusercontent.com/planemad/841266d3a44935383860dcb4d3c8e322/raw/03002a2ea4f029c39ca22b8865552b94c10435d9/mhadei-project.geojson",
@@ -127,7 +127,7 @@
       "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>LGD/Bharatmaps</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/districts'>Datameet Community:LGD_Districts</a>",
       "initiallyChecked": true,
       "style": {
-        "fill-color":[
+        "fill-color": [
           "interpolate",
           [
             "linear"
@@ -240,15 +240,19 @@
       "type": "raster-style-layer",
       "title": "Satellite Imagery",
       "description": "Satellite imagery from Mapbox. See <a href='https://docs.mapbox.com/help/dive-deeper/imagery/'>Mapbox Satellite Imagery</a> for details.",
-      "headerImage": "assets/map-layers/map-layer-satellite.png",
+      "headerImage": "assets/map-layers/mhadei/map-layer-satellite.png",
       "styleLayer": "satellite",
-      "style":{
+      "style": {
         "raster-contrast": 0.2,
         "raster-saturation": 0.4,
         "raster-brightness-min": [
           "interpolate",
-          ["linear"],
-          ["zoom"],
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
           8,
           0.5,
           16,
@@ -256,13 +260,19 @@
         ],
         "raster-brightness-max": [
           "interpolate",
-          ["linear"],
-          ["zoom"],
-          8, 0.7,
-          16, 0.8
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          0.7,
+          16,
+          0.8
         ],
         "raster-opacity": 1
       }
-          }
-    ]
+    }
+  ]
 }

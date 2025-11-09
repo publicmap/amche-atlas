@@ -20,7 +20,7 @@
       "initiallyChecked": true,
       "title": "Coastal Regulation Zone Lines",
       "description": "Regulatory lines for Coastal Regulation Zones",
-      "headerImage": "assets/map-layers/map-layer-crz-line.png",
+      "headerImage": "assets/map-layers/india/map-layer-crz-line.png",
       "type": "vector",
       "id": "crz-line",
       "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/regulation-lines/parivesh/{z}/{x}/{y}.pbf",

@@ -7,7 +7,7 @@
       "initiallyChecked": true,
       "title": "Soil Map of the World",
       "description": "Soil Map of the World at 1:5M scale. Check <a href='https://www.fao.org/soils-portal/data-hub/soil-maps-and-databases/faounesco-soil-map-of-the-world/en/'>documentation</a> for details.",
-      "headerImage": "assets/map-layers/map-layer-geomorphology.png",
+      "headerImage": "assets/map-layers/maphub/map-layer-geomorphology.png",
       "legendImage": "https://www.fao.org/4/as360e/as360e.pdf",
       "type": "vector",
       "id": "world-soil-map",
