@@ -239,7 +239,7 @@ async function loadConfiguration() {
         var layersParam = getUrlParameter('layers');
     }
 
-    let configPath = 'config/index.atlas.json';
+    let configPath = window.amche.DEFAULT_ATLAS;
     let config;
     let atlasId = 'index'; // Track which atlas we're using
 

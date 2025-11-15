@@ -109,7 +109,7 @@ export class MapLayerControl {
     async _loadDefaultStyles() {
         try {
             const defaultsResponse = await fetch('/config/_defaults.json');
-            const configResponse = await fetch('/config/index.atlas.json');
+            const configResponse = await fetch(window.amche.DEFAULT_ATLAS);
 
             if (!defaultsResponse.ok || !configResponse.ok) {
                 throw new Error('Failed to load configuration files');

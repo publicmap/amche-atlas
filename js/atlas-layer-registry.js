@@ -33,7 +33,7 @@ export class LayerRegistry {
         // First, load the index.atlas.json to get the list of atlases
         let atlasConfigs = [];
         try {
-            const indexResponse = await fetch('/config/index.atlas.json');
+            const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
             if (indexResponse.ok) {
                 const indexConfig = await indexResponse.json();
                 if (indexConfig.atlases && Array.isArray(indexConfig.atlases)) {
