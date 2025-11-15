@@ -458,7 +458,7 @@ export class MapFeatureControl {
 
         // Add tooltips controls to footer
         footer.appendChild(this._inspectSwitch);
-        
+
         // Create label for the inspect switch with icon
         const inspectSwitchLabel = document.createElement('label');
         inspectSwitchLabel.style.cssText = `
@@ -698,6 +698,7 @@ export class MapFeatureControl {
         const isTouchDevice = this._isMobileScreen();
 
         this._inspectSwitch = document.createElement('sl-switch');
+        this._inspectSwitch.name = 'toggle-tooltips';
         this._inspectSwitch.size = 'small';
         this._inspectSwitch.checked = this.options.inspectMode;
         this._inspectSwitch.style.cssText = `
@@ -1937,14 +1938,14 @@ export class MapFeatureControl {
     _makeUrlsClickable(text, isDarkTheme = false) {
         const container = document.createElement('span');
         const textStr = String(text);
-        
+
         // URL regex pattern: matches http://, https://, or www. URLs
         const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
         const parts = textStr.split(urlRegex);
-        
+
         // Choose link color based on theme
         const linkColor = isDarkTheme ? '#60a5fa' : '#2563eb'; // Lighter blue for dark theme, darker blue for light theme
-        
+
         parts.forEach(part => {
             // Check if part matches URL pattern without using test() to avoid regex state issues
             const urlMatch = part.match(/^(https?:\/\/[^\s]+|www\.[^\s]+)$/i);
@@ -1952,12 +1953,12 @@ export class MapFeatureControl {
                 // This is a URL - create a clickable link
                 const link = document.createElement('a');
                 let href = part;
-                
+
                 // Add http:// if it starts with www.
                 if (part.toLowerCase().startsWith('www.')) {
                     href = 'http://' + part;
                 }
-                
+
                 link.href = href;
                 link.target = '_blank';
                 link.rel = 'noopener noreferrer';
@@ -1967,14 +1968,14 @@ export class MapFeatureControl {
                     text-decoration: underline;
                     cursor: pointer;
                 `;
-                
+
                 container.appendChild(link);
             } else if (part) {
                 // Regular text - create text node
                 container.appendChild(document.createTextNode(part));
             }
         });
-        
+
         return container;
     }
 
@@ -4842,7 +4843,7 @@ export class MapFeatureControl {
             if (activeLayers && activeLayers.size > 0) {
                 for (const [layerId, layerData] of activeLayers.entries()) {
                     let layerConfig = layerData.config;
-                    
+
                     // If config doesn't have tags, try to get it from registry (for cross-atlas layers)
                     if (layerConfig && !layerConfig.tags && window.layerRegistry) {
                         const registryConfig = window.layerRegistry.getLayer(layerId);
@@ -4851,7 +4852,7 @@ export class MapFeatureControl {
                             layerConfig = {...layerConfig, tags: registryConfig.tags};
                         }
                     }
-                    
+
                     if (layerConfig && hasBasemapTag(layerConfig)) {
                         // This basemap layer is currently active, process it
                         processBasemapLayer(layerConfig);
@@ -4874,21 +4875,21 @@ export class MapFeatureControl {
                             if (hasBasemapTag(layer)) {
                                 // Get the layer ID - could be prefixed or not
                                 const layerId = layer.id;
-                                
+
                                 // Try to get the full resolved layer config from registry
                                 // First try with atlas prefix, then without
                                 let fullLayerConfig = null;
                                 const prefixedId = `${atlasId}-${layerId}`;
-                                
+
                                 // Try prefixed ID first
                                 if (window.layerRegistry.getLayer) {
-                                    fullLayerConfig = window.layerRegistry.getLayer(prefixedId) || 
+                                    fullLayerConfig = window.layerRegistry.getLayer(prefixedId) ||
                                                      window.layerRegistry.getLayer(layerId);
                                 }
-                                
+
                                 // Fallback to original layer config if registry lookup fails
                                 fullLayerConfig = fullLayerConfig || layer;
-                                
+
                                 // Process the basemap layer
                                 processBasemapLayer(fullLayerConfig);
                             }
@@ -4907,7 +4908,7 @@ export class MapFeatureControl {
                 if (style && style.layers) {
                     // Common basemap layer IDs to check
                     const commonBasemapIds = ['satellite', 'gebco-bathymetry'];
-                    
+
                     commonBasemapIds.forEach(basemapId => {
                         const styleLayer = style.layers.find(l => l.id === basemapId);
                         if (styleLayer && !basemapLayerIds.includes(basemapId)) {
