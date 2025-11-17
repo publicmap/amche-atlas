@@ -458,34 +458,6 @@ export class MapFeatureControl {
         // Add tooltips controls to footer
         footer.appendChild(this._inspectSwitch);
 
-        // Create label for the inspect switch with icon
-        const inspectSwitchLabel = document.createElement('label');
-        inspectSwitchLabel.style.cssText = `
-            font-size: 12px;
-            color: #6b7280;
-            font-weight: 500;
-            cursor: pointer;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        `;
-
-        const inspectIcon = document.createElement('sl-icon');
-        inspectIcon.name = 'chat-square';
-        inspectIcon.style.fontSize = '12px';
-
-        inspectSwitchLabel.appendChild(inspectIcon);
-        inspectSwitchLabel.appendChild(document.createTextNode('Tooltips'));
-
-        // Make label clickable
-        inspectSwitchLabel.addEventListener('click', () => {
-            this._inspectSwitch.checked = !this._inspectSwitch.checked;
-            this._toggleInspectMode();
-        });
-
-        footer.appendChild(inspectSwitchLabel);
-
         // Close button
         const closeButton = document.createElement('button');
         closeButton.textContent = '×';
@@ -696,8 +668,28 @@ export class MapFeatureControl {
         // Create inspect mode toggle switch - hide on touch devices
         const isTouchDevice = this._isMobileScreen();
 
+        const inspectIcon = document.createElement('sl-icon');
+        inspectIcon.name = 'chat-square';
+        inspectIcon.style.fontSize = '12px';
+
+        // Create label for the inspect switch with icon
+        const inspectSwitchLabel = document.createElement('label');
+        inspectSwitchLabel.style.cssText = `
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 500;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        `;
+
+        inspectSwitchLabel.appendChild(inspectIcon);
+        inspectSwitchLabel.appendChild(document.createTextNode('Tooltips'));
+
         this._inspectSwitch = document.createElement('sl-switch');
-        this._inspectSwitch.name = 'toggle-tooltips';
+        this._inspectSwitch.appendChild(inspectSwitchLabel);
         this._inspectSwitch.size = 'small';
         this._inspectSwitch.checked = this.options.inspectMode;
         this._inspectSwitch.style.cssText = `
