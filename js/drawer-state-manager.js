@@ -222,11 +222,3 @@ export class DrawerStateManager {
         this._listeners = [];
     }
 }
-
-// Create a global instance
-export const drawerStateManager = new DrawerStateManager();
-
-// Make it globally accessible
-if (typeof window !== 'undefined') {
-    window.drawerStateManager = drawerStateManager;
-} 

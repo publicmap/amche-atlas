@@ -1,14 +1,14 @@
 import { MapLayerControl } from './map-layer-controls.js';
 import { MapFeatureControl } from './map-feature-control.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
-import { localization } from './localization.js';
+import { Localization } from './localization.js';
 import { URLManager } from './url-manager.js';
 import { GeolocationManager } from './geolocation-manager.js';
 import { ViewControl } from './mapbox-gl-view-control.js';
-import { permalinkHandler } from './permalink-handler.js';
+import { PermalinkHandler } from './permalink-handler.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
 import { TimeControl } from './time-control.js';
-import { StatePersistence } from './pwa/state-persistence.js';
+import { StatePersistence } from './state-persistence.js';
 import { MapAttributionControl } from './map-attribution-control.js';
 import { layerRegistry } from './layer-registry.js';
 
@@ -25,7 +25,6 @@ function getUrlParameter(name) {
 // Function to parse layers from URL parameter
 function parseLayersFromUrl(layersParam) {
     if (!layersParam) return [];
-
 
     const layers = [];
     let currentItem = '';
@@ -225,6 +224,7 @@ async function loadConfiguration() {
     // Initialize the layer registry first
     await layerRegistry.initialize();
 
+    const permalinkHandler = new PermalinkHandler();
     // Check for permalink first - this takes precedence over direct URL parameters
     const permalinkParams = await permalinkHandler.checkForPermalink();
 
@@ -552,6 +552,7 @@ async function loadConfiguration() {
     }
 
     // Load and apply localized UI strings
+    const localization = new Localization();
     localization.loadStrings(config);
 
     // Final check: prettify URL if it still has encoded parameters (e.g., terrain parameter)
@@ -833,6 +834,7 @@ async function initializeMap() {
 
         // Force update localization after DOM elements are ready
         setTimeout(() => {
+            const localization = new Localization();
             localization.forceUpdateUIElements();
         }, 100);
 
@@ -954,19 +956,13 @@ async function initializeMap() {
                 // Prevent default behavior (e.g., quick search in browsers)
                 event.preventDefault();
 
+                const drawerStateManager = new DrawerStateManager();
                 // Special case: if focused on the layer search input, blur it and toggle
-                const isLayerSearchInput = activeElement && activeElement.id === 'layer-search-input';
-
-                if (isLayerSearchInput) {
+                if (activeElement && activeElement.id === 'layer-search-input') {
                     // Blur the search input and toggle the drawer
                     activeElement.blur();
-                    if (window.drawerStateManager) {
-                        window.drawerStateManager.toggle();
-                    }
-                } else if (window.drawerStateManager) {
-                    // Normal case: not in any input field
-                    window.drawerStateManager.toggle();
                 }
+                drawerStateManager.toggle();
             }
         });
 

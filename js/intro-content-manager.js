@@ -600,6 +600,3 @@ if (window.amche.ENABLE_INTRO_CONTENT === true) {
     new IntroContentManager();
   }
 }
-
-// Export for manual initialization if needed
-window.IntroContentManager = IntroContentManager;

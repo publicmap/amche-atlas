@@ -10,7 +10,7 @@
  * UI uses a panel-based approach similar to 3D control with Shoelace details components.
  */
 
-import { drawerStateManager } from './drawer-state-manager.js';
+import { DrawerStateManager } from './drawer-state-manager.js';
 import { convertToKML } from './map-utils.js';
 import { LayerSettingsModal } from './layer-settings-modal.js';
 import { openLayerCreatorDialog } from './layer-creator-ui.js';
@@ -31,6 +31,7 @@ export class MapFeatureControl {
 
         this._map = null;
         this._stateManager = null;
+        this.drawerStateManager = new DrawerStateManager();
         this._container = null;
         this._layersContainer = null;
         this._panel = null; // Main panel component
@@ -794,7 +795,7 @@ export class MapFeatureControl {
      * Open the layer drawer using centralized manager
      */
     _openLayerDrawer() {
-        drawerStateManager.open();
+        this.drawerStateManager.open();
     }
 
     /**
@@ -1069,8 +1070,8 @@ export class MapFeatureControl {
         }
 
         // Close the layer list drawer to prevent it from obscuring feature details
-        if (drawerStateManager && drawerStateManager.isOpen()) {
-            drawerStateManager.close();
+        if (this.drawerStateManager && this.drawerStateManager.isOpen()) {
+            this.drawerStateManager.close();
         }
     }
 

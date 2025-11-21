@@ -118,6 +118,3 @@ export class Localization {
         this.updateUIElements();
     }
 }
-
-// Create and export a singleton instance
-export const localization = new Localization(); 

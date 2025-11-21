@@ -3,7 +3,7 @@
  * Handles resolution of permalink shortcuts to full URLs
  */
 
-class PermalinkHandler {
+export class PermalinkHandler {
     constructor() {
         this.permalinks = null;
         this.loadPromise = this.loadPermalinks();
@@ -163,6 +163,3 @@ class PermalinkHandler {
         return true;
     }
 }
-
-// Export singleton instance
-export const permalinkHandler = new PermalinkHandler(); 

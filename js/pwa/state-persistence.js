@@ -1,7 +1,7 @@
 // State Persistence - Saves and restores app state when switching/reopening the PWA
 // This ensures users can continue where they left off when reopening the app
 
-class StatePersistence {
+export class StatePersistence {
     constructor() {
         this.storageKey = 'amche-goa-state';
         this.isInitialized = false;
@@ -204,9 +204,3 @@ class StatePersistence {
         }
     }
 }
-
-// Create global instance
-window.statePersistence = new StatePersistence();
-
-// Export the class
-export {StatePersistence};
