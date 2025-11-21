@@ -10,6 +10,7 @@
  * });
  * shareLink.render();
  */
+
 export class ShareLink {
     constructor(options = {}) {
         this.containerId = options.containerId || 'share-container';

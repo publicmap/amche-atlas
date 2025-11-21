@@ -1,5 +1,7 @@
-// URL API - Handles URL parameter synchronization for map layers
-// Supports deep linking with ?atlas=X and ?layers=X parameters
+/**
+ * URL API - Handles URL parameter synchronization for map layers
+ * Supports deep linking with ?atlas=X and ?layers=X parameters
+ */
 
 class URLManager {
     constructor(mapLayerControl, map, geolocationManager = null) {

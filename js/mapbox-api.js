@@ -1,10 +1,10 @@
-import {getInsertPosition, logLayerStack} from './layer-order-manager.js';
-import {parseCSV, rowsToGeoJSON, gstableToArray} from './map-utils.js';
-
 /**
  * MapboxAPI - Abstracts Mapbox GL JS operations for layer management
  * Handles rendering, updating, and removing different layer types on a Mapbox map
  */
+import {getInsertPosition, logLayerStack} from './layer-order-manager.js';
+import {parseCSV, rowsToGeoJSON, gstableToArray} from './map-utils.js';
+
 export class MapboxAPI {
     constructor(map, atlasConfig = {}) {
         this._map = map;

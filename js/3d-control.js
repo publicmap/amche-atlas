@@ -1,3 +1,6 @@
+/**
+ * Controller for Three Dimensional Terrain
+ */
 export class Terrain3DControl {
     constructor(options = {}) {
         this.options = {

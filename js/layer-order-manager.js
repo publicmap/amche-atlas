@@ -1,18 +1,20 @@
-// Handles the default ordering of different map layers based on their types and properties
-//
-// IMPORTANT: Map Layer Rendering Order Logic
-// ========================================
-// In Mapbox GL JS, layers are rendered in the order they appear in the style - 
-// layers added later appear ABOVE layers added earlier. This creates a visual stacking effect.
-//
-// Config Order vs Visual Order:
-// - Config order: weather-satellite (1st), modis-terra-truecolor (2nd), viirs-night-lights (3rd)  
-// - Visual result: weather-satellite (top), modis-terra-truecolor (middle), viirs-night-lights (bottom)
-//
-// The getInsertPosition() function determines WHERE in the existing layer stack to insert each new layer.
-// For same-type layers, we want layers defined first in the config to appear visually ABOVE later ones.
-
-// Define the order of different layer types (higher order = rendered later = appears on top)
+/**
+ * Handles the default ordering of different map layers based on their types and properties
+ * IMPORTANT: Map Layer Rendering Order Logic
+ *
+ *  ========================================
+ *  In Mapbox GL JS, layers are rendered in the order they appear in the style -
+ *  layers added later appear ABOVE layers added earlier. This creates a visual stacking effect.
+ *
+ *  Config Order vs Visual Order:
+ *  - Config order: weather-satellite (1st), modis-terra-truecolor (2nd), viirs-night-lights (3rd)
+ *  - Visual result: weather-satellite (top), modis-terra-truecolor (middle), viirs-night-lights (bottom)
+ *
+ *  The getInsertPosition() function determines WHERE in the existing layer stack to insert each new layer.
+ *  For same-type layers, we want layers defined first in the config to appear visually ABOVE later ones.
+ *
+ *  Define the order of different layer types (higher order = rendered later = appears on top)
+ */
 const LAYER_TYPE_ORDER = {
     'terrain': 1,
     'style': 10,

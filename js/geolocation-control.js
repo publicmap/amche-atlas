@@ -1,3 +1,7 @@
+/**
+ * Geolocation Manager
+ */
+
 class GeolocationManager {
     constructor(map, urlManager = null) {
         this.map = map;

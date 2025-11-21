@@ -1,3 +1,7 @@
+/**
+ * Time Control
+ */
+
 export class TimeControl {
     constructor(options = {}) {
         this.options = {

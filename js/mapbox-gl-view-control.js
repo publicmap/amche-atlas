@@ -1,3 +1,7 @@
+/**
+ * Mapbox GL View Controller
+ */
+
 class ViewControl {
     constructor(options = {}) {
         this.options = {

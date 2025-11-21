@@ -1,8 +1,8 @@
-import {fetchTileJSON} from './map-utils.js';
-
 /**
  * LayerSettingsModal - Handles the layer settings modal functionality
  */
+import {fetchTileJSON} from './map-utils.js';
+
 export class LayerSettingsModal {
     constructor(mapLayerControl) {
         this.mapLayerControl = mapLayerControl;

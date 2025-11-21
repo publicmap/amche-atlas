@@ -1,9 +1,9 @@
-import {MapboxAPI} from './mapbox-api.js';
-
 /**
  * MapFeatureStateManager - Centralized feature state management
  * Manages hover, selection, and interaction states for map features across all layers
  */
+import {MapboxAPI} from './mapbox-api.js';
+
 export class MapFeatureStateManager extends EventTarget {
     constructor(map, mapboxAPI = null) {
         super();

@@ -1,3 +1,7 @@
+/**
+ * Layer Creator UI.
+ */
+
 import {fetchTileJSON} from './map-utils.js';
 
 // Get all layers from the current atlas configuration

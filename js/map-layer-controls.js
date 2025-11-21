@@ -1,14 +1,14 @@
-import {localization} from './localization.js';
-import {LayerSettingsModal} from './layer-settings.js';
-import {MapboxAPI} from './mapbox-api.js';
-import {deepMerge} from './map-utils.js';
-
 /**
  * MapLayerControl - UI control for managing map layers using MapboxAPI abstraction
  *
  * This refactored version delegates all Mapbox-specific operations to the MapboxAPI class,
  * keeping this class focused on UI management and configuration handling.
  */
+import {localization} from './localization.js';
+import {LayerSettingsModal} from './layer-settings.js';
+import {MapboxAPI} from './mapbox-api.js';
+import {deepMerge} from './map-utils.js';
+
 export class MapLayerControl {
     constructor(options) {
         // Handle options structure for groups and configuration

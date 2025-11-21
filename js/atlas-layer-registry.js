@@ -1,5 +1,7 @@
-// Atlas Layer Registry - Central source of truth for all atlas layers
-// Handles cross-atlas layer management and ID normalization
+/**
+ * Atlas Layer Registry - Central source of truth for all atlas layers
+ * Handles cross-atlas layer management and ID normalization
+ */
 
 export class LayerRegistry {
     constructor() {
