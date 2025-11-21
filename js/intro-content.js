@@ -59,51 +59,37 @@ class IntroContentManager {
   }
 
   async loadMarkdownParser() {
-    if (this.markedLoaded || window.marked) {
-      this.markedLoaded = true;
-      return;
-    }
+      if (this.markedLoaded || window.marked) {
+          this.markedLoaded = true;
+          return;
+      }
 
-    try {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js';
-      script.onload = () => {
-        this.markedLoaded = true;
-        // Configure marked globally when it loads
-        if (window.marked) {
+      this.markedLoaded = true;
+      // Configure marked globally when it loads
+      if (window.marked) {
           marked.setOptions({
-            breaks: true,
-            gfm: true,
-            sanitize: false,
-            smartLists: true,
-            smartypants: false
+              breaks: true,
+              gfm: true,
+              sanitize: false,
+              smartLists: true,
+              smartypants: false
           });
-          
+
           // For newer versions of marked, we need to configure the renderer to allow HTML
           const renderer = new marked.Renderer();
-          renderer.html = function(html) {
-            return html;
+          renderer.html = function (html) {
+              return html;
           };
-          
+
           marked.setOptions({
-            renderer: renderer,
-            breaks: true,
-            gfm: true,
-            sanitize: false,
-            smartLists: true,
-            smartypants: false
+              renderer: renderer,
+              breaks: true,
+              gfm: true,
+              sanitize: false,
+              smartLists: true,
+              smartypants: false
           });
-        }
-      };
-      document.head.appendChild(script);
-      
-      // Wait for script to load
-      await new Promise((resolve) => {
-        script.onload = resolve;
-      });
-    } catch (error) {
-      console.error('Failed to load marked.js:', error);
-    }
+      }
   }
 
   createModalHTML() {
