@@ -7,6 +7,7 @@
     "start": "vite --port 4035 --host",
     "dev": "vite --port 4035 --host",
     "build": "vite build",
+    "build:webpack": "webpack",
     "preview": "vite preview --port 4035",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -25,9 +26,13 @@
   "devDependencies": {
     "@vitest/coverage-v8": "^3.1.4",
     "ajv": "^8.12.0",
+    "clean-css": "^5.3.3",
+    "copy-webpack-plugin": "^13.0.1",
     "glob": "^10.3.0",
+    "html-webpack-plugin": "^5.6.5",
     "vite": "^6.3.5",
-    "vitest": "^3.1.4"
+    "vitest": "^3.1.4",
+    "webpack-cli": "^6.0.1"
   },
   "jest": {
     "testEnvironment": "node",
@@ -43,5 +48,8 @@
     "type": "git",
     "url": "https://github.com/publicmap/amche-goa.git"
   },
-  "homepage": "https://amche.in"
+  "homepage": "https://amche.in",
+  "dependencies": {
+    "webpack": "^5.103.0"
+  }
 }

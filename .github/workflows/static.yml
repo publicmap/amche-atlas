@@ -31,15 +31,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      # Setup Node.js for CSS minification
+      # Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      # Install clean-css-cli for CSS minification
-      - name: Install clean-css-cli
-        run: npm install -g clean-css-cli
 
       # Fetch and prepare main branch content
       - name: Fetch main branch content into temporary directory
@@ -48,35 +44,21 @@ jobs:
           mkdir -p temp_main
           git clone --branch main --depth 1 https://github.com/${{ github.repository }} temp_main
 
-      # Minify CSS for main branch
-      - name: Minify CSS for main branch
+      # Install dependencies and Build Webpack for main
+      - name: Build main branch
         run: |
           cd temp_main
-          echo "Minifying CSS files in css/ directory..."
-          for cssfile in css/*.css; do
-            if [ -f "$cssfile" ]; then
-              basename=$(basename "$cssfile")
-              minified="${cssfile%.css}.min.css"
-              echo "Original CSS file size for $cssfile:"
-              ls -lh "$cssfile"
-              cleancss -o "$minified" "$cssfile"
-              echo "Minified CSS file size for $minified:"
-              ls -lh "$minified"
-              if [ ! -f "$minified" ]; then
-                echo "ERROR: $minified was not created!"
-                exit 1
-              fi
-              # Update references in HTML files
-              sed -i "s|$cssfile|$minified|g" index.html
-              echo "Updated index.html to reference $minified"
-            fi
-          done
+          echo "Installing dependencies..."
+          npm ci
+          echo "Running Webpack build..."
+          npm run build:webpack
 
-      # Copy main branch content to deploy directory
+      # Copy main branch build to deploy directory
       - name: Copy main branch content to deploy directory
         run: |
           mkdir -p deploy
-          rsync -av --exclude='.git' temp_main/ deploy/
+          # Copy the contents of dist/ to deploy/
+          rsync -av temp_main/dist/ deploy/
 
       # Check if dev branch exists before attempting to fetch
       - name: Check if dev branch exists
@@ -96,37 +78,22 @@ jobs:
           mkdir -p temp_dev
           git clone --branch dev --depth 1 https://github.com/${{ github.repository }} temp_dev
 
-      # Minify CSS for dev branch
-      - name: Minify CSS for dev branch
+      # Install dependencies and Build Webpack for dev
+      - name: Build dev branch
         if: env.dev_exists == 'true'
         run: |
           cd temp_dev
-          echo "Minifying CSS files in css/ directory..."
-          for cssfile in css/*.css; do
-            if [ -f "$cssfile" ]; then
-              basename=$(basename "$cssfile")
-              minified="${cssfile%.css}.min.css"
-              echo "Original CSS file size for $cssfile:"
-              ls -lh "$cssfile"
-              cleancss -o "$minified" "$cssfile"
-              echo "Minified CSS file size for $minified:"
-              ls -lh "$minified"
-              if [ ! -f "$minified" ]; then
-                echo "ERROR: $minified was not created!"
-                exit 1
-              fi
-              # Update references in HTML files
-              sed -i "s|$cssfile|$minified|g" index.html
-              echo "Updated index.html to reference $minified"
-            fi
-          done
+          echo "Installing dependencies..."
+          npm ci
+          echo "Running Webpack build..."
+          npm run build:webpack
 
       # Copy dev branch content to /dev/ directory
       - name: Copy dev branch content to /dev/ directory
         if: env.dev_exists == 'true'
         run: |
           mkdir -p deploy/dev
-          rsync -av --exclude='.git' temp_dev/ deploy/dev/
+          rsync -av temp_dev/dist/ deploy/dev/
 
       - name: Verify Content Structure
         run: |
