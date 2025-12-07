@@ -723,7 +723,7 @@ export class MapLayerControl {
 
             if (description) {
                 const $description = $('<div>', {
-                    class: 'text-sm text-gray-600',
+                    class: 'text-sm layer-description',
                     html: description
                 });
                 $contentArea.append($description);
@@ -819,7 +819,7 @@ export class MapLayerControl {
             }
 
             const $infoDiv = $('<div>', {
-                class: 'layer-info text-xs pl-5 text-gray-600',
+                class: 'layer-info text-xs pl-5',
                 html: links.join(' | ')
             });
 

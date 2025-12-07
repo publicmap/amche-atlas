@@ -1021,8 +1021,9 @@ sl-details.map-controls-group::part(summary-icon) {
 }
 
 a:not(header a) {
-    color: #0078A8 !important;
+    color: #003CA2 !important;
     text-decoration: none;
+    font-weight: bold;
 }
 
 a:hover {
@@ -2803,6 +2804,64 @@ sl-menu {
     color: #93c5fd !important;
 }
 
+/* Layer Info Panel Typography - Enforced Contrast */
+.description-area,
+.layer-info,
+.layer-attribution,
+.layer-description {
+    color: #1f2937 !important;
+    /* Force Dark Gray-800 */
+    background-color: transparent !important;
+    /* Assume parent is light, or let it shine through */
+}
+
+/* Force links to be dark blue */
+.description-area a,
+.layer-info a,
+.layer-attribution a,
+.layer-description a {
+    color: #1d4ed8 !important;
+    /* Force Blue-700 */
+}
+
+/* 
+   Explicitly override Dark Mode for these elements 
+   because the background of the panel appears to remain light 
+   even when system dark mode is active.
+*/
+@media (prefers-color-scheme: dark) {
+
+    .description-area,
+    .layer-info,
+    .layer-attribution,
+    .layer-description {
+        color: #1f2937 !important;
+        /* Keep Dark Gray */
+    }
+
+    .description-area a,
+    .layer-info a,
+    .layer-attribution a,
+    .layer-description a {
+        color: #1d4ed8 !important;
+        /* Keep Blue-700 */
+    }
+}
+
+.dark .description-area,
+.dark .layer-info,
+.dark .layer-attribution,
+.dark .layer-description {
+    color: #1f2937 !important;
+}
+
+.dark .description-area a,
+.dark .layer-info a,
+.dark .layer-attribution a,
+.dark .layer-description a {
+    color: #1d4ed8 !important;
+}
+
 /* Language Radio Button Group Styling - Dark Theme */
 .language-radio-group sl-radio-button {
     cursor: pointer;
@@ -4209,4 +4268,11 @@ Styles moved from layer-settings.js
 /* Inspect Switch */
 .inspect-switch-hidden {
     display: none;
+}
+
+/* Fix Shoelace Tab Accessibility (Contrast) */
+/* Sky-700 (#0369a1) on White passes AA (ratio ~5.9:1) */
+sl-tab[active]::part(base),
+sl-tab:hover::part(base) {
+    color: #0369a1 !important;
 }

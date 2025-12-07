@@ -1697,8 +1697,8 @@ export class MapFeatureControl {
         opacityBtn.name = 'lightbulb';
         opacityBtn.style.fontSize = '14px';
         opacityBtn.style.color = '#6b7280';
-        opacityBtn.setAttribute('title', 'Opacity');
-        opacityBtn.setAttribute('aria-label', 'Opacity');
+        opacityBtn.label = 'Opacity';
+        opacityBtn.title = 'Opacity';
 
         // Create opacity popover
         const opacityPopover = document.createElement('sl-dropdown');
@@ -2017,10 +2017,9 @@ export class MapFeatureControl {
         content.className = 'source-content';
         content.style.cssText = `
             padding: 0;
-            background: transparent;
             font-size: 11px;
             line-height: 1.4;
-            color: #1f2937; /* Darker text for better visibility */
+            color: #000; /* Darker text for better visibility */
         `;
 
         if (config.description) {
