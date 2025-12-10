@@ -13,25 +13,15 @@ import './map-init.js';
 import './geolocation-manager.js';
 import './mapbox-gl-view-control.js';
 import './map-search-control.js';
-import { MapLinks } from './map-links.js';
-import { ShareLink } from './share-link.js';
-import { NavigationControl } from './navigation-control.js';
+import {MapLinks} from './map-links.js';
+import {ShareLink} from './share-link.js';
+import {NavigationControl} from './navigation-control.js';
 
 // Initialize NavigationControl
 document.addEventListener('DOMContentLoaded', () => {
     const navigationControl = new NavigationControl();
     navigationControl.render();
 });
-
-/**
- * Navigates to the sound page.
- */
-function navigateToSound(event) {
-    event.preventDefault();
-    const currentHash = window.location.hash;
-    const baseUrl = window.location.origin;
-    window.location.href = `${baseUrl}/sound/${currentHash}`;
-}
 
 /**
  * This will execute the google analytics script for the amche.in domain
@@ -55,11 +45,8 @@ if (window.location.hostname === window.amche.DOMAIN_URL) {
 /**
  * Activating the skeletonContainer element.
  */
-// Add this after your existing scripts
 const skeletonContainer = document.getElementById('skeleton-container');
-const numberOfSkeletons = 15;
-
-Array.from({ length: numberOfSkeletons }).forEach(() => {
+Array.from({ length: 15 }).forEach(() => {
     const skeleton = document.createElement('sl-skeleton');
     skeleton.className = 'skeleton-map-controls';
     skeleton.setAttribute('effect', 'pulse');
@@ -116,9 +103,6 @@ customElements.whenDefined('sl-drawer').then(() => {
     });
 });
 
-// Handle navigation dropdown menu clicks
-// Event handling is now managed by the NavigationControl class in navigation-control.js
-
 /**
  * MapLinks and ShareLink controls initialization
  */
@@ -149,3 +133,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     parentElement.appendChild(searchbox);
 })
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+            .catch((error) => {
+                console.error('Service Worker registration failed:', error);
+            });
+    });
+}

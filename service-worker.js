@@ -1,58 +1,39 @@
+/**
+ * PWA Service Worker.
+ * unfortunately this file has to be in the root folder so that it has access to all the assets to be cached.
+ *
+ */
+
 const CACHE_NAME = 'amche-goa-v1';
+
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
     '/offline.html',
-    '/styles.css',
+    '/css/styles.css',
+    '/css/layer-interactions.css',
     '/config/_defaults.json',
-    '/js/geolocation-manager.js',
-    '/js/mapbox-gl-view-control.js',
-    '/js/map-init.js',
-    '/js/map-layer-controls.js',
-    '/js/map-utils.js',
-    '/js/layer-order-manager.js',
-    '/js/map-feature-state-manager.js',
-    '/js/pwa/state-persistence.js',
+    '/js/main.bundle.js',
     '/assets/img/icon-192x192.png',
-    '/assets/img/icon-512x512.png'
-];
+    '/assets/img/icon-512x512.png',
 
-// Optional external resources to cache (will not fail installation if unavailable)
-const OPTIONAL_ASSETS = [
-    'https://cdn.tailwindcss.com',
+    'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4',
+    'https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js',
+    'https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js',
+    'https://cdn.jsdelivr.net/npm/mapbox-gl@3.16.0/dist/mapbox-gl.min.js',
+    'https://cdn.jsdelivr.net/npm/mapbox-gl@3.16.0/dist/mapbox-gl.min.css',
     'https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace.js',
-    'https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css',
-    'https://code.jquery.com/jquery-3.7.1.min.js',
-    'https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css',
-    'https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js',
-    'https://api.mapbox.com/search-js/v1.0.0/web.js',
+    'https://cdn.jsdelivr.net/npm/@mapbox/search-js-web@1.0.0/dist/mapboxsearch.min.js',
+    'https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.min.css',
     'https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap'
 ];
-
-// Helper function to cache a single asset and ignore failures
-const cacheAsset = async (cache, url) => {
-    try {
-        await cache.add(url);
-        console.log(`Cached: ${url}`);
-    } catch (error) {
-        console.warn(`Failed to cache: ${url}`, error);
-    }
-};
 
 // Install event - cache initial assets
 self.addEventListener('install', (event) => {
     event.waitUntil(
         (async () => {
             const cache = await caches.open(CACHE_NAME);
-
-            // First, try to cache critical assets
             await cache.addAll(ASSETS_TO_CACHE);
-
-            // Then, try to cache optional assets but continue even if they fail
-            await Promise.allSettled(
-                OPTIONAL_ASSETS.map(url => cacheAsset(cache, url))
-            );
-
             return self.skipWaiting();
         })()
     );
@@ -83,9 +64,7 @@ self.addEventListener('fetch', (event) => {
     // Skip some cross-origin requests that don't need caching
     if (!event.request.url.startsWith(self.location.origin) &&
         !event.request.url.includes('cdn.jsdelivr.net') &&
-        !event.request.url.includes('api.mapbox.com') &&
-        !event.request.url.includes('fonts.googleapis.com') &&
-        !event.request.url.includes('code.jquery.com')) {
+        !event.request.url.includes('fonts.googleapis.com')) {
         return;
     }
 
