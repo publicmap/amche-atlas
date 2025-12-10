@@ -764,7 +764,6 @@ async function initializeMap() {
         const container = document.getElementById('layer-controls-container');
 
         // Hide loader and show controls
-        document.getElementById('layer-controls-loader').classList.add('hidden');
         document.getElementById('map-layer-filter').classList.remove('hidden');
         container.classList.remove('hidden');
 

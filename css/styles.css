@@ -273,7 +273,6 @@ body {
     bottom: 0;
 }
 
-
 /* Ensure attribution is visible */
 .mapboxgl-ctrl-bottom-right {
     bottom: 0 !important;
@@ -317,7 +316,6 @@ main {
     right: 0;
     bottom: 0;
 }
-
 
 /* Add these styles in your existing style section */
 .mapboxgl-ctrl-icon svg {
@@ -486,7 +484,6 @@ main {
 header h1 {
     font-family: 'Open Sans', sans-serif;
 }
-
 
 /* Popup styles */
 .mapboxgl-popup-content {
@@ -764,7 +761,6 @@ header h1 {
     opacity: 0.9;
 }
 
-
 sl-drawer {
     --header-spacing: 5px;
     --body-spacing: 5px;
@@ -845,25 +841,6 @@ sl-icon-button.opacity-toggle::part(base):focus {
 .opacity-control {
     display: none;
 }
-
-
-/* Style all skeleton loaders in the drawer */
-#layer-controls-loader sl-skeleton::part(base) {
-    --border-radius: 0;
-    height: 50px;
-    width: 100%;
-}
-
-/* Add hover effect */
-#layer-controls-loader sl-skeleton {
-    opacity: 0.8;
-}
-
-#layer-controls-loader sl-skeleton:hover {
-    opacity: 1;
-}
-
-/* Ensure main container is properly positioned for contained drawer */
 
 /* Update map container to be relative for drawer containment */
 #map {
@@ -977,7 +954,6 @@ sl-details.map-controls-group::part(summary-icon) {
     gap: 8px;
 }
 
-
 /* Add toast notification styles */
 .toast-notification {
     position: fixed;
@@ -1040,7 +1016,6 @@ a:not(header a) {
 a:hover {
     text-decoration: underline;
 }
-
 
 /* Update basemap control to overlay control */
 .overlay-control {
@@ -1117,7 +1092,6 @@ a:hover {
     width: 1rem;
     height: 1rem;
 }
-
 
 header .icon-button {
     color: #ffffff !important;
@@ -1394,7 +1368,6 @@ input:checked+.toggle-slider:before {
     font-weight: 500;
 }
 
-
 .layer-settings-content {
     height: 100%;
     overflow-y: auto;
@@ -1436,7 +1409,6 @@ input:checked+.toggle-slider:before {
 .settings-button:hover {
     opacity: 1;
 }
-
 
 .source-details .font-mono {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
@@ -3777,7 +3749,6 @@ Styles moved from layer-settings.js
     padding: 8px;
 }
 
-
 .map-feature-panel-header-left {
     flex: 0;
     display: flex;
@@ -3963,7 +3934,6 @@ Styles moved from layer-settings.js
 .atlas-view-location-btn sl-icon {
     flex-shrink: 0;
 }
-
 
 /* Layer Cards */
 .layer-card {

@@ -43,17 +43,6 @@ if (window.location.hostname === window.amche.DOMAIN_URL) {
 }
 
 /**
- * Activating the skeletonContainer element.
- */
-const skeletonContainer = document.getElementById('skeleton-container');
-Array.from({ length: 15 }).forEach(() => {
-    const skeleton = document.createElement('sl-skeleton');
-    skeleton.className = 'skeleton-map-controls';
-    skeleton.setAttribute('effect', 'pulse');
-    skeletonContainer.appendChild(skeleton);
-});
-
-/**
  * Initialize drawer functionality and navigation
  */
 // Initialize drawer functionality after Shoelace components are ready
