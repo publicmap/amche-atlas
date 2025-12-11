@@ -4,7 +4,6 @@
  * This refactored version delegates all Mapbox-specific operations to the MapboxAPI class,
  * keeping this class focused on UI management and configuration handling.
  */
-import { Localization } from './localization.js';
 import { LayerSettingsModal } from './layer-settings-modal.js';
 import { MapboxAPI } from './mapbox-api.js';
 import { deepMerge } from './map-utils.js';
@@ -240,13 +239,6 @@ export class MapLayerControl {
                 fullConfig = JSON.parse(configText);
                 config = fullConfig.layers && Array.isArray(fullConfig.layers) ?
                     fullConfig.layers : fullConfig;
-            }
-
-            // Apply localization if available
-            if (fullConfig) {
-                const localization = new Localization();
-                localization.loadStrings(fullConfig);
-                setTimeout(() => localization.forceUpdateUIElements(), 100);
             }
 
             this._updateState({ groups: config });

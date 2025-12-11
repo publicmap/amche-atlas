@@ -1,6 +1,5 @@
 import { URLManager } from './url-manager.js';
 import { TimeControl } from './time-control.js';
-import { Localization } from './localization.js';
 import { layerRegistry } from './layer-registry.js';
 import { MapLayerControl } from './map-layer-controls.js';
 import { PermalinkHandler } from './permalink-handler.js';
@@ -550,10 +549,6 @@ async function loadConfiguration() {
         }
     }
 
-    // Load and apply localized UI strings
-    const localization = new Localization();
-    localization.loadStrings(config);
-
     // Final check: prettify URL if it still has encoded parameters (e.g., terrain parameter)
     if (needsURLPrettification()) {
         const url = new URL(window.location);
@@ -825,12 +820,6 @@ async function initializeMap() {
 
         // Initialize 3D control from URL parameters after URL manager is ready
         terrain3DControl.initializeFromURL();
-
-        // Force update localization after DOM elements are ready
-        setTimeout(() => {
-            const localization = new Localization();
-            localization.forceUpdateUIElements();
-        }, 100);
 
         // Set up click listener for geolocate buttons in documentation
         $(document).on('click', '.geolocate', function (e) {
