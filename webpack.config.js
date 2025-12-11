@@ -8,7 +8,6 @@ module.exports = {
     mode: 'production',
     entry: {
         main: './js/index.js',
-        'register-sw': './js/pwa/register-sw.js'
     },
     output: {
         filename: 'js/[name].bundle.js',
@@ -22,8 +21,7 @@ module.exports = {
                 const html = fs.readFileSync('./index.html', 'utf8');
                 // Remove the original script tags to avoid duplication
                 return html
-                    .replace('<script defer type="module" src="js/index.js"></script>', '')
-                    .replace('<script defer src="js/pwa/register-sw.js"></script>', '');
+                    .replace('<script defer type="module" src="js/index.js"></script>', '');
             },
             filename: 'index.html',
             chunks: ['main'], // Only inject main bundle automatically
@@ -48,13 +46,6 @@ module.exports = {
                 { from: 'manifest.json', to: 'manifest.json' },
                 { from: 'offline.html', to: 'offline.html' },
                 { from: 'privacy.html', to: 'privacy.html' },
-                {
-                    from: 'js/pwa',
-                    to: 'js/pwa',
-                    globOptions: {
-                        ignore: ['**/register-sw.js'],
-                    },
-                },
             ],
         }),
     ],
