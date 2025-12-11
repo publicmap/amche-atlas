@@ -96,14 +96,17 @@ function startLevel() {
     console.log('startLevel: Reset map - opacity 0.3, pointer-events none');
 
     if (gameState.bgMap) {
-        // Reset view to top-down
-        gameState.bgMap.easeTo({
+        // Stop any ongoing animations
+        gameState.bgMap.stop();
+
+        // Reset view to match static tiles exactly
+        gameState.bgMap.jumpTo({
             pitch: gameState.pitch,
             bearing: gameState.bearing,
             zoom: gameState.zoom,
-            center: gameState.center,
-            duration: 1000
+            center: gameState.center
         });
+
         // Disable interactions
         gameState.bgMap.scrollZoom.disable();
         gameState.bgMap.boxZoom.disable();

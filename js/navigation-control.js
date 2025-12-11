@@ -53,6 +53,14 @@ export class NavigationControl {
                 return;
             }
 
+            // Handle game menu item click
+            if (menuItem.id === 'game-menu-item') {
+                event.preventDefault();
+                const currentHash = window.location.hash;
+                window.location.href = './game/' + currentHash;
+                return;
+            }
+
             // Handle href navigation
             const href = menuItem.getAttribute('href');
             if (href) {
