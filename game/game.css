@@ -1,0 +1,111 @@
+/* Game Container */
+#fifteen {
+    position: relative;
+    /* background-color: #ddd; - Removed to show map behind */
+    box-shadow: 0 5px 10px rgb(0 0 0 / 65%);
+    /* Transition for smooth resizing */
+    transition: width 0.3s ease, height 0.3s ease;
+    z-index: 10;
+    /* Above map */
+}
+
+/* Background Map */
+#background-map {
+    position: absolute;
+    /* Size will be set by JS to match #fifteen */
+    z-index: 0;
+    /* Behind tiles */
+    opacity: 0.2;
+    /* pointer-events managed by JS */
+    border-radius: 2px;
+    /* Match tiles if appropriate */
+}
+
+/* Individual Tile Slot */
+.slot {
+    position: absolute;
+    /* Styles for the tiles */
+    background-repeat: no-repeat;
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    /* Inner border effect */
+    transition: top 0.2s ease-out, left 0.2s ease-out;
+    background-color: #ddd;
+    /* Fallback */
+
+    /* Optional: make tiles rounded */
+    border-radius: 2px;
+}
+
+.slot:hover {
+    filter: brightness(1.1);
+    z-index: 20;
+}
+
+/* Empty slot styling (optional, usually invisible or placeholder) */
+.slot-empty {
+    /* Usually not rendered as a div, or transparent */
+}
+
+/* Animations */
+@keyframes bounce {
+
+    from,
+    20%,
+    53%,
+    80%,
+    to {
+        animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+        transform: translate3d(0, 0, 0);
+    }
+
+    40%,
+    43% {
+        animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
+        transform: translate3d(0, -30px, 0);
+    }
+
+    70% {
+        animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
+        transform: translate3d(0, -15px, 0);
+    }
+
+    90% {
+        transform: translate3d(0, -4px, 0);
+    }
+}
+
+.bounce {
+    animation-name: bounce;
+    animation-duration: 1s;
+    transform-origin: center bottom;
+    animation-fill-mode: both;
+}
+
+@keyframes bounceOut {
+    20% {
+        transform: scale3d(0.9, 0.9, 0.9);
+    }
+
+    50%,
+    55% {
+        opacity: 1;
+        transform: scale3d(1.1, 1.1, 1.1);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale3d(0.3, 0.3, 0.3);
+    }
+}
+
+.bounceOut {
+    animation-name: bounceOut;
+    animation-duration: 0.75s;
+    animation-fill-mode: both;
+}
+
+.animated {
+    /* Base class for animations if needed, though included in classes above */
+    animation-fill-mode: both;
+}
