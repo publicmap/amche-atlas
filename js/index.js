@@ -6,16 +6,12 @@ import './mapbox-api.js';
 import './map-feature-state-manager.js';
 import './map-layer-controls.js';
 import './map-feature-control.js';
-import './map-attribution-control.js';
 import './intro-content-manager.js';
 import './layer-registry.js';
 import './map-init.js';
 import './geolocation-manager.js';
 import './map-search-control.js';
-import { ButtonExternalMapLinks } from './button-external-map-links.js';
-import { ButtonShareLink } from './button-share-link.js';
 import { NavigationControl } from './navigation-control.js';
-import { ButtonResetMapView } from './button-reset-map-view.js';
 
 // Initialize NavigationControl
 document.addEventListener('DOMContentLoaded', () => {
@@ -90,22 +86,6 @@ customElements.whenDefined('sl-drawer').then(() => {
             console.log('[HTML] Drawer manually closed by user');
         }
     });
-});
-
-/**
- * Add all the buttons.
- */
-
-window.addEventListener('mapReady', (event) => {
-    const map = event.detail.map;
-
-    map.addControl(new ButtonExternalMapLinks(), 'bottom-right');
-    map.addControl(new ButtonResetMapView(), 'top-right');
-    map.addControl(new ButtonShareLink({
-        url: () => window.location.href,
-        showToast: true,
-        qrCodeSize: 500
-    }), 'bottom-right');
 });
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -168,14 +168,6 @@ export class MapFeatureControl {
     }
 
     /**
-     * Public method to add the control to a map (following mapbox-choropleth pattern)
-     */
-    addTo(map) {
-        map.addControl(this, this.options.position);
-        return this;
-    }
-
-    /**
      * Initialize the control with the centralized state manager
      */
     initialize(stateManager, config = null) {

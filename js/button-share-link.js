@@ -1,12 +1,6 @@
 /**
  * ShareLink Control - A Mapbox GL JS control for share button with QR code functionality
  *
- * Usage:
- * const shareLink = new ShareLink({
- *   buttonText: 'Share',
- *   qrCodeSize: 500
- * });
- * map.addControl(shareLink, 'bottom-right');
  */
 
 export class ButtonShareLink {
