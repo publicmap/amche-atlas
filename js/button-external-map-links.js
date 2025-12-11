@@ -1,7 +1,7 @@
 /**
  * MapLinks Control - A Mapbox GL JS control for displaying map navigation links
  */
-export class MapLinks {
+export class ButtonExternalMapLinks {
     constructor(options = {}) {
         this._map = null;
         this._container = null;

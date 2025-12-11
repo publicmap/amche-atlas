@@ -12,8 +12,8 @@ import './layer-registry.js';
 import './map-init.js';
 import './geolocation-manager.js';
 import './map-search-control.js';
-import { MapLinks } from './map-links.js';
-import { ShareLink } from './share-link.js';
+import { ButtonExternalMapLinks } from './button-external-map-links.js';
+import { ButtonShareLink } from './button-share-link.js';
 import { NavigationControl } from './navigation-control.js';
 import { ButtonResetMapView } from './button-reset-map-view.js';
 
@@ -99,9 +99,9 @@ customElements.whenDefined('sl-drawer').then(() => {
 window.addEventListener('mapReady', (event) => {
     const map = event.detail.map;
 
-    map.addControl(new MapLinks(), 'bottom-right');
+    map.addControl(new ButtonExternalMapLinks(), 'bottom-right');
     map.addControl(new ButtonResetMapView(), 'top-right');
-    map.addControl(new ShareLink({
+    map.addControl(new ButtonShareLink({
         url: () => window.location.href,
         showToast: true,
         qrCodeSize: 500

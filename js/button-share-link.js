@@ -9,7 +9,7 @@
  * map.addControl(shareLink, 'bottom-right');
  */
 
-export class ShareLink {
+export class ButtonShareLink {
     constructor(options = {}) {
         this.url = options.url || window.location.href;
         this.buttonText = options.buttonText || 'Share';
