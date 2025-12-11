@@ -1,16 +1,15 @@
-import { MapLayerControl } from './map-layer-controls.js';
-import { MapFeatureControl } from './map-feature-control.js';
-import { MapFeatureStateManager } from './map-feature-state-manager.js';
-import { Localization } from './localization.js';
 import { URLManager } from './url-manager.js';
-import { GeolocationManager } from './geolocation-manager.js';
-import { ViewControl } from './mapbox-gl-view-control.js';
+import { TimeControl } from './time-control.js';
+import { Localization } from './localization.js';
+import { layerRegistry } from './layer-registry.js';
+import { MapLayerControl } from './map-layer-controls.js';
 import { PermalinkHandler } from './permalink-handler.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
-import { TimeControl } from './time-control.js';
 import { StatePersistence } from './state-persistence.js';
+import { MapFeatureControl } from './map-feature-control.js';
+import { GeolocationManager } from './geolocation-manager.js';
 import { MapAttributionControl } from './map-attribution-control.js';
-import { layerRegistry } from './layer-registry.js';
+import { MapFeatureStateManager } from './map-feature-state-manager.js';
 
 // Layer registry is now imported from layer-registry.js
 // Make it available globally for backwards compatibility
@@ -749,10 +748,6 @@ async function initializeMap() {
         map.on('dragend', () => {
             canvas.style.cursor = 'grab';
         });
-
-        // Add view control
-        map.addControl(new ViewControl(), 'top-right');
-
 
         // Initialize centralized state manager (NEW ARCHITECTURE)
         const stateManager = new MapFeatureStateManager(map);

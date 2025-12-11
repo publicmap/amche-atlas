@@ -11,11 +11,11 @@ import './intro-content-manager.js';
 import './layer-registry.js';
 import './map-init.js';
 import './geolocation-manager.js';
-import './mapbox-gl-view-control.js';
 import './map-search-control.js';
-import {MapLinks} from './map-links.js';
-import {ShareLink} from './share-link.js';
-import {NavigationControl} from './navigation-control.js';
+import { MapLinks } from './map-links.js';
+import { ShareLink } from './share-link.js';
+import { NavigationControl } from './navigation-control.js';
+import { ButtonResetMapView } from './button-reset-map-view.js';
 
 // Initialize NavigationControl
 document.addEventListener('DOMContentLoaded', () => {
@@ -93,21 +93,19 @@ customElements.whenDefined('sl-drawer').then(() => {
 });
 
 /**
- * MapLinks and ShareLink controls initialization
+ * Add all the buttons.
  */
 
 window.addEventListener('mapReady', (event) => {
     const map = event.detail.map;
 
-    const mapLinks = new MapLinks();
-    map.addControl(mapLinks, 'bottom-right');
-
-    const shareLink = new ShareLink({
+    map.addControl(new MapLinks(), 'bottom-right');
+    map.addControl(new ButtonResetMapView(), 'top-right');
+    map.addControl(new ShareLink({
         url: () => window.location.href,
         showToast: true,
         qrCodeSize: 500
-    });
-    map.addControl(shareLink, 'bottom-right');
+    }), 'bottom-right');
 });
 
 document.addEventListener('DOMContentLoaded', () => {
