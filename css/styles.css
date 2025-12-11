@@ -1953,6 +1953,12 @@ sl-menu-item::part(base) {
 sl-menu-item svg {
     width: 0.875rem !important;
     height: 0.875rem !important;
+    margin-right: 0.5rem !important;
+}
+
+/* Add margin for Shoelace icons in menu items */
+sl-menu-item sl-icon[slot="prefix"] {
+    margin-right: 0.5rem !important;
 }
 
 /* Reduce padding and font size for submenu items on mobile */
