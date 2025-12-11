@@ -281,10 +281,13 @@ body {
 
 .mapboxgl-ctrl.mapboxgl-ctrl-attrib {
     background-color: #ffffffe1;
-    margin: 0 0 0 120px;
+    margin: 0 46px 0 120px;
     font-size: 10px;
     padding: 3px;
-    line-height: 1.2;
+    line-height: 1;
+    border-radius: 0;
+    border: none;
+
 }
 
 /* Update these styles */
