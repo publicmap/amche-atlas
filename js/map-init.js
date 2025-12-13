@@ -14,7 +14,6 @@ import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { MapExportControl } from './map-export-control.js';
 
-
 // Layer registry is now imported from layer-registry.js
 // Make it available globally for backwards compatibility
 window.layerRegistry = layerRegistry;
