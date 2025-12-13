@@ -5,6 +5,7 @@ import { ButtonShareLink } from './button-share-link.js';
 import { MapLayerControl } from './map-layer-controls.js';
 import { PermalinkHandler } from './permalink-handler.js';
 import { StatePersistence } from './state-persistence.js';
+import { MapSearchControl } from './map-search-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
 import { GeolocationManager } from './geolocation-manager.js';
 import { ButtonResetMapView } from './button-reset-map-view.js';
@@ -966,18 +967,6 @@ window.addEventListener('load', () => {
 function initializeSearch() {
     // Note: We now need to use the global map variable
     const searchSetup = () => {
-        // Check if MapSearchControl is available
-        if (typeof MapSearchControl === 'undefined') {
-            console.error('MapSearchControl class not found. Make sure map-search-control.js is loaded.');
-            return;
-        }
-
-        // Check if MapFeatureStateManager is available
-        if (typeof MapFeatureStateManager === 'undefined') {
-            console.error('MapFeatureStateManager class not found. Make sure map-feature-state-manager.js is loaded.');
-            return;
-        }
-
         // Initialize the feature state manager
         const featureStateManager = new MapFeatureStateManager(window.map);
 
@@ -985,18 +974,12 @@ function initializeSearch() {
         featureStateManager.watchLayerAdditions();
 
         // Initialize the enhanced search control
-        const searchControl = new MapSearchControl(window.map, {
-            // You can add custom options here if needed
-            proximity: '73.87916,15.26032', // Goa center
-            country: 'IN',
-            language: 'en'
-        });
+        const searchControl = new MapSearchControl(window.map);
 
         // Connect the feature state manager to the search control
         searchControl.setFeatureStateManager(featureStateManager);
 
         // Make both globally accessible for debugging
-        window.searchControl = searchControl;
         window.featureStateManager = featureStateManager;
 
     };

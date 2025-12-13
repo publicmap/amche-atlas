@@ -10,14 +10,7 @@ import './intro-content-manager.js';
 import './layer-registry.js';
 import './map-init.js';
 import './geolocation-manager.js';
-import './map-search-control.js';
 import { NavigationControl } from './navigation-control.js';
-
-// Initialize NavigationControl
-document.addEventListener('DOMContentLoaded', () => {
-    const navigationControl = new NavigationControl();
-    navigationControl.render();
-});
 
 /**
  * This will execute the google analytics script for the amche.in domain
@@ -88,18 +81,11 @@ customElements.whenDefined('sl-drawer').then(() => {
     });
 });
 
+// Initialize NavigationControl
 document.addEventListener('DOMContentLoaded', () => {
-    const parentElement = document.getElementById('mapbox-search-box-container');
-    var searchbox = document.createElement('mapbox-search-box');
-    Object.assign(searchbox, {
-        'access-token': window.amche.MAPBOXGL_ACCESS_TOKEN,
-        types: "place,locality,postcode,region,district,street,address,poi",
-        country: "IN",
-        language: "en",
-        proximity: "73.87916,15.26032"
-    });
-    parentElement.appendChild(searchbox);
-})
+    const navigationControl = new NavigationControl();
+    navigationControl.render();
+});
 
 // Register service worker
 /*
