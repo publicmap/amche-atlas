@@ -5475,8 +5475,3 @@ export class MapFeatureControl {
 
     }
 }
-
-// Make available globally for backwards compatibility
-if (typeof window !== 'undefined') {
-    window.MapFeatureControl = MapFeatureControl;
-}

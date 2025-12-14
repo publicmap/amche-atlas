@@ -3,7 +3,7 @@
  * Supports deep linking with ?atlas=X and ?layers=X parameters
  */
 
-class URLManager {
+export class URLManager {
     constructor(mapLayerControl, map, geolocationManager = null) {
         this.mapLayerControl = mapLayerControl;
         this.map = map;
@@ -974,6 +974,3 @@ class URLManager {
         this.updateURL({terrainSource: terrainSource});
     }
 }
-
-// Export the URLManager class
-export {URLManager};

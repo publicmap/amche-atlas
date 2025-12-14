@@ -2064,8 +2064,3 @@ export class MapLayerControl {
         }
     }
 }
-
-// Make available globally for backwards compatibility
-if (typeof window !== 'undefined') {
-    window.MapLayerControl = MapLayerControl;
-} 
