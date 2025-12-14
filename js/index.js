@@ -1,9 +1,18 @@
 /**
  * The Single Entry Point
  */
+import { layerRegistry } from './layer-registry.js';
 import './mapbox-api.js';
 import './map-init.js';
 import { NavigationControl } from './navigation-control.js';
+
+// Layer registry is now imported from layer-registry.js
+// Make it available globally for backwards compatibility
+window.layerRegistry = layerRegistry;
+
+// Initialize the map
+mapboxgl.accessToken = window.amche.MAPBOXGL_ACCESS_TOKEN;
+
 
 /**
  * This will execute the google analytics script for the amche.in domain
@@ -29,6 +38,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const navigationControl = new NavigationControl();
     navigationControl.render();
 });
+
+// Start initialization
+window.addEventListener('load', () => {
+    // Only call initializeMap() - don't call initializeSearch() directly
+    initializeMap().then(() => {
+        // Now window.map exists, so we can initialize search
+        initializeSearch();
+    });
+});
+
 
 // Register service worker
 /*

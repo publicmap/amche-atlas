@@ -1,6 +1,5 @@
 import { URLManager } from './url-manager.js';
 import { TimeControl } from './time-control.js';
-import { layerRegistry } from './layer-registry.js';
 import { ButtonShareLink } from './button-share-link.js';
 import { MapLayerControl } from './map-layer-controls.js';
 import { PermalinkHandler } from './permalink-handler.js';
@@ -13,10 +12,6 @@ import { MapAttributionControl } from './map-attribution-control.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { MapExportControl } from './map-export-control.js';
-
-// Layer registry is now imported from layer-registry.js
-// Make it available globally for backwards compatibility
-window.layerRegistry = layerRegistry;
 
 // Function to get URL parameters
 function getUrlParameter(name) {
@@ -613,9 +608,6 @@ function isObject(item) {
     return (item && typeof item === 'object' && !Array.isArray(item));
 }
 
-// Initialize the map
-mapboxgl.accessToken = window.amche.MAPBOXGL_ACCESS_TOKEN;
-
 // Default map options
 const defaultMapOptions = {
     container: 'map',
@@ -952,15 +944,6 @@ async function initializeMap() {
         window.dispatchEvent(mapReadyEvent);
     });
 }
-
-// Start initialization
-window.addEventListener('load', () => {
-    // Only call initializeMap() - don't call initializeSearch() directly
-    initializeMap().then(() => {
-        // Now window.map exists, so we can initialize search
-        initializeSearch();
-    });
-});
 
 // Initialize search box with enhanced functionality
 function initializeSearch() {
