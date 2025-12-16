@@ -367,6 +367,59 @@ export class MapExportControl {
             console.warn('Failed to generate QR for PDF', e);
         }
 
+        // Capture Overlay (Feature Control Layers)
+        let overlayDataUrl = null;
+        let overlayWidthMm = 0;
+        let overlayHeightMm = 0;
+
+        const featurePanelLayers = document.querySelector('.map-feature-panel-layers');
+        if (featurePanelLayers && featurePanelLayers.offsetHeight > 0) {
+            try {
+                // Dynamically import html2canvas
+                const html2canvas = (await import('html2canvas')).default;
+
+                // Clone to body to ensure we capture independent of current scroll/display clipping if needed,
+                // but html2canvas usually handles that. However, to ensure clean capture with transparent background styling for PDF:
+                // We'll capture the actual element as it is "WYSIWYG".
+                // Issue: If it's inside a scrolling container, we might only get the visible part.
+                // The user usually wants the "content".
+                // If the user wants the WHOLE content (scrolled or not), we might need to clone and expand height.
+                // Let's assume WYSIWYG for now (what's visible or the element itself).
+                // Actually, 'mirrors the content...'. If it's a long list, putting it on PDF might cover the whole map.
+                // Let's stick to capturing the element.
+
+                // Create a clone to modify styling for capture if needed (e.g. transparent background if panel has one)
+                // The current panel has a white background.
+                // We probably want to keep the white background for readability on the map.
+
+                const canvas = await html2canvas(featurePanelLayers, {
+                    backgroundColor: '#ffffff', // Force white background for visibility on PDF
+                    scale: 2, // Better quality
+                    logging: false,
+                    useCORS: true
+                });
+
+                overlayDataUrl = canvas.toDataURL('image/png');
+
+                // Calculate dimensions for PDF (maintain aspect ratio)
+                // Pixel width / dpi * 25.4 does not apply directly because html2canvas scale depends on device pixel ratio usually, 
+                // but we forced scale: 2.
+                // Let's map pixels to mm roughly based on typical screen viewing (96dpi).
+                // Screen pixels to mm: pixels * 0.2645833333
+                // We scaled by 2, so real logic pixels = canvas.width / 2
+
+                const logicWidth = canvas.width / 2;
+                const logicHeight = canvas.height / 2;
+
+                // Convert logic pixels to mm (assuming ~96dpi assumption for PDF mapping visually)
+                overlayWidthMm = logicWidth * 0.26458;
+                overlayHeightMm = logicHeight * 0.26458;
+
+            } catch (e) {
+                console.warn('Failed to capture overlay', e);
+            }
+        }
+
         return new Promise((resolve, reject) => {
 
             // Function to capture after resize and move
@@ -383,6 +436,26 @@ export class MapExportControl {
 
                     // Draw Map
                     doc.addImage(imgData, 'PNG', 0, 0, widthMm, mapHeightMm);
+
+                    // Draw Overlay (Top Left)
+                    if (overlayDataUrl && overlayWidthMm > 0 && overlayHeightMm > 0) {
+                        const overlayX = marginMm + 2; // Slight indent from margin
+                        const overlayY = marginMm + 2;
+
+                        // Check if it fits
+                        let drawW = overlayWidthMm;
+                        let drawH = overlayHeightMm;
+
+                        // Limit height to map height - margin
+                        const maxHeight = mapHeightMm - (marginMm * 2);
+                        if (drawH > maxHeight) {
+                            const ratio = maxHeight / drawH;
+                            drawH = maxHeight;
+                            drawW = drawW * ratio;
+                        }
+
+                        doc.addImage(overlayDataUrl, 'PNG', overlayX, overlayY, drawW, drawH);
+                    }
 
                     // Draw Footer Background
                     doc.setFillColor(0, 0, 0); // Black
@@ -415,7 +488,7 @@ export class MapExportControl {
                         // jsPDF doesn't render HTML easily with .text(). 
                         // Stripping tags for now as requested "text".
                         // attribCtrl.innerText usually gives visible text.
-                        const cleanAttrib = attributionText.replace(/\|/g, '   '); // Replace pipes with spaces
+                        const cleanAttrib = attributionText.replace(/\|/g, '    '); // Replace pipes with spaces
 
                         doc.text(cleanAttrib, attribX, attribY, { align: 'right', baseline: 'middle', maxWidth: widthMm / 2 });
                     }
