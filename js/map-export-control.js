@@ -323,10 +323,20 @@ export class MapExportControl {
             
             // Administrative levels
             if (data.address.county) parts.push(data.address.county);
-            if (data.address.state) parts.push(data.address.state);
-            if (data.address.country) parts.push(data.address.country);
-
-            return parts.join(', ');
+            
+            // Build main address line
+            const mainAddress = parts.join(', ');
+            
+            // State and country on a new line
+            const stateCountryParts = [];
+            if (data.address.state) stateCountryParts.push(data.address.state);
+            if (data.address.country) stateCountryParts.push(data.address.country);
+            
+            if (stateCountryParts.length > 0) {
+                return mainAddress + '<br>' + stateCountryParts.join(', ');
+            }
+            
+            return mainAddress;
         } catch (e) {
             console.error('Reverse geocoding failed', e);
             return null;
@@ -640,6 +650,7 @@ export class MapExportControl {
                     const qrSize = 12; // QR code size in mm
                     const qrMargin = 2; // Margin around QR
                     const lineHeight = 2; // Reduced line height in mm
+                    const titleLineHeight = 3.2; // Larger line height for title to prevent overlapping
                     const elementGap = 1; // Reduced gap between elements in mm
                     const titleFontSize = 10;
                     const descFontSize = 8;
@@ -660,29 +671,57 @@ export class MapExportControl {
                         return doc.getTextWidth(text);
                     };
                     
+                    // Helper to process HTML and split text (handles <br> tags)
+                    const processHtmlText = (htmlText, maxWidth, fontSize, bold) => {
+                        // Strip HTML tags except <br> and convert <br> to line breaks
+                        // Simple HTML processing: split by <br> tags (case insensitive)
+                        const parts = htmlText.split(/<br\s*\/?>/i);
+                        let allLines = [];
+                        
+                        doc.setFontSize(fontSize);
+                        doc.setFont(undefined, bold ? 'bold' : 'normal');
+                        
+                        parts.forEach((part, index) => {
+                            // Strip any remaining HTML tags
+                            const cleanText = part.replace(/<[^>]*>/g, '').trim();
+                            if (cleanText) {
+                                // Split each part by width if needed
+                                const wrappedLines = doc.splitTextToSize(cleanText, maxWidth);
+                                allLines = allLines.concat(wrappedLines);
+                            }
+                            // Add explicit line break after each <br> (except the last one)
+                            if (index < parts.length - 1 && cleanText) {
+                                // Line break is already handled by separate array elements
+                            }
+                        });
+                        
+                        return allLines;
+                    };
+                    
                     // Calculate available width for text (accounting for QR code on left)
                     const qrCodeWithPadding = qrSize + textBoxPadding;
                     const availableTextWidth = widthMm * 0.7 - qrCodeWithPadding - textBoxPadding;
                     
-                    // Title (can wrap)
+                    // Title (can wrap and supports HTML)
                     if (title) {
                         const maxTitleWidth = availableTextWidth;
-                        const titleLines = doc.splitTextToSize(title, maxTitleWidth);
+                        const titleLines = processHtmlText(title, maxTitleWidth, titleFontSize, true);
                         const titleWidth = Math.max(...titleLines.map(line => measureTextWidth(line, titleFontSize, true)));
                         textElements.push({ 
                             text: titleLines, 
                             fontSize: titleFontSize, 
                             bold: true,
-                            width: titleWidth
+                            width: titleWidth,
+                            isTitle: true // Mark as title for special line height
                         });
-                        totalTextHeight += titleLines.length * lineHeight;
+                        totalTextHeight += titleLines.length * titleLineHeight;
                     }
                     
-                    // Description (can wrap)
+                    // Description (can wrap and supports HTML)
                     if (description) {
                         if (textElements.length > 0) totalTextHeight += elementGap;
                         const maxDescWidth = availableTextWidth;
-                        const descLines = doc.splitTextToSize(description, maxDescWidth);
+                        const descLines = processHtmlText(description, maxDescWidth, descFontSize, false);
                         const descWidth = Math.max(...descLines.map(line => measureTextWidth(line, descFontSize, false)));
                         textElements.push({ 
                             text: descLines, 
@@ -732,7 +771,7 @@ export class MapExportControl {
                     
                     // Box height needs to accommodate text height OR QR code height + date, whichever is taller
                     const qrAndDateHeight = qrSize + lineHeight + elementGap; // QR code + date above it
-                    const textBoxHeight = Math.max(totalTextHeight, qrAndDateHeight) + (textBoxPadding * 2);
+                    const textBoxHeight = Math.max(totalTextHeight, qrAndDateHeight) + (textBoxPadding * 2) - 2;
                     
                     // Position box anchored to bottom left with no margin
                     const textBoxX = 0;
@@ -781,13 +820,16 @@ export class MapExportControl {
                         doc.setFontSize(elem.fontSize);
                         doc.setFont(undefined, elem.bold ? 'bold' : 'normal');
                         
+                        // Use title-specific line height for title, regular line height for others
+                        const elemLineHeight = elem.isTitle ? titleLineHeight : lineHeight;
+                        
                         // Draw lines for this element (from bottom to top)
                         for (let lineIdx = elem.text.length - 1; lineIdx >= 0; lineIdx--) {
                             // Position baseline directly at currentY - no offset
                             // Text will naturally extend above baseline, descenders below
                             doc.text(elem.text[lineIdx], textStartX, currentY, { align: 'left' });
-                            // Move up for next line (decrease Y)
-                            currentY -= lineHeight;
+                            // Move up for next line (decrease Y) using element-specific line height
+                            currentY -= elemLineHeight;
                         }
                         
                         // Add gap between elements (except after last element at top)
