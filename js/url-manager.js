@@ -40,7 +40,7 @@ export class URLManager {
         }
 
         // If it's a layer with opacity or other properties, create a clean object
-        const cleanLayer = {id: layerId};
+        const cleanLayer = { id: layerId };
         Object.keys(layer).forEach(key => {
             if (key !== '_originalJson' && key !== '_normalizedId' &&
                 key !== '_sourceAtlas' && key !== '_prefixedId' &&
@@ -110,10 +110,10 @@ export class URLManager {
                             layers.push(parsedLayer);
                         } catch (error) {
                             console.warn('Failed to parse layer JSON:', trimmedItem, error);
-                            layers.push({id: trimmedItem});
+                            layers.push({ id: trimmedItem });
                         }
                     } else {
-                        layers.push({id: trimmedItem});
+                        layers.push({ id: trimmedItem });
                     }
                 }
                 currentItem = '';
@@ -131,10 +131,10 @@ export class URLManager {
                     layers.push(parsedLayer);
                 } catch (error) {
                     console.warn('Failed to parse layer JSON:', trimmedItem, error);
-                    layers.push({id: trimmedItem});
+                    layers.push({ id: trimmedItem });
                 }
             } else {
-                layers.push({id: trimmedItem});
+                layers.push({ id: trimmedItem });
             }
         }
 
@@ -598,7 +598,7 @@ export class URLManager {
 
             // Trigger custom event for other components (like ShareLink)
             window.dispatchEvent(new CustomEvent('urlUpdated', {
-                detail: {url: newUrl, activeLayers: this.getCurrentActiveLayers()}
+                detail: { url: newUrl, activeLayers: this.getCurrentActiveLayers() }
             }));
         }
     }
@@ -624,7 +624,7 @@ export class URLManager {
      * Update URL when layers change
      */
     onLayersChanged() {
-        this.updateURL({updateLayers: true});
+        this.updateURL({ updateLayers: true });
     }
 
     /**
@@ -854,7 +854,7 @@ export class URLManager {
         // Listen for state manager events to catch layer registration/unregistration
         if (window.stateManager) {
             this._stateManagerListener = (event) => {
-                const {eventType} = event.detail;
+                const { eventType } = event.detail;
                 if (eventType === 'layer-registered' || eventType === 'layer-unregistered') {
                     if (!this.isUpdatingFromURL) {
                         // Use a small delay to ensure the layer control state is updated
@@ -880,7 +880,7 @@ export class URLManager {
      * Manual sync method for external use
      */
     syncURL() {
-        this.updateURL({updateLayers: true});
+        this.updateURL({ updateLayers: true });
     }
 
     /**
@@ -898,7 +898,7 @@ export class URLManager {
      * Update geolocate parameter in URL
      */
     updateGeolocateParam(isActive) {
-        this.updateURL({geolocate: isActive});
+        this.updateURL({ geolocate: isActive });
     }
 
     /**
@@ -929,7 +929,7 @@ export class URLManager {
         console.log('[URL API] Auto-adding terrain parameter with exaggeration:', defaultExaggeration);
 
         // Add terrain parameter to URL
-        this.updateURL({terrain: defaultExaggeration});
+        this.updateURL({ terrain: defaultExaggeration });
 
         // Also initialize the 3D control if available
         if (window.terrain3DControl) {
@@ -943,34 +943,34 @@ export class URLManager {
      * Update terrain parameter in URL
      */
     updateTerrainParam(exaggeration) {
-        this.updateURL({terrain: exaggeration});
+        this.updateURL({ terrain: exaggeration });
     }
 
     /**
      * Update animate parameter in URL
      */
     updateAnimateParam(animate) {
-        this.updateURL({animate: animate});
+        this.updateURL({ animate: animate });
     }
 
     /**
      * Update fog parameter in URL
      */
     updateFogParam(enableFog) {
-        this.updateURL({fog: enableFog});
+        this.updateURL({ fog: enableFog });
     }
 
     /**
      * Update wireframe parameter in URL
      */
     updateWireframeParam(showWireframe) {
-        this.updateURL({wireframe: showWireframe});
+        this.updateURL({ wireframe: showWireframe });
     }
 
     /**
      * Update terrain source parameter in URL
      */
     updateTerrainSourceParam(terrainSource) {
-        this.updateURL({terrainSource: terrainSource});
+        this.updateURL({ terrainSource: terrainSource });
     }
 }
