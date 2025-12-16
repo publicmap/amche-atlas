@@ -5,6 +5,7 @@ import { layerRegistry } from './layer-registry.js';
 import './mapbox-api.js';
 import { initializeMap, initializeSearch } from './map-init.js';
 import { NavigationControl } from './navigation-control.js';
+import { IntroContentManager } from './intro-content-manager.js';
 
 function loadGoogleAnalytics() {
     if (window.location.hostname === window.amche.DOMAIN_URL) {
@@ -41,6 +42,10 @@ $(window).on('load', function () {
     initializeMap().then(() => {
         initializeSearch(); // Now window.map exists, so we can initialize search
     });
+
+    if (window.amche.ENABLE_INTRO_CONTENT === true) {
+        new IntroContentManager();
+    }
 })
 
 // Register service worker

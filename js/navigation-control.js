@@ -1,3 +1,4 @@
+import { IntroContentManager } from './intro-content-manager.js';
 export class NavigationControl {
 
     constructor(file = './config/navigation_links.json', target = 'top-header') {
@@ -15,8 +16,7 @@ export class NavigationControl {
             const container = document.getElementById(this.target);
 
             if (!container) {
-                console.error(`NavigationControl: #${this.target} element not found`);
-                return;
+                throw new Error(`NavigationControl: #${this.target} element not found`);
             }
 
             // Clear existing content if any
@@ -24,8 +24,7 @@ export class NavigationControl {
 
             if (data.items) {
                 data.items.forEach(item => {
-                    const element = this.createElement(item);
-                    container.appendChild(element);
+                    container.appendChild(this.createElement(item));
                 });
             }
 
@@ -39,45 +38,16 @@ export class NavigationControl {
         container.addEventListener('click', (event) => {
             const menuItem = event.target.closest('sl-menu-item');
             if (!menuItem) return;
+            event.preventDefault();
 
             // Handle help menu item click
             if (menuItem.id === 'help-menu-item') {
-                event.preventDefault();
-                // Create new IntroContentManager instance without auto-close
-                // Assuming IntroContentManager is available globally
-                if (window.IntroContentManager) {
-                    new window.IntroContentManager({ enableAutoClose: false });
-                } else {
-                    console.error('IntroContentManager is not defined');
-                }
-                return;
-            }
-
-            // Handle game menu item click
-            if (menuItem.id === 'game-menu-item') {
-                event.preventDefault();
-                const currentHash = window.location.hash;
-                window.location.href = './game/' + currentHash;
+                new IntroContentManager({enableAutoClose: false});
                 return;
             }
 
             // Handle href navigation
-            const href = menuItem.getAttribute('href');
-            if (href) {
-                if (href.startsWith('http')) {
-                    // External links - open in new tab if target="_blank"
-                    if (menuItem.getAttribute('target') === '_blank') {
-                        event.preventDefault();
-                        window.open(href, '_blank');
-                    }
-                } else {
-                    // Internal navigation
-                    if (!menuItem.hasAttribute('onclick')) {
-                        event.preventDefault();
-                        window.location.href = href;
-                    }
-                }
-            }
+            window.open(menuItem.getAttribute('href'), menuItem.getAttribute('target'));
         });
     }
 

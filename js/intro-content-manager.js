@@ -3,7 +3,7 @@
  * Handles the full-screen intro modal with multilingual support and auto-close functionality
  */
 
-class IntroContentManager {
+export class IntroContentManager {
   constructor(options = {}) {
     this.currentLanguage = 'en';
     this.autoCloseTimer = null;
@@ -588,15 +588,3 @@ class IntroContentManager {
 
 // Static property to track if modal has been shown before
 IntroContentManager.hasBeenShown = false;
-
-// Auto-initialize only if explicitly enabled via window.ENABLE_INTRO_CONTENT
-// This allows index.js (or other scripts) to control when intro content loads
-if (window.amche.ENABLE_INTRO_CONTENT === true) {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      new IntroContentManager();
-    });
-  } else {
-    new IntroContentManager();
-  }
-}
