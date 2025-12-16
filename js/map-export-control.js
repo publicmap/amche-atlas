@@ -6,9 +6,12 @@ export class MapExportControl {
         this._selectedSize = 'A4';
         this._orientation = 'landscape';
         this._format = 'pdf';
+        this._rasterQuality = 'medium'; // 'medium' (JPEG) or 'high' (TIFF)
         this._dpi = 96;
         this._frame = null;
         this._isExporting = false;
+        this._title = '';
+        this._description = '';
     }
 
     onAdd(map) {
@@ -119,6 +122,56 @@ export class MapExportControl {
         this._orientationContainer.onchange = (e) => this._onOrientationChange(e.target.value);
         this._exportPanel.appendChild(this._orientationContainer);
 
+        // Raster Quality Selection
+        this._qualityContainer = document.createElement('div');
+        this._qualityContainer.style.marginTop = '10px';
+        this._qualityContainer.appendChild(this._createLabel('Raster Quality'));
+        const qualityOptions = document.createElement('div');
+        qualityOptions.innerHTML = `
+            <label style="margin-right: 10px;"><input type="radio" name="raster-quality" value="medium" checked> Medium</label>
+            <label><input type="radio" name="raster-quality" value="high"> High</label>
+        `;
+        qualityOptions.onchange = (e) => {
+            this._rasterQuality = e.target.value;
+        };
+        this._qualityContainer.appendChild(qualityOptions);
+        this._exportPanel.appendChild(this._qualityContainer);
+
+        // Title Input
+        this._titleContainer = document.createElement('div');
+        this._titleContainer.style.marginTop = '10px';
+        this._titleContainer.appendChild(this._createLabel('Title'));
+        const titleInput = document.createElement('input');
+        titleInput.type = 'text';
+        titleInput.style.width = '100%';
+        titleInput.style.padding = '5px';
+        titleInput.style.marginTop = '5px';
+        titleInput.style.boxSizing = 'border-box';
+        titleInput.placeholder = 'Loading...';
+        titleInput.onchange = (e) => { this._title = e.target.value; };
+        titleInput.oninput = (e) => { this._title = e.target.value; };
+        this._titleInput = titleInput;
+        this._titleContainer.appendChild(titleInput);
+        this._exportPanel.appendChild(this._titleContainer);
+
+        // Description Textarea
+        this._descriptionContainer = document.createElement('div');
+        this._descriptionContainer.style.marginTop = '10px';
+        this._descriptionContainer.appendChild(this._createLabel('Description'));
+        const descriptionTextarea = document.createElement('textarea');
+        descriptionTextarea.style.width = '100%';
+        descriptionTextarea.style.padding = '5px';
+        descriptionTextarea.style.marginTop = '5px';
+        descriptionTextarea.style.boxSizing = 'border-box';
+        descriptionTextarea.style.minHeight = '60px';
+        descriptionTextarea.style.resize = 'vertical';
+        descriptionTextarea.placeholder = 'Loading...';
+        descriptionTextarea.onchange = (e) => { this._description = e.target.value; };
+        descriptionTextarea.oninput = (e) => { this._description = e.target.value; };
+        this._descriptionInput = descriptionTextarea;
+        this._descriptionContainer.appendChild(descriptionTextarea);
+        this._exportPanel.appendChild(this._descriptionContainer);
+
         // Export Button
         const doExportBtn = document.createElement('button');
         doExportBtn.textContent = 'Export';
@@ -171,9 +224,112 @@ export class MapExportControl {
             if (this._format !== 'geojson') {
                 this._frame.show();
                 this._updateFrameFromInputs(); // Ensure frame matches current inputs
+                // Load default title and description
+                this._loadDefaultTitleAndDescription();
             }
         } else {
             this._frame.hide();
+        }
+    }
+
+    async _loadDefaultTitleAndDescription() {
+        // Set default description
+        const date = new Date();
+        const timestamp = date.toLocaleString('en-GB', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        this._description = `PDF generated on ${timestamp}`;
+        this._descriptionInput.value = this._description;
+
+        // Get frame center and reverse geocode
+        try {
+            // Check if frame is visible and has dimensions
+            if (!this._frame || !this._frame._el || !this._frame._el.classList.contains('active')) {
+                this._title = 'Map';
+                this._titleInput.value = this._title;
+                return;
+            }
+
+            const frameRect = this._frame._el.getBoundingClientRect();
+            if (frameRect.width === 0 || frameRect.height === 0) {
+                this._title = 'Map';
+                this._titleInput.value = this._title;
+                return;
+            }
+
+            const mapRect = this._map.getContainer().getBoundingClientRect();
+            const frameCenterX = (frameRect.left + frameRect.width / 2) - mapRect.left;
+            const frameCenterY = (frameRect.top + frameRect.height / 2) - mapRect.top;
+            const center = this._map.unproject([frameCenterX, frameCenterY]);
+
+            const address = await this._reverseGeocode(center.lat, center.lng);
+            if (address) {
+                this._title = `Map of ${address}`;
+                this._titleInput.value = this._title;
+            } else {
+                this._title = 'Map';
+                this._titleInput.value = this._title;
+            }
+        } catch (e) {
+            console.warn('Failed to load default title from reverse geocode', e);
+            this._title = 'Map';
+            this._titleInput.value = this._title;
+        }
+    }
+
+    async _reverseGeocode(lat, lng) {
+        try {
+            // Use zoom level 15 to get detailed address including neighbourhood (zoom 14) and settlement details (zoom 15)
+            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=15&addressdetails=1`;
+            
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'AMChe-Goa-Map-Export/1.0'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Nominatim API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (!data.address) {
+                return null;
+            }
+
+            // Build address from most specific to least specific
+            // Include details from zoom 15 (settlement), zoom 14 (neighbourhood), and zoom 12 (village/suburb)
+            // Order: neighbourhood/hamlet/locality -> village/suburb -> town/city -> county -> state -> country
+            const parts = [];
+            
+            // Zoom 15 details: neighbourhood, hamlet, locality, isolated_dwelling (most specific settlement level)
+            if (data.address.neighbourhood) parts.push(data.address.neighbourhood);
+            else if (data.address.hamlet) parts.push(data.address.hamlet);
+            else if (data.address.locality) parts.push(data.address.locality);
+            else if (data.address.isolated_dwelling) parts.push(data.address.isolated_dwelling);
+            
+            // Zoom 14/13 details: village, suburb (if not already included above)
+            if (data.address.village && !parts.includes(data.address.village)) parts.push(data.address.village);
+            if (data.address.suburb && !parts.includes(data.address.suburb)) parts.push(data.address.suburb);
+            
+            // Zoom 12 details: town, city
+            if (data.address.town && !parts.includes(data.address.town)) parts.push(data.address.town);
+            else if (data.address.city && !parts.includes(data.address.city)) parts.push(data.address.city);
+            
+            // Administrative levels
+            if (data.address.county) parts.push(data.address.county);
+            if (data.address.state) parts.push(data.address.state);
+            if (data.address.country) parts.push(data.address.country);
+
+            return parts.join(', ');
+        } catch (e) {
+            console.error('Reverse geocoding failed', e);
+            return null;
         }
     }
 
@@ -182,11 +338,17 @@ export class MapExportControl {
             this._sizeContainer.style.display = 'none';
             this._dimContainer.style.display = 'none';
             this._orientationContainer.style.display = 'none';
+            this._qualityContainer.style.display = 'none';
+            this._titleContainer.style.display = 'none';
+            this._descriptionContainer.style.display = 'none';
             this._frame.hide();
         } else {
             this._sizeContainer.style.display = 'block';
             this._dimContainer.style.display = 'block';
             this._orientationContainer.style.display = 'block';
+            this._qualityContainer.style.display = 'block';
+            this._titleContainer.style.display = 'block';
+            this._descriptionContainer.style.display = 'block';
             this._frame.show();
             this._updateFrameFromInputs();
         }
@@ -313,12 +475,26 @@ export class MapExportControl {
         const heightMm = parseFloat(this._heightInput.input.value);
         const dpi = this._dpi;
 
-        // Footer configuration
-        const footerHeightMm = 15;
+        // Footer configuration - will be calculated based on content
         const marginMm = 5;
 
-        // Calculate Target Pixels for Map (excluding footer)
-        const mapHeightMm = heightMm - footerHeightMm;
+        // Get Data for Footer (needed for footer height calculation)
+        // URL
+        let shareUrl = window.location.href;
+        if (window.urlManager) {
+            shareUrl = window.urlManager.getShareableURL();
+        }
+
+        // Attribution
+        let attributionText = '';
+        const attribCtrl = this._map._controls.find(c => c._container && c._container.classList.contains('mapboxgl-ctrl-attrib'));
+        if (attribCtrl) {
+            attributionText = attribCtrl._container.textContent;
+        }
+
+        // No full footer bar - overlay boxes will be drawn on top of map
+        // Map uses full page height
+        const mapHeightMm = heightMm;
         const targetWidth = Math.round((widthMm * dpi) / 25.4);
         const targetHeight = Math.round((mapHeightMm * dpi) / 25.4);
 
@@ -344,20 +520,6 @@ export class MapExportControl {
 
         // 2. Resize Map Container
         const container = this._map.getContainer();
-
-        // Get Data for Footer
-        // URL
-        let shareUrl = window.location.href;
-        if (window.urlManager) {
-            shareUrl = window.urlManager.getShareableURL();
-        }
-
-        // Attribution
-        let attributionText = '';
-        const attribCtrl = this._map._controls.find(c => c._container && c._container.classList.contains('mapboxgl-ctrl-attrib'));
-        if (attribCtrl) {
-            attributionText = attribCtrl._container.textContent;
-        }
 
         // Generate QR
         let qrDataUrl = null;
@@ -435,7 +597,20 @@ export class MapExportControl {
                     });
 
                     // Draw Map
-                    doc.addImage(imgData, 'PNG', 0, 0, widthMm, mapHeightMm);
+                    if (this._rasterQuality === 'high') {
+                        // High Quality = TIFF
+                        try {
+                            const tiffData = this._canvasToTIFF(canvas);
+                            doc.addImage(tiffData, 'TIFF', 0, 0, widthMm, mapHeightMm);
+                        } catch (err) {
+                            console.error('TIFF Generation failed, falling back to PNG', err);
+                            doc.addImage(imgData, 'PNG', 0, 0, widthMm, mapHeightMm);
+                        }
+                    } else {
+                        // Medium Quality = JPEG 90
+                        const jpegData = canvas.toDataURL('image/jpeg', 0.90);
+                        doc.addImage(jpegData, 'JPEG', 0, 0, widthMm, mapHeightMm);
+                    }
 
                     // Draw Overlay (Top Left)
                     if (overlayDataUrl && overlayWidthMm > 0 && overlayHeightMm > 0) {
@@ -457,40 +632,168 @@ export class MapExportControl {
                         doc.addImage(overlayDataUrl, 'PNG', overlayX, overlayY, drawW, drawH);
                     }
 
-                    // Draw Footer Background
-                    doc.setFillColor(0, 0, 0); // Black
-                    doc.rect(0, mapHeightMm, widthMm, footerHeightMm, 'F');
-
-                    // Draw QR Code
-                    if (qrDataUrl) {
-                        const qrSize = footerHeightMm - 2; // 1mm padding
-                        doc.addImage(qrDataUrl, 'PNG', marginMm, mapHeightMm + 1, qrSize, qrSize);
-
-                        // Link URL
-                        doc.setTextColor(255, 255, 255);
-                        doc.setFontSize(8);
-                        doc.text('Generated from:', marginMm + qrSize + 3, mapHeightMm + 5);
-                        doc.setFontSize(6);
-
-                        const splitUrl = doc.splitTextToSize(shareUrl, widthMm / 3);
-                        doc.text(splitUrl, marginMm + qrSize + 3, mapHeightMm + 8);
+                    // Draw Footer with new layout
+                    const title = this._title || 'Map';
+                    const description = this._description || '';
+                    
+                    // Footer layout constants
+                    const qrSize = 12; // QR code size in mm
+                    const qrMargin = 2; // Margin around QR
+                    const lineHeight = 2; // Reduced line height in mm
+                    const elementGap = 1; // Reduced gap between elements in mm
+                    const titleFontSize = 10;
+                    const descFontSize = 8;
+                    const dataFontSize = 7;
+                    const urlFontSize = 7;
+                    const dateFontSize = 6;
+                    const textBoxPadding = 3.5; // 10px ≈ 3.5mm padding inside text box
+                    
+                    // Calculate text dimensions - measure actual widths
+                    let maxTextWidth = 0;
+                    let textElements = [];
+                    let totalTextHeight = 0;
+                    
+                    // Helper to measure text width
+                    const measureTextWidth = (text, fontSize, bold) => {
+                        doc.setFontSize(fontSize);
+                        doc.setFont(undefined, bold ? 'bold' : 'normal');
+                        return doc.getTextWidth(text);
+                    };
+                    
+                    // Calculate available width for text (accounting for QR code on left)
+                    const qrCodeWithPadding = qrSize + textBoxPadding;
+                    const availableTextWidth = widthMm * 0.7 - qrCodeWithPadding - textBoxPadding;
+                    
+                    // Title (can wrap)
+                    if (title) {
+                        const maxTitleWidth = availableTextWidth;
+                        const titleLines = doc.splitTextToSize(title, maxTitleWidth);
+                        const titleWidth = Math.max(...titleLines.map(line => measureTextWidth(line, titleFontSize, true)));
+                        textElements.push({ 
+                            text: titleLines, 
+                            fontSize: titleFontSize, 
+                            bold: true,
+                            width: titleWidth
+                        });
+                        totalTextHeight += titleLines.length * lineHeight;
                     }
-
-                    // Draw Attribution
+                    
+                    // Description (can wrap)
+                    if (description) {
+                        if (textElements.length > 0) totalTextHeight += elementGap;
+                        const maxDescWidth = availableTextWidth;
+                        const descLines = doc.splitTextToSize(description, maxDescWidth);
+                        const descWidth = Math.max(...descLines.map(line => measureTextWidth(line, descFontSize, false)));
+                        textElements.push({ 
+                            text: descLines, 
+                            fontSize: descFontSize, 
+                            bold: false,
+                            width: descWidth
+                        });
+                        totalTextHeight += descLines.length * lineHeight;
+                    }
+                    
+                    // Data Sources (single line - no wrapping)
                     if (attributionText) {
-                        doc.setTextColor(255, 255, 255);
-                        doc.setFontSize(6);
-                        // Right aligned
-                        const attribX = widthMm - marginMm;
-                        const attribY = mapHeightMm + (footerHeightMm / 2);
-
-                        // We need to parse HTML from attribution if it contains links (it usually does)
-                        // jsPDF doesn't render HTML easily with .text(). 
-                        // Stripping tags for now as requested "text".
-                        // attribCtrl.innerText usually gives visible text.
-                        const cleanAttrib = attributionText.replace(/\|/g, '    '); // Replace pipes with spaces
-
-                        doc.text(cleanAttrib, attribX, attribY, { align: 'right', baseline: 'middle', maxWidth: widthMm / 2 });
+                        if (textElements.length > 0) totalTextHeight += elementGap;
+                        const cleanAttrib = attributionText.replace(/\|/g, '\t');
+                        const dataSourcesText = `Data Sources: ${cleanAttrib}`;
+                        const dataWidth = measureTextWidth(dataSourcesText, dataFontSize, false);
+                        textElements.push({ 
+                            text: [dataSourcesText], 
+                            fontSize: dataFontSize, 
+                            bold: false,
+                            width: dataWidth
+                        });
+                        totalTextHeight += lineHeight;
+                    }
+                    
+                    // URL (single line - no wrapping)
+                    if (textElements.length > 0) totalTextHeight += elementGap;
+                    const urlWidth = measureTextWidth(shareUrl, urlFontSize, false);
+                    textElements.push({ 
+                        text: [shareUrl], 
+                        fontSize: urlFontSize, 
+                        bold: false,
+                        width: urlWidth
+                    });
+                    totalTextHeight += lineHeight;
+                    
+                    // Find maximum width needed for text
+                    maxTextWidth = Math.max(...textElements.map(e => e.width));
+                    maxTextWidth = Math.min(maxTextWidth, availableTextWidth);
+                    
+                    // Calculate box dimensions including QR code
+                    // QR code will be at bottom left, text will be to the right of it
+                    // Box width needs to accommodate both QR code and text side by side
+                    // Add 50px (≈13.23mm at 96dpi) extra width for better text fit
+                    const extraWidthMm = 50 * 25.4 / 96; // Convert 50px to mm
+                    const textBoxWidth = qrCodeWithPadding + maxTextWidth + textBoxPadding + extraWidthMm;
+                    
+                    // Box height needs to accommodate text height OR QR code height + date, whichever is taller
+                    const qrAndDateHeight = qrSize + lineHeight + elementGap; // QR code + date above it
+                    const textBoxHeight = Math.max(totalTextHeight, qrAndDateHeight) + (textBoxPadding * 2);
+                    
+                    // Position box anchored to bottom left with no margin
+                    const textBoxX = 0;
+                    const textBoxY = heightMm - textBoxHeight;
+                    
+                    // Draw semi-transparent black box
+                    const gState = doc.GState({ opacity: 0.7 });
+                    doc.setGState(gState);
+                    doc.setFillColor(0, 0, 0); // Black
+                    doc.rect(textBoxX, textBoxY, textBoxWidth, textBoxHeight, 'F');
+                    // Reset to full opacity for text
+                    const gStateFull = doc.GState({ opacity: 1.0 });
+                    doc.setGState(gStateFull);
+                    
+                    // Draw content inside box (from bottom to top, anchored to bottom left)
+                    // In jsPDF, Y=0 is top, Y increases downward
+                    // textBoxY is top of box, textBoxY + textBoxHeight is bottom of box (which is heightMm)
+                    const bottomOfBox = textBoxY + textBoxHeight; // This equals heightMm
+                    doc.setTextColor(255, 255, 255);
+                    
+                    // Draw QR Code at bottom left inside the box
+                    const qrX = textBoxX + textBoxPadding;
+                    const qrY = bottomOfBox - textBoxPadding - qrSize;
+                    
+                    if (qrDataUrl) {
+                        doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+                    }
+                    
+                    // Date above QR code (inside box)
+                    const date = new Date();
+                    const dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                    doc.setFontSize(dateFontSize);
+                    doc.setFont(undefined, 'normal');
+                    const dateX = qrX;
+                    const dateY = qrY - elementGap;
+                    doc.text(dateStr, dateX, dateY, { align: 'left', maxWidth: qrSize });
+                    
+                    // Position text to the right of QR code, starting from bottom padding
+                    // Text X position starts after QR code + gap
+                    const textStartX = qrX + qrSize + textBoxPadding;
+                    let currentY = bottomOfBox - textBoxPadding;
+                    
+                    // Draw elements in reverse order (URL first at bottom, then up to Title at top)
+                    for (let elemIdx = textElements.length - 1; elemIdx >= 0; elemIdx--) {
+                        const elem = textElements[elemIdx];
+                        doc.setFontSize(elem.fontSize);
+                        doc.setFont(undefined, elem.bold ? 'bold' : 'normal');
+                        
+                        // Draw lines for this element (from bottom to top)
+                        for (let lineIdx = elem.text.length - 1; lineIdx >= 0; lineIdx--) {
+                            // Position baseline directly at currentY - no offset
+                            // Text will naturally extend above baseline, descenders below
+                            doc.text(elem.text[lineIdx], textStartX, currentY, { align: 'left' });
+                            // Move up for next line (decrease Y)
+                            currentY -= lineHeight;
+                        }
+                        
+                        // Add gap between elements (except after last element at top)
+                        if (elemIdx > 0) {
+                            currentY -= elementGap;
+                        }
                     }
 
                     doc.save('map-export.pdf');
@@ -555,7 +858,7 @@ export class MapExportControl {
 
                 const qr = document.createElement('sl-qr-code');
                 qr.value = text;
-                qr.size = 128;
+                qr.size = 1024; // High resolution for print
                 qr.style.position = 'fixed';
                 qr.style.top = '-9999px';
                 qr.style.left = '-9999px'; // Ensure it's off-screen
@@ -567,7 +870,6 @@ export class MapExportControl {
                 }
 
                 // Additional small polling to ensure internal elements (Shadow DOM) are ready
-                // sometimes updateComplete is for the property update, but internal rendering might tick once more
                 let attempts = 0;
                 const maxAttempts = 50; // 5 seconds
 
@@ -575,26 +877,32 @@ export class MapExportControl {
                     const shadow = qr.shadowRoot;
                     if (shadow) {
                         const svg = shadow.querySelector('svg');
-                        const canvas = shadow.querySelector('canvas'); // Check for canvas just in case
+                        const canvas = shadow.querySelector('canvas');
 
                         if (svg || canvas) {
-                            console.log('QR Element found (SVG/Canvas)');
-
                             // Let it breathe a frame to ensure painting
                             requestAnimationFrame(() => {
                                 try {
+                                    // ADD PADDING
+                                    const padding = 40; // Proportional padding for high res
+                                    const qrSize = 1024;
+                                    const totalSize = qrSize + (padding * 2);
+
                                     const outCanvas = document.createElement('canvas');
-                                    outCanvas.width = 128;
-                                    outCanvas.height = 128;
+                                    outCanvas.width = totalSize;
+                                    outCanvas.height = totalSize;
                                     const ctx = outCanvas.getContext('2d');
+
+                                    // White background for the whole square (including padding)
                                     ctx.fillStyle = 'white';
-                                    ctx.fillRect(0, 0, 128, 128); // White background
+                                    ctx.fillRect(0, 0, totalSize, totalSize);
 
                                     if (svg) {
                                         const svgData = new XMLSerializer().serializeToString(svg);
                                         const img = new Image();
                                         img.onload = () => {
-                                            ctx.drawImage(img, 0, 0);
+                                            // Draw centered
+                                            ctx.drawImage(img, padding, padding, qrSize, qrSize);
                                             const dataUrl = outCanvas.toDataURL('image/png');
                                             document.body.removeChild(qr);
                                             resolve(dataUrl);
@@ -604,9 +912,10 @@ export class MapExportControl {
                                             document.body.removeChild(qr);
                                             reject(e);
                                         };
-                                        img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+                                        // Use base64 to avoid parsing issues
+                                        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
                                     } else if (canvas) {
-                                        ctx.drawImage(canvas, 0, 0);
+                                        ctx.drawImage(canvas, padding, padding, qrSize, qrSize);
                                         const dataUrl = outCanvas.toDataURL('image/png');
                                         document.body.removeChild(qr);
                                         resolve(dataUrl);
@@ -638,6 +947,173 @@ export class MapExportControl {
             }
         });
     }
+
+
+    _canvasToTIFF(canvas) {
+        // Minimal TIFF writer: Little Endian, RGB, Uncompressed
+        // Based on TIFF 6.0 Specification
+
+        const width = canvas.width;
+        const height = canvas.height;
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const rgba = imageData.data;
+
+        // Calculate file size
+        // Header: 8 bytes
+        // IFD: 2 + 12 entries * 12 bytes + 4 bytes (next IFD) = 2 + 144 + 4 = 150 bytes
+        // Image Data: width * height * 3 (RGB)
+        // Values for tags larger than 4 bytes:
+        // - BitsPerSample: 3 * 2 bytes = 6 bytes
+        // - XResolution: 2 * 4 bytes = 8 bytes
+        // - YResolution: 2 * 4 bytes = 8 bytes
+        // - StripOffsets: 4 bytes (1 strip)
+        // - RowsPerStrip: 4 bytes (1 strip) ... wait, value fits in tag if short/long
+        // - StripByteCounts: 4 bytes
+
+        // Total data size = 8 + 150 + (W*H*3) + 6 + 8 + 8 = ... roughly
+
+        // We'll write sequentially to a buffer
+        const imageSize = width * height * 3;
+        const headerSize = 8;
+        const ifdSize = 2 + 12 * 12 + 4; // 12 entries
+        const valueSize = 6 + 8 + 8; // BitsPerSample, XRes, YRes (resolution is ratio)
+
+        // Total buffer
+        const totalSize = headerSize + ifdSize + valueSize + imageSize;
+        const buffer = new ArrayBuffer(totalSize);
+        const data = new DataView(buffer);
+        let offset = 0;
+
+        // Helper to write
+        const write2 = (v) => { data.setUint16(offset, v, true); offset += 2; };
+        const write4 = (v) => { data.setUint32(offset, v, true); offset += 4; };
+
+        // 1. Header
+        write2(0x4949); // "II" Little Endian
+        write2(0x002A); // Magic 42
+        write4(0x0008); // Offset to first IFD (immediately after header)
+
+        // 2. IFD
+        // Offset is now 8
+        const numEntries = 12;
+        write2(numEntries);
+
+        // Tags need to be sorted!
+        // 256: ImageWidth (Short/Long)
+        // 257: ImageLength (Short/Long)
+        // 258: BitsPerSample (Short, count 3) -> Offset
+        // 259: Compression (Short, 1 = None)
+        // 262: PhotometricInterpretation (Short, 2 = RGB)
+        // 273: StripOffsets (Long, count 1)
+        // 277: SamplesPerPixel (Short, 3)
+        // 278: RowsPerStrip (Long)
+        // 279: StripByteCounts (Long)
+        // 282: XResolution (Rational) -> Offset
+        // 283: YResolution (Rational) -> Offset
+        // 296: ResolutionUnit (Short, 2 = Inch)
+
+        // Pointers
+        const ifdStart = 8;
+        const ifdEnd = ifdStart + 2 + (numEntries * 12) + 4;
+        let valuesOffset = ifdEnd;
+
+        // Function to write a tag
+        const writeTag = (tag, type, count, value) => {
+            write2(tag);
+            write2(type);
+            write4(count);
+            if (count * (type === 3 ? 2 : 4) > 4) {
+                // Value is offset
+                write4(valuesOffset);
+                return valuesOffset; // Return where to write user data
+            } else {
+                // Value fits
+                if (type === 3) { data.setUint16(offset, value, true); } // Short
+                else if (type === 4) { data.setUint32(offset, value, true); } // Long
+                offset += 4;
+                return 0; // Handled
+            }
+        };
+
+        // 256 ImageWidth
+        writeTag(256, 3, 1, width); // Short
+
+        // 257 ImageLength
+        writeTag(257, 3, 1, height); // Short
+
+        // 258 BitsPerSample
+        const bitsOffset = valuesOffset;
+        writeTag(258, 3, 3, bitsOffset);
+        valuesOffset += 6; // 3 * 2 bytes
+
+        // 259 Compression
+        writeTag(259, 3, 1, 1); // 1 = None
+
+        // 262 PhotometricInterpretation
+        writeTag(262, 3, 1, 2); // 2 = RGB
+
+        // 273 StripOffsets
+        // Image data starts after variable values
+        const imageOffset = valuesOffset;
+        writeTag(273, 4, 1, imageOffset);
+
+        // 277 SamplesPerPixel
+        writeTag(277, 3, 1, 3); // 3
+
+        // 278 RowsPerStrip
+        writeTag(278, 4, 1, height); // 1 strip for whole image
+
+        // 279 StripByteCounts
+        writeTag(279, 4, 1, imageSize);
+
+        // 282 XResolution
+        const xResOffset = valuesOffset + (6); // after bits
+        writeTag(282, 5, 1, xResOffset); // Rational (2 longs)
+        // Update generic valuesOffset tracker, but we know where it is for sequential writing
+        // Actually lets keep valuesOffset simple.
+        // We have: Bits (6), XRes (8), YRes (8). Order matters in memory? No, just pointers.
+        // Let's increment valuesOffset properly.
+        valuesOffset += 8;
+
+        // 283 YResolution
+        const yResOffset = valuesOffset; // after XRes
+        writeTag(283, 5, 1, yResOffset);
+        valuesOffset += 8;
+
+        // 296 ResolutionUnit
+        writeTag(296, 3, 1, 2); // Inch
+
+        // Next IFD
+        write4(0); // 0 = None
+
+        // 3. Values
+        offset = ifdEnd;
+
+        // BitsPerSample (8, 8, 8)
+        data.setUint16(offset, 8, true); offset += 2;
+        data.setUint16(offset, 8, true); offset += 2;
+        data.setUint16(offset, 8, true); offset += 2;
+
+        // XResolution
+        data.setUint32(offset, 72, true); offset += 4; // Num
+        data.setUint32(offset, 1, true); offset += 4;  // Denom
+
+        // YResolution
+        data.setUint32(offset, 72, true); offset += 4;
+        data.setUint32(offset, 1, true); offset += 4;
+
+        // 4. Image Data
+        // Convert RGBA to RGB
+        const pixelParams = width * height;
+        for (let i = 0; i < pixelParams; i++) {
+            data.setUint8(offset++, rgba[i * 4]);     // R
+            data.setUint8(offset++, rgba[i * 4 + 1]); // G
+            data.setUint8(offset++, rgba[i * 4 + 2]); // B
+        }
+
+        return new Uint8Array(buffer);
+    }
 }
 
 class ExportFrame {
@@ -647,17 +1123,41 @@ class ExportFrame {
         this._el = document.createElement('div');
         this._el.className = 'map-export-frame';
 
-        // Handles
+        // Move Handle (top-left, 50x50px)
+        this._moveHandle = document.createElement('div');
+        this._moveHandle.className = 'export-move-handle';
+        this._moveHandle.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 9l-2 2 2 2M9 5l2-2 2 2M15 19l-2 2-2-2M19 9l2 2-2 2"/>
+                <circle cx="12" cy="12" r="1"/>
+                <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+            </svg>
+        `;
+        this._moveHandle.onmousedown = (e) => this._startMove(e);
+        this._moveHandle.ontouchstart = (e) => this._startMove(e);
+        this._el.appendChild(this._moveHandle);
+
+        // Corner Resize Handles
         ['nw', 'ne', 'se', 'sw'].forEach(pos => {
             const handle = document.createElement('div');
             handle.className = `export-handle ${pos}`;
             handle.onmousedown = (e) => this._startResize(e, pos);
+            handle.ontouchstart = (e) => this._startResize(e, pos);
             this._el.appendChild(handle);
         });
 
-        // Center Drag
+        // Make frame pass through events (except to handles)
         this._el.onmousedown = (e) => {
-            if (e.target === this._el) this._startMove(e);
+            // Only prevent default if clicking on the frame border itself
+            // Let map controls work normally
+            if (e.target === this._el) {
+                e.stopPropagation();
+            }
+        };
+        this._el.ontouchstart = (e) => {
+            if (e.target === this._el) {
+                e.stopPropagation();
+            }
         };
 
         this._map.getContainer().appendChild(this._el);
@@ -737,55 +1237,55 @@ class ExportFrame {
         e.preventDefault();
         e.stopPropagation();
 
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const rect = this._el.getBoundingClientRect();
-        const startLeft = this._el.offsetLeft;
-        const startTop = this._el.offsetTop;
+        // Support both mouse and touch events
+        const isTouch = e.touches && e.touches.length > 0;
+        const startX = isTouch ? e.touches[0].clientX : e.clientX;
+        const startY = isTouch ? e.touches[0].clientY : e.clientY;
 
-        const onMove = (e) => {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            this._el.style.left = (startLeft + dx) + 'px'; // Wait, CSS uses transform translate(-50, -50)
-            // But left/top are 50%.
-            // My CSS: top: 50%; left: 50%; transform: translate(-50%, -50%);
-            // This centers it. If I want to move it freely, I should probably switch to top/left absolute with no transform
-            // or modify margins.
-            // Let's switch to direct positioning on first move.
-        };
+        // Ensure transform is removed and we're using absolute positioning
+        if (getComputedStyle(this._el).transform !== 'none') {
+            this._el.style.transform = 'none';
+            this._el.style.left = this._el.offsetLeft + 'px';
+            this._el.style.top = this._el.offsetTop + 'px';
+        }
 
-        // Helper to switch to absolute positioning without transform if needed, 
-        // but easier to just use top/left and remove transform?
-        // Let's adjust styles inline.
-
-        // Re-implementing move logic simply:
-        this._el.style.transform = 'none';
-        this._el.style.left = this._el.offsetLeft + 'px';
-        this._el.style.top = this._el.offsetTop + 'px';
-
-        // Need to capture initial after removing transform
         const finalStartLeft = this._el.offsetLeft;
         const finalStartTop = this._el.offsetTop;
 
         const performMove = (e) => {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
+            const currentX = isTouch ? e.touches[0].clientX : e.clientX;
+            const currentY = isTouch ? e.touches[0].clientY : e.clientY;
+            const dx = currentX - startX;
+            const dy = currentY - startY;
             this._el.style.left = (finalStartLeft + dx) + 'px';
             this._el.style.top = (finalStartTop + dy) + 'px';
         };
 
         const onUp = () => {
-            document.removeEventListener('mousemove', performMove);
-            document.removeEventListener('mouseup', onUp);
+            if (isTouch) {
+                document.removeEventListener('touchmove', performMove);
+                document.removeEventListener('touchend', onUp);
+            } else {
+                document.removeEventListener('mousemove', performMove);
+                document.removeEventListener('mouseup', onUp);
+            }
         };
 
-        document.addEventListener('mousemove', performMove);
-        document.addEventListener('mouseup', onUp);
+        if (isTouch) {
+            document.addEventListener('touchmove', performMove, { passive: false });
+            document.addEventListener('touchend', onUp);
+        } else {
+            document.addEventListener('mousemove', performMove);
+            document.addEventListener('mouseup', onUp);
+        }
     }
 
     _startResize(e, handle) {
         e.preventDefault();
         e.stopPropagation();
+
+        // Support both mouse and touch events
+        const isTouch = e.touches && e.touches.length > 0;
 
         // Ensure transform is gone
         if (getComputedStyle(this._el).transform !== 'none') {
@@ -794,16 +1294,18 @@ class ExportFrame {
             this._el.style.top = this._el.offsetTop + 'px';
         }
 
-        const startX = e.clientX;
-        const startY = e.clientY;
+        const startX = isTouch ? e.touches[0].clientX : e.clientX;
+        const startY = isTouch ? e.touches[0].clientY : e.clientY;
         const startW = this._el.offsetWidth;
         const startH = this._el.offsetHeight;
         const startL = this._el.offsetLeft;
         const startT = this._el.offsetTop;
 
         const onMove = (e) => {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
+            const currentX = isTouch ? e.touches[0].clientX : e.clientX;
+            const currentY = isTouch ? e.touches[0].clientY : e.clientY;
+            const dx = currentX - startX;
+            const dy = currentY - startY;
 
             let newW = startW;
             let newH = startH;
@@ -829,11 +1331,21 @@ class ExportFrame {
         };
 
         const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
+            if (isTouch) {
+                document.removeEventListener('touchmove', onMove);
+                document.removeEventListener('touchend', onUp);
+            } else {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            }
         };
 
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        if (isTouch) {
+            document.addEventListener('touchmove', onMove, { passive: false });
+            document.addEventListener('touchend', onUp);
+        } else {
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        }
     }
 }
