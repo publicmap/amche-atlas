@@ -12,6 +12,8 @@ export class MapExportControl {
         this._isExporting = false;
         this._title = '';
         this._description = '';
+        this._titleCustomized = false; // Track if user has manually edited the title
+        this._movendHandler = null; // Store handler for cleanup
     }
 
     onAdd(map) {
@@ -31,10 +33,21 @@ export class MapExportControl {
         this._frame = new ExportFrame(map, this);
         this._createExportPanel();
 
+        // Listen to map move events to update title if not customized
+        this._movendHandler = () => {
+            this._updateTitleOnMove();
+        };
+        map.on('moveend', this._movendHandler);
+
         return this._container;
     }
 
     onRemove() {
+        // Remove event listener
+        if (this._map && this._movendHandler) {
+            this._map.off('moveend', this._movendHandler);
+            this._movendHandler = null;
+        }
         this._container.parentNode.removeChild(this._container);
         this._map = null;
         if (this._frame) {
@@ -141,15 +154,24 @@ export class MapExportControl {
         this._titleContainer = document.createElement('div');
         this._titleContainer.style.marginTop = '10px';
         this._titleContainer.appendChild(this._createLabel('Title'));
-        const titleInput = document.createElement('input');
-        titleInput.type = 'text';
+        const titleInput = document.createElement('textarea');
+        titleInput.rows = 2;
         titleInput.style.width = '100%';
         titleInput.style.padding = '5px';
         titleInput.style.marginTop = '5px';
         titleInput.style.boxSizing = 'border-box';
+        titleInput.style.resize = 'vertical';
         titleInput.placeholder = 'Loading...';
-        titleInput.onchange = (e) => { this._title = e.target.value; };
-        titleInput.oninput = (e) => { this._title = e.target.value; };
+        titleInput.onchange = (e) => { 
+            this._title = e.target.value; 
+            // Reset customization flag if user clears the title
+            this._titleCustomized = e.target.value.trim().length > 0;
+        };
+        titleInput.oninput = (e) => { 
+            this._title = e.target.value; 
+            // Reset customization flag if user clears the title
+            this._titleCustomized = e.target.value.trim().length > 0;
+        };
         this._titleInput = titleInput;
         this._titleContainer.appendChild(titleInput);
         this._exportPanel.appendChild(this._titleContainer);
@@ -245,46 +267,92 @@ export class MapExportControl {
         this._description = `PDF generated on ${timestamp}`;
         this._descriptionInput.value = this._description;
 
-        // Get frame center and reverse geocode
+        // Reset customization flag when loading defaults
+        this._titleCustomized = false;
+        
+        // Update title from current location
+        await this._updateTitleFromLocation();
+    }
+
+    /**
+     * Update title from current map/frame location
+     * Called on map move and when loading defaults
+     */
+    async _updateTitleFromLocation() {
         try {
-            // Check if frame is visible and has dimensions
-            if (!this._frame || !this._frame._el || !this._frame._el.classList.contains('active')) {
-                this._title = 'Map';
-                this._titleInput.value = this._title;
-                return;
+            let center;
+            
+            // Check if frame is visible and has dimensions - use frame center if available
+            if (this._frame && this._frame._el && this._frame._el.classList.contains('active')) {
+                const frameRect = this._frame._el.getBoundingClientRect();
+                if (frameRect.width > 0 && frameRect.height > 0) {
+                    const mapRect = this._map.getContainer().getBoundingClientRect();
+                    // Calculate frame center point (not right edge) relative to map container
+                    const frameCenterX = (frameRect.left + frameRect.width / 2) - mapRect.left;
+                    const frameCenterY = (frameRect.top + frameRect.height / 2) - mapRect.top;
+                    // Ensure we're using the center, not an edge
+                    center = this._map.unproject([frameCenterX, frameCenterY]);
+                }
+            }
+            
+            // Fallback to map center if frame is not available
+            if (!center) {
+                center = this._map.getCenter();
             }
 
-            const frameRect = this._frame._el.getBoundingClientRect();
-            if (frameRect.width === 0 || frameRect.height === 0) {
-                this._title = 'Map';
-                this._titleInput.value = this._title;
-                return;
-            }
-
-            const mapRect = this._map.getContainer().getBoundingClientRect();
-            const frameCenterX = (frameRect.left + frameRect.width / 2) - mapRect.left;
-            const frameCenterY = (frameRect.top + frameRect.height / 2) - mapRect.top;
-            const center = this._map.unproject([frameCenterX, frameCenterY]);
-
-            const address = await this._reverseGeocode(center.lat, center.lng);
+            const mapZoom = this._map.getZoom();
+            const address = await this._reverseGeocode(center.lat, center.lng, mapZoom);
             if (address) {
                 this._title = `Map of ${address}`;
-                this._titleInput.value = this._title;
+                // Update input if it exists (panel might be closed)
+                if (this._titleInput) {
+                    this._titleInput.value = this._title;
+                    this._titleInput.placeholder = ''; // Clear placeholder
+                }
             } else {
                 this._title = 'Map';
-                this._titleInput.value = this._title;
+                // Update input if it exists (panel might be closed)
+                if (this._titleInput) {
+                    this._titleInput.value = this._title;
+                    this._titleInput.placeholder = ''; // Clear placeholder
+                }
             }
         } catch (e) {
-            console.warn('Failed to load default title from reverse geocode', e);
-            this._title = 'Map';
-            this._titleInput.value = this._title;
+            console.warn('Failed to update title from reverse geocode', e);
+            if (!this._title || this._title.trim() === '') {
+                this._title = 'Map';
+                if (this._titleInput) {
+                    this._titleInput.value = this._title;
+                    this._titleInput.placeholder = ''; // Clear placeholder
+                }
+            }
         }
     }
 
-    async _reverseGeocode(lat, lng) {
+    /**
+     * Update title on map move if title is blank or not customized
+     */
+    async _updateTitleOnMove() {
+        // Only update if title hasn't been customized by the user
+        // Update regardless of current title value (blank, "Map", or "Map of ...")
+        if (!this._titleCustomized) {
+            // Clear placeholder and show loading state
+            if (this._titleInput) {
+                this._titleInput.placeholder = 'Loading...';
+            }
+            await this._updateTitleFromLocation();
+        }
+    }
+
+    async _reverseGeocode(lat, lng, zoom) {
         try {
-            // Use zoom level 15 to get detailed address including neighbourhood (zoom 14) and settlement details (zoom 15)
-            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=15&addressdetails=1`;
+            // Truncate coordinates to 5 decimal places (~1.1 meter precision)
+            const latRounded = Math.round(lat * 100000) / 100000;
+            const lngRounded = Math.round(lng * 100000) / 100000;
+            
+            // Clamp zoom to valid Nominatim range (0-18) and use it for address detail level
+            const nominatimZoom = Math.max(0, Math.min(18, Math.round(zoom || 15)));
+            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latRounded}&lon=${lngRounded}&zoom=${nominatimZoom}&addressdetails=1`;
             
             const response = await fetch(url, {
                 headers: {
@@ -298,45 +366,24 @@ export class MapExportControl {
 
             const data = await response.json();
             
-            if (!data.address) {
+            if (!data.display_name) {
                 return null;
             }
 
-            // Build address from most specific to least specific
-            // Include details from zoom 15 (settlement), zoom 14 (neighbourhood), and zoom 12 (village/suburb)
-            // Order: neighbourhood/hamlet/locality -> village/suburb -> town/city -> county -> state -> country
-            const parts = [];
+            // Use display_name from Nominatim response
+            // Split by comma and trim each part
+            const parts = data.display_name.split(',').map(part => part.trim()).filter(part => part.length > 0);
             
-            // Zoom 15 details: neighbourhood, hamlet, locality, isolated_dwelling (most specific settlement level)
-            if (data.address.neighbourhood) parts.push(data.address.neighbourhood);
-            else if (data.address.hamlet) parts.push(data.address.hamlet);
-            else if (data.address.locality) parts.push(data.address.locality);
-            else if (data.address.isolated_dwelling) parts.push(data.address.isolated_dwelling);
-            
-            // Zoom 14/13 details: village, suburb (if not already included above)
-            if (data.address.village && !parts.includes(data.address.village)) parts.push(data.address.village);
-            if (data.address.suburb && !parts.includes(data.address.suburb)) parts.push(data.address.suburb);
-            
-            // Zoom 12 details: town, city
-            if (data.address.town && !parts.includes(data.address.town)) parts.push(data.address.town);
-            else if (data.address.city && !parts.includes(data.address.city)) parts.push(data.address.city);
-            
-            // Administrative levels
-            if (data.address.county) parts.push(data.address.county);
-            
-            // Build main address line
-            const mainAddress = parts.join(', ');
-            
-            // State and country on a new line
-            const stateCountryParts = [];
-            if (data.address.state) stateCountryParts.push(data.address.state);
-            if (data.address.country) stateCountryParts.push(data.address.country);
-            
-            if (stateCountryParts.length > 0) {
-                return mainAddress + '<br>' + stateCountryParts.join(', ');
+            // Format: last four parts on second line after <br>
+            if (parts.length <= 4) {
+                return parts.join(', ');
             }
             
-            return mainAddress;
+            // Split into first line and last four parts
+            const firstLineParts = parts.slice(0, parts.length - 4);
+            const lastFourParts = parts.slice(parts.length - 4);
+            
+            return firstLineParts.join(', ') + '<br>' + lastFourParts.join(', ');
         } catch (e) {
             console.error('Reverse geocoding failed', e);
             return null;
@@ -512,7 +559,8 @@ export class MapExportControl {
         const frameRect = this._frame._el.getBoundingClientRect();
         const mapRect = this._map.getContainer().getBoundingClientRect();
 
-        // Calculate desired center (geographic) based on frame center
+        // Calculate desired center (geographic) based on frame center point
+        // Use the exact center of the frame, not an edge
         const frameCenterX = (frameRect.left + frameRect.width / 2) - mapRect.left;
         const frameCenterY = (frameRect.top + frameRect.height / 2) - mapRect.top;
         const targetCenter = this._map.unproject([frameCenterX, frameCenterY]);
@@ -544,32 +592,155 @@ export class MapExportControl {
         let overlayWidthMm = 0;
         let overlayHeightMm = 0;
 
-        const featurePanelLayers = document.querySelector('.map-feature-panel-layers');
-        if (featurePanelLayers && featurePanelLayers.offsetHeight > 0) {
+        // Find the feature panel layers container - check both class names
+        const featurePanelLayers = document.querySelector('.feature-control-layers.map-feature-panel-layers') || 
+                                   document.querySelector('.map-feature-panel-layers');
+        
+        // Check if element exists and has content (children or text)
+        const hasContent = featurePanelLayers && (
+            featurePanelLayers.children.length > 0 || 
+            featurePanelLayers.textContent.trim().length > 0
+        );
+
+        if (hasContent) {
+            // Check if parent panel is hidden - track state for cleanup
+            const parentPanel = featurePanelLayers.closest('.map-feature-panel');
+            const wasHidden = parentPanel && parentPanel.style.display === 'none';
+            const originalDisplay = wasHidden ? 'none' : null;
+
             try {
                 // Dynamically import html2canvas
                 const html2canvas = (await import('html2canvas')).default;
 
-                // Clone to body to ensure we capture independent of current scroll/display clipping if needed,
-                // but html2canvas usually handles that. However, to ensure clean capture with transparent background styling for PDF:
-                // We'll capture the actual element as it is "WYSIWYG".
-                // Issue: If it's inside a scrolling container, we might only get the visible part.
-                // The user usually wants the "content".
-                // If the user wants the WHOLE content (scrolled or not), we might need to clone and expand height.
-                // Let's assume WYSIWYG for now (what's visible or the element itself).
-                // Actually, 'mirrors the content...'. If it's a long list, putting it on PDF might cover the whole map.
-                // Let's stick to capturing the element.
+                // Temporarily show the panel if it was hidden, so html2canvas can capture it
+                if (wasHidden && parentPanel) {
+                    parentPanel.style.display = 'flex';
+                    // Force a reflow to ensure rendering
+                    parentPanel.offsetHeight;
+                }
 
-                // Create a clone to modify styling for capture if needed (e.g. transparent background if panel has one)
-                // The current panel has a white background.
-                // We probably want to keep the white background for readability on the map.
+                // Clone the element to capture it independently
+                // This ensures we capture the content even if the original is in a scrolling container
+                const clone = featurePanelLayers.cloneNode(true);
+                
+                // Expand all collapsed sl-details elements in the clone
+                const allDetails = clone.querySelectorAll('sl-details');
+                allDetails.forEach(detail => {
+                    detail.open = true;
+                    // Also ensure content containers are visible
+                    const contentContainer = detail.querySelector('.layer-content');
+                    if (contentContainer) {
+                        contentContainer.style.display = 'block';
+                    }
+                });
 
-                const canvas = await html2canvas(featurePanelLayers, {
+                // Show all tab panels (not just active) so legends are visible
+                const allTabPanels = clone.querySelectorAll('sl-tab-panel');
+                allTabPanels.forEach(panel => {
+                    // Remove hidden attribute and ensure display
+                    panel.removeAttribute('hidden');
+                    panel.style.display = 'block';
+                    panel.style.visibility = 'visible';
+                });
+
+                // Also ensure tab groups show all content
+                const tabGroups = clone.querySelectorAll('sl-tab-group');
+                tabGroups.forEach(tabGroup => {
+                    // Show all panels in the tab group
+                    const panels = tabGroup.querySelectorAll('sl-tab-panel');
+                    panels.forEach(panel => {
+                        panel.removeAttribute('hidden');
+                        panel.style.display = 'block';
+                        panel.style.visibility = 'visible';
+                    });
+                });
+
+                // Get computed styles for proper rendering
+                const computedStyle = window.getComputedStyle(featurePanelLayers);
+                
+                // Use a reasonable fixed width - match the panel width or use 300px
+                const targetWidth = parentPanel && parentPanel.offsetWidth > 0
+                    ? Math.min(parentPanel.offsetWidth, 350)
+                    : 300;
+                
+                // Set up clone styling - position off-screen but visible for measurement
+                clone.style.position = 'absolute';
+                clone.style.left = '0px'; // Position at 0,0 for easier measurement
+                clone.style.top = '0px';
+                clone.style.width = `${targetWidth}px`;
+                clone.style.maxWidth = 'none';
+                clone.style.maxHeight = 'none';
+                clone.style.overflow = 'visible';
+                clone.style.backgroundColor = '#ffffff';
+                clone.style.padding = computedStyle.padding;
+                clone.style.margin = '0';
+                clone.style.boxSizing = 'border-box';
+                clone.style.zIndex = '99999'; // Ensure it's on top for measurement
+                
+                // Copy computed styles to ensure proper rendering
+                clone.style.fontFamily = computedStyle.fontFamily;
+                clone.style.fontSize = computedStyle.fontSize;
+                clone.style.color = computedStyle.color;
+                clone.style.lineHeight = computedStyle.lineHeight;
+                
+                document.body.appendChild(clone);
+
+                // Wait for rendering and layout - give time for images to load
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                await new Promise(resolve => setTimeout(resolve, 200)); // Extra time for images/legends to load
+
+                // Now measure the actual content height using getBoundingClientRect
+                const cloneRect = clone.getBoundingClientRect();
+                
+                // Find the last element with actual content
+                const allElements = Array.from(clone.querySelectorAll('*'));
+                let maxBottom = 0;
+                
+                for (const el of allElements) {
+                    const style = window.getComputedStyle(el);
+                    if (style.display === 'none' || style.visibility === 'hidden') {
+                        continue;
+                    }
+                    
+                    const rect = el.getBoundingClientRect();
+                    const relativeBottom = rect.bottom - cloneRect.top;
+                    
+                    // Check if element has meaningful content
+                    const hasText = el.textContent && el.textContent.trim().length > 0;
+                    const hasImage = el.querySelector && (el.querySelector('img') || el.querySelector('svg'));
+                    const hasVisibleContent = rect.height > 0 && (hasText || hasImage || el.children.length > 0);
+                    
+                    if (hasVisibleContent && relativeBottom > maxBottom) {
+                        maxBottom = relativeBottom;
+                    }
+                }
+                
+                // Use scrollHeight as fallback, but prefer measured content height
+                const contentHeight = Math.max(maxBottom, clone.scrollHeight);
+                
+                // Add small padding but trim excessive empty space
+                // If contentHeight is much less than scrollHeight, use contentHeight
+                const finalHeight = contentHeight < clone.scrollHeight * 0.8 
+                    ? contentHeight + 10 
+                    : clone.scrollHeight;
+
+                // Move clone off-screen for capture
+                clone.style.left = '-9999px';
+
+                const canvas = await html2canvas(clone, {
                     backgroundColor: '#ffffff', // Force white background for visibility on PDF
                     scale: 2, // Better quality
                     logging: false,
-                    useCORS: true
+                    useCORS: true,
+                    width: targetWidth,
+                    height: finalHeight,
+                    windowWidth: targetWidth,
+                    windowHeight: finalHeight
                 });
+
+                // Clean up clone
+                document.body.removeChild(clone);
 
                 overlayDataUrl = canvas.toDataURL('image/png');
 
@@ -589,6 +760,11 @@ export class MapExportControl {
 
             } catch (e) {
                 console.warn('Failed to capture overlay', e);
+            } finally {
+                // Restore original panel visibility if it was hidden
+                if (wasHidden && parentPanel) {
+                    parentPanel.style.display = originalDisplay;
+                }
             }
         }
 
@@ -838,7 +1014,24 @@ export class MapExportControl {
                         }
                     }
 
-                    doc.save('map-export.pdf');
+                    // Generate filename from title, sanitizing invalid characters
+                    let filename = 'map-export.pdf';
+                    if (this._title && this._title.trim()) {
+                        // Remove HTML tags and convert <br> to ', '
+                        const titleText = this._title.replace(/<br\s*\/?>/gi, ', ').replace(/<[^>]*>/g, '');
+                        // Sanitize filename: remove invalid characters and limit length
+                        // Keep spaces, don't replace with hyphens
+                        const sanitized = titleText
+                            .replace(/[<>:"/\\|?*]/g, '') // Remove invalid filename characters
+                            .replace(/\s+/g, ' ') // Normalize multiple spaces to single space
+                            .trim() // Remove leading/trailing whitespace
+                            .substring(0, 200); // Limit length
+                        
+                        if (sanitized && sanitized.length > 0) {
+                            filename = `${sanitized}.pdf`;
+                        }
+                    }
+                    doc.save(filename);
                     resolve();
                 } catch (e) {
                     reject(e);
