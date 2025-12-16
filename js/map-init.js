@@ -6,6 +6,7 @@ import { PermalinkHandler } from './permalink-handler.js';
 import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
+import { MapFeatureControl } from './map-feature-control.js';
 import { GeolocationManager } from './geolocation-manager.js';
 import { ButtonResetMapView } from './button-reset-map-view.js';
 import { MapAttributionControl } from './map-attribution-control.js';
@@ -671,7 +672,7 @@ function _initializeSlotLayers(map) {
 }
 
 // Initialize the map with the configuration
-async function initializeMap() {
+export async function initializeMap() {
     const config = await loadConfiguration();
     const layers = config.layers || [];
 
@@ -756,7 +757,7 @@ async function initializeMap() {
         // Add 3D terrain control (will be initialized after URL manager is ready)
         window.terrain3DControl = new Terrain3DControl();
         // Initialize the feature control with state manager and config
-        window.featureControl = new MapFeatureControl({position: 'top-left', maxHeight: '600px', maxWidth: '350px'});
+        window.featureControl = new MapFeatureControl();
 
         map.addControl(featureControl, 'top-left');
         map.addControl(new TimeControl(), 'top-right');

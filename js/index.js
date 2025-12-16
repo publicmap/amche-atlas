@@ -3,7 +3,7 @@
  */
 import { layerRegistry } from './layer-registry.js';
 import './mapbox-api.js';
-import './map-init.js';
+import { initializeMap } from './map-init.js';
 import { NavigationControl } from './navigation-control.js';
 
 function loadGoogleAnalytics() {
