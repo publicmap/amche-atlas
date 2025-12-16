@@ -55,7 +55,7 @@ export class MapSearchControl {
         this.searchBox.addEventListener('input', this.handleInput.bind(this));
         this.searchBox.addEventListener('keydown', this.handleKeyDown.bind(this));
         this.searchBox.addEventListener('clear', this.handleClear.bind(this));
-        // this.searchBox.bindMap(this.map);
+        this.searchBox.bindMap(this.map);
 
         // Add required ARIA attributes for the combobox input
         this.setupComboboxAriaAttributes();

@@ -947,7 +947,7 @@ export async function initializeMap() {
 }
 
 // Initialize search box with enhanced functionality
-function initializeSearch() {
+export function initializeSearch() {
     // Note: We now need to use the global map variable
     const searchSetup = () => {
         // Initialize the feature state manager
