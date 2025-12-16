@@ -6,9 +6,6 @@
  * - Format attribution content as layers change
  * - Provide a cleaner, more organized attribution display
  *
- * Usage:
- * const attributionControl = new MapAttributionControl();
- * map.addControl(attributionControl, 'bottom-right');
  */
 
 export class MapAttributionControl {

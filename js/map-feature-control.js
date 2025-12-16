@@ -17,16 +17,15 @@ import { openLayerCreatorDialog } from './layer-creator-ui.js';
 import { LayerStyleControl } from './layer-style-control.js';
 
 export class MapFeatureControl {
-    constructor(options = {}) {
+    constructor() {
         this.options = {
-            position: 'bottom-right',
-            maxHeight: '50vh', // Use viewport height instead of fixed pixels
+            position: 'top-left',
+            maxHeight: '600px', // Use viewport height instead of fixed pixels
             maxWidth: '350px',
             minWidth: '250px',
             showHoverPopups: true, // New option to control hover popups
             inspectMode: false, // Inspect mode disabled by default
             showLayerOptions: false, // Layer options (settings icon & Paint tab) disabled by default
-            ...options
         };
 
         this._map = null;
@@ -165,14 +164,6 @@ export class MapFeatureControl {
      */
     getDefaultPosition() {
         return this.options.position;
-    }
-
-    /**
-     * Public method to add the control to a map (following mapbox-choropleth pattern)
-     */
-    addTo(map) {
-        map.addControl(this, this.options.position);
-        return this;
     }
 
     /**
@@ -5482,9 +5473,4 @@ export class MapFeatureControl {
         }
 
     }
-}
-
-// Make available globally for backwards compatibility
-if (typeof window !== 'undefined') {
-    window.MapFeatureControl = MapFeatureControl;
 }

@@ -1289,11 +1289,3 @@ export class MapFeatureStateManager extends EventTarget {
         }
     }
 }
-
-// Export for both ES6 modules and global usage
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = MapFeatureStateManager;
-}
-if (typeof window !== 'undefined') {
-    window.MapFeatureStateManager = MapFeatureStateManager;
-} 

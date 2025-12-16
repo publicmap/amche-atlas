@@ -88,6 +88,52 @@ export class DrawerStateManager {
             this._isOpen = false;
             this._emitStateChange('after-hide');
         });
+
+        customElements.whenDefined('sl-drawer').then(() => {
+            const drawer = document.querySelector('.drawer-placement-start');
+
+            // Track if drawer was manually toggled
+            let userToggledDrawer = false;
+
+            // Function to handle drawer state based on screen size, respecting user toggles
+            function handleDrawerState() {
+                // Don't automatically change drawer state if the user manually toggled it
+                if (userToggledDrawer) return;
+
+                // Keep drawer closed by default on all screen sizes
+                // Users can manually open it if needed
+                drawer.hide();
+            }
+
+            // Initial state - with a delay to ensure components are fully initialized
+            setTimeout(() => {
+                handleDrawerState();
+            }, 100);
+
+            // Listen for window resize, but don't apply on touch devices
+            const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            if (!isTouch) {
+                window.addEventListener('resize', handleDrawerState);
+            }
+
+            // Listen for drawer events to track manual toggles
+            // Use more specific event handlers to avoid conflicts with programmatic toggles
+            drawer.addEventListener('sl-after-show', (event) => {
+                // Only mark as user-toggled if it's a direct user interaction
+                if (event.target === drawer) {
+                    userToggledDrawer = true;
+                    console.log('[HTML] Drawer manually opened by user');
+                }
+            });
+
+            drawer.addEventListener('sl-after-hide', (event) => {
+                // Only mark as user-toggled if it's a direct user interaction
+                if (event.target === drawer) {
+                    userToggledDrawer = true;
+                    console.log('[HTML] Drawer manually closed by user');
+                }
+            });
+        });
     }
 
     /**

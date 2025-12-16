@@ -2,7 +2,7 @@
  * MapSearchControl - A class to handle Mapbox search box functionality
  * with support for coordinate search and local layer suggestions
  */
-class MapSearchControl {
+export class MapSearchControl {
     /**
      * @param {Object} map - The Mapbox GL map instance
      * @param {Object} options - Configuration options
@@ -10,7 +10,7 @@ class MapSearchControl {
     constructor(map, options = {}) {
         this.map = map;
         this.options = {
-            accessToken: mapboxgl.accessToken,
+            accessToken: window.amche.MAPBOXGL_ACCESS_TOKEN,
             proximity: '73.87916,15.26032', // Default to Goa center
             country: 'IN',
             language: 'en',
@@ -18,7 +18,6 @@ class MapSearchControl {
             ...options
         };
 
-        this.searchBox = null;
         this.coordinateRegex = /^(\d+\.?\d*)\s*,\s*(\d+\.?\d*)$/;
         this.isCoordinateInput = false;
         this.coordinateSuggestion = null;
@@ -41,7 +40,34 @@ class MapSearchControl {
         this.referenceView = null; // Saved reference view when search starts
         this.hasActiveSearch = false; // Track if we're in an active search state
 
-        this.initialize();
+        this.searchBox = document.querySelector('mapbox-search-box');
+
+        // Set up mapbox integration
+        this.searchBox.mapboxgl = mapboxgl;
+        this.searchBox.marker = false; // Disable default marker, we'll handle it ourselves
+        this.searchBox.setAttribute('access-token', this.options.accessToken);
+        this.searchBox.setAttribute('proximity', this.options.proximity);
+        this.searchBox.setAttribute('country', this.options.country);
+        this.searchBox.setAttribute('language', this.options.language);
+        this.searchBox.setAttribute('types', this.options.types);
+        this.searchBox.addEventListener('suggest', this.handleSuggest.bind(this));
+        this.searchBox.addEventListener('retrieve', this.handleRetrieve.bind(this));
+        this.searchBox.addEventListener('input', this.handleInput.bind(this));
+        this.searchBox.addEventListener('keydown', this.handleKeyDown.bind(this));
+        this.searchBox.addEventListener('clear', this.handleClear.bind(this));
+        this.searchBox.bindMap(this.map);
+
+        // Add required ARIA attributes for the combobox input
+        this.setupComboboxAriaAttributes();
+
+        // Monitor input changes more aggressively
+        this.setupInputMonitoring();
+
+        // Add map moveend listener to refresh search results when viewport changes
+        this.map.on('moveend', this.handleMapMoveEnd.bind(this));
+
+        // Monitor for changes to update aria-expanded when suggestions appear/disappear
+        this.setupAriaExpandedMonitoring();
     }
 
     /**
@@ -143,65 +169,6 @@ class MapSearchControl {
         } catch (error) {
             console.error('Error clearing injected suggestions:', error);
         }
-    }
-
-    /**
-     * Initialize the search box control
-     */
-    initialize() {
-        // Wait for the search box element to be available
-        const checkForSearchBox = setInterval(() => {
-            const searchBoxElement = document.querySelector('mapbox-search-box');
-            if (searchBoxElement) {
-                clearInterval(checkForSearchBox);
-                this.setupSearchBox(searchBoxElement);
-            }
-        }, 100);
-    }
-
-    /**
-     * Set up the search box with event listeners
-     * @param {HTMLElement} searchBoxElement - The search box element
-     */
-    setupSearchBox(searchBoxElement) {
-        this.searchBox = searchBoxElement;
-
-        // Set up mapbox integration
-        this.searchBox.mapboxgl = mapboxgl;
-        this.searchBox.marker = false; // Disable default marker, we'll handle it ourselves
-        this.searchBox.bindMap(this.map);
-
-        // Set the access token and other options
-        this.searchBox.setAttribute('access-token', this.options.accessToken);
-        this.searchBox.setAttribute('proximity', this.options.proximity);
-        this.searchBox.setAttribute('country', this.options.country);
-        this.searchBox.setAttribute('language', this.options.language);
-        this.searchBox.setAttribute('types', this.options.types);
-
-        // Add required ARIA attributes for the combobox input
-        this.setupComboboxAriaAttributes();
-
-        // Add event listeners
-        this.searchBox.addEventListener('suggest', this.handleSuggest.bind(this));
-        this.searchBox.addEventListener('retrieve', this.handleRetrieve.bind(this));
-
-        // Add input event listener to handle coordinate input and local suggestions
-        this.searchBox.addEventListener('input', this.handleInput.bind(this));
-
-        // Add keydown event listener to handle Enter key for coordinates
-        this.searchBox.addEventListener('keydown', this.handleKeyDown.bind(this));
-
-        // Add additional event listeners for better input detection
-        this.searchBox.addEventListener('clear', this.handleClear.bind(this));
-
-        // Monitor input changes more aggressively
-        this.setupInputMonitoring();
-
-        // Add map moveend listener to refresh search results when viewport changes
-        this.map.on('moveend', this.handleMapMoveEnd.bind(this));
-
-        // Monitor for changes to update aria-expanded when suggestions appear/disappear
-        this.setupAriaExpandedMonitoring();
     }
 
     /**
@@ -623,53 +590,6 @@ class MapSearchControl {
                 console.debug('No local suggestions found - clearing any existing suggestion markers');
                 this.clearSuggestionMarkers();
             }
-        }
-    }
-
-    /**
-     * Try to directly update the search box's internal state to prevent API calls
-     */
-    updateSearchBoxState() {
-        try {
-            console.debug('Attempting to update search box state');
-
-            // Try to access the internal search box component
-            const searchBoxComponent = this.searchBox.shadowRoot.querySelector('mapbox-search-box-core');
-            if (searchBoxComponent) {
-                console.debug('Found search box component, attempting to update state');
-
-                // Try to set the suggestions directly
-                if (searchBoxComponent._searchSession) {
-                    console.debug('Found search session, updating suggestions');
-                    searchBoxComponent._searchSession._suggestions = [this.coordinateSuggestion];
-                    console.debug('Updated search session suggestions');
-                } else {
-                    console.debug('Search session not found');
-                }
-
-                // Try to update the UI
-                const listbox = this.searchBox.shadowRoot.querySelector('mapbox-search-listbox');
-                if (listbox) {
-                    console.debug('Found listbox, updating suggestions');
-                    listbox.suggestions = [this.coordinateSuggestion];
-                    console.debug('Updated listbox suggestions');
-                } else {
-                    console.debug('Listbox not found');
-                }
-
-                // Try to find and update the input element
-                const inputElement = this.searchBox.shadowRoot.querySelector('input');
-                if (inputElement) {
-                    console.debug('Found input element');
-                    // We don't need to modify the input value as it's already set
-                } else {
-                    console.debug('Input element not found');
-                }
-            } else {
-                console.debug('Search box component not found');
-            }
-        } catch (error) {
-            console.error('Error updating search box state:', error);
         }
     }
 
@@ -1458,31 +1378,6 @@ class MapSearchControl {
     }
 
     /**
-     * Hide all suggestion markers without removing them
-     */
-    hideSuggestionMarkers() {
-        console.debug('Hiding suggestion markers from map');
-
-        let hiddenCount = 0;
-
-        this.suggestionMarkers.forEach((markerData, index) => {
-            try {
-                if (markerData.visible) {
-                    markerData.marker.remove();
-                    markerData.visible = false;
-                    hiddenCount++;
-
-                    console.debug(`Hidden suggestion marker ${index} for plot:`, markerData.title);
-                }
-            } catch (error) {
-                console.error(`Error hiding suggestion marker ${index}:`, error);
-            }
-        });
-
-        console.debug(`Successfully hidden ${hiddenCount} suggestion markers from map`);
-    }
-
-    /**
      * Clear all suggestion markers completely
      */
     clearSuggestionMarkers() {
@@ -1724,31 +1619,4 @@ class MapSearchControl {
             console.error('Error fitting to context with hovered suggestion:', error);
         }
     }
-
-    /**
-     * Reset map view to the saved reference view
-     */
-    resetToReferenceView() {
-        try {
-            if (!this.referenceView) {
-                console.debug('No reference view to reset to');
-                return;
-            }
-
-            console.debug('Resetting map to reference view');
-            this.map.flyTo({
-                center: this.referenceView.center,
-                zoom: this.referenceView.zoom,
-                bearing: this.referenceView.bearing,
-                pitch: this.referenceView.pitch,
-                duration: 1000,
-                essential: true
-            });
-        } catch (error) {
-            console.error('Error resetting to reference view:', error);
-        }
-    }
 }
-
-// Export the class
-window.MapSearchControl = MapSearchControl;

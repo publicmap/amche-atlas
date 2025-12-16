@@ -1,19 +1,18 @@
 import { URLManager } from './url-manager.js';
 import { TimeControl } from './time-control.js';
-import { layerRegistry } from './layer-registry.js';
+import { ButtonShareLink } from './button-share-link.js';
 import { MapLayerControl } from './map-layer-controls.js';
 import { PermalinkHandler } from './permalink-handler.js';
-import { Terrain3DControl } from './terrain-3d-control.js';
 import { StatePersistence } from './state-persistence.js';
+import { MapSearchControl } from './map-search-control.js';
+import { Terrain3DControl } from './terrain-3d-control.js';
 import { MapFeatureControl } from './map-feature-control.js';
 import { GeolocationManager } from './geolocation-manager.js';
+import { ButtonResetMapView } from './button-reset-map-view.js';
 import { MapAttributionControl } from './map-attribution-control.js';
+import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { MapExportControl } from './map-export-control.js';
-
-// Layer registry is now imported from layer-registry.js
-// Make it available globally for backwards compatibility
-window.layerRegistry = layerRegistry;
 
 // Function to get URL parameters
 function getUrlParameter(name) {
@@ -610,9 +609,6 @@ function isObject(item) {
     return (item && typeof item === 'object' && !Array.isArray(item));
 }
 
-// Initialize the map
-mapboxgl.accessToken = window.amche.MAPBOXGL_ACCESS_TOKEN;
-
 // Default map options
 const defaultMapOptions = {
     container: 'map',
@@ -676,7 +672,7 @@ function _initializeSlotLayers(map) {
 }
 
 // Initialize the map with the configuration
-async function initializeMap() {
+export async function initializeMap() {
     const config = await loadConfiguration();
     const layers = config.layers || [];
 
@@ -692,11 +688,6 @@ async function initializeMap() {
     // Make map accessible globally for debugging
     window.map = map;
 
-    // Add custom attribution control that handles formatting and removes duplicates
-    const attributionControl = new MapAttributionControl();
-    map.addControl(attributionControl, 'bottom-right');
-    window.attributionControl = attributionControl; // Make attribution control globally accessible
-
     // Setup proper cursor handling for map dragging
     map.on('load', () => {
         // Initialize slot layers for proper layer ordering
@@ -708,17 +699,6 @@ async function initializeMap() {
 
         // Make geolocation manager globally accessible
         window.geolocationManager = geolocationManager;
-
-        // Add 3D terrain control (will be initialized after URL manager is ready)
-        const terrain3DControl = new Terrain3DControl();
-        map.addControl(terrain3DControl, 'top-right');
-
-        // Add time control for time-based layers
-        const timeControl = new TimeControl();
-        map.addControl(timeControl, 'top-right');
-
-        // Store global reference for other components
-        window.timeControl = timeControl;
 
         // Add debugging method to global scope
 
@@ -769,25 +749,36 @@ async function initializeMap() {
         // Make layer control globally accessible
         window.layerControl = layerControl;
 
+        // Make components globally accessible
+        window.stateManager = stateManager;
+
+        // Add custom attribution control that handles formatting and removes duplicates
+        window.attributionControl = new MapAttributionControl();
+        // Add 3D terrain control (will be initialized after URL manager is ready)
+        window.terrain3DControl = new Terrain3DControl();
         // Initialize the feature control with state manager and config
-        const featureControl = new MapFeatureControl({
-            position: 'top-left',
-            maxHeight: '600px',
-            maxWidth: '350px'
-        });
-        featureControl.addTo(map);
-        featureControl.initialize(stateManager, config);
+        window.featureControl = new MapFeatureControl();
+
+        map.addControl(featureControl, 'top-left');
+        map.addControl(new TimeControl(), 'top-right');
+        map.addControl(window.terrain3DControl, 'top-right');
+        map.addControl(new ButtonResetMapView(), 'top-right');
+        map.addControl(window.attributionControl, 'bottom-right');
+        map.addControl(new ButtonExternalMapLinks(), 'bottom-right');
+        map.addControl(new mapboxgl.NavigationControl({showCompass: true, showZoom: true}));
+        map.addControl(new ButtonShareLink({
+            url: () => window.location.href,
+            showToast: true,
+            qrCodeSize: 500
+        }), 'bottom-right');
 
         // Show feature control panel by default on initial load
-        setTimeout(() => {
-            if (featureControl._panel) {
-                featureControl._showPanel();
-            }
-        }, 300); // Small delay to ensure panel is fully initialized
+        const config = loadConfiguration();
+        window.featureControl.initialize(stateManager, config);
+        window.featureControl._showPanel();
 
-        // Make components globally accessible
-        window.featureControl = featureControl;
-        window.stateManager = stateManager;
+        // Initialize 3D control from URL parameters after URL manager is ready
+        window.terrain3DControl.initializeFromURL();
 
         // Initialize state persistence and try to restore saved state
         const statePersistence = new StatePersistence();
@@ -825,12 +816,6 @@ async function initializeMap() {
         // Make URL manager globally accessible for ShareLink
         window.urlManager = urlManager;
 
-        // Make 3D control globally accessible
-        window.terrain3DControl = terrain3DControl;
-
-        // Initialize 3D control from URL parameters after URL manager is ready
-        terrain3DControl.initializeFromURL();
-
         // Set up click listener for geolocate buttons in documentation
         $(document).on('click', '.geolocate', function (e) {
             e.preventDefault();
@@ -839,12 +824,6 @@ async function initializeMap() {
                 window.geolocationManager.geolocate.trigger();
             }
         });
-
-        // Add navigation controls
-        map.addControl(new mapboxgl.NavigationControl({
-            showCompass: true,
-            showZoom: true
-        }));
 
         // Only set camera position if there's no hash in URL
         if (!window.location.hash) {
@@ -967,31 +946,10 @@ async function initializeMap() {
     });
 }
 
-// Start initialization
-window.addEventListener('load', () => {
-    // Only call initializeMap() - don't call initializeSearch() directly
-    initializeMap().then(() => {
-        // Now window.map exists, so we can initialize search
-        initializeSearch();
-    });
-});
-
 // Initialize search box with enhanced functionality
-function initializeSearch() {
+export function initializeSearch() {
     // Note: We now need to use the global map variable
     const searchSetup = () => {
-        // Check if MapSearchControl is available
-        if (typeof MapSearchControl === 'undefined') {
-            console.error('MapSearchControl class not found. Make sure map-search-control.js is loaded.');
-            return;
-        }
-
-        // Check if MapFeatureStateManager is available
-        if (typeof MapFeatureStateManager === 'undefined') {
-            console.error('MapFeatureStateManager class not found. Make sure map-feature-state-manager.js is loaded.');
-            return;
-        }
-
         // Initialize the feature state manager
         const featureStateManager = new MapFeatureStateManager(window.map);
 
@@ -999,18 +957,12 @@ function initializeSearch() {
         featureStateManager.watchLayerAdditions();
 
         // Initialize the enhanced search control
-        const searchControl = new MapSearchControl(window.map, {
-            // You can add custom options here if needed
-            proximity: '73.87916,15.26032', // Goa center
-            country: 'IN',
-            language: 'en'
-        });
+        const searchControl = new MapSearchControl(window.map);
 
         // Connect the feature state manager to the search control
         searchControl.setFeatureStateManager(featureStateManager);
 
         // Make both globally accessible for debugging
-        window.searchControl = searchControl;
         window.featureStateManager = featureStateManager;
 
     };
