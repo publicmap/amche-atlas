@@ -14,6 +14,7 @@ export class MapExportControl {
         this._description = '';
         this._titleCustomized = false; // Track if user has manually edited the title
         this._movendHandler = null; // Store handler for cleanup
+        this._includeLegend = true; // Track legend inclusion checkbox
     }
 
     onAdd(map) {
@@ -58,14 +59,31 @@ export class MapExportControl {
     _createExportPanel() {
         this._exportPanel = document.createElement('div');
         this._exportPanel.className = 'mapboxgl-ctrl-group export-panel hidden';
+        this._exportPanel.style.width = '300px';
+        this._exportPanel.style.minWidth = '300px';
+        this._exportPanel.style.maxWidth = '300px';
 
+        // Panel Header
+        const header = document.createElement('div');
+        header.className = 'flex items-center gap-2 mb-3 pb-2 border-b border-gray-300';
+        const headerIcon = document.createElement('sl-icon');
+        headerIcon.name = 'download';
+        headerIcon.style.fontSize = '18px';
+        headerIcon.style.color = '#333';
+        const headerText = document.createElement('span');
+        headerText.className = 'font-bold text-base text-gray-800';
+        headerText.textContent = 'Export Map';
+        header.appendChild(headerIcon);
+        header.appendChild(headerText);
+        this._exportPanel.appendChild(header);
 
         // Format Selection
         this._exportPanel.appendChild(this._createLabel('Format'));
         const formatContainer = document.createElement('div');
+        formatContainer.className = 'flex gap-4 mb-3';
         formatContainer.innerHTML = `
-            <label><input type="radio" name="export-format" value="pdf" checked> PDF</label>
-            <label><input type="radio" name="export-format" value="geojson"> GeoJSON</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="export-format" value="pdf" checked> PDF</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="export-format" value="geojson"> GeoJSON</label>
         `;
         formatContainer.onchange = (e) => {
             this._format = e.target.value;
@@ -75,15 +93,15 @@ export class MapExportControl {
 
         // Size Selector
         this._sizeContainer = document.createElement('div');
+        this._sizeContainer.className = 'mb-3';
         this._sizeContainer.appendChild(this._createLabel('Size & DPI'));
 
         const controlsRow = document.createElement('div');
-        controlsRow.style.display = 'flex';
-        controlsRow.style.gap = '5px';
+        controlsRow.className = 'flex gap-1';
 
         // Size Dropdown
         const sizeSelect = document.createElement('select');
-        sizeSelect.style.flex = '2';
+        sizeSelect.className = 'flex-[2] bg-white border border-gray-300 rounded px-1 py-1';
         ['A4', 'A3', 'A2', 'A1', 'A0', 'Custom'].forEach(size => {
             const option = document.createElement('option');
             option.value = size;
@@ -97,7 +115,7 @@ export class MapExportControl {
 
         // DPI Dropdown
         const dpiSelect = document.createElement('select');
-        dpiSelect.style.flex = '1';
+        dpiSelect.className = 'flex-1 bg-white border border-gray-300 rounded px-1 py-1';
         [72, 96, 150, 300].forEach(dpi => {
             const option = document.createElement('option');
             option.value = dpi;
@@ -113,7 +131,7 @@ export class MapExportControl {
 
         // Dimensions Inputs
         this._dimContainer = document.createElement('div');
-        this._dimContainer.style.marginTop = '10px';
+        this._dimContainer.className = 'mb-3';
         this._widthInput = this._createInput('Width (mm)');
         this._heightInput = this._createInput('Height (mm)');
 
@@ -127,22 +145,23 @@ export class MapExportControl {
 
         // Orientation
         this._orientationContainer = document.createElement('div');
-        this._orientationContainer.style.marginTop = '10px';
+        this._orientationContainer.className = 'mb-3';
         this._orientationContainer.innerHTML = `
-            <label><input type="radio" name="orientation" value="landscape" checked> Landscape</label>
-            <label><input type="radio" name="orientation" value="portrait"> Portrait</label>
+            <label class="flex items-center gap-1 cursor-pointer mr-4"><input type="radio" name="orientation" value="landscape" checked> Landscape</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="orientation" value="portrait"> Portrait</label>
         `;
         this._orientationContainer.onchange = (e) => this._onOrientationChange(e.target.value);
         this._exportPanel.appendChild(this._orientationContainer);
 
         // Raster Quality Selection
         this._qualityContainer = document.createElement('div');
-        this._qualityContainer.style.marginTop = '10px';
+        this._qualityContainer.className = 'mb-3';
         this._qualityContainer.appendChild(this._createLabel('Raster Quality'));
         const qualityOptions = document.createElement('div');
+        qualityOptions.className = 'flex gap-4';
         qualityOptions.innerHTML = `
-            <label style="margin-right: 10px;"><input type="radio" name="raster-quality" value="medium" checked> Medium</label>
-            <label><input type="radio" name="raster-quality" value="high"> High</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="raster-quality" value="medium" checked> Medium</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="raster-quality" value="high"> High</label>
         `;
         qualityOptions.onchange = (e) => {
             this._rasterQuality = e.target.value;
@@ -152,15 +171,11 @@ export class MapExportControl {
 
         // Title Input
         this._titleContainer = document.createElement('div');
-        this._titleContainer.style.marginTop = '10px';
+        this._titleContainer.className = 'mb-3';
         this._titleContainer.appendChild(this._createLabel('Title'));
         const titleInput = document.createElement('textarea');
         titleInput.rows = 2;
-        titleInput.style.width = '100%';
-        titleInput.style.padding = '5px';
-        titleInput.style.marginTop = '5px';
-        titleInput.style.boxSizing = 'border-box';
-        titleInput.style.resize = 'vertical';
+        titleInput.className = 'w-full bg-white border border-gray-300 rounded px-1 py-1 mt-1 box-border resize-y';
         titleInput.placeholder = 'Loading...';
         titleInput.onchange = (e) => { 
             this._title = e.target.value; 
@@ -178,15 +193,10 @@ export class MapExportControl {
 
         // Description Textarea
         this._descriptionContainer = document.createElement('div');
-        this._descriptionContainer.style.marginTop = '10px';
+        this._descriptionContainer.className = 'mb-3';
         this._descriptionContainer.appendChild(this._createLabel('Description'));
         const descriptionTextarea = document.createElement('textarea');
-        descriptionTextarea.style.width = '100%';
-        descriptionTextarea.style.padding = '5px';
-        descriptionTextarea.style.marginTop = '5px';
-        descriptionTextarea.style.boxSizing = 'border-box';
-        descriptionTextarea.style.minHeight = '60px';
-        descriptionTextarea.style.resize = 'vertical';
+        descriptionTextarea.className = 'w-full bg-white border border-gray-300 rounded px-1 py-1 mt-1 box-border min-h-[60px] resize-y';
         descriptionTextarea.placeholder = 'Loading...';
         descriptionTextarea.onchange = (e) => { this._description = e.target.value; };
         descriptionTextarea.oninput = (e) => { this._description = e.target.value; };
@@ -194,21 +204,38 @@ export class MapExportControl {
         this._descriptionContainer.appendChild(descriptionTextarea);
         this._exportPanel.appendChild(this._descriptionContainer);
 
+        // Add Legend Checkbox
+        this._legendContainer = document.createElement('div');
+        this._legendContainer.className = 'mb-3';
+        const legendLabel = document.createElement('label');
+        legendLabel.className = 'flex items-center gap-2 cursor-pointer';
+        const legendCheckbox = document.createElement('input');
+        legendCheckbox.type = 'checkbox';
+        legendCheckbox.checked = this._includeLegend;
+        legendCheckbox.onchange = (e) => {
+            this._includeLegend = e.target.checked;
+        };
+        const legendText = document.createElement('span');
+        legendText.textContent = 'Add legend';
+        legendLabel.appendChild(legendCheckbox);
+        legendLabel.appendChild(legendText);
+        this._legendContainer.appendChild(legendLabel);
+        this._exportPanel.appendChild(this._legendContainer);
+
         // Export Button
         const doExportBtn = document.createElement('button');
-        doExportBtn.textContent = 'Export';
-        doExportBtn.style.cssText = `
-            width: 100%;
-            margin-top: 10px;
-            padding: 5px;
-            background: #333;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        `;
+        doExportBtn.className = 'w-full mt-2 py-2 px-4 bg-gray-800 text-white border-none rounded cursor-pointer flex items-center justify-center gap-2 hover:bg-gray-700 transition-colors';
+        const exportIcon = document.createElement('sl-icon');
+        exportIcon.name = 'download';
+        exportIcon.style.fontSize = '16px';
+        const exportText = document.createElement('span');
+        exportText.textContent = 'Export';
+        doExportBtn.appendChild(exportIcon);
+        doExportBtn.appendChild(exportText);
         doExportBtn.onclick = () => this._doExport();
         this._exportPanel.appendChild(doExportBtn);
+        this._exportButton = doExportBtn; // Store reference
+        this._exportButtonText = exportText; // Store text reference
 
         this._container.appendChild(this._exportPanel);
 
@@ -218,23 +245,20 @@ export class MapExportControl {
 
     _createLabel(text) {
         const label = document.createElement('div');
+        label.className = 'font-bold mt-1 mb-1 text-sm text-gray-700';
         label.textContent = text;
-        label.style.fontWeight = 'bold';
-        label.style.marginTop = '5px';
         return label;
     }
 
     _createInput(placeholder) {
         const div = document.createElement('div');
-        div.style.display = 'flex';
-        div.style.justifyContent = 'space-between';
-        div.style.marginBottom = '5px';
+        div.className = 'flex justify-between mb-1';
         const label = document.createElement('span');
+        label.className = 'text-xs text-gray-600';
         label.textContent = placeholder;
-        label.style.fontSize = '12px';
         const input = document.createElement('input');
         input.type = 'number';
-        input.style.width = '70px';
+        input.className = 'w-[70px] bg-white border border-gray-300 rounded px-1 py-1';
         div.appendChild(label);
         div.appendChild(input);
         return { container: div, input: input };
@@ -398,6 +422,7 @@ export class MapExportControl {
             this._qualityContainer.style.display = 'none';
             this._titleContainer.style.display = 'none';
             this._descriptionContainer.style.display = 'none';
+            this._legendContainer.style.display = 'none';
             this._frame.hide();
         } else {
             this._sizeContainer.style.display = 'block';
@@ -406,6 +431,7 @@ export class MapExportControl {
             this._qualityContainer.style.display = 'block';
             this._titleContainer.style.display = 'block';
             this._descriptionContainer.style.display = 'block';
+            this._legendContainer.style.display = 'block';
             this._frame.show();
             this._updateFrameFromInputs();
         }
@@ -491,9 +517,9 @@ export class MapExportControl {
     async _doExport() {
         if (this._isExporting) return;
         this._isExporting = true;
-        const btn = this._exportPanel.querySelector('button');
-        const oldText = btn.textContent;
-        btn.textContent = 'Processing...';
+        const oldText = this._exportButtonText.textContent;
+        this._exportButtonText.textContent = 'Processing...';
+        this._exportButton.disabled = true;
 
         try {
             if (this._format === 'geojson') {
@@ -506,7 +532,8 @@ export class MapExportControl {
             alert('Export failed: ' + e.message);
         } finally {
             this._isExporting = false;
-            btn.textContent = oldText;
+            this._exportButtonText.textContent = oldText;
+            this._exportButton.disabled = false;
         }
     }
 
@@ -592,17 +619,19 @@ export class MapExportControl {
         let overlayWidthMm = 0;
         let overlayHeightMm = 0;
 
-        // Find the feature panel layers container - check both class names
-        const featurePanelLayers = document.querySelector('.feature-control-layers.map-feature-panel-layers') || 
-                                   document.querySelector('.map-feature-panel-layers');
-        
-        // Check if element exists and has content (children or text)
-        const hasContent = featurePanelLayers && (
-            featurePanelLayers.children.length > 0 || 
-            featurePanelLayers.textContent.trim().length > 0
-        );
+        // Only capture overlay if legend checkbox is checked
+        if (this._includeLegend) {
+            // Find the feature panel layers container - check both class names
+            const featurePanelLayers = document.querySelector('.feature-control-layers.map-feature-panel-layers') || 
+                                       document.querySelector('.map-feature-panel-layers');
+            
+            // Check if element exists and has content (children or text)
+            const hasContent = featurePanelLayers && (
+                featurePanelLayers.children.length > 0 || 
+                featurePanelLayers.textContent.trim().length > 0
+            );
 
-        if (hasContent) {
+            if (hasContent) {
             // Check if parent panel is hidden - track state for cleanup
             const parentPanel = featurePanelLayers.closest('.map-feature-panel');
             const wasHidden = parentPanel && parentPanel.style.display === 'none';
@@ -765,6 +794,7 @@ export class MapExportControl {
                 if (wasHidden && parentPanel) {
                     parentPanel.style.display = originalDisplay;
                 }
+            }
             }
         }
 
@@ -1357,10 +1387,14 @@ class ExportFrame {
         this._control = control;
         this._el = document.createElement('div');
         this._el.className = 'map-export-frame';
+        this._el.style.position = 'absolute';
+        this._el.style.pointerEvents = 'none'; // Make interior pass through events
+        this._el.style.userSelect = 'none';
 
-        // Move Handle (top-left, 50x50px)
+        // Move Handle (top-left) - draggable
         this._moveHandle = document.createElement('div');
         this._moveHandle.className = 'export-move-handle';
+        this._moveHandle.style.pointerEvents = 'auto'; // Enable interaction
         this._moveHandle.innerHTML = `
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M5 9l-2 2 2 2M9 5l2-2 2 2M15 19l-2 2-2-2M19 9l2 2-2 2"/>
@@ -1368,50 +1402,79 @@ class ExportFrame {
                 <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
             </svg>
         `;
-        this._moveHandle.onmousedown = (e) => this._startMove(e);
-        this._moveHandle.ontouchstart = (e) => this._startMove(e);
+        this._moveHandle.onmousedown = (e) => {
+            e.stopPropagation();
+            this._startMove(e);
+        };
+        this._moveHandle.ontouchstart = (e) => {
+            e.stopPropagation();
+            this._startMove(e);
+        };
         this._el.appendChild(this._moveHandle);
+
+        // Edge borders (top, bottom, left, right) - draggable
+        const edgeThickness = 8; // Thickness of draggable edge
+        ['top', 'bottom', 'left', 'right'].forEach(pos => {
+            const edge = document.createElement('div');
+            edge.className = `export-edge export-edge-${pos}`;
+            edge.style.position = 'absolute';
+            edge.style.pointerEvents = 'auto'; // Enable interaction
+            edge.style.cursor = pos === 'top' || pos === 'bottom' ? 'ns-resize' : 'ew-resize';
+            
+            if (pos === 'top') {
+                edge.style.top = '0';
+                edge.style.left = '0';
+                edge.style.right = '0';
+                edge.style.height = `${edgeThickness}px`;
+            } else if (pos === 'bottom') {
+                edge.style.bottom = '0';
+                edge.style.left = '0';
+                edge.style.right = '0';
+                edge.style.height = `${edgeThickness}px`;
+            } else if (pos === 'left') {
+                edge.style.top = '0';
+                edge.style.left = '0';
+                edge.style.bottom = '0';
+                edge.style.width = `${edgeThickness}px`;
+            } else if (pos === 'right') {
+                edge.style.top = '0';
+                edge.style.right = '0';
+                edge.style.bottom = '0';
+                edge.style.width = `${edgeThickness}px`;
+            }
+            
+            // Make edges draggable for moving the frame
+            edge.onmousedown = (e) => {
+                e.stopPropagation();
+                this._startMove(e);
+            };
+            edge.ontouchstart = (e) => {
+                e.stopPropagation();
+                this._startMove(e);
+            };
+            this._el.appendChild(edge);
+        });
 
         // Corner Resize Handles
         ['nw', 'ne', 'se', 'sw'].forEach(pos => {
             const handle = document.createElement('div');
             handle.className = `export-handle ${pos}`;
-            handle.onmousedown = (e) => this._startResize(e, pos);
-            handle.ontouchstart = (e) => this._startResize(e, pos);
+            handle.style.pointerEvents = 'auto'; // Enable interaction
+            handle.onmousedown = (e) => {
+                e.stopPropagation();
+                this._startResize(e, pos);
+            };
+            handle.ontouchstart = (e) => {
+                e.stopPropagation();
+                this._startResize(e, pos);
+            };
             this._el.appendChild(handle);
         });
-
-        // Make frame pass through events (except to handles)
-        this._el.onmousedown = (e) => {
-            // Only prevent default if clicking on the frame border itself
-            // Let map controls work normally
-            if (e.target === this._el) {
-                e.stopPropagation();
-            }
-        };
-        this._el.ontouchstart = (e) => {
-            if (e.target === this._el) {
-                e.stopPropagation();
-            }
-        };
 
         this._map.getContainer().appendChild(this._el);
 
         this._aspectRatio = 1.414; // A4 Landscape
         this._updatePosition();
-
-        // Update on map move to keep geographic position?
-        // Or is the frame "Sticky" to the screen or the map?
-        // User: "export from this frame". Usually frame overlays are screen-space or map-space?
-        // If map moves, frame usually stays on screen (like a viewport).
-        // BUT user said "movable frame selector on top of the map".
-        // If I Pan the map, does the frame move with it? 
-        // Usually, these tools allow you to Pan the Map *under* the Frame to line up the shot.
-        // So the Frame stays checking screen center.
-        // BUT the user asked for a "movable frame".
-        // Let's implement: Frame is an element on top of the map. It stays in screen coordinates.
-        // Moving the map changes what's inside. Moving the frame changes the crop on screen.
-        // This is flexible.
     }
 
     remove() {
@@ -1430,6 +1493,8 @@ class ExportFrame {
     setAspectRatio(ratio) {
         this._aspectRatio = ratio;
         this._updatePosition();
+        // Ensure frame stays within bounds after ratio change
+        this._constrainToViewport();
     }
 
     getBounds() {
@@ -1451,21 +1516,56 @@ class ExportFrame {
     }
 
     _updatePosition() {
+        const mapContainer = this._map.getContainer();
+        const mapRect = mapContainer.getBoundingClientRect();
+        
         // Default size: 60% of map width, height based on ratio
-        if (!this._el.style.width) {
-            const mapW = this._map.getContainer().clientWidth;
+        if (!this._el.style.width || !this._el.style.left) {
+            const mapW = mapRect.width;
             const w = mapW * 0.6;
             const h = w / this._aspectRatio;
+            
+            // Center the frame initially
+            const left = (mapW - w) / 2;
+            const top = (mapRect.height - h) / 2;
+            
             this._el.style.width = w + 'px';
             this._el.style.height = h + 'px';
+            this._el.style.left = left + 'px';
+            this._el.style.top = top + 'px';
         } else {
-            // Maintain ratio if triggered by external ratio change, or just center?
-            // If resize triggered from input update, we need to respect the new ratio.
-            // Keep current width, update height.
+            // Maintain ratio if triggered by external ratio change
             const w = parseFloat(this._el.style.width);
             const h = w / this._aspectRatio;
             this._el.style.height = h + 'px';
+            
+            // Ensure frame stays within viewport bounds
+            this._constrainToViewport();
         }
+    }
+
+    _constrainToViewport() {
+        const mapContainer = this._map.getContainer();
+        const mapRect = mapContainer.getBoundingClientRect();
+        const frameRect = this._el.getBoundingClientRect();
+        
+        let left = parseFloat(this._el.style.left) || 0;
+        let top = parseFloat(this._el.style.top) || 0;
+        const width = parseFloat(this._el.style.width) || 0;
+        const height = parseFloat(this._el.style.height) || 0;
+        
+        // Constrain to map container bounds (with padding for handles)
+        const handleSize = 12; // Size of resize handles
+        const minLeft = -handleSize;
+        const minTop = -handleSize;
+        const maxLeft = mapRect.width - width + handleSize;
+        const maxTop = mapRect.height - height + handleSize;
+        
+        left = Math.max(minLeft, Math.min(maxLeft, left));
+        top = Math.max(minTop, Math.min(maxTop, top));
+        
+        this._el.style.left = left + 'px';
+        this._el.style.top = top + 'px';
     }
 
     _startMove(e) {
@@ -1477,23 +1577,38 @@ class ExportFrame {
         const startX = isTouch ? e.touches[0].clientX : e.clientX;
         const startY = isTouch ? e.touches[0].clientY : e.clientY;
 
-        // Ensure transform is removed and we're using absolute positioning
-        if (getComputedStyle(this._el).transform !== 'none') {
-            this._el.style.transform = 'none';
-            this._el.style.left = this._el.offsetLeft + 'px';
-            this._el.style.top = this._el.offsetTop + 'px';
-        }
-
-        const finalStartLeft = this._el.offsetLeft;
-        const finalStartTop = this._el.offsetTop;
+        // Get current position relative to map container
+        const mapContainer = this._map.getContainer();
+        const mapRect = mapContainer.getBoundingClientRect();
+        const frameRect = this._el.getBoundingClientRect();
+        
+        // Calculate initial position relative to map container
+        const startLeft = frameRect.left - mapRect.left;
+        const startTop = frameRect.top - mapRect.top;
 
         const performMove = (e) => {
+            e.preventDefault();
             const currentX = isTouch ? e.touches[0].clientX : e.clientX;
             const currentY = isTouch ? e.touches[0].clientY : e.clientY;
+            
+            // Calculate delta from start position
             const dx = currentX - startX;
             const dy = currentY - startY;
-            this._el.style.left = (finalStartLeft + dx) + 'px';
-            this._el.style.top = (finalStartTop + dy) + 'px';
+            
+            // Calculate new position relative to map container
+            let newLeft = startLeft + dx;
+            let newTop = startTop + dy;
+            
+            // Constrain to viewport
+            const width = parseFloat(this._el.style.width) || 0;
+            const height = parseFloat(this._el.style.height) || 0;
+            const handleSize = 12;
+            
+            newLeft = Math.max(-handleSize, Math.min(mapRect.width - width + handleSize, newLeft));
+            newTop = Math.max(-handleSize, Math.min(mapRect.height - height + handleSize, newTop));
+            
+            this._el.style.left = newLeft + 'px';
+            this._el.style.top = newTop + 'px';
         };
 
         const onUp = () => {
@@ -1522,21 +1637,20 @@ class ExportFrame {
         // Support both mouse and touch events
         const isTouch = e.touches && e.touches.length > 0;
 
-        // Ensure transform is gone
-        if (getComputedStyle(this._el).transform !== 'none') {
-            this._el.style.transform = 'none';
-            this._el.style.left = this._el.offsetLeft + 'px';
-            this._el.style.top = this._el.offsetTop + 'px';
-        }
-
+        // Get current position relative to map container
+        const mapContainer = this._map.getContainer();
+        const mapRect = mapContainer.getBoundingClientRect();
+        const frameRect = this._el.getBoundingClientRect();
+        
         const startX = isTouch ? e.touches[0].clientX : e.clientX;
         const startY = isTouch ? e.touches[0].clientY : e.clientY;
-        const startW = this._el.offsetWidth;
-        const startH = this._el.offsetHeight;
-        const startL = this._el.offsetLeft;
-        const startT = this._el.offsetTop;
+        const startW = frameRect.width;
+        const startH = frameRect.height;
+        const startL = frameRect.left - mapRect.left;
+        const startT = frameRect.top - mapRect.top;
 
         const onMove = (e) => {
+            e.preventDefault();
             const currentX = isTouch ? e.touches[0].clientX : e.clientX;
             const currentY = isTouch ? e.touches[0].clientY : e.clientY;
             const dx = currentX - startX;
@@ -1552,8 +1666,21 @@ class ExportFrame {
             if (handle.includes('s')) newH = startH + dy;
             if (handle.includes('n')) { newH = startH - dy; newT = startT + dy; }
 
-            if (newW < 50) newW = 50;
-            if (newH < 50) newH = 50;
+            // Minimum size constraints
+            const minSize = 50;
+            if (newW < minSize) {
+                if (handle.includes('w')) newL = startL + startW - minSize;
+                newW = minSize;
+            }
+            if (newH < minSize) {
+                if (handle.includes('n')) newT = startT + startH - minSize;
+                newH = minSize;
+            }
+
+            // Constrain to viewport
+            const handleSize = 12;
+            newL = Math.max(-handleSize, Math.min(mapRect.width - newW + handleSize, newL));
+            newT = Math.max(-handleSize, Math.min(mapRect.height - newH + handleSize, newT));
 
             this._el.style.width = newW + 'px';
             this._el.style.height = newH + 'px';
