@@ -4631,30 +4631,52 @@ sl-tab:hover::part(base) {
 /* Map Export Control Styles */
 .map-export-frame {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    border: 2px dashed #fff;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5), 0 0 0 9999px rgba(0, 0, 0, 0.4);
+    border: 3px solid #3b82f6;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 10px rgba(59, 130, 246, 0.5);
     z-index: 9999;
-    pointer-events: none; /* Pass through events by default */
     display: none;
     background: transparent;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .map-export-frame.active {
     display: block;
 }
 
+.map-export-frame:hover {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 15px rgba(96, 165, 250, 0.7);
+}
+
+/* Edge borders for dragging */
+.export-edge {
+    background: transparent;
+    transition: background-color 0.2s ease;
+}
+
+.export-edge:hover {
+    background: rgba(59, 130, 246, 0.2);
+}
+
+.export-edge-top:hover,
+.export-edge-bottom:hover {
+    cursor: ns-resize !important;
+}
+
+.export-edge-left:hover,
+.export-edge-right:hover {
+    cursor: ew-resize !important;
+}
+
 /* Move handle - 50x50px in top-left corner */
 .export-move-handle {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 50px;
-    height: 50px;
-    background: rgba(255, 255, 255, 0.9);
-    border: 2px solid #333;
+    top: -6px;
+    left: -6px;
+    width: 40px;
+    height: 40px;
+    background: rgba(59, 130, 246, 0.9);
+    border: 2px solid #fff;
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -4662,52 +4684,72 @@ sl-tab:hover::part(base) {
     cursor: move;
     pointer-events: auto;
     z-index: 10001;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
 .export-move-handle svg {
-    width: 24px;
-    height: 24px;
-    color: #333;
+    width: 20px;
+    height: 20px;
+    color: #fff;
+}
+
+.export-move-handle:hover {
+    background: rgba(96, 165, 250, 0.95);
+    transform: scale(1.1);
 }
 
 .export-move-handle:active {
-    background: rgba(240, 240, 240, 0.95);
+    background: rgba(37, 99, 235, 0.95);
+    transform: scale(0.95);
 }
 
 /* Resize handles - corners */
 .export-handle {
-    width: 12px;
-    height: 12px;
-    background: white;
-    border: 1px solid #333;
+    width: 16px;
+    height: 16px;
+    background: rgba(59, 130, 246, 0.9);
+    border: 2px solid #fff;
+    border-radius: 50%;
     position: absolute;
     z-index: 10000;
-    pointer-events: auto; /* Enable interaction */
+    pointer-events: auto;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
 .export-handle.nw {
-    top: -6px;
-    left: -6px;
+    top: -8px;
+    left: -8px;
     cursor: nw-resize;
 }
 
 .export-handle.ne {
-    top: -6px;
-    right: -6px;
+    top: -8px;
+    right: -8px;
     cursor: ne-resize;
 }
 
 .export-handle.sw {
-    bottom: -6px;
-    left: -6px;
+    bottom: -8px;
+    left: -8px;
     cursor: sw-resize;
 }
 
 .export-handle.se {
-    bottom: -6px;
-    right: -6px;
+    bottom: -8px;
+    right: -8px;
     cursor: se-resize;
+}
+
+.export-handle:hover {
+    background: rgba(96, 165, 250, 0.95);
+    transform: scale(1.2);
+}
+
+.export-handle:active {
+    background: rgba(37, 99, 235, 0.95);
+    transform: scale(0.9);
 }
 /* Export Panel */
 .export-panel {
@@ -4718,7 +4760,9 @@ sl-tab:hover::part(base) {
     padding: 15px;
     border-radius: 4px;
     box-shadow: 0 0 10px rgba(0,0,0,0.2);
-    width: 300px;
+    width: 300px !important;
+    min-width: 300px !important;
+    max-width: 300px !important;
     z-index: 1000;
     font-family: 'Open Sans', sans-serif;
     color: #333;
@@ -4730,7 +4774,8 @@ sl-tab:hover::part(base) {
 
 /* Ensure controls inside aren't too cramped */
 .export-panel select, 
-.export-panel input[type="number"] {
+.export-panel input[type="number"],
+.export-panel textarea {
     background: #fff;
     border: 1px solid #ccc;
     border-radius: 3px;
