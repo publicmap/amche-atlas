@@ -354,6 +354,7 @@ main {
     width: auto !important;
     min-width: 30px;
     white-space: nowrap;
+    padding: 6px 10px;
 }
 
 .mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
@@ -361,6 +362,11 @@ main {
     width: 30px !important;
     height: 30px !important;
 }
+
+.mapboxgl-ctrl-geolocate span.error {
+    color: #d9534f;
+}
+
 
 .mapboxgl-ctrl-group {
     width: auto !important;

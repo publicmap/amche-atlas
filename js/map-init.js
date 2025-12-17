@@ -6,11 +6,11 @@ import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
 import { MapFeatureControl } from './map-feature-control.js';
-import { GeolocationManager } from './geolocation-manager.js';
 import { ButtonResetMapView } from './button-reset-map-view.js';
 import { MapAttributionControl } from './map-attribution-control.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
+import { ButtonGeolocationManager } from './button-geolocation-manager.js';
 import { MapExportControl } from './map-export-control.js';
 
 // Function to get URL parameters
@@ -680,12 +680,6 @@ export async function initializeMap() {
         // Reference: https://docs.mapbox.com/style-spec/reference/slots/
         _initializeSlotLayers(map);
 
-        // Initialize geolocation (will be connected to URL manager later)
-        const geolocationManager = new GeolocationManager(map);
-
-        // Make geolocation manager globally accessible
-        window.geolocationManager = geolocationManager;
-
         // Add debugging method to global scope
 
         const canvas = map.getCanvas();
@@ -748,6 +742,7 @@ export async function initializeMap() {
         map.addControl(featureControl, 'top-left');
         map.addControl(new TimeControl(), 'top-right');
         map.addControl(window.terrain3DControl, 'top-right');
+        map.addControl(new ButtonGeolocationManager(), 'top-right');
         map.addControl(new ButtonResetMapView(), 'top-right');
         map.addControl(window.attributionControl, 'bottom-right');
         map.addControl(new ButtonExternalMapLinks(), 'bottom-right');
@@ -772,14 +767,11 @@ export async function initializeMap() {
         const stateRestored = statePersistence.restoreStateOnLoad();
 
         // Initialize URL manager after layer control is ready
-        const urlManager = new URLManager(layerControl, map, geolocationManager);
+        const urlManager = new URLManager(layerControl, map);
         urlManager.setupLayerControlEventListeners();
 
         // Make URL manager globally accessible
         window.urlManager = urlManager;
-
-        // Connect geolocation manager to URL manager
-        geolocationManager.urlManager = urlManager;
 
         // Add Export Control
         const exportControl = new MapExportControl();
@@ -802,15 +794,6 @@ export async function initializeMap() {
 
         // Make URL manager globally accessible for ShareLink
         window.urlManager = urlManager;
-
-        // Set up click listener for geolocate buttons in documentation
-        $(document).on('click', '.geolocate', function (e) {
-            e.preventDefault();
-            if (window.geolocationManager && window.geolocationManager.geolocate) {
-                // Trigger the Mapbox geolocation control
-                window.geolocationManager.geolocate.trigger();
-            }
-        });
 
         // Only set camera position if there's no hash in URL
         if (!window.location.hash) {

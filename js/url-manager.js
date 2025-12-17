@@ -4,16 +4,16 @@
  */
 
 export class URLManager {
-    constructor(mapLayerControl, map, geolocationManager = null) {
+    constructor(mapLayerControl, map) {
         this.mapLayerControl = mapLayerControl;
         this.map = map;
-        this.geolocationManager = geolocationManager;
         this.isUpdatingFromURL = false; // Prevent circular updates
         this.pendingURLUpdate = null; // Debounce URL updates
 
         // Set up browser history handling
         this.setupHistoryHandling();
 
+        $(document).on('update_url', this.updateGeolocateParam );
     }
 
     /**
@@ -674,10 +674,7 @@ export class URLManager {
             // Handle geolocate parameter
             if (geolocateParam === 'true') {
                 applied = true;
-                // Trigger geolocation after a short delay to ensure everything is loaded
-                setTimeout(() => {
-                    this.triggerGeolocation();
-                }, 1000);
+                this.triggerGeolocation();
             }
 
             // Handle terrain parameter
@@ -887,18 +884,14 @@ export class URLManager {
      * Trigger geolocation from URL parameter
      */
     triggerGeolocation() {
-        if (this.geolocationManager) {
-            this.geolocationManager.trigger();
-        } else {
-            console.warn('🔗 GeolocationManager not available for URL-triggered geolocation');
-        }
+        $(document).trigger('url_updated', {geolocate: true});
     }
 
     /**
      * Update geolocate parameter in URL
      */
-    updateGeolocateParam(isActive) {
-        this.updateURL({ geolocate: isActive });
+    updateGeolocateParam = (event, param) => {
+        this.updateURL({geolocate: param.geolocate});
     }
 
     /**
