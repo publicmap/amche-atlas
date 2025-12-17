@@ -2,7 +2,6 @@ import { URLManager } from './url-manager.js';
 import { TimeControl } from './time-control.js';
 import { ButtonShareLink } from './button-share-link.js';
 import { MapLayerControl } from './map-layer-controls.js';
-import { PermalinkHandler } from './permalink-handler.js';
 import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
@@ -222,22 +221,9 @@ async function loadConfiguration() {
     // Initialize the layer registry first
     await layerRegistry.initialize();
 
-    const permalinkHandler = new PermalinkHandler();
-    // Check for permalink first - this takes precedence over direct URL parameters
-    const permalinkParams = await permalinkHandler.checkForPermalink();
-
-    if (permalinkParams) {
-        // Apply the resolved permalink URL and let the normal parameter parsing handle it
-        permalinkHandler.applyPermalinkToURL(permalinkParams);
-
-        // Use the resolved parameters directly
-        var configParam = permalinkParams.atlas;
-        var layersParam = permalinkParams.layers;
-    } else {
-        // Check if a specific config is requested via URL parameter
-        var configParam = getUrlParameter('atlas');
-        var layersParam = getUrlParameter('layers');
-    }
+    // Check if a specific config is requested via URL parameter
+    var configParam = getUrlParameter('atlas');
+    var layersParam = getUrlParameter('layers');
 
     let configPath = window.amche.DEFAULT_ATLAS;
     let config;

@@ -4,6 +4,7 @@
 import { layerRegistry } from './layer-registry.js';
 import './mapbox-api.js';
 import { initializeMap, initializeSearch } from './map-init.js';
+import { PermalinkManager } from './permalink-manager.js';
 import { NavigationControl } from './navigation-control.js';
 import { IntroContentManager } from './intro-content-manager.js';
 
@@ -34,6 +35,9 @@ mapboxgl.accessToken = window.amche.MAPBOXGL_ACCESS_TOKEN;
 
 // Start initialization
 $(window).on('load', function () {
+    const permalinkHandler = new PermalinkManager();
+    permalinkHandler.detectAndRedirect();
+
     loadGoogleAnalytics(arguments);
 
     const navigationControl = new NavigationControl();
