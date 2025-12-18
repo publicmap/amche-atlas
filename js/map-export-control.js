@@ -14,6 +14,7 @@ export class MapExportControl {
         this._description = '';
         this._titleCustomized = false; // Track if user has manually edited the title
         this._movendHandler = null; // Store handler for cleanup
+        this._resizeHandler = null; // Store resize handler for cleanup
         this._includeLegend = true; // Track legend inclusion checkbox
     }
 
@@ -40,14 +41,26 @@ export class MapExportControl {
         };
         map.on('moveend', this._movendHandler);
 
+        // Listen to window resize to update panel max-height
+        this._resizeHandler = () => {
+            if (!this._exportPanel.classList.contains('hidden')) {
+                this._updatePanelMaxHeight();
+            }
+        };
+        window.addEventListener('resize', this._resizeHandler);
+
         return this._container;
     }
 
     onRemove() {
-        // Remove event listener
+        // Remove event listeners
         if (this._map && this._movendHandler) {
             this._map.off('moveend', this._movendHandler);
             this._movendHandler = null;
+        }
+        if (this._resizeHandler) {
+            window.removeEventListener('resize', this._resizeHandler);
+            this._resizeHandler = null;
         }
         this._container.parentNode.removeChild(this._container);
         this._map = null;
@@ -62,6 +75,10 @@ export class MapExportControl {
         this._exportPanel.style.width = '300px';
         this._exportPanel.style.minWidth = '300px';
         this._exportPanel.style.maxWidth = '300px';
+        this._exportPanel.style.maxHeight = 'calc(100vh - 150px)';
+        this._exportPanel.style.overflowY = 'auto';
+        this._exportPanel.style.overflowX = 'hidden';
+        this._exportPanel.style.overscrollBehavior = 'contain';
 
         // Panel Header
         const header = document.createElement('div');
@@ -90,6 +107,15 @@ export class MapExportControl {
             this._updatePanelVisibility();
         };
         this._exportPanel.appendChild(formatContainer);
+
+        // Page Settings Collapsible Section
+        const pageSettingsDetails = document.createElement('sl-details');
+        pageSettingsDetails.className = 'mb-3';
+        pageSettingsDetails.summary = 'Show page settings';
+        
+        const pageSettingsContent = document.createElement('div');
+        pageSettingsContent.className = 'pt-2';
+        pageSettingsDetails.appendChild(pageSettingsContent);
 
         // Size Selector
         this._sizeContainer = document.createElement('div');
@@ -127,7 +153,7 @@ export class MapExportControl {
         controlsRow.appendChild(dpiSelect);
 
         this._sizeContainer.appendChild(controlsRow);
-        this._exportPanel.appendChild(this._sizeContainer);
+        pageSettingsContent.appendChild(this._sizeContainer);
 
         // Dimensions Inputs
         this._dimContainer = document.createElement('div');
@@ -141,7 +167,7 @@ export class MapExportControl {
 
         this._dimContainer.appendChild(this._widthInput.container);
         this._dimContainer.appendChild(this._heightInput.container);
-        this._exportPanel.appendChild(this._dimContainer);
+        pageSettingsContent.appendChild(this._dimContainer);
 
         // Orientation
         this._orientationContainer = document.createElement('div');
@@ -151,7 +177,7 @@ export class MapExportControl {
             <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="orientation" value="portrait"> Portrait</label>
         `;
         this._orientationContainer.onchange = (e) => this._onOrientationChange(e.target.value);
-        this._exportPanel.appendChild(this._orientationContainer);
+        pageSettingsContent.appendChild(this._orientationContainer);
 
         // Raster Quality Selection
         this._qualityContainer = document.createElement('div');
@@ -167,7 +193,11 @@ export class MapExportControl {
             this._rasterQuality = e.target.value;
         };
         this._qualityContainer.appendChild(qualityOptions);
-        this._exportPanel.appendChild(this._qualityContainer);
+        pageSettingsContent.appendChild(this._qualityContainer);
+
+        // Store reference to page settings details for visibility control
+        this._pageSettingsDetails = pageSettingsDetails;
+        this._exportPanel.appendChild(pageSettingsDetails);
 
         // Title Input
         this._titleContainer = document.createElement('div');
@@ -272,6 +302,9 @@ export class MapExportControl {
     _togglePanel() {
         this._exportPanel.classList.toggle('hidden');
         if (!this._exportPanel.classList.contains('hidden')) {
+            // Calculate max-height based on panel position to prevent overflow
+            this._updatePanelMaxHeight();
+            
             if (this._format !== 'geojson') {
                 this._frame.show();
                 this._updateFrameFromInputs(); // Ensure frame matches current inputs
@@ -281,6 +314,33 @@ export class MapExportControl {
         } else {
             this._frame.hide();
         }
+    }
+
+    _updatePanelMaxHeight() {
+        if (!this._map || !this._exportPanel) return;
+        
+        // Get map container dimensions
+        const mapContainer = this._map.getContainer();
+        const mapRect = mapContainer.getBoundingClientRect();
+        
+        // Get panel position relative to viewport
+        const panelRect = this._exportPanel.getBoundingClientRect();
+        
+        // Calculate available space from panel top to map bottom
+        // Add some padding (20px) to ensure panel doesn't touch bottom
+        const availableHeight = mapRect.bottom - panelRect.top - 20;
+        
+        // Also ensure it doesn't exceed viewport height minus top padding
+        const maxViewportHeight = window.innerHeight - panelRect.top - 20;
+        
+        // Use the smaller of the two to prevent overflow
+        const maxHeight = Math.min(availableHeight, maxViewportHeight, window.innerHeight - 150);
+        
+        // Set minimum height to ensure usability
+        const minHeight = 200;
+        
+        // Apply max-height (ensure it's at least minHeight)
+        this._exportPanel.style.maxHeight = `${Math.max(maxHeight, minHeight)}px`;
     }
 
     async _loadDefaultTitleAndDescription() {
@@ -426,19 +486,17 @@ export class MapExportControl {
 
     _updatePanelVisibility() {
         if (this._format === 'geojson') {
-            this._sizeContainer.style.display = 'none';
-            this._dimContainer.style.display = 'none';
-            this._orientationContainer.style.display = 'none';
-            this._qualityContainer.style.display = 'none';
+            if (this._pageSettingsDetails) {
+                this._pageSettingsDetails.style.display = 'none';
+            }
             this._titleContainer.style.display = 'none';
             this._descriptionContainer.style.display = 'none';
             this._legendContainer.style.display = 'none';
             this._frame.hide();
         } else {
-            this._sizeContainer.style.display = 'block';
-            this._dimContainer.style.display = 'block';
-            this._orientationContainer.style.display = 'block';
-            this._qualityContainer.style.display = 'block';
+            if (this._pageSettingsDetails) {
+                this._pageSettingsDetails.style.display = 'block';
+            }
             this._titleContainer.style.display = 'block';
             this._descriptionContainer.style.display = 'block';
             this._legendContainer.style.display = 'block';
@@ -1607,24 +1665,84 @@ export class MapExportControl {
             const layerHeights = await measureLayerHeights();
 
             // Distribute layers based on measured heights
+            // Use a smarter algorithm that handles very tall layers by making them full-width
+            const fullWidthThreshold = maxColumnHeight * 1.5; // Layers taller than 1.5x column height span full width
+            
             layerInfo.forEach((layer, index) => {
                 const layerHeight = layerHeights[index] || 100; // Fallback to 100mm if measurement failed
                 
                 // Safety margin to prevent cutoff
                 const safetyMargin = 20; // Increased safety margin
                 
-                // If layer is taller than available column height, put it in its own column
-                // Canvas splitting will handle overflow across pages
-                if (layerHeight > maxColumnHeight * 0.9) {
-                    // Very tall layer - ensure it starts on a fresh column
-                    if (currentPageLayers[currentColumn].length > 0) {
-                        // Current column has content, move to next column/page
+                // Check if layer is very tall (should span full width)
+                if (layerHeight > fullWidthThreshold) {
+                    // Very tall layer - make it span full width to avoid wasting vertical space
+                    // First, ensure we're starting on a fresh row (both columns should be clear or we start new page)
+                    if (currentPageLayers[0].length > 0 || currentPageLayers[1].length > 0) {
+                        // Current page has content - save it and start new page for the tall layer
+                        pagesData.push({
+                            layers: currentPageLayers,
+                            pageIndex: currentPage,
+                            fullWidthLayers: []
+                        });
+                        
+                        currentPage++;
+                        currentPageLayers = [[], []];
+                        currentPageHeights = [0, 0];
+                        currentColumn = 0;
+                    }
+                    
+                    // Add tall layer as full-width (will be rendered spanning both columns)
+                    // Store it in a special structure
+                    if (!pagesData[currentPage]) {
+                        pagesData.push({
+                            layers: [[], []],
+                            pageIndex: currentPage,
+                            fullWidthLayers: []
+                        });
+                    }
+                    
+                    // Find or create the current page data
+                    let currentPageData = pagesData.find(p => p.pageIndex === currentPage);
+                    if (!currentPageData) {
+                        currentPageData = {
+                            layers: [[], []],
+                            pageIndex: currentPage,
+                            fullWidthLayers: []
+                        };
+                        pagesData.push(currentPageData);
+                    } else {
+                        // Ensure fullWidthLayers exists
+                        if (!currentPageData.fullWidthLayers) {
+                            currentPageData.fullWidthLayers = [];
+                        }
+                    }
+                    
+                    // Add to full-width layers
+                    currentPageData.fullWidthLayers.push({
+                        layer: layer,
+                        height: layerHeight
+                    });
+                    
+                    // Reset column tracking since we used full width
+                    currentPageLayers = [[], []];
+                    currentPageHeights = [0, 0];
+                    currentColumn = 0;
+                    
+                } else if (layerHeight > maxColumnHeight * 0.9) {
+                    // Tall but not extremely tall - put it in one column, but try to balance
+                    // Check if we can fit it in current column
+                    if (currentPageHeights[currentColumn] + layerHeight + safetyMargin > maxColumnHeight) {
+                        // Move to next column
                         currentColumn++;
+                        
+                        // If both columns are full, start new page
                         if (currentColumn >= 2) {
                             // Save current page
                             pagesData.push({
                                 layers: currentPageLayers,
-                                pageIndex: currentPage
+                                pageIndex: currentPage,
+                                fullWidthLayers: []
                             });
                             
                             // Start new page
@@ -1635,7 +1753,7 @@ export class MapExportControl {
                         }
                     }
                     
-                    // Add the tall layer - canvas splitting will handle overflow
+                    // Add the tall layer to current column
                     currentPageLayers[currentColumn].push(layer);
                     currentPageHeights[currentColumn] = layerHeight;
                     
@@ -1644,7 +1762,8 @@ export class MapExportControl {
                     if (currentColumn >= 2) {
                         pagesData.push({
                             layers: currentPageLayers,
-                            pageIndex: currentPage
+                            pageIndex: currentPage,
+                            fullWidthLayers: []
                         });
                         currentPage++;
                         currentPageLayers = [[], []];
@@ -1652,9 +1771,14 @@ export class MapExportControl {
                         currentColumn = 0;
                     }
                 } else {
-                    // Normal layer - check if it fits in current column
-                    if (currentPageHeights[currentColumn] + layerHeight + safetyMargin > maxColumnHeight) {
-                        // Move to next column
+                    // Normal layer - use 2-column layout
+                    // Try to balance columns by checking which column has less content
+                    if (currentPageHeights[0] > currentPageHeights[1] + layerHeight + safetyMargin && 
+                        currentPageHeights[1] + layerHeight + safetyMargin <= maxColumnHeight) {
+                        // Right column has less content and can fit this layer - use it
+                        currentColumn = 1;
+                    } else if (currentPageHeights[currentColumn] + layerHeight + safetyMargin > maxColumnHeight) {
+                        // Current column is full - move to next column
                         currentColumn++;
                         
                         // If both columns are full, start new page
@@ -1662,7 +1786,8 @@ export class MapExportControl {
                             // Save current page
                             pagesData.push({
                                 layers: currentPageLayers,
-                                pageIndex: currentPage
+                                pageIndex: currentPage,
+                                fullWidthLayers: []
                             });
                             
                             // Start new page
@@ -1681,10 +1806,19 @@ export class MapExportControl {
 
             // Add last page if it has content
             if (currentPageLayers[0].length > 0 || currentPageLayers[1].length > 0) {
-                pagesData.push({
-                    layers: currentPageLayers,
-                    pageIndex: currentPage
-                });
+                // Check if we already have a page data entry for this page index
+                let lastPageData = pagesData.find(p => p.pageIndex === currentPage);
+                if (lastPageData) {
+                    // Update existing page data
+                    lastPageData.layers = currentPageLayers;
+                } else {
+                    // Create new page data
+                    pagesData.push({
+                        layers: currentPageLayers,
+                        pageIndex: currentPage,
+                        fullWidthLayers: []
+                    });
+                }
             }
 
             // Generate HTML for each page
@@ -1747,41 +1881,64 @@ export class MapExportControl {
                     legendContainer.appendChild(pageHeader);
                 }
 
-                // Create 2-column layout container
-                const columnsContainer = document.createElement('div');
-                columnsContainer.style.display = 'flex';
-                columnsContainer.style.gap = `${columnGap}mm`;
-                columnsContainer.style.marginTop = isFirstPage ? '0' : '0';
-                columnsContainer.style.width = '100%';
-
-                // Left column
-                const leftColumn = document.createElement('div');
-                leftColumn.style.width = `${columnWidth}mm`;
-                leftColumn.style.flexShrink = '0';
-                leftColumn.style.display = 'flex';
-                leftColumn.style.flexDirection = 'column';
-
-                // Right column
-                const rightColumn = document.createElement('div');
-                rightColumn.style.width = `${columnWidth}mm`;
-                rightColumn.style.flexShrink = '0';
-                rightColumn.style.display = 'flex';
-                rightColumn.style.flexDirection = 'column';
-
-                // Add layers to columns
-                pageData.layers[0].forEach(layer => {
-                    const layerEl = createLayerElement(layer, isFirstPage, pageIdx);
-                    leftColumn.appendChild(layerEl);
+                // Render full-width layers first (if any)
+                const fullWidthLayers = pageData.fullWidthLayers || [];
+                fullWidthLayers.forEach(fullWidthItem => {
+                    const fullWidthContainer = document.createElement('div');
+                    fullWidthContainer.style.width = '100%';
+                    fullWidthContainer.style.marginBottom = '6mm';
+                    
+                    const layerEl = createLayerElement(fullWidthItem.layer, isFirstPage, pageIdx);
+                    // Override column width constraint for full-width layers
+                    const thumbnailImgs = layerEl.querySelectorAll('img');
+                    thumbnailImgs.forEach(img => {
+                        if (img.style.maxWidth && img.style.maxWidth.includes('mm')) {
+                            // Update to use full available width (accounting for padding)
+                            img.style.maxWidth = `${availableWidth}mm`;
+                        }
+                    });
+                    
+                    fullWidthContainer.appendChild(layerEl);
+                    legendContainer.appendChild(fullWidthContainer);
                 });
 
-                pageData.layers[1].forEach(layer => {
-                    const layerEl = createLayerElement(layer, isFirstPage, pageIdx);
-                    rightColumn.appendChild(layerEl);
-                });
+                // Create 2-column layout container for regular layers (only if there are layers to display)
+                if (pageData.layers[0].length > 0 || pageData.layers[1].length > 0) {
+                    const columnsContainer = document.createElement('div');
+                    columnsContainer.style.display = 'flex';
+                    columnsContainer.style.gap = `${columnGap}mm`;
+                    columnsContainer.style.marginTop = fullWidthLayers.length > 0 ? '0' : (isFirstPage ? '0' : '0');
+                    columnsContainer.style.width = '100%';
 
-                columnsContainer.appendChild(leftColumn);
-                columnsContainer.appendChild(rightColumn);
-                legendContainer.appendChild(columnsContainer);
+                    // Left column
+                    const leftColumn = document.createElement('div');
+                    leftColumn.style.width = `${columnWidth}mm`;
+                    leftColumn.style.flexShrink = '0';
+                    leftColumn.style.display = 'flex';
+                    leftColumn.style.flexDirection = 'column';
+
+                    // Right column
+                    const rightColumn = document.createElement('div');
+                    rightColumn.style.width = `${columnWidth}mm`;
+                    rightColumn.style.flexShrink = '0';
+                    rightColumn.style.display = 'flex';
+                    rightColumn.style.flexDirection = 'column';
+
+                    // Add layers to columns
+                    pageData.layers[0].forEach(layer => {
+                        const layerEl = createLayerElement(layer, isFirstPage, pageIdx);
+                        leftColumn.appendChild(layerEl);
+                    });
+
+                    pageData.layers[1].forEach(layer => {
+                        const layerEl = createLayerElement(layer, isFirstPage, pageIdx);
+                        rightColumn.appendChild(layerEl);
+                    });
+
+                    columnsContainer.appendChild(leftColumn);
+                    columnsContainer.appendChild(rightColumn);
+                    legendContainer.appendChild(columnsContainer);
+                }
 
                 // Overlay image removed - layer information is now rendered in 2-column layout above
 
