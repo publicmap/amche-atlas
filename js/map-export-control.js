@@ -1293,6 +1293,23 @@ export class MapExportControl {
             const columnGap = 4; // mm
             const columnWidth = (availableWidth - columnGap) / 2;
             
+            // Generate thumbnails for all layers sequentially (before creating HTML)
+            // Sequential generation is necessary since we modify map state (isolating layers)
+            const thumbnailMap = new Map();
+            
+            for (const layer of layerInfo) {
+                if (layer.layerConfig && layer.layerId) {
+                    try {
+                        const thumbnailDataUrl = await this._captureLayerThumbnail(layer.layerConfig, 300);
+                        if (thumbnailDataUrl) {
+                            thumbnailMap.set(layer.layerId, thumbnailDataUrl);
+                        }
+                    } catch (error) {
+                        console.warn(`Failed to generate thumbnail for layer ${layer.layerId}:`, error);
+                    }
+                }
+            }
+
             // Create a helper function to create a single layer element
             const createLayerElement = (layer, isFirstPage = false, pageIndex = 0) => {
                 const layerDiv = document.createElement('div');
@@ -1311,6 +1328,36 @@ export class MapExportControl {
                     layerTitle.style.color = '#000000';
                     layerTitle.style.marginBottom = '3mm';
                     layerDiv.appendChild(layerTitle);
+                }
+
+                // Layer thumbnail (if available)
+                if (layer.layerId && thumbnailMap.has(layer.layerId)) {
+                    const thumbnailSection = document.createElement('div');
+                    thumbnailSection.style.marginBottom = '3mm';
+
+                    const thumbnailTitle = document.createElement('div');
+                    thumbnailTitle.textContent = 'Preview';
+                    thumbnailTitle.style.fontSize = '10pt';
+                    thumbnailTitle.style.fontWeight = 'bold';
+                    thumbnailTitle.style.color = '#000000';
+                    thumbnailTitle.style.marginBottom = '1.5mm';
+                    thumbnailSection.appendChild(thumbnailTitle);
+
+                    const thumbnailImg = document.createElement('img');
+                    thumbnailImg.src = thumbnailMap.get(layer.layerId);
+                    thumbnailImg.style.maxWidth = `${columnWidth}mm`;
+                    thumbnailImg.style.width = 'auto';
+                    thumbnailImg.style.height = 'auto';
+                    thumbnailImg.style.display = 'block';
+                    thumbnailImg.style.marginBottom = '1.5mm';
+                    thumbnailImg.style.objectFit = 'contain';
+                    thumbnailImg.style.border = '1px solid #e0e0e0';
+                    thumbnailImg.style.borderRadius = '2px';
+                    thumbnailImg.loading = 'eager';
+                    thumbnailImg.decoding = 'async';
+                    thumbnailSection.appendChild(thumbnailImg);
+
+                    layerDiv.appendChild(thumbnailSection);
                 }
 
                 // Info section (Description and Attribution)
@@ -2215,6 +2262,380 @@ export class MapExportControl {
     }
 
     /**
+     * Get matching layer IDs for a layer config (similar to map-feature-control.js)
+     * @param {Object} layerConfig - Layer configuration object
+     * @returns {Array} Array of matching style layer IDs
+     */
+    _getMatchingLayerIds(layerConfig) {
+        if (!this._map) return [];
+        
+        const style = this._map.getStyle();
+        if (!style.layers) return [];
+
+        const layerId = layerConfig.id;
+        const matchingIds = [];
+
+        // Strategy 1: Direct ID match (HIGHEST PRIORITY)
+        const directMatches = style.layers.filter(l => l.id === layerId).map(l => l.id);
+        matchingIds.push(...directMatches);
+
+        // Strategy 2: Prefix matches (for geojson layers and others)
+        const prefixMatches = style.layers
+            .filter(l => l.id.startsWith(layerId + '-') || l.id.startsWith(layerId + ' '))
+            .map(l => l.id);
+        matchingIds.push(...prefixMatches);
+
+        // Strategy 3: Generated layer names (vector-layer-{id}, tms-layer-{id}, etc.)
+        const generatedMatches = style.layers
+            .filter(l =>
+                l.id.startsWith(`vector-layer-${layerId}`) ||
+                l.id.startsWith(`tms-layer-${layerId}`) ||
+                l.id.startsWith(`wmts-layer-${layerId}`) ||
+                l.id.startsWith(`wms-layer-${layerId}`) ||
+                l.id.startsWith(`geojson-${layerId}`) ||
+                l.id.startsWith(`csv-${layerId}`)
+            )
+            .map(l => l.id);
+        matchingIds.push(...generatedMatches);
+
+        // Strategy 4: raster-style-layer styleLayer property
+        if (layerConfig.styleLayer) {
+            const styleLayerMatches = style.layers
+                .filter(l => l.id === layerConfig.styleLayer)
+                .map(l => l.id);
+            matchingIds.push(...styleLayerMatches);
+        }
+
+        // Strategy 5: Source layer matches (only if no direct matches)
+        const hasDirectMatches = directMatches.length > 0 || prefixMatches.length > 0 || generatedMatches.length > 0;
+        if (!hasDirectMatches && layerConfig.sourceLayer) {
+            const sourceLayerMatches = style.layers
+                .filter(l => {
+                    if (l['source-layer'] !== layerConfig.sourceLayer) return false;
+                    return l.id.includes(layerId) || l.id === layerId;
+                })
+                .map(l => l.id);
+            matchingIds.push(...sourceLayerMatches);
+        }
+
+        // Strategy 6: Source matches
+        if (!hasDirectMatches && layerConfig.source) {
+            const sourceMatches = style.layers
+                .filter(l => {
+                    if (l.source !== layerConfig.source) return false;
+                    return l.id.includes(layerId) || l.id === layerId;
+                })
+                .map(l => l.id);
+            matchingIds.push(...sourceMatches);
+        }
+
+        // Strategy 7: GeoJSON source matching
+        if (layerConfig.type === 'geojson') {
+            const sourceId = `geojson-${layerId}`;
+            const geojsonMatches = style.layers
+                .filter(l => l.source === sourceId || 
+                    l.id.startsWith(`${sourceId}-fill`) ||
+                    l.id.startsWith(`${sourceId}-line`) ||
+                    l.id.startsWith(`${sourceId}-circle`))
+                .map(l => l.id);
+            matchingIds.push(...geojsonMatches);
+        }
+
+        // Strategy 8: Vector layer matching
+        if (layerConfig.type === 'vector') {
+            const sourceId = `vector-${layerId}`;
+            const vectorMatches = style.layers
+                .filter(l => l.source === sourceId || l.id.startsWith(`vector-layer-${layerId}`))
+                .map(l => l.id);
+            matchingIds.push(...vectorMatches);
+        }
+
+        // Remove duplicates and return
+        return [...new Set(matchingIds)];
+    }
+
+    /**
+     * Get all basemap layer IDs (layers tagged with 'basemap')
+     * @returns {Array} Array of basemap style layer IDs
+     */
+    _getBasemapLayerIds() {
+        const basemapLayerIds = [];
+
+        // Check current config
+        let config = null;
+        if (window.layerControl && window.layerControl._config) {
+            config = window.layerControl._config;
+        }
+
+        if (config) {
+            const layers = config.layers || config.groups || [];
+            layers.forEach(layer => {
+                const hasBasemapTag = layer.tags && (
+                    (Array.isArray(layer.tags) && layer.tags.includes('basemap')) ||
+                    (typeof layer.tags === 'string' && layer.tags === 'basemap')
+                );
+
+                if (hasBasemapTag && layer.id) {
+                    const matchingIds = this._getMatchingLayerIds(layer);
+                    basemapLayerIds.push(...matchingIds);
+                }
+            });
+        }
+
+        // Also check active layers from feature control
+        if (window.featureControl && window.featureControl._stateManager) {
+            const activeLayers = window.featureControl._stateManager.getActiveLayers();
+            activeLayers.forEach((layerData, layerId) => {
+                const layerConfig = layerData.config;
+                const hasBasemapTag = layerConfig.tags && (
+                    (Array.isArray(layerConfig.tags) && layerConfig.tags.includes('basemap')) ||
+                    (typeof layerConfig.tags === 'string' && layerConfig.tags === 'basemap')
+                );
+
+                if (hasBasemapTag) {
+                    const matchingIds = this._getMatchingLayerIds(layerConfig);
+                    basemapLayerIds.push(...matchingIds);
+                }
+            });
+        }
+
+        // Remove duplicates
+        return [...new Set(basemapLayerIds)];
+    }
+
+    /**
+     * Isolate a layer by hiding all other non-basemap layers
+     * @param {Object} layerConfig - Layer configuration object
+     * @returns {Array} Array of layer IDs that were hidden (for restoration)
+     */
+    _isolateLayer(layerConfig) {
+        if (!this._map) return [];
+
+        const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
+        const basemapLayerIds = this._getBasemapLayerIds();
+
+        const style = this._map.getStyle();
+        if (!style.layers) return [];
+
+        const visibleLayers = style.layers.filter(layer => {
+            const visibility = layer.layout?.visibility;
+            return visibility === undefined || visibility === 'visible';
+        });
+
+        const layersToHide = [];
+        visibleLayers.forEach(layer => {
+            const styleLayerId = layer.id;
+
+            // Keep the target layer visible
+            if (matchingLayerIds.includes(styleLayerId)) {
+                return;
+            }
+
+            // Keep basemap layers visible
+            if (basemapLayerIds.includes(styleLayerId)) {
+                return;
+            }
+
+            // Hide all other layers
+            layersToHide.push(styleLayerId);
+        });
+
+        // Hide the layers
+        const hiddenLayers = [];
+        layersToHide.forEach(layerId => {
+            try {
+                const layer = this._map.getLayer(layerId);
+                if (layer && layer.type !== 'slot') {
+                    this._map.setLayoutProperty(layerId, 'visibility', 'none');
+                    hiddenLayers.push(layerId);
+                }
+            } catch (error) {
+                console.warn(`Failed to hide layer ${layerId}:`, error);
+            }
+        });
+
+        return hiddenLayers;
+    }
+
+    /**
+     * Restore visibility of previously hidden layers
+     * @param {Array} hiddenLayerIds - Array of layer IDs to restore
+     */
+    _restoreLayers(hiddenLayerIds) {
+        if (!this._map) return;
+
+        hiddenLayerIds.forEach(layerId => {
+            try {
+                const layer = this._map.getLayer(layerId);
+                if (layer && layer.type !== 'slot') {
+                    this._map.setLayoutProperty(layerId, 'visibility', 'visible');
+                }
+            } catch (error) {
+                console.warn(`Failed to restore layer ${layerId}:`, error);
+            }
+        });
+    }
+
+    /**
+     * Capture a thumbnail of an isolated layer using the export frame
+     * @param {Object} layerConfig - Layer configuration object
+     * @param {number} targetWidth - Target width in pixels (default: 300)
+     * @returns {Promise<string|null>} Data URL of the thumbnail image, or null if failed
+     */
+    async _captureLayerThumbnail(layerConfig, targetWidth = 300) {
+        if (!this._map || !this._frame) return null;
+
+        // Ensure frame is visible
+        const wasFrameVisible = this._frame._el.classList.contains('active');
+        if (!wasFrameVisible) {
+            this._frame.show();
+            // Wait for frame to be positioned
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+
+        try {
+            // Save current map state
+            const originalCenter = this._map.getCenter();
+            const originalZoom = this._map.getZoom();
+            const originalBearing = this._map.getBearing();
+            const originalPitch = this._map.getPitch();
+
+            // Try to zoom to layer bounds if available
+            const bbox = layerConfig.bbox || layerConfig.metadata?.bbox;
+            if (bbox && bbox !== "0.0,0.0,0.0,0.0") {
+                try {
+                    const [minLng, minLat, maxLng, maxLat] = bbox.split(',').map(parseFloat);
+                    if (!isNaN(minLng) && !isNaN(minLat) && !isNaN(maxLng) && !isNaN(maxLat)) {
+                        const bounds = [[minLng, minLat], [maxLng, maxLat]];
+                        this._map.fitBounds(bounds, {
+                            padding: 50,
+                            maxZoom: 16,
+                            duration: 0, // Instant
+                            animate: false
+                        });
+                        // Wait for map to update
+                        await new Promise(resolve => {
+                            this._map.once('idle', resolve);
+                            setTimeout(resolve, 1000);
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Failed to zoom to layer bounds for thumbnail', e);
+                }
+            }
+
+            // Isolate the layer
+            const hiddenLayers = this._isolateLayer(layerConfig);
+
+            // Wait for map to render with isolated layer
+            await new Promise(resolve => {
+                this._map.once('idle', resolve);
+                // Timeout after 2 seconds
+                setTimeout(resolve, 2000);
+            });
+
+            // Get frame dimensions
+            const frameRect = this._frame._el.getBoundingClientRect();
+            const mapRect = this._map.getContainer().getBoundingClientRect();
+            
+            // Ensure frame is within map bounds
+            if (frameRect.width === 0 || frameRect.height === 0) {
+                throw new Error('Frame has zero dimensions');
+            }
+
+            // Calculate frame position relative to map
+            const frameX = frameRect.left - mapRect.left;
+            const frameY = frameRect.top - mapRect.top;
+            const frameWidth = frameRect.width;
+            const frameHeight = frameRect.height;
+
+            // Ensure frame is within canvas bounds
+            const canvas = this._map.getCanvas();
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            
+            // Calculate scaling factor (canvas might be scaled for high DPI)
+            const scaleX = canvasWidth / mapRect.width;
+            const scaleY = canvasHeight / mapRect.height;
+            
+            // Convert frame coordinates to canvas coordinates
+            const canvasX = frameX * scaleX;
+            const canvasY = frameY * scaleY;
+            const canvasFrameWidth = frameWidth * scaleX;
+            const canvasFrameHeight = frameHeight * scaleY;
+
+            // Create a temporary canvas for the frame area
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvasFrameWidth;
+            tempCanvas.height = canvasFrameHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // Draw the frame area from the map canvas
+            tempCtx.drawImage(
+                canvas,
+                canvasX, canvasY, canvasFrameWidth, canvasFrameHeight, // Source
+                0, 0, canvasFrameWidth, canvasFrameHeight // Destination
+            );
+
+            // Scale to target width while maintaining aspect ratio
+            const aspectRatio = canvasFrameHeight / canvasFrameWidth;
+            const targetHeight = Math.round(targetWidth * aspectRatio);
+            
+            const scaledCanvas = document.createElement('canvas');
+            scaledCanvas.width = targetWidth;
+            scaledCanvas.height = targetHeight;
+            const scaledCtx = scaledCanvas.getContext('2d');
+            
+            // Use high-quality scaling
+            scaledCtx.imageSmoothingEnabled = true;
+            scaledCtx.imageSmoothingQuality = 'high';
+            scaledCtx.drawImage(tempCanvas, 0, 0, targetWidth, targetHeight);
+
+            // Convert to data URL
+            const dataUrl = scaledCanvas.toDataURL('image/png');
+
+            // Restore layers
+            this._restoreLayers(hiddenLayers);
+
+            // Restore map view
+            this._map.jumpTo({
+                center: originalCenter,
+                zoom: originalZoom,
+                bearing: originalBearing,
+                pitch: originalPitch,
+                animate: false
+            });
+
+            // Wait for restoration to complete
+            await new Promise(resolve => {
+                this._map.once('idle', resolve);
+                setTimeout(resolve, 500);
+            });
+
+            // Restore frame visibility state
+            if (!wasFrameVisible) {
+                this._frame.hide();
+            }
+
+            return dataUrl;
+        } catch (error) {
+            console.error('Failed to capture layer thumbnail', error);
+            
+            // Ensure we restore state even on error
+            try {
+                // Restore frame visibility state
+                if (!wasFrameVisible) {
+                    this._frame.hide();
+                }
+            } catch (e) {
+                // Ignore errors during cleanup
+            }
+            
+            return null;
+        }
+    }
+
+    /**
      * Get layer information from feature control
      * @returns {Array} Array of layer information objects with Info, Legend, and Features content
      */
@@ -2409,6 +2830,8 @@ export class MapExportControl {
                         const featuresContent = getFeatureInfo(layerId, layerConfig, window.featureControl._stateManager);
 
                         layers.push({
+                            layerId: layerId,
+                            layerConfig: layerConfig,
                             title: layerConfig.title || layerId,
                             info: infoContent,
                             legend: legendContent,
@@ -2429,6 +2852,8 @@ export class MapExportControl {
                         const attrFormatted = formatHtmlToText(group.attribution || group.source || '');
                         const legendFormatted = formatHtmlToText(group.legend || '');
                         layers.push({
+                            layerId: group.id || group.title,
+                            layerConfig: group,
                             title: group.title || group.id,
                             info: {
                                 description: descFormatted,
