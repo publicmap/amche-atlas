@@ -766,6 +766,7 @@ export async function initializeMap() {
         map.addControl(window.attributionControl, 'bottom-right');
         map.addControl(new ButtonExternalMapLinks(), 'bottom-right');
         map.addControl(new mapboxgl.NavigationControl({showCompass: true, showZoom: true}));
+        map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
         map.addControl(new ButtonShareLink({
             url: () => window.location.href,
             showToast: true,

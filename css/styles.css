@@ -4781,3 +4781,45 @@ sl-tab:hover::part(base) {
     border-radius: 3px;
     padding: 4px;
 }
+
+/* Export button styling */
+.export-button {
+    width: 100% !important;
+    margin-top: 10px;
+    padding: 10px 16px;
+    background: #000000 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+    box-sizing: border-box;
+}
+
+.export-button:hover {
+    background: #1a1a1a !important;
+}
+
+.export-button:active {
+    background: #333333 !important;
+}
+
+.export-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.export-button sl-icon {
+    color: white !important;
+    flex-shrink: 0;
+}
+
+.export-button span {
+    color: white !important;
+}

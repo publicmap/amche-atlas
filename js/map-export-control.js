@@ -224,12 +224,17 @@ export class MapExportControl {
 
         // Export Button
         const doExportBtn = document.createElement('button');
-        doExportBtn.className = 'w-full mt-2 py-2 px-4 bg-gray-800 text-white border-none rounded cursor-pointer flex items-center justify-center gap-2 hover:bg-gray-700 transition-colors';
+        doExportBtn.className = 'export-button';
+        doExportBtn.style.cssText = 'width: 100%; margin-top: 10px; padding: 10px 16px; background: #000000; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 500; transition: background-color 0.2s ease;';
+        doExportBtn.onmouseenter = () => { doExportBtn.style.background = '#1a1a1a'; };
+        doExportBtn.onmouseleave = () => { doExportBtn.style.background = '#000000'; };
         const exportIcon = document.createElement('sl-icon');
         exportIcon.name = 'download';
         exportIcon.style.fontSize = '16px';
+        exportIcon.style.color = 'white';
         const exportText = document.createElement('span');
-        exportText.textContent = 'Export';
+        exportText.textContent = 'Download';
+        exportText.style.color = 'white';
         doExportBtn.appendChild(exportIcon);
         doExportBtn.appendChild(exportText);
         doExportBtn.onclick = () => this._doExport();
@@ -357,6 +362,11 @@ export class MapExportControl {
      * Update title on map move if title is blank or not customized
      */
     async _updateTitleOnMove() {
+        // Don't update title during export process
+        if (this._isExporting) {
+            return;
+        }
+        
         // Only update if title hasn't been customized by the user
         // Update regardless of current title value (blank, "Map", or "Map of ...")
         if (!this._titleCustomized) {
@@ -514,11 +524,21 @@ export class MapExportControl {
         this._heightInput.input.value = Math.round(h);
     }
 
+    /**
+     * Update export button progress
+     * @param {number} percent - Progress percentage (0-100)
+     */
+    _updateExportProgress(percent) {
+        if (this._exportButtonText) {
+            this._exportButtonText.textContent = `Processing ${Math.round(percent)}%`;
+        }
+    }
+
     async _doExport() {
         if (this._isExporting) return;
         this._isExporting = true;
         const oldText = this._exportButtonText.textContent;
-        this._exportButtonText.textContent = 'Processing...';
+        this._updateExportProgress(0);
         this._exportButton.disabled = true;
 
         try {
@@ -607,14 +627,18 @@ export class MapExportControl {
         const container = this._map.getContainer();
 
         // Generate QR
+        this._updateExportProgress(10);
         let qrDataUrl = null;
         try {
             qrDataUrl = await this._getQRCodeDataUrl(shareUrl);
+            this._updateExportProgress(20);
         } catch (e) {
             console.warn('Failed to generate QR for PDF', e);
+            this._updateExportProgress(20);
         }
 
         // Capture Overlay (Feature Control Layers)
+        this._updateExportProgress(25);
         let overlayDataUrl = null;
         let overlayWidthMm = 0;
         let overlayHeightMm = 0;
@@ -786,23 +810,31 @@ export class MapExportControl {
                 // Convert logic pixels to mm (assuming ~96dpi assumption for PDF mapping visually)
                 overlayWidthMm = logicWidth * 0.26458;
                 overlayHeightMm = logicHeight * 0.26458;
+                
+                this._updateExportProgress(40);
 
             } catch (e) {
                 console.warn('Failed to capture overlay', e);
+                this._updateExportProgress(40);
             } finally {
                 // Restore original panel visibility if it was hidden
                 if (wasHidden && parentPanel) {
                     parentPanel.style.display = originalDisplay;
                 }
             }
+            } else {
+                this._updateExportProgress(40);
             }
+        } else {
+            this._updateExportProgress(40);
         }
 
         return new Promise((resolve, reject) => {
 
             // Function to capture after resize and move
-            const capture = () => {
+            const capture = async () => {
                 try {
+                    this._updateExportProgress(50);
                     const canvas = this._map.getCanvas();
                     const imgData = canvas.toDataURL('image/png');
 
@@ -813,6 +845,7 @@ export class MapExportControl {
                     });
 
                     // Draw Map
+                    this._updateExportProgress(60);
                     if (this._rasterQuality === 'high') {
                         // High Quality = TIFF
                         try {
@@ -828,223 +861,49 @@ export class MapExportControl {
                         doc.addImage(jpegData, 'JPEG', 0, 0, widthMm, mapHeightMm);
                     }
 
-                    // Draw Overlay (Top Left)
-                    if (overlayDataUrl && overlayWidthMm > 0 && overlayHeightMm > 0) {
-                        const overlayX = marginMm + 2; // Slight indent from margin
-                        const overlayY = marginMm + 2;
+                    // Note: Legend overlay removed from page 1 - will be on page 2
 
-                        // Check if it fits
-                        let drawW = overlayWidthMm;
-                        let drawH = overlayHeightMm;
-
-                        // Limit height to map height - margin
-                        const maxHeight = mapHeightMm - (marginMm * 2);
-                        if (drawH > maxHeight) {
-                            const ratio = maxHeight / drawH;
-                            drawH = maxHeight;
-                            drawW = drawW * ratio;
-                        }
-
-                        doc.addImage(overlayDataUrl, 'PNG', overlayX, overlayY, drawW, drawH);
+                    // Generate footer using HTML template for consistent layout
+                    this._updateExportProgress(70);
+                    const footerResult = await this._generateFooterHTML(
+                        widthMm,
+                        heightMm,
+                        qrDataUrl,
+                        shareUrl,
+                        attributionText,
+                        targetCenter,
+                        newZoom,
+                        originalBearing,
+                        originalPitch,
+                        dpi
+                    );
+                    
+                    if (footerResult && footerResult.dataUrl) {
+                        // Use the actual footer height from template (in mm)
+                        const footerHeightMm = footerResult.heightMm || 30; // Fallback to 30mm if not provided
+                        const footerY = heightMm - footerHeightMm;
+                        
+                        // Add footer image to PDF
+                        doc.addImage(footerResult.dataUrl, 'PNG', 0, footerY, widthMm, footerHeightMm);
+                    } else if (footerResult && typeof footerResult === 'string') {
+                        // Backward compatibility: if just a data URL string is returned
+                        const footerHeightMm = 30; // Approximate footer height
+                        const footerY = heightMm - footerHeightMm;
+                        doc.addImage(footerResult, 'PNG', 0, footerY, widthMm, footerHeightMm);
+                    } else {
+                        // Fallback to old method if HTML generation fails
+                        console.warn('HTML footer generation failed, using fallback method');
+                        this._drawFooterFallback(doc, widthMm, heightMm, qrDataUrl, shareUrl, attributionText, targetCenter, newZoom, originalBearing, dpi);
                     }
 
-                    // Draw Footer with new layout
-                    const title = this._title || 'Map';
-                    const description = this._description || '';
-                    
-                    // Footer layout constants
-                    const qrSize = 12; // QR code size in mm
-                    const qrMargin = 2; // Margin around QR
-                    const lineHeight = 2; // Reduced line height in mm
-                    const titleLineHeight = 3.2; // Larger line height for title to prevent overlapping
-                    const elementGap = 1; // Reduced gap between elements in mm
-                    const titleFontSize = 10;
-                    const descFontSize = 8;
-                    const dataFontSize = 7;
-                    const urlFontSize = 7;
-                    const dateFontSize = 6;
-                    const textBoxPadding = 3.5; // 10px ≈ 3.5mm padding inside text box
-                    
-                    // Calculate text dimensions - measure actual widths
-                    let maxTextWidth = 0;
-                    let textElements = [];
-                    let totalTextHeight = 0;
-                    
-                    // Helper to measure text width
-                    const measureTextWidth = (text, fontSize, bold) => {
-                        doc.setFontSize(fontSize);
-                        doc.setFont(undefined, bold ? 'bold' : 'normal');
-                        return doc.getTextWidth(text);
-                    };
-                    
-                    // Helper to process HTML and split text (handles <br> tags)
-                    const processHtmlText = (htmlText, maxWidth, fontSize, bold) => {
-                        // Strip HTML tags except <br> and convert <br> to line breaks
-                        // Simple HTML processing: split by <br> tags (case insensitive)
-                        const parts = htmlText.split(/<br\s*\/?>/i);
-                        let allLines = [];
-                        
-                        doc.setFontSize(fontSize);
-                        doc.setFont(undefined, bold ? 'bold' : 'normal');
-                        
-                        parts.forEach((part, index) => {
-                            // Strip any remaining HTML tags
-                            const cleanText = part.replace(/<[^>]*>/g, '').trim();
-                            if (cleanText) {
-                                // Split each part by width if needed
-                                const wrappedLines = doc.splitTextToSize(cleanText, maxWidth);
-                                allLines = allLines.concat(wrappedLines);
-                            }
-                            // Add explicit line break after each <br> (except the last one)
-                            if (index < parts.length - 1 && cleanText) {
-                                // Line break is already handled by separate array elements
-                            }
-                        });
-                        
-                        return allLines;
-                    };
-                    
-                    // Calculate available width for text (accounting for QR code on left)
-                    const qrCodeWithPadding = qrSize + textBoxPadding;
-                    const availableTextWidth = widthMm * 0.7 - qrCodeWithPadding - textBoxPadding;
-                    
-                    // Title (can wrap and supports HTML)
-                    if (title) {
-                        const maxTitleWidth = availableTextWidth;
-                        const titleLines = processHtmlText(title, maxTitleWidth, titleFontSize, true);
-                        const titleWidth = Math.max(...titleLines.map(line => measureTextWidth(line, titleFontSize, true)));
-                        textElements.push({ 
-                            text: titleLines, 
-                            fontSize: titleFontSize, 
-                            bold: true,
-                            width: titleWidth,
-                            isTitle: true // Mark as title for special line height
-                        });
-                        totalTextHeight += titleLines.length * titleLineHeight;
-                    }
-                    
-                    // Description (can wrap and supports HTML)
-                    if (description) {
-                        if (textElements.length > 0) totalTextHeight += elementGap;
-                        const maxDescWidth = availableTextWidth;
-                        const descLines = processHtmlText(description, maxDescWidth, descFontSize, false);
-                        const descWidth = Math.max(...descLines.map(line => measureTextWidth(line, descFontSize, false)));
-                        textElements.push({ 
-                            text: descLines, 
-                            fontSize: descFontSize, 
-                            bold: false,
-                            width: descWidth
-                        });
-                        totalTextHeight += descLines.length * lineHeight;
-                    }
-                    
-                    // Data Sources (single line - no wrapping)
-                    if (attributionText) {
-                        if (textElements.length > 0) totalTextHeight += elementGap;
-                        const cleanAttrib = attributionText.replace(/\|/g, '\t');
-                        const dataSourcesText = `Data Sources: ${cleanAttrib}`;
-                        const dataWidth = measureTextWidth(dataSourcesText, dataFontSize, false);
-                        textElements.push({ 
-                            text: [dataSourcesText], 
-                            fontSize: dataFontSize, 
-                            bold: false,
-                            width: dataWidth
-                        });
-                        totalTextHeight += lineHeight;
-                    }
-                    
-                    // URL (single line - no wrapping)
-                    if (textElements.length > 0) totalTextHeight += elementGap;
-                    const urlWidth = measureTextWidth(shareUrl, urlFontSize, false);
-                    textElements.push({ 
-                        text: [shareUrl], 
-                        fontSize: urlFontSize, 
-                        bold: false,
-                        width: urlWidth
-                    });
-                    totalTextHeight += lineHeight;
-                    
-                    // Find maximum width needed for text
-                    maxTextWidth = Math.max(...textElements.map(e => e.width));
-                    maxTextWidth = Math.min(maxTextWidth, availableTextWidth);
-                    
-                    // Calculate box dimensions including QR code
-                    // QR code will be at bottom left, text will be to the right of it
-                    // Box width needs to accommodate both QR code and text side by side
-                    // Add 50px (≈13.23mm at 96dpi) extra width for better text fit
-                    const extraWidthMm = 50 * 25.4 / 96; // Convert 50px to mm
-                    const textBoxWidth = qrCodeWithPadding + maxTextWidth + textBoxPadding + extraWidthMm;
-                    
-                    // Box height needs to accommodate text height OR QR code height + date, whichever is taller
-                    const qrAndDateHeight = qrSize + lineHeight + elementGap; // QR code + date above it
-                    const textBoxHeight = Math.max(totalTextHeight, qrAndDateHeight) + (textBoxPadding * 2) - 2;
-                    
-                    // Position box anchored to bottom left with no margin
-                    const textBoxX = 0;
-                    const textBoxY = heightMm - textBoxHeight;
-                    
-                    // Draw semi-transparent black box
-                    const gState = doc.GState({ opacity: 0.7 });
-                    doc.setGState(gState);
-                    doc.setFillColor(0, 0, 0); // Black
-                    doc.rect(textBoxX, textBoxY, textBoxWidth, textBoxHeight, 'F');
-                    // Reset to full opacity for text
-                    const gStateFull = doc.GState({ opacity: 1.0 });
-                    doc.setGState(gStateFull);
-                    
-                    // Draw content inside box (from bottom to top, anchored to bottom left)
-                    // In jsPDF, Y=0 is top, Y increases downward
-                    // textBoxY is top of box, textBoxY + textBoxHeight is bottom of box (which is heightMm)
-                    const bottomOfBox = textBoxY + textBoxHeight; // This equals heightMm
-                    doc.setTextColor(255, 255, 255);
-                    
-                    // Draw QR Code at bottom left inside the box
-                    const qrX = textBoxX + textBoxPadding;
-                    const qrY = bottomOfBox - textBoxPadding - qrSize;
-                    
-                    if (qrDataUrl) {
-                        doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
-                    }
-                    
-                    // Date above QR code (inside box)
-                    const date = new Date();
-                    const dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-                    doc.setFontSize(dateFontSize);
-                    doc.setFont(undefined, 'normal');
-                    const dateX = qrX;
-                    const dateY = qrY - elementGap;
-                    doc.text(dateStr, dateX, dateY, { align: 'left', maxWidth: qrSize });
-                    
-                    // Position text to the right of QR code, starting from bottom padding
-                    // Text X position starts after QR code + gap
-                    const textStartX = qrX + qrSize + textBoxPadding;
-                    let currentY = bottomOfBox - textBoxPadding;
-                    
-                    // Draw elements in reverse order (URL first at bottom, then up to Title at top)
-                    for (let elemIdx = textElements.length - 1; elemIdx >= 0; elemIdx--) {
-                        const elem = textElements[elemIdx];
-                        doc.setFontSize(elem.fontSize);
-                        doc.setFont(undefined, elem.bold ? 'bold' : 'normal');
-                        
-                        // Use title-specific line height for title, regular line height for others
-                        const elemLineHeight = elem.isTitle ? titleLineHeight : lineHeight;
-                        
-                        // Draw lines for this element (from bottom to top)
-                        for (let lineIdx = elem.text.length - 1; lineIdx >= 0; lineIdx--) {
-                            // Position baseline directly at currentY - no offset
-                            // Text will naturally extend above baseline, descenders below
-                            doc.text(elem.text[lineIdx], textStartX, currentY, { align: 'left' });
-                            // Move up for next line (decrease Y) using element-specific line height
-                            currentY -= elemLineHeight;
-                        }
-                        
-                        // Add gap between elements (except after last element at top)
-                        if (elemIdx > 0) {
-                            currentY -= elementGap;
-                        }
+                    // Add Page 2: Legend (if legend checkbox is checked)
+                    this._updateExportProgress(85);
+                    if (this._includeLegend && overlayDataUrl) {
+                        await this._addLegendPage(doc, widthMm, heightMm, overlayDataUrl, overlayWidthMm, overlayHeightMm, dpi);
                     }
 
                     // Generate filename from title, sanitizing invalid characters
+                    this._updateExportProgress(95);
                     let filename = 'map-export.pdf';
                     if (this._title && this._title.trim()) {
                         // Remove HTML tags and convert <br> to ', '
@@ -1061,6 +920,7 @@ export class MapExportControl {
                             filename = `${sanitized}.pdf`;
                         }
                     }
+                    this._updateExportProgress(100);
                     doc.save(filename);
                     resolve();
                 } catch (e) {
@@ -1213,6 +1073,1706 @@ export class MapExportControl {
         });
     }
 
+
+    /**
+     * Calculate map scale for a given zoom level and latitude
+     * @param {number} zoom - Map zoom level
+     * @param {number} lat - Latitude in degrees
+     * @param {number} dpi - DPI of the output
+     * @returns {Object} Scale information with distance and unit
+     */
+    _calculateMapScale(zoom, lat, dpi) {
+        // Earth's radius in meters
+        const earthRadius = 6378137;
+        // Standard tile size
+        const tileSize = 256;
+        
+        // Calculate meters per pixel at this zoom level and latitude
+        const metersPerPixel = (2 * Math.PI * earthRadius * Math.cos(lat * Math.PI / 180)) / (tileSize * Math.pow(2, zoom));
+        
+        // Convert to meters per mm at the given DPI
+        const mmPerInch = 25.4;
+        const pixelsPerMm = dpi / mmPerInch;
+        const metersPerMm = metersPerPixel * pixelsPerMm;
+        
+        // Choose an appropriate scale bar length (aim for ~30-40mm width)
+        const scaleBarWidthMm = 30;
+        const distanceMeters = metersPerMm * scaleBarWidthMm;
+        
+        // Round to a nice number
+        let roundedDistance;
+        let unit;
+        
+        if (distanceMeters >= 1000) {
+            // Use kilometers
+            const km = distanceMeters / 1000;
+            const magnitude = Math.pow(10, Math.floor(Math.log10(km)));
+            roundedDistance = Math.round(km / magnitude) * magnitude;
+            unit = 'km';
+        } else {
+            // Use meters
+            const magnitude = Math.pow(10, Math.floor(Math.log10(distanceMeters)));
+            roundedDistance = Math.round(distanceMeters / magnitude) * magnitude;
+            unit = roundedDistance >= 1000 ? 'km' : 'm';
+            if (unit === 'km') {
+                roundedDistance = roundedDistance / 1000;
+            }
+        }
+        
+        // Recalculate actual width based on rounded distance
+        const actualWidthMm = (roundedDistance * (unit === 'km' ? 1000 : 1)) / metersPerMm;
+        
+        return {
+            distance: roundedDistance,
+            unit: unit,
+            widthMm: actualWidthMm,
+            metersPerMm: metersPerMm
+        };
+    }
+
+    /**
+     * Draw a north arrow on the PDF using canvas for proper rotation
+     * @param {jsPDF} doc - jsPDF document instance
+     * @param {number} x - X position in mm (center of arrow)
+     * @param {number} y - Y position in mm (center of arrow)
+     * @param {number} size - Size of arrow in mm
+     * @param {number} bearing - Map bearing in degrees (0 = north up)
+     */
+    _drawNorthArrow(doc, x, y, size, bearing) {
+        // Create a canvas to draw the arrow with rotation
+        const canvasSize = 100; // Canvas size in pixels (high resolution)
+        const canvas = document.createElement('canvas');
+        canvas.width = canvasSize;
+        canvas.height = canvasSize;
+        const ctx = canvas.getContext('2d');
+        
+        // Clear canvas with transparent background
+        ctx.clearRect(0, 0, canvasSize, canvasSize);
+        
+        // Move to center of canvas
+        ctx.save();
+        ctx.translate(canvasSize / 2, canvasSize / 2);
+        
+        // Rotate based on bearing (negative because canvas Y increases downward)
+        ctx.rotate(-bearing * Math.PI / 180);
+        
+        // Draw arrow stem (vertical line)
+        const stemLength = size * 0.6 * (canvasSize / size) * 0.5; // Scale to canvas
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -stemLength / 2);
+        ctx.lineTo(0, stemLength / 2);
+        ctx.stroke();
+        
+        // Draw arrow head (triangle pointing up)
+        const arrowHeadSize = size * 0.3 * (canvasSize / size) * 0.5;
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.moveTo(0, -stemLength / 2); // Top point
+        ctx.lineTo(-arrowHeadSize / 2, -stemLength / 2 + arrowHeadSize); // Bottom left
+        ctx.lineTo(arrowHeadSize / 2, -stemLength / 2 + arrowHeadSize); // Bottom right
+        ctx.closePath();
+        ctx.fill();
+        
+        // Draw "N" label below arrow
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('N', 0, stemLength / 2 + 4);
+        
+        ctx.restore();
+        
+        // Convert canvas to image and add to PDF
+        const arrowDataUrl = canvas.toDataURL('image/png');
+        const arrowSizeMm = size;
+        // Position arrow so center is at (x, y)
+        doc.addImage(arrowDataUrl, 'PNG', x - arrowSizeMm / 2, y - arrowSizeMm / 2, arrowSizeMm, arrowSizeMm);
+    }
+
+    /**
+     * Add legend page (page 2+) to PDF - supports multiple pages
+     * @param {jsPDF} doc - jsPDF document instance
+     * @param {number} widthMm - PDF width in mm
+     * @param {number} heightMm - PDF height in mm
+     * @param {string} overlayDataUrl - Legend overlay data URL
+     * @param {number} overlayWidthMm - Overlay width in mm
+     * @param {number} overlayHeightMm - Overlay height in mm
+     * @param {number} dpi - DPI
+     */
+    async _addLegendPage(doc, widthMm, heightMm, overlayDataUrl, overlayWidthMm, overlayHeightMm, dpi) {
+        try {
+            // Generate all legend pages (supports pagination)
+            const legendPages = await this._generateLegendPagesHTML(
+                widthMm,
+                heightMm,
+                overlayDataUrl,
+                overlayWidthMm,
+                overlayHeightMm,
+                dpi
+            );
+
+            if (legendPages && legendPages.length > 0) {
+                // Add each page to the PDF
+                for (const page of legendPages) {
+                    doc.addPage();
+                    if (page.dataUrl) {
+                        // Detect image format from data URL (JPEG or PNG)
+                        const imageFormat = page.dataUrl.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+                        doc.addImage(page.dataUrl, imageFormat, 0, 0, widthMm, heightMm);
+                        
+                        // Add clickable links if present
+                        if (page.links && page.links.length > 0) {
+                            // Convert pixel coordinates to mm
+                            // Links are in scaled pixels, and the image is added at widthMm x heightMm
+                            // We need to know the actual canvas dimensions used for this page
+                            const scale = 1.2;
+                            const mmToPx = 96 / 25.4; // Screen DPI conversion
+                            // For split pages, each page canvas is pageWidthPx x pageHeightPx
+                            // For single page, it's the full canvas dimensions
+                            const pageWidthPx = widthMm * mmToPx * scale;
+                            const pageHeightPx = heightMm * mmToPx * scale;
+                            
+                            page.links.forEach(link => {
+                                try {
+                                    // Convert pixel coordinates to mm
+                                    // Link positions are already in scaled pixels relative to the page
+                                    const linkXmm = link.x / (mmToPx * scale);
+                                    const linkYmm = link.y / (mmToPx * scale);
+                                    const linkWidthMm = link.width / (mmToPx * scale);
+                                    const linkHeightMm = link.height / (mmToPx * scale);
+                                    
+                                    // Add clickable link to PDF
+                                    // jsPDF link method: link(x, y, width, height, url)
+                                    doc.link(linkXmm, linkYmm, linkWidthMm, linkHeightMm, { url: link.href });
+                                } catch (e) {
+                                    console.warn('Failed to add link to PDF', e, link);
+                                }
+                            });
+                        }
+                    }
+                }
+            } else {
+                // Fallback: draw simple legend page
+                doc.addPage();
+                this._drawLegendPageFallback(doc, widthMm, heightMm, overlayDataUrl, overlayWidthMm, overlayHeightMm);
+            }
+        } catch (e) {
+            console.error('Failed to add legend page', e);
+            // Fallback: draw simple legend page
+            doc.addPage();
+            this._drawLegendPageFallback(doc, widthMm, heightMm, overlayDataUrl, overlayWidthMm, overlayHeightMm);
+        }
+    }
+
+    /**
+     * Generate multiple legend pages with 2-column layout and pagination
+     * @param {number} widthMm - PDF width in mm
+     * @param {number} heightMm - PDF height in mm
+     * @param {string} overlayDataUrl - Legend overlay data URL
+     * @param {number} overlayWidthMm - Overlay width in mm
+     * @param {number} overlayHeightMm - Overlay height in mm
+     * @param {number} dpi - DPI
+     * @returns {Promise<Array>} Array of page objects with dataUrl and dimensions
+     */
+    async _generateLegendPagesHTML(widthMm, heightMm, overlayDataUrl, overlayWidthMm, overlayHeightMm, dpi) {
+        const pages = [];
+        
+        try {
+            // Get layer information
+            const layerInfo = this._getLayerInformation();
+            
+            // Calculate available space for content (accounting for padding and header)
+            const padding = 10; // mm
+            const headerHeight = 40; // mm (header + title + description)
+            const availableHeight = heightMm - (padding * 2) - headerHeight;
+            const availableWidth = widthMm - (padding * 2);
+            
+            // Column dimensions (2 columns with gap)
+            const columnGap = 4; // mm
+            const columnWidth = (availableWidth - columnGap) / 2;
+            
+            // Create a helper function to create a single layer element
+            const createLayerElement = (layer, isFirstPage = false, pageIndex = 0) => {
+                const layerDiv = document.createElement('div');
+                layerDiv.style.marginBottom = '6mm';
+                layerDiv.style.paddingBottom = '6mm';
+                layerDiv.style.borderBottom = '1px solid #e0e0e0';
+                layerDiv.style.pageBreakInside = 'avoid';
+                layerDiv.style.breakInside = 'avoid';
+
+                // Layer title
+                if (layer.title) {
+                    const layerTitle = document.createElement('div');
+                    layerTitle.textContent = layer.title;
+                    layerTitle.style.fontSize = '12pt';
+                    layerTitle.style.fontWeight = 'bold';
+                    layerTitle.style.color = '#000000';
+                    layerTitle.style.marginBottom = '3mm';
+                    layerDiv.appendChild(layerTitle);
+                }
+
+                // Info section (Description and Attribution)
+                if (layer.info && (layer.info.description || layer.info.attribution)) {
+                    const infoSection = document.createElement('div');
+                    infoSection.style.marginBottom = '3mm';
+
+                    // Description
+                    if (layer.info.description) {
+                        const descDiv = document.createElement('div');
+                        if (typeof layer.info.description === 'object' && layer.info.description.html) {
+                            descDiv.innerHTML = layer.info.description.html;
+                            // Style links in description
+                            const links = descDiv.querySelectorAll('a');
+                            links.forEach(link => {
+                                link.style.color = '#0066cc';
+                                link.style.textDecoration = 'underline';
+                                link.style.cursor = 'pointer';
+                            });
+                        } else {
+                            descDiv.textContent = typeof layer.info.description === 'string' ? layer.info.description : '';
+                        }
+                        descDiv.style.fontSize = '9pt';
+                        descDiv.style.color = '#333333';
+                        descDiv.style.marginBottom = '1.5mm';
+                        descDiv.style.lineHeight = '1.4';
+                        descDiv.style.whiteSpace = 'pre-wrap';
+                        infoSection.appendChild(descDiv);
+                    }
+
+                    // Attribution
+                    if (layer.info.attribution) {
+                        const attrDiv = document.createElement('div');
+                        if (typeof layer.info.attribution === 'object' && layer.info.attribution.html) {
+                            attrDiv.innerHTML = `Source: ${layer.info.attribution.html}`;
+                            // Style links in attribution
+                            const links = attrDiv.querySelectorAll('a');
+                            links.forEach(link => {
+                                link.style.color = '#0066cc';
+                                link.style.textDecoration = 'underline';
+                                link.style.cursor = 'pointer';
+                            });
+                        } else {
+                            attrDiv.textContent = `Source: ${typeof layer.info.attribution === 'string' ? layer.info.attribution : ''}`;
+                        }
+                        attrDiv.style.fontSize = '8pt';
+                        attrDiv.style.color = '#666666';
+                        attrDiv.style.fontStyle = 'italic';
+                        attrDiv.style.marginTop = '1.5mm';
+                        infoSection.appendChild(attrDiv);
+                    }
+
+                    layerDiv.appendChild(infoSection);
+                }
+
+                // Legend section
+                if (layer.legend && (layer.legend.legendImage || layer.legend.legend)) {
+                    const legendSection = document.createElement('div');
+                    legendSection.style.marginBottom = '3mm';
+
+                    const legendTitle = document.createElement('div');
+                    legendTitle.textContent = 'Legend';
+                    legendTitle.style.fontSize = '10pt';
+                    legendTitle.style.fontWeight = 'bold';
+                    legendTitle.style.color = '#000000';
+                    legendTitle.style.marginBottom = '1.5mm';
+                    legendSection.appendChild(legendTitle);
+
+                    // Legend image - scale to fit column width and optimize for PDF
+                    if (layer.legend.legendImage) {
+                        const legendImg = document.createElement('img');
+                        legendImg.src = layer.legend.legendImage;
+                        // Explicitly constrain to column width
+                        legendImg.style.maxWidth = `${columnWidth}mm`;
+                        legendImg.style.width = 'auto';
+                        legendImg.style.height = 'auto';
+                        legendImg.style.display = 'block';
+                        legendImg.style.marginBottom = '1.5mm';
+                        legendImg.style.objectFit = 'contain';
+                        // Optimize image loading - use loading="eager" and add decoding
+                        legendImg.loading = 'eager';
+                        legendImg.decoding = 'async';
+                        legendSection.appendChild(legendImg);
+                    }
+
+                    // Legend text
+                    if (layer.legend.legend) {
+                        const legendText = document.createElement('div');
+                        if (typeof layer.legend.legend === 'object' && layer.legend.legend.html) {
+                            legendText.innerHTML = layer.legend.legend.html;
+                            // Style links in legend
+                            const links = legendText.querySelectorAll('a');
+                            links.forEach(link => {
+                                link.style.color = '#0066cc';
+                                link.style.textDecoration = 'underline';
+                                link.style.cursor = 'pointer';
+                            });
+                        } else {
+                            legendText.textContent = typeof layer.legend.legend === 'string' ? layer.legend.legend : '';
+                        }
+                        legendText.style.fontSize = '8pt';
+                        legendText.style.color = '#333333';
+                        legendText.style.lineHeight = '1.3';
+                        legendText.style.whiteSpace = 'pre-wrap';
+                        legendSection.appendChild(legendText);
+                    }
+
+                    layerDiv.appendChild(legendSection);
+                }
+
+                // Features section (if there are selected features)
+                if (layer.features && layer.features.length > 0) {
+                    const featuresSection = document.createElement('div');
+                    featuresSection.style.marginBottom = '3mm';
+
+                    const featuresTitle = document.createElement('div');
+                    featuresTitle.textContent = `Features (${layer.features.length})`;
+                    featuresTitle.style.fontSize = '10pt';
+                    featuresTitle.style.fontWeight = 'bold';
+                    featuresTitle.style.color = '#000000';
+                    featuresTitle.style.marginBottom = '2mm';
+                    featuresSection.appendChild(featuresTitle);
+
+                    // Limit features per layer to avoid overflow
+                    const maxFeatures = 3; // Show max 3 features per layer
+                    const featuresToShow = layer.features.slice(0, maxFeatures);
+                    
+                    featuresToShow.forEach((feature, featureIndex) => {
+                        const featureDiv = document.createElement('div');
+                        featureDiv.style.marginBottom = '2mm';
+                        featureDiv.style.paddingLeft = '2mm';
+                        featureDiv.style.borderLeft = '2px solid #cccccc';
+
+                        // Feature title
+                        if (feature.title) {
+                            const featureTitle = document.createElement('div');
+                            featureTitle.textContent = feature.title;
+                            featureTitle.style.fontSize = '9pt';
+                            featureTitle.style.fontWeight = 'bold';
+                            featureTitle.style.color = '#000000';
+                            featureTitle.style.marginBottom = '1mm';
+                            featureDiv.appendChild(featureTitle);
+                        }
+
+                        // Feature properties (limit to 3 per feature)
+                        if (feature.properties && feature.properties.length > 0) {
+                            const maxProps = 3;
+                            feature.properties.slice(0, maxProps).forEach(prop => {
+                                const propDiv = document.createElement('div');
+                                propDiv.style.fontSize = '8pt';
+                                propDiv.style.color = '#333333';
+                                propDiv.style.marginBottom = '0.5mm';
+                                propDiv.style.lineHeight = '1.2';
+
+                                const propKey = document.createElement('span');
+                                propKey.textContent = `${prop.key}: `;
+                                propKey.style.fontWeight = '600';
+                                propKey.style.color = '#555555';
+
+                                const propValue = document.createElement('span');
+                                propValue.textContent = prop.value;
+                                propValue.style.color = '#333333';
+
+                                propDiv.appendChild(propKey);
+                                propDiv.appendChild(propValue);
+                                featureDiv.appendChild(propDiv);
+                            });
+                        }
+
+                        featuresSection.appendChild(featureDiv);
+                    });
+                    
+                    if (layer.features.length > maxFeatures) {
+                        const moreDiv = document.createElement('div');
+                        moreDiv.textContent = `... and ${layer.features.length - maxFeatures} more`;
+                        moreDiv.style.fontSize = '8pt';
+                        moreDiv.style.color = '#666666';
+                        moreDiv.style.fontStyle = 'italic';
+                        moreDiv.style.marginTop = '1mm';
+                        featuresSection.appendChild(moreDiv);
+                    }
+
+                    layerDiv.appendChild(featuresSection);
+                }
+
+                return layerDiv;
+            };
+
+            // Distribute layers across pages in 2-column layout
+            let currentPage = 0;
+            let currentColumn = 0; // 0 = left, 1 = right
+            let currentColumnHeight = 0;
+            const maxColumnHeight = availableHeight;
+            
+            const pagesData = [];
+            let currentPageLayers = [[], []]; // [leftColumn, rightColumn]
+            let currentPageHeights = [0, 0]; // Track heights for each column
+
+            // First, render all layers to measure their actual heights
+            const measureLayerHeights = async () => {
+                const measuredHeights = [];
+                const tempContainer = document.createElement('div');
+                tempContainer.style.position = 'fixed';
+                tempContainer.style.left = '-9999px';
+                tempContainer.style.top = '0';
+                tempContainer.style.width = `${columnWidth}mm`;
+                tempContainer.style.fontFamily = "'Open Sans', sans-serif";
+                tempContainer.style.visibility = 'hidden';
+                document.body.appendChild(tempContainer);
+
+                for (const layer of layerInfo) {
+                    const layerEl = createLayerElement(layer, false, 0);
+                    tempContainer.appendChild(layerEl);
+                    
+                    // Wait for rendering
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+                    
+                    // Wait for images to load
+                    const images = layerEl.querySelectorAll('img');
+                    if (images.length > 0) {
+                        await Promise.all(Array.from(images).map(img => {
+                            if (img.complete) return Promise.resolve();
+                            return new Promise((resolve) => {
+                                img.onload = resolve;
+                                img.onerror = resolve;
+                                setTimeout(resolve, 3000); // Longer timeout for large images
+                            });
+                        }));
+                    }
+                    
+                    // Measure actual height
+                    const rect = layerEl.getBoundingClientRect();
+                    // Convert pixels to mm (assuming 96 DPI for screen)
+                    const pixelsToMm = 25.4 / 96;
+                    const heightMm = rect.height * pixelsToMm;
+                    
+                    measuredHeights.push(heightMm);
+                    tempContainer.removeChild(layerEl);
+                }
+                
+                document.body.removeChild(tempContainer);
+                return measuredHeights;
+            };
+
+            // Measure all layer heights
+            const layerHeights = await measureLayerHeights();
+
+            // Distribute layers based on measured heights
+            layerInfo.forEach((layer, index) => {
+                const layerHeight = layerHeights[index] || 100; // Fallback to 100mm if measurement failed
+                
+                // Safety margin to prevent cutoff
+                const safetyMargin = 20; // Increased safety margin
+                
+                // If layer is taller than available column height, put it in its own column
+                // Canvas splitting will handle overflow across pages
+                if (layerHeight > maxColumnHeight * 0.9) {
+                    // Very tall layer - ensure it starts on a fresh column
+                    if (currentPageLayers[currentColumn].length > 0) {
+                        // Current column has content, move to next column/page
+                        currentColumn++;
+                        if (currentColumn >= 2) {
+                            // Save current page
+                            pagesData.push({
+                                layers: currentPageLayers,
+                                pageIndex: currentPage
+                            });
+                            
+                            // Start new page
+                            currentPage++;
+                            currentPageLayers = [[], []];
+                            currentPageHeights = [0, 0];
+                            currentColumn = 0;
+                        }
+                    }
+                    
+                    // Add the tall layer - canvas splitting will handle overflow
+                    currentPageLayers[currentColumn].push(layer);
+                    currentPageHeights[currentColumn] = layerHeight;
+                    
+                    // Move to next column for next layer
+                    currentColumn++;
+                    if (currentColumn >= 2) {
+                        pagesData.push({
+                            layers: currentPageLayers,
+                            pageIndex: currentPage
+                        });
+                        currentPage++;
+                        currentPageLayers = [[], []];
+                        currentPageHeights = [0, 0];
+                        currentColumn = 0;
+                    }
+                } else {
+                    // Normal layer - check if it fits in current column
+                    if (currentPageHeights[currentColumn] + layerHeight + safetyMargin > maxColumnHeight) {
+                        // Move to next column
+                        currentColumn++;
+                        
+                        // If both columns are full, start new page
+                        if (currentColumn >= 2) {
+                            // Save current page
+                            pagesData.push({
+                                layers: currentPageLayers,
+                                pageIndex: currentPage
+                            });
+                            
+                            // Start new page
+                            currentPage++;
+                            currentPageLayers = [[], []];
+                            currentPageHeights = [0, 0];
+                            currentColumn = 0;
+                        }
+                    }
+                    
+                    // Add layer to current column
+                    currentPageLayers[currentColumn].push(layer);
+                    currentPageHeights[currentColumn] += layerHeight;
+                }
+            });
+
+            // Add last page if it has content
+            if (currentPageLayers[0].length > 0 || currentPageLayers[1].length > 0) {
+                pagesData.push({
+                    layers: currentPageLayers,
+                    pageIndex: currentPage
+                });
+            }
+
+            // Generate HTML for each page
+            for (let pageIdx = 0; pageIdx < pagesData.length; pageIdx++) {
+                const pageData = pagesData[pageIdx];
+                const isFirstPage = pageIdx === 0;
+                
+                // Create container for this page - allow it to grow for measurement
+                const legendContainer = document.createElement('div');
+                legendContainer.style.position = 'fixed';
+                legendContainer.style.left = '-9999px';
+                legendContainer.style.top = '0';
+                legendContainer.style.width = `${widthMm}mm`;
+                legendContainer.style.minHeight = `${heightMm}mm`; // Use minHeight instead of fixed height
+                legendContainer.style.backgroundColor = '#ffffff';
+                legendContainer.style.overflow = 'visible';
+                legendContainer.style.fontFamily = "'Open Sans', sans-serif";
+                legendContainer.style.padding = `${padding}mm`;
+                legendContainer.style.boxSizing = 'border-box';
+
+                // Header: "Legend" (only on first page)
+                if (isFirstPage) {
+                    const header = document.createElement('h1');
+                    header.textContent = 'Legend';
+                    header.style.margin = '0 0 6mm 0';
+                    header.style.fontSize = '24pt';
+                    header.style.fontWeight = 'bold';
+                    header.style.color = '#000000';
+                    legendContainer.appendChild(header);
+
+                    // Map Title
+                    if (this._title && this._title.trim()) {
+                        const titleEl = document.createElement('div');
+                        titleEl.innerHTML = this._title.replace(/<br\s*\/?>/gi, '<br>');
+                        titleEl.style.margin = '0 0 3mm 0';
+                        titleEl.style.fontSize = '14pt';
+                        titleEl.style.fontWeight = 'bold';
+                        titleEl.style.color = '#000000';
+                        legendContainer.appendChild(titleEl);
+                    }
+
+                    // Map Description
+                    if (this._description && this._description.trim()) {
+                        const descEl = document.createElement('div');
+                        descEl.textContent = this._description;
+                        descEl.style.margin = '0 0 6mm 0';
+                        descEl.style.fontSize = '10pt';
+                        descEl.style.color = '#333333';
+                        descEl.style.lineHeight = '1.5';
+                        legendContainer.appendChild(descEl);
+                    }
+                } else {
+                    // Page number for subsequent pages
+                    const pageHeader = document.createElement('div');
+                    pageHeader.textContent = `Legend (continued)`;
+                    pageHeader.style.margin = '0 0 6mm 0';
+                    pageHeader.style.fontSize = '18pt';
+                    pageHeader.style.fontWeight = 'bold';
+                    pageHeader.style.color = '#000000';
+                    legendContainer.appendChild(pageHeader);
+                }
+
+                // Create 2-column layout container
+                const columnsContainer = document.createElement('div');
+                columnsContainer.style.display = 'flex';
+                columnsContainer.style.gap = `${columnGap}mm`;
+                columnsContainer.style.marginTop = isFirstPage ? '0' : '0';
+                columnsContainer.style.width = '100%';
+
+                // Left column
+                const leftColumn = document.createElement('div');
+                leftColumn.style.width = `${columnWidth}mm`;
+                leftColumn.style.flexShrink = '0';
+                leftColumn.style.display = 'flex';
+                leftColumn.style.flexDirection = 'column';
+
+                // Right column
+                const rightColumn = document.createElement('div');
+                rightColumn.style.width = `${columnWidth}mm`;
+                rightColumn.style.flexShrink = '0';
+                rightColumn.style.display = 'flex';
+                rightColumn.style.flexDirection = 'column';
+
+                // Add layers to columns
+                pageData.layers[0].forEach(layer => {
+                    const layerEl = createLayerElement(layer, isFirstPage, pageIdx);
+                    leftColumn.appendChild(layerEl);
+                });
+
+                pageData.layers[1].forEach(layer => {
+                    const layerEl = createLayerElement(layer, isFirstPage, pageIdx);
+                    rightColumn.appendChild(layerEl);
+                });
+
+                columnsContainer.appendChild(leftColumn);
+                columnsContainer.appendChild(rightColumn);
+                legendContainer.appendChild(columnsContainer);
+
+                // Overlay image removed - layer information is now rendered in 2-column layout above
+
+                document.body.appendChild(legendContainer);
+
+                // Wait for rendering and image loading
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                await new Promise(resolve => requestAnimationFrame(resolve));
+
+                // Wait for images to load
+                const images = legendContainer.querySelectorAll('img');
+                if (images.length > 0) {
+                    await Promise.all(Array.from(images).map(img => {
+                        if (img.complete) return Promise.resolve();
+                        return new Promise((resolve) => {
+                            img.onload = resolve;
+                            img.onerror = resolve;
+                            setTimeout(resolve, 2000);
+                        });
+                    }));
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 300));
+
+                // Extract links and their positions before rendering
+                const extractLinks = (container) => {
+                    const links = [];
+                    const linkElements = container.querySelectorAll('a[href]');
+                    const containerRect = container.getBoundingClientRect();
+                    
+                    linkElements.forEach(link => {
+                        const rect = link.getBoundingClientRect();
+                        const href = link.getAttribute('href');
+                        if (href) {
+                            links.push({
+                                href: href,
+                                x: rect.left - containerRect.left,
+                                y: rect.top - containerRect.top,
+                                width: rect.width,
+                                height: rect.height
+                            });
+                        }
+                    });
+                    
+                    return links;
+                };
+                
+                const pageLinks = extractLinks(legendContainer);
+
+                // Render full content to canvas (may exceed page height)
+                // Use lower scale for legend pages (1.2 instead of 2) to significantly reduce file size
+                // Legend pages are mostly text and don't need as high resolution as the map
+                // Scale 1.2 provides good quality while keeping file size manageable
+                const html2canvas = (await import('html2canvas')).default;
+                const scale = 1.2; // Reduced from 2 to reduce file size (1.2 = 44% fewer pixels than scale 2)
+
+                const fullCanvas = await html2canvas(legendContainer, {
+                    backgroundColor: '#ffffff',
+                    scale: scale,
+                    logging: false,
+                    useCORS: true,
+                    width: legendContainer.offsetWidth,
+                    height: legendContainer.offsetHeight,
+                    windowWidth: legendContainer.offsetWidth,
+                    windowHeight: legendContainer.offsetHeight,
+                    // Optimize image rendering
+                    imageTimeout: 5000,
+                    removeContainer: false
+                });
+
+                // Clean up container
+                document.body.removeChild(legendContainer);
+
+                // Calculate page dimensions in pixels
+                const mmToPx = 96 / 25.4; // Convert mm to pixels at 96 DPI
+                const pageWidthPx = widthMm * mmToPx * scale;
+                const pageHeightPx = heightMm * mmToPx * scale;
+                
+                // Helper function to convert canvas to optimized JPEG
+                const canvasToOptimizedJPEG = (canvas, quality = 0.80) => {
+                    // Use JPEG compression for legend pages (much smaller than PNG)
+                    // Quality 0.80 provides good balance between file size and visual quality for legend pages
+                    return canvas.toDataURL('image/jpeg', quality);
+                };
+                
+                // If canvas is taller than one page, split it into multiple pages
+                if (fullCanvas.height > pageHeightPx) {
+                    const numPages = Math.ceil(fullCanvas.height / pageHeightPx);
+                    
+                    for (let p = 0; p < numPages; p++) {
+                        const sourceY = p * pageHeightPx;
+                        const sourceHeight = Math.min(pageHeightPx, fullCanvas.height - sourceY);
+                        
+                        // Create a new canvas for this page
+                        const pageCanvas = document.createElement('canvas');
+                        pageCanvas.width = pageWidthPx;
+                        pageCanvas.height = pageHeightPx;
+                        const ctx = pageCanvas.getContext('2d');
+                        
+                        // Fill with white background
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, pageWidthPx, pageHeightPx);
+                        
+                        // Draw the portion of the full canvas for this page
+                        ctx.drawImage(
+                            fullCanvas,
+                            0, sourceY, fullCanvas.width, sourceHeight, // Source
+                            0, 0, pageWidthPx, sourceHeight // Destination
+                        );
+                        
+                        // Filter links for this page
+                        const pageLinksFiltered = pageLinks.filter(link => {
+                            const linkY = link.y * scale;
+                            return linkY >= sourceY && linkY < sourceY + pageHeightPx;
+                        }).map(link => ({
+                            href: link.href,
+                            x: link.x * scale,
+                            y: (link.y * scale) - sourceY, // Adjust Y relative to page
+                            width: link.width * scale,
+                            height: link.height * scale
+                        }));
+                        
+                        pages.push({
+                            dataUrl: canvasToOptimizedJPEG(pageCanvas, 0.80), // Use JPEG with 80% quality
+                            widthMm: widthMm,
+                            heightMm: heightMm,
+                            links: pageLinksFiltered
+                        });
+                    }
+                } else {
+                    // Content fits on one page - use JPEG compression
+                    // Scale link positions to match canvas scale
+                    const scaledLinks = pageLinks.map(link => ({
+                        href: link.href,
+                        x: link.x * scale,
+                        y: link.y * scale,
+                        width: link.width * scale,
+                        height: link.height * scale
+                    }));
+                    
+                    pages.push({
+                        dataUrl: canvasToOptimizedJPEG(fullCanvas, 0.80), // Use JPEG with 80% quality
+                        widthMm: widthMm,
+                        heightMm: heightMm,
+                        links: scaledLinks
+                    });
+                }
+            }
+
+            return pages;
+        } catch (e) {
+            console.error('Failed to generate legend pages HTML', e);
+            return [];
+        }
+    }
+
+
+    /**
+     * Generate legend page HTML (legacy method - kept for compatibility)
+     * @param {number} widthMm - PDF width in mm
+     * @param {number} heightMm - PDF height in mm
+     * @param {string} overlayDataUrl - Legend overlay data URL
+     * @param {number} overlayWidthMm - Overlay width in mm
+     * @param {number} overlayHeightMm - Overlay height in mm
+     * @param {number} dpi - DPI
+     * @returns {Promise<Object>} Object with dataUrl and dimensions
+     */
+    async _generateLegendPageHTML(widthMm, heightMm, overlayDataUrl, overlayWidthMm, overlayHeightMm, dpi) {
+        try {
+            // Create container for legend page
+            const legendContainer = document.createElement('div');
+            legendContainer.style.position = 'fixed';
+            legendContainer.style.left = '-9999px';
+            legendContainer.style.top = '0';
+            legendContainer.style.width = `${widthMm}mm`;
+            legendContainer.style.height = `${heightMm}mm`;
+            legendContainer.style.backgroundColor = '#ffffff';
+            legendContainer.style.overflow = 'visible';
+            legendContainer.style.fontFamily = "'Open Sans', sans-serif";
+            legendContainer.style.padding = '10mm';
+            legendContainer.style.boxSizing = 'border-box';
+
+            // Header: "Legend"
+            const header = document.createElement('h1');
+            header.textContent = 'Legend';
+            header.style.margin = '0 0 8mm 0';
+            header.style.fontSize = '24pt';
+            header.style.fontWeight = 'bold';
+            header.style.color = '#000000';
+            legendContainer.appendChild(header);
+
+            // Map Title
+            if (this._title && this._title.trim()) {
+                const titleEl = document.createElement('div');
+                titleEl.innerHTML = this._title.replace(/<br\s*\/?>/gi, '<br>');
+                titleEl.style.margin = '0 0 4mm 0';
+                titleEl.style.fontSize = '14pt';
+                titleEl.style.fontWeight = 'bold';
+                titleEl.style.color = '#000000';
+                legendContainer.appendChild(titleEl);
+            }
+
+            // Map Description
+            if (this._description && this._description.trim()) {
+                const descEl = document.createElement('div');
+                descEl.textContent = this._description;
+                descEl.style.margin = '0 0 8mm 0';
+                descEl.style.fontSize = '10pt';
+                descEl.style.color = '#333333';
+                descEl.style.lineHeight = '1.5';
+                legendContainer.appendChild(descEl);
+            }
+
+            // Get layer information from feature control
+            const layerInfo = this._getLayerInformation();
+            
+            // Add layer information section
+            if (layerInfo && layerInfo.length > 0) {
+                const layersSection = document.createElement('div');
+                layersSection.style.marginTop = '8mm';
+
+                layerInfo.forEach((layer, index) => {
+                    const layerDiv = document.createElement('div');
+                    layerDiv.style.marginBottom = '8mm';
+                    layerDiv.style.paddingBottom = '8mm';
+                    layerDiv.style.borderBottom = index < layerInfo.length - 1 ? '1px solid #e0e0e0' : 'none';
+
+                    // Layer title
+                    if (layer.title) {
+                        const layerTitle = document.createElement('div');
+                        layerTitle.textContent = layer.title;
+                        layerTitle.style.fontSize = '14pt';
+                        layerTitle.style.fontWeight = 'bold';
+                        layerTitle.style.color = '#000000';
+                        layerTitle.style.marginBottom = '4mm';
+                        layerDiv.appendChild(layerTitle);
+                    }
+
+                    // Info section (Description and Attribution)
+                    if (layer.info && (layer.info.description || layer.info.attribution)) {
+                        const infoSection = document.createElement('div');
+                        infoSection.style.marginBottom = '4mm';
+
+                        // Description
+                        if (layer.info.description) {
+                            const descDiv = document.createElement('div');
+                            if (typeof layer.info.description === 'object' && layer.info.description.html) {
+                                descDiv.innerHTML = layer.info.description.html;
+                                // Style links in description
+                                const links = descDiv.querySelectorAll('a');
+                                links.forEach(link => {
+                                    link.style.color = '#0066cc';
+                                    link.style.textDecoration = 'underline';
+                                    link.style.cursor = 'pointer';
+                                });
+                            } else {
+                                descDiv.textContent = typeof layer.info.description === 'string' ? layer.info.description : '';
+                            }
+                            descDiv.style.fontSize = '10pt';
+                            descDiv.style.color = '#333333';
+                            descDiv.style.marginBottom = '2mm';
+                            descDiv.style.lineHeight = '1.5';
+                            descDiv.style.whiteSpace = 'pre-wrap'; // Preserve line breaks
+                            infoSection.appendChild(descDiv);
+                        }
+
+                        // Attribution
+                        if (layer.info.attribution) {
+                            const attrDiv = document.createElement('div');
+                            if (typeof layer.info.attribution === 'object' && layer.info.attribution.html) {
+                                attrDiv.innerHTML = `Source: ${layer.info.attribution.html}`;
+                                // Style links in attribution
+                                const links = attrDiv.querySelectorAll('a');
+                                links.forEach(link => {
+                                    link.style.color = '#0066cc';
+                                    link.style.textDecoration = 'underline';
+                                    link.style.cursor = 'pointer';
+                                });
+                            } else {
+                                attrDiv.textContent = `Source: ${typeof layer.info.attribution === 'string' ? layer.info.attribution : ''}`;
+                            }
+                            attrDiv.style.fontSize = '9pt';
+                            attrDiv.style.color = '#666666';
+                            attrDiv.style.fontStyle = 'italic';
+                            attrDiv.style.marginTop = '2mm';
+                            infoSection.appendChild(attrDiv);
+                        }
+
+                        layerDiv.appendChild(infoSection);
+                    }
+
+                    // Legend section
+                    if (layer.legend && (layer.legend.legendImage || layer.legend.legend)) {
+                        const legendSection = document.createElement('div');
+                        legendSection.style.marginBottom = '4mm';
+
+                        const legendTitle = document.createElement('div');
+                        legendTitle.textContent = 'Legend';
+                        legendTitle.style.fontSize = '11pt';
+                        legendTitle.style.fontWeight = 'bold';
+                        legendTitle.style.color = '#000000';
+                        legendTitle.style.marginBottom = '2mm';
+                        legendSection.appendChild(legendTitle);
+
+                        // Legend image
+                        if (layer.legend.legendImage) {
+                            const legendImg = document.createElement('img');
+                            legendImg.src = layer.legend.legendImage;
+                            legendImg.style.maxWidth = '100%';
+                            legendImg.style.height = 'auto';
+                            legendImg.style.display = 'block';
+                            legendImg.style.marginBottom = '2mm';
+                            legendSection.appendChild(legendImg);
+                        }
+
+                        // Legend text
+                        if (layer.legend.legend) {
+                            const legendText = document.createElement('div');
+                            if (typeof layer.legend.legend === 'object' && layer.legend.legend.html) {
+                                legendText.innerHTML = layer.legend.legend.html;
+                                // Style links in legend
+                                const links = legendText.querySelectorAll('a');
+                                links.forEach(link => {
+                                    link.style.color = '#0066cc';
+                                    link.style.textDecoration = 'underline';
+                                    link.style.cursor = 'pointer';
+                                });
+                            } else {
+                                legendText.textContent = typeof layer.legend.legend === 'string' ? layer.legend.legend : '';
+                            }
+                            legendText.style.fontSize = '9pt';
+                            legendText.style.color = '#333333';
+                            legendText.style.lineHeight = '1.4';
+                            legendText.style.whiteSpace = 'pre-wrap'; // Preserve line breaks
+                            legendSection.appendChild(legendText);
+                        }
+
+                        layerDiv.appendChild(legendSection);
+                    }
+
+                    // Features section (if there are selected features)
+                    if (layer.features && layer.features.length > 0) {
+                        const featuresSection = document.createElement('div');
+                        featuresSection.style.marginBottom = '4mm';
+
+                        const featuresTitle = document.createElement('div');
+                        featuresTitle.textContent = `Selected Features (${layer.features.length})`;
+                        featuresTitle.style.fontSize = '11pt';
+                        featuresTitle.style.fontWeight = 'bold';
+                        featuresTitle.style.color = '#000000';
+                        featuresTitle.style.marginBottom = '3mm';
+                        featuresSection.appendChild(featuresTitle);
+
+                        layer.features.forEach((feature, featureIndex) => {
+                            const featureDiv = document.createElement('div');
+                            featureDiv.style.marginBottom = '3mm';
+                            featureDiv.style.paddingLeft = '3mm';
+                            featureDiv.style.borderLeft = '2px solid #cccccc';
+
+                            // Feature title
+                            if (feature.title) {
+                                const featureTitle = document.createElement('div');
+                                featureTitle.textContent = feature.title;
+                                featureTitle.style.fontSize = '10pt';
+                                featureTitle.style.fontWeight = 'bold';
+                                featureTitle.style.color = '#000000';
+                                featureTitle.style.marginBottom = '2mm';
+                                featureDiv.appendChild(featureTitle);
+                            }
+
+                            // Feature properties
+                            if (feature.properties && feature.properties.length > 0) {
+                                feature.properties.forEach(prop => {
+                                    const propDiv = document.createElement('div');
+                                    propDiv.style.fontSize = '9pt';
+                                    propDiv.style.color = '#333333';
+                                    propDiv.style.marginBottom = '1mm';
+                                    propDiv.style.lineHeight = '1.3';
+
+                                    const propKey = document.createElement('span');
+                                    propKey.textContent = `${prop.key}: `;
+                                    propKey.style.fontWeight = '600';
+                                    propKey.style.color = '#555555';
+
+                                    const propValue = document.createElement('span');
+                                    propValue.textContent = prop.value;
+                                    propValue.style.color = '#333333';
+
+                                    propDiv.appendChild(propKey);
+                                    propDiv.appendChild(propValue);
+                                    featureDiv.appendChild(propDiv);
+                                });
+                            }
+
+                            featuresSection.appendChild(featureDiv);
+                        });
+
+                        layerDiv.appendChild(featuresSection);
+                    }
+
+                    layersSection.appendChild(layerDiv);
+                });
+
+                legendContainer.appendChild(layersSection);
+            }
+
+            // Add legend overlay image if available
+            // Place it at the bottom of the page if there's space, otherwise after layer info
+            if (overlayDataUrl) {
+                const legendImgContainer = document.createElement('div');
+                legendImgContainer.style.marginTop = '8mm';
+                legendImgContainer.style.textAlign = 'center';
+                legendImgContainer.style.pageBreakInside = 'avoid';
+
+                const legendImg = document.createElement('img');
+                legendImg.src = overlayDataUrl;
+                // Scale to fit page width (with margins)
+                const maxWidth = widthMm - 20; // Account for padding
+                const scale = Math.min(1, maxWidth / overlayWidthMm);
+                legendImg.style.width = `${overlayWidthMm * scale}mm`;
+                legendImg.style.height = 'auto';
+                legendImg.style.maxWidth = '100%';
+                legendImg.style.display = 'block';
+                legendImg.style.margin = '0 auto';
+                legendImgContainer.appendChild(legendImg);
+                legendContainer.appendChild(legendImgContainer);
+            }
+
+            document.body.appendChild(legendContainer);
+
+            // Wait for rendering and image loading
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            await new Promise(resolve => requestAnimationFrame(resolve));
+
+            // Wait for images to load
+            const images = legendContainer.querySelectorAll('img');
+            if (images.length > 0) {
+                await Promise.all(Array.from(images).map(img => {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = resolve; // Continue even if image fails
+                        setTimeout(resolve, 2000); // Timeout after 2s
+                    });
+                }));
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // Render to canvas using html2canvas
+            const html2canvas = (await import('html2canvas')).default;
+
+            const scale = 2; // Higher quality
+
+            const canvas = await html2canvas(legendContainer, {
+                backgroundColor: '#ffffff',
+                scale: scale,
+                logging: false,
+                useCORS: true,
+                width: legendContainer.offsetWidth,
+                height: legendContainer.offsetHeight,
+                windowWidth: legendContainer.offsetWidth,
+                windowHeight: legendContainer.offsetHeight
+            });
+
+            // Clean up
+            document.body.removeChild(legendContainer);
+
+            return {
+                dataUrl: canvas.toDataURL('image/png'),
+                widthMm: widthMm,
+                heightMm: heightMm
+            };
+        } catch (e) {
+            console.error('Failed to generate legend page HTML', e);
+            return null;
+        }
+    }
+
+    /**
+     * Get layer information from feature control
+     * @returns {Array} Array of layer information objects with Info, Legend, and Features content
+     */
+    _getLayerInformation() {
+        const layers = [];
+
+        try {
+            // Helper to convert HTML to formatted text (preserving line breaks and structure)
+            // Returns object with html (preserved HTML with links) and links (array of link info)
+            const formatHtmlToText = (html) => {
+                if (!html) return { html: '', links: [] };
+                const tmp = document.createElement('div');
+                tmp.innerHTML = html;
+                
+                // Extract links before processing
+                const links = [];
+                const linkElements = tmp.querySelectorAll('a[href]');
+                linkElements.forEach((link, index) => {
+                    const href = link.getAttribute('href');
+                    const text = link.textContent || link.innerText || href;
+                    // Store link info with a unique identifier
+                    const linkId = `__link_${index}_${Date.now()}`;
+                    link.setAttribute('data-link-id', linkId);
+                    links.push({
+                        id: linkId,
+                        href: href,
+                        text: text
+                    });
+                });
+                
+                // Replace <br> and <p> tags with line breaks for text fallback
+                const brs = tmp.querySelectorAll('br, p');
+                brs.forEach(br => {
+                    if (br.tagName === 'P') {
+                        br.insertAdjacentText('beforebegin', '\n');
+                        if (br.nextSibling && br.nextSibling.nodeType !== Node.TEXT_NODE) {
+                            br.insertAdjacentText('afterend', '\n');
+                        }
+                    } else {
+                        br.insertAdjacentText('beforebegin', '\n');
+                    }
+                });
+                
+                // Get text content for fallback
+                let text = tmp.textContent || tmp.innerText || '';
+                text = text.replace(/\n{3,}/g, '\n\n');
+                text = text.split('\n').map(line => line.trim()).join('\n');
+                
+                return {
+                    html: tmp.innerHTML, // Preserve HTML with links
+                    text: text.trim(), // Plain text fallback
+                    links: links
+                };
+            };
+
+            // Helper to get feature information for a layer
+            const getFeatureInfo = (layerId, layerConfig, stateManager) => {
+                if (!stateManager) return null;
+                
+                const activeLayers = stateManager.getActiveLayers();
+                const layerData = activeLayers.get(layerId);
+                
+                if (!layerData || !layerData.features || layerData.features.size === 0) {
+                    return null;
+                }
+
+                // Get selected features
+                const selectedFeatures = [];
+                layerData.features.forEach((featureState, featureId) => {
+                    if (featureState.isSelected) {
+                        selectedFeatures.push(featureState);
+                    }
+                });
+
+                if (selectedFeatures.length === 0) {
+                    return null;
+                }
+
+                // Format feature properties
+                const featureInfo = [];
+                selectedFeatures.forEach((featureState, index) => {
+                    const feature = featureState.feature;
+                    const properties = feature.properties || {};
+                    const inspect = layerConfig.inspect || {};
+                    
+                    // Get label field
+                    const labelField = inspect.label;
+                    let featureTitle = 'Feature';
+                    if (labelField && properties[labelField]) {
+                        featureTitle = String(properties[labelField]);
+                    } else if (properties.name) {
+                        featureTitle = String(properties.name);
+                    } else if (properties.title) {
+                        featureTitle = String(properties.title);
+                    }
+
+                    // Get priority fields
+                    const priorityFields = inspect.fields || [];
+                    const fieldTitles = inspect.fieldTitles || [];
+                    const fieldTitleMap = {};
+                    priorityFields.forEach((field, idx) => {
+                        if (fieldTitles[idx]) {
+                            fieldTitleMap[field] = fieldTitles[idx];
+                        }
+                    });
+
+                    const featureData = {
+                        title: featureTitle,
+                        properties: []
+                    };
+
+                    // Add label field
+                    if (labelField && properties[labelField] !== undefined && properties[labelField] !== null && properties[labelField] !== '') {
+                        featureData.properties.push({
+                            key: inspect.title || fieldTitleMap[labelField] || labelField,
+                            value: String(properties[labelField])
+                        });
+                    }
+
+                    // Add priority fields
+                    priorityFields.forEach(field => {
+                        if (field !== labelField && properties[field] !== undefined && properties[field] !== null && properties[field] !== '') {
+                            featureData.properties.push({
+                                key: fieldTitleMap[field] || field,
+                                value: String(properties[field])
+                            });
+                        }
+                    });
+
+                    // If no configured fields, show first few meaningful properties
+                    if (priorityFields.length === 0) {
+                        const systemFields = ['id', 'fid', '_id', 'objectid', 'gid', 'osm_id', 'way_id'];
+                        Object.entries(properties).forEach(([key, value]) => {
+                            if (featureData.properties.length >= 5) return; // Limit to 5 properties
+                            if (systemFields.includes(key.toLowerCase())) return;
+                            if (value === undefined || value === null || value === '') return;
+                            if (key === 'name' || key === 'title') return; // Already shown as title
+                            
+                            featureData.properties.push({
+                                key: key,
+                                value: String(value)
+                            });
+                        });
+                    }
+
+                    featureInfo.push(featureData);
+                });
+
+                return featureInfo.length > 0 ? featureInfo : null;
+            };
+
+            // Try to get layer information from feature control
+            if (window.featureControl) {
+                let layerOrder = [];
+                
+                // Try to get layer order
+                if (typeof window.featureControl._getConfigLayerOrder === 'function') {
+                    layerOrder = window.featureControl._getConfigLayerOrder();
+                } else if (window.featureControl._stateManager) {
+                    // Fallback: get from state manager
+                    const activeLayers = window.featureControl._stateManager.getActiveLayers();
+                    layerOrder = Array.from(activeLayers.keys());
+                }
+
+                layerOrder.forEach(layerId => {
+                    let layerConfig = null;
+                    
+                    // Try to get layer config
+                    if (typeof window.featureControl._getLayerConfig === 'function') {
+                        layerConfig = window.featureControl._getLayerConfig(layerId);
+                    } else if (window.featureControl._stateManager) {
+                        layerConfig = window.featureControl._stateManager.getLayerConfig(layerId);
+                    }
+
+                    if (layerConfig) {
+                        // Get Info content (description and attribution)
+                        const descFormatted = formatHtmlToText(layerConfig.description || '');
+                        const attrFormatted = formatHtmlToText(layerConfig.attribution || layerConfig.source || '');
+                        const infoContent = {
+                            description: descFormatted,
+                            attribution: attrFormatted
+                        };
+
+                        // Get Legend content
+                        const legendFormatted = formatHtmlToText(layerConfig.legend || '');
+                        const legendContent = {
+                            legendImage: layerConfig.legendImage || null,
+                            legend: legendFormatted
+                        };
+
+                        // Get Features content
+                        const featuresContent = getFeatureInfo(layerId, layerConfig, window.featureControl._stateManager);
+
+                        layers.push({
+                            title: layerConfig.title || layerId,
+                            info: infoContent,
+                            legend: legendContent,
+                            features: featuresContent
+                        });
+                    }
+                });
+            }
+
+            // Fallback: try to get from layer control
+            if (layers.length === 0 && window.layerControl && window.layerControl._config) {
+                const config = window.layerControl._config;
+                const groups = config.groups || config.layers || [];
+
+                groups.forEach(group => {
+                    if (group.title || group.id) {
+                        const descFormatted = formatHtmlToText(group.description || '');
+                        const attrFormatted = formatHtmlToText(group.attribution || group.source || '');
+                        const legendFormatted = formatHtmlToText(group.legend || '');
+                        layers.push({
+                            title: group.title || group.id,
+                            info: {
+                                description: descFormatted,
+                                attribution: attrFormatted
+                            },
+                            legend: {
+                                legendImage: group.legendImage || null,
+                                legend: legendFormatted
+                            },
+                            features: null // Can't get features from layer control alone
+                        });
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('Failed to get layer information', e);
+        }
+
+        return layers;
+    }
+
+    /**
+     * Fallback legend page drawing method
+     * @param {jsPDF} doc - jsPDF document instance
+     * @param {number} widthMm - PDF width in mm
+     * @param {number} heightMm - PDF height in mm
+     * @param {string} overlayDataUrl - Legend overlay data URL
+     * @param {number} overlayWidthMm - Overlay width in mm
+     * @param {number} overlayHeightMm - Overlay height in mm
+     */
+    _drawLegendPageFallback(doc, widthMm, heightMm, overlayDataUrl, overlayWidthMm, overlayHeightMm) {
+        // Draw header
+        doc.setFontSize(24);
+        doc.text('Legend', 10, 20);
+
+        // Draw title
+        if (this._title && this._title.trim()) {
+            const titleText = this._title.replace(/<br\s*\/?>/gi, ', ').replace(/<[^>]*>/g, '');
+            doc.setFontSize(14);
+            doc.text(titleText, 10, 35);
+        }
+
+        // Draw description
+        if (this._description && this._description.trim()) {
+            doc.setFontSize(10);
+            const splitDesc = doc.splitTextToSize(this._description, widthMm - 20);
+            doc.text(splitDesc, 10, 45);
+        }
+
+        // Draw legend overlay if available
+        if (overlayDataUrl) {
+            const maxWidth = widthMm - 20;
+            const scale = Math.min(1, maxWidth / overlayWidthMm);
+            const imgWidth = overlayWidthMm * scale;
+            const imgHeight = overlayHeightMm * scale;
+            doc.addImage(overlayDataUrl, 'PNG', 10, 60, imgWidth, imgHeight);
+        }
+    }
+
+    /**
+     * Generate footer HTML using pdf-layout.html template
+     * @param {number} widthMm - PDF width in mm
+     * @param {number} heightMm - PDF height in mm
+     * @param {string} qrDataUrl - QR code data URL
+     * @param {string} shareUrl - Share URL
+     * @param {string} attributionText - Attribution text
+     * @param {Object} targetCenter - Center coordinates {lat, lng}
+     * @param {number} zoom - Map zoom level
+     * @param {number} bearing - Map bearing in degrees (0 = north up)
+     * @param {number} pitch - Map pitch in degrees (0 = top-down view)
+     * @param {number} dpi - DPI
+     * @returns {Promise<string>} Data URL of rendered footer
+     */
+    async _generateFooterHTML(widthMm, heightMm, qrDataUrl, shareUrl, attributionText, targetCenter, zoom, bearing, pitch, dpi) {
+        try {
+            // Load the PDF layout template
+            const templateResponse = await fetch('pdf-layout.html');
+            if (!templateResponse.ok) {
+                console.warn('Failed to load pdf-layout.html template, using fallback');
+                return null;
+            }
+            const templateHtml = await templateResponse.text();
+
+            // Parse template and extract footer structure and styles
+            const parser = new DOMParser();
+            const templateDoc = parser.parseFromString(templateHtml, 'text/html');
+            const footerBox = templateDoc.querySelector('.footer-box');
+            
+            if (!footerBox) {
+                console.warn('Footer box not found in template');
+                return null;
+            }
+
+            // Extract all styles from the template
+            const templateStyles = templateDoc.querySelectorAll('style');
+            const styleText = Array.from(templateStyles).map(s => s.textContent).join('\n');
+
+            // Create a temporary container for the footer
+            const footerContainer = document.createElement('div');
+            footerContainer.style.position = 'fixed';
+            footerContainer.style.left = '-9999px';
+            footerContainer.style.top = '0';
+            footerContainer.style.width = `${widthMm}mm`;
+            footerContainer.style.backgroundColor = 'transparent';
+            footerContainer.style.overflow = 'visible';
+            footerContainer.style.fontFamily = "'Open Sans', sans-serif";
+            
+            // Inject styles
+            const styleEl = document.createElement('style');
+            styleEl.textContent = styleText;
+            footerContainer.appendChild(styleEl);
+
+            // Clone the footer structure
+            const footerClone = footerBox.cloneNode(true);
+            
+            // Remove absolute positioning to allow proper measurement
+            footerClone.style.position = 'relative';
+            footerClone.style.bottom = 'auto';
+            footerClone.style.left = 'auto';
+            footerClone.style.right = 'auto';
+            
+            // Populate with actual data
+            const qrCodeEl = footerClone.querySelector('.qr-code');
+            if (qrCodeEl && qrDataUrl) {
+                qrCodeEl.innerHTML = '';
+                const qrImg = document.createElement('img');
+                qrImg.src = qrDataUrl;
+                qrImg.style.width = '100%';
+                qrImg.style.height = '100%';
+                qrImg.style.objectFit = 'contain';
+                qrCodeEl.appendChild(qrImg);
+            }
+
+            // Date
+            const dateEl = footerClone.querySelector('.date-text');
+            if (dateEl) {
+                const date = new Date();
+                dateEl.textContent = date.toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+            }
+
+            // Title - preserve HTML line breaks
+            const titleEl = footerClone.querySelector('.text-title');
+            if (titleEl) {
+                const titleText = (this._title || 'Map').replace(/<br\s*\/?>/gi, '<br>');
+                titleEl.innerHTML = titleText;
+            }
+
+            // Description
+            const descEl = footerClone.querySelector('.text-description');
+            if (descEl) {
+                descEl.textContent = this._description || '';
+            }
+
+            // Attribution
+            const dataEl = footerClone.querySelector('.text-data');
+            if (dataEl && attributionText) {
+                dataEl.textContent = `Data Sources: ${attributionText}`;
+            }
+
+            // URL
+            const urlEl = footerClone.querySelector('.text-url');
+            if (urlEl && shareUrl) {
+                urlEl.textContent = shareUrl;
+            }
+
+            // Scale bar
+            const scaleBarVisual = footerClone.querySelector('.scale-bar-visual');
+            const scaleBarLabel = footerClone.querySelector('.scale-bar-label');
+            if (scaleBarVisual && scaleBarLabel && targetCenter) {
+                const scaleInfo = this._calculateMapScale(zoom, targetCenter.lat, dpi);
+                const scaleWidthMm = scaleInfo.widthMm;
+                scaleBarVisual.style.width = `${scaleWidthMm}mm`;
+                if (scaleBarLabel) {
+                    scaleBarLabel.textContent = `${scaleInfo.distance} ${scaleInfo.unit}`;
+                }
+            }
+
+            // North arrow - apply rotation and tilt using CSS transforms
+            const northArrowEl = footerClone.querySelector('.north-arrow');
+            const northArrowSvg = footerClone.querySelector('.north-arrow-svg');
+            const northArrowTrapezoid = footerClone.querySelector('.north-arrow-trapezoid');
+            
+            if (northArrowEl && northArrowSvg && bearing !== undefined) {
+                // Apply rotation based on bearing (negative because CSS rotation is clockwise)
+                // Mapbox bearing: 0 = north up, positive = clockwise
+                // CSS rotation: positive = clockwise
+                northArrowSvg.style.transform = `rotate(${-bearing}deg)`;
+                
+                // Apply tilt/perspective based on pitch
+                if (pitch !== undefined && pitch > 0) {
+                    // Tilt the arrow to match the map's pitch
+                    // Use perspective and rotateX to simulate 3D tilt
+                    const tiltAngle = pitch; // Pitch angle in degrees
+                    northArrowSvg.style.transform += ` perspective(20mm) rotateX(${tiltAngle}deg)`;
+                    
+                    // Show and adjust trapezoid background
+                    // Trapezoid angle = (90 - pitch) degrees
+                    // This creates an isosceles trapezoid where the top is narrower (farther away)
+                    // and bottom is wider (closer to viewer), simulating ground plane tilt
+                    if (northArrowTrapezoid) {
+                        northArrowTrapezoid.classList.add('visible');
+                        
+                        // Calculate trapezoid top width based on pitch
+                        // When pitch = 0: top width = 100% (rectangle, angle = 90°)
+                        // When pitch = 90: top width = 0% (triangle, angle = 0°)
+                        // Linear interpolation: topWidth = 1 - (pitch / 90)
+                        const topWidthRatio = Math.max(0, 1 - (pitch / 90));
+                        
+                        // Calculate clip-path coordinates for isosceles trapezoid
+                        // Bottom edge: full width (100%)
+                        // Top edge: centered, width = topWidthRatio * 100%
+                        const topLeft = (1 - topWidthRatio) / 2;
+                        const topRight = 1 - topLeft;
+                        
+                        // clip-path: bottom-left, bottom-right, top-right, top-left
+                        northArrowTrapezoid.style.clipPath = 
+                            `polygon(0% 100%, 100% 100%, ${topRight * 100}% 0%, ${topLeft * 100}% 0%)`;
+                    }
+                } else {
+                    // Hide trapezoid when pitch is 0
+                    if (northArrowTrapezoid) {
+                        northArrowTrapezoid.classList.remove('visible');
+                    }
+                }
+            }
+
+            // Append footer to container
+            footerContainer.appendChild(footerClone);
+            document.body.appendChild(footerContainer);
+
+            // Wait for rendering and image loading
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            
+            // Wait for images to load
+            const images = footerClone.querySelectorAll('img');
+            if (images.length > 0) {
+                await Promise.all(Array.from(images).map(img => {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = resolve; // Continue even if image fails
+                        setTimeout(resolve, 1000); // Timeout after 1s
+                    });
+                }));
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+            // Render to canvas using html2canvas
+            const html2canvas = (await import('html2canvas')).default;
+            
+            // Get actual footer dimensions
+            const footerRect = footerClone.getBoundingClientRect();
+            
+            // Convert mm to pixels at the target DPI for scaling
+            const mmToPx = dpi / 25.4;
+            const targetWidthPx = widthMm * mmToPx;
+            
+            // Use actual rendered height, but scale appropriately
+            const scale = 2; // Higher quality
+            
+            const canvas = await html2canvas(footerClone, {
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                scale: scale,
+                logging: false,
+                useCORS: true,
+                width: footerRect.width,
+                height: footerRect.height,
+                windowWidth: footerRect.width,
+                windowHeight: footerRect.height
+            });
+
+            // Calculate footer height in mm from the rendered element
+            // The footer-box has height: 80mm in the template, but we need actual rendered height
+            const computedStyle = window.getComputedStyle(footerClone);
+            let footerHeightMm = 80; // Default from template
+            
+            // Try to get height from computed style or bounding rect
+            if (footerRect.height > 0) {
+                // Convert pixels to mm (assuming 96 DPI for screen rendering)
+                const screenDpi = 96;
+                const pixelsToMm = 25.4 / screenDpi;
+                footerHeightMm = footerRect.height * pixelsToMm;
+            }
+
+            // Clean up
+            document.body.removeChild(footerContainer);
+
+            // Return object with data URL and height
+            return {
+                dataUrl: canvas.toDataURL('image/png'),
+                heightMm: footerHeightMm
+            };
+        } catch (e) {
+            console.error('Failed to generate footer HTML', e);
+            return null;
+        }
+    }
+
+    /**
+     * Fallback footer drawing method (legacy)
+     */
+    _drawFooterFallback(doc, widthMm, heightMm, qrDataUrl, shareUrl, attributionText, targetCenter, zoom, bearing, dpi) {
+        // This is a fallback - for now just log a warning
+        // In the future, this could implement a simple footer using jsPDF drawing methods
+        console.warn('Using fallback footer method - footer may not match template');
+        
+        // Calculate footer height
+        const footerHeightMm = 30;
+        const footerY = heightMm - footerHeightMm;
+        
+        // Draw a simple footer background
+        doc.setFillColor(0, 0, 0);
+        doc.setGState(doc.GState({opacity: 0.7}));
+        doc.rect(0, footerY, widthMm, footerHeightMm, 'F');
+        doc.setGState(doc.GState({opacity: 1.0}));
+        
+        // Add QR code if available
+        if (qrDataUrl) {
+            const qrSizeMm = 12;
+            doc.addImage(qrDataUrl, 'PNG', 5, footerY + 5, qrSizeMm, qrSizeMm);
+        }
+        
+        // Add text
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
+        const titleText = (this._title || 'Map').replace(/<br\s*\/?>/gi, ', ').replace(/<[^>]*>/g, '');
+        doc.text(titleText, 20, footerY + 10);
+        
+        if (this._description) {
+            doc.setFontSize(8);
+            doc.text(this._description, 20, footerY + 15);
+        }
+        
+        if (shareUrl) {
+            doc.setFontSize(7);
+            doc.text(shareUrl, 20, footerY + 25);
+        }
+    }
 
     _canvasToTIFF(canvas) {
         // Minimal TIFF writer: Little Endian, RGB, Uncompressed
