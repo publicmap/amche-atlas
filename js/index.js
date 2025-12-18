@@ -38,7 +38,7 @@ $(window).on('load', function () {
     const permalinkHandler = new PermalinkManager();
     permalinkHandler.detectAndRedirect();
 
-    loadGoogleAnalytics(arguments);
+    loadGoogleAnalytics();
 
     const navigationControl = new NavigationControl();
     navigationControl.render();

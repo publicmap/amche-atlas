@@ -1018,7 +1018,7 @@ sl-details.map-controls-group::part(summary-icon) {
 }
 
 a:not(header a) {
-    color: #628cd4;
+    color: #3366cc;
     text-decoration: none;
 }
 

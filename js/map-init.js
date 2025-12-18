@@ -4,6 +4,7 @@ import { ButtonShareLink } from './button-share-link.js';
 import { MapLayerControl } from './map-layer-controls.js';
 import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
+import { MapExportControl } from './map-export-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
 import { MapFeatureControl } from './map-feature-control.js';
 import { ButtonResetMapView } from './button-reset-map-view.js';
@@ -11,7 +12,6 @@ import { MapAttributionControl } from './map-attribution-control.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { ButtonGeolocationManager } from './button-geolocation-manager.js';
-import { MapExportControl } from './map-export-control.js';
 
 // Function to get URL parameters
 function getUrlParameter(name) {
@@ -596,19 +596,6 @@ function isObject(item) {
 }
 
 // Default map options
-const defaultMapOptions = {
-    container: 'map',
-    style: 'mapbox://styles/planemad/cm3gyibd3004x01qz08rohcsg',
-    center: [73.9414, 15.4121],
-    zoom: 9.99,
-    hash: true,
-    center: [73.9414, 15.4121],
-    zoom: 9.99,
-    hash: true,
-    attributionControl: false,
-    preserveDrawingBuffer: true
-};
-
 /**
  * Initialize slot layers for proper layer ordering
  * Slots provide well-defined insertion points in the style's layer stack
@@ -663,7 +650,15 @@ export async function initializeMap() {
     const layers = config.layers || [];
 
     // Apply map settings from config if available
-    const mapOptions = { ...defaultMapOptions };
+    const mapOptions = {
+        container: 'map',
+        style: 'mapbox://styles/planemad/cm3gyibd3004x01qz08rohcsg',
+        center: [73.9414, 15.4121],
+        zoom: 9.99,
+        hash: true,
+        attributionControl: false,
+        preserveDrawingBuffer: true
+    };
     if (config.map) {
         // Apply all properties from config.map to mapOptions
         Object.assign(mapOptions, config.map);
@@ -739,12 +734,13 @@ export async function initializeMap() {
         // Initialize the feature control with state manager and config
         window.featureControl = new MapFeatureControl();
 
-        map.addControl(featureControl, 'top-left');
+        map.addControl(window.featureControl, 'top-left');
         map.addControl(new TimeControl(), 'top-right');
         map.addControl(window.terrain3DControl, 'top-right');
-        map.addControl(new ButtonGeolocationManager(), 'top-right');
         map.addControl(new ButtonResetMapView(), 'top-right');
+        map.addControl(new ButtonGeolocationManager(), 'top-right');
         map.addControl(window.attributionControl, 'bottom-right');
+        map.addControl(new MapExportControl(), 'bottom-right');
         map.addControl(new ButtonExternalMapLinks(), 'bottom-right');
         map.addControl(new mapboxgl.NavigationControl({showCompass: true, showZoom: true}));
         map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
@@ -772,11 +768,6 @@ export async function initializeMap() {
 
         // Make URL manager globally accessible
         window.urlManager = urlManager;
-
-        // Add Export Control
-        const exportControl = new MapExportControl();
-        map.addControl(exportControl, 'bottom-right');
-        window.exportControl = exportControl;
 
         // Apply URL parameters (including geolocate parameter)
         // Skip URL parameter application if state was restored from localStorage
