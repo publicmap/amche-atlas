@@ -45,6 +45,8 @@ $(window).on('load', function () {
 
     initializeMap().then(() => {
         initializeSearch(); // Now window.map exists, so we can initialize search
+        //Remove the loading image.
+        $('#map > img').remove();
     });
 
     if (window.amche.ENABLE_INTRO_CONTENT === true) {
