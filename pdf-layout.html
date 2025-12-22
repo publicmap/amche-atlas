@@ -53,7 +53,7 @@
         }
         
         .footer-left {
-            flex: 0 0 auto;
+            flex: 0 0 20mm; /* Fixed width to accommodate larger QR code */
             display: flex;
             flex-direction: column;
             align-items: flex-start;
@@ -64,7 +64,6 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end;
             gap: 1.2mm;
             min-width: 0; /* Allow text to wrap */
         }
@@ -74,12 +73,13 @@
             display: flex;
             flex-direction: column;
             align-items: flex-end;
+            justify-content: space-between; /* Vertically distribute north arrow and scale bar */
             gap: 2mm;
         }
         
         .qr-code {
-            width: 12mm;
-            height: 12mm;
+            width: 18mm;
+            height: 18mm;
             background: white;
             border: 1px solid #ccc;
             display: flex;
@@ -92,8 +92,8 @@
         .date-text {
             font-size: 6pt;
             color: white;
-            width: 12mm;
             text-align: left;
+            white-space: nowrap; /* Ensure date stays on single line */
         }
         
         .text-content {
@@ -155,31 +155,48 @@
             right: 0;
         }
         
-        .scale-bar-label {
-            font-size: 6pt;
-            color: white;
-            text-align: center;
+        .scale-bar-labels {
+            display: flex;
+            justify-content: space-between;
             width: 100%;
             margin-top: 0.5mm;
         }
         
+        .scale-bar-label {
+            font-size: 6pt;
+            color: white;
+            text-align: center;
+        }
+        
+        .scale-bar-label-left {
+            text-align: left;
+        }
+        
+        .scale-bar-label-right {
+            text-align: right;
+        }
+        
         .north-arrow {
-            width: 6mm;
-            height: 8mm;
+            /* Container sized to accommodate rotated arrow (diagonal of 9mm×12mm ≈ 15mm, plus margin) */
+            width: 11mm; /* 9mm arrow + 6mm padding on each side */
+            height: 14mm; /* 12mm arrow + 6mm padding on each side */
             position: relative;
             margin: 0 auto;
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: visible; /* Prevent clipping when transformed with pitch */
         }
         
         .north-arrow-container {
             position: relative;
-            width: 100%;
-            height: 100%;
+            width: 9mm; /* Actual arrow size */
+            height: 12mm; /* Actual arrow size */
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: visible; /* Prevent clipping when transformed with pitch */
+            transform-origin: center center; /* Rotate around center */
         }
         
         .north-arrow-trapezoid {
@@ -188,13 +205,14 @@
             left: 50%;
             transform-origin: bottom center;
             transform: translateX(-50%);
-            width: 8mm;
-            height: 3mm;
+            width: 12mm; /* Half of 24mm */
+            height: 4.5mm; /* Half of 9mm */
             background: rgba(255, 255, 255, 0.3);
             /* Default: rectangle (no pitch) - will be adjusted via JavaScript */
             clip-path: polygon(0% 100%, 100% 100%, 100% 0%, 0% 0%);
             opacity: 0;
             transition: opacity 0.2s;
+            overflow: visible; /* Prevent clipping when transformed */
         }
         
         .north-arrow-trapezoid.visible {
@@ -259,13 +277,8 @@
                     <div class="text-content text-url">https://example.com/map/link/url</div>
                 </div>
                 
-                <!-- Right: Scale Bar and North Arrow -->
+                <!-- Right: North Arrow and Scale Bar -->
                 <div class="footer-right">
-                    <div class="scale-bar">
-                        <div class="scale-bar-visual">
-                            <div class="scale-bar-label">1 km</div>
-                        </div>
-                    </div>
                     <div class="north-arrow">
                         <div class="north-arrow-container">
                             <div class="north-arrow-trapezoid"></div>
@@ -277,6 +290,13 @@
                             </svg>
                         </div>
                     </div>
+                    <div class="scale-bar">
+                        <div class="scale-bar-visual"></div>
+                        <div class="scale-bar-labels">
+                            <div class="scale-bar-label scale-bar-label-left">0</div>
+                            <div class="scale-bar-label scale-bar-label-right">1 km</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -286,9 +306,9 @@
         <h2>PDF Layout Template</h2>
         <p>This template shows the layout structure for the PDF export footer. The layout uses a three-column flex design:</p>
         <ul>
-            <li><strong>Left:</strong> QR code (12mm × 12mm) and date</li>
-            <li><strong>Center:</strong> Title, description, data sources, and URL (wraps as needed)</li>
-            <li><strong>Right:</strong> Scale bar and north arrow</li>
+            <li><strong>Left:</strong> QR code (18mm × 18mm) and date (single line)</li>
+            <li><strong>Center:</strong> Title, description, attribution, and URL (wraps as needed)</li>
+            <li><strong>Right:</strong> North arrow (top) and scale bar (bottom), vertically distributed</li>
         </ul>
         <p><strong>Key Measurements:</strong></p>
         <ul>
@@ -297,9 +317,10 @@
             <li>Gap between text elements: <code>1.2mm</code></li>
             <li>Title line height: <code>3.5mm</code></li>
             <li>Regular text line height: <code>2.2mm</code></li>
-            <li>QR code size: <code>12mm × 12mm</code></li>
+            <li>QR code size: <code>18mm × 18mm</code></li>
+            <li>Left column width: <code>20mm</code></li>
             <li>Scale bar area: <code>~30mm width</code></li>
-            <li>North arrow size: <code>6mm</code></li>
+            <li>North arrow size: <code>9mm × 12mm</code> (with 6mm padding to prevent clipping during rotation/pitch)</li>
         </ul>
         <p><strong>Text Wrapping:</strong> All text elements in the center column can wrap to prevent overflow. The box width is calculated dynamically based on content, with a maximum width constraint.</p>
     </div>

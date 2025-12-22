@@ -3182,13 +3182,19 @@ export class MapExportControl {
 
             // Scale bar
             const scaleBarVisual = footerClone.querySelector('.scale-bar-visual');
-            const scaleBarLabel = footerClone.querySelector('.scale-bar-label');
-            if (scaleBarVisual && scaleBarLabel && targetCenter) {
+            const scaleBarLabelLeft = footerClone.querySelector('.scale-bar-label-left');
+            const scaleBarLabelRight = footerClone.querySelector('.scale-bar-label-right');
+            if (scaleBarVisual && targetCenter) {
                 const scaleInfo = this._calculateMapScale(zoom, targetCenter.lat, dpi);
                 const scaleWidthMm = scaleInfo.widthMm;
                 scaleBarVisual.style.width = `${scaleWidthMm}mm`;
-                if (scaleBarLabel) {
-                    scaleBarLabel.textContent = `${scaleInfo.distance} ${scaleInfo.unit}`;
+                // Left label is always "0"
+                if (scaleBarLabelLeft) {
+                    scaleBarLabelLeft.textContent = '0';
+                }
+                // Right label shows the scale distance
+                if (scaleBarLabelRight) {
+                    scaleBarLabelRight.textContent = `${scaleInfo.distance} ${scaleInfo.unit}`;
                 }
             }
 
