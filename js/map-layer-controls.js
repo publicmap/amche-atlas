@@ -6,7 +6,8 @@
  */
 import { LayerSettingsModal } from './layer-settings-modal.js';
 import { MapboxAPI } from './mapbox-api.js';
-import { deepMerge } from './map-utils.js';
+import { DataUtils } from './map-utils.js';
+import { LayerCreatorUI } from './layer-creator-ui.js';
 
 export class MapLayerControl {
     constructor(options) {
@@ -21,7 +22,6 @@ export class MapLayerControl {
             this._state = { groups: [options] };
             this._config = {};
         }
-
 
         this._domCache = {};
         this._instanceId = (MapLayerControl.instances || 0) + 1;
@@ -136,7 +136,7 @@ export class MapLayerControl {
 
             // Merge with config overrides
             if (config.styles) {
-                const merged = deepMerge(config.styles, this._defaultStyles);
+                const merged = DataUtils.deepMerge(config.styles, this._defaultStyles);
                 this._defaultStyles = merged || {};
             }
 
@@ -198,7 +198,6 @@ export class MapLayerControl {
      */
     _cleanupLayers() {
         if (!this._mapboxAPI) return;
-
 
         // Remove all custom layers and sources using MapboxAPI
         this._state.groups.forEach(group => {
@@ -337,8 +336,6 @@ export class MapLayerControl {
         return $groupHeader;
     }
 
-
-
     /**
      * Set up group header event handlers
      */
@@ -393,11 +390,6 @@ export class MapLayerControl {
         window.dispatchEvent(new CustomEvent('layer-toggled', {
             detail: { layerId: group.id, visible: true, isCrossAtlas: isCrossAtlas }
         }));
-
-        // Auto-collapse the drawer when a layer is toggled on
-        if (drawerStateManager && drawerStateManager.isOpen()) {
-            drawerStateManager.close();
-        }
     }
 
     /**
@@ -433,8 +425,6 @@ export class MapLayerControl {
             detail: { layerId: group.id, visible: false, isCrossAtlas: isCrossAtlas }
         }));
     }
-
-
 
     /**
      * Sync sublayer toggle states for style layers
@@ -941,7 +931,6 @@ export class MapLayerControl {
     /**
      * Add terrain specific content
      */
-
 
     /**
      * Create terrain controls (simplified version)
@@ -1480,9 +1469,7 @@ export class MapLayerControl {
             // Initialize New Layer button
             if (newLayerBtn) {
                 newLayerBtn.addEventListener('click', () => {
-                    if (typeof openLayerCreatorDialog === 'function') {
-                        openLayerCreatorDialog();
-                    }
+                    LayerCreatorUI.openLayerCreatorDialog();
                 });
             }
 
@@ -2010,7 +1997,6 @@ export class MapLayerControl {
             });
     }
 
-
     /**
      * Remove a cross-atlas layer from the active state
      */
@@ -2053,7 +2039,6 @@ export class MapLayerControl {
             detail: { layerId: layerId, visible: false, isCrossAtlas: true }
         }));
     }
-
 
     /**
      * Cleanup resources

@@ -1,8 +1,3 @@
-/**
- * Atlas Layer Registry - Central source of truth for all atlas layers
- * Handles cross-atlas layer management and ID normalization
- */
-
 export class LayerRegistry {
     constructor() {
         this._registry = new Map(); // layerId -> layer config
@@ -195,7 +190,6 @@ export class LayerRegistry {
         }
         console.log(`[AtlasLayerRegistry] Loaded ${this._registry.size} layers from ${this._atlasLayers.size} atlases`, layerIndex);
 
-
         this._initialized = true;
     }
 
@@ -328,6 +322,85 @@ export class LayerRegistry {
         }
 
         return results;
+    }
+
+    /**
+     * Tries to load a layer from a different config file based on a prefix
+     * @param {string} layerId - The ID of the layer to load (e.g., 'prefix-layerName')
+     * @param {Object} layerConfig - The initial configuration for the layer
+     * @returns {Promise<Object|null>} The loaded layer configuration or null if not found
+     */
+    async tryLoadCrossConfigLayer(layerId, layerConfig) {
+        // Parse the layer ID to extract potential config prefix
+        const dashIndex = layerId.indexOf('-');
+        if (dashIndex === -1) return null;
+
+        const configPrefix = layerId.substring(0, dashIndex);
+        const originalLayerId = layerId.substring(dashIndex + 1);
+
+        // Try to load the config file
+        try {
+            const configPath = `config/${configPrefix}.atlas.json`;
+            const configResponse = await fetch(configPath);
+
+            if (!configResponse.ok) {
+                return null;
+            }
+
+            const crossConfig = await configResponse.json();
+
+            // Look for the layer in the cross-config
+            if (crossConfig.layers && Array.isArray(crossConfig.layers)) {
+                const foundLayer = crossConfig.layers.find(layer => layer.id === originalLayerId);
+
+                if (foundLayer) {
+
+                    // Create a merged layer with the prefixed ID and source config info
+                    return {
+                        ...foundLayer,
+                        id: layerId, // Keep the prefixed ID
+                        title: `${foundLayer.title} (${configPrefix})`, // Add config source to title
+                        _sourceConfig: configPrefix,
+                        _originalId: originalLayerId,
+                        // Preserve important URL-specific properties
+                        ...(layerConfig._originalJson && { _originalJson: layerConfig._originalJson }),
+                        ...(layerConfig.initiallyChecked !== undefined && { initiallyChecked: layerConfig.initiallyChecked }),
+                        ...(layerConfig.opacity !== undefined && { opacity: layerConfig.opacity })
+                    };
+                }
+            }
+
+            // Also check if we need to load the cross-config's library
+            try {
+                const libraryResponse = await fetch('config/_map-layer-presets.json');
+                const layerLibrary = await libraryResponse.json();
+
+                // Look for the original layer ID in the main library
+                const libraryLayer = layerLibrary.layers.find(lib => lib.id === originalLayerId);
+
+                if (libraryLayer) {
+
+                    return {
+                        ...libraryLayer,
+                        id: layerId, // Keep the prefixed ID
+                        title: `${libraryLayer.title} (${configPrefix})`, // Add config source to title
+                        _sourceConfig: configPrefix,
+                        _originalId: originalLayerId,
+                        // Preserve important URL-specific properties
+                        ...(layerConfig._originalJson && { _originalJson: layerConfig._originalJson }),
+                        ...(layerConfig.initiallyChecked !== undefined && { initiallyChecked: layerConfig.initiallyChecked }),
+                        ...(layerConfig.opacity !== undefined && { opacity: layerConfig.opacity })
+                    };
+                }
+            } catch (libraryError) {
+                // Ignore library loading errors
+            }
+
+            return null;
+
+        } catch (error) {
+            return null;
+        }
     }
 
     /**
@@ -489,13 +562,3 @@ export class LayerRegistry {
         return lng >= west && lng <= east && lat >= south && lat <= north;
     }
 }
-
-// Create global layer registry instance
-const layerRegistry = new LayerRegistry();
-
-// Make it available globally for backwards compatibility
-if (typeof window !== 'undefined') {
-    window.layerRegistry = layerRegistry;
-}
-
-export { layerRegistry };

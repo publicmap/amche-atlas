@@ -387,7 +387,6 @@ export class IntroContentManager {
     return sections;
   }
 
-
   markdownToHtml(markdown) {
     if (window.marked) {
       try {

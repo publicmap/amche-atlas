@@ -65,7 +65,6 @@ export class URLManager {
     parseLayersFromUrl(layersParam) {
         if (!layersParam) return [];
 
-
         const layers = [];
         let currentItem = '';
         let braceCount = 0;

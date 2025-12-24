@@ -786,7 +786,6 @@ export class Terrain3DControl {
         const terrainSourceParam = urlParams.get('terrainSource');
         const fogParam = urlParams.get('fog');
 
-
         // Handle terrain source parameter first
         if (terrainSourceParam && this._terrainSources[terrainSourceParam]) {
             this.setTerrainSource(terrainSourceParam);

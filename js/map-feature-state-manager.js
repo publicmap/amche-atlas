@@ -668,7 +668,6 @@ export class MapFeatureStateManager extends EventTarget {
         if (currentAttempts < 5) { // Limit long-term retries to 5
             this._retryAttempts.set(layerConfig.id, currentAttempts + 1);
 
-
             setTimeout(() => {
                 // Check if layer is still registered before retrying
                 if (this._registeredLayers.has(layerConfig.id)) {
@@ -700,7 +699,6 @@ export class MapFeatureStateManager extends EventTarget {
                 // Only warn if retries are exhausted (handled in _setupLayerEventsWithRetry)
                 return false;
             }
-
 
             // Set up events for all matching layer IDs
             matchingLayerIds.forEach(actualLayerId => {

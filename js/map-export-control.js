@@ -1131,7 +1131,6 @@ export class MapExportControl {
         });
     }
 
-
     /**
      * Calculate map scale for a given zoom level and latitude
      * @param {number} zoom - Map zoom level
@@ -2094,7 +2093,6 @@ export class MapExportControl {
             return [];
         }
     }
-
 
     /**
      * Generate legend page HTML (legacy method - kept for compatibility)

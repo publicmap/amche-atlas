@@ -2,8 +2,8 @@
  * MapboxAPI - Abstracts Mapbox GL JS operations for layer management
  * Handles rendering, updating, and removing different layer types on a Mapbox map
  */
-import { getInsertPosition, logLayerStack } from './layer-order-manager.js';
-import { parseCSV, rowsToGeoJSON, gstableToArray } from './map-utils.js';
+import { LayerOrderManager } from './layer-order-manager.js';
+import { DataUtils, GeoUtils } from './map-utils.js';
 
 export class MapboxAPI {
     constructor(map, atlasConfig = {}) {
@@ -73,7 +73,6 @@ export class MapboxAPI {
         if (!config.urlTimeParam) {
             return;
         }
-
 
         // Generate new URL with time parameter
         const newUrl = this._generateTimeBasedUrl(config.url, config.urlTimeParam, timeString);
@@ -186,8 +185,8 @@ export class MapboxAPI {
                 visible: true
             }, 'raster');
 
-            this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'wmts', null, config, this._orderedGroups));
-            logLayerStack(this._map, `After adding WMTS layer: ${config.id}`);
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'wmts', null, config, this._orderedGroups));
+            LayerOrderManager.logLayerStack(this._map, `After adding WMTS layer: ${config.id}`);
 
         }
     }
@@ -234,8 +233,8 @@ export class MapboxAPI {
                 visible: true
             }, 'raster');
 
-            this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'tms', null, config, this._orderedGroups));
-            logLayerStack(this._map, `After adding TMS layer: ${config.id}`);
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'tms', null, config, this._orderedGroups));
+            LayerOrderManager.logLayerStack(this._map, `After adding TMS layer: ${config.id}`);
 
         }
     }
@@ -597,7 +596,7 @@ export class MapboxAPI {
                 visible
             }, 'fill');
 
-            this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
         }
 
         // Add line layer
@@ -616,7 +615,7 @@ export class MapboxAPI {
                 visible
             }, 'line');
 
-            this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'vector', 'line', config, this._orderedGroups));
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'line', config, this._orderedGroups));
         }
 
         // Add circle layer if circle properties are defined
@@ -635,7 +634,7 @@ export class MapboxAPI {
                 visible
             }, 'circle');
 
-            this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'vector', 'circle', config, this._orderedGroups));
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'circle', config, this._orderedGroups));
         }
 
         // Add text layer
@@ -654,7 +653,7 @@ export class MapboxAPI {
                 visible
             }, 'symbol');
 
-            this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));
         }
     }
 
@@ -757,7 +756,7 @@ export class MapboxAPI {
                 visible
             }, 'raster');
 
-            this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'tms', null, config, this._orderedGroups));
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'tms', null, config, this._orderedGroups));
         } else {
             this._updateTMSLayerVisibility(groupId, config, visible);
         }
@@ -838,7 +837,7 @@ export class MapboxAPI {
                 visible
             }, 'raster');
 
-            this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'wmts', null, config, this._orderedGroups));
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'wmts', null, config, this._orderedGroups));
 
             // Add error handling for failed tile requests
             this._map.on('error', (e) => {
@@ -987,7 +986,7 @@ export class MapboxAPI {
                 visible
             }, 'raster');
 
-            this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'wms', null, config, this._orderedGroups));
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'wms', null, config, this._orderedGroups));
 
             // Add error handling for failed tile requests
             this._map.on('error', (e) => {
@@ -1101,7 +1100,7 @@ export class MapboxAPI {
                 visible: true
             }, 'raster');
 
-            this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'wms', null, config, this._orderedGroups));
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'wms', null, config, this._orderedGroups));
 
             console.log(`[MapboxAPI] Updated WMS layer ${groupId} with new time URL: ${tileUrl}`);
         }
@@ -1237,7 +1236,7 @@ export class MapboxAPI {
                 visible
             }, 'fill');
 
-            this._addLayerWithSlot(fillLayerConfig, getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
+            this._addLayerWithSlot(fillLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
         }
 
         // Add line layer
@@ -1254,7 +1253,7 @@ export class MapboxAPI {
                 visible
             }, 'line');
 
-            this._addLayerWithSlot(lineLayerConfig, getInsertPosition(this._map, 'vector', 'line', config, this._orderedGroups));
+            this._addLayerWithSlot(lineLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'line', config, this._orderedGroups));
         }
 
         // Add circle layer if circle properties are defined
@@ -1271,7 +1270,7 @@ export class MapboxAPI {
                 visible
             }, 'circle');
 
-            this._addLayerWithSlot(circleLayerConfig, getInsertPosition(this._map, 'vector', 'circle', config, this._orderedGroups));
+            this._addLayerWithSlot(circleLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'circle', config, this._orderedGroups));
         }
 
         // Add text layer if text properties are defined
@@ -1288,7 +1287,7 @@ export class MapboxAPI {
                 visible
             }, 'symbol');
 
-            this._addLayerWithSlot(textLayerConfig, getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));
+            this._addLayerWithSlot(textLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));
         }
     }
 
@@ -1386,7 +1385,7 @@ export class MapboxAPI {
                     visible
                 }, 'circle');
 
-                this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'csv', null, config, this._orderedGroups));
+                this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'csv', null, config, this._orderedGroups));
 
                 // Set up refresh if specified
                 if (config.refresh && config.url) {
@@ -1530,7 +1529,7 @@ export class MapboxAPI {
                 }, 'circle');
 
                 // Markers don't have an insertPosition parameter, but we can still use slot
-                this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'markers', null, config, this._orderedGroups));
+                this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'markers', null, config, this._orderedGroups));
             } catch (error) {
                 console.error(`Error loading markers layer '${groupId}':`, error);
                 return false;
@@ -1602,7 +1601,7 @@ export class MapboxAPI {
                     visible
                 }, 'raster');
 
-                this._addLayerWithSlot(layerConfig, getInsertPosition(this._map, 'img', null, config, this._orderedGroups));
+                this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'img', null, config, this._orderedGroups));
 
                 if (config.refresh) {
                     this._setupImageRefresh(groupId, config);
@@ -1763,7 +1762,6 @@ export class MapboxAPI {
         }
         return true;
     }
-
 
     // Layer group toggle methods
     _createLayerGroupToggle(groupId, config, visible) {

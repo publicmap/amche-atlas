@@ -1,9 +1,9 @@
 /**
  * The Single Entry Point
  */
-import { layerRegistry } from './layer-registry.js';
+import { LayerRegistry } from './layer-registry.js';
 import './mapbox-api.js';
-import { initializeMap, initializeSearch } from './map-init.js';
+import { MapInitializer } from './map-init.js';
 import { PermalinkManager } from './permalink-manager.js';
 import { NavigationControl } from './navigation-control.js';
 import { IntroContentManager } from './intro-content-manager.js';
@@ -26,8 +26,7 @@ function loadGoogleAnalytics() {
     }
 }
 
-// Layer registry is now imported from layer-registry.js
-// Make it available globally for backwards compatibility
+const layerRegistry = new LayerRegistry();
 window.layerRegistry = layerRegistry;
 
 // Initialize the map
@@ -43,8 +42,8 @@ $(window).on('load', function () {
     const navigationControl = new NavigationControl();
     navigationControl.render();
 
-    initializeMap().then(() => {
-        initializeSearch(); // Now window.map exists, so we can initialize search
+    MapInitializer.initializeMap().then(() => {
+        MapInitializer.initializeSearch(); // Now window.map exists, so we can initialize search
     });
 
     if (window.amche.ENABLE_INTRO_CONTENT === true) {

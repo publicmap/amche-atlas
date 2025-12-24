@@ -1,7 +1,7 @@
 /**
  * LayerSettingsModal - Handles the layer settings modal functionality
  */
-import {fetchTileJSON} from './map-utils.js';
+import { MapUtils } from './map-utils.js';
 
 export class LayerSettingsModal {
     constructor(mapLayerControl) {
@@ -157,7 +157,7 @@ export class LayerSettingsModal {
 
             // Fetch and display TileJSON if available
             if ((group.type === 'vector' || group.type === 'tms') && group.url) {
-                const tileJSON = await fetchTileJSON(group.url);
+                const tileJSON = await MapUtils.fetchTileJSON(group.url);
                 if (tileJSON) {
                     content.querySelector('.tilejson-content').innerHTML = `
                         <div class="p-3 bg-gray-100 rounded">
@@ -330,7 +330,7 @@ export class LayerSettingsModal {
             matches.forEach(match => {
                 const key = `${match.field}:${match.value}`;
                 if (!allMatches.has(key)) {
-                    allMatches.set(key, {...match, styles: {}});
+                    allMatches.set(key, { ...match, styles: {} });
                 }
                 allMatches.get(key).styles[type] = match.result;
             });

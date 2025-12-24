@@ -11,9 +11,9 @@
  */
 
 import { DrawerStateManager } from './drawer-state-manager.js';
-import { convertToKML } from './map-utils.js';
+import { GeoUtils } from './map-utils.js';
 import { LayerSettingsModal } from './layer-settings-modal.js';
-import { openLayerCreatorDialog } from './layer-creator-ui.js';
+import { LayerCreatorUI } from './layer-creator-ui.js';
 import { LayerStyleControl } from './layer-style-control.js';
 
 export class MapFeatureControl {
@@ -426,7 +426,6 @@ export class MapFeatureControl {
         this._panel = document.createElement('div');
         this._panel.className = 'map-feature-panel';
 
-
         // Create panel content wrapper
         const content = document.createElement('div');
         content.className = 'map-feature-panel-content';
@@ -654,7 +653,7 @@ export class MapFeatureControl {
         newDataSourceBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            openLayerCreatorDialog();
+            LayerCreatorUI.openLayerCreatorDialog();
         });
         actions.push(newSourceTooltip);
 
@@ -752,7 +751,6 @@ export class MapFeatureControl {
         // 4. Clear Selection (Moved to footer)
         // this._clearSelectionBtn removed from header actions
 
-
         // Re-initialize inspect switch for internal state logic (hidden)
         this._inspectSwitch = document.createElement('sl-switch');
         this._inspectSwitch.checked = this.options.inspectMode;
@@ -820,7 +818,6 @@ export class MapFeatureControl {
         // Re-render all layers to update tab visibility
         this._scheduleRender();
     }
-
 
     /**
      * Clear all selections across all layers
@@ -909,8 +906,6 @@ export class MapFeatureControl {
     _updateClearSelectionButtonVisibility() {
         this._updateSelectionFooter();
     }
-
-
 
     /**
      * Handle state changes from the state manager
@@ -1992,8 +1987,6 @@ export class MapFeatureControl {
         }
     }
 
-
-
     /**
      * Create Source content for Info tab
      */
@@ -2693,14 +2686,7 @@ export class MapFeatureControl {
                 : feature.properties[layerConfig.inspect?.label] || 'Exported_Feature';
             const description = layerConfig.inspect?.title || 'Exported from Amche Goa';
 
-            // Check if convertToKML function is available
-            if (typeof convertToKML === 'undefined') {
-                console.error('convertToKML function is not available');
-                this._showToast('KML export function not available', 'error');
-                return;
-            }
-
-            const kmlContent = convertToKML(feature, { title, description });
+            const kmlContent = GeoUtils.convertToKML(feature, { title, description });
 
             const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
             const url = URL.createObjectURL(blob);
@@ -2854,7 +2840,6 @@ export class MapFeatureControl {
             if ($toggleInput.length === 0) {
                 $toggleInput = $layerElement.find('input');
             }
-
 
             if ($toggleInput.length > 0) {
                 // Use jQuery to uncheck and trigger change event
@@ -3950,7 +3935,6 @@ export class MapFeatureControl {
         return { x, y: mercatorY };
     }
 
-
     /**
      * Get a unique identifier for a feature (STANDARDIZED)
      * Creates consistent IDs that can be used for DOM targeting
@@ -4101,7 +4085,6 @@ export class MapFeatureControl {
     getLayerFeaturesContainer(layerId) {
         return document.getElementById(`features-container-${layerId}`);
     }
-
 
     /**
      * Get a feature inspector element using feature object directly
@@ -4571,7 +4554,6 @@ export class MapFeatureControl {
         // Reset cursor to default grab when no features are hovered
         this._updateCursorForFeatures([]);
     }
-
 
     /**
      * Handle feature leave - update or remove hover popup
@@ -5189,7 +5171,6 @@ export class MapFeatureControl {
             layersToHide.push(styleLayerId);
         });
 
-
         // Hide the layers
         layersToHide.forEach(styleLayerId => {
             try {
@@ -5242,7 +5223,6 @@ export class MapFeatureControl {
                 console.warn(`Failed to restore layer ${layerId}:`, error);
             }
         });
-
 
         // Restore opacity of all layer details UI elements
         this._restoreLayerDetailsOpacity();

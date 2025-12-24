@@ -28,7 +28,6 @@ describe('Config File Validation', () => {
             });
         }
 
-
         // Collect layer IDs from all atlas files (including inline definitions)
         configFiles.forEach(filePath => {
             try {
