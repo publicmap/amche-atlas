@@ -208,6 +208,94 @@
 
 
     <script src="script.js"></script>
+    <script>
+        // Keyboard controls for puzzle piece movement
+        document.addEventListener('keydown', (event) => {
+            // Handle spacebar for start game and next level
+            if (event.key === ' ' || event.code === 'Space') {
+                event.preventDefault();
+
+                // Check if start screen is visible
+                const startScreen = document.getElementById('start-screen');
+                const startBtn = document.getElementById('start-btn');
+                if (startScreen && startScreen.style.display !== 'none' && 
+                    window.getComputedStyle(startScreen).display !== 'none') {
+                    startBtn.click();
+                    return;
+                }
+
+                // Check if next level button is visible
+                const nextLevelBtn = document.getElementById('next-level-btn');
+                if (nextLevelBtn && nextLevelBtn.style.display !== 'none' && 
+                    window.getComputedStyle(nextLevelBtn).display !== 'none') {
+                    nextLevelBtn.click();
+                    return;
+                }
+
+                return;
+            }
+
+            // Only process arrow keys for puzzle movement
+            if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+                return;
+            }
+
+            // Prevent default scrolling behavior
+            event.preventDefault();
+
+            // Don't allow moves during animation, shuffle, or when won
+            if (gameState.isAnimating || gameState.isWon) {
+                return;
+            }
+
+            // Get the empty slot position
+            const emptyRow = gameState.emptySlot.row;
+            const emptyCol = gameState.emptySlot.col;
+
+            // Determine which tile should move based on arrow direction
+            // Arrow keys move the tile IN that direction (tile moves INTO the empty space)
+            let tileToMoveRow = emptyRow;
+            let tileToMoveCol = emptyCol;
+
+            switch (event.key) {
+                case 'ArrowUp':
+                    // Move tile from below up into empty space
+                    tileToMoveRow = emptyRow + 1;
+                    break;
+                case 'ArrowDown':
+                    // Move tile from above down into empty space
+                    tileToMoveRow = emptyRow - 1;
+                    break;
+                case 'ArrowLeft':
+                    // Move tile from right left into empty space
+                    tileToMoveCol = emptyCol + 1;
+                    break;
+                case 'ArrowRight':
+                    // Move tile from left right into empty space
+                    tileToMoveCol = emptyCol - 1;
+                    break;
+            }
+
+            // Check if the calculated position is valid
+            if (tileToMoveRow < 0 || tileToMoveRow >= gameState.grid[1] ||
+                tileToMoveCol < 0 || tileToMoveCol >= gameState.grid[0]) {
+                return; // Out of bounds
+            }
+
+            // Get the tile at that position
+            const tile = gameState.tiles[tileToMoveRow][tileToMoveCol];
+            if (!tile) {
+                return; // No tile to move
+            }
+
+            // Get the tile's original coordinates from its dataset
+            const originalRow = parseInt(tile.dataset.r);
+            const originalCol = parseInt(tile.dataset.c);
+
+            // Move the tile using the existing moveTile function
+            moveTile(originalRow, originalCol);
+        });
+    </script>
 </body>
 
 </html>

@@ -16,11 +16,20 @@ export class Terrain3DControl {
         this._animate = false; // Default to disabled
         this._showWireframe = false; // Default to disabled
         this._enableFog = true; // Default to enabled
+        this._visualizeSound = false; // Default to disabled
         this._animationFrame = null; // For requestAnimationFrame
         this._panel = null;
         this._map = null;
         this._terrainSource = 'mapbox'; // Default to Mapbox terrain
         this._initializing = false; // Flag to prevent URL updates during initialization
+        
+        // Audio visualization properties
+        this._audioContext = null;
+        this._analyser = null;
+        this._microphone = null;
+        this._audioStream = null;
+        this._audioAnimationFrame = null;
+        this._baseExaggeration = this.options.initialExaggeration; // Store base value
 
         // Define terrain sources
         this._terrainSources = {
@@ -107,6 +116,9 @@ export class Terrain3DControl {
     onRemove() {
         // Stop animation if running
         this._stopAnimation();
+        
+        // Stop audio visualization if running
+        this._stopAudioVisualization();
 
         if (this._panel) {
             $(this._panel).remove();
@@ -245,6 +257,35 @@ export class Terrain3DControl {
 
         $fogContainer.append($fogCheckbox, $fogLabel);
 
+        // Visualize Sound checkbox
+        const $soundContainer = $('<div>', {
+            css: {
+                marginBottom: '15px',
+                display: 'flex',
+                alignItems: 'center'
+            }
+        });
+
+        const $soundCheckbox = $('<input>', {
+            type: 'checkbox',
+            id: 'terrain-3d-sound',
+            checked: this._visualizeSound,
+            css: {
+                marginRight: '8px'
+            }
+        });
+
+        const $soundLabel = $('<label>', {
+            text: 'Visualize 3D Sound',
+            'for': 'terrain-3d-sound',
+            css: {
+                cursor: 'pointer',
+                fontWeight: '500'
+            }
+        });
+
+        $soundContainer.append($soundCheckbox, $soundLabel);
+
         // Enable checkbox
         const $checkboxContainer = $('<div>', {
             css: {
@@ -361,7 +402,7 @@ export class Terrain3DControl {
         });
 
         // Assemble panel
-        $content.append($title, $terrainSourceContainer, $animateContainer, $fogContainer, $checkboxContainer, $sliderContainer);
+        $content.append($title, $terrainSourceContainer, $animateContainer, $fogContainer, $soundContainer, $checkboxContainer, $sliderContainer);
         this._panel.append($closeButton, $content);
 
         // Add event handlers
@@ -379,6 +420,11 @@ export class Terrain3DControl {
         $fogCheckbox.on('change', (e) => {
             this._enableFog = e.target.checked;
             this._updateFog();
+        });
+
+        $soundCheckbox.on('change', (e) => {
+            this._visualizeSound = e.target.checked;
+            this._updateAudioVisualization();
         });
 
         $wireframeCheckbox.on('change', (e) => {
@@ -774,6 +820,151 @@ export class Terrain3DControl {
         return this._enableFog;
     }
 
+    setVisualizeSound(visualizeSound) {
+        this._visualizeSound = visualizeSound;
+        $('#terrain-3d-sound').prop('checked', visualizeSound);
+        this._updateAudioVisualization();
+    }
+
+    getVisualizeSound() {
+        return this._visualizeSound;
+    }
+
+    async _updateAudioVisualization() {
+        if (this._visualizeSound) {
+            await this._startAudioVisualization();
+        } else {
+            this._stopAudioVisualization();
+        }
+
+        // Update URL parameter
+        this._updateSoundURLParameter();
+    }
+
+    async _startAudioVisualization() {
+        if (this._audioContext) return; // Already running
+
+        try {
+            // Request microphone access
+            this._audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            // Create audio context and analyser
+            this._audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this._analyser = this._audioContext.createAnalyser();
+            this._analyser.fftSize = 256;
+
+            // Connect microphone to analyser
+            this._microphone = this._audioContext.createMediaStreamSource(this._audioStream);
+            this._microphone.connect(this._analyser);
+
+            // Store the current exaggeration as base
+            this._baseExaggeration = this._exaggeration;
+
+            // Start visualization loop
+            const visualize = () => {
+                if (!this._visualizeSound) return;
+
+                const bufferLength = this._analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                this._analyser.getByteFrequencyData(dataArray);
+
+                // Calculate average volume (0-255)
+                const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
+
+                // Map volume to exaggeration multiplier (0.5x to 3x of base)
+                // Normalize average from 0-255 to 0-1, then scale
+                const normalizedVolume = average / 255;
+                const multiplier = 0.5 + (normalizedVolume * 2.5);
+                const newExaggeration = Math.max(
+                    this.options.minExaggeration,
+                    Math.min(this.options.maxExaggeration, this._baseExaggeration * multiplier)
+                );
+
+                // Update terrain exaggeration
+                this._exaggeration = newExaggeration;
+                $('input[type="range"]', this._panel).val(this._exaggeration);
+                $('.terrain-3d-panel span').first().text(this._exaggeration.toFixed(1));
+
+                if (this._enabled && this._map) {
+                    const terrainConfig = this._terrainSources[this._terrainSource];
+                    if (terrainConfig && this._map.getSource(terrainConfig.sourceId)) {
+                        this._map.setTerrain({
+                            'source': terrainConfig.sourceId,
+                            'exaggeration': this._exaggeration
+                        });
+                    }
+                }
+
+                // Continue animation
+                this._audioAnimationFrame = requestAnimationFrame(visualize);
+            };
+
+            visualize();
+        } catch (error) {
+            console.error('Error accessing microphone:', error);
+            alert('Unable to access microphone. Please grant microphone permissions and try again.');
+            this._visualizeSound = false;
+            $('#terrain-3d-sound').prop('checked', false);
+        }
+    }
+
+    _stopAudioVisualization() {
+        // Stop animation loop
+        if (this._audioAnimationFrame) {
+            cancelAnimationFrame(this._audioAnimationFrame);
+            this._audioAnimationFrame = null;
+        }
+
+        // Disconnect and close audio nodes
+        if (this._microphone) {
+            this._microphone.disconnect();
+            this._microphone = null;
+        }
+
+        if (this._analyser) {
+            this._analyser = null;
+        }
+
+        if (this._audioContext) {
+            this._audioContext.close();
+            this._audioContext = null;
+        }
+
+        // Stop audio stream
+        if (this._audioStream) {
+            this._audioStream.getTracks().forEach(track => track.stop());
+            this._audioStream = null;
+        }
+
+        // Restore base exaggeration
+        if (this._baseExaggeration !== undefined) {
+            this.setExaggeration(this._baseExaggeration);
+        }
+    }
+
+    _updateSoundURLParameter() {
+        // Skip URL updates during initialization to prevent encoding issues
+        if (this._initializing) {
+            return;
+        }
+
+        // Use URL API if available, otherwise fall back to direct URL manipulation
+        if (window.urlManager && window.urlManager.updateSoundParam) {
+            window.urlManager.updateSoundParam(this._visualizeSound);
+        } else {
+            // Fallback to direct URL manipulation
+            const url = new URL(window.location);
+            if (this._visualizeSound) {
+                url.searchParams.set('sound', 'true');
+            } else {
+                url.searchParams.delete('sound');
+            }
+
+            // Update URL without reloading the page
+            window.history.replaceState({}, '', url);
+        }
+    }
+
     // Method to initialize from URL parameter
     initializeFromURL() {
         // Set initialization flag to prevent URL updates during initialization
@@ -785,6 +976,7 @@ export class Terrain3DControl {
         const wireframeParam = urlParams.get('wireframe');
         const terrainSourceParam = urlParams.get('terrainSource');
         const fogParam = urlParams.get('fog');
+        const soundParam = urlParams.get('sound');
 
         // Handle terrain source parameter first
         if (terrainSourceParam && this._terrainSources[terrainSourceParam]) {
@@ -831,6 +1023,13 @@ export class Terrain3DControl {
             this.setFog(false);
         } else {
             this.setFog(true);
+        }
+
+        // Handle sound parameter
+        if (soundParam === 'true') {
+            this.setVisualizeSound(true);
+        } else {
+            this.setVisualizeSound(false);
         }
 
         // Clear initialization flag to allow normal URL updates
