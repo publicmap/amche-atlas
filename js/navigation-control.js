@@ -47,7 +47,15 @@ export class NavigationControl {
             }
 
             // Handle href navigation
-            window.open(menuItem.getAttribute('href'), menuItem.getAttribute('target'));
+            let href = menuItem.getAttribute('href');
+            const target = menuItem.getAttribute('target');
+            
+            // Preserve hash parameters when navigating to relative URLs
+            if (href && !href.startsWith('http') && window.location.hash) {
+                href = href + window.location.hash;
+            }
+            
+            window.open(href, target);
         });
     }
 
