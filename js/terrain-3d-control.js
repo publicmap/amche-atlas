@@ -276,7 +276,7 @@ export class Terrain3DControl {
         });
 
         const $soundLabel = $('<label>', {
-            text: 'Auto scale with sound',
+            text: 'Dance',
             'for': 'terrain-3d-sound',
             css: {
                 cursor: 'pointer',
