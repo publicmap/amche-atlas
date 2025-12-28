@@ -257,10 +257,10 @@ export class Terrain3DControl {
 
         $fogContainer.append($fogCheckbox, $fogLabel);
 
-        // Visualize Sound checkbox
+        // Visualize Sound checkbox (grouped with exaggeration controls)
         const $soundContainer = $('<div>', {
             css: {
-                marginBottom: '15px',
+                marginTop: '15px',
                 display: 'flex',
                 alignItems: 'center'
             }
@@ -276,7 +276,7 @@ export class Terrain3DControl {
         });
 
         const $soundLabel = $('<label>', {
-            text: 'Visualize 3D Sound',
+            text: 'Auto scale with sound',
             'for': 'terrain-3d-sound',
             css: {
                 cursor: 'pointer',
@@ -380,7 +380,7 @@ export class Terrain3DControl {
 
         $wireframeContainer.append($wireframeCheckbox, $wireframeLabel);
 
-        $sliderContainer.append($sliderLabel, $slider, $sliderValue, $wireframeContainer);
+        $sliderContainer.append($sliderLabel, $slider, $sliderValue, $wireframeContainer, $soundContainer);
 
         // Close button
         const $closeButton = $('<button>', {
@@ -402,7 +402,7 @@ export class Terrain3DControl {
         });
 
         // Assemble panel
-        $content.append($title, $terrainSourceContainer, $animateContainer, $fogContainer, $soundContainer, $checkboxContainer, $sliderContainer);
+        $content.append($title, $terrainSourceContainer, $animateContainer, $fogContainer, $checkboxContainer, $sliderContainer);
         this._panel.append($closeButton, $content);
 
         // Add event handlers
