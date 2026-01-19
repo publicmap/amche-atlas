@@ -155,6 +155,9 @@ app.get('/expand', async (req, res) => {
 
                     const html = await htmlResponse.text();
 
+                    console.log(`[Expand] HTML length: ${html.length} characters`);
+                    console.log(`[Expand] HTML sample (first 500 chars):`, html.substring(0, 500));
+
                     const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"']+)["'][^>]*>/i);
                     if (metaRefreshMatch) {
                         currentUrl = metaRefreshMatch[1];
@@ -163,7 +166,7 @@ app.get('/expand', async (req, res) => {
                         continue;
                     }
 
-                    const jsRedirectMatch = html.match(/window\.location\.(?:href|replace)\s*=\s*["']([^"']+)["']/i);
+                    const jsRedirectMatch = html.match(/window\.location(?:\.href|\.replace)?\s*=\s*["']([^"']+)["']/i);
                     if (jsRedirectMatch) {
                         currentUrl = jsRedirectMatch[1];
                         console.log(`[Expand] Found JavaScript redirect to: ${currentUrl}`);
@@ -171,15 +174,29 @@ app.get('/expand', async (req, res) => {
                         continue;
                     }
 
-                    const urlMatch = html.match(/https:\/\/(?:www\.)?google\.com\/maps[^\s"'<>]+/);
-                    if (urlMatch) {
-                        currentUrl = urlMatch[0].replace(/&amp;/g, '&');
+                    const googleMapsUrlMatch = html.match(/https?:\/\/(?:www\.)?google\.com\/maps[^\s"'<>)]+/);
+                    if (googleMapsUrlMatch) {
+                        currentUrl = googleMapsUrlMatch[0]
+                            .replace(/&amp;/g, '&')
+                            .replace(/\\u003d/g, '=')
+                            .replace(/\\u0026/g, '&');
                         console.log(`[Expand] Extracted Google Maps URL from HTML: ${currentUrl}`);
                         redirectCount++;
                         break;
                     }
 
+                    const appStateMatch = html.match(/APP_INITIALIZATION_STATE[^\[]*\[\[\[[\d.]+,([-\d.]+),([-\d.]+)/);
+                    if (appStateMatch) {
+                        const lat = appStateMatch[1];
+                        const lng = appStateMatch[2];
+                        currentUrl = `https://www.google.com/maps/@${lat},${lng},17z`;
+                        console.log(`[Expand] Extracted coordinates from APP_INITIALIZATION_STATE: lat=${lat}, lng=${lng}`);
+                        redirectCount++;
+                        break;
+                    }
+
                     console.log(`[Expand] Could not find redirect in HTML content`);
+                    console.log(`[Expand] HTML sample (middle 500 chars):`, html.substring(Math.floor(html.length / 2), Math.floor(html.length / 2) + 500));
                     break;
                 } else {
                     console.log(`[Expand] Non-redirect status, final URL: ${currentUrl}`);
