@@ -98,18 +98,18 @@ export class MapSearchControl {
      * - Decimal degrees: "15.4921, 73.8435" or "73.8435, 15.4921"
      * - Space separated: "15.4921 73.8435" or "73.8435 15.4921"
      * - DMS: "15°29'31.5\"N 73°50'36.5\"E"
-     * - URLs from OSM and Google Maps
+     * - URLs from OSM and Google Maps (including shortened URLs)
      * @param {string} input - Input string to parse
-     * @returns {Object|null} Object with {lat, lng, format} or null if not parseable
+     * @returns {Promise<Object|null>} Promise resolving to {lat, lng, format} or null
      */
-    parseCoordinateInput(input) {
+    async parseCoordinateInput(input) {
         if (!input || typeof input !== 'string') {
             return null;
         }
 
         input = input.trim();
 
-        const urlResult = this.parseMapURL(input);
+        const urlResult = await this.parseMapURL(input);
         if (urlResult) {
             return urlResult;
         }
@@ -128,13 +128,60 @@ export class MapSearchControl {
     }
 
     /**
+     * Expand shortened URLs to their full destination
+     * @param {string} url - Shortened URL
+     * @returns {Promise<string|null>} Expanded URL or null
+     */
+    async expandShortURL(url) {
+        try {
+            console.debug('Attempting to expand shortened URL:', url);
+
+            const response = await fetch(url, {
+                method: 'HEAD',
+                redirect: 'follow'
+            });
+
+            const expandedUrl = response.url;
+            console.debug('URL expanded to:', expandedUrl);
+            return expandedUrl;
+        } catch (error) {
+            console.debug('Error expanding URL:', error);
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    redirect: 'follow'
+                });
+                const expandedUrl = response.url;
+                console.debug('URL expanded (via GET) to:', expandedUrl);
+                return expandedUrl;
+            } catch (getError) {
+                console.debug('Failed to expand URL with both HEAD and GET:', getError);
+                return null;
+            }
+        }
+    }
+
+    /**
      * Parse mapping service URLs using regex patterns
      * Works with any mapping service that uses standard coordinate URL formats
+     * Supports shortened URLs by expanding them first
      * @param {string} url - URL string
-     * @returns {Object|null} Coordinate object or null
+     * @returns {Promise<Object|null>} Promise resolving to coordinate object or null
      */
-    parseMapURL(url) {
+    async parseMapURL(url) {
         try {
+            if (url.includes('maps.app.goo.gl') || url.includes('goo.gl/maps') || url.includes('goo.gl')) {
+                console.debug('Shortened URL detected, expanding...');
+                const expandedUrl = await this.expandShortURL(url);
+                if (expandedUrl) {
+                    url = expandedUrl;
+                    console.debug('Using expanded URL for parsing:', url);
+                } else {
+                    console.debug('Could not expand shortened URL');
+                    return null;
+                }
+            }
+
             const patterns = [
                 {
                     regex: /#map=([\d.]+)\/([-\d.]+)\/([-\d.]+)/,
@@ -187,11 +234,6 @@ export class MapSearchControl {
                         return { lat, lng, format: displayName };
                     }
                 }
-            }
-
-            if (url.includes('maps.app.goo.gl') || url.includes('goo.gl/maps')) {
-                console.debug('Google Maps shortlink detected - would need URL expansion service');
-                return null;
             }
         } catch (error) {
             console.debug('Error parsing map URL:', error);
@@ -805,7 +847,7 @@ export class MapSearchControl {
      * Handle input events to detect coordinate patterns and query local suggestions
      * @param {Event} event - The input event
      */
-    handleInput(event) {
+    async handleInput(event) {
         // Get the input value from the search box
         let query = '';
 
@@ -841,7 +883,7 @@ export class MapSearchControl {
         this.currentQuery = query;
         console.debug('Input value:', query);
 
-        const coordinateResult = this.parseCoordinateInput(query);
+        const coordinateResult = await this.parseCoordinateInput(query);
         if (coordinateResult) {
             console.debug('Coordinate detected:', coordinateResult);
             this.isCoordinateInput = true;
