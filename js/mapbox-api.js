@@ -1688,11 +1688,11 @@ export class MapboxAPI {
         if (Array.isArray(data)) {
             rows = data;
         } else if (typeof data === 'string') {
-            rows = csvParser ? csvParser(data) : parseCSV(data);
+            rows = csvParser ? csvParser(data) : DataUtils.parseCSV(data);
         } else {
             throw new Error('Invalid CSV data format');
         }
-        return rowsToGeoJSON(rows);
+        return GeoUtils.rowsToGeoJSON(rows);
     }
 
     _setupCSVRefresh(groupId, config) {
