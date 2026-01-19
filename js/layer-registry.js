@@ -250,7 +250,15 @@ export class LayerRegistry {
         if (layer.id && !layer.type) {
             const libraryLayer = this._libraryLayers.get(layer.id);
             if (libraryLayer) {
-                return { ...libraryLayer, ...layer };
+                return {
+                    ...libraryLayer,
+                    ...layer,
+                    // Preserve proxy settings from library if not overridden
+                    ...(libraryLayer.proxyUrl && !layer.proxyUrl && {
+                        proxyUrl: libraryLayer.proxyUrl,
+                        proxyReferer: libraryLayer.proxyReferer
+                    })
+                };
             }
         }
         return layer;

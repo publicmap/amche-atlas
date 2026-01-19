@@ -51,8 +51,8 @@ The application supports a URL API for deep linking and sharing map configuratio
 Available API options and examples are maintained in `/docs/API.md`
 
 **Modular JavaScript Structure (`/js/`)**
-- `map-init.js` - Application entry point and map initialization
-- `layer-registry.js` - Central registry managing layer presets and atlas configurations
+- `map-init.js` - Application entry point and map initialization. This is the main file that is loaded when the application is started and resolves the various atlas configurations and layer presets to apply.
+- `layer-registry.js` - Central registry managing layer presets and atlas configurations. This is used to load the various layer presets and atlas configurations.
 - `map-layer-controls.js` - Main UI for layer toggles (uses Shoelace components)
 - `map-feature-control.js` - Feature inspection and interaction
 - `url-manager.js` - URL parameter handling and permalink management
@@ -61,7 +61,6 @@ Available API options and examples are maintained in `/docs/API.md`
 - `map-search-control.js` - Location search functionality
 - `map-export-control.js` - Export map to PDF/image
 - `terrain-3d-control.js` - 3D terrain visualization toggle
-- `state-persistence.js` - Saving/loading map state to browser storage
 
 **Layer System**
 The application supports multiple data layer types:
@@ -86,9 +85,8 @@ The application supports multiple data layer types:
 
 ### Configuration System
 
-Maps are configured through a two-tier system:
-1. **Layer Library** (`_map-layer-presets.json`) - Full layer definitions with ~80+ presets
-2. **Atlas Configs** (`*.atlas.json`) - Reference layers by ID with optional overrides
+Maps are configured through:
+1. **Atlas Configs** (`*.atlas.json`) - Reference layers by ID with optional overrides
 
 The `layer-registry.js` module loads all atlas configurations at startup and maintains a central registry. This enables:
 - Fast switching between different atlas views

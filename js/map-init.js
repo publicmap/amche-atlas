@@ -261,6 +261,11 @@ export class MapInitializer {
                             // Explicitly set type to ensure it's never lost during merge
                             // layerConfig.type takes precedence if provided, otherwise use resolvedLayer.type
                             type: preservedType,
+                            // Preserve proxy settings from resolved layer if not overridden
+                            ...(resolvedLayer.proxyUrl && !layerConfig.proxyUrl && {
+                                proxyUrl: resolvedLayer.proxyUrl,
+                                proxyReferer: resolvedLayer.proxyReferer
+                            }),
                             // Ensure these critical properties are preserved
                             ...(layerConfig._originalJson && { _originalJson: layerConfig._originalJson }),
                             ...(layerConfig.initiallyChecked !== undefined && { initiallyChecked: layerConfig.initiallyChecked }),
