@@ -2901,8 +2901,8 @@
     },
     {
       "id": "bhuvan-terrain",
-      "title": "Bhuvan Hypsometric Terrain",
-      "description": "Hypsometric terrain from ISRO Bhuvan",
+      "title": "Bhuvan Physical Terrain",
+      "description": "Physical terrain layer from ISRO Bhuvan",
       "type": "wms",
       "url": "https://bhuvanmaps.nrsc.gov.in/ras2mapcache?service=WMS&version=1.1.1&request=GetMap&layers=ace2dem&styles=&format=image/jpeg&transparent=false",
       "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",

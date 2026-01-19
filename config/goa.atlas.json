@@ -177,6 +177,19 @@
       }
     },
     {
+      "id": "agricultural-landuse",
+      "title": "Suggested Agricultural Landuse",
+      "description": "Suggested agricultural crops and land-use practices for different areas of Goa based on soil characteristics, climate, and terrain analysis from <a href='http://gis.nbsslup.in/'>ICAR-NBSS&LUP Bhoomi Geoportal</a>.",
+      "headerImage": "assets/map-layers/goa/map-layer-agriculture.png",
+      "legendImage": "http://14.139.123.73:8080/geoserver/wms?Service=WMS&REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=10&HEIGHT=10&legend_options=fontName:Open%20Sans;fontAntiAliasing:true;fontColor:0x000033;fontSize:10;bgColor:0xFFFFEE;dpi:180&LAYER=nbss_geoserver:Goa_LUP",
+      "type": "wms",
+      "url": "http://14.139.123.73:8080/geoserver/wms?service=WMS&version=1.3.0&request=GetMap&layers=nbss_geoserver:Goa_LUP&styles=&format=image/png&transparent=true",
+      "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
+      "attribution": "<a href='http://gis.nbsslup.in/'>ICAR-NBSS&LUP (National Bureau of Soil Survey and Land Use Planning)</a>",
+      "maxzoom": 18,
+      "initiallyChecked": false
+    },
+    {
       "id": "slope",
       "title": "Slope Zoning",
       "description": "Slope zone classification using <a href='https://asterweb.jpl.nasa.gov/gdem.asp'>NASA NASADEM 30m</a> for entire Goa and <a href='https://bhuvan-app3.nrsc.gov.in/data/'>ISRO CartoDEM 2.5m (Bardez)</a> terrain data for Bardez taluka.<br>The output is a 30x30m grid indicating the minimum gradient within that cell. Details of the algorithm are in the <a href='https://github.com/publicmap/amche-goa/blob/main/data/slope/dem_slope_processor.py'>slope processor script</a>.",
