@@ -13,7 +13,7 @@ export class LayerRegistry {
 
         // Load layer library first
         try {
-            const libraryResponse = await fetch('/config/_map-layer-presets.json');
+            const libraryResponse = await fetch('config/_map-layer-presets.json');
             if (libraryResponse.ok) {
                 const library = await libraryResponse.json();
                 if (library.layers && Array.isArray(library.layers)) {
@@ -53,7 +53,7 @@ export class LayerRegistry {
         // Load all atlas configurations in parallel
         const atlasPromises = atlasConfigs.map(async (atlasId) => {
             try {
-                const response = await fetch(`/config/${atlasId}.atlas.json`);
+                const response = await fetch(`config/${atlasId}.atlas.json`);
                 if (response.ok) {
                     // Check Content-Type to ensure we're getting JSON, not HTML (e.g., 404 page)
                     const contentType = response.headers.get('content-type') || '';

@@ -1696,7 +1696,7 @@ export class MapLayerControl {
         if (!atlasId || !this._map) return;
 
         // Fetch the atlas configuration to get map location
-        fetch(`/config/${atlasId}.atlas.json`)
+        fetch(`config/${atlasId}.atlas.json`)
             .then(response => response.json())
             .then(config => {
                 if (config.map) {
