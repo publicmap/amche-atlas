@@ -18,13 +18,19 @@ export class MapSearchControl {
             ...options
         };
 
-        this.coordinateRegex = /^(\d+\.?\d*)\s*,\s*(\d+\.?\d*)$/;
         this.isCoordinateInput = false;
         this.coordinateSuggestion = null;
         this.localSuggestions = [];
         this.currentQuery = '';
         this.injectionTimeout = null;
         this.lastInjectedQuery = '';
+
+        this.indiaCoordinateBounds = {
+            latMin: 6,
+            latMax: 37,
+            lngMin: 68,
+            lngMax: 97
+        };
 
         // Add marker for search results
         this.searchMarker = null;
@@ -84,6 +90,222 @@ export class MapSearchControl {
      */
     setFeatureStateManager(featureStateManager) {
         this.featureStateManager = featureStateManager;
+    }
+
+    /**
+     * Parse coordinate string in various formats
+     * Supports:
+     * - Decimal degrees: "15.4921, 73.8435" or "73.8435, 15.4921"
+     * - Space separated: "15.4921 73.8435" or "73.8435 15.4921"
+     * - DMS: "15°29'31.5\"N 73°50'36.5\"E"
+     * - URLs from OSM and Google Maps
+     * @param {string} input - Input string to parse
+     * @returns {Object|null} Object with {lat, lng, format} or null if not parseable
+     */
+    parseCoordinateInput(input) {
+        if (!input || typeof input !== 'string') {
+            return null;
+        }
+
+        input = input.trim();
+
+        const urlResult = this.parseMapURL(input);
+        if (urlResult) {
+            return urlResult;
+        }
+
+        const dmsResult = this.parseDMS(input);
+        if (dmsResult) {
+            return dmsResult;
+        }
+
+        const decimalResult = this.parseDecimalDegrees(input);
+        if (decimalResult) {
+            return decimalResult;
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse mapping service URLs (OSM, Google Maps)
+     * @param {string} url - URL string
+     * @returns {Object|null} Coordinate object or null
+     */
+    parseMapURL(url) {
+        try {
+            if (url.includes('openstreetmap.org')) {
+                const match = url.match(/#map=(\d+(?:\.\d+)?)\/([-\d.]+)\/([-\d.]+)/);
+                if (match) {
+                    const lat = parseFloat(match[2]);
+                    const lng = parseFloat(match[3]);
+                    if (this.isValidCoordinate(lat, lng)) {
+                        return { lat, lng, format: 'OpenStreetMap URL' };
+                    }
+                }
+            }
+
+            if (url.includes('google.com/maps') || url.includes('maps.google.com')) {
+                const match = url.match(/@([-\d.]+),([-\d.]+),(\d+(?:\.\d+)?)[mz]/);
+                if (match) {
+                    const lat = parseFloat(match[1]);
+                    const lng = parseFloat(match[2]);
+                    if (this.isValidCoordinate(lat, lng)) {
+                        return { lat, lng, format: 'Google Maps URL' };
+                    }
+                }
+
+                const llMatch = url.match(/ll=([-\d.]+),([-\d.]+)/);
+                if (llMatch) {
+                    const lat = parseFloat(llMatch[1]);
+                    const lng = parseFloat(llMatch[2]);
+                    if (this.isValidCoordinate(lat, lng)) {
+                        return { lat, lng, format: 'Google Maps URL' };
+                    }
+                }
+            }
+
+            if (url.includes('maps.app.goo.gl') || url.includes('goo.gl/maps')) {
+                console.debug('Google Maps shortlink detected - would need URL expansion service');
+                return null;
+            }
+        } catch (error) {
+            console.debug('Error parsing map URL:', error);
+        }
+        return null;
+    }
+
+    /**
+     * Parse decimal degrees (handles both lat,lng and lng,lat with smart detection)
+     * @param {string} input - Coordinate string
+     * @returns {Object|null} Coordinate object or null
+     */
+    parseDecimalDegrees(input) {
+        const commaMatch = input.match(/^([-+]?\d+\.?\d*)\s*[,]\s*([-+]?\d+\.?\d*)$/);
+        const spaceMatch = input.match(/^([-+]?\d+\.?\d*)\s+([-+]?\d+\.?\d*)$/);
+
+        const match = commaMatch || spaceMatch;
+        if (!match) {
+            return null;
+        }
+
+        const num1 = parseFloat(match[1]);
+        const num2 = parseFloat(match[2]);
+
+        if (isNaN(num1) || isNaN(num2)) {
+            return null;
+        }
+
+        const result = this.determineCoordinateOrder(num1, num2);
+        if (result && this.isValidCoordinate(result.lat, result.lng)) {
+            result.format = commaMatch ? 'Decimal degrees (comma)' : 'Decimal degrees (space)';
+            return result;
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse DMS (Degrees, Minutes, Seconds) notation
+     * Supports formats like: 15°29'31.5"N 73°50'36.5"E
+     * @param {string} input - DMS string
+     * @returns {Object|null} Coordinate object or null
+     */
+    parseDMS(input) {
+        const dmsPattern = /(\d+)[°\s]+(\d+)['\s]+(\d+\.?\d*)["\s]*([NSEW])?/gi;
+        const matches = [...input.matchAll(dmsPattern)];
+
+        if (matches.length < 2) {
+            return null;
+        }
+
+        const convertDMSToDecimal = (degrees, minutes, seconds, direction) => {
+            let decimal = parseFloat(degrees) + parseFloat(minutes) / 60 + parseFloat(seconds) / 3600;
+            if (direction === 'S' || direction === 'W') {
+                decimal = -decimal;
+            }
+            return decimal;
+        };
+
+        const coord1 = convertDMSToDecimal(
+            matches[0][1],
+            matches[0][2],
+            matches[0][3],
+            matches[0][4]
+        );
+
+        const coord2 = convertDMSToDecimal(
+            matches[1][1],
+            matches[1][2],
+            matches[1][3],
+            matches[1][4]
+        );
+
+        const dir1 = matches[0][4]?.toUpperCase();
+        const dir2 = matches[1][4]?.toUpperCase();
+
+        let lat, lng;
+        if (dir1 === 'N' || dir1 === 'S') {
+            lat = coord1;
+            lng = coord2;
+        } else if (dir2 === 'N' || dir2 === 'S') {
+            lat = coord2;
+            lng = coord1;
+        } else {
+            const result = this.determineCoordinateOrder(coord1, coord2);
+            if (!result) return null;
+            lat = result.lat;
+            lng = result.lng;
+        }
+
+        if (this.isValidCoordinate(lat, lng)) {
+            return { lat, lng, format: 'DMS notation' };
+        }
+
+        return null;
+    }
+
+    /**
+     * Determine coordinate order based on India bounds
+     * @param {number} num1 - First number
+     * @param {number} num2 - Second number
+     * @returns {Object|null} {lat, lng} or null
+     */
+    determineCoordinateOrder(num1, num2) {
+        const { latMin, latMax, lngMin, lngMax } = this.indiaCoordinateBounds;
+
+        const num1InLatRange = num1 >= latMin && num1 <= latMax;
+        const num1InLngRange = num1 >= lngMin && num1 <= lngMax;
+        const num2InLatRange = num2 >= latMin && num2 <= latMax;
+        const num2InLngRange = num2 >= lngMin && num2 <= lngMax;
+
+        if (num1InLatRange && num2InLngRange) {
+            return { lat: num1, lng: num2 };
+        }
+
+        if (num1InLngRange && num2InLatRange) {
+            return { lat: num2, lng: num1 };
+        }
+
+        if (num1 >= -90 && num1 <= 90 && num2 >= -180 && num2 <= 180) {
+            return { lat: num1, lng: num2 };
+        }
+
+        if (num2 >= -90 && num2 <= 90 && num1 >= -180 && num1 <= 180) {
+            return { lat: num2, lng: num1 };
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate coordinates are within global bounds
+     * @param {number} lat - Latitude
+     * @param {number} lng - Longitude
+     * @returns {boolean} True if valid
+     */
+    isValidCoordinate(lat, lng) {
+        return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
     }
 
     /**
@@ -581,54 +803,41 @@ export class MapSearchControl {
         this.currentQuery = query;
         console.debug('Input value:', query);
 
-        // Check if the query matches the coordinate pattern
-        const match = query.match(this.coordinateRegex);
-        if (match) {
-            console.debug('Coordinate pattern detected:', match);
+        const coordinateResult = this.parseCoordinateInput(query);
+        if (coordinateResult) {
+            console.debug('Coordinate detected:', coordinateResult);
             this.isCoordinateInput = true;
 
-            const lat = parseFloat(match[1]);
-            const lng = parseFloat(match[2]);
+            const { lat, lng, format } = coordinateResult;
+            console.debug(`Valid coordinates from ${format}: lat=${lat}, lng=${lng}`);
 
-            // Validate coordinates are within reasonable bounds
-            if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-                console.debug('Valid coordinates:', lat, lng);
-
-                // Create a custom suggestion for coordinates
-                this.coordinateSuggestion = {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [lng, lat]
-                    },
-                    properties: {
-                        name: `Coordinates: ${lat}, ${lng}`,
-                        place_name: `Coordinates: ${lat}, ${lng}`,
-                        place_type: ['coordinate'],
-                        text: `Coordinates: ${lat}, ${lng}`,
-                        _isLocalSuggestion: true
-                    }
-                };
-
-                // Clear local suggestions for coordinate input
-                this.localSuggestions = [];
-
-                // Fit bounds to show reference and coordinate location
-                if (this.referenceView) {
-                    const bounds = this.calculateContextBounds([[lng, lat]]);
-                    if (bounds) {
-                        console.debug('Fitting map to show reference and coordinate location');
-                        this.map.fitBounds(bounds, {
-                            padding: { top: 50, bottom: 50, left: 50, right: 50 },
-                            maxZoom: 16,
-                            duration: 1000
-                        });
-                    }
+            this.coordinateSuggestion = {
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: [lng, lat]
+                },
+                properties: {
+                    name: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+                    place_name: `Coordinates: ${lat.toFixed(5)}, ${lng.toFixed(5)} (${format})`,
+                    place_type: ['coordinate'],
+                    text: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+                    _isLocalSuggestion: true
                 }
-            } else {
-                console.debug('Invalid coordinates (out of bounds):', lat, lng);
-                this.isCoordinateInput = false;
-                this.coordinateSuggestion = null;
+            };
+
+            this.localSuggestions = [];
+
+            if (this.referenceView) {
+                const bounds = this.calculateContextBounds([[lng, lat]]);
+                if (bounds) {
+                    console.debug('Fitting map to show reference and coordinate location');
+                    this.map.fitBounds(bounds, {
+                        padding: { top: 50, bottom: 50, left: 50, right: 50 },
+                        maxZoom: 16,
+                        duration: 1000
+                    });
+                }
             }
         } else {
             this.isCoordinateInput = false;
