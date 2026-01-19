@@ -594,6 +594,11 @@ export class MapExportControl {
                 return null;
             }
 
+            // Update attribution control with raw display_name
+            if (window.attributionControl && data.display_name) {
+                window.attributionControl.setLocation(data.display_name);
+            }
+
             // Use display_name from Nominatim response
             // Split by comma and trim each part
             const parts = data.display_name.split(',').map(part => part.trim()).filter(part => part.length > 0);

@@ -13,6 +13,7 @@ export class MapAttributionControl {
         this._map = null;
         this._container = $("<div class='mapboxgl-ctrl mapboxgl-ctrl-group mapboxgl-ctrl-attrib mapboxgl-ctrl-attrib-inner'></div>").get(0);
         this._layerAttributions = new Map();
+        this._locationName = null;
 
         // Bind methods to preserve context
         this._updateAttribution = this._updateAttribution.bind(this);
@@ -73,6 +74,14 @@ export class MapAttributionControl {
      */
     removeLayerAttribution(layerId) {
         this._layerAttributions.delete(layerId);
+        this._updateAttribution();
+    }
+
+    /**
+     * Set the current location name to display in attribution
+     */
+    setLocation(locationName) {
+        this._locationName = locationName;
         this._updateAttribution();
     }
 
@@ -231,7 +240,21 @@ export class MapAttributionControl {
 
             // Filter out empty attributions
             const validAttributions = Array.from(attributions).filter(attr => attr && attr.trim());
-            if (validAttributions.length === 0) {
+
+            // Add location attribution at the beginning if available
+            if (this._locationName) {
+                const center = this._map.getCenter();
+                const zoom = this._map.getZoom();
+                const lat = center.lat.toFixed(6);
+                const lng = center.lng.toFixed(6);
+                const zoomRounded = Math.round(zoom);
+
+                const locationUrl = `https://www.openstreetmap.org/search?lat=${lat}&lon=${lng}&zoom=${zoomRounded}#map=${zoomRounded}/${lat}/${lng}`;
+                const locationAttribution = `<a href="${locationUrl}" target="_blank" rel="noopener noreferrer" title="View on OpenStreetMap">📍 ${this._locationName}</a>`;
+                processed.add(locationAttribution);
+            }
+
+            if (validAttributions.length === 0 && !this._locationName) {
                 this._container.innerHTML = '';
                 return;
             }
