@@ -2875,12 +2875,32 @@
     {
       "id": "bhuvan-satellite",
       "title": "Satellite Imagery (Bhuvan)",
-      "description": "High-resolution satellite imagery from ISRO Bhuvan Open Data Archive",
+      "description": "High-resolution satellite imagery from ISRO Bhuvan. Note: Some tiles may not load due to referer-based access restrictions on the server.",
       "type": "wms",
       "url": "https://bhuvan-ras1.nrsc.gov.in/tilecache/tilecache.py?service=WMS&version=1.1.1&request=GetMap&layers=bhuvan_ocm_wbase&styles=&format=image/png&transparent=true",
       "attribution": "<a href='https://bhuvan.nrsc.gov.in/'>ISRO Bhuvan</a>",
+      "maxzoom": 19,
+      "initiallyChecked": false
+    },
+    {
+      "id": "bhuvan-lite-satellite",
+      "title": "Satellite Imagery (Bhuvan Lite)",
+      "description": "Lightweight satellite imagery from ISRO Bhuvan with broader access",
+      "type": "wms",
+      "url": "https://bhuvan-ras1.nrsc.gov.in/tilecache/tilecache.py?service=WMS&version=1.1.1&request=GetMap&layers=Bhuvan_Lite_Sat_V2&styles=&format=image/png&transparent=true",
+      "attribution": "<a href='https://bhuvan.nrsc.gov.in/'>ISRO Bhuvan</a>",
       "maxzoom": 18,
-      "tileSize": 256,
+      "initiallyChecked": false
+    },
+    {
+      "id": "bhuvan-img-satellite",
+      "title": "Satellite Imagery (Bhuvan IMG)",
+      "description": "Alternative Bhuvan satellite layer using EPSG:4326 coordinate system",
+      "type": "wms",
+      "url": "https://bhuvan-ras1.nrsc.gov.in/tilecache/tilecache.py?service=WMS&request=GetMap&layers=bhuvan_img&styles=&format=image/jpeg&transparent=false&version=1.1.1&srs=EPSG:4326",
+      "srs": "EPSG:4326",
+      "attribution": "<a href='https://bhuvan.nrsc.gov.in/'>ISRO Bhuvan</a>",
+      "maxzoom": 19,
       "initiallyChecked": false
     }
   ]

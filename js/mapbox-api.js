@@ -732,6 +732,10 @@ export class MapboxAPI {
                 maxzoom: config.maxzoom || 22
             };
 
+            if (config.scheme) {
+                sourceConfig.scheme = config.scheme;
+            }
+
             if (config.url.startsWith('mapbox://')) {
                 sourceConfig.url = config.url;
             } else {
@@ -958,7 +962,7 @@ export class MapboxAPI {
 
         if (!this._map.getSource(sourceId)) {
             // Convert WMS URL to tile format for Mapbox GL JS
-            const tileUrl = this._convertWMSToTiles(config.url);
+            const tileUrl = this._convertWMSToTiles(config.url, config.tileSize, config.srs);
 
             const sourceConfig = {
                 type: 'raster',
@@ -1007,49 +1011,51 @@ export class MapboxAPI {
     /**
      * Convert WMS URL to tile URL format for Mapbox GL JS
      * @param {string} wmsUrl - Original WMS URL
+     * @param {number} tileSize - Tile size (default 256)
      * @returns {string} - Tile URL
      */
-    _convertWMSToTiles(wmsUrl) {
-        // For WMS, we need to ensure the URL has the correct parameters for tiled access
-        let tileUrl = wmsUrl;
+    _convertWMSToTiles(wmsUrl, tileSize = 256, srs = null) {
+        // Parse the URL to extract base URL and existing parameters
+        const urlParts = wmsUrl.split('?');
+        const baseUrl = urlParts[0];
+        const searchParams = new URLSearchParams(urlParts[1] || '');
 
-        // Ensure BBOX parameter uses the correct placeholder (case-insensitive check)
-        if (!/[&?]bbox=/i.test(tileUrl)) {
-            // Add bbox parameter if not present
-            const separator = tileUrl.includes('?') ? '&' : '?';
-            tileUrl += `${separator}bbox={bbox-epsg-3857}`;
-        } else {
-            // Replace existing BBOX with the tile placeholder (case-insensitive)
-            tileUrl = tileUrl.replace(/([&?])bbox=[^&]+/i, '$1bbox={bbox-epsg-3857}');
+        // Extract parameters (case-insensitive)
+        const params = {};
+        for (const [key, value] of searchParams.entries()) {
+            params[key.toLowerCase()] = value;
         }
 
-        // Ensure proper WIDTH and HEIGHT (case-insensitive, use lowercase for TileCache compatibility)
-        if (/[&?]width=/i.test(tileUrl)) {
-            tileUrl = tileUrl.replace(/([&?])width=\d+/i, '$1width=256');
-        } else {
-            tileUrl += '&width=256';
-        }
-        if (/[&?]height=/i.test(tileUrl)) {
-            tileUrl = tileUrl.replace(/([&?])height=\d+/i, '$1height=256');
-        } else {
-            tileUrl += '&height=256';
-        }
+        // Determine the SRS/CRS to use
+        const targetSrs = srs || params.srs || params.crs || 'EPSG:3857';
 
-        // Ensure CRS/SRS is set to EPSG:3857 for Web Mercator (case-insensitive)
-        // WMS 1.1.1 and earlier use SRS parameter, WMS 1.3.0+ use CRS parameter
-        if (/[&?]crs=/i.test(tileUrl)) {
-            tileUrl = tileUrl.replace(/([&?])crs=[^&]+/i, '$1crs=EPSG:3857');
-        } else if (/[&?]srs=/i.test(tileUrl)) {
-            tileUrl = tileUrl.replace(/([&?])srs=[^&]+/i, '$1srs=EPSG:3857');
-        } else {
-            // Default to SRS for WMS 1.1.1 or CRS for 1.3.0+ based on VERSION parameter
-            const usesCRS = /version=1\.[34]/i.test(tileUrl) ||
-                /version=[23]\./i.test(tileUrl);
-            const crsParam = usesCRS ? 'crs=EPSG:3857' : 'srs=EPSG:3857';
-            tileUrl += `&${crsParam}`;
-        }
+        // Choose the appropriate bbox placeholder based on SRS
+        const bboxPlaceholder = targetSrs === 'EPSG:4326' ? '{bbox-epsg-4326}' : '{bbox-epsg-3857}';
 
-        console.debug(`[MapboxAPI] Converted WMS URL: ${wmsUrl} -> ${tileUrl}`);
+        // Build parameter object with required values
+        // TileCache expects parameters in a specific order for cache key generation
+        const orderedParams = {
+            'styles': params.styles || '',
+            'bbox': bboxPlaceholder,
+            'format': params.format || 'image/png',
+            'service': params.service || 'WMS',
+            'version': params.version || '1.1.1',
+            'request': params.request || 'GetMap',
+            'srs': targetSrs,
+            'transparent': params.transparent || 'true',
+            'width': tileSize.toString(),
+            'height': tileSize.toString(),
+            'layers': params.layers || ''
+        };
+
+        // Reconstruct URL with ordered parameters
+        const paramString = Object.entries(orderedParams)
+            .map(([key, value]) => `${key}=${value}`)
+            .join('&');
+
+        const tileUrl = `${baseUrl}?${paramString}`;
+
+        console.debug(`[MapboxAPI] Converted WMS URL (${targetSrs}): ${wmsUrl} -> ${tileUrl}`);
 
         return tileUrl;
     }
@@ -1063,7 +1069,7 @@ export class MapboxAPI {
 
         if (source) {
             // Convert the new time-based URL to tile format
-            const tileUrl = this._convertWMSToTiles(newUrl);
+            const tileUrl = this._convertWMSToTiles(newUrl, config.tileSize, config.srs);
 
             // Remove and re-add source with new URL
             const layerId = `wms-layer-${groupId}`;
