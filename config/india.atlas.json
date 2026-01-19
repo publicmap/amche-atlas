@@ -2873,11 +2873,28 @@
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Southern_India_Wilkinson.png'>Wikimedia Commons: Southern India Wilkinson.png </a> via <a href='https://warper.wmflabs.org/maps/7050'>Wikimaps Warper</a> released in public domain"
     },
     {
+      "title": "Realtime Meteorological Satellite",
+      "id": "insat-img",
+      "description": "Visible spectrum satellite view from INSAT-3DR rapid scan satellite. The imagery is refreshed every 30 mins with the latest capture from <a href='https://mausam.imd.gov.in/'>IMD Mausam portal</a>. Check <a href='https://mausam.imd.gov.in/imd_latest/contents/pdf/forecasting_sop.pdf'>2021 IMD Forecasting SOP Guidelines</a> for documentation",
+      "headerImage": "assets/map-layer-satellite.png",
+      "type": "img",
+      "url": "https://amche-atlas-production.up.railway.app/proxy?url=https://mausam.imd.gov.in/Satellite/rswmo_ir1.jpg&referer=https://mausam.imd.gov.in/&cache=300",
+      "bounds": [
+        44.5,
+        -15.8,
+        113,
+        48.5
+      ],
+      "attribution": "<a href='https://www.mosdac.gov.in/catalog/satellite.php?mission=INSAT-3DR'>INSAT-3DR</a>, <a href='https://mausam.imd.gov.in/'>India Meteorological Department</a>"
+    },
+    {
       "id": "bhuvan-satellite",
       "title": "Satellite Imagery (Bhuvan)",
       "description": "High-resolution satellite imagery from ISRO Bhuvan",
       "type": "wms",
-      "url": "https://amche-atlas-production.up.railway.app/bhuvan/tilecache/tilecache.py?service=WMS&version=1.1.1&request=GetMap&layers=bhuvan_ocm_wbase&styles=&format=image/png&transparent=true",
+      "url": "https://bhuvan-ras1.nrsc.gov.in/tilecache/tilecache.py?service=WMS&version=1.1.1&request=GetMap&layers=bhuvan_ocm_wbase&styles=&format=image/png&transparent=true",
+      "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
+      "proxyReferer": "https://bhuvan.nrsc.gov.in/",
       "attribution": "<a href='https://bhuvan.nrsc.gov.in/'>ISRO Bhuvan</a>",
       "maxzoom": 19,
       "initiallyChecked": true

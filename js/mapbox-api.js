@@ -962,7 +962,7 @@ export class MapboxAPI {
 
         if (!this._map.getSource(sourceId)) {
             // Convert WMS URL to tile format for Mapbox GL JS
-            const tileUrl = this._convertWMSToTiles(config.url, config.tileSize, config.srs);
+            const tileUrl = this._convertWMSToTiles(config.url, config.tileSize, config.srs, config);
 
             const sourceConfig = {
                 type: 'raster',
@@ -1014,7 +1014,7 @@ export class MapboxAPI {
      * @param {number} tileSize - Tile size (default 256)
      * @returns {string} - Tile URL
      */
-    _convertWMSToTiles(wmsUrl, tileSize = 256, srs = null) {
+    _convertWMSToTiles(wmsUrl, tileSize = 256, srs = null, config = {}) {
         // Parse the URL to extract base URL and existing parameters
         const urlParts = wmsUrl.split('?');
         const baseUrl = urlParts[0];
@@ -1053,7 +1053,19 @@ export class MapboxAPI {
             .map(([key, value]) => `${key}=${value}`)
             .join('&');
 
-        const tileUrl = `${baseUrl}?${paramString}`;
+        let tileUrl = `${baseUrl}?${paramString}`;
+
+        // Wrap with proxy if configured
+        if (config.proxyUrl) {
+            const encodedWmsUrl = encodeURIComponent(tileUrl)
+                .replace(/%7Bbbox-epsg-3857%7D/g, '{bbox-epsg-3857}')
+                .replace(/%7Bbbox-epsg-4326%7D/g, '{bbox-epsg-4326}');
+            const encodedReferer = config.proxyReferer ? encodeURIComponent(config.proxyReferer) : '';
+            tileUrl = `${config.proxyUrl}?url=${encodedWmsUrl}`;
+            if (config.proxyReferer) {
+                tileUrl += `&referer=${encodedReferer}`;
+            }
+        }
 
         console.debug(`[MapboxAPI] Converted WMS URL (${targetSrs}): ${wmsUrl} -> ${tileUrl}`);
 
@@ -1069,7 +1081,7 @@ export class MapboxAPI {
 
         if (source) {
             // Convert the new time-based URL to tile format
-            const tileUrl = this._convertWMSToTiles(newUrl, config.tileSize, config.srs);
+            const tileUrl = this._convertWMSToTiles(newUrl, config.tileSize, config.srs, config);
 
             // Remove and re-add source with new URL
             const layerId = `wms-layer-${groupId}`;
