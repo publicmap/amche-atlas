@@ -2895,7 +2895,7 @@
       "url": "https://bhuvan-ras1.nrsc.gov.in/tilecache/tilecache.py?service=WMS&version=1.1.1&request=GetMap&layers=bhuvan_ocm_wbase&styles=&format=image/png&transparent=true",
       "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
       "proxyReferer": "https://bhuvan.nrsc.gov.in/",
-      "attribution": "<a href='https://bhuvan.nrsc.gov.in/'>ISRO Bhuvan</a>",
+      "attribution": "<a href='https://bhuvan.nrsc.gov.in/ngmaps?mode=Hybrid#3.65/22.91/82.78'>ISRO Bhuvan</a>",
       "maxzoom": 19,
       "initiallyChecked": true
     }

@@ -10,7 +10,7 @@
       }
     },
     "goa-land-atlas": {
-      "url": "https://amche.in/?atlas=goa&layers=goa-plots,notified-khazan,notified-bunds,goa-bhunaksha-communidade,goa-bhunaksha-government,goa-bhunaksha-tenanted,world-2023-open-buildings,goa-2021-regional-plan,mapbox-streets,mapbox-satellite&terrain=1.5#11.87/15.51624/73.8246",
+      "url": "https://amche.in/?atlas=goa&layers=goa-plots,notified-khazan,notified-bunds,{id:goa-bhunaksha-communidade,filter:null},goa-bhunaksha-government,goa-bhunaksha-tenanted,world-2023-open-buildings,goa-2021-regional-plan,mapbox-streets,mapbox-satellite&terrain=1.5#11.87/15.51624/73.8246",
       "title": "Land Information Atlas of Goa",
       "description": "Plotwise land information of Goa using Dharani/Bhunaksha",
       "published": {
