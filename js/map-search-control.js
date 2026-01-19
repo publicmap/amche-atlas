@@ -128,12 +128,23 @@ export class MapSearchControl {
     }
 
     /**
-     * Parse mapping service URLs (OSM, Google Maps)
+     * Parse mapping service URLs (OSM, Google Maps, Bhuvan)
      * @param {string} url - URL string
      * @returns {Object|null} Coordinate object or null
      */
     parseMapURL(url) {
         try {
+            if (url.includes('bhuvan.nrsc.gov.in') || url.includes('bhuvan-ras1.nrsc.gov.in')) {
+                const match = url.match(/#(\d+(?:\.\d+)?)\/([-\d.]+)\/([-\d.]+)/);
+                if (match) {
+                    const lat = parseFloat(match[2]);
+                    const lng = parseFloat(match[3]);
+                    if (this.isValidCoordinate(lat, lng)) {
+                        return { lat, lng, format: 'Bhuvan URL' };
+                    }
+                }
+            }
+
             if (url.includes('openstreetmap.org')) {
                 const match = url.match(/#map=(\d+(?:\.\d+)?)\/([-\d.]+)\/([-\d.]+)/);
                 if (match) {
