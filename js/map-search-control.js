@@ -128,50 +128,63 @@ export class MapSearchControl {
     }
 
     /**
-     * Parse mapping service URLs (OSM, Google Maps, Bhuvan)
+     * Parse mapping service URLs using regex patterns
+     * Works with any mapping service that uses standard coordinate URL formats
      * @param {string} url - URL string
      * @returns {Object|null} Coordinate object or null
      */
     parseMapURL(url) {
         try {
-            if (url.includes('bhuvan.nrsc.gov.in') || url.includes('bhuvan-ras1.nrsc.gov.in')) {
-                const match = url.match(/#(\d+(?:\.\d+)?)\/([-\d.]+)\/([-\d.]+)/);
-                if (match) {
-                    const lat = parseFloat(match[2]);
-                    const lng = parseFloat(match[3]);
-                    if (this.isValidCoordinate(lat, lng)) {
-                        return { lat, lng, format: 'Bhuvan URL' };
-                    }
+            const patterns = [
+                {
+                    regex: /#map=([\d.]+)\/([-\d.]+)\/([-\d.]+)/,
+                    latIndex: 2,
+                    lngIndex: 3,
+                    name: 'Hash map format'
+                },
+                {
+                    regex: /#([\d.]+)\/([-\d.]+)\/([-\d.]+)/,
+                    latIndex: 2,
+                    lngIndex: 3,
+                    name: 'Hash zoom/lat/lng format'
+                },
+                {
+                    regex: /@([-\d.]+),([-\d.]+),[\d.]+[mz]/,
+                    latIndex: 1,
+                    lngIndex: 2,
+                    name: 'Google Maps @ format'
+                },
+                {
+                    regex: /ll=([-\d.]+),([-\d.]+)/,
+                    latIndex: 1,
+                    lngIndex: 2,
+                    name: 'LL parameter format'
+                },
+                {
+                    regex: /\?lat=([-\d.]+)&lon=([-\d.]+)/,
+                    latIndex: 1,
+                    lngIndex: 2,
+                    name: 'Query param lat/lon format'
+                },
+                {
+                    regex: /\?lon=([-\d.]+)&lat=([-\d.]+)/,
+                    latIndex: 2,
+                    lngIndex: 1,
+                    name: 'Query param lon/lat format'
                 }
-            }
+            ];
 
-            if (url.includes('openstreetmap.org')) {
-                const match = url.match(/#map=(\d+(?:\.\d+)?)\/([-\d.]+)\/([-\d.]+)/);
+            for (const pattern of patterns) {
+                const match = url.match(pattern.regex);
                 if (match) {
-                    const lat = parseFloat(match[2]);
-                    const lng = parseFloat(match[3]);
-                    if (this.isValidCoordinate(lat, lng)) {
-                        return { lat, lng, format: 'OpenStreetMap URL' };
-                    }
-                }
-            }
+                    const lat = parseFloat(match[pattern.latIndex]);
+                    const lng = parseFloat(match[pattern.lngIndex]);
 
-            if (url.includes('google.com/maps') || url.includes('maps.google.com')) {
-                const match = url.match(/@([-\d.]+),([-\d.]+),(\d+(?:\.\d+)?)[mz]/);
-                if (match) {
-                    const lat = parseFloat(match[1]);
-                    const lng = parseFloat(match[2]);
-                    if (this.isValidCoordinate(lat, lng)) {
-                        return { lat, lng, format: 'Google Maps URL' };
-                    }
-                }
-
-                const llMatch = url.match(/ll=([-\d.]+),([-\d.]+)/);
-                if (llMatch) {
-                    const lat = parseFloat(llMatch[1]);
-                    const lng = parseFloat(llMatch[2]);
-                    if (this.isValidCoordinate(lat, lng)) {
-                        return { lat, lng, format: 'Google Maps URL' };
+                    if (!isNaN(lat) && !isNaN(lng) && this.isValidCoordinate(lat, lng)) {
+                        const hostname = this.extractHostname(url);
+                        const displayName = hostname ? `${hostname} URL (${pattern.name})` : `Map URL (${pattern.name})`;
+                        console.debug(`Parsed coordinates from ${displayName}:`, { lat, lng });
+                        return { lat, lng, format: displayName };
                     }
                 }
             }
@@ -184,6 +197,20 @@ export class MapSearchControl {
             console.debug('Error parsing map URL:', error);
         }
         return null;
+    }
+
+    /**
+     * Extract hostname from URL for display purposes
+     * @param {string} url - URL string
+     * @returns {string|null} Hostname or null
+     */
+    extractHostname(url) {
+        try {
+            const urlObj = new URL(url);
+            return urlObj.hostname.replace('www.', '');
+        } catch (error) {
+            return null;
+        }
     }
 
     /**
