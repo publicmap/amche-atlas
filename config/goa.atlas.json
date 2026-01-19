@@ -152,11 +152,34 @@
         ],
         "circle-color": "#4c7fff",
         "circle-stroke-width": 1.5,
-        "circle-stroke-color": "#ffffff"
+        "circle-stroke-color": "#ffffff",
+        "text-font": [
+          "Open Sans Regular"
+        ],
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          14,
+          [
+            "to-string",
+            [
+              "get",
+              "Name"
+            ]
+          ]
+        ],
+        "text-size": 11,
+        "text-color": "#333",
+        "text-halo-color": "#fff",
+        "text-halo-width": 1.5,
+        "text-offset": [0, 1.2]
       },
       "inspect": {
         "id": "Name",
-        "title": "School",
+        "title": "Name",
         "label": "Name",
         "fields": [
           "Principal",
