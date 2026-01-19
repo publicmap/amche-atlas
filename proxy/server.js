@@ -102,26 +102,60 @@ app.get('/expand', async (req, res) => {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
             'DNT': '1',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1'
         };
 
-        let expandedUrl = targetUrl;
+        let currentUrl = targetUrl;
+        let redirectCount = 0;
+        const maxRedirects = 10;
 
         try {
-            const response = await fetch(targetUrl, {
-                method: 'GET',
-                redirect: 'follow',
-                headers: headers,
-                follow: 20
-            });
+            while (redirectCount < maxRedirects) {
+                const response = await fetch(currentUrl, {
+                    method: 'HEAD',
+                    redirect: 'manual',
+                    headers: headers
+                });
 
-            expandedUrl = response.url;
-            console.log(`[Expand] GET redirect followed to: ${expandedUrl}`);
+                const statusCode = response.status;
+                console.log(`[Expand] Response status: ${statusCode} for ${currentUrl}`);
+
+                if (statusCode === 301 || statusCode === 302 || statusCode === 303 || statusCode === 307 || statusCode === 308) {
+                    const location = response.headers.get('location');
+
+                    if (!location) {
+                        console.log(`[Expand] No Location header found, stopping at: ${currentUrl}`);
+                        break;
+                    }
+
+                    let nextUrl;
+                    if (location.startsWith('http://') || location.startsWith('https://')) {
+                        nextUrl = location;
+                    } else if (location.startsWith('/')) {
+                        const urlObj = new URL(currentUrl);
+                        nextUrl = `${urlObj.protocol}//${urlObj.host}${location}`;
+                    } else {
+                        const urlObj = new URL(currentUrl);
+                        nextUrl = `${urlObj.protocol}//${urlObj.host}/${location}`;
+                    }
+
+                    console.log(`[Expand] Redirect ${redirectCount + 1}: ${currentUrl} -> ${nextUrl}`);
+                    currentUrl = nextUrl;
+                    redirectCount++;
+                } else {
+                    console.log(`[Expand] Non-redirect status, final URL: ${currentUrl}`);
+                    break;
+                }
+            }
+
+            if (redirectCount >= maxRedirects) {
+                console.log(`[Expand] Max redirects (${maxRedirects}) reached`);
+            }
+
         } catch (fetchError) {
-            console.error(`[Expand] GET request failed:`, fetchError.message);
+            console.error(`[Expand] Request failed:`, fetchError.message);
         }
 
         res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -131,8 +165,9 @@ app.get('/expand', async (req, res) => {
 
         res.json({
             original: targetUrl,
-            expanded: expandedUrl,
-            redirected: expandedUrl !== targetUrl
+            expanded: currentUrl,
+            redirected: currentUrl !== targetUrl,
+            redirectCount: redirectCount
         });
 
     } catch (error) {
