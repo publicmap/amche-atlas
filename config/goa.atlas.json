@@ -168,7 +168,7 @@
             "zoom"
           ],
           "",
-          14,
+          10,
           [
             "to-string",
             [
@@ -178,10 +178,14 @@
           ]
         ],
         "symbol-sort-key": [
-          "to-number",
+          "/",
+          1,
           [
-            "get",
-            "Capacity"
+            "to-number",
+            [
+              "get",
+              "Capacity"
+            ]
           ]
         ]
       },
