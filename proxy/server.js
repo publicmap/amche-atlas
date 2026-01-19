@@ -195,8 +195,45 @@ app.get('/expand', async (req, res) => {
                         break;
                     }
 
+                    const dataDesktopLink = html.match(/data-desktop-link=["']([^"']+)["']/);
+                    if (dataDesktopLink) {
+                        const link = dataDesktopLink[1].replace(/\?_imcp=1/, '').replace(/\?_iipp=1/, '');
+                        if (link !== currentUrl && !link.includes('goo.gl')) {
+                            currentUrl = link;
+                            console.log(`[Expand] Found data-desktop-link: ${currentUrl}`);
+                            redirectCount++;
+                            continue;
+                        } else if (link.includes('goo.gl')) {
+                            console.log(`[Expand] data-desktop-link still contains goo.gl, trying with _imcp parameter`);
+                            currentUrl = dataDesktopLink[1];
+                            redirectCount++;
+                            continue;
+                        }
+                    }
+
                     console.log(`[Expand] Could not find redirect in HTML content`);
-                    console.log(`[Expand] HTML sample (middle 500 chars):`, html.substring(Math.floor(html.length / 2), Math.floor(html.length / 2) + 500));
+                    console.log(`[Expand] Trying one more time with browser-like headers and cookies...`);
+
+                    const retryResponse = await fetch(currentUrl, {
+                        method: 'GET',
+                        redirect: 'manual',
+                        headers: {
+                            ...headers,
+                            'Accept': 'text/html,application/xhtml+xml',
+                            'Cookie': ''
+                        }
+                    });
+
+                    if (retryResponse.status >= 300 && retryResponse.status < 400) {
+                        const location = retryResponse.headers.get('location');
+                        if (location) {
+                            currentUrl = location;
+                            console.log(`[Expand] Got redirect on retry: ${currentUrl}`);
+                            redirectCount++;
+                            continue;
+                        }
+                    }
+
                     break;
                 } else {
                     console.log(`[Expand] Non-redirect status, final URL: ${currentUrl}`);
