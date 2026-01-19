@@ -1629,7 +1629,6 @@ export class MapboxAPI {
     // CSV layer methods
     async _createCSVLayer(groupId, config, visible) {
         const sourceId = `csv-${groupId}`;
-        const layerId = `${sourceId}-circle`;
 
         if (!this._map.getSource(sourceId) && visible) {
             try {
@@ -1646,27 +1645,23 @@ export class MapboxAPI {
                     return false;
                 }
 
-                this._map.addSource(sourceId, {
+                const sourceConfig = {
                     type: 'geojson',
-                    data: geojson,
-                    ...(config.attribution && { attribution: config.attribution })
-                });
+                    data: geojson
+                };
 
-                const layerConfig = this._createLayerConfig({
-                    id: layerId,
-                    type: 'circle',
-                    source: sourceId,
-                    style: {
-                        'circle-radius': config.style?.['circle-radius'] || 5,
-                        'circle-color': config.style?.['circle-color'] || '#3887be',
-                        'circle-opacity': config.style?.['circle-opacity'] || 0.7,
-                        'circle-stroke-width': config.style?.['circle-stroke-width'] || 1.5,
-                        'circle-stroke-color': config.style?.['circle-stroke-color'] || '#ffffff'
-                    },
-                    visible
-                }, 'circle');
+                if (config.inspect?.id) {
+                    sourceConfig.promoteId = config.inspect.id;
+                }
 
-                this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'csv', null, config, this._orderedGroups));
+                if (config.attribution) {
+                    sourceConfig.attribution = config.attribution;
+                }
+
+                this._map.addSource(sourceId, sourceConfig);
+
+                // Use the same layer creation logic as GeoJSON to support all layer types
+                this._addGeoJSONLayers(groupId, config, sourceId, visible);
 
                 // Set up refresh if specified
                 if (config.refresh && config.url) {
@@ -1722,10 +1717,21 @@ export class MapboxAPI {
     }
 
     _updateCSVLayerVisibility(groupId, config, visible) {
-        const layerId = `csv-${groupId}-circle`;
-        if (this._map.getLayer(layerId)) {
-            this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
-        }
+        const sourceId = `csv-${groupId}`;
+        const layers = [
+            `${sourceId}-fill`,
+            `${sourceId}-line`,
+            `${sourceId}-label`,
+            `${sourceId}-circle`,
+            `${sourceId}-clusters`,
+            `${sourceId}-cluster-count`
+        ];
+
+        layers.forEach(layerId => {
+            if (this._map.getLayer(layerId)) {
+                this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+            }
+        });
 
         if (visible && config.refresh && config.url && !this._refreshTimers.has(groupId)) {
             this._setupCSVRefresh(groupId, config);
@@ -1739,11 +1745,21 @@ export class MapboxAPI {
 
     _removeCSVLayer(groupId, config) {
         const sourceId = `csv-${groupId}`;
-        const layerId = `${sourceId}-circle`;
+        const layers = [
+            `${sourceId}-fill`,
+            `${sourceId}-line`,
+            `${sourceId}-label`,
+            `${sourceId}-circle`,
+            `${sourceId}-clusters`,
+            `${sourceId}-cluster-count`
+        ];
 
-        if (this._map.getLayer(layerId)) {
-            this._map.removeLayer(layerId);
-        }
+        layers.forEach(layerId => {
+            if (this._map.getLayer(layerId)) {
+                this._map.removeLayer(layerId);
+            }
+        });
+
         if (this._map.getSource(sourceId)) {
             this._map.removeSource(sourceId);
         }
