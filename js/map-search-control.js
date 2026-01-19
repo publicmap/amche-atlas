@@ -68,6 +68,9 @@ export class MapSearchControl {
         // Monitor input changes more aggressively
         this.setupInputMonitoring();
 
+        // Set up clear button monitoring
+        this.setupClearButtonMonitoring();
+
         // Add map moveend listener to refresh search results when viewport changes
         this.map.on('moveend', this.handleMapMoveEnd.bind(this));
 
@@ -434,6 +437,44 @@ export class MapSearchControl {
     }
 
     /**
+     * Set up clear button monitoring
+     */
+    setupClearButtonMonitoring() {
+        // Monitor for clear button clicks in the shadow DOM
+        const checkAndAttachClearHandler = () => {
+            const clearButton = this.searchBox.shadowRoot?.querySelector('.mbx08a7cde1--ClearBtn, [aria-label="Clear"]');
+
+            if (clearButton && !clearButton._clearHandlerAttached) {
+                console.debug('Attaching click handler to clear button');
+                clearButton.addEventListener('click', () => {
+                    console.debug('Clear button clicked - clearing URL parameter');
+                    // Give the search box a moment to clear the input
+                    setTimeout(() => {
+                        if (window.urlManager) {
+                            window.urlManager.updateSearchParam('');
+                        }
+                        this.handleEmptyInput();
+                    }, 50);
+                });
+                clearButton._clearHandlerAttached = true;
+            }
+        };
+
+        // Try immediately
+        setTimeout(checkAndAttachClearHandler, 100);
+
+        // Also watch for DOM changes in case the button is added later
+        if (this.searchBox.shadowRoot) {
+            const observer = new MutationObserver(checkAndAttachClearHandler);
+            observer.observe(this.searchBox.shadowRoot, {
+                childList: true,
+                subtree: true
+            });
+            this.clearButtonObserver = observer;
+        }
+    }
+
+    /**
      * Set up more aggressive input monitoring
      */
     setupInputMonitoring() {
@@ -487,8 +528,13 @@ export class MapSearchControl {
 
         // Clear feature state when input is cleared
         if (this.featureStateManager) {
-            this.featureStateManager._resetSelectionState();
+            this.featureStateManager.clearAllSelections();
             console.debug('Cleared feature state due to empty search input');
+        }
+
+        // Clear URL parameter to keep in sync with input
+        if (window.urlManager) {
+            window.urlManager.updateSearchParam('');
         }
 
         console.debug('Empty input handling complete - all markers and state cleared (map location unchanged)');
@@ -736,7 +782,7 @@ export class MapSearchControl {
                     console.debug('Setting feature state for plot:', feature.properties._featureId);
 
                     // Clear any existing selection first
-                    this.featureStateManager._resetSelectionState();
+                    this.featureStateManager.clearAllSelections();
 
                     // Set the new selection
                     this.featureStateManager.selectedFeatureId = feature.properties._featureId;
@@ -1109,6 +1155,13 @@ export class MapSearchControl {
             this.ariaObserver.disconnect();
             this.ariaObserver = null;
             console.debug('Disconnected aria-expanded monitoring observer');
+        }
+
+        // Disconnect MutationObserver for clear button monitoring
+        if (this.clearButtonObserver) {
+            this.clearButtonObserver.disconnect();
+            this.clearButtonObserver = null;
+            console.debug('Disconnected clear button monitoring observer');
         }
 
         console.debug('MapSearchControl cleanup complete');
