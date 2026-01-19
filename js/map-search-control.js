@@ -866,6 +866,9 @@ export class MapSearchControl {
 
             this.localSuggestions = [];
 
+            this.addSearchMarker([lng, lat], this.coordinateSuggestion.properties.place_name);
+            console.debug('Added marker for detected coordinate:', { lat, lng, format });
+
             if (this.referenceView) {
                 const bounds = this.calculateContextBounds([[lng, lat]]);
                 if (bounds) {
@@ -880,6 +883,8 @@ export class MapSearchControl {
         } else {
             this.isCoordinateInput = false;
             this.coordinateSuggestion = null;
+
+            this.removeSearchMarker();
 
             // Query local cadastral suggestions for non-coordinate input
             this.localSuggestions = this.queryLocalCadastralSuggestions(query);
