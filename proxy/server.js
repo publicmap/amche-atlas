@@ -98,16 +98,31 @@ app.get('/expand', async (req, res) => {
 
         console.log(`[Expand] Following redirects for: ${targetUrl}`);
 
-        const response = await fetch(targetUrl, {
-            method: 'HEAD',
-            redirect: 'follow',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-            }
-        });
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        };
 
-        const expandedUrl = response.url;
-        console.log(`[Expand] Final URL: ${expandedUrl}`);
+        let expandedUrl = targetUrl;
+
+        try {
+            const response = await fetch(targetUrl, {
+                method: 'GET',
+                redirect: 'follow',
+                headers: headers,
+                follow: 20
+            });
+
+            expandedUrl = response.url;
+            console.log(`[Expand] GET redirect followed to: ${expandedUrl}`);
+        } catch (fetchError) {
+            console.error(`[Expand] GET request failed:`, fetchError.message);
+        }
 
         res.setHeader('Cache-Control', 'public, max-age=86400');
         res.setHeader('Access-Control-Allow-Origin', '*');
