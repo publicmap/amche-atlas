@@ -1,7 +1,6 @@
 export class LayerRegistry {
     constructor() {
         this._registry = new Map(); // layerId -> layer config
-        this._libraryLayers = new Map(); // library layer presets
         this._atlasLayers = new Map(); // atlasId -> array of layer configs
         this._atlasMetadata = new Map(); // atlasId -> atlas metadata (color, name, etc.)
         this._currentAtlas = 'index'; // default atlas
@@ -10,21 +9,6 @@ export class LayerRegistry {
 
     async initialize() {
         if (this._initialized) return;
-
-        // Load layer library first
-        try {
-            const libraryResponse = await fetch('config/_map-layer-presets.json');
-            if (libraryResponse.ok) {
-                const library = await libraryResponse.json();
-                if (library.layers && Array.isArray(library.layers)) {
-                    library.layers.forEach(layer => {
-                        this._libraryLayers.set(layer.id, layer);
-                    });
-                }
-            }
-        } catch (error) {
-            console.warn('[LayerRegistry] Failed to load layer library:', error);
-        }
 
         // Load all atlas configurations
         // First, load the index.atlas.json to get the list of atlases
@@ -104,13 +88,7 @@ export class LayerRegistry {
 
                     // Register each layer with appropriate ID
                     config.layers.forEach(layer => {
-                        if (layer.id && layer.id.includes('bhuvan')) {
-                            console.log(`[DEBUG REGISTRY] Loading layer from ${atlasId}:`, { id: layer.id, hasProxyUrl: !!layer.proxyUrl, proxyUrl: layer.proxyUrl, type: layer.type });
-                        }
                         const resolvedLayer = this._resolveLayer(layer, atlasId);
-                        if (layer.id && layer.id.includes('bhuvan')) {
-                            console.log(`[DEBUG REGISTRY] After _resolveLayer:`, { id: resolvedLayer.id, hasProxyUrl: !!resolvedLayer.proxyUrl, proxyUrl: resolvedLayer.proxyUrl });
-                        }
                         if (resolvedLayer) {
                             // Check if the layer ID already has an atlas prefix
                             const layerId = resolvedLayer.id;
@@ -139,17 +117,13 @@ export class LayerRegistry {
 
                             if (!existingEntry) {
                                 // Not in registry yet, add it
-                                const registryEntry = {
+                                this._registry.set(prefixedId, {
                                     ...resolvedLayer,
                                     _sourceAtlas: sourceAtlas,
                                     _prefixedId: prefixedId,
                                     // Store the original unprefixed ID for reference
                                     _originalId: layerId
-                                };
-                                if (layerId.includes('bhuvan')) {
-                                    console.log(`[DEBUG REGISTRY] Storing in registry with key ${prefixedId}:`, { hasProxyUrl: !!registryEntry.proxyUrl, proxyUrl: registryEntry.proxyUrl });
-                                }
-                                this._registry.set(prefixedId, registryEntry);
+                                });
                             } else if (!resolvedLayer.type && !resolvedLayer.title) {
                                 // This is a reference to a layer defined elsewhere, skip it
                                 // The actual layer definition will be/has been loaded from its source atlas
@@ -253,24 +227,9 @@ export class LayerRegistry {
     }
 
     /**
-     * Resolve a layer reference from library if needed
+     * Resolve a layer (currently just returns as-is, kept for future extensibility)
      */
     _resolveLayer(layer, atlasId) {
-        // If layer only has an id, resolve it from library
-        if (layer.id && !layer.type) {
-            const libraryLayer = this._libraryLayers.get(layer.id);
-            if (libraryLayer) {
-                return {
-                    ...libraryLayer,
-                    ...layer,
-                    // Preserve proxy settings from library if not overridden
-                    ...(libraryLayer.proxyUrl && !layer.proxyUrl && {
-                        proxyUrl: libraryLayer.proxyUrl,
-                        proxyReferer: libraryLayer.proxyReferer
-                    })
-                };
-            }
-        }
         return layer;
     }
 
@@ -288,29 +247,12 @@ export class LayerRegistry {
         // First, try unprefixed ID in current atlas
         const currentAtlasId = `${contextAtlas}-${layerId}`;
         if (this._registry.has(currentAtlasId)) {
-            const layer = this._registry.get(currentAtlasId);
-            if (layerId.includes('bhuvan')) {
-                console.log(`[DEBUG REGISTRY] getLayer(${layerId}) found as ${currentAtlasId}:`, { hasProxyUrl: !!layer.proxyUrl, proxyUrl: layer.proxyUrl });
-            }
-            return layer;
+            return this._registry.get(currentAtlasId);
         }
 
         // Then try the ID as-is (might be prefixed)
         if (this._registry.has(layerId)) {
-            const layer = this._registry.get(layerId);
-            if (layerId.includes('bhuvan')) {
-                console.log(`[DEBUG REGISTRY] getLayer(${layerId}) found as-is:`, { hasProxyUrl: !!layer.proxyUrl, proxyUrl: layer.proxyUrl });
-            }
-            return layer;
-        }
-
-        // Try to find in library
-        if (this._libraryLayers.has(layerId)) {
-            const layer = this._libraryLayers.get(layerId);
-            if (layerId.includes('bhuvan')) {
-                console.log(`[DEBUG REGISTRY] getLayer(${layerId}) found in library:`, { hasProxyUrl: !!layer.proxyUrl, proxyUrl: layer.proxyUrl });
-            }
-            return layer;
+            return this._registry.get(layerId);
         }
 
         console.warn(`[LayerRegistry] Layer not found: ${layerId} (context: ${contextAtlas})`);

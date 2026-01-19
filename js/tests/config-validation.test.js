@@ -5,28 +5,11 @@ const {validateJsonSyntax, validateConfigStructure} = require('./lint-json');
 
 describe('Config File Validation', () => {
     let configFiles = [];
-    let mapLayerPresets = null;
     let allAvailableLayerIds = new Set();
 
     beforeAll(async () => {
         // Load all config atlas JSON files
         configFiles = await glob('config/*.atlas.json', {cwd: process.cwd()});
-
-        // Load map layer presets
-        const presetsPath = path.resolve('config/_map-layer-presets.json');
-        if (fs.existsSync(presetsPath)) {
-            const presetsContent = fs.readFileSync(presetsPath, 'utf8');
-            mapLayerPresets = JSON.parse(presetsContent);
-        }
-
-        // Collect all layer IDs from presets
-        if (mapLayerPresets && mapLayerPresets.layers) {
-            mapLayerPresets.layers.forEach(layer => {
-                if (layer.id) {
-                    allAvailableLayerIds.add(layer.id);
-                }
-            });
-        }
 
         // Collect layer IDs from all atlas files (including inline definitions)
         configFiles.forEach(filePath => {
@@ -95,19 +78,6 @@ describe('Config File Validation', () => {
     });
 
     describe('Layer Reference Validation', () => {
-        test('should load map layer presets', () => {
-            expect(mapLayerPresets).not.toBeNull();
-            expect(mapLayerPresets.layers).toBeDefined();
-            expect(Array.isArray(mapLayerPresets.layers)).toBe(true);
-        });
-
-        test('should have unique layer IDs in presets', () => {
-            const layerIds = mapLayerPresets.layers.map(layer => layer.id).filter(id => id);
-            const uniqueIds = new Set(layerIds);
-
-            expect(layerIds.length).toBe(uniqueIds.size);
-        });
-
         test('should reference valid layer IDs in all config files', () => {
             const testFiles = configFiles.filter(file =>
                 !file.includes('_map-layer-presets.json') && !file.includes('_defaults.json')
@@ -202,59 +172,6 @@ describe('Config File Validation', () => {
                         .join('\n');
 
                     throw new Error(`Invalid layer references found in ${filePath}:\n${errorMessage}\n\nAll available layer IDs: ${Array.from(allAvailableLayerIds).sort().join(', ')}`);
-                }
-            });
-        });
-    });
-
-    describe('Map Layer Presets Validation', () => {
-        const presetsFile = 'config/_map-layer-presets.json';
-
-        test('should have required fields for each layer', () => {
-            mapLayerPresets.layers.forEach((layer, index) => {
-                const layerInfo = `[${presetsFile}] Layer at index ${index} (id: "${layer.id || 'undefined'}")`;
-
-                expect(layer.id, `${layerInfo}: missing 'id' field`).toBeDefined();
-                expect(typeof layer.id, `${layerInfo}: 'id' must be a string`).toBe('string');
-                expect(layer.id.length, `${layerInfo}: 'id' cannot be empty`).toBeGreaterThan(0);
-
-                expect(layer.title, `${layerInfo}: missing 'title' field`).toBeDefined();
-                expect(typeof layer.title, `${layerInfo}: 'title' must be a string`).toBe('string');
-                expect(layer.title.length, `${layerInfo}: 'title' cannot be empty`).toBeGreaterThan(0);
-
-                // Type should be one of the expected values
-                if (layer.type) {
-                    const validTypes = ['vector', 'geojson', 'tms', 'markers', 'csv', 'style', 'terrain', 'layer-group', 'img', 'raster-style-layer'];
-                    expect(validTypes, `${layerInfo}: invalid type "${layer.type}"`).toContain(layer.type);
-                }
-            });
-        });
-
-        test('should have valid headerImage paths for layers with images', () => {
-            mapLayerPresets.layers.forEach((layer, index) => {
-                const layerInfo = `[${presetsFile}] Layer at index ${index} (id: "${layer.id || 'undefined'}")`;
-
-                if (layer.headerImage) {
-                    expect(typeof layer.headerImage, `${layerInfo}: 'headerImage' must be a string`).toBe('string');
-                    expect(layer.headerImage.length, `${layerInfo}: 'headerImage' cannot be empty`).toBeGreaterThan(0);
-                    // Should start with assets/ for local images
-                    if (!layer.headerImage.startsWith('http')) {
-                        expect(layer.headerImage, `${layerInfo}: local headerImage must start with 'assets/'`).toMatch(/^assets\//);
-                    }
-                }
-            });
-        });
-
-        test('should have valid attribution for data layers', () => {
-            mapLayerPresets.layers.forEach((layer, index) => {
-                const layerInfo = `[${presetsFile}] Layer at index ${index} (id: "${layer.id || 'undefined'}")`;
-
-                // Skip style layers and terrain as they may not need attribution
-                if (layer.type && !['style', 'terrain'].includes(layer.type)) {
-                    if (layer.attribution) {
-                        expect(typeof layer.attribution, `${layerInfo}: 'attribution' must be a string`).toBe('string');
-                        expect(layer.attribution.length, `${layerInfo}: 'attribution' cannot be empty`).toBeGreaterThan(0);
-                    }
                 }
             });
         });

@@ -38,9 +38,9 @@ That's it! 🎉
 
 ## 🎯 How It Works (The Magic!)
 
-1. **Layer Library**: We have a library of 80+ pre-configured layers in `_map-layer-presets.json`
-2. **Simple References**: Just use the layer `id` and you get the full layer automatically
-3. **Easy Customization**: Override only what you want to change
+1. **Layer Definitions**: Each atlas file (`*.atlas.json`) contains complete layer definitions
+2. **Shared Layers**: Layers can be reused across multiple atlases by referencing them with prefixed IDs (e.g., `india-bhuvan-satellite`)
+3. **Easy Customization**: Override properties like opacity and visibility when referencing layers
 
 ## 📝 Step-by-Step: Create Your Own Map
 
@@ -75,7 +75,7 @@ Pick from these popular layer IDs:
 - `regional-plan` - Regional Development Plan 2021
 - `1906-india-atlas` - Historical 1906 atlas
 
-[See the complete list of 80+ layers in `_map-layer-presets.json`]
+[See layers in each atlas file: `india.atlas.json`, `goa.atlas.json`, `osm.atlas.json`, etc.]
 
 ### 2. Edit Your Configuration
 
@@ -303,7 +303,7 @@ If you need to define completely custom layers (not in the preset library), you 
 ## 📚 Resources
 
 - [Live Example](https://amche.in/dev/?atlas=maphub) - See the config system in action
-- [Layer Library](_map-layer-presets.json) - Browse all 80+ available layers
+- [Example Atlas Files](.) - Browse existing atlas configurations for layer examples
 - [Default Styling](_defaults.json) - See the default style settings
 - [JSON Validator](https://jsonlint.com) - Check your JSON syntax
 - [Mapbox Style Specification](https://docs.mapbox.com/style-spec/) - For advanced styling
