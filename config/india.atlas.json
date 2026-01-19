@@ -2889,28 +2889,27 @@
     },
     {
       "id": "bhuvan-satellite",
-      "title": "Satellite Imagery (Bhuvan)",
+      "title": "Bhuvan Satellite Imagery",
       "description": "High-resolution satellite imagery from ISRO Bhuvan",
       "type": "wms",
       "url": "https://bhuvan-ras1.nrsc.gov.in/tilecache/tilecache.py?service=WMS&version=1.1.1&request=GetMap&layers=bhuvan_ocm_wbase&styles=&format=image/jpeg&transparent=false",
       "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
       "proxyReferer": "https://bhuvan.nrsc.gov.in/",
-      "attribution": "<a href='https://bhuvan.nrsc.gov.in/ngmaps?mode=Hybrid#3.65/22.91/82.78'>ISRO Bhuvan</a>",
+      "attribution": "<a href='https://bhuvan.nrsc.gov.in/ngmaps?mode=Hybrid#3.65/22.91/82.78'>NRSC/ISRO Bhuvan</a>",
       "maxzoom": 19,
       "initiallyChecked": true
     },
     {
-      "id": "bhuvan-nsat",
-      "title": "Satellite Imagery (Bhuvan NDEM) - Disabled",
-      "description": "⚠️ This layer is currently disabled due to coordinate system incompatibility. The Bhuvan NSAT service only supports EPSG:4326 (lat/lng), but Mapbox GL JS requires EPSG:3857 (Web Mercator). Custom coordinate transformation would be needed.",
+      "id": "bhuvan-terrain",
+      "title": "Bhuvan Hypsometric Terrain",
+      "description": "Hypsometric terrain from ISRO Bhuvan",
       "type": "wms",
-      "url": "https://bhuvan-ras1.nrsc.gov.in/tilecache/tilecache.py?service=WMS&version=1.1.1&request=GetMap&layers=bhuvan_nsat&styles=&format=image/jpeg&transparent=false",
+      "url": "https://bhuvanmaps.nrsc.gov.in/ras2mapcache?service=WMS&version=1.1.1&request=GetMap&layers=ace2dem&styles=&format=image/jpeg&transparent=false",
       "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
-      "proxyReferer": "https://ndem.nrsc.gov.in/",
-      "attribution": "<a href='https://bhuvan.nrsc.gov.in/ngmaps?mode=Hybrid#3.65/22.91/82.78'>ISRO Bhuvan</a>",
+      "proxyReferer": "https://bhuvan.nrsc.gov.in/",
+      "attribution": "<a href='https://bhuvan.nrsc.gov.in/ngmaps?mode=Terrain#3.65/22.91/82.78'>NRSC/ISRO Bhuvan</a>",
       "maxzoom": 19,
-      "initiallyChecked": false,
-      "disabled": true
+      "initiallyChecked": true
     }
   ]
 }
