@@ -136,6 +136,15 @@
               "get",
               "Capacity"
             ],
+            1000
+          ],
+          8,
+          [
+            ">",
+            [
+              "get",
+              "Capacity"
+            ],
             500
           ],
           5,
@@ -151,11 +160,8 @@
           2
         ],
         "circle-color": "#4c7fff",
-        "circle-stroke-width": 1.5,
+        "circle-stroke-width": 0.8,
         "circle-stroke-color": "#ffffff",
-        "text-font": [
-          "Open Sans Regular"
-        ],
         "text-field": [
           "step",
           [
@@ -171,11 +177,13 @@
             ]
           ]
         ],
-        "text-size": 11,
-        "text-color": "#333",
-        "text-halo-color": "#fff",
-        "text-halo-width": 1.5,
-        "text-offset": [0, 1.2]
+        "symbol-sort-key": [
+          "to-number",
+          [
+            "get",
+            "Capacity"
+          ]
+        ]
       },
       "inspect": {
         "id": "Name",
