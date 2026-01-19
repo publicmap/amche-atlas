@@ -128,36 +128,36 @@ export class MapSearchControl {
     }
 
     /**
-     * Expand shortened URLs to their full destination
+     * Expand shortened URLs to their full destination using proxy service
      * @param {string} url - Shortened URL
      * @returns {Promise<string|null>} Expanded URL or null
      */
     async expandShortURL(url) {
         try {
-            console.debug('Attempting to expand shortened URL:', url);
+            console.debug('Attempting to expand shortened URL via proxy:', url);
 
-            const response = await fetch(url, {
-                method: 'HEAD',
-                redirect: 'follow'
-            });
+            const proxyUrl = window.amche?.PROXY_URL || 'https://amche-atlas-production.up.railway.app';
+            const expandEndpoint = `${proxyUrl}/expand?url=${encodeURIComponent(url)}`;
 
-            const expandedUrl = response.url;
-            console.debug('URL expanded to:', expandedUrl);
-            return expandedUrl;
-        } catch (error) {
-            console.debug('Error expanding URL:', error);
-            try {
-                const response = await fetch(url, {
-                    method: 'GET',
-                    redirect: 'follow'
-                });
-                const expandedUrl = response.url;
-                console.debug('URL expanded (via GET) to:', expandedUrl);
-                return expandedUrl;
-            } catch (getError) {
-                console.debug('Failed to expand URL with both HEAD and GET:', getError);
+            const response = await fetch(expandEndpoint);
+
+            if (!response.ok) {
+                console.debug('Proxy expansion failed:', response.status, response.statusText);
                 return null;
             }
+
+            const data = await response.json();
+            console.debug('URL expanded via proxy:', data);
+
+            if (data.expanded) {
+                console.debug('Expanded URL:', data.expanded);
+                return data.expanded;
+            }
+
+            return null;
+        } catch (error) {
+            console.debug('Error expanding URL via proxy:', error);
+            return null;
         }
     }
 

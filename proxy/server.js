@@ -74,29 +74,97 @@ app.get('/proxy', async (req, res) => {
     }
 });
 
+app.get('/expand', async (req, res) => {
+    try {
+        const targetUrl = req.query.url;
+
+        if (!targetUrl) {
+            return res.status(400).json({
+                error: 'Missing url parameter',
+                usage: '/expand?url=<shortened_url>',
+                examples: [
+                    '/expand?url=https://maps.app.goo.gl/abc123',
+                    '/expand?url=https://goo.gl/maps/xyz789'
+                ]
+            });
+        }
+
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(targetUrl);
+        } catch (e) {
+            return res.status(400).json({ error: 'Invalid URL provided' });
+        }
+
+        console.log(`[Expand] Following redirects for: ${targetUrl}`);
+
+        const response = await fetch(targetUrl, {
+            method: 'HEAD',
+            redirect: 'follow',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+            }
+        });
+
+        const expandedUrl = response.url;
+        console.log(`[Expand] Final URL: ${expandedUrl}`);
+
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        res.json({
+            original: targetUrl,
+            expanded: expandedUrl,
+            redirected: expandedUrl !== targetUrl
+        });
+
+    } catch (error) {
+        console.error('[Expand] Error:', error.message);
+        res.status(500).json({ error: 'URL expansion failed', message: error.message });
+    }
+});
+
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        endpoint: '/proxy',
-        parameters: {
-            url: {
-                required: true,
-                description: 'Target URL to fetch'
+        endpoints: {
+            proxy: {
+                path: '/proxy',
+                description: 'Proxy requests to avoid CORS issues',
+                parameters: {
+                    url: {
+                        required: true,
+                        description: 'Target URL to fetch'
+                    },
+                    referer: {
+                        required: false,
+                        description: 'Custom Referer header (defaults to target origin)'
+                    },
+                    cache: {
+                        required: false,
+                        description: 'Cache duration in seconds (default: 3600)'
+                    }
+                }
             },
-            referer: {
-                required: false,
-                description: 'Custom Referer header (defaults to target origin)'
-            },
-            cache: {
-                required: false,
-                description: 'Cache duration in seconds (default: 3600)'
+            expand: {
+                path: '/expand',
+                description: 'Expand shortened URLs by following redirects',
+                parameters: {
+                    url: {
+                        required: true,
+                        description: 'Shortened URL to expand'
+                    }
+                }
             }
         },
         examples: {
-            simple: '/proxy?url=https://example.com/image.jpg',
-            with_referer: '/proxy?url=https://api.example.com/data&referer=https://example.com/',
-            with_cache: '/proxy?url=https://api.example.com/live-data&cache=60'
+            proxy_simple: '/proxy?url=https://example.com/image.jpg',
+            proxy_with_referer: '/proxy?url=https://api.example.com/data&referer=https://example.com/',
+            proxy_with_cache: '/proxy?url=https://api.example.com/live-data&cache=60',
+            expand_goo_gl: '/expand?url=https://maps.app.goo.gl/abc123'
         }
     });
 });
