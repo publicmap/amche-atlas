@@ -16,22 +16,22 @@
         window.amche.LAYER_DEFAULTS = '/config/_defaults.json';
         window.amche.PROXY_URL = 'https://amche-atlas-production.up.railway.app'; // CORS proxy for URL expansion and resource fetching
         window.amche.MAPBOX_MAP_OPTIONS = {
-          container: 'map',
-          transformRequest: (url, resourceType) => {
-            if (resourceType === 'Tile' && url.includes('bhuvan-ras2.nrsc.gov.in/bhuvan-cache/')) {
-              const match = url.match(/\/bhuvan_img\/(\d+)\/(\d+)\/(\d+)\.jpeg/);
-              if (match) {
-                const [, z, x, y] = match;
-                const xPadded = x.padStart(9, '0');
-                const yPadded = y.padStart(9, '0');
-                const xPath = `${xPadded.slice(0, 3)}/${xPadded.slice(3, 6)}/${xPadded.slice(6, 9)}`;
-                const yPath = `${yPadded.slice(0, 3)}/${yPadded.slice(3, 6)}/${yPadded.slice(6, 9)}`;
-                const newUrl = `https://bhuvan-ras2.nrsc.gov.in/cachebcg/bhuvan_img/${z}/${xPath}/${yPath}.jpeg`;
-                return { url: newUrl };
-              }
+            container: 'map',
+            transformRequest: (url, resourceType) => {
+                if (resourceType === 'Tile' && url.includes('bhuvan-ras2.nrsc.gov.in/bhuvan-cache/')) {
+                    const match = url.match(/\/bhuvan_img\/(\d+)\/(\d+)\/(\d+)\.jpeg/);
+                    if (match) {
+                        const [, z, x, y] = match;
+                        const xPadded = x.padStart(9, '0');
+                        const yPadded = y.padStart(9, '0');
+                        const xPath = `${xPadded.slice(0, 3)}/${xPadded.slice(3, 6)}/${xPadded.slice(6, 9)}`;
+                        const yPath = `${yPadded.slice(0, 3)}/${yPadded.slice(3, 6)}/${yPadded.slice(6, 9)}`;
+                        const newUrl = `https://bhuvan-ras2.nrsc.gov.in/cachebcg/bhuvan_img/${z}/${xPath}/${yPath}.jpeg`;
+                        return { url: newUrl };
+                    }
+                }
+                return { url };
             }
-            return { url };
-          }
         };
     </script>
 
@@ -55,7 +55,8 @@
 
     <!-- Open Graph Meta Tags for Social Media -->
     <meta property="og:title" content="amche.in - community map atlas" />
-    <meta property="og:description" content="Explore free 3D maps from your local government and community. Run by citizen volunteers from Goa, India." />
+    <meta property="og:description"
+        content="Explore free 3D maps from your local government and community. Run by citizen volunteers from Goa, India." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://amche.in" />
     <meta property="og:image" content="https://amche.in/assets/img/og_image.jpg" />
@@ -65,7 +66,8 @@
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="amche.in - Interactive 3D Atlas" />
-    <meta name="twitter:description" content="A customizable and interactive 3D map explorer with various map layers from Government and open datasets like OpenStreetMap project. View landuse plans, parcels, administrative boundaries, natural hazards, protected areas, regulatory boundaries, street map features and more." />
+    <meta name="twitter:description"
+        content="A customizable and interactive 3D map explorer with various map layers from Government and open datasets like OpenStreetMap project. View landuse plans, parcels, administrative boundaries, natural hazards, protected areas, regulatory boundaries, street map features and more." />
     <meta name="twitter:image" content="https://amche.in/assets/img/og_image.jpg" />
 
     <!-- Progressive Web App Meta Tags -->
@@ -78,24 +80,33 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 
-    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap">
-    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="https://cdn.jsdelivr.net/npm/mapbox-gl@3.16.0/dist/mapbox-gl.min.css">
-    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.min.css">
+    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
+        href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap">
+    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
+        href="https://cdn.jsdelivr.net/npm/mapbox-gl@3.16.0/dist/mapbox-gl.min.css">
+    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
+        href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.min.css">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="css/styles.css">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="css/layer-interactions.css">
 
     <!-- Application Scripts -->
     <script defer src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script><!-- Tailwind CSS via CDN -->
     <script defer src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script><!-- Add jQuery -->
-    <script defer src="https://cdn.jsdelivr.net/npm/mapbox-gl@3.16.0/dist/mapbox-gl.min.js"></script><!-- Mapbox GL JS -->
+    <script defer src="https://cdn.jsdelivr.net/npm/mapbox-gl@3.16.0/dist/mapbox-gl.min.js"></script>
+    <!-- Mapbox GL JS -->
     <script defer src="https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js"></script><!-- Mapbox GL JS -->
-    <script defer src="https://cdn.jsdelivr.net/npm/@mapbox/search-js-web@1.0.0/dist/mapboxsearch.min.js"></script><!-- Mapbox Search JS -->
-    <script defer type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace.min.js"></script><!-- Shoelace Components -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@mapbox/search-js-web@1.0.0/dist/mapboxsearch.min.js"></script>
+    <!-- Mapbox Search JS -->
+    <script defer type="module"
+        src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace.min.js"></script>
+    <!-- Shoelace Components -->
     <script defer type="module" src="js/index.js"></script>
 </head>
 
 <body class="flex flex-col full-viewport-height">
-    <div id="loading" style="width: 100%;height: 100%;color: white;margin: auto;display: flex;z-index: -9999;position: fixed;font-size: 32px;align-items: center;justify-content: center;background-color: rgba(0, 0, 0, 0.5);">Loading</div>
+    <div id="loading"
+        style="width: 100%;height: 100%;color: white;margin: auto;display: flex;z-index: -9999;position: fixed;font-size: 32px;align-items: center;justify-content: center;background-color: rgba(0, 0, 0, 0.5);">
+        Loading</div>
     <!-- Header -->
     <header class="bg-gray-900 text-white p-4 flex justify-between items-center">
         <div class="flex items-center gap-4">
