@@ -144,6 +144,43 @@ app.get('/expand', async (req, res) => {
                     console.log(`[Expand] Redirect ${redirectCount + 1}: ${currentUrl} -> ${nextUrl}`);
                     currentUrl = nextUrl;
                     redirectCount++;
+                } else if (statusCode === 200 && (currentUrl.includes('goo.gl') || currentUrl.includes('maps.app.goo.gl'))) {
+                    console.log(`[Expand] Got 200 status for goo.gl URL, fetching HTML to parse JavaScript redirect`);
+
+                    const htmlResponse = await fetch(currentUrl, {
+                        method: 'GET',
+                        redirect: 'manual',
+                        headers: headers
+                    });
+
+                    const html = await htmlResponse.text();
+
+                    const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"']+)["'][^>]*>/i);
+                    if (metaRefreshMatch) {
+                        currentUrl = metaRefreshMatch[1];
+                        console.log(`[Expand] Found meta refresh redirect to: ${currentUrl}`);
+                        redirectCount++;
+                        continue;
+                    }
+
+                    const jsRedirectMatch = html.match(/window\.location\.(?:href|replace)\s*=\s*["']([^"']+)["']/i);
+                    if (jsRedirectMatch) {
+                        currentUrl = jsRedirectMatch[1];
+                        console.log(`[Expand] Found JavaScript redirect to: ${currentUrl}`);
+                        redirectCount++;
+                        continue;
+                    }
+
+                    const urlMatch = html.match(/https:\/\/(?:www\.)?google\.com\/maps[^\s"'<>]+/);
+                    if (urlMatch) {
+                        currentUrl = urlMatch[0].replace(/&amp;/g, '&');
+                        console.log(`[Expand] Extracted Google Maps URL from HTML: ${currentUrl}`);
+                        redirectCount++;
+                        break;
+                    }
+
+                    console.log(`[Expand] Could not find redirect in HTML content`);
+                    break;
                 } else {
                     console.log(`[Expand] Non-redirect status, final URL: ${currentUrl}`);
                     break;
