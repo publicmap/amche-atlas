@@ -98,18 +98,18 @@ export class MapSearchControl {
      * - Decimal degrees: "15.4921, 73.8435" or "73.8435, 15.4921"
      * - Space separated: "15.4921 73.8435" or "73.8435 15.4921"
      * - DMS: "15°29'31.5\"N 73°50'36.5\"E"
-     * - URLs from OSM and Google Maps (including shortened URLs)
+     * - URLs from OSM, Google Maps, and other mapping services
      * @param {string} input - Input string to parse
-     * @returns {Promise<Object|null>} Promise resolving to {lat, lng, format} or null
+     * @returns {Object|null} Object with {lat, lng, format} or null if not parseable
      */
-    async parseCoordinateInput(input) {
+    parseCoordinateInput(input) {
         if (!input || typeof input !== 'string') {
             return null;
         }
 
         input = input.trim();
 
-        const urlResult = await this.parseMapURL(input);
+        const urlResult = this.parseMapURL(input);
         if (urlResult) {
             return urlResult;
         }
@@ -128,59 +128,14 @@ export class MapSearchControl {
     }
 
     /**
-     * Expand shortened URLs to their full destination using proxy service
-     * @param {string} url - Shortened URL
-     * @returns {Promise<string|null>} Expanded URL or null
-     */
-    async expandShortURL(url) {
-        try {
-            console.debug('Attempting to expand shortened URL via proxy:', url);
-
-            const proxyUrl = window.amche?.PROXY_URL || 'https://amche-atlas-production.up.railway.app';
-            const expandEndpoint = `${proxyUrl}/expand?url=${encodeURIComponent(url)}`;
-
-            const response = await fetch(expandEndpoint);
-
-            if (!response.ok) {
-                console.debug('Proxy expansion failed:', response.status, response.statusText);
-                return null;
-            }
-
-            const data = await response.json();
-            console.debug('URL expanded via proxy:', data);
-
-            if (data.expanded) {
-                console.debug('Expanded URL:', data.expanded);
-                return data.expanded;
-            }
-
-            return null;
-        } catch (error) {
-            console.debug('Error expanding URL via proxy:', error);
-            return null;
-        }
-    }
-
-    /**
      * Parse mapping service URLs using regex patterns
      * Works with any mapping service that uses standard coordinate URL formats
-     * Supports shortened URLs by expanding them first
+     * Note: Shortened URLs (goo.gl) require JavaScript and cannot be parsed
      * @param {string} url - URL string
-     * @returns {Promise<Object|null>} Promise resolving to coordinate object or null
+     * @returns {Object|null} Coordinate object or null
      */
-    async parseMapURL(url) {
+    parseMapURL(url) {
         try {
-            if (url.includes('maps.app.goo.gl') || url.includes('goo.gl/maps') || url.includes('goo.gl')) {
-                console.debug('Shortened URL detected, expanding...');
-                const expandedUrl = await this.expandShortURL(url);
-                if (expandedUrl) {
-                    url = expandedUrl;
-                    console.debug('Using expanded URL for parsing:', url);
-                } else {
-                    console.debug('Could not expand shortened URL');
-                    return null;
-                }
-            }
 
             const patterns = [
                 {
@@ -847,7 +802,7 @@ export class MapSearchControl {
      * Handle input events to detect coordinate patterns and query local suggestions
      * @param {Event} event - The input event
      */
-    async handleInput(event) {
+    handleInput(event) {
         // Get the input value from the search box
         let query = '';
 
@@ -883,7 +838,7 @@ export class MapSearchControl {
         this.currentQuery = query;
         console.debug('Input value:', query);
 
-        const coordinateResult = await this.parseCoordinateInput(query);
+        const coordinateResult = this.parseCoordinateInput(query);
         if (coordinateResult) {
             console.debug('Coordinate detected:', coordinateResult);
             this.isCoordinateInput = true;
