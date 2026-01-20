@@ -1,17 +1,21 @@
-# Bhuvan Tile Proxy
+# Generic CORS Proxy Server
 
-A simple Node.js proxy server to bypass Referer header restrictions when accessing ISRO Bhuvan satellite imagery tiles.
+A simple Node.js proxy server to bypass CORS and Referer header restrictions when accessing web services and tile servers.
 
-## Problem
+## Features
 
-Bhuvan's tile servers check the `Referer` header and only serve tiles to whitelisted domains. Since browsers prevent JavaScript from modifying the `Referer` header, we need a backend proxy.
+- **Generic proxy endpoint** - Works with any URL, not just specific services
+- **Custom Referer headers** - Bypass Referer-based restrictions
+- **CORS enabled** - Full CORS support for browser requests
+- **Caching** - Configurable cache duration for responses
+- **Health check** - Monitor server status and configuration
 
-## Solution
+## Use Cases
 
-This proxy server:
-- Receives tile requests from your frontend
-- Forwards them to Bhuvan servers with the correct `Referer` header
-- Returns the tile images with appropriate CORS headers
+- Accessing ISRO Bhuvan satellite imagery tiles
+- Bypassing CORS restrictions on web services
+- Proxying tile requests with custom headers
+- Any HTTP resource that requires specific headers
 
 ## Local Development
 
@@ -22,7 +26,7 @@ This proxy server:
 
 1. Install dependencies:
 ```bash
-cd proxy
+cd server
 npm install
 ```
 
@@ -31,107 +35,220 @@ npm install
 npm start
 ```
 
-The proxy will run on `http://localhost:3000`
+The proxy will run on `http://localhost:8080`
 
 3. Test it:
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:8080/health
 ```
 
-### Usage
+### API Endpoints
 
-The proxy exposes two endpoints:
+#### `/proxy` - Generic proxy endpoint
 
-**WMS Tiles** (via TileCache):
+Fetches any URL with custom headers and CORS support.
+
+**Parameters:**
+- `url` (required) - Target URL to fetch
+- `referer` (optional) - Custom Referer header (defaults to target origin)
+- `cache` (optional) - Cache duration in seconds (default: 3600)
+
+**Examples:**
+```bash
+# Simple proxy request
+curl "http://localhost:8080/proxy?url=https://example.com/image.jpg"
+
+# With custom Referer
+curl "http://localhost:8080/proxy?url=https://api.example.com/data&referer=https://example.com/"
+
+# With custom cache duration
+curl "http://localhost:8080/proxy?url=https://api.example.com/live-data&cache=60"
 ```
-http://localhost:3000/bhuvan/tilecache/tilecache.py?service=WMS&...
+
+**Usage in layer configs:**
+```json
+{
+  "id": "bhuvan-satellite",
+  "type": "raster",
+  "url": "https://your-proxy.railway.app/proxy?url=https://bhuvan.nrsc.gov.in/tile/{z}/{x}/{y}.png&referer=https://bhuvan.nrsc.gov.in/"
+}
 ```
 
-**Direct Cache Tiles**:
-```
-http://localhost:3000/bhuvan-cache/cachebcg/bhuvan_img/17/000/184/789/000/076/823.jpeg
+#### `/health` - Health check endpoint
+
+Returns server status and API documentation.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-01-20T12:00:00.000Z",
+  "endpoint": "/proxy",
+  "parameters": { ... },
+  "examples": { ... }
+}
 ```
 
-## Deployment Options
+## Deployment
 
-### Option 1: Railway (Recommended - Free Tier Available)
+### Current Production Deployment
+
+The proxy is deployed on Railway at:
+```
+https://amche-atlas-production.up.railway.app
+```
+
+**Test it:**
+```bash
+curl "https://amche-atlas-production.up.railway.app/health"
+```
+
+### Deploy Your Own Instance
+
+#### Option 1: Railway (Recommended)
+
+Railway automatically detects and deploys the server when you push to GitHub.
 
 1. Install Railway CLI:
 ```bash
 npm install -g @railway/cli
 ```
 
-2. Login and deploy:
+2. Login and link to your project:
 ```bash
 railway login
-railway init
+railway link
+```
+
+3. Deploy:
+```bash
 railway up
 ```
 
-3. Get your deployment URL:
+4. Get your deployment URL:
 ```bash
 railway domain
 ```
 
-### Option 2: Render (Free Tier Available)
+The server uses `railway.json` for configuration:
+```json
+{
+  "build": { "builder": "NIXPACKS" },
+  "deploy": {
+    "startCommand": "node server.js",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
+```
 
-1. Push this code to GitHub
+#### Option 2: Render (Free Tier)
+
+1. Push code to GitHub
 2. Go to https://render.com
 3. Click "New +" → "Web Service"
 4. Connect your GitHub repo
 5. Configure:
-   - **Root Directory**: `proxy`
+   - **Root Directory**: `server`
    - **Build Command**: `npm install`
    - **Start Command**: `npm start`
    - **Plan**: Free
 
-### Option 3: Vercel (Serverless)
+#### Option 3: Local with ngrok (Testing)
 
-Create `proxy/vercel.json`:
-```json
-{
-  "version": 2,
-  "builds": [{ "src": "server.js", "use": "@vercel/node" }],
-  "routes": [{ "src": "/(.*)", "dest": "/server.js" }]
-}
-```
-
-Deploy:
+1. Start the proxy locally:
 ```bash
-cd proxy
-vercel
+npm start
 ```
 
-### Option 4: Local with ngrok (Testing)
-
-1. Start the proxy locally
-2. Install ngrok: https://ngrok.com/download
-3. Expose it:
+2. Install and run ngrok:
 ```bash
-ngrok http 3000
+ngrok http 8080
 ```
 
-Use the ngrok URL (e.g., `https://abc123.ngrok.io`) in your layer configs.
+3. Use the ngrok URL in your layer configs
 
-## Updating Layer Configs
+## Environment Variables
 
-Once deployed, update your layer URLs in `config/india.atlas.json`:
+- `PORT` - Server port (default: 8080)
 
+Set in Railway dashboard or your deployment platform.
+
+## Layer Configuration Examples
+
+### Bhuvan Satellite Imagery
 ```json
 {
   "id": "bhuvan-satellite",
-  "type": "wms",
-  "url": "https://your-proxy-url.com/bhuvan/tilecache/tilecache.py?service=WMS&version=1.1.1&request=GetMap&layers=bhuvan_ocm_wbase&styles=&format=image/png&transparent=true"
+  "type": "raster",
+  "tiles": [
+    "https://amche-atlas-production.up.railway.app/proxy?url=https://bhuvan.nrsc.gov.in/tile/{z}/{x}/{y}.png&referer=https://bhuvan.nrsc.gov.in/"
+  ]
 }
 ```
 
-## Security Notes
+### Generic WMS Service
+```json
+{
+  "id": "custom-wms",
+  "type": "raster",
+  "tiles": [
+    "https://amche-atlas-production.up.railway.app/proxy?url=https://example.com/wms?bbox={bbox}&width=256&height=256&cache=3600"
+  ]
+}
+```
 
-- This proxy is designed for accessing public Bhuvan data
-- Consider adding rate limiting for production use
-- Monitor your proxy usage to stay within free tier limits
-- The `Referer` header is set to match Bhuvan's official apps
+## Monitoring and Logs
+
+View Railway logs:
+```bash
+railway logs
+```
+
+Or visit the Railway dashboard to monitor:
+- Request volume
+- Error rates
+- Response times
+- Resource usage
+
+## Security and Best Practices
+
+- **Public data only**: Designed for accessing public web services
+- **Rate limiting**: Consider implementing rate limiting for production
+- **Monitor usage**: Stay within free tier limits (Railway: 500 hours/month)
+- **CORS headers**: Automatically set for browser compatibility
+- **Cache headers**: Reduces redundant requests and improves performance
+- **Error handling**: Returns appropriate HTTP status codes
+
+## Troubleshooting
+
+**Server not responding:**
+```bash
+# Check health endpoint
+curl https://amche-atlas-production.up.railway.app/health
+
+# Check Railway status
+railway status
+```
+
+**CORS errors:**
+- Verify the proxy URL is correct
+- Check browser console for specific error messages
+- Ensure `Access-Control-Allow-Origin` is set in response headers
+
+**Slow responses:**
+- Increase cache duration with `?cache=7200`
+- Check Railway resource usage
+- Consider upgrading Railway plan for better performance
+
+## Development Workflow
+
+1. Make changes to `server.js`
+2. Test locally: `npm start`
+3. Commit and push to GitHub
+4. Railway automatically deploys
+5. Monitor logs: `railway logs`
 
 ## License
 
-Same as parent project
+Same as parent project (amche-atlas)
