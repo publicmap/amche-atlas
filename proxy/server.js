@@ -147,8 +147,8 @@ app.get('/expand', async (req, res) => {
                 // For 200 responses, check if the body contains a redirect
                 const html = await response.text();
 
-                // Log the first 500 characters of HTML to debug
-                console.log('[Expand] HTML preview:', html.substring(0, 500));
+                // Log the first 1000 characters of HTML to debug (increased to see more of the script)
+                console.log('[Expand] HTML preview:', html.substring(0, 1000));
 
                 // Check for meta refresh
                 const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'][^;]*;\s*url=([^"']+)["']/i);
@@ -181,6 +181,38 @@ app.get('/expand', async (req, res) => {
                     currentUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, currentUrl).href;
                     redirectCount++;
                     continue;
+                }
+
+                // Check for Firebase Dynamic Links script data (script tag with data-id="_gd")
+                const scriptMatch = html.match(/<script data-id="_gd"[^>]*>(.*?)<\/script>/s);
+                if (scriptMatch) {
+                    const scriptContent = scriptMatch[1];
+                    console.log('[Expand] Found _gd script, parsing content');
+
+                    // Try to parse the script content as JSON or extract URLs from it
+                    try {
+                        // Look for any google.com/maps URL in the script content
+                        const scriptUrlMatch = scriptContent.match(/https:\/\/(?:www\.)?google\.com\/maps\/[^"'\s,}]+/i);
+                        if (scriptUrlMatch) {
+                            const redirectUrl = scriptUrlMatch[0];
+                            console.log(`[Expand] Found Google Maps URL in script: ${redirectUrl}`);
+                            currentUrl = redirectUrl;
+                            redirectCount++;
+                            continue;
+                        }
+
+                        // Also try to find "link" or "url" properties in JSON-like structure
+                        const linkMatch = scriptContent.match(/["']?(?:link|url|deepLink)["']?\s*:\s*["']([^"']+)["']/i);
+                        if (linkMatch) {
+                            const redirectUrl = linkMatch[1];
+                            console.log(`[Expand] Found link property in script: ${redirectUrl}`);
+                            currentUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, currentUrl).href;
+                            redirectCount++;
+                            continue;
+                        }
+                    } catch (error) {
+                        console.log('[Expand] Error parsing script content:', error.message);
+                    }
                 }
 
                 // Check for any URL in the HTML that looks like a Google Maps URL
