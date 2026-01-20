@@ -1729,7 +1729,7 @@ export class MapFeatureControl {
 
         // Remove Button
         const removeBtn = document.createElement('sl-icon-button');
-        removeBtn.name = 'x-circle-fill';
+        removeBtn.name = 'x-circle';
         removeBtn.label = 'Remove layer';
         removeBtn.className = 'layer-remove-btn';
         removeBtn.style.color = '#ef4444';
