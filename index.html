@@ -15,22 +15,7 @@
         window.amche.DEFAULT_ATLAS = '/config/index.atlas.json';
         window.amche.LAYER_DEFAULTS = '/config/_defaults.json';
         window.amche.MAPBOX_MAP_OPTIONS = {
-            container: 'map',
-            transformRequest: (url, resourceType) => {
-                if (resourceType === 'Tile' && url.includes('bhuvan-ras2.nrsc.gov.in/bhuvan-cache/')) {
-                    const match = url.match(/\/bhuvan_img\/(\d+)\/(\d+)\/(\d+)\.jpeg/);
-                    if (match) {
-                        const [, z, x, y] = match;
-                        const xPadded = x.padStart(9, '0');
-                        const yPadded = y.padStart(9, '0');
-                        const xPath = `${xPadded.slice(0, 3)}/${xPadded.slice(3, 6)}/${xPadded.slice(6, 9)}`;
-                        const yPath = `${yPadded.slice(0, 3)}/${yPadded.slice(3, 6)}/${yPadded.slice(6, 9)}`;
-                        const newUrl = `https://bhuvan-ras2.nrsc.gov.in/cachebcg/bhuvan_img/${z}/${xPath}/${yPath}.jpeg`;
-                        return { url: newUrl };
-                    }
-                }
-                return { url };
-            }
+            container: 'map'
         };
     </script>
 
