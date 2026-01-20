@@ -186,13 +186,11 @@ export class MapSearchControl {
                     if (!isNaN(lat) && !isNaN(lng) && this.isValidCoordinate(lat, lng)) {
                         const hostname = this.extractHostname(url);
                         const displayName = hostname ? `${hostname} URL (${pattern.name})` : `Map URL (${pattern.name})`;
-                        console.debug(`Parsed coordinates from ${displayName}:`, { lat, lng });
                         return { lat, lng, format: displayName };
                     }
                 }
             }
         } catch (error) {
-            console.debug('Error parsing map URL:', error);
         }
         return null;
     }
@@ -387,11 +385,8 @@ export class MapSearchControl {
             if (searchBoxInput) {
                 searchBoxInput.value = value;
 
-                // Trigger an input event to update the component's internal state
                 const inputEvent = new Event('input', { bubbles: true });
                 searchBoxInput.dispatchEvent(inputEvent);
-            } else {
-                console.warn('Could not find search box input element to update');
             }
         } catch (error) {
             console.error('Error updating search box input:', error);
@@ -684,10 +679,8 @@ export class MapSearchControl {
                 $('[role="listbox"]').first();
 
             if ($resultsList.length > 0) {
-                const removedCount = $resultsList.find('.local-suggestion').length;
                 $resultsList.find('.local-suggestion').remove();
-                this.updateComboboxAriaExpanded(false); // Update aria-expanded on clear
-                console.debug(`Cleared ${removedCount} injected suggestions from UI`);
+                this.updateComboboxAriaExpanded(false);
             }
         } catch (error) {
             console.error('Error clearing injected suggestions:', error);
@@ -703,10 +696,7 @@ export class MapSearchControl {
             const clearButton = this.searchBox.shadowRoot?.querySelector('.mbx08a7cde1--ClearBtn, [aria-label="Clear"]');
 
             if (clearButton && !clearButton._clearHandlerAttached) {
-                console.debug('Attaching click handler to clear button');
                 clearButton.addEventListener('click', () => {
-                    console.debug('Clear button clicked - clearing URL parameter');
-                    // Give the search box a moment to clear the input
                     setTimeout(() => {
                         if (window.urlManager) {
                             window.urlManager.updateSearchParam('');
@@ -753,9 +743,7 @@ export class MapSearchControl {
             if (searchBoxInput) {
                 const currentValue = searchBoxInput.value || '';
 
-                // If the value is empty and we haven't handled it yet
                 if (!currentValue && this.currentQuery) {
-                    console.debug('Detected empty input, triggering clear');
                     this.handleEmptyInput();
                 }
             }
@@ -768,35 +756,17 @@ export class MapSearchControl {
      * Handle empty input state
      */
     handleEmptyInput() {
-        console.debug('=== HANDLING EMPTY INPUT ===');
-        console.debug('Current state before clear:', {
-            searchMarkerExists: !!this.searchMarker,
-            suggestionMarkersCount: this.suggestionMarkers.length,
-            currentQuery: this.currentQuery,
-            localSuggestionsCount: this.localSuggestions.length,
-            hasActiveSearch: this.hasActiveSearch,
-            hasReferenceView: !!this.referenceView
-        });
-
-        // Reset all search state (including suggestion markers) but don't change map location
         this.resetSearchState();
 
-        // Clear search marker when input is cleared
         this.removeSearchMarker();
 
-        // Clear feature state when input is cleared
         if (this.featureStateManager) {
             this.featureStateManager.clearAllSelections();
-            console.debug('Cleared feature state due to empty search input');
         }
 
-        // Clear URL parameter to keep in sync with input
         if (window.urlManager) {
             window.urlManager.updateSearchParam('');
         }
-
-        console.debug('Empty input handling complete - all markers and state cleared (map location unchanged)');
-        console.debug('=== EMPTY INPUT HANDLING COMPLETE ===');
     }
 
     /**
@@ -816,7 +786,6 @@ export class MapSearchControl {
             if (searchBoxInput && searchBoxInput.value !== undefined) {
                 query = searchBoxInput.value;
             } else {
-                console.warn('Could not find search box input element');
                 return;
             }
         } catch (error) {
@@ -829,23 +798,18 @@ export class MapSearchControl {
             return;
         }
 
-        // Save reference view when search starts (first time with non-empty query)
         if (!this.hasActiveSearch && query.length > 0) {
-            console.debug('Starting new search - saving reference view');
             this.saveReferenceView();
             this.hasActiveSearch = true;
         }
 
         this.currentQuery = query;
-        console.debug('Input value:', query);
 
         const coordinateResult = this.parseCoordinateInput(query);
         if (coordinateResult) {
-            console.debug('Coordinate detected:', coordinateResult);
             this.isCoordinateInput = true;
 
             const { lat, lng, format } = coordinateResult;
-            console.debug(`Valid coordinates from ${format}: lat=${lat}, lng=${lng}`);
 
             this.coordinateSuggestion = {
                 type: 'Feature',
@@ -865,12 +829,10 @@ export class MapSearchControl {
             this.localSuggestions = [];
 
             this.addSearchMarker([lng, lat], this.coordinateSuggestion.properties.place_name);
-            console.debug('Added marker for detected coordinate:', { lat, lng, format });
 
             if (this.referenceView) {
                 const bounds = this.calculateContextBounds([[lng, lat]]);
                 if (bounds) {
-                    console.debug('Fitting map to show reference and coordinate location');
                     this.map.fitBounds(bounds, {
                         padding: { top: 50, bottom: 50, left: 50, right: 50 },
                         maxZoom: 16,
@@ -884,55 +846,32 @@ export class MapSearchControl {
 
             this.removeSearchMarker();
 
-            // Query local cadastral suggestions for non-coordinate input
             this.localSuggestions = this.queryLocalCadastralSuggestions(query);
-            console.debug(`Found ${this.localSuggestions.length} local suggestions for query: "${query}"`);
 
-            // If we have local suggestions, create markers and inject them into UI
             if (this.localSuggestions.length > 0) {
-                console.debug('=== PROCESSING LOCAL SUGGESTIONS ===');
-
-                // Create suggestion markers for visual context
                 this.createSuggestionMarkers();
 
-                // Clear any existing injection timeout
                 if (this.injectionTimeout) {
                     clearTimeout(this.injectionTimeout);
-                    console.debug('Cleared existing injection timeout');
                 }
 
-                // Set a new timeout to inject suggestions into UI and show markers
                 this.injectionTimeout = setTimeout(() => {
-                    console.debug('Injecting suggestions into UI after delay');
                     this.injectLocalSuggestionsIntoUI();
-
-                    // Ensure markers are shown on the map (critical step)
-                    console.debug('Showing suggestion markers on map');
                     this.showSuggestionMarkers();
-
-                    // Fit bounds to show reference and all suggestions
-                    console.debug('Fitting map to show reference and all suggestions');
                     this.fitToContextWithAllSuggestions();
+                }, 300);
 
-                    console.debug('=== LOCAL SUGGESTIONS PROCESSING COMPLETE ===');
-                }, 300); // Reduced delay for faster response
-
-                // Also show markers immediately if no Mapbox suggestions expected
-                // This handles cases where Mapbox doesn't trigger suggestions
                 setTimeout(() => {
                     if (this.suggestionMarkers.length > 0) {
                         const visibleCount = this.suggestionMarkers.filter(m => m.visible).length;
                         if (visibleCount === 0) {
-                            console.debug('Fallback: Showing markers immediately as they were not shown yet');
                             this.showSuggestionMarkers();
-                            // Also trigger fitBounds as fallback
                             this.fitToContextWithAllSuggestions();
                         }
                     }
-                }, 100); // Quick fallback check
+                }, 100);
 
             } else {
-                console.debug('No local suggestions found - clearing any existing suggestion markers');
                 this.clearSuggestionMarkers();
             }
         }
@@ -943,18 +882,10 @@ export class MapSearchControl {
      * @param {Event} event - The suggest event
      */
     handleSuggest(event) {
-        console.debug('Suggest event received:', event);
-
-        // Only handle coordinate suggestions via events now
-        // Local cadastral suggestions are handled via direct DOM injection
         if (this.isCoordinateInput && this.coordinateSuggestion) {
-            console.debug('Handling coordinate suggestion via event');
-
-            // Prevent the default suggest behavior
             event.preventDefault();
             event.stopPropagation();
 
-            // Create a custom suggest event with coordinate suggestion
             const customSuggestEvent = new CustomEvent('suggest', {
                 detail: {
                     suggestions: [this.coordinateSuggestion]
@@ -963,8 +894,6 @@ export class MapSearchControl {
                 cancelable: true
             });
 
-            console.debug('Creating custom suggest event for coordinate');
-
             // Dispatch the custom event asynchronously
             setTimeout(() => {
                 this.searchBox.dispatchEvent(customSuggestEvent);
@@ -972,10 +901,6 @@ export class MapSearchControl {
 
             return false;
         }
-
-        // For non-coordinate input, let Mapbox handle normally
-        // Our local suggestions will be injected via DOM manipulation
-        console.debug('Allowing default suggest behavior, local suggestions handled via DOM injection');
 
         // If we have local suggestions, re-inject them after Mapbox updates
         if (!this.isCoordinateInput && this.localSuggestions.length > 0) {
@@ -999,21 +924,13 @@ export class MapSearchControl {
      * @param {Event} event - The retrieve event
      */
     handleRetrieve(event) {
-        console.debug('Retrieve event received:', event);
-
         if (event.detail && event.detail.features && event.detail.features.length > 0) {
             const feature = event.detail.features[0];
             const coordinates = feature.geometry.coordinates;
 
-            console.debug('Flying to coordinates:', coordinates);
-
-            // Check if this is a local cadastral suggestion
             const isLocalSuggestion = feature.properties && feature.properties._isLocalSuggestion;
 
             if (isLocalSuggestion) {
-                console.debug('Selected local cadastral suggestion:', feature.properties.name);
-
-                // Update the search box input to show the selected result
                 this.updateSearchBoxInput(feature.properties.name);
 
                 // Add a marker at the location
@@ -1027,14 +944,9 @@ export class MapSearchControl {
                     duration: 2000
                 });
 
-                // Set feature state to selected if we have the feature state manager and feature ID
                 if (this.featureStateManager && feature.properties._featureId) {
-                    console.debug('Setting feature state for plot:', feature.properties._featureId);
-
-                    // Clear any existing selection first
                     this.featureStateManager.clearAllSelections();
 
-                    // Set the new selection
                     this.featureStateManager.selectedFeatureId = feature.properties._featureId;
                     this.featureStateManager.selectedSourceId = 'vector-goa-plots';
                     this.featureStateManager.selectedSourceLayer = 'Onemapgoa_GA_Cadastrals';
@@ -1048,7 +960,6 @@ export class MapSearchControl {
                             },
                             { selected: true }
                         );
-                        console.debug('Successfully set feature state to selected');
                     } catch (error) {
                         console.error('Error setting feature state:', error);
                     }
@@ -1078,20 +989,6 @@ export class MapSearchControl {
      */
     highlightCadastralPlot(plotProperties) {
         try {
-            console.debug('Highlighting cadastral plot:', plotProperties);
-
-            // You could add custom highlighting logic here if desired
-            // For example, temporarily change the style of the selected plot
-            // or show a popup with additional plot information
-
-            // Example: Log the plot information
-            if (plotProperties) {
-                console.debug('Plot details:', {
-                    plot: plotProperties.plot,
-                    // Add other relevant properties as needed
-                    ...plotProperties
-                });
-            }
         } catch (error) {
             console.error('Error highlighting cadastral plot:', error);
         }
@@ -1108,23 +1005,13 @@ export class MapSearchControl {
         }
 
         try {
-            // Get the current map bounds for spatial filtering
             const bounds = this.map.getBounds();
-            console.debug('Querying cadastral features within current viewport bounds:', {
-                southwest: bounds.getSouthWest().toArray(),
-                northeast: bounds.getNorthEast().toArray()
-            });
 
-            // Query features from the cadastral source layer within current viewport
             const features = this.map.querySourceFeatures('vector-goa-plots', {
                 sourceLayer: 'Onemapgoa_GA_Cadastrals',
-                filter: ['has', 'plot'] // Only get features that have a plot property
+                filter: ['has', 'plot']
             });
 
-            console.debug(`Found ${features.length} cadastral features with 'plot' property in current viewport`);
-
-            // Additional spatial filtering to ensure features are within bounds
-            // (querySourceFeatures should already filter by viewport, but let's be explicit)
             const featuresInBounds = features.filter(feature => {
                 const center = this.getFeatureCenter(feature);
                 if (!center || center.length < 2) return false;
@@ -1133,46 +1020,18 @@ export class MapSearchControl {
                 return bounds.contains([lng, lat]);
             });
 
-            console.debug(`After spatial filtering: ${featuresInBounds.length} features within bounds`);
-
-            // Log some sample features and their properties (only on first query to avoid spam)
-            if (featuresInBounds.length > 0 && !this.hasActiveSearch) {
-                console.debug('Sample feature properties:', featuresInBounds[0].properties);
-                console.debug('All property keys in first feature:', Object.keys(featuresInBounds[0].properties || {}));
-
-                // Log first few plot values to see what we're working with
-                const plotValues = featuresInBounds.slice(0, 10).map(f => f.properties?.plot).filter(Boolean);
-                console.debug('Sample plot values from first 10 features:', plotValues);
-            }
-
-            // Filter features by plot property that starts with the query (case insensitive)
             const matchingFeatures = featuresInBounds.filter(feature => {
                 const plotValue = feature.properties.plot;
                 if (!plotValue) return false;
 
-                // Convert to string and check if it starts with the query (case insensitive)
                 const plotString = String(plotValue).toLowerCase();
                 const queryLower = query.toLowerCase();
 
                 const isMatch = plotString.startsWith(queryLower);
 
-                // Log detailed matching info for debugging (only for small datasets or matches)
-                if (featuresInBounds.length <= 10 || isMatch) {
-                    console.debug(`Plot "${plotValue}" -> "${plotString}" ${isMatch ? 'MATCHES' : 'does not match'} query "${queryLower}"`);
-                }
-
                 return isMatch;
             });
 
-            console.debug(`Found ${matchingFeatures.length} matching cadastral plots within viewport for query: "${query}"`);
-
-            // If we have matching features, log their plot values
-            if (matchingFeatures.length > 0) {
-                const matchingPlots = matchingFeatures.map(f => f.properties.plot);
-                console.debug(`Matching plot values in viewport:`, matchingPlots);
-            }
-
-            // Group features by unique location to avoid duplicates
             const uniqueFeatures = [];
             const seenLocations = new Set();
 
@@ -1181,19 +1040,15 @@ export class MapSearchControl {
                 const lname = feature.properties.lname || '';
                 const villagenam = feature.properties.villagenam || '';
 
-                // Create a unique key for this location
                 const locationKey = `${plotValue}|${villagenam}|${lname}`;
 
                 if (!seenLocations.has(locationKey)) {
                     seenLocations.add(locationKey);
                     uniqueFeatures.push(feature);
 
-                    // Stop when we have enough unique suggestions
                     if (uniqueFeatures.length >= 5) break;
                 }
             }
-
-            console.debug(`Reduced ${matchingFeatures.length} matching features to ${uniqueFeatures.length} unique locations`);
 
             // Convert to suggestion format and limit results
             const suggestions = uniqueFeatures
@@ -1214,8 +1069,6 @@ export class MapSearchControl {
                     const fullDescription = locationParts.length > 1 ?
                         `Plot ${plotValue}, ${locationString}` :
                         `Plot ${plotValue}, Cadastral Survey, Goa`;
-
-                    console.debug(`Creating suggestion for plot ${plotValue} with feature ID: ${featureId}`);
 
                     return {
                         type: 'Feature',
@@ -1289,7 +1142,6 @@ export class MapSearchControl {
                 return this.calculateLineMidpoint(feature.geometry);
 
             default:
-                console.warn('Unknown geometry type:', feature.geometry.type);
                 return [0, 0];
         }
     }
@@ -1351,25 +1203,10 @@ export class MapSearchControl {
      * Clean up the search control
      */
     cleanup() {
-        console.debug('=== CLEANING UP MAP SEARCH CONTROL ===');
-        console.debug('Cleanup state:', {
-            searchMarkerExists: !!this.searchMarker,
-            suggestionMarkersCount: this.suggestionMarkers.length,
-            injectionTimeoutActive: !!this.injectionTimeout,
-            inputMonitorActive: !!this.inputMonitorInterval,
-            hasActiveSearch: this.hasActiveSearch,
-            hasReferenceView: !!this.referenceView
-        });
-
-        // Remove search marker
         this.removeSearchMarker();
-        console.debug('Removed search marker');
 
-        // Clear all suggestion markers
         this.clearSuggestionMarkers();
-        console.debug('Cleared all suggestion markers');
 
-        // Clear timeouts and intervals
         if (this.injectionTimeout) {
             clearTimeout(this.injectionTimeout);
             this.injectionTimeout = null;
@@ -1378,44 +1215,30 @@ export class MapSearchControl {
         if (this.inputMonitorInterval) {
             clearInterval(this.inputMonitorInterval);
             this.inputMonitorInterval = null;
-            console.debug('Cleared input monitor interval');
         }
 
-        // Reset map context state
         this.hasActiveSearch = false;
         this.referenceView = null;
-        console.debug('Reset map context state');
 
-        // Remove event listeners if search box exists
         if (this.searchBox) {
             this.searchBox.removeEventListener('suggest', this.handleSuggest.bind(this));
             this.searchBox.removeEventListener('retrieve', this.handleRetrieve.bind(this));
             this.searchBox.removeEventListener('input', this.handleInput.bind(this));
             this.searchBox.removeEventListener('keydown', this.handleKeyDown.bind(this));
             this.searchBox.removeEventListener('clear', this.handleClear.bind(this));
-            console.debug('Removed event listeners from search box');
         }
 
-        // Remove map event listeners
         this.map.off('moveend', this.handleMapMoveEnd.bind(this));
-        console.debug('Removed map event listeners');
 
-        // Disconnect MutationObserver for aria-expanded monitoring
         if (this.ariaObserver) {
             this.ariaObserver.disconnect();
             this.ariaObserver = null;
-            console.debug('Disconnected aria-expanded monitoring observer');
         }
 
-        // Disconnect MutationObserver for clear button monitoring
         if (this.clearButtonObserver) {
             this.clearButtonObserver.disconnect();
             this.clearButtonObserver = null;
-            console.debug('Disconnected clear button monitoring observer');
         }
-
-        console.debug('MapSearchControl cleanup complete');
-        console.debug('=== MAP SEARCH CONTROL CLEANUP COMPLETE ===');
     }
 
     /**
@@ -1423,11 +1246,7 @@ export class MapSearchControl {
      */
     injectLocalSuggestionsIntoUI() {
         try {
-            console.debug('Attempting to inject local suggestions into UI');
-
-            // Check if we've already injected for this query
             if (this.lastInjectedQuery === this.currentQuery) {
-                console.debug('Already injected suggestions for this query, skipping');
                 return;
             }
 
@@ -1435,28 +1254,22 @@ export class MapSearchControl {
             let $resultsList = null;
             let $resultsContainer = null;
 
-            // Try multiple methods to find the results container
             const findResultsContainer = () => {
-                // Method 1: Look in shadow DOM
                 if (this.searchBox.shadowRoot) {
                     const shadowResults = this.searchBox.shadowRoot.querySelector('[role="listbox"]');
                     if (shadowResults) {
                         $resultsList = $(shadowResults);
                         $resultsContainer = $resultsList.parent();
-                        console.debug('Found results list in shadow DOM');
                         return true;
                     }
                 }
 
-                // Method 2: Look in regular DOM
                 $resultsList = $('[role="listbox"]').first();
                 if ($resultsList.length > 0) {
                     $resultsContainer = $resultsList.parent();
-                    console.debug('Found results list in regular DOM');
                     return true;
                 }
 
-                // Method 3: Look for search results containers by class
                 const searchResultsContainers = $('.mapboxgl-ctrl-geocoder, [class*="search"], [class*="suggest"], [class*="result"]');
                 for (let i = 0; i < searchResultsContainers.length; i++) {
                     const $container = $(searchResultsContainers[i]);
@@ -1464,7 +1277,6 @@ export class MapSearchControl {
                     if (listbox.length > 0) {
                         $resultsList = listbox.first();
                         $resultsContainer = $container;
-                        console.debug('Found results list via search container class');
                         return true;
                     }
                 }
@@ -1498,7 +1310,6 @@ export class MapSearchControl {
 
                     $resultsList = $(listbox);
                     $resultsContainer = $resultsList.parent();
-                    console.debug('Created new results list in shadow DOM');
                     return true;
                 }
 
@@ -1506,29 +1317,22 @@ export class MapSearchControl {
             };
 
             if (!findResultsContainer()) {
-                console.debug('Could not find or create results list to inject suggestions');
                 return;
             }
 
             // Remove any previously injected local suggestions
             $resultsList.find('.local-suggestion').remove();
 
-            // Get current Mapbox suggestions and limit them to 5
             const existingSuggestions = $resultsList.find('[role="option"]');
             const existingCount = existingSuggestions.length;
 
-            // If there are more than 5 Mapbox suggestions, remove the extras
             if (existingCount > 5) {
                 existingSuggestions.slice(5).remove();
-                console.debug(`Trimmed Mapbox suggestions from ${existingCount} to 5`);
             }
 
-            // Recalculate after trimming
             const remainingMapboxSuggestions = $resultsList.find('[role="option"]').length;
             const localSuggestionsToAdd = Math.min(5, this.localSuggestions.length);
             const totalCount = remainingMapboxSuggestions + localSuggestionsToAdd;
-
-            console.debug(`Found ${remainingMapboxSuggestions} Mapbox suggestions, adding ${localSuggestionsToAdd} local suggestions for total of ${totalCount}`);
 
             // Make sure the results container is visible
             if ($resultsContainer) {
@@ -1588,9 +1392,7 @@ export class MapSearchControl {
 
                     if (localIndex >= 0 && localIndex < this.localSuggestions.length) {
                         const selectedSuggestion = this.localSuggestions[localIndex];
-                        console.debug('Local suggestion clicked:', selectedSuggestion.properties.name);
 
-                        // Clear suggestion markers before navigation
                         this.clearSuggestionMarkers();
 
                         // Clear the results list immediately to prevent UI issues
@@ -1627,14 +1429,6 @@ export class MapSearchControl {
                     this.handleSuggestionHover(localIndex, false);
                 });
 
-            console.debug(`Successfully injected ${this.localSuggestions.length} local suggestions into UI with hover handlers`);
-            console.debug('Suggestion markers status:', {
-                markersCreated: this.suggestionMarkers.length,
-                markersVisible: this.suggestionMarkers.filter(m => m.visible).length,
-                hoveredIndex: this.hoveredMarkerIndex
-            });
-
-            // Update aria-expanded on the combobox input since we have suggestions
             this.updateComboboxAriaExpanded(true);
 
             // Mark this query as injected
@@ -1649,21 +1443,12 @@ export class MapSearchControl {
      * Create suggestion markers for all local suggestions
      */
     createSuggestionMarkers() {
-        console.debug(`Creating suggestion markers for ${this.localSuggestions.length} local suggestions`);
-
-        // Clear any existing suggestion markers first
         this.clearSuggestionMarkers();
 
         this.localSuggestions.forEach((suggestion, index) => {
             try {
                 const coordinates = suggestion.geometry.coordinates;
                 const title = suggestion.properties.name;
-
-                console.debug(`Creating suggestion marker ${index + 1}/${this.localSuggestions.length}:`, {
-                    coordinates: coordinates,
-                    title: title,
-                    plotId: suggestion.properties._featureId
-                });
 
                 // Create marker with blue color and smaller scale
                 const marker = new mapboxgl.Marker({
@@ -1687,74 +1472,50 @@ export class MapSearchControl {
                     visible: false
                 });
 
-                console.debug(`Successfully created suggestion marker ${index} for plot:`, title);
-
             } catch (error) {
                 console.error(`Error creating suggestion marker ${index}:`, error);
             }
         });
-
-        console.debug(`Finished creating ${this.suggestionMarkers.length} suggestion markers`);
     }
 
     /**
      * Show all suggestion markers on the map
      */
     showSuggestionMarkers() {
-        console.debug('Showing suggestion markers on map');
-
-        let visibleCount = 0;
-
         this.suggestionMarkers.forEach((markerData, index) => {
             try {
                 if (!markerData.visible) {
                     markerData.marker.addTo(this.map);
                     markerData.visible = true;
-                    visibleCount++;
 
-                    // Set initial opacity to 0.7 for all markers
                     const markerElement = markerData.marker.getElement();
                     if (markerElement) {
                         markerElement.style.opacity = '0.7';
                         markerElement.style.transition = 'opacity 0.2s ease-in-out';
                     }
-
-                    console.debug(`Showed suggestion marker ${index} for plot:`, markerData.title);
                 }
             } catch (error) {
                 console.error(`Error showing suggestion marker ${index}:`, error);
             }
         });
-
-        console.debug(`Successfully showed ${visibleCount} suggestion markers on map with initial opacity 0.7`);
     }
 
     /**
      * Clear all suggestion markers completely
      */
     clearSuggestionMarkers() {
-        console.debug(`Clearing ${this.suggestionMarkers.length} suggestion markers`);
-
-        let clearedCount = 0;
-
         this.suggestionMarkers.forEach((markerData, index) => {
             try {
                 if (markerData.marker) {
                     markerData.marker.remove();
-                    clearedCount++;
-
-                    console.debug(`Cleared suggestion marker ${index} for plot:`, markerData.title);
                 }
             } catch (error) {
                 console.error(`Error clearing suggestion marker ${index}:`, error);
             }
         });
 
-        // Reset arrays and hover state
         this.suggestionMarkers = [];
         this.hoveredMarkerIndex = -1;
-
-        console.debug(`Successfully cleared ${clearedCount} suggestion markers and reset hover state`);
     }
 
     /**
@@ -1763,13 +1524,7 @@ export class MapSearchControl {
      * @param {boolean} isHovering - Whether currently hovering (true) or leaving (false)
      */
     handleSuggestionHover(suggestionIndex, isHovering) {
-        // Only log on hover enter, not on every hover event to reduce noise
-        if (isHovering) {
-            console.debug(`Hovering over suggestion ${suggestionIndex}`);
-        }
-
         try {
-            // Reset previously hovered marker if different
             if (this.hoveredMarkerIndex !== -1 && this.hoveredMarkerIndex !== suggestionIndex) {
                 const prevMarkerData = this.suggestionMarkers[this.hoveredMarkerIndex];
                 if (prevMarkerData && prevMarkerData.marker) {
@@ -1781,52 +1536,34 @@ export class MapSearchControl {
                 }
             }
 
-            // Handle current marker
             if (suggestionIndex >= 0 && suggestionIndex < this.suggestionMarkers.length) {
                 const markerData = this.suggestionMarkers[suggestionIndex];
                 if (markerData && markerData.marker && markerData.visible) {
                     const markerElement = markerData.marker.getElement();
                     if (markerElement) {
                         if (isHovering) {
-                            // Increase opacity and show popup on hover
                             markerElement.style.opacity = '1.0';
                             markerElement.style.transition = 'opacity 0.2s ease-in-out';
                             this.hoveredMarkerIndex = suggestionIndex;
 
-                            // Show popup on hover
                             if (markerData.marker.getPopup()) {
                                 markerData.marker.togglePopup();
                             }
 
-                            // Fit bounds to show reference and only the hovered suggestion
-                            console.debug(`Fitting map context to hovered suggestion ${suggestionIndex}`);
                             this.fitToContextWithHoveredSuggestion(suggestionIndex);
 
                         } else {
-                            // Reset marker opacity on hover out
                             markerElement.style.opacity = '0.7';
                             markerElement.style.transition = 'opacity 0.2s ease-in-out';
 
-                            // Close popup on hover out
                             if (markerData.marker.getPopup() && markerData.marker.getPopup().isOpen()) {
                                 markerData.marker.togglePopup();
                             }
 
-                            // Return to showing all suggestions when hover ends
-                            console.debug('Returning to show all suggestions context');
                             this.fitToContextWithAllSuggestions();
                         }
-                    } else {
-                        console.warn(`Marker element not found for suggestion ${suggestionIndex}`);
                     }
-                } else {
-                    console.warn(`Invalid marker data for suggestion ${suggestionIndex}:`, {
-                        markerExists: !!markerData?.marker,
-                        isVisible: markerData?.visible
-                    });
                 }
-            } else {
-                console.warn(`Invalid suggestion index for hover: ${suggestionIndex} (valid range: 0-${this.suggestionMarkers.length - 1})`);
             }
 
             // Update hover index
@@ -1851,15 +1588,6 @@ export class MapSearchControl {
                 pitch: this.map.getPitch(),
                 bounds: this.map.getBounds()
             };
-
-            console.debug('Saved reference view:', {
-                center: this.referenceView.center,
-                zoom: this.referenceView.zoom,
-                bounds: [
-                    this.referenceView.bounds.getSouthWest().toArray(),
-                    this.referenceView.bounds.getNorthEast().toArray()
-                ]
-            });
         } catch (error) {
             console.error('Error saving reference view:', error);
         }
@@ -1876,21 +1604,13 @@ export class MapSearchControl {
                 return null;
             }
 
-            // Start with the reference view center
             const bounds = new mapboxgl.LngLatBounds();
             bounds.extend(this.referenceView.center);
 
-            // Extend bounds to include all provided coordinates
             coordinates.forEach(coord => {
                 if (Array.isArray(coord) && coord.length >= 2) {
                     bounds.extend(coord);
                 }
-            });
-
-            console.debug('Calculated context bounds:', {
-                referenceCenter: this.referenceView.center,
-                coordinatesCount: coordinates.length,
-                boundsArray: [bounds.getSouthWest().toArray(), bounds.getNorthEast().toArray()]
             });
 
             return bounds;
@@ -1906,18 +1626,14 @@ export class MapSearchControl {
     fitToContextWithAllSuggestions() {
         try {
             if (!this.referenceView || this.localSuggestions.length === 0) {
-                console.debug('Cannot fit to context: no reference view or suggestions');
                 return;
             }
 
-            // Get all suggestion coordinates
             const suggestionCoordinates = this.localSuggestions.map(s => s.geometry.coordinates);
 
-            // Calculate bounds including reference and all suggestions
             const bounds = this.calculateContextBounds(suggestionCoordinates);
 
             if (bounds) {
-                console.debug('Fitting map to context with all suggestions');
                 this.map.fitBounds(bounds, {
                     padding: {
                         top: 50,
@@ -1925,8 +1641,8 @@ export class MapSearchControl {
                         left: 50,
                         right: 50
                     },
-                    maxZoom: 16, // Don't zoom in too close
-                    duration: 1000 // Smooth animation
+                    maxZoom: 16,
+                    duration: 1000
                 });
             }
         } catch (error) {
@@ -1943,19 +1659,15 @@ export class MapSearchControl {
             if (!this.referenceView ||
                 suggestionIndex < 0 ||
                 suggestionIndex >= this.localSuggestions.length) {
-                console.debug('Cannot fit to hovered suggestion: invalid parameters');
                 return;
             }
 
             const hoveredSuggestion = this.localSuggestions[suggestionIndex];
             const hoveredCoordinates = [hoveredSuggestion.geometry.coordinates];
 
-            // Calculate bounds including reference and hovered suggestion only
             const bounds = this.calculateContextBounds(hoveredCoordinates);
 
             if (bounds) {
-                console.debug(`Fitting map to context with hovered suggestion ${suggestionIndex}:`,
-                    hoveredSuggestion.properties.name);
                 this.map.fitBounds(bounds, {
                     padding: {
                         top: 50,
@@ -1963,8 +1675,8 @@ export class MapSearchControl {
                         left: 50,
                         right: 50
                     },
-                    maxZoom: 16, // Don't zoom in too close
-                    duration: 500 // Faster animation for hover
+                    maxZoom: 16,
+                    duration: 500
                 });
             }
         } catch (error) {
