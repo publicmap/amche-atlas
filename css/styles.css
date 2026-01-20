@@ -4080,8 +4080,7 @@ Styles moved from layer-settings.js
     flex-shrink: 0;
     cursor: move;
     gap: 8px;
-    margin-bottom: 5px;
-    padding: 8px;
+    padding: 2px;
 }
 
 .map-feature-panel-header-left {
@@ -4173,8 +4172,8 @@ Styles moved from layer-settings.js
     display: flex;
     align-items: center;
     background-color: transparent;
-    color: #eee;
-    border: 1px solid #eee;
+    color: #ffbf00;
+    border: none;
     border-radius: 4px;
     padding: 4px 10px;
     font-size: 12px;
@@ -4286,9 +4285,8 @@ Styles moved from layer-settings.js
 
 /* Layer Card Header */
 .layer-card-header {
-    padding: 5px 5px;
+    padding-left: 10px;
     background: #1f2937;
-    border-bottom: 1px solid #374151;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -4752,6 +4750,7 @@ sl-tab:hover::part(base) {
     background: rgba(37, 99, 235, 0.95);
     transform: scale(0.9);
 }
+
 /* Export Panel */
 .export-panel {
     position: absolute;
@@ -4760,7 +4759,7 @@ sl-tab:hover::part(base) {
     background: white;
     padding: 15px;
     border-radius: 4px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
     width: 300px !important;
     min-width: 300px !important;
     max-width: 300px !important;
@@ -4774,7 +4773,7 @@ sl-tab:hover::part(base) {
 }
 
 /* Ensure controls inside aren't too cramped */
-.export-panel select, 
+.export-panel select,
 .export-panel input[type="number"],
 .export-panel textarea {
     background: #fff;
