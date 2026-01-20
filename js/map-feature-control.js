@@ -1671,9 +1671,17 @@ export class MapFeatureControl {
         const opacityBtn = document.createElement('sl-icon-button');
         opacityBtn.name = 'lightbulb';
         opacityBtn.style.fontSize = '14px';
-        opacityBtn.style.color = '#f59e0b';
+        opacityBtn.style.color = 'white';
+        opacityBtn.style.opacity = '0.9';
         opacityBtn.label = 'Opacity';
         opacityBtn.title = 'Opacity';
+
+        opacityBtn.addEventListener('mouseenter', () => {
+            opacityBtn.style.opacity = '1';
+        });
+        opacityBtn.addEventListener('mouseleave', () => {
+            opacityBtn.style.opacity = '0.9';
+        });
 
         // Create opacity popover
         const opacityPopover = document.createElement('sl-dropdown');
@@ -1700,10 +1708,18 @@ export class MapFeatureControl {
         const settingsBtn = document.createElement('sl-icon-button');
         settingsBtn.name = 'gear';
         settingsBtn.className = 'layer-settings-btn';
-        settingsBtn.style.color = '#9ca3af';
+        settingsBtn.style.color = 'white';
+        settingsBtn.style.opacity = '0.9';
         // Hide if collapsed OR if showLayerOptions is disabled
         settingsBtn.style.display = (isCollapsed || !this.options.showLayerOptions) ? 'none' : '';
         settingsBtn.setAttribute('title', 'Layer Settings');
+
+        settingsBtn.addEventListener('mouseenter', () => {
+            settingsBtn.style.opacity = '1';
+        });
+        settingsBtn.addEventListener('mouseleave', () => {
+            settingsBtn.style.opacity = '0.9';
+        });
 
         settingsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1729,7 +1745,7 @@ export class MapFeatureControl {
 
         // Remove Button
         const removeBtn = document.createElement('sl-icon-button');
-        removeBtn.name = 'x-circle';
+        removeBtn.name = 'trash';
         removeBtn.label = 'Remove layer';
         removeBtn.className = 'layer-remove-btn';
         removeBtn.style.color = '#ef4444';

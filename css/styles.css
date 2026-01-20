@@ -4449,13 +4449,11 @@ Styles moved from layer-settings.js
 /* Settings Button */
 .layer-settings-btn {
     font-size: 14px;
-    color: #9ca3af;
 }
 
 .layer-settings-btn::part(base) {
     background: transparent;
     border: none;
-    color: #9ca3af;
 }
 
 .layer-settings-btn::part(base):hover {
