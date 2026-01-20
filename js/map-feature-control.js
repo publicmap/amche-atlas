@@ -1671,7 +1671,7 @@ export class MapFeatureControl {
         const opacityBtn = document.createElement('sl-icon-button');
         opacityBtn.name = 'lightbulb';
         opacityBtn.style.fontSize = '14px';
-        opacityBtn.style.color = '#6b7280';
+        opacityBtn.style.color = '#f59e0b';
         opacityBtn.label = 'Opacity';
         opacityBtn.title = 'Opacity';
 
@@ -1700,6 +1700,7 @@ export class MapFeatureControl {
         const settingsBtn = document.createElement('sl-icon-button');
         settingsBtn.name = 'gear';
         settingsBtn.className = 'layer-settings-btn';
+        settingsBtn.style.color = '#9ca3af';
         // Hide if collapsed OR if showLayerOptions is disabled
         settingsBtn.style.display = (isCollapsed || !this.options.showLayerOptions) ? 'none' : '';
         settingsBtn.setAttribute('title', 'Layer Settings');
@@ -1728,9 +1729,10 @@ export class MapFeatureControl {
 
         // Remove Button
         const removeBtn = document.createElement('sl-icon-button');
-        removeBtn.name = 'trash';
+        removeBtn.name = 'x-circle-fill';
         removeBtn.label = 'Remove layer';
         removeBtn.className = 'layer-remove-btn';
+        removeBtn.style.color = '#ef4444';
 
         removeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
