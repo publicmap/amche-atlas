@@ -1178,6 +1178,12 @@ export class MapLayerControl {
                 // Update placeholder with layer count
                 this._updateSearchPlaceholder();
 
+                // Add margin to search icon
+                const searchIcon = searchInput.querySelector('sl-icon[slot="prefix"]');
+                if (searchIcon) {
+                    searchIcon.style.marginLeft = '10px';
+                }
+
                 searchInput.addEventListener('sl-input', (e) => {
                     this._applyAllFilters();
                 });
