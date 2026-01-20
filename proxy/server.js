@@ -74,230 +74,29 @@ app.get('/proxy', async (req, res) => {
     }
 });
 
-app.get('/expand', async (req, res) => {
-    try {
-        const targetUrl = req.query.url;
-
-        if (!targetUrl) {
-            return res.status(400).json({
-                error: 'Missing url parameter',
-                usage: '/expand?url=<shortened_url>',
-                examples: [
-                    '/expand?url=https://maps.app.goo.gl/abc123',
-                    '/expand?url=https://goo.gl/maps/xyz789'
-                ]
-            });
-        }
-
-        let parsedUrl;
-        try {
-            parsedUrl = new URL(targetUrl);
-        } catch (e) {
-            return res.status(400).json({ error: 'Invalid URL provided' });
-        }
-
-        console.log(`[Expand] Following redirects for: ${targetUrl}`);
-
-        let currentUrl = targetUrl;
-        let redirectCount = 0;
-        const maxRedirects = 10;
-
-        while (redirectCount < maxRedirects) {
-            // Try HEAD first (like curl) which should give us the redirect
-            const response = await fetch(currentUrl, {
-                method: 'HEAD',
-                redirect: 'manual',
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-                }
-            });
-
-            const statusCode = response.status;
-            console.log(`[Expand] Response status: ${statusCode}`);
-
-            if (statusCode === 301 || statusCode === 302 || statusCode === 303 || statusCode === 307 || statusCode === 308) {
-                const location = response.headers.get('location');
-
-                if (!location) {
-                    console.log('[Expand] Redirect status but no Location header');
-                    break;
-                }
-
-                console.log(`[Expand] Redirect ${redirectCount + 1}: ${location}`);
-
-                if (location.startsWith('http://') || location.startsWith('https://')) {
-                    currentUrl = location;
-                } else {
-                    const baseUrl = new URL(currentUrl);
-                    currentUrl = new URL(location, baseUrl).href;
-                }
-
-                redirectCount++;
-            } else if (statusCode === 200) {
-                console.log('[Expand] Got 200 OK, checking if HTML contains redirect');
-
-                // For 200 responses, check if the body contains a redirect
-                const html = await response.text();
-
-                // Log HTML info for debugging
-                console.log('[Expand] HTML length:', html.length, 'characters');
-                console.log('[Expand] HTML preview:', html.substring(0, 1000));
-
-                // Check if google.com/maps exists anywhere in the HTML
-                const hasMapsUrl = html.includes('google.com/maps');
-                console.log('[Expand] HTML contains "google.com/maps":', hasMapsUrl);
-
-                if (hasMapsUrl) {
-                    // Find the position and context
-                    const position = html.indexOf('google.com/maps');
-                    console.log('[Expand] Found at position:', position);
-                    console.log('[Expand] Context:', html.substring(Math.max(0, position - 50), Math.min(html.length, position + 200)));
-                }
-
-                // Check for meta refresh
-                const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'][^;]*;\s*url=([^"']+)["']/i);
-                if (metaRefreshMatch) {
-                    const redirectUrl = metaRefreshMatch[1];
-                    console.log(`[Expand] Found meta refresh redirect: ${redirectUrl}`);
-                    currentUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, currentUrl).href;
-                    redirectCount++;
-                    continue;
-                }
-
-                // Check for JavaScript redirect with more patterns
-                const jsRedirectMatch = html.match(/window\.location(?:\.href)?\s*=\s*["']([^"']+)["']/i) ||
-                                       html.match(/location\.replace\(["']([^"']+)["']\)/i) ||
-                                       html.match(/location\.href\s*=\s*["']([^"']+)["']/i) ||
-                                       html.match(/window\.location\s*=\s*["']([^"']+)["']/i);
-                if (jsRedirectMatch) {
-                    const redirectUrl = jsRedirectMatch[1];
-                    console.log(`[Expand] Found JavaScript redirect: ${redirectUrl}`);
-                    currentUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, currentUrl).href;
-                    redirectCount++;
-                    continue;
-                }
-
-                // Check for data-url attribute (common in Google's dynamic links)
-                const dataUrlMatch = html.match(/data-url=["']([^"']+)["']/i);
-                if (dataUrlMatch) {
-                    const redirectUrl = dataUrlMatch[1];
-                    console.log(`[Expand] Found data-url redirect: ${redirectUrl}`);
-                    currentUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, currentUrl).href;
-                    redirectCount++;
-                    continue;
-                }
-
-                // Check for Firebase Dynamic Links script data (script tag with data-id="_gd")
-                const scriptMatch = html.match(/<script data-id="_gd"[^>]*>(.*?)<\/script>/s);
-                if (scriptMatch) {
-                    const scriptContent = scriptMatch[1];
-                    console.log('[Expand] Found _gd script, parsing content');
-
-                    // Try to parse the script content as JSON or extract URLs from it
-                    try {
-                        // Look for any google.com/maps URL in the script content
-                        const scriptUrlMatch = scriptContent.match(/https:\/\/(?:www\.)?google\.com\/maps\/[^"'\s,}]+/i);
-                        if (scriptUrlMatch) {
-                            const redirectUrl = scriptUrlMatch[0];
-                            console.log(`[Expand] Found Google Maps URL in script: ${redirectUrl}`);
-                            currentUrl = redirectUrl;
-                            redirectCount++;
-                            continue;
-                        }
-
-                        // Also try to find "link" or "url" properties in JSON-like structure
-                        const linkMatch = scriptContent.match(/["']?(?:link|url|deepLink)["']?\s*:\s*["']([^"']+)["']/i);
-                        if (linkMatch) {
-                            const redirectUrl = linkMatch[1];
-                            console.log(`[Expand] Found link property in script: ${redirectUrl}`);
-                            currentUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, currentUrl).href;
-                            redirectCount++;
-                            continue;
-                        }
-                    } catch (error) {
-                        console.log('[Expand] Error parsing script content:', error.message);
-                    }
-                }
-
-                // Check for any URL in the entire HTML that looks like a Google Maps URL
-                // This will search the full HTML, not just the script content
-                const mapsUrlMatch = html.match(/https:\\?\/\\?\/(?:www\.)?google\.com\\?\/maps\\?\/[^"'\s<>\\]+/i);
-                if (mapsUrlMatch) {
-                    let redirectUrl = mapsUrlMatch[0];
-
-                    // Unescape backslashes (\\/ becomes /)
-                    redirectUrl = redirectUrl.replace(/\\\//g, '/');
-
-                    // Decode Unicode escapes (like \u003d for =)
-                    redirectUrl = redirectUrl.replace(/\\u([0-9a-f]{4})/gi, (match, code) => {
-                        return String.fromCharCode(parseInt(code, 16));
-                    });
-
-                    console.log(`[Expand] Found Google Maps URL in HTML: ${redirectUrl}`);
-                    currentUrl = redirectUrl;
-                    redirectCount++;
-                    continue;
-                }
-
-                console.log('[Expand] No redirect found in HTML, reached final destination');
-                break;
-            } else {
-                console.log(`[Expand] Unexpected status code: ${statusCode}`);
-                break;
-            }
-        }
-
-        const wasRedirected = currentUrl !== targetUrl;
-        console.log(`[Expand] Final URL after ${redirectCount} redirects: ${currentUrl}`);
-
-        res.json({
-            original: targetUrl,
-            expanded: currentUrl,
-            redirected: wasRedirected,
-            redirectCount: redirectCount
-        });
-
-    } catch (error) {
-        console.error('[Expand] Error:', error.message);
-        res.status(500).json({ error: 'URL expansion failed', message: error.message });
-    }
-});
-
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        endpoints: {
-            proxy: '/proxy',
-            expand: '/expand'
-        },
+        endpoint: '/proxy',
         parameters: {
-            proxy: {
-                url: {
-                    required: true,
-                    description: 'Target URL to fetch'
-                },
-                referer: {
-                    required: false,
-                    description: 'Custom Referer header (defaults to target origin)'
-                },
-                cache: {
-                    required: false,
-                    description: 'Cache duration in seconds (default: 3600)'
-                }
+            url: {
+                required: true,
+                description: 'Target URL to fetch'
             },
-            expand: {
-                url: {
-                    required: true,
-                    description: 'Shortened URL to expand'
-                }
+            referer: {
+                required: false,
+                description: 'Custom Referer header (defaults to target origin)'
+            },
+            cache: {
+                required: false,
+                description: 'Cache duration in seconds (default: 3600)'
             }
         },
         examples: {
-            proxy_simple: '/proxy?url=https://example.com/image.jpg',
-            proxy_with_referer: '/proxy?url=https://api.example.com/data&referer=https://example.com/',
-            proxy_with_cache: '/proxy?url=https://api.example.com/live-data&cache=60',
-            expand: '/expand?url=https://maps.app.goo.gl/abc123'
+            simple: '/proxy?url=https://example.com/image.jpg',
+            with_referer: '/proxy?url=https://api.example.com/data&referer=https://example.com/',
+            with_cache: '/proxy?url=https://api.example.com/live-data&cache=60'
         }
     });
 });
