@@ -142,7 +142,43 @@ app.get('/expand', async (req, res) => {
 
                 redirectCount++;
             } else if (statusCode === 200) {
-                console.log('[Expand] Reached final destination (200 OK)');
+                console.log('[Expand] Got 200 OK, checking if HTML contains redirect');
+
+                // For 200 responses, check if the body contains a redirect
+                const html = await response.text();
+
+                // Check for meta refresh
+                const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'][^;]*;\s*url=([^"']+)["']/i);
+                if (metaRefreshMatch) {
+                    const redirectUrl = metaRefreshMatch[1];
+                    console.log(`[Expand] Found meta refresh redirect: ${redirectUrl}`);
+                    currentUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, currentUrl).href;
+                    redirectCount++;
+                    continue;
+                }
+
+                // Check for JavaScript redirect
+                const jsRedirectMatch = html.match(/window\.location(?:\.href)?\s*=\s*["']([^"']+)["']/i) ||
+                                       html.match(/location\.replace\(["']([^"']+)["']\)/i);
+                if (jsRedirectMatch) {
+                    const redirectUrl = jsRedirectMatch[1];
+                    console.log(`[Expand] Found JavaScript redirect: ${redirectUrl}`);
+                    currentUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, currentUrl).href;
+                    redirectCount++;
+                    continue;
+                }
+
+                // Check for data-url attribute (common in Google's dynamic links)
+                const dataUrlMatch = html.match(/data-url=["']([^"']+)["']/i);
+                if (dataUrlMatch) {
+                    const redirectUrl = dataUrlMatch[1];
+                    console.log(`[Expand] Found data-url redirect: ${redirectUrl}`);
+                    currentUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, currentUrl).href;
+                    redirectCount++;
+                    continue;
+                }
+
+                console.log('[Expand] No redirect found in HTML, reached final destination');
                 break;
             } else {
                 console.log(`[Expand] Unexpected status code: ${statusCode}`);
