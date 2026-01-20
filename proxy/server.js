@@ -147,6 +147,9 @@ app.get('/expand', async (req, res) => {
                 // For 200 responses, check if the body contains a redirect
                 const html = await response.text();
 
+                // Log the first 500 characters of HTML to debug
+                console.log('[Expand] HTML preview:', html.substring(0, 500));
+
                 // Check for meta refresh
                 const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'][^;]*;\s*url=([^"']+)["']/i);
                 if (metaRefreshMatch) {
@@ -157,9 +160,11 @@ app.get('/expand', async (req, res) => {
                     continue;
                 }
 
-                // Check for JavaScript redirect
+                // Check for JavaScript redirect with more patterns
                 const jsRedirectMatch = html.match(/window\.location(?:\.href)?\s*=\s*["']([^"']+)["']/i) ||
-                                       html.match(/location\.replace\(["']([^"']+)["']\)/i);
+                                       html.match(/location\.replace\(["']([^"']+)["']\)/i) ||
+                                       html.match(/location\.href\s*=\s*["']([^"']+)["']/i) ||
+                                       html.match(/window\.location\s*=\s*["']([^"']+)["']/i);
                 if (jsRedirectMatch) {
                     const redirectUrl = jsRedirectMatch[1];
                     console.log(`[Expand] Found JavaScript redirect: ${redirectUrl}`);
@@ -174,6 +179,16 @@ app.get('/expand', async (req, res) => {
                     const redirectUrl = dataUrlMatch[1];
                     console.log(`[Expand] Found data-url redirect: ${redirectUrl}`);
                     currentUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, currentUrl).href;
+                    redirectCount++;
+                    continue;
+                }
+
+                // Check for any URL in the HTML that looks like a Google Maps URL
+                const mapsUrlMatch = html.match(/https:\/\/(?:www\.)?google\.com\/maps\/[^"'\s<>]+/i);
+                if (mapsUrlMatch) {
+                    const redirectUrl = mapsUrlMatch[0];
+                    console.log(`[Expand] Found Google Maps URL in HTML: ${redirectUrl}`);
+                    currentUrl = redirectUrl;
                     redirectCount++;
                     continue;
                 }
