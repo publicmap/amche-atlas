@@ -147,8 +147,20 @@ app.get('/expand', async (req, res) => {
                 // For 200 responses, check if the body contains a redirect
                 const html = await response.text();
 
-                // Log the first 1000 characters of HTML to debug (increased to see more of the script)
+                // Log HTML info for debugging
+                console.log('[Expand] HTML length:', html.length, 'characters');
                 console.log('[Expand] HTML preview:', html.substring(0, 1000));
+
+                // Check if google.com/maps exists anywhere in the HTML
+                const hasMapsUrl = html.includes('google.com/maps');
+                console.log('[Expand] HTML contains "google.com/maps":', hasMapsUrl);
+
+                if (hasMapsUrl) {
+                    // Find the position and context
+                    const position = html.indexOf('google.com/maps');
+                    console.log('[Expand] Found at position:', position);
+                    console.log('[Expand] Context:', html.substring(Math.max(0, position - 50), Math.min(html.length, position + 200)));
+                }
 
                 // Check for meta refresh
                 const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'][^;]*;\s*url=([^"']+)["']/i);
