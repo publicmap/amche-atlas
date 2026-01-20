@@ -74,29 +74,133 @@ app.get('/proxy', async (req, res) => {
     }
 });
 
+app.get('/expand', async (req, res) => {
+    try {
+        const targetUrl = req.query.url;
+
+        if (!targetUrl) {
+            return res.status(400).json({
+                error: 'Missing url parameter',
+                usage: '/expand?url=<shortened_url>',
+                examples: [
+                    '/expand?url=https://maps.app.goo.gl/abc123',
+                    '/expand?url=https://goo.gl/maps/xyz789'
+                ]
+            });
+        }
+
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(targetUrl);
+        } catch (e) {
+            return res.status(400).json({ error: 'Invalid URL provided' });
+        }
+
+        console.log(`[Expand] Following redirects for: ${targetUrl}`);
+
+        let currentUrl = targetUrl;
+        let redirectCount = 0;
+        const maxRedirects = 10;
+
+        while (redirectCount < maxRedirects) {
+            const response = await fetch(currentUrl, {
+                method: 'GET',
+                redirect: 'manual',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Cache-Control': 'max-age=0'
+                }
+            });
+
+            const statusCode = response.status;
+            console.log(`[Expand] Response status: ${statusCode}`);
+
+            if (statusCode === 301 || statusCode === 302 || statusCode === 303 || statusCode === 307 || statusCode === 308) {
+                const location = response.headers.get('location');
+
+                if (!location) {
+                    console.log('[Expand] Redirect status but no Location header');
+                    break;
+                }
+
+                console.log(`[Expand] Redirect ${redirectCount + 1}: ${location}`);
+
+                if (location.startsWith('http://') || location.startsWith('https://')) {
+                    currentUrl = location;
+                } else {
+                    const baseUrl = new URL(currentUrl);
+                    currentUrl = new URL(location, baseUrl).href;
+                }
+
+                redirectCount++;
+            } else if (statusCode === 200) {
+                console.log('[Expand] Reached final destination (200 OK)');
+                break;
+            } else {
+                console.log(`[Expand] Unexpected status code: ${statusCode}`);
+                break;
+            }
+        }
+
+        const wasRedirected = currentUrl !== targetUrl;
+        console.log(`[Expand] Final URL after ${redirectCount} redirects: ${currentUrl}`);
+
+        res.json({
+            original: targetUrl,
+            expanded: currentUrl,
+            redirected: wasRedirected,
+            redirectCount: redirectCount
+        });
+
+    } catch (error) {
+        console.error('[Expand] Error:', error.message);
+        res.status(500).json({ error: 'URL expansion failed', message: error.message });
+    }
+});
+
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        endpoint: '/proxy',
+        endpoints: {
+            proxy: '/proxy',
+            expand: '/expand'
+        },
         parameters: {
-            url: {
-                required: true,
-                description: 'Target URL to fetch'
+            proxy: {
+                url: {
+                    required: true,
+                    description: 'Target URL to fetch'
+                },
+                referer: {
+                    required: false,
+                    description: 'Custom Referer header (defaults to target origin)'
+                },
+                cache: {
+                    required: false,
+                    description: 'Cache duration in seconds (default: 3600)'
+                }
             },
-            referer: {
-                required: false,
-                description: 'Custom Referer header (defaults to target origin)'
-            },
-            cache: {
-                required: false,
-                description: 'Cache duration in seconds (default: 3600)'
+            expand: {
+                url: {
+                    required: true,
+                    description: 'Shortened URL to expand'
+                }
             }
         },
         examples: {
-            simple: '/proxy?url=https://example.com/image.jpg',
-            with_referer: '/proxy?url=https://api.example.com/data&referer=https://example.com/',
-            with_cache: '/proxy?url=https://api.example.com/live-data&cache=60'
+            proxy_simple: '/proxy?url=https://example.com/image.jpg',
+            proxy_with_referer: '/proxy?url=https://api.example.com/data&referer=https://example.com/',
+            proxy_with_cache: '/proxy?url=https://api.example.com/live-data&cache=60',
+            expand: '/expand?url=https://maps.app.goo.gl/abc123'
         }
     });
 });

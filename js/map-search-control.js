@@ -99,15 +99,28 @@ export class MapSearchControl {
      * - Space separated: "15.4921 73.8435" or "73.8435 15.4921"
      * - DMS: "15°29'31.5\"N 73°50'36.5\"E"
      * - URLs from OSM, Google Maps, and other mapping services
+     * - Shortened Google Maps URLs (maps.app.goo.gl, goo.gl/maps)
      * @param {string} input - Input string to parse
-     * @returns {Object|null} Object with {lat, lng, format} or null if not parseable
+     * @returns {Promise<Object|null>} Object with {lat, lng, format} or null if not parseable
      */
-    parseCoordinateInput(input) {
+    async parseCoordinateInput(input) {
         if (!input || typeof input !== 'string') {
             return null;
         }
 
         input = input.trim();
+
+        // Check if this is a shortened Google Maps URL that needs expansion
+        if (this.isShortenedMapURL(input)) {
+            console.debug('Detected shortened map URL:', input);
+            const expandedUrl = await this.expandShortenedURL(input);
+            if (expandedUrl) {
+                console.debug('Expanded URL:', expandedUrl);
+                input = expandedUrl;
+            } else {
+                console.debug('Could not expand shortened URL');
+            }
+        }
 
         const urlResult = this.parseMapURL(input);
         if (urlResult) {
@@ -125,6 +138,56 @@ export class MapSearchControl {
         }
 
         return null;
+    }
+
+    /**
+     * Check if URL is a shortened Google Maps link
+     * @param {string} url - URL string to check
+     * @returns {boolean} True if shortened URL
+     */
+    isShortenedMapURL(url) {
+        const shortenedPatterns = [
+            /maps\.app\.goo\.gl/i,
+            /goo\.gl\/maps/i
+        ];
+
+        return shortenedPatterns.some(pattern => pattern.test(url));
+    }
+
+    /**
+     * Expand shortened URL using proxy server
+     * @param {string} url - Shortened URL
+     * @returns {Promise<string|null>} Expanded URL or null if failed
+     */
+    async expandShortenedURL(url) {
+        if (!window.amche.PROXY_URL) {
+            console.error('PROXY_URL not configured, cannot expand shortened URLs');
+            return null;
+        }
+
+        try {
+            const proxyUrl = `${window.amche.PROXY_URL}/expand?url=${encodeURIComponent(url)}`;
+            console.debug('Expanding URL via proxy:', proxyUrl);
+
+            const response = await fetch(proxyUrl);
+            if (!response.ok) {
+                console.error('Proxy expansion failed:', response.status, response.statusText);
+                return null;
+            }
+
+            const data = await response.json();
+            console.debug('Proxy expansion result:', data);
+
+            if (data.redirected && data.expanded) {
+                return data.expanded;
+            }
+
+            console.debug('URL was not redirected:', data);
+            return null;
+        } catch (error) {
+            console.error('Error expanding shortened URL:', error);
+            return null;
+        }
     }
 
     /**
@@ -574,7 +637,7 @@ export class MapSearchControl {
      * Handle keydown events to handle Enter key for coordinates
      * @param {Event} event - The keydown event
      */
-    handleKeyDown(event) {
+    async handleKeyDown(event) {
         // If we've detected a coordinate input and the user presses Enter
         if (this.isCoordinateInput && event.key === 'Enter' && this.coordinateSuggestion) {
 
@@ -802,7 +865,7 @@ export class MapSearchControl {
      * Handle input events to detect coordinate patterns and query local suggestions
      * @param {Event} event - The input event
      */
-    handleInput(event) {
+    async handleInput(event) {
         // Get the input value from the search box
         let query = '';
 
@@ -838,7 +901,7 @@ export class MapSearchControl {
         this.currentQuery = query;
         console.debug('Input value:', query);
 
-        const coordinateResult = this.parseCoordinateInput(query);
+        const coordinateResult = await this.parseCoordinateInput(query);
         if (coordinateResult) {
             console.debug('Coordinate detected:', coordinateResult);
             this.isCoordinateInput = true;
