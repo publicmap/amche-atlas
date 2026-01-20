@@ -17,7 +17,9 @@
         window.amche.MAPBOX_MAP_OPTIONS = {
             container: 'map'
         };
-        window.amche.PROXY_URL = 'https://amche-atlas-production.up.railway.app';
+        window.amche.PROXY_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:8080'
+            : 'https://amche-atlas-production.up.railway.app';
     </script>
 
     <title>amche.in - Interactive 3D Atlas</title>

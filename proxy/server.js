@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 import cors from 'cors';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 app.use(cors());
 app.options('*', cors());
@@ -215,10 +215,20 @@ app.get('/expand', async (req, res) => {
                     }
                 }
 
-                // Check for any URL in the HTML that looks like a Google Maps URL
-                const mapsUrlMatch = html.match(/https:\/\/(?:www\.)?google\.com\/maps\/[^"'\s<>]+/i);
+                // Check for any URL in the entire HTML that looks like a Google Maps URL
+                // This will search the full HTML, not just the script content
+                const mapsUrlMatch = html.match(/https:\\?\/\\?\/(?:www\.)?google\.com\\?\/maps\\?\/[^"'\s<>\\]+/i);
                 if (mapsUrlMatch) {
-                    const redirectUrl = mapsUrlMatch[0];
+                    let redirectUrl = mapsUrlMatch[0];
+
+                    // Unescape backslashes (\\/ becomes /)
+                    redirectUrl = redirectUrl.replace(/\\\//g, '/');
+
+                    // Decode Unicode escapes (like \u003d for =)
+                    redirectUrl = redirectUrl.replace(/\\u([0-9a-f]{4})/gi, (match, code) => {
+                        return String.fromCharCode(parseInt(code, 16));
+                    });
+
                     console.log(`[Expand] Found Google Maps URL in HTML: ${redirectUrl}`);
                     currentUrl = redirectUrl;
                     redirectCount++;
