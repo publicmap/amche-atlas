@@ -382,6 +382,22 @@ main {
     height: 30px !important;
 }
 
+/* Override Mapbox's background-image for geolocation icon in header */
+.geolocation-control-header .mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
+    background-image: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Ensure Shoelace icon is visible inside geolocation button */
+.geolocation-control-header .mapboxgl-ctrl-geolocate sl-icon {
+    display: flex !important;
+    color: white !important;
+}
+
 .mapboxgl-ctrl-geolocate span.error {
     color: #d9534f;
 }
