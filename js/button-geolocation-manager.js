@@ -88,7 +88,7 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                 // Update search box placeholder with location
                 if (this.searchBox) {
                     const locationText = parts.length > 0 ? parts.join(', ') : 'Unknown location';
-                    this.searchBox.placeholder = `My location: ${locationText}`;
+                    this.searchBox.placeholder = locationText;
                 }
 
             } catch (error) {
@@ -104,9 +104,19 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         // Update button styling for header
         const button = container.querySelector('.mapboxgl-ctrl-geolocate');
         if (button) {
-            button.className = 'mapboxgl-ctrl-geolocate bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-700 p-2 flex items-center justify-center';
+            // Keep the mapboxgl-ctrl-geolocate class for state management
+            button.className = 'mapboxgl-ctrl-geolocate bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-700 flex items-center justify-center';
             button.style.width = '40px';
             button.style.height = '40px';
+
+            // Replace the empty icon span with a Shoelace icon
+            const iconSpan = button.querySelector('.mapboxgl-ctrl-icon');
+            if (iconSpan) {
+                iconSpan.innerHTML = '<sl-icon name="geo-alt-fill" style="font-size: 18px;"></sl-icon>';
+                iconSpan.style.display = 'flex';
+                iconSpan.style.alignItems = 'center';
+                iconSpan.style.justifyContent = 'center';
+            }
         }
 
         return container;
