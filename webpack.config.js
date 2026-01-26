@@ -44,6 +44,7 @@ module.exports = {
                 { from: 'docs', to: 'docs' },
                 { from: 'assets', to: 'assets' },
                 { from: 'config', to: 'config' },
+                { from: 'map-browser.html', to: 'map-browser.html' },
                 { from: 'offline.html', to: 'offline.html' },
                 { from: 'privacy.html', to: 'privacy.html' },
                 { from: 'manifest.json', to: 'manifest.json' },
