@@ -104,18 +104,17 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         // Update button styling for header
         const button = container.querySelector('.mapboxgl-ctrl-geolocate');
         if (button) {
-            // Keep the mapboxgl-ctrl-geolocate class for state management
-            button.className = 'mapboxgl-ctrl-geolocate bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-700 flex items-center justify-center';
-            button.style.width = '40px';
-            button.style.height = '40px';
+            // Add custom class for header styling
+            button.classList.add('geolocation-btn-header');
 
-            // Replace the empty icon span with a Shoelace icon
+            // Replace the empty icon span with a simple SVG icon
             const iconSpan = button.querySelector('.mapboxgl-ctrl-icon');
             if (iconSpan) {
-                iconSpan.innerHTML = '<sl-icon name="geo-alt-fill" style="font-size: 18px;"></sl-icon>';
-                iconSpan.style.display = 'flex';
-                iconSpan.style.alignItems = 'center';
-                iconSpan.style.justifyContent = 'center';
+                iconSpan.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+                    </svg>
+                `;
             }
         }
 
