@@ -88,7 +88,9 @@ export class MapBrowserControl {
         });
 
         this._iframe = document.createElement('iframe');
-        this._iframe.src = 'map-browser.html';
+        // Use relative path that works in both root and subdirectory deployments
+        const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+        this._iframe.src = basePath + 'map-browser.html';
         this._iframe.style.cssText = `
             width: 100%;
             height: 100%;
