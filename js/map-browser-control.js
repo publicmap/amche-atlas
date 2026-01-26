@@ -19,22 +19,19 @@ export class MapBrowserControl {
     onAdd(map) {
         this._map = map;
         this._container = document.createElement('div');
-        this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group map-browser-control';
+        this._container.className = 'map-browser-control';
 
         this._button = document.createElement('button');
-        this._button.className = 'mapboxgl-ctrl-icon map-browser-btn map-control-dark';
+        this._button.className = 'map-browser-btn flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-700 text-sm font-medium';
         this._button.type = 'button';
         this._button.setAttribute('aria-label', 'Browse Maps');
-        this._button.style.width = 'auto';
-        this._button.style.padding = '10px';
-        this._button.style.fontSize = '12pt';
 
         const currentAtlas = window.layerRegistry?._currentAtlas || 'index';
         const atlasMetadata = window.layerRegistry?.getAtlasMetadata(currentAtlas);
         const atlasName = atlasMetadata?.name || 'Browse Maps';
 
         this._button.innerHTML = `
-            <sl-icon name="layers" style="font-size: 14px; margin-right: 6px;"></sl-icon>
+            <sl-icon name="layers" style="font-size: 16px;"></sl-icon>
             <span class="atlas-name">${atlasName}</span>
         `;
 

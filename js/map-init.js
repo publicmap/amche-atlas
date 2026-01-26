@@ -472,7 +472,13 @@ export class MapInitializer {
             // Initialize the feature control with state manager and config
             window.featureControl = new MapFeatureControl();
 
-            map.addControl(new MapBrowserControl(), 'top-left');
+            // Add map browser control to header instead of map
+            const mapBrowserControl = new MapBrowserControl();
+            const browserControlContainer = document.getElementById('map-browser-control-container');
+            if (browserControlContainer) {
+                const controlElement = mapBrowserControl.onAdd(map);
+                browserControlContainer.appendChild(controlElement);
+            }
             map.addControl(new ButtonGeolocationManager(), 'top-left');
             map.addControl(window.featureControl, 'top-right');
             map.addControl(new TimeControl(), 'top-right');
