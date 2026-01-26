@@ -20,6 +20,7 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
     onAdd(map) {
         this.map = map;
+        this.searchBox = document.getElementById('mapbox-search-box');
 
         // Track when tracking starts/stops
         this.on('trackuserlocationstart', () => {
@@ -32,6 +33,10 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
             this.isTracking = false;
             $(window).off('deviceorientationabsolute', this.handleOrientation);
             $(document).trigger('update_url', { geolocate: false });
+            // Reset search placeholder
+            if (this.searchBox) {
+                this.searchBox.placeholder = 'Search places';
+            }
             // Reset map orientation
             map.easeTo({
                 bearing: 0,
@@ -44,11 +49,17 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         this.on('error', (error) => {
             this.locationErrorCount++;
             console.warn('Geolocation error:', error);
-            this.render(' Location unavailable' + (this.locationErrorCount > 1 ? ' - Try moving to an open area' : ''), 'error');
+
+            if (this.searchBox) {
+                this.searchBox.placeholder = 'Location unavailable' + (this.locationErrorCount > 1 ? ' - Try moving to an open area' : '');
+            }
 
             // Reset the error count after some time
             setTimeout(() => {
                 this.locationErrorCount = 0;
+                if (this.searchBox) {
+                    this.searchBox.placeholder = 'Search places';
+                }
             }, 60000);
         });
 
@@ -73,14 +84,32 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                             .forEach(ctx => parts.push(ctx.text));
                     }
                 }
-                this.render(` My location: ` + (parts.length > 0 ? parts.join(', ') : 'Unknown location'));
+
+                // Update search box placeholder with location
+                if (this.searchBox) {
+                    const locationText = parts.length > 0 ? parts.join(', ') : 'Unknown location';
+                    this.searchBox.placeholder = `My location: ${locationText}`;
+                }
 
             } catch (error) {
                 console.error('Error reverse geocoding:', error);
             }
         });
 
-        return super.onAdd(map);
+        const container = super.onAdd(map);
+
+        // Style the container for header placement
+        container.className = 'geolocation-control-header';
+
+        // Update button styling for header
+        const button = container.querySelector('.mapboxgl-ctrl-geolocate');
+        if (button) {
+            button.className = 'mapboxgl-ctrl-geolocate bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-700 p-2 flex items-center justify-center';
+            button.style.width = '40px';
+            button.style.height = '40px';
+        }
+
+        return container;
     }
 
     handleOrientation = (event) => {
@@ -92,16 +121,6 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                 duration: 100
             });
         }
-    }
-
-    render(text, className) {
-        const geolocateButton = $('.mapboxgl-ctrl-geolocate');
-        geolocateButton.find('span:not(.mapboxgl-ctrl-icon)').remove();
-        geolocateButton.attr('aria-label', 'Find my location');
-        geolocateButton.append($('<span>', {
-            text: text,
-            'class': className,
-        }));
     }
 
     handleUrlUpdate = (event, params) => {

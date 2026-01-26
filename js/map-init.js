@@ -479,7 +479,14 @@ export class MapInitializer {
                 const controlElement = mapBrowserControl.onAdd(map);
                 browserControlContainer.appendChild(controlElement);
             }
-            map.addControl(new ButtonGeolocationManager(), 'top-left');
+
+            // Add geolocation control to header instead of map
+            window.geolocationControl = new ButtonGeolocationManager();
+            const geolocationControlContainer = document.getElementById('geolocation-control-container');
+            if (geolocationControlContainer) {
+                const controlElement = window.geolocationControl.onAdd(map);
+                geolocationControlContainer.appendChild(controlElement);
+            }
             map.addControl(window.featureControl, 'top-right');
             map.addControl(new TimeControl(), 'top-right');
             map.addControl(window.terrain3DControl, 'top-right');

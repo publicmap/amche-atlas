@@ -4,6 +4,12 @@
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/osm.atlas.json",
   "color": "#16a34a",
+  "bbox": [
+    -180,
+    -90,
+    180,
+    90
+  ],
   "map": {
     "center": [
       76,
@@ -45,11 +51,13 @@
             "kind"
           ],
           [
-            "station","aerodrome"
+            "station",
+            "aerodrome"
           ],
           8,
           [
-            "bus_station","ferry_terminal"
+            "bus_station",
+            "ferry_terminal"
           ],
           5,
           [
@@ -83,11 +91,13 @@
             "kind"
           ],
           [
-            "station","aerodrome"
+            "station",
+            "aerodrome"
           ],
           8,
           [
-            "bus_station","ferry_terminal"
+            "bus_station",
+            "ferry_terminal"
           ],
           5,
           [
@@ -469,7 +479,6 @@
         "id": "name"
       }
     },
-
     {
       "id": "historic-boundaries",
       "title": "Historic Boundaries",
@@ -586,7 +595,7 @@
     {
       "title": "OSM Landuse Sites",
       "description": "High resolution landuse polygons for institutional sites and amenities from the OpenStreetMap project.",
-      "headerImage": "assets/map-layers/osm/osm/map-layer-osm-landuse.png",
+      "headerImage": "assets/map-layers/osm/map-layer-osm-landuse.png",
       "type": "vector",
       "id": "sites",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
