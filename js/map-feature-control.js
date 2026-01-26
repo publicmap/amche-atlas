@@ -1373,10 +1373,18 @@ export class MapFeatureControl {
 
         // Add click handler to header for collapse toggle
         header.addEventListener('click', (e) => {
+            // Don't toggle if clicking on actions
             if (e.target.closest('.layer-actions')) {
                 return;
             }
-            this._toggleLayerCollapse(layerId, layerCard);
+            // Don't toggle if clicking on tab elements that might be overlapping
+            if (e.target.closest('sl-tab, sl-tab-group, sl-tab-panel')) {
+                return;
+            }
+            // Only toggle if we're actually clicking on the header itself
+            if (e.target === header || e.target.closest('.layer-card-header') === header) {
+                this._toggleLayerCollapse(layerId, layerCard);
+            }
         });
 
         layerCard.appendChild(header);

@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Browser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .layer-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .layer-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .layer-card.active {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        .atlas-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 600;
+        }
+
+        .layer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            padding: 12px;
+        }
+
+        .search-input {
+            transition: all 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .header-section {
+            background: #111827;
+            color: white;
+            padding: 12px;
+            border-bottom: 1px solid #374151;
+        }
+
+        .filter-section {
+            background: #1f2937;
+            color: white;
+            padding: 12px;
+            border-bottom: 1px solid #374151;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .filter-section {
+                padding: 8px;
+                gap: 8px;
+            }
+            #preview-map-container {
+                height: 200px !important;
+            }
+        }
+
+        .toggle-btn, .preview-btn {
+            transition: all 0.2s ease;
+        }
+
+        .toggle-btn:hover, .preview-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .toggle-btn.active {
+            background-color: #10b981;
+        }
+
+        .preview-btn {
+            background-color: #6366f1;
+        }
+
+        .preview-btn:hover {
+            background-color: #4f46e5;
+        }
+
+        .layer-thumbnail {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            background-color: #f3f4f6;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        #preview-map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .mapboxgl-ctrl-logo {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="flex flex-col h-screen">
+        <!-- Header -->
+        <div class="header-section">
+            <div class="flex items-center justify-between">
+                <h1 class="text-lg font-bold">Map Browser</h1>
+                <button id="close-btn" class="text-white hover:text-gray-300 text-2xl leading-none">&times;</button>
+            </div>
+        </div>
+
+        <!-- Filter Section - Two Columns -->
+        <div class="filter-section">
+            <!-- Left Column: Filters -->
+            <div>
+                <!-- Search -->
+                <input
+                    type="text"
+                    id="search-input"
+                    placeholder="Search maps..."
+                    class="search-input w-full px-3 py-2 rounded border border-gray-600 bg-gray-800 text-white text-sm mb-3"
+                />
+
+                <!-- Filters -->
+                <div class="space-y-2">
+                    <label class="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" id="filter-active" class="rounded">
+                        <span>Active Maps Only</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" id="filter-in-view" class="rounded">
+                        <span>Maps in Current View</span>
+                    </label>
+                </div>
+
+                <!-- Atlas Filter -->
+                <div class="mt-3">
+                    <label class="text-xs text-gray-400 mb-1 block">Atlas:</label>
+                    <select id="atlas-filter" class="w-full px-3 py-2 rounded border border-gray-600 bg-gray-800 text-white text-sm">
+                        <option value="">All Atlases</option>
+                    </select>
+                </div>
+
+                <!-- Results Count -->
+                <div class="mt-3 text-xs text-gray-400">
+                    <span id="results-count">Loading...</span>
+                </div>
+            </div>
+
+            <!-- Right Column: Preview Map -->
+            <div>
+                <div class="text-xs text-gray-400 mb-1">Preview & Filter Map</div>
+                <div id="preview-map-container" class="rounded overflow-hidden border border-gray-600" style="height: 250px;">
+                    <div id="preview-map"></div>
+                </div>
+                <div class="mt-2 text-xs text-gray-400">
+                    <span id="map-info">Move map to filter by area</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Layer Grid -->
+        <div id="layer-container" class="flex-1 overflow-y-auto scrollbar-thin">
+            <div id="layer-grid" class="layer-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let allLayers = [];
+        let activeLayers = new Set();
+        let atlasMetadata = new Map();
+        let currentBounds = null;
+        let previewMap = null;
+        let previewLayer = null;
+        let bboxLayers = [];
+        let mapboxAccessToken = null;
+
+        // Initialize
+        $(document).ready(function() {
+            setupMessageListener();
+            setupEventListeners();
+            requestLayerData();
+        });
+
+        // Request layer data from parent
+        function requestLayerData() {
+            window.parent.postMessage({
+                type: 'request-layer-data'
+            }, '*');
+        }
+
+        // Setup message listener for parent communication
+        function setupMessageListener() {
+            window.addEventListener('message', function(event) {
+                if (event.data.type === 'layer-data') {
+                    allLayers = event.data.layers || [];
+                    activeLayers = new Set(event.data.activeLayers || []);
+                    atlasMetadata = new Map(Object.entries(event.data.atlasMetadata || {}));
+                    currentBounds = event.data.bounds;
+                    mapboxAccessToken = event.data.mapboxToken;
+
+                    initializePreviewMap();
+                    populateAtlasFilter();
+                    renderLayers();
+                    drawBboxes();
+                }
+
+                if (event.data.type === 'active-layers-update') {
+                    activeLayers = new Set(event.data.activeLayers || []);
+                    updateActiveStates();
+                }
+
+                if (event.data.type === 'bounds-update') {
+                    currentBounds = event.data.bounds;
+                    if ($('#filter-in-view').is(':checked')) {
+                        renderLayers();
+                    }
+                }
+            });
+        }
+
+        // Initialize preview map
+        function initializePreviewMap() {
+            if (previewMap || !mapboxAccessToken) return;
+
+            mapboxgl.accessToken = mapboxAccessToken;
+
+            previewMap = new mapboxgl.Map({
+                container: 'preview-map',
+                style: 'mapbox://styles/mapbox/light-v11',
+                center: currentBounds ?
+                    [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2] :
+                    [0, 0],
+                zoom: 1,
+                attributionControl: false
+            });
+
+            previewMap.on('moveend', function() {
+                const bounds = previewMap.getBounds();
+                currentBounds = [
+                    bounds.getWest(),
+                    bounds.getSouth(),
+                    bounds.getEast(),
+                    bounds.getNorth()
+                ];
+
+                if ($('#filter-in-view').is(':checked')) {
+                    renderLayers();
+                }
+
+                updateMapInfo();
+            });
+
+            previewMap.on('load', function() {
+                if (currentBounds) {
+                    previewMap.fitBounds([
+                        [currentBounds[0], currentBounds[1]],
+                        [currentBounds[2], currentBounds[3]]
+                    ], { padding: 20, animate: false });
+                }
+            });
+        }
+
+        // Draw bboxes on preview map
+        function drawBboxes() {
+            if (!previewMap || !previewMap.loaded()) {
+                setTimeout(drawBboxes, 100);
+                return;
+            }
+
+            // Remove existing bbox layers
+            bboxLayers.forEach(layerId => {
+                if (previewMap.getLayer(layerId)) {
+                    previewMap.removeLayer(layerId);
+                }
+                if (previewMap.getSource(layerId)) {
+                    previewMap.removeSource(layerId);
+                }
+            });
+            bboxLayers = [];
+
+            // Add atlas bboxes
+            atlasMetadata.forEach((metadata, atlasId) => {
+                if (!metadata.bbox) return;
+
+                const [west, south, east, north] = metadata.bbox;
+                const sourceId = `bbox-${atlasId}`;
+
+                previewMap.addSource(sourceId, {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        geometry: {
+                            type: 'Polygon',
+                            coordinates: [[
+                                [west, north],
+                                [east, north],
+                                [east, south],
+                                [west, south],
+                                [west, north]
+                            ]]
+                        }
+                    }
+                });
+
+                previewMap.addLayer({
+                    id: sourceId,
+                    type: 'line',
+                    source: sourceId,
+                    paint: {
+                        'line-color': metadata.color || '#2563eb',
+                        'line-width': 2,
+                        'line-opacity': 0.6
+                    }
+                });
+
+                bboxLayers.push(sourceId);
+            });
+        }
+
+        // Update map info
+        function updateMapInfo() {
+            const zoom = previewMap ? previewMap.getZoom().toFixed(1) : '0';
+            $('#map-info').text(`Zoom: ${zoom} - Move map to filter by area`);
+        }
+
+        // Setup UI event listeners
+        function setupEventListeners() {
+            $('#search-input').on('input', debounce(renderLayers, 300));
+            $('#filter-active').on('change', renderLayers);
+            $('#filter-in-view').on('change', renderLayers);
+            $('#atlas-filter').on('change', renderLayers);
+            $('#close-btn').on('click', closeBrowser);
+        }
+
+        // Populate atlas filter dropdown
+        function populateAtlasFilter() {
+            const $select = $('#atlas-filter');
+            $select.find('option:not(:first)').remove();
+
+            const atlases = Array.from(atlasMetadata.entries())
+                .sort((a, b) => (a[1].name || a[0]).localeCompare(b[1].name || b[0]));
+
+            atlases.forEach(([id, metadata]) => {
+                $select.append($('<option>', {
+                    value: id,
+                    text: metadata.name || id
+                }));
+            });
+        }
+
+        // Render filtered layers
+        function renderLayers() {
+            const searchTerm = $('#search-input').val().toLowerCase().trim();
+            const filterActive = $('#filter-active').is(':checked');
+            const filterInView = $('#filter-in-view').is(':checked');
+            const selectedAtlas = $('#atlas-filter').val();
+
+            const filtered = allLayers.filter(layer => {
+                // Search filter
+                if (searchTerm && !matchesSearch(layer, searchTerm)) {
+                    return false;
+                }
+
+                // Active filter
+                if (filterActive && !activeLayers.has(layer.id)) {
+                    return false;
+                }
+
+                // Atlas filter
+                if (selectedAtlas && layer._sourceAtlas !== selectedAtlas) {
+                    return false;
+                }
+
+                // View filter
+                if (filterInView && !isInView(layer)) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            renderLayerGrid(filtered);
+            updateResultsCount(filtered.length, allLayers.length);
+        }
+
+        // Check if layer matches search
+        function matchesSearch(layer, term) {
+            return (layer.id && layer.id.toLowerCase().includes(term)) ||
+                   (layer.title && layer.title.toLowerCase().includes(term)) ||
+                   (layer.description && layer.description.toLowerCase().includes(term)) ||
+                   (layer.tags && layer.tags.some(tag => tag.toLowerCase().includes(term)));
+        }
+
+        // Check if layer is in current view
+        function isInView(layer) {
+            if (!currentBounds || !layer.bbox) return true;
+
+            const [layerW, layerS, layerE, layerN] = layer.bbox;
+            const [boundsW, boundsS, boundsE, boundsN] = currentBounds;
+
+            return !(layerE < boundsW || layerW > boundsE ||
+                     layerN < boundsS || layerS > boundsN);
+        }
+
+        // Render layer grid
+        function renderLayerGrid(layers) {
+            const $grid = $('#layer-grid');
+            $grid.empty();
+
+            if (layers.length === 0) {
+                $grid.html('<div class="col-span-full text-center text-gray-500 py-12">No maps found</div>');
+                return;
+            }
+
+            layers.forEach(layer => {
+                const $card = createLayerCard(layer);
+                $grid.append($card);
+            });
+        }
+
+        // Create layer card
+        function createLayerCard(layer) {
+            const isActive = activeLayers.has(layer.id);
+            const atlasData = atlasMetadata.get(layer._sourceAtlas) || {};
+
+            const $card = $('<div>', {
+                class: 'layer-card bg-white rounded-lg shadow border-2 border-transparent overflow-hidden' +
+                       (isActive ? ' active' : ''),
+                'data-layer-id': layer.id
+            });
+
+            // Thumbnail
+            if (layer.headerImage) {
+                $card.append($('<img>', {
+                    src: layer.headerImage,
+                    class: 'layer-thumbnail',
+                    alt: layer.title || layer.id,
+                    onerror: 'this.style.display="none"'
+                }));
+            } else {
+                $card.append($('<div>', {
+                    class: 'layer-thumbnail flex items-center justify-center text-gray-400 text-4xl',
+                    html: '🗺️'
+                }));
+            }
+
+            // Content
+            const $content = $('<div>', { class: 'p-3' });
+
+            // Header with title and buttons
+            const $header = $('<div>', { class: 'flex items-start justify-between gap-2 mb-2' });
+
+            const $title = $('<h3>', {
+                class: 'font-semibold text-sm text-gray-900 flex-1 line-clamp-2',
+                text: layer.title || layer.id
+            });
+
+            const $buttonGroup = $('<div>', { class: 'flex gap-1' });
+
+            // Preview button (only if layer has bbox)
+            if (layer.bbox) {
+                const $previewBtn = $('<button>', {
+                    class: 'preview-btn flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs',
+                    html: '👁',
+                    title: 'Preview on map',
+                    click: function(e) {
+                        e.stopPropagation();
+                        previewLayerOnMap(layer);
+                    }
+                });
+                $buttonGroup.append($previewBtn);
+            }
+
+            const $toggleBtn = $('<button>', {
+                class: 'toggle-btn flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white ' +
+                       (isActive ? 'active' : 'bg-gray-400 hover:bg-gray-500'),
+                html: isActive ? '✓' : '+',
+                click: function(e) {
+                    e.stopPropagation();
+                    toggleLayer(layer.id);
+                }
+            });
+
+            $buttonGroup.append($toggleBtn);
+            $header.append($title, $buttonGroup);
+            $content.append($header);
+
+            // Description
+            if (layer.description) {
+                const cleanDesc = $('<div>').html(layer.description).text().substring(0, 100);
+                $content.append($('<p>', {
+                    class: 'text-xs text-gray-600 mb-2 line-clamp-2',
+                    text: cleanDesc + (cleanDesc.length >= 100 ? '...' : '')
+                }));
+            }
+
+            // Footer with atlas badge
+            if (layer._sourceAtlas) {
+                const $badge = $('<span>', {
+                    class: 'atlas-badge',
+                    style: `background-color: ${atlasData.color || '#2563eb'}`,
+                    text: atlasData.name || layer._sourceAtlas
+                });
+                $content.append($badge);
+            }
+
+            $card.append($content);
+
+            // Click card to toggle
+            $card.on('click', function() {
+                toggleLayer(layer.id);
+            });
+
+            return $card;
+        }
+
+        // Preview layer on map
+        function previewLayerOnMap(layer) {
+            if (!previewMap || !layer.bbox) return;
+
+            // Fit map to layer bbox
+            const [west, south, east, north] = layer.bbox;
+            previewMap.fitBounds([
+                [west, south],
+                [east, north]
+            ], { padding: 40, duration: 1000 });
+
+            // Remove existing preview layer
+            if (previewLayer) {
+                if (previewMap.getLayer('preview-layer-fill')) {
+                    previewMap.removeLayer('preview-layer-fill');
+                }
+                if (previewMap.getLayer('preview-layer-line')) {
+                    previewMap.removeLayer('preview-layer-line');
+                }
+                if (previewMap.getSource('preview-layer')) {
+                    previewMap.removeSource('preview-layer');
+                }
+            }
+
+            // Add new preview layer
+            const atlasData = atlasMetadata.get(layer._sourceAtlas) || {};
+            const color = atlasData.color || '#2563eb';
+
+            previewMap.addSource('preview-layer', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    properties: {
+                        title: layer.title || layer.id
+                    },
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [[
+                            [west, north],
+                            [east, north],
+                            [east, south],
+                            [west, south],
+                            [west, north]
+                        ]]
+                    }
+                }
+            });
+
+            previewMap.addLayer({
+                id: 'preview-layer-fill',
+                type: 'fill',
+                source: 'preview-layer',
+                paint: {
+                    'fill-color': color,
+                    'fill-opacity': 0.2
+                }
+            });
+
+            previewMap.addLayer({
+                id: 'preview-layer-line',
+                type: 'line',
+                source: 'preview-layer',
+                paint: {
+                    'line-color': color,
+                    'line-width': 3
+                }
+            });
+
+            previewLayer = layer.id;
+
+            $('#map-info').text(`Previewing: ${layer.title || layer.id}`);
+        }
+
+        // Toggle layer on/off
+        function toggleLayer(layerId) {
+            const wasActive = activeLayers.has(layerId);
+
+            if (wasActive) {
+                activeLayers.delete(layerId);
+            } else {
+                activeLayers.add(layerId);
+            }
+
+            // Update UI immediately
+            updateCardState(layerId, !wasActive);
+
+            // Notify parent
+            window.parent.postMessage({
+                type: 'layer-toggle',
+                layerId: layerId,
+                active: !wasActive
+            }, '*');
+        }
+
+        // Update card active state
+        function updateCardState(layerId, isActive) {
+            const $card = $(`.layer-card[data-layer-id="${layerId}"]`);
+            const $btn = $card.find('.toggle-btn');
+
+            if (isActive) {
+                $card.addClass('active');
+                $btn.addClass('active').removeClass('bg-gray-400 hover:bg-gray-500').html('✓');
+            } else {
+                $card.removeClass('active');
+                $btn.removeClass('active').addClass('bg-gray-400 hover:bg-gray-500').html('+');
+            }
+        }
+
+        // Update all active states
+        function updateActiveStates() {
+            $('.layer-card').each(function() {
+                const layerId = $(this).data('layer-id');
+                const isActive = activeLayers.has(layerId);
+                updateCardState(layerId, isActive);
+            });
+        }
+
+        // Update results count
+        function updateResultsCount(showing, total) {
+            $('#results-count').text(`Showing ${showing} of ${total} maps`);
+        }
+
+        // Close browser
+        function closeBrowser() {
+            window.parent.postMessage({ type: 'close-browser' }, '*');
+        }
+
+        // Debounce helper
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+    </script>
+</body>
+</html>
