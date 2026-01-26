@@ -383,13 +383,18 @@ main {
 }
 
 /* Header Geolocation Button Styling */
+#geolocation-control-container {
+    display: flex;
+    align-items: center;
+}
+
 .geolocation-control-header {
     display: flex;
     align-items: center;
 }
 
-/* Base button styling - override Mapbox defaults */
-.geolocation-control-header .geolocation-btn-header {
+/* Base button styling - override Mapbox defaults with high specificity */
+.geolocation-btn-header.mapboxgl-ctrl-geolocate {
     background: #1f2937 !important;
     border: 1px solid #374151 !important;
     border-radius: 0.5rem !important;
@@ -404,31 +409,32 @@ main {
 }
 
 /* Hover state */
-.geolocation-control-header .geolocation-btn-header:hover {
+.geolocation-btn-header.mapboxgl-ctrl-geolocate:hover {
     background: #374151 !important;
 }
 
 /* Active/tracking state */
-.geolocation-control-header .geolocation-btn-header.mapboxgl-ctrl-geolocate-active {
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active {
     background: #3b82f6 !important;
     border-color: #2563eb !important;
 }
 
 /* Active background tracking state */
-.geolocation-control-header .geolocation-btn-header.mapboxgl-ctrl-geolocate-active-error {
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active-error {
     background: #ef4444 !important;
     border-color: #dc2626 !important;
 }
 
 /* Background tracking state */
-.geolocation-control-header .geolocation-btn-header.mapboxgl-ctrl-geolocate-background {
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-background {
     background: #3b82f6 !important;
     border-color: #2563eb !important;
 }
 
 /* Icon styling - override Mapbox's background-image */
-.geolocation-control-header .geolocation-btn-header .mapboxgl-ctrl-icon {
+.geolocation-btn-header.mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
     background-image: none !important;
+    background: transparent !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -439,10 +445,12 @@ main {
 }
 
 /* SVG icon color */
-.geolocation-control-header .geolocation-btn-header svg {
+.geolocation-btn-header.mapboxgl-ctrl-geolocate svg {
     color: white !important;
-    fill: currentColor;
-    display: block;
+    fill: currentColor !important;
+    display: block !important;
+    width: 20px !important;
+    height: 20px !important;
 }
 
 .mapboxgl-ctrl-geolocate span.error {
