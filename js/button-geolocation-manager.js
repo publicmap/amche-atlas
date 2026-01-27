@@ -116,17 +116,64 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                 button.classList.add('geolocation-btn-header');
                 console.log('[Geolocation] Added geolocation-btn-header class');
 
+                // Apply inline styles to ensure they work
+                button.style.cssText = `
+                    background: #1f2937 !important;
+                    border: 1px solid #374151 !important;
+                    border-radius: 0.5rem !important;
+                    width: 40px !important;
+                    height: 40px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    padding: 0 !important;
+                `;
+                console.log('[Geolocation] Applied inline styles to button');
+
                 // Replace the empty icon span with a simple SVG icon
                 const iconSpan = button.querySelector('.mapboxgl-ctrl-icon');
                 console.log('[Geolocation] Found icon span:', iconSpan);
 
                 if (iconSpan) {
+                    // Remove Mapbox's background-image and apply inline styles
+                    iconSpan.style.cssText = `
+                        background-image: none !important;
+                        background: transparent !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        width: 100% !important;
+                        height: 100% !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    `;
+
                     iconSpan.innerHTML = `
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="white" style="display: block !important;">
                             <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
                         </svg>
                     `;
-                    console.log('[Geolocation] Set SVG innerHTML');
+                    console.log('[Geolocation] Set SVG innerHTML with inline styles');
+
+                    // Update button colors based on state
+                    this._updateButtonStyle = () => {
+                        if (button.classList.contains('mapboxgl-ctrl-geolocate-active')) {
+                            button.style.background = '#3b82f6 !important';
+                            button.style.borderColor = '#2563eb !important';
+                        } else if (button.classList.contains('mapboxgl-ctrl-geolocate-active-error')) {
+                            button.style.background = '#ef4444 !important';
+                            button.style.borderColor = '#dc2626 !important';
+                        } else {
+                            button.style.background = '#1f2937 !important';
+                            button.style.borderColor = '#374151 !important';
+                        }
+                    };
+
+                    // Watch for class changes to update button style
+                    const buttonObserver = new MutationObserver(() => {
+                        this._updateButtonStyle();
+                    });
+                    buttonObserver.observe(button, { attributes: true, attributeFilter: ['class'] });
                 } else {
                     console.warn('[Geolocation] Icon span not found!');
                 }
