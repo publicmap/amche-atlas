@@ -98,41 +98,46 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
         const container = super.onAdd(map);
         console.log('[Geolocation] onAdd called, container:', container);
-        console.log('[Geolocation] Container children:', container.children);
-        console.log('[Geolocation] Container innerHTML:', container.innerHTML);
 
-        // The parent class returns the button directly, not a wrapper container
-        // So container IS the button element
-        const button = container;
-        console.log('[Geolocation] Button (container):', button);
-        console.log('[Geolocation] Button classList:', button.classList.toString());
+        // Add wrapper class to the container
+        container.classList.add('geolocation-control-header');
 
-        // Add custom class for header styling
-        button.classList.add('geolocation-btn-header');
-        console.log('[Geolocation] Added geolocation-btn-header class');
+        // The button is added asynchronously by the parent class
+        // Use MutationObserver to wait for it and then customize it
+        const observer = new MutationObserver((mutations, obs) => {
+            const button = container.querySelector('.mapboxgl-ctrl-geolocate');
+            console.log('[Geolocation] MutationObserver - Found button:', button);
 
-        // Wrap the button in a container div
-        const wrapper = document.createElement('div');
-        wrapper.className = 'geolocation-control-header';
+            if (button) {
+                // Stop observing once we found the button
+                obs.disconnect();
 
-        // Replace the empty icon span with a simple SVG icon
-        const iconSpan = button.querySelector('.mapboxgl-ctrl-icon');
-        console.log('[Geolocation] Found icon span:', iconSpan);
+                // Add custom class for header styling
+                button.classList.add('geolocation-btn-header');
+                console.log('[Geolocation] Added geolocation-btn-header class');
 
-        if (iconSpan) {
-            iconSpan.innerHTML = `
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
-                </svg>
-            `;
-            console.log('[Geolocation] Set SVG innerHTML, span content:', iconSpan.innerHTML);
-        } else {
-            console.warn('[Geolocation] Icon span not found!');
-        }
+                // Replace the empty icon span with a simple SVG icon
+                const iconSpan = button.querySelector('.mapboxgl-ctrl-icon');
+                console.log('[Geolocation] Found icon span:', iconSpan);
 
-        wrapper.appendChild(button);
-        console.log('[Geolocation] Final wrapper HTML:', wrapper.innerHTML);
-        return wrapper;
+                if (iconSpan) {
+                    iconSpan.innerHTML = `
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+                        </svg>
+                    `;
+                    console.log('[Geolocation] Set SVG innerHTML');
+                } else {
+                    console.warn('[Geolocation] Icon span not found!');
+                }
+            }
+        });
+
+        // Start observing the container for child additions
+        observer.observe(container, { childList: true, subtree: true });
+        console.log('[Geolocation] MutationObserver started');
+
+        return container;
     }
 
     handleOrientation = (event) => {
