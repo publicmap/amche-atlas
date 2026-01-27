@@ -98,40 +98,41 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
         const container = super.onAdd(map);
         console.log('[Geolocation] onAdd called, container:', container);
+        console.log('[Geolocation] Container children:', container.children);
+        console.log('[Geolocation] Container innerHTML:', container.innerHTML);
 
-        // Style the container for header placement
-        container.className = 'geolocation-control-header';
-        console.log('[Geolocation] Set container class to geolocation-control-header');
+        // The parent class returns the button directly, not a wrapper container
+        // So container IS the button element
+        const button = container;
+        console.log('[Geolocation] Button (container):', button);
+        console.log('[Geolocation] Button classList:', button.classList.toString());
 
-        // Update button styling for header
-        const button = container.querySelector('.mapboxgl-ctrl-geolocate');
-        console.log('[Geolocation] Found button:', button);
+        // Add custom class for header styling
+        button.classList.add('geolocation-btn-header');
+        console.log('[Geolocation] Added geolocation-btn-header class');
 
-        if (button) {
-            // Add custom class for header styling
-            button.classList.add('geolocation-btn-header');
-            console.log('[Geolocation] Added geolocation-btn-header class to button');
+        // Wrap the button in a container div
+        const wrapper = document.createElement('div');
+        wrapper.className = 'geolocation-control-header';
 
-            // Replace the empty icon span with a simple SVG icon
-            const iconSpan = button.querySelector('.mapboxgl-ctrl-icon');
-            console.log('[Geolocation] Found icon span:', iconSpan);
+        // Replace the empty icon span with a simple SVG icon
+        const iconSpan = button.querySelector('.mapboxgl-ctrl-icon');
+        console.log('[Geolocation] Found icon span:', iconSpan);
 
-            if (iconSpan) {
-                iconSpan.innerHTML = `
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
-                    </svg>
-                `;
-                console.log('[Geolocation] Set SVG innerHTML, span content:', iconSpan.innerHTML);
-            } else {
-                console.warn('[Geolocation] Icon span not found!');
-            }
+        if (iconSpan) {
+            iconSpan.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+                </svg>
+            `;
+            console.log('[Geolocation] Set SVG innerHTML, span content:', iconSpan.innerHTML);
         } else {
-            console.warn('[Geolocation] Button not found!');
+            console.warn('[Geolocation] Icon span not found!');
         }
 
-        console.log('[Geolocation] Final container HTML:', container.innerHTML);
-        return container;
+        wrapper.appendChild(button);
+        console.log('[Geolocation] Final wrapper HTML:', wrapper.innerHTML);
+        return wrapper;
     }
 
     handleOrientation = (event) => {
