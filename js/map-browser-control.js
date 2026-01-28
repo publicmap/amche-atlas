@@ -22,17 +22,13 @@ export class MapBrowserControl {
         this._container.className = 'map-browser-control';
 
         this._button = document.createElement('button');
-        this._button.className = 'map-browser-btn flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-700 text-sm font-medium';
+        this._button.className = 'header-btn map-browser-btn';
         this._button.type = 'button';
         this._button.setAttribute('aria-label', 'Browse Maps');
 
-        const currentAtlas = window.layerRegistry?._currentAtlas || 'index';
-        const atlasMetadata = window.layerRegistry?.getAtlasMetadata(currentAtlas);
-        const atlasName = atlasMetadata?.name || 'Browse Maps';
-
         this._button.innerHTML = `
             <sl-icon name="layers" style="font-size: 16px;"></sl-icon>
-            <span class="atlas-name">${atlasName}</span>
+            <span class="header-btn-text">Maps</span>
         `;
 
         this._button.addEventListener('click', () => {
@@ -302,11 +298,6 @@ export class MapBrowserControl {
     }
 
     updateAtlasName(atlasName) {
-        if (this._button) {
-            const nameSpan = this._button.querySelector('.atlas-name');
-            if (nameSpan) {
-                nameSpan.textContent = atlasName;
-            }
-        }
+        // No longer updating atlas name - button always shows "Maps"
     }
 }

@@ -1,0 +1,22 @@
+/* Mapbox Search Box Styling */
+mapbox-search-box {
+    height: 40px;
+    flex: 1;
+    max-width: 500px;
+}
+
+/* Best-effort styling for search box (limited by shadow DOM) */
+mapbox-search-box::part(input) {
+    height: 40px;
+    border-radius: 0.5rem;
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: white;
+}
+
+@media (max-width: 640px) {
+    mapbox-search-box {
+        max-width: none;
+        flex: 1;
+    }
+}

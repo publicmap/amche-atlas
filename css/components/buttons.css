@@ -1,0 +1,69 @@
+.header-btn {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.header-btn:hover {
+    background: #374151;
+}
+
+.header-btn.active {
+    background: #3b82f6;
+    border-color: #2563eb;
+}
+
+.header-btn.error {
+    background: #ef4444;
+    border-color: #dc2626;
+}
+
+/* Icon styling for consistency */
+.header-btn sl-icon,
+.header-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: block;
+}
+
+.header-btn sl-icon {
+    font-size: 16px;
+}
+
+/* Ensure Mapbox control icon span doesn't interfere */
+.header-btn .mapboxgl-ctrl-icon {
+    background-image: none !important;
+    background: transparent !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+@media (max-width: 640px) {
+    .header-btn-text {
+        display: none !important;
+    }
+    .header-btn {
+        padding: 0.5rem;
+        width: 40px;
+        min-width: 40px;
+        justify-content: center;
+    }
+}

@@ -1,0 +1,31 @@
+.header-site-name {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.125rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.header-site-name:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+}
+
+.site-name-abbr {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    .site-name-full {
+        display: none;
+    }
+    .site-name-abbr {
+        display: inline;
+    }
+    .header-site-name {
+        padding: 0.5rem;
+    }
+}

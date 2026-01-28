@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Menu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .menu-item {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: #f9fafb;
+            border-radius: 0.375rem;
+        }
+
+        .menu-item:hover {
+            background-color: #374151;
+            color: #ffffff;
+        }
+
+        .menu-item.active {
+            color: #F96302;
+            background-color: rgba(249, 99, 2, 0.1);
+        }
+
+        .menu-item.active:hover {
+            background-color: rgba(249, 99, 2, 0.2);
+        }
+
+        .menu-icon {
+            width: 1rem;
+            height: 1rem;
+            flex-shrink: 0;
+            color: #9ca3af;
+        }
+
+        .menu-item:hover .menu-icon {
+            color: #ffffff;
+        }
+
+        .menu-item.active .menu-icon {
+            color: #F96302;
+        }
+
+        .menu-divider {
+            height: 1px;
+            background-color: #374151;
+            margin: 0.5rem 0;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 4px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+<body class="bg-gray-800">
+    <div class="flex flex-col h-screen">
+        <!-- Header -->
+        <div class="bg-gray-900 text-white p-3 border-b border-gray-700">
+            <div class="flex items-center justify-between">
+                <h1 class="text-base font-semibold">Navigation</h1>
+                <button id="close-btn" class="text-white hover:text-gray-300 text-2xl leading-none">&times;</button>
+            </div>
+        </div>
+
+        <!-- Menu Items -->
+        <div id="menu-container" class="flex-1 overflow-y-auto scrollbar-thin p-2">
+            <!-- Menu items will be dynamically loaded here -->
+        </div>
+    </div>
+
+    <script>
+        // State
+        let menuItems = [];
+
+        // Initialize
+        $(document).ready(function() {
+            setupMessageListener();
+            setupEventListeners();
+            requestMenuData();
+        });
+
+        // Request menu data from parent
+        function requestMenuData() {
+            window.parent.postMessage({
+                type: 'request-menu-data'
+            }, '*');
+        }
+
+        // Setup message listener
+        function setupMessageListener() {
+            window.addEventListener('message', function(event) {
+                if (event.data.type === 'menu-data') {
+                    menuItems = event.data.items || [];
+                    renderMenu();
+                }
+            });
+        }
+
+        // Setup UI event listeners
+        function setupEventListeners() {
+            $('#close-btn').on('click', closeMenu);
+        }
+
+        // Render menu
+        function renderMenu() {
+            const $container = $('#menu-container');
+            $container.empty();
+
+            menuItems.forEach(item => {
+                if (item.element === 'divider') {
+                    $container.append('<div class="menu-divider"></div>');
+                } else {
+                    const $item = createMenuItem(item);
+                    $container.append($item);
+                }
+            });
+        }
+
+        // Create menu item
+        function createMenuItem(item) {
+            const isActive = item.active || false;
+            const href = item.href || '#';
+            const target = item.target || '_self';
+
+            const $item = $('<a>', {
+                class: 'menu-item' + (isActive ? ' active' : ''),
+                href: href,
+                target: target === '_blank' ? '_blank' : undefined,
+                rel: target === '_blank' ? 'noopener noreferrer' : undefined
+            });
+
+            // Add icon if available
+            if (item.icon) {
+                $item.append($(item.icon).addClass('menu-icon'));
+            }
+
+            // Add text
+            $item.append($('<span>', {
+                class: 'flex-1',
+                text: item.text
+            }));
+
+            // Handle click
+            $item.on('click', function(e) {
+                if (item.id === 'help-menu-item') {
+                    e.preventDefault();
+                    window.parent.postMessage({
+                        type: 'menu-action',
+                        action: 'show-help'
+                    }, '*');
+                    closeMenu();
+                } else if (target !== '_blank' && href !== '#') {
+                    e.preventDefault();
+                    // Preserve hash when navigating
+                    const finalHref = href.startsWith('http') ? href :
+                                     (window.parent.location.hash ? href + window.parent.location.hash : href);
+                    window.parent.location.href = finalHref;
+                }
+            });
+
+            return $item;
+        }
+
+        // Close menu
+        function closeMenu() {
+            window.parent.postMessage({ type: 'close-menu' }, '*');
+        }
+    </script>
+</body>
+</html>
