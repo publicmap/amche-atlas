@@ -80,15 +80,136 @@
     <div id="loading"
         style="width: 100%;height: 100%;color: white;margin: auto;display: flex;z-index: -9999;position: fixed;font-size: 32px;align-items: center;justify-content: center;background-color: rgba(0, 0, 0, 0.5);">
         Loading</div>
+    <!-- Navigation Menu Overlay -->
+    <div id="nav-menu-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 1000;">
+        <div id="nav-menu-container" style="position: absolute; top: 0; left: 0; width: 300px; height: 100%; background: #1f2937; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); overflow-y: auto;">
+            <!-- Menu Header -->
+            <div style="background: #111827; padding: 1rem; border-bottom: 1px solid #374151; display: flex; align-items: center; justify-content: space-between;">
+                <h2 style="font-size: 1rem; font-weight: 600; margin: 0;">Navigation</h2>
+                <button id="nav-menu-close" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+            </div>
+
+            <!-- Menu Items -->
+            <div style="padding: 0.5rem;">
+                <a href="#" id="help-menu-item" class="nav-menu-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s;">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="2"/><text x="10" y="14" text-anchor="middle" font-size="12" font-weight="bold">i</text></svg>
+                    <span>Welcome</span>
+                </a>
+
+                <a href="./game/" class="nav-menu-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s;">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M11 17a1 1 0 001.447.894l4-2A1 1 0 0017 15V9.236a1 1 0 00-1.447-.894l-4 2a1 1 0 00-.553.894V17zM15.211 6.276a1 1 0 000-1.788l-4.764-2.382a1 1 0 00-.894 0L4.789 4.488a1 1 0 000 1.788l4.764 2.382a1 1 0 00.894 0l4.764-2.382zM4.447 8.342A1 1 0 003 9.236V15a1 1 0 00.553.894l4 2A1 1 0 009 17v-5.764a1 1 0 00-.553-.894l-4-2z"/></svg>
+                    <span>Game</span>
+                </a>
+
+                <div style="height: 1px; background: #374151; margin: 0.5rem 0;"></div>
+
+                <a href="./bus/" class="nav-menu-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s;">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 670 512"><path d="M 202,454 C 197,452 192,447 190,442 C 188,439 188,436 188,420 C 187,408 186,402 186,402 C 185,401 178,401 171,401 L 157,401 L 157,307 L 157,213 L 166,148 C 171,113 176,81 176,78 C 179,71 185,62 192,56 C 198,51 216,42 228,38 C 238,35 257,30 274,27 C 319,19 356,20 404,29 C 458,40 485,54 493,77 C 494,81 498,105 504,149 L 512,214 L 512,308 L 512,401 L 499,401 C 491,401 485,401 484,402 C 484,402 483,408 483,420 C 482,440 481,444 474,450 C 461,461 438,456 433,440 C 433,438 432,429 432,420 C 432,407 432,404 430,402 C 429,401 419,401 335,401 C 251,401 241,401 240,402 C 238,404 238,407 238,421 C 238,436 238,438 236,442 C 233,448 230,451 224,454 C 218,456 207,456 202,454 Z M 221,342 C 231,339 237,330 237,320 C 237,306 227,295 213,295 C 206,295 202,296 197,301 C 191,306 189,311 189,319 C 189,327 191,332 196,337 C 202,343 213,345 221,342 Z M 468,341 C 486,332 486,307 468,298 C 455,291 440,297 434,310 C 432,315 432,325 435,330 C 441,342 456,347 468,341 Z M 470,232 C 473,231 476,230 478,229 C 480,226 482,219 481,214 C 481,213 478,189 474,162 C 467,111 466,107 461,103 C 456,98 458,98 336,98 C 253,98 219,98 215,99 C 210,100 205,105 204,111 C 201,120 188,218 189,222 C 190,227 194,231 199,232 C 206,233 464,233 470,232 Z M 411,76 C 415,75 418,72 419,67 C 419,63 417,58 413,56 C 412,55 389,55 334,55 C 263,55 257,55 255,57 C 251,60 250,66 253,72 C 254,73 256,75 258,75 C 259,76 261,76 262,76 C 264,77 407,77 411,76 Z"/></svg>
+                    <span>Bus</span>
+                </a>
+
+                <a href="./sound/" class="nav-menu-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s;">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071a1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243a1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828a1 1 0 010-1.415z"/></svg>
+                    <span>Noiselogger</span>
+                </a>
+
+                <a href="./pages/contacts" class="nav-menu-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s;">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/></svg>
+                    <span>Goa Contact Sheet</span>
+                </a>
+
+                <div style="height: 1px; background: #374151; margin: 0.5rem 0;"></div>
+
+                <a href="https://github.com/publicmap/amche-goa" target="_blank" class="nav-menu-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s;">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                    <span>Source</span>
+                </a>
+
+                <a href="https://forms.gle/8J4HTJMUM1thWpGK9" target="_blank" class="nav-menu-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s;">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd"/></svg>
+                    <span>Feedback</span>
+                </a>
+
+                <div style="height: 1px; background: #374151; margin: 0.5rem 0;"></div>
+
+                <a href="./privacy.html" class="nav-menu-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s;">
+                    <span>Privacy Policy</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="bg-gray-900 text-white p-4 flex justify-between items-center">
         <div class="flex items-center gap-4">
+            <button id="nav-menu-trigger" class="flex items-center gap-2 bg-transparent hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded transition-colors" aria-label="Open navigation menu">
+                <img src="/assets/img/icon-192x192.png" alt="amche.in logo" class="w-6 h-6 rounded">
+                <span class="hidden sm:inline">amche.in</span>
+            </button>
             <div id="map-browser-control-container"></div>
             <mapbox-search-box id="mapbox-search-box"></mapbox-search-box>
             <div id="geolocation-control-container"></div>
         </div>
-        <div id="top-header" class="flex items-center gap-4"></div>
     </header>
+
+    <style>
+        .nav-menu-item:hover {
+            background-color: #374151;
+        }
+        @media (max-width: 640px) {
+            #nav-menu-container {
+                width: 280px !important;
+            }
+        }
+    </style>
+
+    <script>
+        // Navigation menu functionality
+        (function() {
+            const overlay = document.getElementById('nav-menu-overlay');
+            const trigger = document.getElementById('nav-menu-trigger');
+            const closeBtn = document.getElementById('nav-menu-close');
+            const helpItem = document.getElementById('help-menu-item');
+
+            function openMenu() {
+                overlay.style.display = 'block';
+            }
+
+            function closeMenu() {
+                overlay.style.display = 'none';
+            }
+
+            trigger.addEventListener('click', openMenu);
+            closeBtn.addEventListener('click', closeMenu);
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    closeMenu();
+                }
+            });
+
+            // Handle help menu item
+            helpItem.addEventListener('click', function(e) {
+                e.preventDefault();
+                closeMenu();
+                // IntroContentManager will be initialized by map-init.js
+                if (window.IntroContentManager) {
+                    new window.IntroContentManager({enableAutoClose: false});
+                }
+            });
+
+            // Preserve hash when navigating
+            document.querySelectorAll('.nav-menu-item[href^="./"]').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    const href = this.getAttribute('href');
+                    if (href && window.location.hash) {
+                        e.preventDefault();
+                        window.location.href = href + window.location.hash;
+                    }
+                });
+            });
+        })();
+    </script>
 
     <!-- Wrap main content in a container -->
     <div class="flex flex-grow relative h-full">
