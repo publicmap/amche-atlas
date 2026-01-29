@@ -114,21 +114,38 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                 // Stop observing once we found the button
                 obs.disconnect();
 
-                // Add custom classes for header styling
-                button.classList.add('header-btn', 'geolocation-btn-header');
-                console.log('[Geolocation] Added header-btn and geolocation-btn-header classes');
+                // Add custom class for header styling
+                button.classList.add('geolocation-btn-header');
+                console.log('[Geolocation] Added geolocation-btn-header class');
+
+                // Apply inline styles to ensure they work
+                button.style.cssText = `
+                    background: #1f2937 !important;
+                    border: 1px solid #374151 !important;
+                    border-radius: 0.5rem !important;
+                    width: auto !important;
+                    height: 40px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    padding: 0 12px !important;
+                    min-width: 40px !important;
+                    gap: 8px !important;
+                `;
+                console.log('[Geolocation] Applied inline styles to button');
 
                 // Replace the empty icon span with a simple SVG icon
                 const iconSpan = button.querySelector('.mapboxgl-ctrl-icon');
                 console.log('[Geolocation] Found icon span:', iconSpan);
 
                 if (iconSpan) {
-                    // Remove Mapbox's background-image
+                    // Remove Mapbox's background-image and apply inline styles
                     iconSpan.style.cssText = `
                         background-image: none !important;
                         background: transparent !important;
                         display: flex !important;
                         align-items: center !important;
+                        justify-content: center !important;
                         width: auto !important;
                         height: 100% !important;
                         margin: 0 !important;
@@ -136,24 +153,27 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                     `;
 
                     iconSpan.innerHTML = `
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="white" style="display: block; flex-shrink: 0;">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="white" style="display: block !important; flex-shrink: 0;">
                             <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
                         </svg>
-                        <span class="header-btn-text">Locate</span>
+                        <span class="geolocation-text" style="margin-left: 8px; font-size: 14px; white-space: nowrap;">Locate</span>
                     `;
-                    console.log('[Geolocation] Set SVG and text span');
+                    console.log('[Geolocation] Set SVG innerHTML with inline styles');
 
-                    // Update button state classes and text based on Mapbox state
+                    // Update button colors and text based on state
                     this._updateButtonStyle = () => {
-                        button.classList.remove('active', 'error');
-                        const textSpan = button.querySelector('.header-btn-text');
+                        const textSpan = button.querySelector('.geolocation-text');
                         if (button.classList.contains('mapboxgl-ctrl-geolocate-active')) {
-                            button.classList.add('active');
+                            button.style.background = '#3b82f6 !important';
+                            button.style.borderColor = '#2563eb !important';
                             if (textSpan) textSpan.textContent = 'Tracking';
                         } else if (button.classList.contains('mapboxgl-ctrl-geolocate-active-error')) {
-                            button.classList.add('error');
+                            button.style.background = '#ef4444 !important';
+                            button.style.borderColor = '#dc2626 !important';
                             if (textSpan) textSpan.textContent = 'Locate';
                         } else {
+                            button.style.background = '#1f2937 !important';
+                            button.style.borderColor = '#374151 !important';
                             if (textSpan) textSpan.textContent = 'Locate';
                         }
                     };

@@ -22,13 +22,13 @@ export class MapBrowserControl {
         this._container.className = 'map-browser-control';
 
         this._button = document.createElement('button');
-        this._button.className = 'header-btn map-browser-btn';
+        this._button.className = 'map-browser-btn flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-700 text-sm font-medium';
         this._button.type = 'button';
         this._button.setAttribute('aria-label', 'Browse Maps');
 
         this._button.innerHTML = `
             <sl-icon name="layers" style="font-size: 16px;"></sl-icon>
-            <span class="header-btn-text">Maps</span>
+            <span class="map-browser-text">Maps</span>
         `;
 
         this._button.addEventListener('click', () => {
@@ -213,13 +213,23 @@ export class MapBrowserControl {
             return;
         }
 
+        const checkbox = groupElement.querySelector('.toggle-switch input[type="checkbox"]');
+        if (!checkbox) {
+            console.warn(`[MapBrowser] Checkbox for layer ${layerId} not found`);
+            return;
+        }
+
         if (active) {
-            if (!groupElement.open) {
+            if (!checkbox.checked) {
+                checkbox.checked = true;
                 groupElement.show();
+                mapLayerControl._toggleLayerGroup(groupIndex, true);
             }
         } else {
-            if (groupElement.open) {
+            if (checkbox.checked) {
+                checkbox.checked = false;
                 groupElement.hide();
+                mapLayerControl._toggleLayerGroup(groupIndex, false);
             }
         }
 

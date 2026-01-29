@@ -83,12 +83,10 @@ export class MapFeatureStateManager extends EventTarget {
         const layerId = layerConfig.id;
 
         if (this._registeredLayers.has(layerId)) {
-            // Layer already registered, skipping
             return;
         }
 
         this._registeredLayers.set(layerId, layerConfig);
-        // Layer registered successfully
 
         // Check if this is a raster layer that doesn't need feature interaction
         if (this._isRasterLayer(layerConfig)) {

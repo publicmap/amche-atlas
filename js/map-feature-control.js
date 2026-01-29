@@ -1250,19 +1250,24 @@ export class MapFeatureControl {
             }
         }
 
+        // Get active layers from state manager as the source of truth
+        const activeLayers = this._stateManager.getActiveLayers();
+        const activeLayerIds = new Set(activeLayers.keys());
+
+        let configLayerIds = [];
+
         // Use the layers array from config to maintain the exact order specified
         if (this._config.layers && Array.isArray(this._config.layers)) {
-            return this._config.layers
+            configLayerIds = this._config.layers
                 .filter(layer => {
                     // Include all layers that are registered with the state manager (visible layers)
                     return this._getLayerConfig(layer.id) !== undefined;
                 })
                 .map(layer => layer.id);
         }
-
         // Fallback to groups if layers array doesn't exist (older config format)
-        if (this._config.groups && Array.isArray(this._config.groups)) {
-            return this._config.groups
+        else if (this._config.groups && Array.isArray(this._config.groups)) {
+            configLayerIds = this._config.groups
                 .filter(group => {
                     // Include all layers that are registered with the state manager (visible layers)
                     return this._getLayerConfig(group.id) !== undefined;
@@ -1270,9 +1275,13 @@ export class MapFeatureControl {
                 .map(group => group.id);
         }
 
-        // Final fallback
-        const activeLayers = this._stateManager.getActiveLayers();
-        return Array.from(activeLayers.keys());
+        // Add any active layers that aren't in the config (cross-atlas layers)
+        const missingLayers = Array.from(activeLayerIds).filter(id => !configLayerIds.includes(id));
+
+        // Combine: config layers first (maintaining order), then missing layers
+        const allLayerIds = [...configLayerIds, ...missingLayers];
+
+        return allLayerIds;
     }
 
     /**

@@ -23,8 +23,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: 'index.html',
-        'map-browser': 'map-browser.html',
-        'menu': 'menu.html'
+        'map-browser': 'map-browser.html'
       }
     }
   },
