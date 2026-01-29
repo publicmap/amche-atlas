@@ -29,6 +29,22 @@
     opacity: 0.9;
 }
 
+/* Navigation menu trigger - override default button styles */
+#nav-menu-trigger {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    color: white !important;
+}
+
+#nav-menu-trigger:hover {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
 /* General button styling */
 button {
     background: #ffffff;

@@ -140,15 +140,20 @@
     </div>
 
     <!-- Header -->
-    <header class="bg-gray-900 text-white p-4 flex justify-between items-center">
-        <div class="flex items-center gap-4">
-            <button id="nav-menu-trigger" class="flex items-center gap-2 bg-transparent hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded transition-colors" aria-label="Open navigation menu">
-                <img src="/assets/img/icon-192x192.png" alt="amche.in logo" class="w-6 h-6 rounded">
-                <span class="hidden sm:inline">amche.in</span>
+    <header class="bg-gray-900 text-white p-4 flex justify-between items-center border-b border-gray-800">
+        <div class="flex items-center gap-6 flex-grow">
+            <!-- Branding Section -->
+            <button id="nav-menu-trigger" class="flex items-center gap-2 bg-transparent border-0 text-white p-0 transition-opacity hover:opacity-80" aria-label="Open navigation menu">
+                <img src="/assets/img/icon-192x192.png" alt="amche.in" class="w-7 h-7 rounded">
+                <span class="text-lg font-semibold tracking-tight hidden sm:inline">amche.in</span>
             </button>
-            <div id="map-browser-control-container"></div>
-            <mapbox-search-box id="mapbox-search-box"></mapbox-search-box>
-            <div id="geolocation-control-container"></div>
+
+            <!-- Controls Section -->
+            <div class="flex items-center gap-3 flex-grow">
+                <div id="map-browser-control-container"></div>
+                <mapbox-search-box id="mapbox-search-box" class="flex-grow max-w-md"></mapbox-search-box>
+                <div id="geolocation-control-container"></div>
+            </div>
         </div>
     </header>
 
