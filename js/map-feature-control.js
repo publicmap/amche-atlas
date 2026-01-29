@@ -10,7 +10,6 @@
  * UI uses a panel-based approach similar to 3D control with Shoelace details components.
  */
 
-import { DrawerStateManager } from './drawer-state-manager.js';
 import { GeoUtils } from './map-utils.js';
 import { LayerSettingsModal } from './layer-settings-modal.js';
 import { LayerCreatorUI } from './layer-creator-ui.js';
@@ -30,7 +29,6 @@ export class MapFeatureControl {
 
         this._map = null;
         this._stateManager = null;
-        this.drawerStateManager = new DrawerStateManager();
         this._container = null;
         this._layersContainer = null;
         this._panel = null; // Main panel component
@@ -594,31 +592,7 @@ export class MapFeatureControl {
     }
 
     /**
-     * Create Layer Atlas button (left side of header)
-     */
-    _createLayerAtlasButton() {
-        const layerAtlasBtn = document.createElement('button');
-        layerAtlasBtn.className = 'layer-atlas-btn primary-action-btn';
-
-        // Get current atlas name
-        const currentAtlas = window.layerRegistry?._currentAtlas || 'index';
-        const atlasMetadata = window.layerRegistry?.getAtlasMetadata(currentAtlas);
-        const atlasName = atlasMetadata?.name || 'Browse Maps';
-
-        layerAtlasBtn.innerHTML = `
-            <sl-icon name="layers" style="font-size: 14px; margin-right: 6px;"></sl-icon>
-            <span>${atlasName}</span>
-        `;
-
-        layerAtlasBtn.addEventListener('click', () => {
-            this._openLayerDrawer();
-        });
-
-        return layerAtlasBtn;
-    }
-
-    /**
-     * Create header actions (New Data Source, Settings) - Layer Atlas is now separate
+     * Create header actions (Settings menu)
      */
     _createHeaderActions() {
         const actions = [];
@@ -748,13 +722,6 @@ export class MapFeatureControl {
 
         // Listen to the global drawer state change event
         window.addEventListener('drawer-state-change', this._drawerStateListener);
-    }
-
-    /**
-     * Open the layer drawer using centralized manager
-     */
-    _openLayerDrawer() {
-        this.drawerStateManager.open();
     }
 
     /**
@@ -1032,7 +999,8 @@ export class MapFeatureControl {
         }
 
         // Close the layer list drawer to prevent it from obscuring feature details
-        this.drawerStateManager.close();
+        const drawer = document.querySelector('#map-controls-drawer');
+        if (drawer) drawer.hide();
     }
 
     /**
