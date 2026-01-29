@@ -29,6 +29,104 @@
     opacity: 0.9;
 }
 
+/* Header Navigation Styles */
+.header-nav {
+    padding: 0.625rem 1rem;
+    height: 56px;
+}
+
+@media (max-width: 640px) {
+    .header-nav {
+        padding: 0.5rem 0.75rem;
+        height: 52px;
+    }
+}
+
+/* Navigation Brand */
+.nav-brand {
+    height: 36px;
+}
+
+.nav-logo {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.nav-title {
+    font-size: 1.125rem;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .nav-logo {
+        width: 26px;
+        height: 26px;
+    }
+}
+
+/* Header Controls - Ensure all children have consistent height */
+.header-controls {
+    height: 36px;
+}
+
+.header-controls>* {
+    height: 36px !important;
+}
+
+/* Map Browser Control */
+.map-browser-control {
+    margin: 0 !important;
+}
+
+.map-browser-btn {
+    height: 36px !important;
+    min-height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    box-shadow: none !important;
+}
+
+/* Mapbox Search Box */
+#mapbox-search-box {
+    max-width: 400px;
+}
+
+@media (max-width: 768px) {
+    #mapbox-search-box {
+        max-width: 100%;
+    }
+}
+
+mapbox-search-box::part(input) {
+    height: 36px !important;
+    min-height: 36px !important;
+    font-size: 0.875rem !important;
+    border-radius: 0.375rem !important;
+    border: 1px solid #374151 !important;
+    background: #1f2937 !important;
+    color: white !important;
+}
+
+mapbox-search-box::part(input):focus {
+    border-color: #4b5563 !important;
+    outline: none !important;
+}
+
+mapbox-search-box::part(input)::placeholder {
+    color: #9ca3af !important;
+}
+
+/* Geolocation Control */
+#geolocation-control-container .mapboxgl-ctrl-geolocate,
+.geolocation-btn-header {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+}
+
 /* Navigation menu trigger - override default button styles */
 #nav-menu-trigger {
     background: transparent !important;
@@ -160,12 +258,20 @@ button.large {
 .map-control-dark {
     background: #1f2937 !important;
     color: #ffbf00 !important;
-    border-color: #1f2937;
+    border: 1px solid #374151 !important;
+    border-radius: 0.375rem !important;
+    height: 36px !important;
+    padding: 0 0.75rem !important;
+    font-size: 0.875rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
 }
 
 .map-control-dark:hover {
     background: #374151 !important;
     color: #ffd700 !important;
+    border-color: #4b5563 !important;
 }
 
 /* Map layer filter styling */
@@ -407,16 +513,21 @@ main {
 .geolocation-control-header {
     display: flex;
     align-items: center;
+    margin: 0 !important;
+}
+
+.geolocation-control-header .mapboxgl-ctrl-group {
+    margin: 0 !important;
+    box-shadow: none !important;
 }
 
 /* Base button styling - override Mapbox defaults with high specificity */
 .geolocation-btn-header.mapboxgl-ctrl-geolocate {
-    background: #1f2937 !important;
-    border: 1px solid #374151 !important;
-    border-radius: 0.5rem !important;
+    background: #202020 !important;
+    border: 1px solid #404040 !important;
     padding: 0 !important;
-    width: 40px !important;
-    height: 40px !important;
+    width: 36px !important;
+    height: 36px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -424,25 +535,35 @@ main {
     box-shadow: none !important;
 }
 
-/* Hover state */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate:hover {
-    background: #374151 !important;
+/* Hover state (only when not active) */
+.geolocation-btn-header.mapboxgl-ctrl-geolocate:hover:not(.mapboxgl-ctrl-geolocate-active):not(.mapboxgl-ctrl-geolocate-background):not(.mapboxgl-ctrl-geolocate-active-error) {
+    background: #303030 !important;
+    border-color: #505050 !important;
 }
 
 /* Active/tracking state */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active {
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active,
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active:hover {
     background: #3b82f6 !important;
     border-color: #2563eb !important;
 }
 
+/* Tracking state icon color */
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active svg,
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-background svg {
+    fill: rgb(30, 161, 243) !important;
+}
+
 /* Active background tracking state */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active-error {
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active-error,
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active-error:hover {
     background: #ef4444 !important;
     border-color: #dc2626 !important;
 }
 
 /* Background tracking state */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-background {
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-background,
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-background:hover {
     background: #3b82f6 !important;
     border-color: #2563eb !important;
 }
@@ -463,10 +584,15 @@ main {
 /* SVG icon color */
 .geolocation-btn-header.mapboxgl-ctrl-geolocate svg {
     color: white !important;
-    fill: currentColor !important;
+    fill: white !important;
     display: block !important;
-    width: 20px !important;
-    height: 20px !important;
+    width: 18px !important;
+    height: 18px !important;
+}
+
+/* Text color */
+.geolocation-btn-header.mapboxgl-ctrl-geolocate .geolocation-text {
+    color: white !important;
 }
 
 .mapboxgl-ctrl-geolocate span.error {
@@ -475,9 +601,16 @@ main {
 
 /* Responsive: hide button text on small screens */
 @media (max-width: 640px) {
+
     .map-browser-text,
     .geolocation-text {
         display: none !important;
+    }
+
+    /* Adjust geolocation button for icon-only on mobile */
+    .geolocation-btn-header {
+        min-width: 36px !important;
+        padding: 0 !important;
     }
 }
 
@@ -485,11 +618,12 @@ main {
     width: auto !important;
 }
 
-.mapboxgl-ctrl-group button {
+/* Only apply white background to non-geolocation buttons */
+.mapboxgl-ctrl-group button:not(.geolocation-btn-header) {
     background-color: white;
 }
 
-.mapboxgl-ctrl button:not(:disabled):hover {
+.mapboxgl-ctrl button:not(:disabled):not(.geolocation-btn-header):hover {
     background-color: white;
 }
 
@@ -3670,31 +3804,6 @@ sl-dialog blockquote {
     box-shadow: none;
 }
 
-/* Mapbox control button styling for 3D control */
-.mapboxgl-ctrl-group .mapboxgl-ctrl-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    font-size: 12px;
-    font-weight: bold;
-    color: #666;
-    background: #ffffff;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-
-.mapboxgl-ctrl-group .mapboxgl-ctrl-icon:hover {
-    background-color: #f0f0f0;
-}
-
-.mapboxgl-ctrl-group .mapboxgl-ctrl-icon span {
-    display: block;
-    line-height: 1;
-}
 
 /*
 Styles moved from the Intro Content

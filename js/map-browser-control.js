@@ -22,12 +22,13 @@ export class MapBrowserControl {
         this._container.className = 'map-browser-control';
 
         this._button = document.createElement('button');
-        this._button.className = 'map-browser-btn flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-700 text-sm font-medium';
+        this._button.className = 'map-browser-btn flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white rounded transition-colors border border-gray-700 text-sm font-medium';
         this._button.type = 'button';
         this._button.setAttribute('aria-label', 'Browse Maps');
+        this._button.style.cssText = 'height: 36px; padding: 0 0.75rem; border-radius: 0.375rem;';
 
         this._button.innerHTML = `
-            <sl-icon name="layers" style="font-size: 16px;"></sl-icon>
+            <sl-icon name="layers" style="font-size: 14px;"></sl-icon>
             <span class="map-browser-text">Maps</span>
         `;
 

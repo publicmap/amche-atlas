@@ -120,17 +120,16 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
                 // Apply inline styles to ensure they work
                 button.style.cssText = `
-                    background: #1f2937 !important;
-                    border: 1px solid #374151 !important;
-                    border-radius: 0.5rem !important;
+                    background: #202020 !important;
+                    border: 1px solid #404040 !important;
                     width: auto !important;
-                    height: 40px !important;
+                    height: 36px !important;
                     display: flex !important;
                     align-items: center !important;
                     justify-content: center !important;
-                    padding: 0 12px !important;
-                    min-width: 40px !important;
-                    gap: 8px !important;
+                    padding: 0 10px !important;
+                    min-width: 36px !important;
+                    gap: 6px !important;
                 `;
                 console.log('[Geolocation] Applied inline styles to button');
 
@@ -153,30 +152,47 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                     `;
 
                     iconSpan.innerHTML = `
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="white" style="display: block !important; flex-shrink: 0;">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="white" style="display: block !important; flex-shrink: 0;">
                             <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
                         </svg>
-                        <span class="geolocation-text" style="margin-left: 8px; font-size: 14px; white-space: nowrap;">Locate</span>
+                        <span class="geolocation-text" style="margin-left: 6px; font-size: 0.875rem; white-space: nowrap; color: white;">Locate</span>
                     `;
                     console.log('[Geolocation] Set SVG innerHTML with inline styles');
 
                     // Update button colors and text based on state
                     this._updateButtonStyle = () => {
                         const textSpan = button.querySelector('.geolocation-text');
-                        if (button.classList.contains('mapboxgl-ctrl-geolocate-active')) {
+                        const svg = button.querySelector('svg');
+                        if (button.classList.contains('mapboxgl-ctrl-geolocate-active') ||
+                            button.classList.contains('mapboxgl-ctrl-geolocate-background')) {
                             button.style.background = '#3b82f6 !important';
                             button.style.borderColor = '#2563eb !important';
-                            if (textSpan) textSpan.textContent = 'Tracking';
+                            if (svg) svg.setAttribute('fill', 'rgb(30, 161, 243)');
+                            if (textSpan) {
+                                textSpan.textContent = 'Tracking';
+                                textSpan.style.color = 'white';
+                            }
                         } else if (button.classList.contains('mapboxgl-ctrl-geolocate-active-error')) {
                             button.style.background = '#ef4444 !important';
                             button.style.borderColor = '#dc2626 !important';
-                            if (textSpan) textSpan.textContent = 'Locate';
+                            if (svg) svg.setAttribute('fill', 'white');
+                            if (textSpan) {
+                                textSpan.textContent = 'Locate';
+                                textSpan.style.color = 'white';
+                            }
                         } else {
-                            button.style.background = '#1f2937 !important';
-                            button.style.borderColor = '#374151 !important';
-                            if (textSpan) textSpan.textContent = 'Locate';
+                            button.style.background = '#202020 !important';
+                            button.style.borderColor = '#404040 !important';
+                            if (svg) svg.setAttribute('fill', 'white');
+                            if (textSpan) {
+                                textSpan.textContent = 'Locate';
+                                textSpan.style.color = 'white';
+                            }
                         }
                     };
+
+                    // Set initial button style
+                    this._updateButtonStyle();
 
                     // Watch for class changes to update button style
                     const buttonObserver = new MutationObserver(() => {
