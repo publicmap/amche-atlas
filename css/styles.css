@@ -50,7 +50,10 @@
 .nav-logo {
     width: 28px;
     height: 28px;
+    max-width: 28px;
+    max-height: 28px;
     flex-shrink: 0;
+    object-fit: contain;
 }
 
 .nav-title {
@@ -61,8 +64,14 @@
 
 @media (max-width: 640px) {
     .nav-logo {
-        width: 26px;
-        height: 26px;
+        width: 24px;
+        height: 24px;
+        max-width: 24px;
+        max-height: 24px;
+    }
+
+    .nav-brand {
+        height: 32px;
     }
 }
 
@@ -4372,11 +4381,15 @@ Styles moved from layer-settings.js
     font-size: 12px;
     font-weight: bold;
     color: #666;
+    background-image: none !important;
 }
 
 .map-feature-control-btn sl-icon {
     font-size: 18px;
     color: inherit;
+    display: flex !important;
+    width: 18px;
+    height: 18px;
 }
 
 .map-feature-control-btn:hover {
