@@ -329,6 +329,12 @@ export class MapCreator {
         this.updateDataPreview(geojson);
         this.showStyleSection(geometryType);
         this.showConfigSection();
+
+        if (csvUrl.includes('docs.google.com/spreadsheets')) {
+            $('#layer-title').val('Google Sheet CSV');
+            $('#layer-description').val(`Data from Google Sheets - <a href="${csvUrl}" target="_blank">View source</a>`);
+        }
+
         this.updateConfigPreview();
 
         $('#add-to-map-btn').prop('disabled', false);
