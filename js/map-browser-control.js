@@ -113,6 +113,18 @@ export class MapBrowserControl {
             if (event.data.type === 'close-browser') {
                 this.closeBrowser();
             }
+
+            if (event.data.type === 'open-creator') {
+                this._switchToCreator();
+            }
+
+            if (event.data.type === 'return-to-browser') {
+                this._switchToBrowser();
+            }
+
+            if (event.data.type === 'add-custom-layer') {
+                this._handleAddCustomLayer(event.data.config);
+            }
         });
 
         window.addEventListener('layer-toggled', () => {
@@ -310,5 +322,31 @@ export class MapBrowserControl {
 
     updateAtlasName(atlasName) {
         // No longer updating atlas name - button always shows "Maps"
+    }
+
+    _switchToCreator() {
+        if (!this._iframe) return;
+        this._iframe.src = 'map-creator.html';
+    }
+
+    _switchToBrowser() {
+        if (!this._iframe) return;
+        this._iframe.src = 'map-browser.html';
+        setTimeout(() => {
+            this._sendLayerData();
+        }, 100);
+    }
+
+    _handleAddCustomLayer(config) {
+        let baseUrl = window.location.href;
+        let url = new URL(baseUrl);
+        const hash = url.hash;
+        let layers = url.searchParams.get('layers') || '';
+        let jsonString = JSON.stringify(config);
+        jsonString = jsonString.replace(/'/g, "\\'").replace(/"/g, "'");
+        layers = layers ? jsonString + ',' + layers : jsonString;
+        url.searchParams.set('layers', layers);
+        url.hash = hash;
+        window.location.href = url.toString();
     }
 }
