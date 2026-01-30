@@ -13,7 +13,7 @@ import {
 } from './transit-data.js';
 
 // Import URL API for deep linking support
-import { URLManager } from '../js/url-manager.js';
+import { URLManager } from '/js/url-manager.js';
 
 // Import controllers
 import { TransitMapController } from './transit-map-controller.js';
