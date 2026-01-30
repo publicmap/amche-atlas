@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New Layer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f9fafb;
+        }
+
+        .tab-button {
+            transition: all 0.2s ease;
+        }
+
+        .tab-button.active {
+            background: white;
+            border-bottom-color: transparent;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .preview-box {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .color-picker-wrapper {
+            display: inline-block;
+            position: relative;
+        }
+
+        .color-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            border: 2px solid #d1d5db;
+            cursor: pointer;
+        }
+
+        input[type="color"] {
+            position: absolute;
+            opacity: 0;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+        }
+
+        .section-box {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="flex flex-col h-screen">
+        <!-- Header -->
+        <div class="bg-gray-900 text-white px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <button id="back-btn" class="text-white hover:text-gray-300" title="Back to browser">
+                    ← Back
+                </button>
+                <h1 class="text-lg font-bold">Create New Map Layer</h1>
+            </div>
+            <button id="close-btn" class="text-white hover:text-gray-300 text-2xl leading-none">&times;</button>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto scrollbar-thin p-4">
+            <!-- Section 1: Data Source -->
+            <div class="section-box">
+                <h2 class="text-md font-bold mb-3">1. Data Source</h2>
+
+                <!-- Tabs -->
+                <div class="flex border-b border-gray-300 mb-4">
+                    <button class="tab-button px-4 py-2 font-medium active" data-tab="url">Import from URL</button>
+                    <button class="tab-button px-4 py-2 font-medium" data-tab="upload">Upload File</button>
+                    <button class="tab-button px-4 py-2 font-medium" data-tab="custom">Custom</button>
+                </div>
+
+                <!-- Tab: Import from URL -->
+                <div class="tab-content active" id="tab-url">
+                    <input type="text" id="url-input" placeholder="Enter URL to GeoJSON, CSV, KML, Vector tiles, Raster tiles, or MapWarper"
+                        class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+                    <div class="text-xs text-gray-600 mb-3">
+                        Supported: GeoJSON URLs, CSV with lat/lng, KML, Vector tiles, Raster tiles, MapWarper maps
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2">GeoJSON Preview</p>
+                    <textarea id="url-geojson-input" rows="10" placeholder='Load data from URL to see preview...'
+                        class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-2"></textarea>
+                    <div class="flex gap-2">
+                        <button id="load-url-btn" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            Load Data
+                        </button>
+                        <button id="preview-url-geojson-io-btn" class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
+                            <span>↗</span> Preview on geojson.io
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab: Upload File -->
+                <div class="tab-content" id="tab-upload">
+                    <input type="file" id="file-input" accept=".csv,.geojson,.json,.kml"
+                        class="w-full px-3 py-2 border border-gray-300 rounded mb-2">
+                    <div class="text-xs text-gray-600 mb-3">
+                        Supported formats: CSV (with lat/lng columns), GeoJSON, KML
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2">GeoJSON Preview</p>
+                    <textarea id="upload-geojson-input" rows="10" placeholder='Upload a file to see preview...'
+                        class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-2"></textarea>
+                    <div class="flex gap-2">
+                        <button id="load-upload-btn" class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                            Load GeoJSON
+                        </button>
+                        <button id="preview-upload-geojson-io-btn" class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
+                            <span>↗</span> Preview on geojson.io
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab: Custom -->
+                <div class="tab-content" id="tab-custom">
+                    <div class="text-xs text-gray-600 mb-3">
+                        Paste or edit GeoJSON directly
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2">GeoJSON Editor</p>
+                    <textarea id="custom-geojson-input" rows="10" placeholder='{"type": "FeatureCollection", "features": []}'
+                        class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-2"></textarea>
+                    <div class="flex gap-2">
+                        <button id="load-custom-btn" class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                            Load GeoJSON
+                        </button>
+                        <button id="preview-custom-geojson-io-btn" class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
+                            <span>↗</span> Preview on geojson.io
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Style Presets -->
+            <div class="section-box" id="style-section" style="display: none;">
+                <h2 class="text-md font-bold mb-3">2. Style</h2>
+
+                <div id="geometry-type-info" class="mb-3 text-sm text-gray-700"></div>
+
+                <!-- Fill Color (for polygons/points) -->
+                <div class="mb-4" id="fill-color-control">
+                    <label class="block text-sm font-medium mb-2">Fill Color</label>
+                    <div class="color-picker-wrapper">
+                        <input type="color" id="fill-color" value="#3b82f6">
+                        <div class="color-preview" id="fill-color-preview" style="background-color: #3b82f6;"></div>
+                    </div>
+                </div>
+
+                <!-- Stroke Color (for lines/polygons) -->
+                <div class="mb-4" id="stroke-color-control">
+                    <label class="block text-sm font-medium mb-2">Stroke Color</label>
+                    <div class="color-picker-wrapper">
+                        <input type="color" id="stroke-color" value="#1e40af">
+                        <div class="color-preview" id="stroke-color-preview" style="background-color: #1e40af;"></div>
+                    </div>
+                </div>
+
+                <!-- Stroke Width (for lines/polygons) -->
+                <div class="mb-4" id="stroke-width-control">
+                    <label class="block text-sm font-medium mb-2">
+                        Stroke Width: <span id="stroke-width-value">2</span>px
+                    </label>
+                    <input type="range" id="stroke-width" min="1" max="10" value="2" step="0.5"
+                        class="w-full">
+                </div>
+            </div>
+
+            <!-- Section 3: Layer Configuration -->
+            <div class="section-box" id="config-section" style="display: none;">
+                <h2 class="text-md font-bold mb-3">3. Layer Configuration</h2>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Title *</label>
+                    <input type="text" id="layer-title" placeholder="My Custom Layer"
+                        class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Description</label>
+                    <textarea id="layer-description" rows="2" placeholder="Optional description"
+                        class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Generated Configuration</label>
+                    <textarea id="config-preview" rows="8" readonly
+                        class="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 font-mono text-xs"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-white border-t border-gray-300 px-4 py-3 flex justify-end gap-2">
+            <button id="cancel-btn" class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100">
+                Cancel
+            </button>
+            <button id="add-to-map-btn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" disabled>
+                Add to Map
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { MapCreator } from './js/map-creator.js';
+
+        const creator = new MapCreator();
+        creator.init();
+    </script>
+</body>
+</html>
