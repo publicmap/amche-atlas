@@ -398,7 +398,7 @@
     <header class="sim-header text-white p-4 shadow-lg">
         <div class="container mx-auto flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="/" class="text-white hover:text-green-400 transition-colors">
+                <a href="/" id="back-button" class="text-white hover:text-green-400 transition-colors">
                     <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd"
                             d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
@@ -667,6 +667,15 @@
         </div>
     </main>
 
+    <!-- External Transit App Container -->
+    <div id="external-transit-container" style="display: none; width: 100%; min-height: calc(100vh - 80px);">
+        <iframe id="external-transit-app"
+            style="width: 100%; height: calc(100vh - 80px); border: 0;"
+            allow="geolocation"
+            title="External Transit Application">
+        </iframe>
+    </div>
+
     <!-- Scripts -->
     <!-- Transit Utilities -->
     <script type="module" src="transit-layer-styles.js"></script>
@@ -697,6 +706,16 @@
             });
 
             shareLink.render();
+
+            // Back button handler to preserve map location
+            const backButton = document.getElementById('back-button');
+            if (backButton) {
+                backButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const currentHash = window.location.hash;
+                    window.location.href = '/' + currentHash;
+                });
+            }
         });
     </script>
 </body>

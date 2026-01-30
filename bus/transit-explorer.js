@@ -40,6 +40,7 @@ class TransitExplorer {
         this.locationDataLoader = new LocationDataLoader(TRANSIT_DATA_LOOKUP);
         this.isSourceSwitching = false;
         this.hasInitialDataLoaded = false;
+        this.isIframeMode = false;
 
         // Initialize URL manager for deep linking
         this.urlManager = null;
@@ -196,6 +197,9 @@ class TransitExplorer {
                     }
 
                     this.queryVisibleTransitData();
+
+                    // Check if initial location requires iframe mode
+                    this.checkInitialLocationForIframe();
                 }, 500);
             },
             onMoveEnd: () => {
@@ -278,7 +282,7 @@ class TransitExplorer {
 
         // Update current city
         this.currentCity = city;
-        
+
         // Update button states
         document.querySelectorAll('.city-button').forEach(btn => {
             if (btn.getAttribute('data-city-id') === cityId) {
@@ -288,10 +292,29 @@ class TransitExplorer {
             }
         });
 
-        // Fly to city bounds
-        this.flyToCityBounds(city);
-        
+        // Check if this city requires iframe mode
+        const cityCenter = city.center || [(city.bounds[0][0] + city.bounds[1][0]) / 2, (city.bounds[0][1] + city.bounds[1][1]) / 2];
+        const matchData = this.locationDataLoader.dataLookup.find(region =>
+            this.isPointInBounds({ lng: cityCenter[0], lat: cityCenter[1] }, region.bounds)
+        );
+
+        if (matchData && matchData.useIframe) {
+            console.log(`🏙️ Switching to iframe for ${city.name}`);
+            this.switchToIframe(matchData);
+        } else {
+            this.switchToMap();
+            // Fly to city bounds
+            this.flyToCityBounds(city);
+        }
+
         console.log(`🏙️ Selected city: ${city.name}`);
+    }
+
+    isPointInBounds(point, bounds) {
+        return point.lat >= bounds.south &&
+               point.lat <= bounds.north &&
+               point.lng >= bounds.west &&
+               point.lng <= bounds.east;
     }
 
     flyToCityBounds(city) {
@@ -2059,25 +2082,95 @@ class TransitExplorer {
         this.updateSelectionIndicator('');
     }
 
+    checkInitialLocationForIframe() {
+        if (!this.map) return;
+
+        const center = this.map.getCenter();
+        const matchData = this.locationDataLoader.dataLookup.find(region =>
+            this.isPointInBounds({ lng: center.lng, lat: center.lat }, region.bounds)
+        );
+
+        if (matchData) {
+            // Find the corresponding city and update currentCity
+            const matchingCity = this.cities.find(city => {
+                const cityName = city.name.toLowerCase();
+                const regionName = matchData.name.toLowerCase();
+                return cityName === regionName || cityName.includes(regionName) || regionName.includes(cityName);
+            });
+
+            if (matchingCity) {
+                console.log(`🎯 Initial location is in ${matchData.name}, updating current city to ${matchingCity.name}`);
+                this.currentCity = matchingCity;
+                this.renderCityButtons();
+            }
+
+            if (matchData.useIframe) {
+                console.log(`🎯 Switching to iframe for ${matchData.name}`);
+                this.switchToIframe(matchData);
+            }
+        }
+    }
+
     async checkAndSwitchDataSource() {
         if (this.isSourceSwitching || !this.map) return;
-
-        if (!this.hasInitialDataLoaded) {
-            console.log('⏳ Initial data not loaded yet, skipping data source check');
-            return;
-        }
-
-        if (!this.map.isSourceLoaded(this.sourceName)) {
-            console.log('⏳ Source not loaded yet, skipping data source check');
-            return;
-        }
 
         const bounds = this.map.getBounds();
         const result = this.locationDataLoader.getBestMatch(bounds);
 
         if (result.changed && result.match) {
             console.log(`🔄 Data source changed to: ${result.match.name}`);
-            await this.updateMapSource(result.match);
+
+            if (result.match.useIframe) {
+                this.switchToIframe(result.match);
+            } else {
+                this.switchToMap();
+
+                if (!this.hasInitialDataLoaded) {
+                    console.log('⏳ Initial data not loaded yet, skipping map source update');
+                    return;
+                }
+
+                if (!this.map.isSourceLoaded(this.sourceName)) {
+                    console.log('⏳ Source not loaded yet, skipping map source update');
+                    return;
+                }
+
+                await this.updateMapSource(result.match);
+            }
+        }
+    }
+
+    switchToIframe(matchData) {
+        const mainElement = document.querySelector('main');
+        const iframeContainer = document.getElementById('external-transit-container');
+        const iframeElement = document.getElementById('external-transit-app');
+
+        if (iframeContainer && iframeElement && matchData.iframeUrl) {
+            this.isIframeMode = true;
+
+            if (mainElement) mainElement.style.display = 'none';
+
+            iframeElement.src = matchData.iframeUrl;
+            iframeContainer.style.display = 'block';
+
+            console.log(`📱 Switched to external app for ${matchData.name}: ${matchData.iframeUrl}`);
+        }
+    }
+
+    switchToMap() {
+        const mainElement = document.querySelector('main');
+        const iframeContainer = document.getElementById('external-transit-container');
+        const iframeElement = document.getElementById('external-transit-app');
+
+        if (iframeContainer && iframeContainer.style.display !== 'none') {
+            this.isIframeMode = false;
+
+            iframeContainer.style.display = 'none';
+            if (iframeElement) iframeElement.src = '';
+
+            if (mainElement) mainElement.style.display = 'block';
+
+            console.log('🗺️ Switched back to map view');
         }
     }
 
@@ -3591,12 +3684,13 @@ class TransitExplorer {
 
     setupMoveEndListener() {
         console.log('🎯 Setting up moveend listener for transit data querying...');
-        
+
         this.map.on('moveend', () => {
             // Small delay to ensure rendering is complete
             setTimeout(() => {
+                this.checkAndSwitchDataSource();
                 this.queryVisibleTransitData();
-                
+
                 // Auto-select closest stop if enabled
                 if (this.autoSelectClosestStop) {
                     this.findClosestStopToMapCenter();
@@ -3607,6 +3701,10 @@ class TransitExplorer {
 
     queryVisibleTransitData() {
         try {
+            if (this.isIframeMode) {
+                return;
+            }
+
             if (!this.map || !this.map.isSourceLoaded(this.sourceName)) {
                 console.log('⏳ Map source not loaded yet, skipping route query');
                 return;
@@ -3706,11 +3804,15 @@ class TransitExplorer {
      * Find and select the closest bus stop to the current map center
      */
     async findClosestStopToMapCenter() {
+        if (this.isIframeMode) {
+            return;
+        }
+
         if (!this.map || !this.map.isSourceLoaded(this.sourceName)) {
             console.log('⏳ Map source not loaded yet, skipping auto-select');
             return;
         }
-        
+
         // Prevent concurrent selections
         if (this.isSelectingStop) {
             console.log('⏳ Stop selection already in progress, skipping');
