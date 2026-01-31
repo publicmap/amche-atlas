@@ -95,7 +95,7 @@
     <div id="nav-menu-overlay"
         style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 1000;">
         <div id="nav-menu-container"
-            style="position: absolute; top: 0; left: 0; width: 360px; height: 100%; background: #1f2937; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); overflow-y: auto;">
+            style="position: absolute; top: 0; right: 0; width: 360px; height: 100%; background: #1f2937; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); overflow-y: auto;">
             <!-- Menu Header -->
             <div
                 style="background: linear-gradient(135deg, #111827 0%, #1f2937 100%); padding: 1.25rem; border-bottom: 1px solid #374151;">
@@ -293,8 +293,23 @@
 
     <!-- Header -->
     <header class="header-nav bg-gray-900 text-white flex items-center justify-between border-b border-gray-800">
-        <!-- Left: Hamburger + Logo -->
+        <!-- Left: Reserved -->
+        <div class="flex-shrink-0" style="width: 20px;"></div>
+
+        <!-- Center: Controls -->
+        <div class="header-controls flex items-center gap-2 sm:gap-3 flex-grow justify-center min-w-0 mx-2 sm:mx-4">
+            <div id="map-browser-control-container" class="flex-shrink-0"></div>
+            <mapbox-search-box id="mapbox-search-box" class="flex-grow max-w-md min-w-0"></mapbox-search-box>
+            <div id="geolocation-control-container" class="flex-shrink-0"></div>
+        </div>
+
+        <!-- Right: Logo + Hamburger -->
         <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <a href="https://github.com/publicmap/amche-atlas/pulls" target="_blank" id="dev-badge" class="hidden px-2 py-1 bg-yellow-600 text-xs font-semibold rounded" style="text-decoration: none; color: inherit; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">DEV</a>
+            <a href="./" class="nav-brand flex items-center gap-2 flex-shrink-0 hidden sm:flex" style="text-decoration: none; color: inherit; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                <span class="nav-title font-semibold tracking-tight">amche.in</span>
+                <img src="/assets/img/icon-192x192.png" alt="amche.in" class="nav-logo rounded">
+            </a>
             <button id="nav-menu-trigger"
                 class="flex items-center justify-center bg-transparent border-0 text-white p-2 transition-opacity hover:opacity-80"
                 aria-label="Open navigation menu">
@@ -305,22 +320,7 @@
                     <line x1="3" y1="18" x2="21" y2="18"></line>
                 </svg>
             </button>
-            <div class="nav-brand flex items-center gap-2 flex-shrink-0 hidden sm:flex">
-                <img src="/assets/img/icon-192x192.png" alt="amche.in" class="nav-logo rounded">
-                <span class="nav-title font-semibold tracking-tight">amche.in</span>
-            </div>
-            <div id="dev-badge" class="hidden px-2 py-1 bg-yellow-600 text-xs font-semibold rounded">DEV</div>
         </div>
-
-        <!-- Center: Controls -->
-        <div class="header-controls flex items-center gap-2 sm:gap-3 flex-grow justify-center min-w-0 mx-2 sm:mx-4">
-            <div id="map-browser-control-container" class="flex-shrink-0"></div>
-            <mapbox-search-box id="mapbox-search-box" class="flex-grow max-w-md min-w-0"></mapbox-search-box>
-            <div id="geolocation-control-container" class="flex-shrink-0"></div>
-        </div>
-
-        <!-- Right: Reserved for future use -->
-        <div class="flex-shrink-0" style="width: 20px;"></div>
     </header>
 
     <style>
@@ -407,7 +407,7 @@
         <main class="flex-grow relative h-full">
             <div id="map" style="width: 100%; height: 100%;"></div>
             <!-- Add drawer inside the map container -->
-            <sl-drawer id="map-controls-drawer" label="Maps नकासो" placement="start" class="drawer-placement-start">
+            <sl-drawer id="map-controls-drawer" label="Maps नकासो" placement="end" class="drawer-placement-end">
                 <div slot="label" class="flex items-center gap-2">
                     <sl-icon name="globe" style="font-size: 16px;"></sl-icon>
                     Maps नकासो
