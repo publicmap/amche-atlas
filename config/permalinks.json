@@ -2,7 +2,7 @@
   "version": "1.0",
   "permalinks": {
     "1970-quitla-map": {
-      "url": "https://amche.in/?atlas=goa-community&layers=goa-1970-henrique-quitla,mapbox-satellite#14.63/15.60487/73.87082",
+      "url": "https://amche.in/?layers=goa-1970-henrique-quitla,mapbox-satellite#13.76/15.60567/73.8752",
       "title": "Quitla Village Map (1970) by Henrique Fernandes",
       "description": "Hand-drawn historical map of Quitla village from 1970",
       "published": {

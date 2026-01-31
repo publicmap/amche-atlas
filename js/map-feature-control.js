@@ -78,6 +78,9 @@ export class MapFeatureControl {
         // Layer settings modal - initialize after map is available
         this._layerSettingsModal = null;
 
+        // Image modal for full-size viewing
+        this._imageModal = null;
+
         // Layer style control - initialize after map is available
         this._layerStyleControl = null;
 
@@ -107,6 +110,9 @@ export class MapFeatureControl {
 
         // Initialize layer settings modal now that we have a map reference
         this._layerSettingsModal = new LayerSettingsModal(this);
+
+        // Initialize image modal
+        this._initializeImageModal();
 
         return this._container;
     }
@@ -2251,6 +2257,91 @@ export class MapFeatureControl {
     }
 
     /**
+     * Initialize the image modal for full-size viewing
+     */
+    _initializeImageModal() {
+        if (!document.getElementById('feature-image-modal')) {
+            const modalHTML = `
+                <sl-dialog id="feature-image-modal" label="Image View" class="feature-image-dialog" style="--width: 90vw;">
+                    <div class="image-modal-content" style="display: flex; justify-content: center; align-items: center; min-height: 200px;">
+                        <img id="modal-image-element" src="" style="max-width: 100%; max-height: 80vh; object-fit: contain; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);" />
+                    </div>
+                    <div slot="footer">
+                        <sl-button variant="primary" class="close-button">Close</sl-button>
+                    </div>
+                </sl-dialog>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+            const modal = document.getElementById('feature-image-modal');
+            modal.querySelector('.close-button').addEventListener('click', () => modal.hide());
+            this._imageModal = modal;
+        } else {
+            this._imageModal = document.getElementById('feature-image-modal');
+        }
+    }
+
+    /**
+     * Show an image in the modal
+     * @param {string} src - The image source URL
+     */
+    _showImageModal(src) {
+        if (!this._imageModal) {
+            this._initializeImageModal();
+        }
+
+        if (this._imageModal) {
+            const img = this._imageModal.querySelector('#modal-image-element');
+            if (img) {
+                img.src = src;
+                // Update label to filename if possible
+                const filename = src.split('/').pop().split('?')[0];
+                this._imageModal.label = filename || 'Image View';
+                this._imageModal.show();
+            }
+        }
+    }
+
+    /**
+     * Render a value, converting images and links to appropriate HTML elements
+     * @param {any} value - The value to render
+     * @param {boolean} isDarkTheme - Whether to use dark theme colors
+     * @returns {HTMLElement} - A container element with the rendered content
+     */
+    _renderValue(value, isDarkTheme = false) {
+        const valueStr = String(value).trim();
+
+        // Image regex: matches common image extensions
+        const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i;
+        if (imageExtensions.test(valueStr) && (valueStr.startsWith('http') || valueStr.startsWith('/'))) {
+            const container = document.createElement('div');
+            container.style.cssText = 'margin-top: 4px; margin-bottom: 4px;';
+            const img = document.createElement('img');
+            img.src = valueStr;
+            img.style.cssText = 'max-width: 100%; height: auto; border-radius: 4px; display: block;';
+            img.onerror = () => {
+                // If image fails to load, fallback to showing it as a clickable URL
+                container.innerHTML = '';
+                container.appendChild(this._makeUrlsClickable(valueStr, isDarkTheme));
+            };
+            container.appendChild(img);
+
+            // Add click listener to open in modal
+            img.style.cursor = 'pointer';
+            img.title = 'Click to view full size';
+            img.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._showImageModal(valueStr);
+            });
+
+            return container;
+        }
+
+        // Default to making URLs clickable
+        return this._makeUrlsClickable(value, isDarkTheme);
+    }
+
+    /**
      * Convert URLs in text to clickable links
      * @param {string} text - The text that may contain URLs
      * @param {boolean} isDarkTheme - Whether the link should use dark theme colors (default: false)
@@ -2477,9 +2568,9 @@ export class MapFeatureControl {
                 line-height: 1.4;
                 vertical-align: top;
             `;
-            // Make URLs clickable (light theme for nested details view)
-            const urlContainer = this._makeUrlsClickable(field.value, false);
-            valueCell.appendChild(urlContainer);
+            // Render value with images and clickable URLs
+            const renderedValue = this._renderValue(field.value, false);
+            valueCell.appendChild(renderedValue);
 
             row.appendChild(keyCell);
             row.appendChild(valueCell);
@@ -2561,8 +2652,8 @@ export class MapFeatureControl {
                             line-height: 1.4;
                             vertical-align: top;
                         `;
-                        const urlContainer = this._makeUrlsClickable(value, false);
-                        valueCell.appendChild(urlContainer);
+                        const renderedValue = this._renderValue(value, false);
+                        valueCell.appendChild(renderedValue);
 
                         row.appendChild(keyCell);
                         row.appendChild(valueCell);
@@ -2618,8 +2709,8 @@ export class MapFeatureControl {
                             line-height: 1.4;
                             vertical-align: top;
                         `;
-                        const urlContainer = this._makeUrlsClickable(field.value, false);
-                        valueCell.appendChild(urlContainer);
+                        const renderedValue = this._renderValue(field.value, false);
+                        valueCell.appendChild(renderedValue);
 
                         row.appendChild(keyCell);
                         row.appendChild(valueCell);
@@ -3678,9 +3769,9 @@ export class MapFeatureControl {
                 line-height: 1.3;
                 vertical-align: top;
             `;
-            // Make URLs clickable (light theme for main panel view)
-            const urlContainer = this._makeUrlsClickable(field.value, false);
-            valueCell.appendChild(urlContainer);
+            // Render value with images and clickable URLs
+            const renderedValue = this._renderValue(field.value, false);
+            valueCell.appendChild(renderedValue);
 
             row.appendChild(keyCell);
             row.appendChild(valueCell);
@@ -3767,8 +3858,8 @@ export class MapFeatureControl {
                             line-height: 1.3;
                             vertical-align: top;
                         `;
-                        const urlContainer = this._makeUrlsClickable(value, false);
-                        valueCell.appendChild(urlContainer);
+                        const renderedValue = this._renderValue(value, false);
+                        valueCell.appendChild(renderedValue);
 
                         row.appendChild(keyCell);
                         row.appendChild(valueCell);
@@ -3840,8 +3931,8 @@ export class MapFeatureControl {
                             line-height: 1.3;
                             vertical-align: top;
                         `;
-                        const urlContainer = this._makeUrlsClickable(field.value, false);
-                        valueCell.appendChild(urlContainer);
+                        const renderedValue = this._renderValue(field.value, false);
+                        valueCell.appendChild(renderedValue);
 
                         row.appendChild(keyCell);
                         row.appendChild(valueCell);
@@ -4769,7 +4860,7 @@ export class MapFeatureControl {
 
                         const fieldValue = document.createElement('span');
                         fieldValue.style.cssText = 'color: #374151; font-size: 10px; text-align: right; word-break: break-word;';
-                        fieldValue.textContent = String(value);
+                        fieldValue.appendChild(this._renderValue(value));
 
                         fieldDiv.appendChild(fieldName);
                         fieldDiv.appendChild(fieldValue);
@@ -4807,7 +4898,7 @@ export class MapFeatureControl {
 
                     const fieldValue = document.createElement('span');
                     fieldValue.style.cssText = 'color: #374151; font-size: 10px; text-align: right; word-break: break-word;';
-                    fieldValue.textContent = String(value);
+                    fieldValue.appendChild(this._renderValue(value));
 
                     fieldDiv.appendChild(fieldName);
                     fieldDiv.appendChild(fieldValue);

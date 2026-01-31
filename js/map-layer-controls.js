@@ -3,11 +3,48 @@
  *
  * This refactored version delegates all Mapbox-specific operations to the MapboxAPI class,
  * keeping this class focused on UI management and configuration handling.
+ *
+ * MAPWARPER MOSAIC SUPPORT:
+ * -------------------------
+ * This class includes static utility methods for handling Mapwarper mosaic URLs.
+ * Mosaics are collections of georeferenced maps that can be served as a single TMS layer.
+ *
+ * Supported URL patterns:
+ * - https://mapwarper.net/layers/2054
+ * - https://mapwarper.net/layers/2054#Show_tab
+ * - https://warper.wmflabs.org/layers/123
+ *
+ * API endpoints used:
+ * - Metadata: https://mapwarper.net/api/v1/layers/{id}
+ * - Tiles: https://mapwarper.net/layers/tile/{id}/{z}/{x}/{y}.png
+ *
+ * Usage:
+ * ```javascript
+ * // Detect if URL is a mosaic
+ * if (MapLayerControl.isMapwarperMosaicUrl(url)) {
+ *     // Create config from URL
+ *     const config = await MapLayerControl.createConfigFromMapwarperUrl(url);
+ *     // Config is ready to use with MapboxAPI
+ * }
+ * ```
+ *
+ * The generated config includes:
+ * - id: Unique identifier (mapwarper-mosaic-{id})
+ * - type: 'tms'
+ * - title: Mosaic name from API
+ * - description: Mosaic description + maps count
+ * - url: TMS tile URL template
+ * - bbox: Bounding box coordinates
+ * - attribution: Link to original mosaic
+ * - opacity: Default 0.85
+ *
+ * See: https://github.com/timwaters/mapwarper/blob/master/README_API.md
  */
 import {LayerSettingsModal} from './layer-settings-modal.js';
 import {MapboxAPI} from './mapbox-api.js';
 import {DataUtils} from './map-utils.js';
 import {LayerCreatorUI} from './layer-creator-ui.js';
+import {MapWarperAPI} from './mapwarper-url-api.js';
 
 export class MapLayerControl {
     constructor(options) {
@@ -2010,6 +2047,26 @@ export class MapLayerControl {
         window.dispatchEvent(new CustomEvent('layer-toggled', {
             detail: { layerId: layerId, visible: false, isCrossAtlas: true }
         }));
+    }
+
+    static isMapwarperMosaicUrl(url) {
+        return MapWarperAPI.isMosaicUrl(url);
+    }
+
+    static extractMapwarperMosaicId(url) {
+        return MapWarperAPI.extractMosaicId(url);
+    }
+
+    static async fetchMapwarperMosaicMetadata(mosaicId, baseUrl = 'https://mapwarper.net') {
+        return MapWarperAPI.fetchMosaicMetadata(mosaicId, baseUrl);
+    }
+
+    static createConfigFromMapwarperMosaic(mosaicData, baseUrl = 'https://mapwarper.net') {
+        return MapWarperAPI.createMosaicConfig(mosaicData, baseUrl);
+    }
+
+    static async createConfigFromMapwarperUrl(url) {
+        return MapWarperAPI.createConfigFromUrl(url);
     }
 
     /**

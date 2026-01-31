@@ -15,6 +15,7 @@ export class MapboxAPI {
         this._layerCache = new Map(); // Cache for layer configurations
         this._sourceCache = new Map(); // Cache for sources
         this._refreshTimers = new Map(); // Cache for refresh timers
+        this._blinkTimers = new Map(); // Cache for blink timers
         this._eventListeners = new Map(); // Cache for event listeners
         this._timeBasedLayers = new Map(); // Cache for layers with time parameters
 
@@ -510,6 +511,10 @@ export class MapboxAPI {
 
     // Vector layer methods
     _createVectorLayer(groupId, config, visible) {
+        if (visible && config.blink) {
+            this._setupBlinking(groupId, config);
+        }
+
         const sourceId = `vector-${groupId}`;
 
         if (!this._map.getSource(sourceId)) {
@@ -653,6 +658,12 @@ export class MapboxAPI {
     }
 
     _updateVectorLayerVisibility(groupId, config, visible) {
+        if (visible && config.blink) {
+            this._setupBlinking(groupId, config);
+        } else {
+            this._stopBlinking(groupId, config);
+        }
+
         const layers = [
             `vector-layer-${groupId}`,
             `vector-layer-${groupId}-outline`,
@@ -670,6 +681,8 @@ export class MapboxAPI {
     }
 
     _removeVectorLayer(groupId, config) {
+        this._stopBlinking(groupId, config);
+
         const sourceId = `vector-${groupId}`;
         const layers = [
             `vector-layer-${groupId}`,
@@ -736,7 +749,6 @@ export class MapboxAPI {
                 sourceConfig.tiles = [config.url];
             }
 
-            // Add attribution if available
             if (config.attribution) {
                 sourceConfig.attribution = config.attribution;
             }
@@ -756,6 +768,10 @@ export class MapboxAPI {
             }, 'raster');
 
             this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'tms', null, config, this._orderedGroups));
+
+            if (config.geojson && visible) {
+                this._addSimpleStyleGeoJSONOverlay(groupId, config.geojson, visible);
+            }
         } else {
             this._updateTMSLayerVisibility(groupId, config, visible);
         }
@@ -768,6 +784,16 @@ export class MapboxAPI {
         if (this._map.getLayer(layerId)) {
             this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
         }
+
+        if (config.geojson) {
+            const geojsonSourceId = `tms-geojson-${groupId}`;
+            if (visible && !this._map.getSource(geojsonSourceId)) {
+                this._addSimpleStyleGeoJSONOverlay(groupId, config.geojson, visible);
+            } else {
+                this._updateSimpleStyleGeoJSONOverlayVisibility(groupId, visible);
+            }
+        }
+
         return true;
     }
 
@@ -781,6 +807,11 @@ export class MapboxAPI {
         if (this._map.getSource(sourceId)) {
             this._map.removeSource(sourceId);
         }
+
+        if (config.geojson) {
+            this._removeSimpleStyleGeoJSONOverlay(groupId);
+        }
+
         return true;
     }
 
@@ -795,6 +826,79 @@ export class MapboxAPI {
             this._map.setPaintProperty(layerId, 'raster-opacity', finalOpacity);
         }
         return true;
+    }
+
+    _addSimpleStyleGeoJSONOverlay(groupId, geojson, visible) {
+        const sourceId = `tms-geojson-${groupId}`;
+
+        if (this._map.getSource(sourceId)) {
+            return;
+        }
+
+        this._map.addSource(sourceId, {
+            type: 'geojson',
+            data: geojson
+        });
+
+        const fillLayerId = `${sourceId}-fill`;
+        const lineLayerId = `${sourceId}-line`;
+
+        const fillLayerConfig = this._createLayerConfig({
+            id: fillLayerId,
+            groupId: groupId,
+            type: 'fill',
+            source: sourceId,
+            style: {
+                'fill-color': ['coalesce', ['get', 'fill'], '#ff6b6b'],
+                'fill-opacity': ['coalesce', ['get', 'fill-opacity'], 0.1]
+            },
+            visible
+        }, 'fill');
+
+        const lineLayerConfig = this._createLayerConfig({
+            id: lineLayerId,
+            groupId: groupId,
+            type: 'line',
+            source: sourceId,
+            style: {
+                'line-color': ['coalesce', ['get', 'stroke'], '#ff6b6b'],
+                'line-width': ['coalesce', ['get', 'stroke-width'], 2],
+                'line-opacity': ['coalesce', ['get', 'stroke-opacity'], 0.8]
+            },
+            visible
+        }, 'line');
+
+        this._addLayerWithSlot(fillLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', {}, this._orderedGroups));
+        this._addLayerWithSlot(lineLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'line', {}, this._orderedGroups));
+    }
+
+    _updateSimpleStyleGeoJSONOverlayVisibility(groupId, visible) {
+        const sourceId = `tms-geojson-${groupId}`;
+        const fillLayerId = `${sourceId}-fill`;
+        const lineLayerId = `${sourceId}-line`;
+
+        if (this._map.getLayer(fillLayerId)) {
+            this._map.setLayoutProperty(fillLayerId, 'visibility', visible ? 'visible' : 'none');
+        }
+        if (this._map.getLayer(lineLayerId)) {
+            this._map.setLayoutProperty(lineLayerId, 'visibility', visible ? 'visible' : 'none');
+        }
+    }
+
+    _removeSimpleStyleGeoJSONOverlay(groupId) {
+        const sourceId = `tms-geojson-${groupId}`;
+        const fillLayerId = `${sourceId}-fill`;
+        const lineLayerId = `${sourceId}-line`;
+
+        if (this._map.getLayer(lineLayerId)) {
+            this._map.removeLayer(lineLayerId);
+        }
+        if (this._map.getLayer(fillLayerId)) {
+            this._map.removeLayer(fillLayerId);
+        }
+        if (this._map.getSource(sourceId)) {
+            this._map.removeSource(sourceId);
+        }
     }
 
     // WMTS layer methods
@@ -1315,6 +1419,10 @@ export class MapboxAPI {
     }
 
     _addGeoJSONLayers(groupId, config, sourceId, visible, suffix = '') {
+        if (visible && config.blink) {
+            this._setupBlinking(groupId, config);
+        }
+
         const idSuffix = suffix ? `-${suffix}` : '';
         // Get default styles for checking what layer types should be created
         const defaultStyles = this._defaultStyles.vector || {};
@@ -1324,9 +1432,10 @@ export class MapboxAPI {
         const userHasLineStyles = config.style && (config.style['line-color'] || config.style['line-width']);
         const userHasTextStyles = config.style && config.style['text-field'];
         const userHasCircleStyles = config.style && (config.style['circle-radius'] || config.style['circle-color']);
+        const userHasIconStyles = config.style && config.style['icon-image'];
 
         // If user has only line styles defined (with or without text), treat this as a linestring layer and don't apply fill styles
-        const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles && !userHasCircleStyles;
+        const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles && !userHasCircleStyles && !userHasIconStyles;
 
         // Check if fill layer should be created (user styles or defaults)
         // If user only has line styles, don't create fill layer even if defaults exist
@@ -1401,13 +1510,19 @@ export class MapboxAPI {
             this._addLayerWithSlot(circleLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'circle', config, this._orderedGroups));
         }
 
-        // Add text layer if text properties are defined
-        if (hasTextStyles) {
+        // Add text or icon layer if symbol properties are defined
+        if (hasTextStyles || userHasIconStyles) {
             // Filter style to only include symbol/text-related properties
             const symbolStyle = this._filterStyleForLayerType(config.style, 'symbol');
 
-            const textLayerConfig = this._createLayerConfig({
-                id: `${sourceId}-label${idSuffix}`,
+            // If it's an icon layer, we need to make sure the image is loaded
+            if (userHasIconStyles) {
+                const iconImage = config.style['icon-image'];
+                this._ensureIconLoaded(iconImage);
+            }
+
+            const symbolLayerConfig = this._createLayerConfig({
+                id: `${sourceId}-symbol${idSuffix}`,
                 groupId: groupId,
                 type: 'symbol',
                 source: sourceId,
@@ -1416,7 +1531,7 @@ export class MapboxAPI {
                 ...(unclusteredFilter && { filter: unclusteredFilter })
             }, 'symbol');
 
-            this._addLayerWithSlot(textLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));
+            this._addLayerWithSlot(symbolLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));
         }
 
         // Add cluster layers if enabled
@@ -1473,6 +1588,12 @@ export class MapboxAPI {
     }
 
     _updateGeoJSONLayerVisibility(groupId, config, visible) {
+        if (visible && config.blink) {
+            this._setupBlinking(groupId, config);
+        } else {
+            this._stopBlinking(groupId, config);
+        }
+
         if (config.clusterSeparateBy) {
             const cache = this._layerCache.get(groupId);
             if (cache && cache.subSources) {
@@ -1483,6 +1604,7 @@ export class MapboxAPI {
                         `${sourceId}-fill-${suffix}`,
                         `${sourceId}-line-${suffix}`,
                         `${sourceId}-label-${suffix}`,
+                        `${sourceId}-symbol-${suffix}`,
                         `${sourceId}-circle-${suffix}`,
                         `${sourceId}-clusters-${suffix}`,
                         `${sourceId}-cluster-count-${suffix}`
@@ -1502,6 +1624,7 @@ export class MapboxAPI {
             `${sourceId}-fill`,
             `${sourceId}-line`,
             `${sourceId}-label`,
+            `${sourceId}-symbol`,
             `${sourceId}-circle`,
             `${sourceId}-clusters`,
             `${sourceId}-cluster-count`
@@ -1517,6 +1640,8 @@ export class MapboxAPI {
     }
 
     _removeGeoJSONLayer(groupId, config) {
+        this._stopBlinking(groupId, config);
+
         if (config.clusterSeparateBy) {
             const cache = this._layerCache.get(groupId);
             if (cache && cache.subSources) {
@@ -1526,6 +1651,7 @@ export class MapboxAPI {
                         `${sourceId}-fill-${suffix}`,
                         `${sourceId}-line-${suffix}`,
                         `${sourceId}-label-${suffix}`,
+                        `${sourceId}-symbol-${suffix}`,
                         `${sourceId}-circle-${suffix}`,
                         `${sourceId}-clusters-${suffix}`,
                         `${sourceId}-cluster-count-${suffix}`
@@ -1551,6 +1677,7 @@ export class MapboxAPI {
             `${sourceId}-fill`,
             `${sourceId}-line`,
             `${sourceId}-label`,
+            `${sourceId}-symbol`,
             `${sourceId}-circle`,
             `${sourceId}-clusters`,
             `${sourceId}-cluster-count`
@@ -1588,6 +1715,8 @@ export class MapboxAPI {
                     setOp(`${sourceId}-fill-${suffix}`, 'fill-opacity', finalOpacity * 0.5);
                     setOp(`${sourceId}-line-${suffix}`, 'line-opacity', finalOpacity);
                     setOp(`${sourceId}-label-${suffix}`, 'text-opacity', finalOpacity);
+                    setOp(`${sourceId}-symbol-${suffix}`, 'icon-opacity', finalOpacity);
+                    setOp(`${sourceId}-symbol-${suffix}`, 'text-opacity', finalOpacity);
                     setOp(`${sourceId}-circle-${suffix}`, 'circle-opacity', finalOpacity);
                     setOp(`${sourceId}-clusters-${suffix}`, 'circle-opacity', finalOpacity);
                     setOp(`${sourceId}-cluster-count-${suffix}`, 'text-opacity', finalOpacity);
@@ -1607,6 +1736,10 @@ export class MapboxAPI {
         if (this._map.getLayer(`${sourceId}-label`)) {
             this._map.setPaintProperty(`${sourceId}-label`, 'text-opacity', finalOpacity);
         }
+        if (this._map.getLayer(`${sourceId}-symbol`)) {
+            this._map.setPaintProperty(`${sourceId}-symbol`, 'icon-opacity', finalOpacity);
+            this._map.setPaintProperty(`${sourceId}-symbol`, 'text-opacity', finalOpacity);
+        }
         if (this._map.getLayer(`${sourceId}-circle`)) {
             this._map.setPaintProperty(`${sourceId}-circle`, 'circle-opacity', finalOpacity);
         }
@@ -1622,6 +1755,10 @@ export class MapboxAPI {
 
     // CSV layer methods
     async _createCSVLayer(groupId, config, visible) {
+        if (visible && config.blink) {
+            this._setupBlinking(groupId, config);
+        }
+
         const sourceId = `csv-${groupId}`;
 
         if (!this._map.getSource(sourceId) && visible) {
@@ -1711,11 +1848,18 @@ export class MapboxAPI {
     }
 
     _updateCSVLayerVisibility(groupId, config, visible) {
+        if (visible && config.blink) {
+            this._setupBlinking(groupId, config);
+        } else {
+            this._stopBlinking(groupId, config);
+        }
+
         const sourceId = `csv-${groupId}`;
         const layers = [
             `${sourceId}-fill`,
             `${sourceId}-line`,
             `${sourceId}-label`,
+            `${sourceId}-symbol`,
             `${sourceId}-circle`,
             `${sourceId}-clusters`,
             `${sourceId}-cluster-count`
@@ -1738,11 +1882,14 @@ export class MapboxAPI {
     }
 
     _removeCSVLayer(groupId, config) {
+        this._stopBlinking(groupId, config);
+
         const sourceId = `csv-${groupId}`;
         const layers = [
             `${sourceId}-fill`,
             `${sourceId}-line`,
             `${sourceId}-label`,
+            `${sourceId}-symbol`,
             `${sourceId}-circle`,
             `${sourceId}-clusters`,
             `${sourceId}-cluster-count`
@@ -1823,6 +1970,181 @@ export class MapboxAPI {
             img.onerror = reject;
             img.src = url;
         });
+    }
+
+    /**
+     * Set up blinking for a layer
+     * @param {string} groupId - Layer group identifier
+     * @param {Object} config - Layer configuration
+     * @private
+     */
+    _setupBlinking(groupId, config) {
+        if (this._blinkTimers.has(groupId)) {
+            return;
+        }
+
+        const blinkConfig = config.blink;
+        if (!blinkConfig || !blinkConfig.condition) {
+            return;
+        }
+
+        const interval = blinkConfig.interval || 500;
+        let isVisible = true;
+
+        const timer = setInterval(() => {
+            isVisible = !isVisible;
+            const opacity = isVisible ? 1 : 0;
+
+            const layerIds = this.getLayerGroupIds(groupId, config);
+            layerIds.forEach(layerId => {
+                const layer = this._map.getLayer(layerId);
+                if (layer) {
+                    const type = layer.type;
+                    let opacityProp;
+
+                    switch (type) {
+                        case 'fill': opacityProp = 'fill-opacity'; break;
+                        case 'line': opacityProp = 'line-opacity'; break;
+                        case 'symbol': opacityProp = 'icon-opacity'; break;
+                        case 'circle': opacityProp = 'circle-opacity'; break;
+                        default: return;
+                    }
+
+                    // Get base opacity from config or default to 1
+                    const styleType = type === 'symbol' ? 'symbol' : type;
+                    const baseOpacity = (config.style && config.style[opacityProp]) !== undefined 
+                        ? config.style[opacityProp] 
+                        : 1;
+
+                    const expression = [
+                        'case',
+                        blinkConfig.condition,
+                        opacity === 1 ? baseOpacity : 0,
+                        baseOpacity // Default opacity for non-matching features
+                    ];
+
+                    try {
+                        this._map.setPaintProperty(layerId, opacityProp, expression);
+                        
+                        // If symbol layer, also handle text-opacity
+                        if (type === 'symbol') {
+                            const textBaseOpacity = (config.style && config.style['text-opacity']) !== undefined 
+                                ? config.style['text-opacity'] 
+                                : 1;
+                            
+                            const textExpression = [
+                                'case',
+                                blinkConfig.condition,
+                                opacity === 1 ? textBaseOpacity : 0,
+                                textBaseOpacity
+                            ];
+                            this._map.setPaintProperty(layerId, 'text-opacity', textExpression);
+                        }
+                    } catch (e) {
+                        // Ignore errors if property is not supported by the layer type
+                    }
+                }
+            });
+        }, interval);
+
+        this._blinkTimers.set(groupId, timer);
+    }
+
+    /**
+     * Stop blinking for a layer
+     * @param {string} groupId - Layer group identifier
+     * @private
+     */
+    _stopBlinking(groupId, config = null) {
+        if (this._blinkTimers.has(groupId)) {
+            clearInterval(this._blinkTimers.get(groupId));
+            this._blinkTimers.delete(groupId);
+
+            // Reset opacity for all layers in this group if config is provided
+            if (config) {
+                const layerIds = this.getLayerGroupIds(groupId, config);
+                layerIds.forEach(layerId => {
+                    const layer = this._map.getLayer(layerId);
+                    if (layer) {
+                        const type = layer.type;
+                        let opacityProp;
+
+                        switch (type) {
+                            case 'fill': opacityProp = 'fill-opacity'; break;
+                            case 'line': opacityProp = 'line-opacity'; break;
+                            case 'symbol': opacityProp = 'icon-opacity'; break;
+                            case 'circle': opacityProp = 'circle-opacity'; break;
+                            default: return;
+                        }
+
+                        try {
+                            // Reset to config style or default (1)
+                            const baseOpacity = (config.style && config.style[opacityProp]) !== undefined 
+                                ? config.style[opacityProp] 
+                                : 1;
+                            this._map.setPaintProperty(layerId, opacityProp, baseOpacity);
+                            
+                            if (type === 'symbol') {
+                                const textBaseOpacity = (config.style && config.style['text-opacity']) !== undefined 
+                                     ? config.style['text-opacity'] 
+                                     : 1;
+                                this._map.setPaintProperty(layerId, 'text-opacity', textBaseOpacity);
+                            }
+                        } catch (e) {}
+                    }
+                });
+            }
+        }
+    }
+
+    /**
+     * Ensure an icon is loaded into the map
+     * @param {string|Array} iconImage - Path or URL to the icon image, or a Mapbox expression
+     */
+    async _ensureIconLoaded(iconImage) {
+        if (!iconImage) return;
+
+        const icons = this._extractIconsFromExpression(iconImage);
+        for (const iconPath of icons) {
+            if (!this._map.hasImage(iconPath)) {
+                try {
+                    const image = await this._loadImage(iconPath);
+                    if (!this._map.hasImage(iconPath)) {
+                        this._map.addImage(iconPath, image);
+                    }
+                } catch (error) {
+                    console.error(`Failed to load icon: ${iconPath}`, error);
+                }
+            }
+        }
+    }
+
+    /**
+     * Extract all unique icon paths from a Mapbox expression or string
+     * @param {string|Array} expression - The icon-image value
+     * @returns {Set<string>} - Set of unique icon paths
+     * @private
+     */
+    _extractIconsFromExpression(expression) {
+        const icons = new Set();
+
+        const traverse = (expr) => {
+            if (typeof expr === 'string') {
+                // Only treat as icon path if it looks like a path/URL
+                if (expr.includes('/') || expr.includes('.') || expr.startsWith('http')) {
+                    icons.add(expr);
+                }
+            } else if (Array.isArray(expr)) {
+                // Skip the first element which is the operator (match, get, case, etc.)
+                // Start from index 1 and traverse nested arrays or strings
+                for (let i = 1; i < expr.length; i++) {
+                    traverse(expr[i]);
+                }
+            }
+        };
+
+        traverse(expression);
+        return icons;
     }
 
     _setupImageRefresh(groupId, config) {
@@ -2027,8 +2349,35 @@ export class MapboxAPI {
                 return [`wms-layer-${groupId}`].filter(id => this._map.getLayer(id));
             case 'geojson':
                 const sourceId = `geojson-${groupId}`;
-                return [`${sourceId}-fill`, `${sourceId}-line`, `${sourceId}-label`, `${sourceId}-circle`]
-                    .filter(id => this._map.getLayer(id));
+                const layers = [
+                    `${sourceId}-fill`,
+                    `${sourceId}-line`,
+                    `${sourceId}-label`,
+                    `${sourceId}-symbol`,
+                    `${sourceId}-circle`,
+                    `${sourceId}-clusters`,
+                    `${sourceId}-cluster-count`
+                ];
+
+                if (config.clusterSeparateBy) {
+                    const cache = this._layerCache.get(groupId);
+                    if (cache && cache.subSources) {
+                        return cache.subSources.flatMap(subSourceId => {
+                            const suffix = subSourceId.replace(`geojson-${groupId}-`, '');
+                            return [
+                                `${subSourceId}-fill-${suffix}`,
+                                `${subSourceId}-line-${suffix}`,
+                                `${subSourceId}-label-${suffix}`,
+                                `${subSourceId}-symbol-${suffix}`,
+                                `${subSourceId}-circle-${suffix}`,
+                                `${subSourceId}-clusters-${suffix}`,
+                                `${subSourceId}-cluster-count-${suffix}`
+                            ];
+                        }).filter(id => this._map.getLayer(id));
+                    }
+                }
+
+                return layers.filter(id => this._map.getLayer(id));
             case 'csv':
                 return [`csv-${groupId}-circle`].filter(id => this._map.getLayer(id));
             case 'img':

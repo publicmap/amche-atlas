@@ -11,24 +11,13 @@ export class LayerRegistry {
         if (this._initialized) return;
 
         // Load all atlas configurations
-        // First, load the index.atlas.json to get the list of atlases
-        let atlasConfigs = [];
-        try {
-            const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
-            if (indexResponse.ok) {
-                const indexConfig = await indexResponse.json();
-                if (indexConfig.atlases && Array.isArray(indexConfig.atlases)) {
-                    atlasConfigs = indexConfig.atlases;
-                }
+        let atlasConfigs = [window.amche.DEFAULT_ATLAS.slice(window.amche.DEFAULT_ATLAS.indexOf('config/') + 7, window.amche.DEFAULT_ATLAS.indexOf('.atlas.json'))];
+        const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
+        if (indexResponse.ok) {
+            const indexConfig = await indexResponse.json();
+            if (indexConfig.atlases && Array.isArray(indexConfig.atlases)) {
+                atlasConfigs = atlasConfigs.concat(indexConfig.atlases);
             }
-        } catch (error) {
-            console.warn('[LayerRegistry] Failed to load atlas list from index.atlas.json:', error);
-            // Fallback to default list if loading fails
-            atlasConfigs = [
-                'osm', 'index', 'goa', 'mumbai', 'bombay', 'madras',
-                'gurugram', 'maharashtra', 'telangana', 'kerala', 'india',
-                'world', 'historic', 'community', 'mhadei', 'mapbox'
-            ];
         }
 
         // Create a Set for fast lookup of known atlas IDs

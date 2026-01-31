@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/goa.atlas.json",
   "color": "#2563eb",
+  "bbox": [-180, -90, 180, 90],
   "map": {
     "center": [
       73.8,

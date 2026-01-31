@@ -235,7 +235,7 @@ export const LAYER_SPECIFICATIONS = {
         name: 'Tile Map Service (Raster)',
         description: 'Raster tile service with XYZ or TMS tiling scheme',
         required: ['id', 'type', 'url'],
-        optional: ['title', 'description', 'headerImage', 'attribution', 'initiallyChecked', 'style', 'opacity', 'scheme', 'maxzoom', 'urlTimeParam'],
+        optional: ['title', 'description', 'headerImage', 'attribution', 'initiallyChecked', 'style', 'opacity', 'scheme', 'maxzoom', 'urlTimeParam', 'geojson'],
         properties: {
             id: { type: 'string', description: 'Unique layer identifier' },
             type: { type: 'string', value: 'tms', description: 'Layer type identifier' },
@@ -249,7 +249,8 @@ export const LAYER_SPECIFICATIONS = {
             opacity: { type: 'number', min: 0, max: 1, default: 1, description: 'Layer opacity' },
             maxzoom: { type: 'number', default: 22, description: 'Maximum zoom level for tiles' },
             style: { type: 'object', description: 'Raster paint properties (raster-*)' },
-            urlTimeParam: { type: 'string', description: 'Time parameter template (e.g., "TIME={time}")' }
+            urlTimeParam: { type: 'string', description: 'Time parameter template (e.g., "TIME={time}")' },
+            geojson: { type: 'object', description: 'Optional GeoJSON overlay rendered with SimpleStyle spec' }
         },
         example: {
             id: 'satellite',

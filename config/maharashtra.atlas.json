@@ -198,8 +198,8 @@
       "description": "Draft Revised Development Plan of Nashik u/s 28(4) of Maharashtra\r\nRegional & Town Planning Act, 1966 \r\n\r\nNotified in 2015 vide https://nmc.gov.in/assets/admin/upload/download/32351_EnglishNotice.pdf\r\n\r\nFrom https://nmc.gov.in/home/getfrontpage/65/65/M",
       "date": "",
       "type": "tms",
-      "id": "mapwarper-101533",
-      "url": "https://mapwarper.net/maps/tile/101533/{z}/{x}/{y}.png",
+      "id": "nashik-dp",
+      "url": "https://mapwarper.net/mosaics/tile/2426/{z}/{x}/{y}.png",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -246,7 +246,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://dtp.maharashtra.gov.in/wp-content/uploads/2024/11/RP_Nashik.jpg' target='_blank'>https://dtp.maharashtra.gov.in/wp-content/uploads/2024/11/RP_Nashik.jpg</a> via <a href='https://mapwarper.net/maps/101557' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://dtp.maharashtra.gov.in/wp-content/uploads/2024/11/RP_Nashik.jpg' target='_blank'>https://dtp.maharashtra.gov.in/wp-content/uploads/2024/11/RP_Nashik.jpg</a> via <a href='https://mapwarper.net/layers/2426' target='_blank'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/101557/thumb/RP_Nashik.png",
       "bbox": "73.1319366,19.6069601,75.4532274,20.8870761",
       "initiallyChecked": false

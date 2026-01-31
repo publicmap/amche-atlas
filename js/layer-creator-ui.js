@@ -3,6 +3,7 @@
  */
 
 import { MapUtils } from './map-utils.js';
+import { MapWarperAPI } from './mapwarper-url-api.js';
 
 export class LayerConfigGenerator {
     /**
@@ -327,7 +328,6 @@ export class LayerConfigGenerator {
     static async handleUrlInput(url) {
         let actualUrl = url;
         let tilejson = null;
-        let mapwarperMetadata = null;
 
         // Convert .pbf tile URLs with actual coordinates to template URLs
         if (this.isPbfTileUrl(url)) {
@@ -353,45 +353,16 @@ export class LayerConfigGenerator {
             return this.makeLayerConfig(url, tilejson, null);
         }
 
-        if (url.includes('mapwarper.net/maps/') || url.includes('warper.wmflabs.org/maps/')) {
+        if (MapWarperAPI.isMapWarperUrl(url)) {
             try {
-                const mapIdMatch = url.match(/\/maps\/(\d+)/);
-                if (mapIdMatch) {
-                    const mapId = mapIdMatch[1];
-                    let baseUrl = url.includes('mapwarper.net') ? 'https://mapwarper.net' : 'https://warper.wmflabs.org';
-
-                    if (baseUrl) {
-                        actualUrl = `${baseUrl}/maps/tile/${mapId}/{z}/{x}/{y}.png`;
-                        const sanitizedUrl = url.split('#')[0];
-                        try {
-                            const apiUrl = `${baseUrl}/api/v1/maps/${mapId}`;
-                            const response = await fetch(apiUrl);
-                            if (response.ok) {
-                                const apiResponse = await response.json();
-                                const mapData = apiResponse.data?.attributes || {};
-                                const links = apiResponse.data?.links || {};
-                                mapwarperMetadata = {
-                                    title: mapData.title || `MapWarper Map ${mapId}`,
-                                    description: mapData.description || '',
-                                    source: mapData.source_uri || '',
-                                    attribution: mapData.attribution || '',
-                                    date: mapData.date_depicted || '',
-                                    thumbnail: links.thumb ? `${baseUrl}${links.thumb}` : null,
-                                    baseUrl: baseUrl,
-                                    mapId: mapId,
-                                    originalUrl: sanitizedUrl,
-                                    bbox: mapData.bbox || null
-                                };
-                            }
-                        } catch (apiError) {
-                            console.warn('Failed to fetch MapWarper API data:', apiError);
-                        }
-                    }
-                }
+                const config = await MapWarperAPI.createConfigFromUrl(url);
+                return config;
             } catch (error) {
                 console.warn('Failed to process MapWarper URL:', error);
             }
-        } else if (url.includes('indianopenmaps.fly.dev') && url.includes('/view')) {
+        }
+
+        if (url.includes('indianopenmaps.fly.dev') && url.includes('/view')) {
             try {
                 const baseUrl = url.split('/view')[0];
                 actualUrl = `${baseUrl}/{z}/{x}/{y}.pbf`;
@@ -417,7 +388,7 @@ export class LayerConfigGenerator {
             }
         }
 
-        return this.makeLayerConfig(actualUrl, tilejson, mapwarperMetadata);
+        return this.makeLayerConfig(actualUrl, tilejson, null);
     }
 
     /**

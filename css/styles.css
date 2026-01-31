@@ -4267,6 +4267,40 @@ Styles moved from layer-settings.js
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
+/* Feature Image Modal Styling */
+.feature-image-dialog::part(panel) {
+    background: #000;
+    color: #fff;
+}
+
+.feature-image-dialog::part(title) {
+    color: #fff;
+    font-size: 14px;
+}
+
+.feature-image-dialog::part(close-button) {
+    color: #fff;
+}
+
+.feature-image-dialog::part(body) {
+    padding: 0;
+    background: #111;
+}
+
+.feature-image-dialog::part(footer) {
+    background: #111;
+    border-top: 1px solid #333;
+}
+
+.image-modal-content img {
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    transition: transform 0.2s ease;
+}
+
+.image-modal-content img:hover {
+    transform: scale(1.01);
+}
+
 /* ========================================
    Map Feature Control Styles
    ======================================== */
