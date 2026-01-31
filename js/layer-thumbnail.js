@@ -23,16 +23,25 @@ export class LayerThumbnail {
             flex-shrink: 0;
         `;
 
+        // Set background image if available
         if (layer.headerImage) {
             container.style.backgroundImage = `url('${layer.headerImage}')`;
             container.style.backgroundSize = 'cover';
             container.style.backgroundPosition = 'center';
             container.style.backgroundColor = '#f3f4f6';
-        } else if (layer.style) {
-            const svg = this._generateStyleThumbnail(layer, size);
-            container.appendChild(svg);
         } else {
-            // No header image and no style - show default
+            container.style.backgroundColor = '#f9fafb';
+        }
+
+        // Overlay symbology on top
+        // Check for style object OR top-level style properties
+        if (layer.style || layer['icon-image'] || layer['circle-radius'] || layer['line-color'] || layer['fill-color']) {
+            const overlay = this._generateSymbologyOverlay(layer, size);
+            if (overlay) {
+                container.appendChild(overlay);
+            }
+        } else if (!layer.headerImage) {
+            // No style and no background - show default
             const svg = this._generateDefaultThumbnail(layer, size);
             container.appendChild(svg);
         }
@@ -57,6 +66,167 @@ export class LayerThumbnail {
         container.appendChild(typeLabel);
 
         return container;
+    }
+
+    /**
+     * Generate symbology overlay for thumbnail
+     * @param {Object} layer - Layer configuration
+     * @param {number} size - Thumbnail size
+     * @returns {SVGElement|null} SVG overlay element
+     */
+    static _generateSymbologyOverlay(layer, size) {
+        // Style properties can be in layer.style OR at the top level
+        const style = layer.style || layer;
+
+        // Check for icon-image first (try both locations)
+        const iconImage = style['icon-image'] || layer['icon-image'];
+        if (iconImage) {
+            const iconUrl = this._extractIconUrl(iconImage);
+            if (iconUrl) {
+                const iconContainer = document.createElement('div');
+                iconContainer.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-image: url('${iconUrl}');
+                    background-size: 60%;
+                    background-position: center;
+                    background-repeat: no-repeat;
+                    opacity: 0.9;
+                    pointer-events: none;
+                `;
+                iconContainer.className = 'symbology-overlay';
+                return iconContainer;
+            }
+        }
+
+        // Otherwise generate SVG for circle, fill, or line styles
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', size);
+        svg.setAttribute('height', size);
+        svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+        svg.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+        `;
+
+        // Helper to extract simple value from Mapbox expressions
+        const getValue = (value, defaultValue = null) => {
+            if (typeof value === 'string' || typeof value === 'number') return value;
+            if (Array.isArray(value)) {
+                for (let i = 1; i < value.length; i++) {
+                    if (typeof value[i] === 'string' || typeof value[i] === 'number') {
+                        return value[i];
+                    }
+                }
+            }
+            return defaultValue;
+        };
+
+        // Add semi-transparent background
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bg.setAttribute('width', size);
+        bg.setAttribute('height', size);
+        bg.setAttribute('fill', 'rgba(255, 255, 255, 0.5)');
+        svg.appendChild(bg);
+
+        // Circle symbology
+        if (style['circle-radius'] || style['circle-color']) {
+            const color = getValue(style['circle-color'], '#3b82f6');
+            const radius = getValue(style['circle-radius'], 6);
+            const strokeColor = getValue(style['circle-stroke-color'], '#ffffff');
+            const strokeWidth = getValue(style['circle-stroke-width'], 1);
+            const opacity = getValue(style['circle-opacity'], 0.9);
+
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', size / 2);
+            circle.setAttribute('cy', size / 2);
+            circle.setAttribute('r', Math.min(radius * 3, size / 3));
+            circle.setAttribute('fill', color);
+            circle.setAttribute('opacity', opacity);
+            circle.setAttribute('stroke', strokeColor);
+            circle.setAttribute('stroke-width', strokeWidth * 1.5);
+            svg.appendChild(circle);
+        }
+        // Line symbology
+        else if (style['line-color']) {
+            const color = getValue(style['line-color'], '#3b82f6');
+            const width = getValue(style['line-width'], 2);
+            const opacity = getValue(style['line-opacity'], 1);
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const d = `M ${size * 0.2},${size * 0.5} L ${size * 0.5},${size * 0.3} L ${size * 0.8},${size * 0.5} L ${size * 0.5},${size * 0.7} Z`;
+            path.setAttribute('d', d);
+            path.setAttribute('stroke', color);
+            path.setAttribute('stroke-width', Math.max(width * 2, 3));
+            path.setAttribute('opacity', opacity);
+            path.setAttribute('fill', 'none');
+            svg.appendChild(path);
+        }
+        // Fill symbology
+        else if (style['fill-color']) {
+            const fillColor = getValue(style['fill-color'], '#3b82f6');
+            const fillOpacity = getValue(style['fill-opacity'], 0.5);
+            const lineColor = getValue(style['line-color'], '#1e40af');
+            const lineWidth = getValue(style['line-width'], 2);
+
+            const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            const points = `${size * 0.3},${size * 0.3} ${size * 0.7},${size * 0.3} ${size * 0.7},${size * 0.7} ${size * 0.3},${size * 0.7}`;
+            polygon.setAttribute('points', points);
+            polygon.setAttribute('fill', fillColor);
+            polygon.setAttribute('fill-opacity', fillOpacity);
+            polygon.setAttribute('stroke', lineColor);
+            polygon.setAttribute('stroke-width', lineWidth);
+            svg.appendChild(polygon);
+        }
+
+        return svg;
+    }
+
+    /**
+     * Extract icon URL from icon-image property (handles both strings and expressions)
+     * @param {string|Array} iconImage - icon-image value
+     * @returns {string|null} First icon URL found, or null
+     */
+    static _extractIconUrl(iconImage) {
+        if (typeof iconImage === 'string') {
+            // Simple string - check if it looks like a URL or path
+            if (iconImage.includes('.png') || iconImage.includes('.jpg') ||
+                iconImage.includes('.svg') || iconImage.includes('.jpeg') ||
+                iconImage.includes('.gif') || iconImage.startsWith('http')) {
+                return iconImage;
+            }
+        } else if (Array.isArray(iconImage)) {
+            // Expression - extract first icon path
+            // For match expressions: ["match", ["get", "prop"], "val1", "icon1.png", "val2", "icon2.png", "default.png"]
+            for (let i = 0; i < iconImage.length; i++) {
+                const item = iconImage[i];
+
+                if (typeof item === 'string') {
+                    // Check if it looks like an icon path (not an operator like "match", "get", etc.)
+                    const isIconPath = item.includes('.png') || item.includes('.jpg') ||
+                        item.includes('.svg') || item.includes('.jpeg') ||
+                        item.includes('.gif') || item.startsWith('http') ||
+                        item.startsWith('assets/') || item.startsWith('data/') ||
+                        item.startsWith('images/');
+
+                    if (isIconPath) {
+                        return item;
+                    }
+                } else if (Array.isArray(item)) {
+                    // Nested expression - recurse
+                    const nested = this._extractIconUrl(item);
+                    if (nested) {
+                        return nested;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

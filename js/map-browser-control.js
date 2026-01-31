@@ -188,7 +188,7 @@ export class MapBrowserControl {
         const activeLayers = this._getActiveLayers();
 
         window.layerRegistry._registry.forEach((layer, layerId) => {
-            layers.push({
+            const layerData = {
                 id: layerId,
                 title: layer.title || layer.id,
                 type: layer.type,
@@ -197,7 +197,26 @@ export class MapBrowserControl {
                 tags: layer.tags || [],
                 _sourceAtlas: layer._sourceAtlas,
                 bbox: this._getLayerBbox(layer)
+            };
+
+            // Include style information for thumbnails
+            if (layer.style) {
+                layerData.style = layer.style;
+            }
+
+            // Include top-level style properties
+            const styleProps = ['icon-image', 'icon-size', 'circle-radius', 'circle-color',
+                               'circle-stroke-color', 'circle-stroke-width', 'circle-opacity',
+                               'line-color', 'line-width', 'line-opacity', 'line-dasharray',
+                               'fill-color', 'fill-opacity', 'fill-outline-color'];
+
+            styleProps.forEach(prop => {
+                if (layer[prop] !== undefined) {
+                    layerData[prop] = layer[prop];
+                }
             });
+
+            layers.push(layerData);
         });
 
         const atlasMetadata = {};

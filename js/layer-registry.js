@@ -281,7 +281,7 @@ export class LayerRegistry {
     _resolveRelativeUrls(layer, baseUrl) {
         console.log(`[LayerRegistry] Resolving URLs for layer: ${layer.id}`);
 
-        const urlFields = ['url', 'thumbnail', 'tiles'];
+        const urlFields = ['url', 'thumbnail', 'tiles', 'headerImage'];
 
         urlFields.forEach(field => {
             if (layer[field]) {
