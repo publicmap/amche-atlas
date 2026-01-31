@@ -99,7 +99,6 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         });
 
         const container = super.onAdd(map);
-        console.log('[Geolocation] onAdd called, container:', container);
 
         // Add wrapper class to the container
         container.classList.add('geolocation-control-header');
@@ -108,7 +107,6 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         // Use MutationObserver to wait for it and then customize it
         const observer = new MutationObserver((mutations, obs) => {
             const button = container.querySelector('.mapboxgl-ctrl-geolocate');
-            console.log('[Geolocation] MutationObserver - Found button:', button);
 
             if (button) {
                 // Stop observing once we found the button
@@ -116,7 +114,6 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
                 // Add custom class for header styling
                 button.classList.add('geolocation-btn-header');
-                console.log('[Geolocation] Added geolocation-btn-header class');
 
                 // Apply inline styles to ensure they work
                 button.style.cssText = `
@@ -131,11 +128,9 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                     min-width: 36px !important;
                     gap: 6px !important;
                 `;
-                console.log('[Geolocation] Applied inline styles to button');
 
                 // Replace the empty icon span with a simple SVG icon
                 const iconSpan = button.querySelector('.mapboxgl-ctrl-icon');
-                console.log('[Geolocation] Found icon span:', iconSpan);
 
                 if (iconSpan) {
                     // Remove Mapbox's background-image and apply inline styles
@@ -157,7 +152,6 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                         </svg>
                         <span class="geolocation-text" style="margin-left: 6px; font-size: 0.875rem; white-space: nowrap; color: white;">Locate</span>
                     `;
-                    console.log('[Geolocation] Set SVG innerHTML with inline styles');
 
                     // Update button colors and text based on state
                     this._updateButtonStyle = () => {
@@ -207,7 +201,6 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
         // Start observing the container for child additions
         observer.observe(container, { childList: true, subtree: true });
-        console.log('[Geolocation] MutationObserver started');
 
         return container;
     }

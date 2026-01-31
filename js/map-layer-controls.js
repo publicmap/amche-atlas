@@ -118,12 +118,8 @@ export class MapLayerControl {
             }
         });
 
-        console.log(`[LayerControl] Adding ${allLayers.length} layers from registry to the ${this._state.groups.length} current atlas layers`);
-
         // Add all layers to state
         this._state.groups = [...this._state.groups, ...allLayers];
-
-        console.log(`[LayerControl] Total layers in state: ${this._state.groups.length}`);
     }
 
     /**
@@ -210,8 +206,6 @@ export class MapLayerControl {
      * Initialize the main control UI
      */
     _initializeControl(container) {
-        console.log(`[LayerControl] Rendering ${this._state.groups.length} layers to UI`);
-
         // Add current atlas layers
         this._state.groups.forEach((group, groupIndex) => {
             $(container).append(this._createGroupHeader(group, groupIndex));
@@ -223,11 +217,6 @@ export class MapLayerControl {
         if (!this._initialized) {
             this._initializeWithAnimation();
         }
-
-        // Log actual rendered count
-        const $container = $(container);
-        const renderedCount = $container.find('.group-header').length;
-        console.log(`[LayerControl] Rendered ${renderedCount} layer UI elements`);
     }
 
     /**
@@ -1267,7 +1256,6 @@ export class MapLayerControl {
 
             if (filterActiveMaps) {
                 this._filterActiveMaps = !!filterActiveMaps.checked;
-                console.log('[Filter] filterActiveMaps initialized to:', this._filterActiveMaps);
 
                 filterActiveMaps.addEventListener('sl-change', (e) => {
                     this._filterActiveMaps = !!e.target.checked;
@@ -1289,7 +1277,6 @@ export class MapLayerControl {
 
             if (filterMapsInView) {
                 this._filterMapsInView = !!filterMapsInView.checked;
-                console.log('[Filter] filterMapsInView initialized to:', this._filterMapsInView);
 
                 filterMapsInView.addEventListener('sl-change', (e) => {
                     this._filterMapsInView = !!e.target.checked;

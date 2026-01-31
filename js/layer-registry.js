@@ -172,7 +172,6 @@ export class LayerRegistry {
                 title: layer.title || layer.name || layerId
             });
         }
-        console.log(`[AtlasLayerRegistry] Loaded ${this._registry.size} layers from ${this._atlasLayers.size} atlases`, layerIndex);
 
         this._initialized = true;
     }

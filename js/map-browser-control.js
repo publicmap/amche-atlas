@@ -11,6 +11,7 @@ export class MapBrowserControl {
         this._button = null;
         this._map = null;
         this._overlay = null;
+        this._browserContainer = null;
         this._iframe = null;
         this._isOpen = false;
         this._setupMessageListener();
@@ -55,8 +56,8 @@ export class MapBrowserControl {
             display: none;
         `;
 
-        const browserContainer = document.createElement('div');
-        browserContainer.style.cssText = `
+        this._browserContainer = document.createElement('div');
+        this._browserContainer.style.cssText = `
             position: absolute;
             top: 0;
             left: 0;
@@ -67,19 +68,30 @@ export class MapBrowserControl {
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         `;
 
-        // Apply responsive width via media query
         if (window.matchMedia('(min-width: 768px)').matches) {
-            browserContainer.style.width = '66.67%';
+            this._browserContainer.style.width = '66.67%';
         }
 
-        // Update on resize
         window.addEventListener('resize', () => {
             if (window.matchMedia('(min-width: 768px)').matches) {
-                browserContainer.style.width = '66.67%';
+                this._browserContainer.style.width = '66.67%';
             } else {
-                browserContainer.style.width = '100%';
+                this._browserContainer.style.width = '100%';
             }
         });
+
+        this._overlay.appendChild(this._browserContainer);
+        document.body.appendChild(this._overlay);
+
+        this._overlay.addEventListener('click', (e) => {
+            if (e.target === this._overlay) {
+                this.closeBrowser();
+            }
+        });
+    }
+
+    _ensureIframe() {
+        if (this._iframe) return;
 
         this._iframe = document.createElement('iframe');
         this._iframe.src = 'map-browser.html';
@@ -89,15 +101,7 @@ export class MapBrowserControl {
             border: none;
         `;
 
-        browserContainer.appendChild(this._iframe);
-        this._overlay.appendChild(browserContainer);
-        document.body.appendChild(this._overlay);
-
-        this._overlay.addEventListener('click', (e) => {
-            if (e.target === this._overlay) {
-                this.closeBrowser();
-            }
-        });
+        this._browserContainer.appendChild(this._iframe);
     }
 
     _setupMessageListener() {
@@ -123,6 +127,7 @@ export class MapBrowserControl {
             }
 
             if (event.data.type === 'add-custom-layer') {
+                console.log('[MapBrowserControl] Received add-custom-layer message');
                 this._handleAddCustomLayer(event.data.config);
             }
         });
@@ -211,18 +216,25 @@ export class MapBrowserControl {
             return;
         }
 
+        console.log('[MapBrowser] Looking for layer in state.groups:', layerId);
+        console.log('[MapBrowser] Total groups:', mapLayerControl._state.groups.length);
+
         const groupIndex = mapLayerControl._state.groups.findIndex(g =>
             g.id === layerId || g._prefixedId === layerId || g._originalId === layerId
         );
 
         if (groupIndex === -1) {
-            console.warn(`[MapBrowser] Layer ${layerId} not found in map layer control`);
+            console.warn(`[MapBrowser] Layer ${layerId} not found in map layer control state`);
+            console.log('[MapBrowser] Available layer IDs:', mapLayerControl._state.groups.map(g => g.id));
             return;
         }
 
+        console.log('[MapBrowser] Found layer at group index:', groupIndex);
+
         const groupElement = mapLayerControl._sourceControls[groupIndex];
         if (!groupElement) {
-            console.warn(`[MapBrowser] UI element for layer ${layerId} not found`);
+            console.warn(`[MapBrowser] UI element for layer ${layerId} not found at index ${groupIndex}`);
+            console.log('[MapBrowser] Total source controls:', mapLayerControl._sourceControls.length);
             return;
         }
 
@@ -231,6 +243,8 @@ export class MapBrowserControl {
             console.warn(`[MapBrowser] Checkbox for layer ${layerId} not found`);
             return;
         }
+
+        console.log('[MapBrowser] Toggling layer:', layerId, 'to', active);
 
         if (active) {
             if (!checkbox.checked) {
@@ -269,6 +283,7 @@ export class MapBrowserControl {
     }
 
     openBrowser() {
+        this._ensureIframe();
         this._overlay.style.display = 'block';
         this._isOpen = true;
 
@@ -325,12 +340,12 @@ export class MapBrowserControl {
     }
 
     _switchToCreator() {
-        if (!this._iframe) return;
+        this._ensureIframe();
         this._iframe.src = 'map-creator.html';
     }
 
     _switchToBrowser() {
-        if (!this._iframe) return;
+        this._ensureIframe();
         this._iframe.src = 'map-browser.html';
         setTimeout(() => {
             this._sendLayerData();
@@ -338,15 +353,111 @@ export class MapBrowserControl {
     }
 
     _handleAddCustomLayer(config) {
-        let baseUrl = window.location.href;
-        let url = new URL(baseUrl);
-        const hash = url.hash;
-        let layers = url.searchParams.get('layers') || '';
+        console.log('[MapBrowserControl] Adding custom layer:', config);
+
+        const url = new URL(window.location.origin + window.location.pathname);
+        const hash = window.location.hash;
+
+        // Parse URL parameters manually, keeping layers encoded until we've extracted it
+        const searchParams = window.location.search;
+        console.log('[MapBrowserControl] Current search params:', searchParams);
+
+        let existingLayersEncoded = '';
+        let otherParamsMap = new Map();
+
+        if (searchParams.startsWith('?')) {
+            const paramsString = searchParams.substring(1);
+
+            // Find the layers parameter by looking for "layers="
+            const layersIndex = paramsString.indexOf('layers=');
+
+            if (layersIndex !== -1) {
+                // Extract everything before layers parameter
+                if (layersIndex > 0) {
+                    const beforeLayers = paramsString.substring(0, layersIndex - 1); // -1 to skip the &
+                    beforeLayers.split('&').forEach(param => {
+                        const eqIndex = param.indexOf('=');
+                        if (eqIndex !== -1) {
+                            otherParamsMap.set(param.substring(0, eqIndex), param.substring(eqIndex + 1));
+                        }
+                    });
+                }
+
+                // Extract the layers parameter value (URL-encoded, keep it encoded!)
+                // We need to find where it ends - layers should be the last parameter
+                // If there are parameters after it, they would start with &
+                // BUT we can't just look for & because the encoded value might contain %26
+                // Solution: layers parameter goes until the end of the search string OR until we hit a real & that starts a new parameter
+                // A real & would be followed by paramName=, not by encoded characters
+
+                let layersValueEncoded = paramsString.substring(layersIndex + 7); // 7 = "layers=".length
+
+                // Check if there's another parameter after layers by looking for &paramName=
+                // We need to find an & that's followed by characters and an =
+                let nextParamStart = -1;
+                for (let i = 0; i < layersValueEncoded.length; i++) {
+                    if (layersValueEncoded[i] === '&') {
+                        // Check if this looks like a parameter start (has = within next 20 chars)
+                        const remainingChunk = layersValueEncoded.substring(i + 1, Math.min(i + 21, layersValueEncoded.length));
+                        if (remainingChunk.includes('=')) {
+                            // This is likely a real parameter, not part of the encoded value
+                            nextParamStart = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (nextParamStart !== -1) {
+                    const afterLayers = layersValueEncoded.substring(nextParamStart + 1);
+                    layersValueEncoded = layersValueEncoded.substring(0, nextParamStart);
+
+                    // Parse params after layers
+                    afterLayers.split('&').forEach(param => {
+                        const eqIndex = param.indexOf('=');
+                        if (eqIndex !== -1) {
+                            otherParamsMap.set(param.substring(0, eqIndex), param.substring(eqIndex + 1));
+                        }
+                    });
+                }
+
+                existingLayersEncoded = layersValueEncoded;
+                console.log('[MapBrowserControl] Existing layers (encoded):', existingLayersEncoded);
+                console.log('[MapBrowserControl] Existing layers (decoded):', decodeURIComponent(existingLayersEncoded));
+            } else {
+                // No layers parameter, just parse all params
+                paramsString.split('&').forEach(param => {
+                    const eqIndex = param.indexOf('=');
+                    if (eqIndex !== -1) {
+                        otherParamsMap.set(param.substring(0, eqIndex), param.substring(eqIndex + 1));
+                    }
+                });
+            }
+        }
+
         let jsonString = JSON.stringify(config);
-        jsonString = jsonString.replace(/'/g, "\\'").replace(/"/g, "'");
-        layers = layers ? jsonString + ',' + layers : jsonString;
-        url.searchParams.set('layers', layers);
-        url.hash = hash;
-        window.location.href = url.toString();
+        jsonString = jsonString.replace(/"/g, "'");
+        console.log('[MapBrowserControl] New layer JSON:', jsonString);
+
+        // Decode existing layers, combine with new, then re-encode
+        const existingLayersDecoded = existingLayersEncoded ? decodeURIComponent(existingLayersEncoded) : '';
+        const newLayersDecoded = existingLayersDecoded ? jsonString + ',' + existingLayersDecoded : jsonString;
+        console.log('[MapBrowserControl] Combined layers (decoded):', newLayersDecoded);
+
+        // Build URL manually
+        let finalUrl = url.toString();
+
+        // Build query string with other params first, then layers (encoded)
+        const queryParts = [];
+        otherParamsMap.forEach((value, key) => {
+            queryParts.push(`${key}=${value}`);
+        });
+        queryParts.push('layers=' + encodeURIComponent(newLayersDecoded));
+
+        finalUrl += '?' + queryParts.join('&');
+        finalUrl += hash;
+
+        console.log('[MapBrowserControl] Final URL:', finalUrl);
+        console.log('[MapBrowserControl] Final URL length:', finalUrl.length);
+        window.location.href = finalUrl;
     }
 }

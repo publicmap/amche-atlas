@@ -90,7 +90,12 @@
       "initiallyChecked": false
     },
     {
-      "id": "goa-plots"
+      "id": "world-2023-open-buildings",
+      "initiallyChecked": true
+    },
+    {
+      "id": "goa-plots",
+      "initiallyChecked": true
     },
     {
       "id": "goa-local-body",

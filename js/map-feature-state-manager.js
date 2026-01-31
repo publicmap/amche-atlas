@@ -1318,7 +1318,6 @@ export class MapFeatureStateManager extends EventTarget {
         });
 
         if (failedLayers.length > 0) {
-            console.debug(`[StateManager] Retrying ${failedLayers.length} failed layer registration(s)`);
             failedLayers.forEach(config => {
                 this._setupLayerEventsWithRetry(config);
             });

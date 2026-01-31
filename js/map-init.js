@@ -244,15 +244,8 @@ export class MapInitializer {
                     }
 
                     if (resolvedLayer) {
-                        // Debug: Check if resolvedLayer has type
                         if (!resolvedLayer.type) {
                             console.warn(`[LayerRegistry] Resolved layer ${layerConfig.id} from registry is missing type property. Registry entry:`, resolvedLayer);
-                        }
-
-                        // Debug: Check proxy settings before merge
-                        if (layerConfig.id && layerConfig.id.includes('bhuvan')) {
-                            console.log(`[DEBUG] Before merge - layerConfig:`, { id: layerConfig.id, hasProxyUrl: !!layerConfig.proxyUrl, opacity: layerConfig.opacity });
-                            console.log(`[DEBUG] Before merge - resolvedLayer:`, { id: resolvedLayer.id, hasProxyUrl: !!resolvedLayer.proxyUrl, proxyUrl: resolvedLayer.proxyUrl, proxyReferer: resolvedLayer.proxyReferer });
                         }
 
                         // Merge the resolved layer with any custom overrides from config
@@ -281,11 +274,6 @@ export class MapInitializer {
                             _normalizedId: layerRegistry.normalizeLayerId(layerConfig.id, atlasId)
                         };
 
-                        // Debug: Check proxy settings after merge
-                        if (layerConfig.id && layerConfig.id.includes('bhuvan')) {
-                            console.log(`[DEBUG] After merge:`, { id: mergedLayer.id, hasProxyUrl: !!mergedLayer.proxyUrl, proxyUrl: mergedLayer.proxyUrl, proxyReferer: mergedLayer.proxyReferer });
-                        }
-
                         // Verify the merge preserved important properties
                         if (!mergedLayer.title) {
                             console.warn(`[LayerRegistry] Cross-atlas layer ${layerConfig.id} from ${resolvedLayer._sourceAtlas} atlas missing title after merge (this is unusual)`);
@@ -307,7 +295,6 @@ export class MapInitializer {
                         }
                     }
                 } else {
-                    // If it's a fully defined layer, return as is
                     validLayers.push(layerConfig);
                 }
             }

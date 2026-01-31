@@ -105,9 +105,10 @@
                         <img src="/assets/img/icon-192x192.png" alt="amche.in"
                             style="width: 40px; height: 40px; border-radius: 8px;">
                         <div>
-                            <h2
-                                style="font-size: 1.125rem; color:white; font-weight: 600; margin: 0; line-height: 1.2;">
-                                amche.in</h2>
+                            <a href="./index.html"
+                                style="font-size: 1.125rem; color:white; font-weight: 600; margin: 0; line-height: 1.2; text-decoration: none; display: block; transition: opacity 0.2s;"
+                                onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                amche.in</a>
                             <p style="font-size: 0.75rem; color: #9ca3af; margin: 0.25rem 0 0 0; line-height: 1.3;">
                                 Amche Atlas is a citizen-maintained map service from Goa to explore public maps of the
                                 world</p>
@@ -289,23 +290,34 @@
     </div>
 
     <!-- Header -->
-    <header class="header-nav bg-gray-900 text-white flex items-center border-b border-gray-800">
-        <div class="flex items-center gap-3 sm:gap-4 flex-grow max-w-full">
-            <!-- Branding Section -->
+    <header class="header-nav bg-gray-900 text-white flex items-center justify-between border-b border-gray-800">
+        <!-- Left: Hamburger + Logo -->
+        <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <button id="nav-menu-trigger"
-                class="nav-brand flex items-center gap-2 bg-transparent border-0 text-white p-0 transition-opacity hover:opacity-80 flex-shrink-0"
+                class="flex items-center justify-center bg-transparent border-0 text-white p-2 transition-opacity hover:opacity-80"
                 aria-label="Open navigation menu">
-                <img src="/assets/img/icon-192x192.png" alt="amche.in" class="nav-logo rounded">
-                <span class="nav-title font-semibold tracking-tight hidden sm:inline">amche.in</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
             </button>
-
-            <!-- Controls Section -->
-            <div class="header-controls flex items-center gap-2 sm:gap-3 flex-grow min-w-0">
-                <div id="map-browser-control-container" class="flex-shrink-0"></div>
-                <mapbox-search-box id="mapbox-search-box" class="flex-grow min-w-0"></mapbox-search-box>
-                <div id="geolocation-control-container" class="flex-shrink-0"></div>
+            <div class="nav-brand flex items-center gap-2 flex-shrink-0 hidden sm:flex">
+                <img src="/assets/img/icon-192x192.png" alt="amche.in" class="nav-logo rounded">
+                <span class="nav-title font-semibold tracking-tight">amche.in</span>
             </div>
+            <div id="dev-badge" class="hidden px-2 py-1 bg-yellow-600 text-xs font-semibold rounded">DEV</div>
         </div>
+
+        <!-- Center: Controls -->
+        <div class="header-controls flex items-center gap-2 sm:gap-3 flex-grow justify-center min-w-0 mx-2 sm:mx-4">
+            <div id="map-browser-control-container" class="flex-shrink-0"></div>
+            <mapbox-search-box id="mapbox-search-box" class="flex-grow max-w-md min-w-0"></mapbox-search-box>
+            <div id="geolocation-control-container" class="flex-shrink-0"></div>
+        </div>
+
+        <!-- Right: Reserved for future use -->
+        <div class="flex-shrink-0" style="width: 20px;"></div>
     </header>
 
     <style>
@@ -342,6 +354,16 @@
 
             function closeMenu() {
                 overlay.style.display = 'none';
+            }
+
+            // Show dev badge if on localhost or /dev/
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isDevPath = window.location.pathname.startsWith('/dev/');
+            if (isLocalhost || isDevPath) {
+                const devBadge = document.getElementById('dev-badge');
+                if (devBadge) {
+                    devBadge.classList.remove('hidden');
+                }
             }
 
             trigger.addEventListener('click', openMenu);

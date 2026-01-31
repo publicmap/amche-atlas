@@ -84,6 +84,120 @@
         .scrollbar-thin::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
+
+        .format-chip, .format-info {
+            position: relative;
+        }
+
+        .format-chip:active {
+            transform: scale(0.95);
+        }
+
+        .format-chip.active-format {
+            position: relative;
+            box-shadow: 0 0 0 2px currentColor;
+            font-weight: 600;
+        }
+
+        .format-chip.active-format::before {
+            content: '✓';
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: white;
+            color: currentColor;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            border: 2px solid currentColor;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        .format-chip:not(.active-format):hover::after, .format-info:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background: #1f2937;
+            color: white;
+            font-size: 11px;
+            line-height: 1.4;
+            white-space: pre-line;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            width: 250px;
+            text-align: left;
+            pointer-events: none;
+        }
+
+        .format-chip:not(.active-format):hover::before, .format-info:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 20px;
+            margin-bottom: 2px;
+            border: 6px solid transparent;
+            border-top-color: #1f2937;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .format-chip.active-format:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background: #1f2937;
+            color: white;
+            width: 250px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            font-size: 11px;
+            line-height: 1.4;
+            white-space: pre-line;
+            text-align: left;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .format-chip:nth-child(n+4):hover::after {
+            left: auto;
+            right: 0;
+        }
+
+        .format-chip:nth-child(n+4):hover::before {
+            left: auto;
+            right: 20px;
+        }
+
+        .format-info:nth-last-child(1):hover::after {
+            left: auto;
+            right: 0;
+        }
+
+        .format-info:nth-last-child(1):hover::before {
+            left: auto;
+            right: 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
     </style>
 </head>
 <body>
@@ -101,33 +215,108 @@
 
         <!-- Content -->
         <div class="flex-1 overflow-y-auto scrollbar-thin p-4">
-            <!-- Section 1: Data Source -->
+            <!-- Section 1: Load Data -->
             <div class="section-box">
-                <h2 class="text-md font-bold mb-3">1. Data Source</h2>
+                <h2 class="text-md font-bold mb-3">1. Load Data</h2>
 
                 <!-- Tabs -->
                 <div class="flex border-b border-gray-300 mb-4">
                     <button class="tab-button px-4 py-2 font-medium active" data-tab="url">Import from URL</button>
                     <button class="tab-button px-4 py-2 font-medium" data-tab="upload">Upload File</button>
-                    <button class="tab-button px-4 py-2 font-medium" data-tab="custom">Custom</button>
                 </div>
 
                 <!-- Tab: Import from URL -->
                 <div class="tab-content active" id="tab-url">
-                    <input type="text" id="url-input" placeholder="Enter URL to GeoJSON, CSV, KML, Vector tiles, Raster tiles, or MapWarper"
-                        class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
-                    <div class="text-xs text-gray-600 mb-3">
-                        Supported: GeoJSON URLs, CSV with lat/lng, KML, Vector tiles, Raster tiles, MapWarper maps
+                    <div class="relative mb-2">
+                        <input type="text" id="url-input" placeholder="Enter URL to GeoJSON, CSV, KML, Vector tiles, Raster tiles, or MapWarper"
+                            class="w-full px-3 py-2 pr-20 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <div class="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                            <span id="url-validation" class="text-xs"></span>
+                            <button type="button" id="clear-url-btn" class="text-gray-400 hover:text-gray-600 hidden" title="Clear">
+                                ✕
+                            </button>
+                        </div>
                     </div>
-                    <p class="text-sm text-gray-700 mb-2">GeoJSON Preview</p>
-                    <textarea id="url-geojson-input" rows="10" placeholder='Load data from URL to see preview...'
-                        class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-2"></textarea>
-                    <div class="flex gap-2">
-                        <button id="load-url-btn" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                            Load Data
+                    <div class="text-xs text-gray-600 mb-2">
+                        Supported formats (click to try example):
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" class="format-chip px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                            data-format="geojson"
+                            data-sample="https://gist.githubusercontent.com/planemad/e5ccc47bf2a1aa458a86d6839476f539/raw/goa-water-bodies.geojson"
+                            data-tooltip="📍 GeoJSON
+Vector features in JSON format
+Supports: Points, Lines, Polygons
+
+URL format: .geojson or .json
+Click to try example URL">
+                            GeoJSON
                         </button>
-                        <button id="preview-url-geojson-io-btn" class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
-                            <span>↗</span> Preview on geojson.io
+                        <button type="button" class="format-chip px-2 py-1 bg-green-100 hover:bg-green-200 text-green-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                            data-format="csv"
+                            data-sample="https://docs.google.com/spreadsheets/d/e/2PACX-1vRhTXMFezW8k996di0qKP7-9-0ro0djuEEtMPYDOMhXtNOiUK_25lv90AThy21X2PRPYI_st93CQVq2/pub?gid=1432085196&single=true&output=csv"
+                            data-tooltip="📊 CSV (Tabular Data)
+Point data with lat/lng columns
+Supports: Google Sheets, .csv files
+
+URL format: .csv or output=csv
+Click to try Google Sheets example">
+                            CSV
+                        </button>
+                        <button type="button" class="format-chip px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                            data-format="kml"
+                            data-sample="https://files.worldwind.arc.nasa.gov/artifactory/web/0.9.0/examples/data/KML_Samples.kml"
+                            data-tooltip="🌍 KML (Google Earth)
+Keyhole Markup Language format
+Supports: Points, Lines, Polygons
+
+URL format: .kml files
+Click to try NASA KML samples">
+                            KML
+                        </button>
+                        <button type="button" class="format-chip px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                            data-format="vector-tiles"
+                            data-sample="https://tiles.stadiamaps.com/data/openmaptiles/{z}/{x}/{y}.pbf"
+                            data-tooltip="🔷 Vector Tiles
+Tiled vector data (.pbf/.mvt)
+High performance for large datasets
+
+URL format: {z}/{x}/{y}.pbf
+Click to try Stadia Maps example">
+                            Vector Tiles
+                        </button>
+                        <button type="button" class="format-chip px-2 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                            data-format="raster-tiles"
+                            data-sample="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            data-tooltip="🗺️ Raster Tiles (TMS/XYZ)
+Tiled images (satellite, maps)
+Standard web map tiles
+
+URL format: {z}/{x}/{y}.png
+Click to try OpenStreetMap example">
+                            Raster Tiles
+                        </button>
+                        <button type="button" class="format-chip px-2 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                            data-format="mapwarper"
+                            data-sample="https://mapwarper.net/maps/95676"
+                            data-tooltip="🗺️ MapWarper
+Georeferenced historic maps
+Hosted on mapwarper.net
+
+URL format: mapwarper.net/maps/[ID]
+Click to try example map">
+                            MapWarper
+                        </button>
+                        <button type="button" class="format-chip px-2 py-1 bg-teal-100 hover:bg-teal-200 text-teal-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                            data-format="atlas-json"
+                            data-sample="https://jsonkeeper.com/b/E576V"
+                            data-tooltip="📋 Amche Atlas JSON
+Complete layer configuration
+Hosted on jsonkeeper.com or any JSON URL
+
+URL format: .json or jsonkeeper.com/b/[ID]
+Click to try JSONKeeper example">
+                            Amche Atlas JSON
                         </button>
                     </div>
                 </div>
@@ -136,95 +325,178 @@
                 <div class="tab-content" id="tab-upload">
                     <input type="file" id="file-input" accept=".csv,.geojson,.json,.kml"
                         class="w-full px-3 py-2 border border-gray-300 rounded mb-2">
-                    <div class="text-xs text-gray-600 mb-3">
-                        Supported formats: CSV (with lat/lng columns), GeoJSON, KML
+                    <div class="text-xs text-gray-600 mb-2">
+                        Supported formats (hover for details):
                     </div>
-                    <p class="text-sm text-gray-700 mb-2">GeoJSON Preview</p>
-                    <textarea id="upload-geojson-input" rows="10" placeholder='Upload a file to see preview...'
-                        class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-2"></textarea>
-                    <div class="flex gap-2">
-                        <button id="load-upload-btn" class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                            Load GeoJSON
-                        </button>
-                        <button id="preview-upload-geojson-io-btn" class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
-                            <span>↗</span> Preview on geojson.io
-                        </button>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="format-info px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium"
+                            data-tooltip="📊 CSV Files
+Tabular data with lat/lng columns
+Column names: lat, latitude, lng, longitude
+
+Accepted: .csv files
+Select a CSV file to upload">
+                            CSV
+                        </span>
+                        <span class="format-info px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium"
+                            data-tooltip="📍 GeoJSON Files
+Vector features in JSON format
+Supports: Points, Lines, Polygons
+
+Accepted: .geojson, .json files
+Select a GeoJSON file to upload">
+                            GeoJSON
+                        </span>
+                        <span class="format-info px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium"
+                            data-tooltip="🌍 KML Files
+Google Earth format
+Supports: Points, Lines, Polygons
+
+Accepted: .kml files
+Select a KML file to upload">
+                            KML
+                        </span>
                     </div>
                 </div>
 
-                <!-- Tab: Custom -->
-                <div class="tab-content" id="tab-custom">
-                    <div class="text-xs text-gray-600 mb-3">
-                        Paste or edit GeoJSON directly
+                <button id="load-data-btn" class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    Load Data
+                </button>
+
+                <!-- Data Preview (GeoJSON only) -->
+                <details class="mt-4" id="data-preview-details" style="display: none;">
+                    <summary class="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900 py-2">
+                        <span id="preview-summary">Data Preview</span>
+                    </summary>
+                    <div class="mt-2">
+                        <textarea id="geojson-editor" rows="10" placeholder='{"type": "FeatureCollection", "features": []}'
+                            class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-2"></textarea>
+                        <div class="flex gap-2">
+                            <button type="button" id="preview-geojson-io-btn" class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
+                                <span>↗</span> Preview in GeoJSON.io
+                            </button>
+                            <button type="button" id="download-geojson-btn" class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
+                                <span>⬇</span> Download GeoJSON
+                            </button>
+                        </div>
                     </div>
-                    <p class="text-sm text-gray-700 mb-2">GeoJSON Editor</p>
-                    <textarea id="custom-geojson-input" rows="10" placeholder='{"type": "FeatureCollection", "features": []}'
-                        class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-2"></textarea>
-                    <div class="flex gap-2">
-                        <button id="load-custom-btn" class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                            Load GeoJSON
-                        </button>
-                        <button id="preview-custom-geojson-io-btn" class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
-                            <span>↗</span> Preview on geojson.io
-                        </button>
-                    </div>
-                </div>
+                </details>
             </div>
 
-            <!-- Section 2: Style Presets -->
-            <div class="section-box" id="style-section" style="display: none;">
-                <h2 class="text-md font-bold mb-3">2. Style</h2>
+            <!-- Section 2: Layer Settings -->
+            <div class="section-box" id="settings-section" style="display: none;">
+                <h2 class="text-md font-bold mb-3">2. Layer Settings</h2>
 
-                <div id="geometry-type-info" class="mb-3 text-sm text-gray-700"></div>
+                <!-- Layer Info Section -->
+                <div>
+                    <h3 class="text-sm font-semibold mb-3">Layer Info</h3>
 
-                <!-- Fill Color (for polygons/points) -->
-                <div class="mb-4" id="fill-color-control">
-                    <label class="block text-sm font-medium mb-2">Fill Color</label>
-                    <div class="color-picker-wrapper">
-                        <input type="color" id="fill-color" value="#3b82f6">
-                        <div class="color-preview" id="fill-color-preview" style="background-color: #3b82f6;"></div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Title *</label>
+                        <input type="text" id="layer-title" placeholder="My Custom Layer"
+                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Description</label>
+                        <textarea id="layer-description" rows="2" placeholder="Optional description"
+                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+
+                    <div class="mb-4" id="data-fields-section" style="display: none;">
+                        <h4 class="text-sm font-semibold mb-3">Data Fields</h4>
+
+                        <div class="mb-3">
+                            <label class="block text-xs font-medium mb-1">Feature ID</label>
+                            <select id="feature-id-field" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                                <option value="">Select field...</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="block text-xs font-medium mb-1">Feature Name</label>
+                            <select id="feature-name-field" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                                <option value="">Select field...</option>
+                            </select>
+                        </div>
+
+                        <details class="mb-3">
+                            <summary class="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900 py-2">
+                                Inspect Fields
+                            </summary>
+                            <div class="mt-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-2">
+                                <div id="inspect-fields-list" class="space-y-1"></div>
+                            </div>
+                        </details>
                     </div>
                 </div>
 
-                <!-- Stroke Color (for lines/polygons) -->
-                <div class="mb-4" id="stroke-color-control">
-                    <label class="block text-sm font-medium mb-2">Stroke Color</label>
-                    <div class="color-picker-wrapper">
-                        <input type="color" id="stroke-color" value="#1e40af">
-                        <div class="color-preview" id="stroke-color-preview" style="background-color: #1e40af;"></div>
+                <!-- Style Section -->
+                <div id="style-controls" class="mt-4 pt-4 border-t border-gray-200">
+                    <h3 class="text-sm font-semibold mb-3">Style</h3>
+                    <div id="geometry-type-info" class="mb-3 text-xs text-gray-600"></div>
+
+                    <!-- Fill Color (for polygons/points) -->
+                    <div class="mb-4" id="fill-color-control">
+                        <label class="block text-sm font-medium mb-2">Fill Color</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="fill-color" value="#3b82f6">
+                            <div class="color-preview" id="fill-color-preview" style="background-color: #3b82f6;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Stroke Color (for lines/polygons) -->
+                    <div class="mb-4" id="stroke-color-control">
+                        <label class="block text-sm font-medium mb-2">Stroke Color</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="stroke-color" value="#1e40af">
+                            <div class="color-preview" id="stroke-color-preview" style="background-color: #1e40af;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Stroke Width (for lines/polygons) -->
+                    <div class="mb-4" id="stroke-width-control">
+                        <label class="block text-sm font-medium mb-2">
+                            Stroke Width: <span id="stroke-width-value">2</span>px
+                        </label>
+                        <input type="range" id="stroke-width" min="1" max="10" value="2" step="0.5"
+                            class="w-full">
                     </div>
                 </div>
 
-                <!-- Stroke Width (for lines/polygons) -->
-                <div class="mb-4" id="stroke-width-control">
-                    <label class="block text-sm font-medium mb-2">
-                        Stroke Width: <span id="stroke-width-value">2</span>px
-                    </label>
-                    <input type="range" id="stroke-width" min="1" max="10" value="2" step="0.5"
-                        class="w-full">
-                </div>
-            </div>
+                <!-- Configuration JSON Section -->
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Configuration JSON</label>
+                        <textarea id="config-preview" rows="8" readonly
+                            class="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 font-mono text-xs mb-2"></textarea>
 
-            <!-- Section 3: Layer Configuration -->
-            <div class="section-box" id="config-section" style="display: none;">
-                <h2 class="text-md font-bold mb-3">3. Layer Configuration</h2>
-
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">Title *</label>
-                    <input type="text" id="layer-title" placeholder="My Custom Layer"
-                        class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">Description</label>
-                    <textarea id="layer-description" rows="2" placeholder="Optional description"
-                        class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                </div>
-
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">Generated Configuration</label>
-                    <textarea id="config-preview" rows="8" readonly
-                        class="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 font-mono text-xs"></textarea>
+                        <details class="mt-2">
+                            <summary class="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900 py-2">
+                                How to use this layer configuration
+                            </summary>
+                            <div class="mt-2 text-xs space-y-3 text-gray-600">
+                                <div>
+                                    <strong>1. Use inline as URL parameter:</strong>
+                                    <div class="mt-1 flex gap-2">
+                                        <input type="text" id="inline-url" readonly class="flex-1 px-2 py-1 bg-gray-50 border border-gray-300 rounded text-xs font-mono">
+                                        <button type="button" id="copy-inline-btn" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs">
+                                            Copy
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <strong>2. Store as remote JSON and load via URL:</strong>
+                                    <div class="mt-1">
+                                        <code class="text-xs">?layers=https://jsonkeeper.com/b/YOUR_ID</code>
+                                    </div>
+                                    <div class="mt-1 text-gray-500">
+                                        Save your config JSON to <a href="https://jsonkeeper.com" target="_blank" class="text-blue-600 hover:underline">jsonkeeper.com</a> and use the URL
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
                 </div>
             </div>
         </div>
@@ -235,7 +507,7 @@
                 Cancel
             </button>
             <button id="add-to-map-btn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" disabled>
-                Add to Map
+                Add Map Layer
             </button>
         </div>
     </div>
