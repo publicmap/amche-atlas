@@ -44,6 +44,13 @@ module.exports = {
                 { from: 'docs', to: 'docs' },
                 { from: 'assets', to: 'assets' },
                 { from: 'config', to: 'config' },
+                {
+                    from: 'js',
+                    to: 'js',
+                    globOptions: {
+                        ignore: ['**/index.js', '**/tests/**']
+                    }
+                },
                 { from: 'map-browser.html', to: 'map-browser.html' },
                 { from: 'map-creator.html', to: 'map-creator.html' },
                 { from: 'offline.html', to: 'offline.html' },
