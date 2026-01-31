@@ -193,6 +193,7 @@ export class MapBrowserControl {
                 title: layer.title || layer.id,
                 type: layer.type,
                 description: layer.description,
+                attribution: layer.attribution,
                 headerImage: layer.headerImage,
                 tags: layer.tags || [],
                 _sourceAtlas: layer._sourceAtlas,

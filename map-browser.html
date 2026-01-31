@@ -1371,6 +1371,17 @@
                 }));
             }
 
+            // Attribution (first line if exists)
+            if (layer.attribution) {
+                const firstLine = layer.attribution.split('\n')[0].trim();
+                if (firstLine) {
+                    $content.append($('<p>', {
+                        class: 'text-xs text-gray-500 italic mt-1',
+                        html: firstLine
+                    }));
+                }
+            }
+
             $container.append($content);
             $card.append($container);
 
