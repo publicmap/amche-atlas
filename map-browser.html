@@ -840,22 +840,42 @@
             // Remove existing menu if any
             $('.atlas-filter-menu').remove();
 
+            // Get button position
+            const $btn = $('#atlas-filter-btn');
+            const btnOffset = $btn.offset();
+            const btnHeight = $btn.outerHeight();
+            const btnWidth = $btn.outerWidth();
+
             // Create menu
             const $menu = $('<div>', {
                 class: 'atlas-filter-menu',
-                style: 'position: absolute; bottom: 40px; right: 12px; background: #374151; border: 1px solid #4b5563; border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); max-height: 300px; overflow-y: auto; z-index: 1000; min-width: 200px;'
+                style: `position: absolute;
+                        top: ${btnOffset.top + btnHeight + 4}px;
+                        left: ${btnOffset.left}px;
+                        min-width: ${btnWidth}px;
+                        background: #374151;
+                        border: 1px solid #4b5563;
+                        border-radius: 6px;
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                        max-height: 500px;
+                        overflow-y: auto;
+                        z-index: 1000;`
             });
 
             // All collections option
             const $allOption = $('<div>', {
                 class: 'atlas-menu-item',
-                style: 'padding: 8px 12px; cursor: pointer; color: white; font-size: 12px; transition: background 0.2s;',
-                text: 'All Map Collections',
+                style: 'padding: 8px 12px; cursor: pointer; color: white; font-size: 12px; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;',
                 click: function() {
                     selectAtlas('', 'All Map Collections');
                     $('.atlas-filter-menu').remove();
                 }
             });
+            $allOption.append($('<span>', { text: 'All Map Collections' }));
+            $allOption.append($('<span>', {
+                style: 'color: #9ca3af; font-size: 11px;',
+                text: `(${allLayers.length})`
+            }));
             if (!window.selectedAtlasId) {
                 $allOption.css('background-color', '#4b5563');
             }
@@ -873,8 +893,9 @@
                 style: 'height: 1px; background: #4b5563; margin: 4px 0;'
             }));
 
-            // Atlas options - sort with imported atlases first
+            // Atlas options - filter out index atlas and sort with imported atlases first
             const atlases = Array.from(atlasMetadata.entries())
+                .filter(([id]) => id !== 'index')
                 .sort((a, b) => {
                     // Imported atlases (marked with *) come first
                     const aImported = a[1].isImported || (a[1].name && a[1].name.startsWith('*'));
@@ -888,6 +909,9 @@
                 });
 
             atlases.forEach(([id, metadata]) => {
+                // Count layers for this atlas
+                const layerCount = allLayers.filter(layer => layer._sourceAtlas === id).length;
+
                 const $option = $('<div>', {
                     class: 'atlas-menu-item',
                     style: 'padding: 8px 12px; cursor: pointer; color: white; font-size: 12px; transition: background 0.2s; display: flex; align-items: center; gap: 6px;',
@@ -899,10 +923,20 @@
 
                 // Color badge
                 const $badge = $('<span>', {
-                    style: `display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: ${metadata.color || '#6b7280'};`
+                    style: `display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: ${metadata.color || '#6b7280'}; flex-shrink: 0;`
                 });
                 $option.append($badge);
-                $option.append($('<span>', { text: metadata.name || id }));
+
+                // Atlas name and count
+                const $nameContainer = $('<div>', {
+                    style: 'flex: 1; display: flex; justify-content: space-between; align-items: center;'
+                });
+                $nameContainer.append($('<span>', { text: metadata.name || id }));
+                $nameContainer.append($('<span>', {
+                    style: 'color: #9ca3af; font-size: 11px;',
+                    text: `(${layerCount})`
+                }));
+                $option.append($nameContainer);
 
                 if (window.selectedAtlasId === id) {
                     $option.css('background-color', '#4b5563');
