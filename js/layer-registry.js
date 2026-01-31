@@ -216,6 +216,242 @@ export class LayerRegistry {
     }
 
     /**
+     * Mark an atlas as imported (loaded via URL parameter)
+     * @param {string} atlasId - The atlas ID (usually 'imported')
+     * @param {object} metadata - Atlas metadata (name, color, etc.)
+     * @param {object} config - Full atlas config with layers array (optional)
+     */
+    markImportedAtlas(atlasId, metadata, config = null) {
+        this._atlasMetadata.set(atlasId, {
+            ...metadata,
+            isImported: true
+        });
+
+        if (config && config.layers && Array.isArray(config.layers)) {
+            this._atlasLayers.set(atlasId, config.layers);
+
+            const baseUrl = metadata.sourceUrl ? this._getBaseUrl(metadata.sourceUrl) : null;
+
+            config.layers.forEach(layer => {
+                const resolvedLayer = this._resolveLayer(layer, atlasId);
+                if (resolvedLayer && baseUrl) {
+                    this._resolveRelativeUrls(resolvedLayer, baseUrl);
+                }
+
+                if (resolvedLayer) {
+                    const layerId = resolvedLayer.id;
+                    const prefixedId = `${atlasId}-${layerId}`;
+
+                    if (!this._registry.has(prefixedId)) {
+                        this._registry.set(prefixedId, {
+                            ...resolvedLayer,
+                            _sourceAtlas: atlasId,
+                            _prefixedId: prefixedId,
+                            _originalId: layerId
+                        });
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * Get base URL from a full URL (directory containing the file)
+     * @param {string} url - Full URL to a file
+     * @returns {string} Base URL (directory path)
+     */
+    _getBaseUrl(url) {
+        try {
+            const urlObj = new URL(url);
+            const pathParts = urlObj.pathname.split('/');
+            pathParts.pop(); // Remove filename
+            urlObj.pathname = pathParts.join('/') + '/';
+            return urlObj.toString();
+        } catch (e) {
+            console.warn('[LayerRegistry] Failed to parse base URL from:', url);
+            return null;
+        }
+    }
+
+    /**
+     * Resolve relative URLs in layer config to absolute URLs
+     * @param {object} layer - Layer configuration
+     * @param {string} baseUrl - Base URL to resolve against
+     */
+    _resolveRelativeUrls(layer, baseUrl) {
+        console.log(`[LayerRegistry] Resolving URLs for layer: ${layer.id}`);
+
+        const urlFields = ['url', 'thumbnail', 'tiles'];
+
+        urlFields.forEach(field => {
+            if (layer[field]) {
+                if (typeof layer[field] === 'string') {
+                    const resolved = this._resolveUrl(layer[field], baseUrl);
+                    if (resolved !== layer[field]) {
+                        console.log(`[LayerRegistry]   ${field}: ${layer[field]} → ${resolved}`);
+                    }
+                    layer[field] = resolved;
+                } else if (Array.isArray(layer[field])) {
+                    layer[field] = layer[field].map(url => {
+                        const resolved = this._resolveUrl(url, baseUrl);
+                        if (resolved !== url) {
+                            console.log(`[LayerRegistry]   ${field}[]: ${url} → ${resolved}`);
+                        }
+                        return resolved;
+                    });
+                }
+            }
+        });
+
+        if (layer.source && typeof layer.source === 'object') {
+            if (layer.source.url) {
+                const resolved = this._resolveUrl(layer.source.url, baseUrl);
+                if (resolved !== layer.source.url) {
+                    console.log(`[LayerRegistry]   source.url: ${layer.source.url} → ${resolved}`);
+                }
+                layer.source.url = resolved;
+            }
+            if (layer.source.tiles && Array.isArray(layer.source.tiles)) {
+                layer.source.tiles = layer.source.tiles.map(url => {
+                    const resolved = this._resolveUrl(url, baseUrl);
+                    if (resolved !== url) {
+                        console.log(`[LayerRegistry]   source.tiles[]: ${url} → ${resolved}`);
+                    }
+                    return resolved;
+                });
+            }
+        }
+
+        if (layer.style && typeof layer.style === 'object') {
+            this._resolveStyleUrls(layer.style, baseUrl, 'style');
+        }
+
+        if (layer.paint && typeof layer.paint === 'object') {
+            this._resolveStyleUrls(layer.paint, baseUrl, 'paint');
+        }
+
+        if (layer.layout && typeof layer.layout === 'object') {
+            this._resolveStyleUrls(layer.layout, baseUrl, 'layout');
+        }
+    }
+
+    /**
+     * Resolve URLs in style/paint/layout objects
+     * @param {object} styleObj - Style object
+     * @param {string} baseUrl - Base URL to resolve against
+     * @param {string} objName - Name of the object (for logging)
+     */
+    _resolveStyleUrls(styleObj, baseUrl, objName) {
+        const imageProps = ['icon-image', 'fill-pattern', 'line-pattern', 'background-pattern'];
+
+        imageProps.forEach(prop => {
+            if (styleObj[prop]) {
+                if (typeof styleObj[prop] === 'string') {
+                    const resolved = this._resolveUrl(styleObj[prop], baseUrl);
+                    if (resolved !== styleObj[prop]) {
+                        console.log(`[LayerRegistry]   ${objName}.${prop}: ${styleObj[prop]} → ${resolved}`);
+                    }
+                    styleObj[prop] = resolved;
+                } else if (Array.isArray(styleObj[prop])) {
+                    this._resolveUrlsInExpression(styleObj[prop], baseUrl, `${objName}.${prop}`);
+                }
+            }
+        });
+    }
+
+    /**
+     * Resolve URLs within a Mapbox expression (array)
+     * @param {Array} expression - Mapbox expression array
+     * @param {string} baseUrl - Base URL to resolve against
+     * @param {string} context - Context for logging
+     */
+    _resolveUrlsInExpression(expression, baseUrl, context) {
+        for (let i = 0; i < expression.length; i++) {
+            if (typeof expression[i] === 'string' && this._looksLikeIconPath(expression[i])) {
+                const resolved = this._resolveUrl(expression[i], baseUrl);
+                if (resolved !== expression[i]) {
+                    console.log(`[LayerRegistry]   ${context}[${i}]: ${expression[i]} → ${resolved}`);
+                    expression[i] = resolved;
+                }
+            } else if (Array.isArray(expression[i])) {
+                this._resolveUrlsInExpression(expression[i], baseUrl, context);
+            }
+        }
+    }
+
+    /**
+     * Check if a string looks like an icon path (not a property value)
+     * @param {string} str - String to check
+     * @returns {boolean} True if it looks like an icon path
+     */
+    _looksLikeIconPath(str) {
+        // Must have a file extension or be a URL
+        return (str.includes('.png') || str.includes('.jpg') || str.includes('.svg') ||
+                str.includes('.jpeg') || str.includes('.gif') ||
+                str.startsWith('http://') || str.startsWith('https://') ||
+                str.startsWith('assets/') || str.startsWith('data/') || str.startsWith('images/'));
+    }
+
+    /**
+     * Resolve a single URL (if relative) against a base URL
+     * @param {string} url - URL to resolve
+     * @param {string} baseUrl - Base URL to resolve against
+     * @returns {string} Resolved absolute URL
+     */
+    _resolveUrl(url, baseUrl) {
+        if (!url || typeof url !== 'string') return url;
+
+        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) {
+            return url;
+        }
+
+        try {
+            // Handle GitHub repo-root relative paths (common pattern)
+            // If base is in a subdirectory (e.g., /config/) and url starts with common repo folders
+            if (baseUrl.includes('raw.githubusercontent.com') &&
+                (url.startsWith('assets/') || url.startsWith('data/') || url.startsWith('images/'))) {
+                const baseUrlObj = new URL(baseUrl);
+                const pathParts = baseUrlObj.pathname.split('/').filter(p => p);
+
+                // GitHub URL structure: /org/repo/refs/heads/branch/ or /org/repo/branch/
+                // Determine repo root based on whether it uses /refs/heads/ structure
+                let rootPathIndex;
+                if (pathParts[2] === 'refs' && pathParts[3] === 'heads' && pathParts.length > 5) {
+                    // /org/repo/refs/heads/branch/... → take first 5 parts
+                    rootPathIndex = 5;
+                } else if (pathParts.length > 3) {
+                    // /org/repo/branch/... → take first 3 parts
+                    rootPathIndex = 3;
+                }
+
+                if (rootPathIndex && pathParts.length > rootPathIndex) {
+                    const rootPath = '/' + pathParts.slice(0, rootPathIndex).join('/') + '/' + url;
+                    baseUrlObj.pathname = rootPath;
+                    console.log(`[LayerRegistry]   Detected repo-root relative path: ${url} → ${baseUrlObj.toString()}`);
+                    return baseUrlObj.toString();
+                }
+            }
+
+            return new URL(url, baseUrl).toString();
+        } catch (e) {
+            console.warn('[LayerRegistry] Failed to resolve URL:', url, 'against base:', baseUrl);
+            return url;
+        }
+    }
+
+    /**
+     * Get the imported atlas ID if one exists
+     */
+    getImportedAtlasId() {
+        for (const [atlasId, metadata] of this._atlasMetadata.entries()) {
+            if (metadata.isImported) {
+                return atlasId;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Resolve a layer (currently just returns as-is, kept for future extensibility)
      */
     _resolveLayer(layer, atlasId) {

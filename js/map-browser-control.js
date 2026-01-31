@@ -162,6 +162,11 @@ export class MapBrowserControl {
                 this._handleAddCustomLayer(event.data.config);
             }
 
+            if (event.data.type === 'load-atlas') {
+                console.log('[MapBrowserControl] Received load-atlas message');
+                this._handleLoadAtlas(event.data.atlasUrl);
+            }
+
             if (event.data.type === 'zoom-to-bounds') {
                 this._handleZoomToBounds(event.data.bounds);
             }
@@ -522,6 +527,46 @@ export class MapBrowserControl {
 
         console.log('[MapBrowserControl] Final URL:', finalUrl);
         console.log('[MapBrowserControl] Final URL length:', finalUrl.length);
+        window.location.href = finalUrl;
+    }
+
+    _handleLoadAtlas(atlasUrl) {
+        console.log('[MapBrowserControl] Loading atlas:', atlasUrl);
+
+        // Build new URL with atlas parameter
+        const url = new URL(window.location.origin + window.location.pathname);
+
+        // Parse existing parameters
+        const params = new URLSearchParams(window.location.search);
+
+        // Build new params array
+        const newParams = [];
+
+        // Add atlas parameter first
+        newParams.push(`atlas=${encodeURIComponent(atlasUrl)}`);
+
+        // Don't include the old layers parameter - let the atlas load with its default layers
+        // This prevents malformed JSON from previous attempts from being carried over
+
+        // Add other parameters (except atlas and layers which we're resetting)
+        for (const [key, value] of params.entries()) {
+            if (key !== 'atlas' && key !== 'layers') {
+                newParams.push(`${key}=${value}`);
+            }
+        }
+
+        // Build final URL
+        let finalUrl = url.origin + url.pathname;
+        if (newParams.length > 0) {
+            finalUrl += '?' + newParams.join('&');
+        }
+
+        // Add hash if it exists
+        if (window.location.hash) {
+            finalUrl += window.location.hash;
+        }
+
+        console.log('[MapBrowserControl] Reloading with atlas URL:', finalUrl);
         window.location.href = finalUrl;
     }
 }

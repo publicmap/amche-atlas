@@ -531,6 +531,17 @@
                     currentBounds = event.data.bounds;
                     mapboxAccessToken = event.data.mapboxToken;
 
+                    // Check for imported atlas and auto-select it
+                    if (!window.selectedAtlasId) {
+                        for (const [atlasId, metadata] of atlasMetadata.entries()) {
+                            if (metadata.isImported) {
+                                window.selectedAtlasId = atlasId;
+                                $('#atlas-filter-btn').text(metadata.name || atlasId);
+                                break;
+                            }
+                        }
+                    }
+
                     initializePreviewMap();
                     renderLayers();
                     drawBboxes();
@@ -862,9 +873,19 @@
                 style: 'height: 1px; background: #4b5563; margin: 4px 0;'
             }));
 
-            // Atlas options
+            // Atlas options - sort with imported atlases first
             const atlases = Array.from(atlasMetadata.entries())
-                .sort((a, b) => (a[1].name || a[0]).localeCompare(b[1].name || b[0]));
+                .sort((a, b) => {
+                    // Imported atlases (marked with *) come first
+                    const aImported = a[1].isImported || (a[1].name && a[1].name.startsWith('*'));
+                    const bImported = b[1].isImported || (b[1].name && b[1].name.startsWith('*'));
+
+                    if (aImported && !bImported) return -1;
+                    if (!aImported && bImported) return 1;
+
+                    // Otherwise sort alphabetically
+                    return (a[1].name || a[0]).localeCompare(b[1].name || b[0]);
+                });
 
             atlases.forEach(([id, metadata]) => {
                 const $option = $('<div>', {
@@ -1113,9 +1134,29 @@
                         // Atlas heading with metadata
                         const $atlasHeading = $('<div>', {
                             id: `${section.id}-${atlasId}`,
-                            class: 'atlas-heading',
-                            text: atlasData.name || atlasId
+                            class: 'atlas-heading'
                         });
+
+                        // Add atlas name
+                        $atlasHeading.append($('<span>', {
+                            text: atlasData.name || atlasId
+                        }));
+
+                        // Add link to raw config file
+                        const configUrl = `https://raw.githubusercontent.com/publicmap/amche-atlas/refs/heads/dev/config/${atlasId}.atlas.json`;
+                        const $configLink = $('<a>', {
+                            href: configUrl,
+                            target: '_blank',
+                            rel: 'noopener noreferrer',
+                            class: 'atlas-config-link',
+                            html: '🔗',
+                            title: 'View config file',
+                            style: 'margin-left: 8px; text-decoration: none; opacity: 0.6; transition: opacity 0.2s;',
+                            mouseenter: function() { $(this).css('opacity', 1); },
+                            mouseleave: function() { $(this).css('opacity', 0.6); }
+                        });
+                        $atlasHeading.append($configLink);
+
                         $grid.append($atlasHeading);
 
                         // Atlas metadata (area of interest and description)

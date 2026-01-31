@@ -273,6 +273,9 @@ export class MapCreator {
 
                 if (data.type === 'FeatureCollection' || data.type === 'Feature') {
                     this.processGeoJSON(data, url);
+                } else if (data.layers && Array.isArray(data.layers)) {
+                    // Atlas configuration with multiple layers
+                    this.handleAtlasImport(data, url);
                 } else if (data.type && data.id) {
                     this.currentLayerType = data.type;
                     this.currentData = data;
@@ -347,6 +350,96 @@ export class MapCreator {
             console.error(error);
             this.setLoadingState('error');
         }
+    }
+
+    handleAtlasImport(atlasData, url) {
+        const layers = atlasData.layers.filter(layer => layer.id && layer.title);
+
+        if (layers.length === 0) {
+            throw new Error('No valid layers found in atlas');
+        }
+
+        const layerOptions = layers.map((layer, index) =>
+            `<option value="${index}">${layer.title || layer.id} (${layer.type || 'unknown'})</option>`
+        ).join('');
+
+        const html = `
+            <div id="atlas-selector-container" class="mt-4 p-4 border border-gray-300 rounded bg-gray-50">
+                <p class="mb-2 font-semibold text-gray-900">Atlas: ${atlasData.name || 'Unnamed'}</p>
+                <p class="mb-3 text-sm text-gray-600">Contains ${layers.length} layer${layers.length > 1 ? 's' : ''}. Import the full atlas or select a specific layer.</p>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Choose layer to import</label>
+                    <select id="atlas-layer-select" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="all">All Layers (Full Atlas)</option>
+                        <option disabled>──────────</option>
+                        ${layerOptions}
+                    </select>
+                </div>
+
+                <div class="flex gap-2">
+                    <button id="cancel-atlas-import-btn" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        // Remove any existing atlas selector
+        $('#atlas-selector-container').remove();
+
+        // Insert after the load-data-btn
+        $('#load-data-btn').after(html);
+
+        // Store atlas data for later use
+        this.currentAtlasUrl = url;
+        this.currentAtlasData = atlasData;
+        this.currentAtlasLayers = layers;
+        this.currentLayerType = 'atlas';
+
+        // Set default title
+        if (!$('#layer-title').val()) {
+            $('#layer-title').val(atlasData.name || 'Imported Atlas');
+        }
+
+        // Enable the Add Map Layer button
+        $('#add-to-map-btn').prop('disabled', false);
+
+        // Handle layer selection changes
+        $('#atlas-layer-select').on('change', () => {
+            const selectedValue = $('#atlas-layer-select').val();
+
+            if (selectedValue === 'all') {
+                // Hide settings section for full atlas import
+                $('#settings-section').hide();
+            } else {
+                // Show settings section for individual layer import
+                $('#settings-section').show();
+
+                // Load the selected layer's configuration
+                const selectedIndex = parseInt(selectedValue);
+                const selectedLayer = this.currentAtlasLayers[selectedIndex];
+
+                // Update title if not manually changed
+                const currentTitle = $('#layer-title').val();
+                if (!currentTitle || currentTitle === this.currentAtlasData.name || currentTitle === 'Imported Atlas') {
+                    $('#layer-title').val(selectedLayer.title || selectedLayer.id);
+                }
+            }
+        });
+
+        // Trigger initial state (all layers selected by default)
+        $('#settings-section').hide();
+
+        // Cancel button
+        $('#cancel-atlas-import-btn').on('click', () => {
+            $('#atlas-selector-container').remove();
+            $('#settings-section').hide();
+            this.currentAtlasUrl = null;
+            this.currentAtlasData = null;
+            this.currentAtlasLayers = null;
+            this.setLoadingState('default');
+        });
+
+        this.setLoadingState('success');
     }
 
     setLoadingState(state) {
@@ -835,7 +928,33 @@ export class MapCreator {
         console.log('[MapCreator] addToMap called, layer type:', this.currentLayerType);
 
         let config;
-        if (this.currentLayerType === 'csv') {
+
+        if (this.currentLayerType === 'atlas') {
+            const selectedValue = $('#atlas-layer-select').val();
+
+            if (selectedValue === 'all') {
+                // Import full atlas via ?atlas parameter
+                const atlasUrl = this.currentAtlasUrl;
+
+                console.log('[MapCreator] Sending load-atlas message to parent');
+                window.parent.postMessage({
+                    type: 'load-atlas',
+                    atlasUrl: atlasUrl
+                }, '*');
+                return; // Exit early, don't send add-custom-layer message
+            } else {
+                // Import specific layer
+                const selectedIndex = parseInt(selectedValue);
+                const selectedLayer = this.currentAtlasLayers[selectedIndex];
+                config = { ...selectedLayer };
+
+                // Override title if user provided one
+                const userTitle = $('#layer-title').val();
+                if (userTitle && userTitle.trim()) {
+                    config.title = userTitle;
+                }
+            }
+        } else if (this.currentLayerType === 'csv') {
             config = this.generateCSVLayerConfig();
         } else if (this.currentLayerType === 'geojson') {
             config = this.generateLayerConfig();

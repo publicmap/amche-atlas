@@ -510,7 +510,7 @@ export class MapboxAPI {
     }
 
     // Vector layer methods
-    _createVectorLayer(groupId, config, visible) {
+    async _createVectorLayer(groupId, config, visible) {
         if (visible && config.blink) {
             this._setupBlinking(groupId, config);
         }
@@ -542,7 +542,7 @@ export class MapboxAPI {
             this._map.addSource(sourceId, sourceConfig);
 
             // Add layers based on style properties
-            this._addVectorLayers(groupId, config, sourceId, visible);
+            await this._addVectorLayers(groupId, config, sourceId, visible);
         } else {
             // Update visibility only
             this._updateVectorLayerVisibility(groupId, config, visible);
@@ -551,7 +551,7 @@ export class MapboxAPI {
         return true;
     }
 
-    _addVectorLayers(groupId, config, sourceId, visible) {
+    async _addVectorLayers(groupId, config, sourceId, visible) {
         // Get default styles for checking what layer types should be created
         const defaultStyles = this._defaultStyles.vector || {};
 
@@ -640,7 +640,10 @@ export class MapboxAPI {
         // Add text layer
         if (hasTextStyles) {
             // Filter style to only include symbol/text-related properties
-            const symbolStyle = this._filterStyleForLayerType(config.style, 'symbol');
+            let symbolStyle = this._filterStyleForLayerType(config.style, 'symbol');
+
+            // Prepare custom icon images if present
+            symbolStyle = await this._prepareSymbolLayerIcons(symbolStyle);
 
             const layerConfig = this._createLayerConfig({
                 id: `vector-layer-${groupId}-text`,
@@ -1307,7 +1310,7 @@ export class MapboxAPI {
             }
 
             this._map.addSource(sourceId, sourceConfig);
-            this._addGeoJSONLayers(groupId, config, sourceId, visible);
+            await this._addGeoJSONLayers(groupId, config, sourceId, visible);
         } else {
             this._updateGeoJSONLayerVisibility(groupId, config, visible);
         }
@@ -1360,7 +1363,7 @@ export class MapboxAPI {
         });
 
         // Create a source and layers for each group
-        Object.entries(groups).forEach(([safeValue, groupData]) => {
+        for (const [safeValue, groupData] of Object.entries(groups)) {
             const subSourceId = `geojson-${groupId}-${safeValue}`;
 
             if (!this._map.getSource(subSourceId) && visible) {
@@ -1397,9 +1400,9 @@ export class MapboxAPI {
                 }
                 // Don't auto-generate colors, let _addGeoJSONLayers use default step unless overridden
 
-                this._addGeoJSONLayers(groupId, subConfig, subSourceId, visible, safeValue);
+                await this._addGeoJSONLayers(groupId, subConfig, subSourceId, visible, safeValue);
             }
-        });
+        }
 
         return true;
     }
@@ -1418,7 +1421,7 @@ export class MapboxAPI {
         throw new Error('Invalid GeoJSON data format');
     }
 
-    _addGeoJSONLayers(groupId, config, sourceId, visible, suffix = '') {
+    async _addGeoJSONLayers(groupId, config, sourceId, visible, suffix = '') {
         if (visible && config.blink) {
             this._setupBlinking(groupId, config);
         }
@@ -1513,13 +1516,10 @@ export class MapboxAPI {
         // Add text or icon layer if symbol properties are defined
         if (hasTextStyles || userHasIconStyles) {
             // Filter style to only include symbol/text-related properties
-            const symbolStyle = this._filterStyleForLayerType(config.style, 'symbol');
+            let symbolStyle = this._filterStyleForLayerType(config.style, 'symbol');
 
-            // If it's an icon layer, we need to make sure the image is loaded
-            if (userHasIconStyles) {
-                const iconImage = config.style['icon-image'];
-                this._ensureIconLoaded(iconImage);
-            }
+            // Prepare custom icon images if present (handles both simple strings and expressions)
+            symbolStyle = await this._prepareSymbolLayerIcons(symbolStyle);
 
             const symbolLayerConfig = this._createLayerConfig({
                 id: `${sourceId}-symbol${idSuffix}`,
@@ -1792,7 +1792,7 @@ export class MapboxAPI {
                 this._map.addSource(sourceId, sourceConfig);
 
                 // Use the same layer creation logic as GeoJSON to support all layer types
-                this._addGeoJSONLayers(groupId, config, sourceId, visible);
+                await this._addGeoJSONLayers(groupId, config, sourceId, visible);
 
                 // Set up refresh if specified
                 if (config.refresh && config.url) {
@@ -2012,8 +2012,8 @@ export class MapboxAPI {
 
                     // Get base opacity from config or default to 1
                     const styleType = type === 'symbol' ? 'symbol' : type;
-                    const baseOpacity = (config.style && config.style[opacityProp]) !== undefined 
-                        ? config.style[opacityProp] 
+                    const baseOpacity = (config.style && config.style[opacityProp]) !== undefined
+                        ? config.style[opacityProp]
                         : 1;
 
                     const expression = [
@@ -2025,13 +2025,13 @@ export class MapboxAPI {
 
                     try {
                         this._map.setPaintProperty(layerId, opacityProp, expression);
-                        
+
                         // If symbol layer, also handle text-opacity
                         if (type === 'symbol') {
-                            const textBaseOpacity = (config.style && config.style['text-opacity']) !== undefined 
-                                ? config.style['text-opacity'] 
+                            const textBaseOpacity = (config.style && config.style['text-opacity']) !== undefined
+                                ? config.style['text-opacity']
                                 : 1;
-                            
+
                             const textExpression = [
                                 'case',
                                 blinkConfig.condition,
@@ -2079,18 +2079,18 @@ export class MapboxAPI {
 
                         try {
                             // Reset to config style or default (1)
-                            const baseOpacity = (config.style && config.style[opacityProp]) !== undefined 
-                                ? config.style[opacityProp] 
+                            const baseOpacity = (config.style && config.style[opacityProp]) !== undefined
+                                ? config.style[opacityProp]
                                 : 1;
                             this._map.setPaintProperty(layerId, opacityProp, baseOpacity);
-                            
+
                             if (type === 'symbol') {
-                                const textBaseOpacity = (config.style && config.style['text-opacity']) !== undefined 
-                                     ? config.style['text-opacity'] 
-                                     : 1;
+                                const textBaseOpacity = (config.style && config.style['text-opacity']) !== undefined
+                                    ? config.style['text-opacity']
+                                    : 1;
                                 this._map.setPaintProperty(layerId, 'text-opacity', textBaseOpacity);
                             }
-                        } catch (e) {}
+                        } catch (e) { }
                     }
                 });
             }
@@ -2145,6 +2145,76 @@ export class MapboxAPI {
 
         traverse(expression);
         return icons;
+    }
+
+    async _loadAndRegisterIconImage(iconUrl) {
+        if (!iconUrl || typeof iconUrl !== 'string') return iconUrl;
+
+        if (!iconUrl.includes('/') && !iconUrl.includes('.')) {
+            return iconUrl;
+        }
+
+        const imageName = iconUrl.split('/').pop().replace(/\.[^/.]+$/, '');
+
+        if (this._map.hasImage(imageName)) {
+            return imageName;
+        }
+
+        try {
+            console.log(`[MapboxAPI] Loading custom icon: ${iconUrl}`);
+            const img = await this._loadImage(iconUrl);
+            this._map.addImage(imageName, img);
+            console.log(`[MapboxAPI] Registered icon as: ${imageName}`);
+            return imageName;
+        } catch (error) {
+            console.warn(`[MapboxAPI] Failed to load icon image: ${iconUrl}`, error);
+            return iconUrl;
+        }
+    }
+
+    async _prepareSymbolLayerIcons(style) {
+        if (!style || typeof style !== 'object') return style;
+
+        const modifiedStyle = { ...style };
+
+        if (modifiedStyle['icon-image']) {
+            const iconImage = modifiedStyle['icon-image'];
+
+            // Handle both simple strings and Mapbox expressions
+            if (typeof iconImage === 'string') {
+                modifiedStyle['icon-image'] = await this._loadAndRegisterIconImage(iconImage);
+            } else if (Array.isArray(iconImage)) {
+                // Handle expressions - load all icon paths within the expression
+                await this._loadIconsFromExpression(iconImage);
+                // Keep the expression as-is, just ensure all referenced icons are loaded
+            }
+        }
+
+        return modifiedStyle;
+    }
+
+    async _loadIconsFromExpression(expression) {
+        const traverse = async (expr) => {
+            if (typeof expr === 'string') {
+                // Load if it looks like an icon path (has file extension or common path prefix)
+                const looksLikeIcon = expr.includes('.png') || expr.includes('.jpg') ||
+                                     expr.includes('.svg') || expr.includes('.jpeg') ||
+                                     expr.includes('.gif') || expr.startsWith('http://') ||
+                                     expr.startsWith('https://') || expr.startsWith('assets/') ||
+                                     expr.startsWith('data/') || expr.startsWith('images/');
+
+                if (looksLikeIcon) {
+                    await this._loadAndRegisterIconImage(expr);
+                }
+            } else if (Array.isArray(expr)) {
+                // Traverse nested arrays
+                for (let i = 1; i < expr.length; i++) {
+                    await traverse(expr[i]);
+                }
+            }
+        };
+
+        await traverse(expression);
     }
 
     _setupImageRefresh(groupId, config) {

@@ -28,6 +28,7 @@ export class MapInitializer {
         let configPath = window.amche.DEFAULT_ATLAS;
         let config;
         let atlasId = 'index'; // Track which atlas we're using
+        let isImportedAtlas = false; // Track if this is an imported atlas
 
         // If a config parameter is provided, determine how to handle it
         if (configParam) {
@@ -68,7 +69,8 @@ export class MapInitializer {
             // Check if the config parameter is a URL
             else if (configParam.startsWith('http://') || configParam.startsWith('https://')) {
                 configPath = configParam; // Use the URL directly
-                atlasId = 'custom'; // Mark as custom atlas
+                atlasId = 'imported'; // Mark as imported atlas
+                isImportedAtlas = true; // Flag as imported
             } else {
                 configPath = `config/${configParam}.atlas.json`; // Treat as local file
                 atlasId = configParam; // Use the config name as atlas ID
@@ -83,6 +85,22 @@ export class MapInitializer {
 
         // Set current atlas in registry
         layerRegistry.setCurrentAtlas(atlasId);
+
+        // Mark as imported atlas if loaded via URL
+        if (isImportedAtlas) {
+            // Store the imported atlas metadata with '*' prefix and register layers
+            const atlasName = config.name || 'Imported Map';
+            layerRegistry.markImportedAtlas(atlasId, {
+                name: `* ${atlasName}`,
+                originalName: atlasName,
+                color: config.color || '#059669',
+                areaOfInterest: config.areaOfInterest || '',
+                description: config.description || '',
+                bbox: layerRegistry._extractBbox(config),
+                isImported: true,
+                sourceUrl: configPath
+            }, config);
+        }
 
         // Parse layers from URL parameter if provided
         if (layersParam) {

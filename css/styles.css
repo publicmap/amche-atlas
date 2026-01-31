@@ -626,6 +626,7 @@ main {
 /* Only apply white background to non-geolocation buttons */
 .mapboxgl-ctrl-group button:not(.geolocation-btn-header) {
     background-color: white;
+    color: black;
 }
 
 .mapboxgl-ctrl button:not(:disabled):not(.geolocation-btn-header):hover {
