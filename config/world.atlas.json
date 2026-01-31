@@ -109,66 +109,6 @@
       }
     },
     {
-      "title": "Open Building Footprints 2023 ",
-      "description": "Open data of AI generated building footprints from satellite imagery upto 2023. For technical details see <a href='https://arxiv.org/abs/2107.12283'>Continental-Scale Building Detection from High Resolution Satellite Imagery</a>.",
-      "headerImage": "assets/map-layers/world/map-layer-open-buildings.png",
-      "type": "vector",
-      "id": "2023-open-buildings",
-      "url": "https://indianopenmaps.fly.dev/google-buildings/{z}/{x}/{y}.pbf",
-      "sourceLayer": "google_buildings",
-      "maxzoom": 14,
-      "attribution": "CC-BY <a href='https://sites.research.google/open-buildings/'>Google Open Buildings</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
-      "style": {
-        "line-opacity": 0,
-        "line-join": "round",
-        "line-width": 0,
-        "fill-color": [
-          "case",
-          [
-            ">",
-            [
-              "get",
-              "confidence"
-            ],
-            0.8
-          ],
-          "black",
-          [
-            ">",
-            [
-              "get",
-              "confidence"
-            ],
-            0.6
-          ],
-          "#222",
-          [
-            ">",
-            [
-              "get",
-              "confidence"
-            ],
-            0.2
-          ],
-          "#444",
-          "#777"
-        ],
-        "fill-opacity": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          14,
-          0.9,
-          19,
-          0.2
-        ]
-      }
-    },
-    {
       "title": "Real-time Weather Satellite",
       "description": "Cloud top temperatures colorized to reveal areas of intensity using the infrared band of weather satellite. Imagery updated every 10 minutes.",
       "headerImage": "assets/map-layers/world/map-layer-weather-satellite.png",

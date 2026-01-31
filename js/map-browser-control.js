@@ -28,10 +28,7 @@ export class MapBrowserControl {
         this._button.setAttribute('aria-label', 'Browse Maps');
         this._button.style.cssText = 'height: 36px; padding: 0 0.75rem; border-radius: 0.375rem;';
 
-        this._button.innerHTML = `
-            <sl-icon name="layers" style="font-size: 14px;"></sl-icon>
-            <span class="map-browser-text">Maps</span>
-        `;
+        this._updateButtonState(false);
 
         this._button.addEventListener('click', () => {
             this.toggleBrowser();
@@ -44,16 +41,19 @@ export class MapBrowserControl {
     }
 
     _createOverlay() {
+        const header = document.querySelector('.header-nav');
+        const headerHeight = header ? header.offsetHeight : 0;
+
         this._overlay = document.createElement('div');
         this._overlay.style.cssText = `
             position: fixed;
-            top: 0;
+            top: ${headerHeight}px;
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
+            z-index: 999;
             display: none;
+            pointer-events: none;
         `;
 
         this._browserContainer = document.createElement('div');
@@ -65,20 +65,28 @@ export class MapBrowserControl {
             height: 100%;
             background: white;
             overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border-bottom: 2px solid black;
+            pointer-events: auto;
         `;
 
         if (window.matchMedia('(min-width: 768px)').matches) {
             this._browserContainer.style.width = '66.67%';
         }
 
-        window.addEventListener('resize', () => {
+        const updateLayout = () => {
+            const header = document.querySelector('.header-nav');
+            const headerHeight = header ? header.offsetHeight : 0;
+            this._overlay.style.top = `${headerHeight}px`;
+
             if (window.matchMedia('(min-width: 768px)').matches) {
                 this._browserContainer.style.width = '66.67%';
             } else {
                 this._browserContainer.style.width = '100%';
             }
-        });
+        };
+
+        window.addEventListener('resize', updateLayout);
 
         this._overlay.appendChild(this._browserContainer);
         document.body.appendChild(this._overlay);
@@ -88,6 +96,29 @@ export class MapBrowserControl {
                 this.closeBrowser();
             }
         });
+    }
+
+    _updateButtonState(isOpen) {
+        if (isOpen) {
+            this._button.classList.add('active');
+            this._button.style.backgroundColor = '#3b82f6';
+            this._button.style.borderColor = '#3b82f6';
+            this._button.style.color = 'white';
+            this._button.innerHTML = `
+                <sl-icon name="layers" style="font-size: 14px; color: white;"></sl-icon>
+                <span class="map-browser-text" style="color: white;">Maps</span>
+                <sl-icon name="x-lg" style="font-size: 12px; margin-left: -4px; color: white;"></sl-icon>
+            `;
+        } else {
+            this._button.classList.remove('active');
+            this._button.style.backgroundColor = '';
+            this._button.style.borderColor = '';
+            this._button.style.color = '';
+            this._button.innerHTML = `
+                <sl-icon name="layers" style="font-size: 14px;"></sl-icon>
+                <span class="map-browser-text">Maps</span>
+            `;
+        }
     }
 
     _ensureIframe() {
@@ -291,6 +322,7 @@ export class MapBrowserControl {
         this._ensureIframe();
         this._overlay.style.display = 'block';
         this._isOpen = true;
+        this._updateButtonState(true);
 
         setTimeout(() => {
             this._sendLayerData();
@@ -304,6 +336,7 @@ export class MapBrowserControl {
     closeBrowser() {
         this._overlay.style.display = 'none';
         this._isOpen = false;
+        this._updateButtonState(false);
 
         if (this._map) {
             this._map.off('moveend', this._onMapMove);

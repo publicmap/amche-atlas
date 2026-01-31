@@ -80,6 +80,7 @@ export class LayerRegistry {
                     color: config.color || '#2563eb', // Default to blue if not specified
                     name: config.name || atlasId,
                     areaOfInterest: config.areaOfInterest || '',
+                    description: config.description || '',
                     bbox: this._extractBbox(config)
                 });
 

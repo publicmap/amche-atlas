@@ -1,6 +1,7 @@
 {
-  "name": "OpenStreetMap Project",
-  "areaOfInterest": "World",
+  "name": "OpenStreetMap",
+  "description": "Freely editable map of the world.",
+  "areaOfInterest": "Global",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/osm.atlas.json",
   "color": "#16a34a",

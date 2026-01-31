@@ -1338,6 +1338,29 @@ export class MapFeatureControl {
         collapseIcon.className = 'collapse-indicator';
         header.appendChild(collapseIcon);
 
+        // Atlas Badge (if available)
+        if (config._sourceAtlas && window.layerRegistry) {
+            const atlasMetadata = window.layerRegistry.getAtlasMetadata(config._sourceAtlas);
+            if (atlasMetadata) {
+                const atlasBadge = document.createElement('span');
+                atlasBadge.className = 'atlas-badge';
+                atlasBadge.textContent = atlasMetadata.name || config._sourceAtlas;
+                atlasBadge.style.cssText = `
+                    display: inline-block;
+                    padding: 2px 6px;
+                    margin-right: 6px;
+                    border-radius: 3px;
+                    font-size: 9px;
+                    font-weight: 600;
+                    background-color: ${atlasMetadata.color || '#2563eb'};
+                    color: white;
+                    opacity: 0.85;
+                    flex-shrink: 0;
+                `;
+                header.appendChild(atlasBadge);
+            }
+        }
+
         // Title
         const title = document.createElement('div');
         title.textContent = config.title || config.id;
