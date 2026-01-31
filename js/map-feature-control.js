@@ -1743,8 +1743,11 @@ export class MapFeatureControl {
 
         actionsContainer.appendChild(settingsBtn);
 
-        // Zoom Button
-        if (config.bbox || config.metadata?.bbox) {
+        // Zoom Button - show if layer has bbox, or if its atlas has bbox (but not for global layers)
+        const hasBbox = config.bbox || config.metadata?.bbox || this._getAtlasBbox(config);
+        const isGlobal = this._isGlobalLayer(config);
+
+        if (hasBbox && !isGlobal) {
             const zoomBtn = document.createElement('sl-icon-button');
             zoomBtn.name = 'zoom-in';
             zoomBtn.label = 'Zoom to layer';
@@ -1944,11 +1947,82 @@ export class MapFeatureControl {
     }
 
     /**
+     * Get atlas bbox for a layer
+     */
+    _getAtlasBbox(config) {
+        if (!window.layerRegistry || !config._sourceAtlas) return null;
+
+        const atlasMetadata = window.layerRegistry.getAtlasMetadata(config._sourceAtlas);
+        if (atlasMetadata && atlasMetadata.bbox) {
+            return atlasMetadata.bbox;
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if a layer is a global/world layer
+     */
+    _isGlobalLayer(config) {
+        // Check atlas name for global indicators
+        if (config._sourceAtlas) {
+            const atlasName = config._sourceAtlas.toLowerCase();
+            if (atlasName.includes('world') || atlasName.includes('global') ||
+                atlasName.includes('mapbox') || atlasName.includes('osm')) {
+                return true;
+            }
+
+            // Also check atlas metadata
+            if (window.layerRegistry) {
+                const atlasMetadata = window.layerRegistry.getAtlasMetadata(config._sourceAtlas);
+                if (atlasMetadata && atlasMetadata.name) {
+                    const metadataName = atlasMetadata.name.toLowerCase();
+                    if (metadataName.includes('world') || metadataName.includes('global') ||
+                        metadataName.includes('mapbox') || metadataName.includes('osm')) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // Check if layer type is a Mapbox style layer
+        if (config.type === 'style' || config.type === 'raster-style-layer') {
+            return true;
+        }
+
+        // Check if layer ID suggests it's global
+        const layerId = (config.id || '').toLowerCase();
+        if (layerId.startsWith('mapbox-') || layerId.startsWith('osm-') ||
+            layerId.includes('world-') || layerId.includes('global-')) {
+            return true;
+        }
+
+        // Check if bbox covers entire world
+        let bbox = config.bbox || config.metadata?.bbox;
+        if (bbox) {
+            const bboxArray = typeof bbox === 'string' ? bbox.split(',').map(parseFloat) : bbox;
+            if (bboxArray.length === 4) {
+                const [west, south, east, north] = bboxArray;
+                // Check if it's close to world bounds
+                if (west <= -170 && east >= 170 && south <= -80 && north >= 80) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Zoom to layer bounds using bbox
      */
     _zoomToLayerBounds(layerId, config) {
-        // Get bbox from either direct property or metadata
-        const bbox = config.bbox || config.metadata?.bbox;
+        // Get bbox from layer, metadata, or atlas (in that order)
+        let bbox = config.bbox || config.metadata?.bbox;
+
+        if (!bbox) {
+            bbox = this._getAtlasBbox(config);
+        }
 
         if (!bbox || !this._map) {
             console.warn('No bbox available for layer or map not initialized');
@@ -1956,15 +2030,28 @@ export class MapFeatureControl {
         }
 
         // Check if bbox is valid (not unrectified map)
-        if (bbox === "0.0,0.0,0.0,0.0") {
+        const isInvalidBbox = (typeof bbox === 'string' && bbox === "0.0,0.0,0.0,0.0") ||
+                              (Array.isArray(bbox) && bbox.every(v => v === 0 || v === '0.0'));
+
+        if (isInvalidBbox) {
             console.log('Cannot zoom: layer has no valid bbox (unrectified map)');
             this._showToast('Cannot zoom to layer: no valid geographic bounds available', 'warning');
             return;
         }
 
         try {
-            // Parse bbox string "minLng,minLat,maxLng,maxLat"
-            const [minLng, minLat, maxLng, maxLat] = bbox.split(',').map(parseFloat);
+            let minLng, minLat, maxLng, maxLat;
+
+            // Parse bbox - handle both string and array formats
+            if (typeof bbox === 'string') {
+                [minLng, minLat, maxLng, maxLat] = bbox.split(',').map(parseFloat);
+            } else if (Array.isArray(bbox) && bbox.length === 4) {
+                [minLng, minLat, maxLng, maxLat] = bbox;
+            } else {
+                console.warn('Invalid bbox format:', bbox);
+                this._showToast('Cannot zoom to layer: invalid bbox format', 'error');
+                return;
+            }
 
             // Validate coordinates
             if (isNaN(minLng) || isNaN(minLat) || isNaN(maxLng) || isNaN(maxLat)) {

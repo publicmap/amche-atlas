@@ -130,6 +130,10 @@ export class MapBrowserControl {
                 console.log('[MapBrowserControl] Received add-custom-layer message');
                 this._handleAddCustomLayer(event.data.config);
             }
+
+            if (event.data.type === 'zoom-to-bounds') {
+                this._handleZoomToBounds(event.data.bounds);
+            }
         });
 
         window.addEventListener('layer-toggled', () => {
@@ -151,6 +155,7 @@ export class MapBrowserControl {
             layers.push({
                 id: layerId,
                 title: layer.title || layer.id,
+                type: layer.type,
                 description: layer.description,
                 headerImage: layer.headerImage,
                 tags: layer.tags || [],
@@ -350,6 +355,32 @@ export class MapBrowserControl {
         setTimeout(() => {
             this._sendLayerData();
         }, 100);
+    }
+
+    _handleZoomToBounds(bounds) {
+        if (!this._map || !bounds) return;
+
+        // Parse bbox if it's a string "minLng,minLat,maxLng,maxLat"
+        let bbox;
+        if (typeof bounds === 'string') {
+            const parts = bounds.split(',').map(parseFloat);
+            if (parts.length === 4) {
+                bbox = [[parts[0], parts[1]], [parts[2], parts[3]]];
+            }
+        } else if (Array.isArray(bounds)) {
+            if (bounds.length === 4) {
+                bbox = [[bounds[0], bounds[1]], [bounds[2], bounds[3]]];
+            }
+        }
+
+        if (!bbox) return;
+
+        // Zoom to bounds
+        this._map.fitBounds(bbox, {
+            padding: { top: 50, bottom: 50, left: 50, right: 50 },
+            maxZoom: 16,
+            duration: 1000
+        });
     }
 
     _handleAddCustomLayer(config) {

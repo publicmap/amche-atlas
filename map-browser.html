@@ -19,16 +19,34 @@
         .layer-card {
             transition: all 0.2s ease;
             cursor: pointer;
+            border-left: 3px solid transparent;
         }
 
         .layer-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateX(2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
         .layer-card.active {
-            border-color: #3b82f6;
+            border-left-color: #3b82f6;
             background-color: #eff6ff;
+        }
+
+        .layer-card[data-type="vector"] { border-left-color: #3b82f6; }
+        .layer-card[data-type="geojson"] { border-left-color: #10b981; }
+        .layer-card[data-type="csv"] { border-left-color: #f59e0b; }
+        .layer-card[data-type="tms"] { border-left-color: #8b5cf6; }
+        .layer-card[data-type="raster-style-layer"],
+        .layer-card[data-type="style"] { border-left-color: #6b7280; }
+
+        .type-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .atlas-badge {
@@ -41,8 +59,8 @@
 
         .layer-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 10px;
             padding: 12px;
         }
 
@@ -83,11 +101,11 @@
             }
         }
 
-        .toggle-btn, .preview-btn {
+        .toggle-btn, .zoom-btn {
             transition: all 0.2s ease;
         }
 
-        .toggle-btn:hover, .preview-btn:hover {
+        .toggle-btn:hover, .zoom-btn:hover {
             transform: scale(1.05);
         }
 
@@ -95,20 +113,14 @@
             background-color: #10b981;
         }
 
-        .preview-btn {
-            background-color: #6366f1;
+        .zoom-btn {
+            background-color: #3b82f6;
         }
 
-        .preview-btn:hover {
-            background-color: #4f46e5;
+        .zoom-btn:hover {
+            background-color: #2563eb;
         }
 
-        .layer-thumbnail {
-            width: 100%;
-            height: 120px;
-            object-fit: cover;
-            background-color: #f3f4f6;
-        }
 
         .scrollbar-thin::-webkit-scrollbar {
             width: 8px;
@@ -210,7 +222,9 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import { LayerThumbnail } from './js/layer-thumbnail.js';
+
         // State
         let allLayers = [];
         let activeLayers = new Set();
@@ -220,6 +234,9 @@
         let previewLayer = null;
         let bboxLayers = [];
         let mapboxAccessToken = null;
+
+        // Make LayerThumbnail available globally for use in functions
+        window.LayerThumbnail = LayerThumbnail;
 
         // Initialize
         $(document).ready(function() {
@@ -398,6 +415,43 @@
             });
         }
 
+        // Check if layer is a global/world layer
+        function isGlobalLayerCheck(layer, atlasData) {
+            // Check atlas name for global indicators
+            const atlasName = (atlasData?.name || layer._sourceAtlas || '').toLowerCase();
+            if (atlasName.includes('world') || atlasName.includes('global') ||
+                atlasName.includes('mapbox') || atlasName.includes('osm')) {
+                return true;
+            }
+
+            // Check if layer type is a Mapbox style layer
+            if (layer.type === 'style' || layer.type === 'raster-style-layer') {
+                return true;
+            }
+
+            // Check if layer ID suggests it's global
+            const layerId = (layer.id || '').toLowerCase();
+            if (layerId.startsWith('mapbox-') || layerId.startsWith('osm-') ||
+                layerId.includes('world-') || layerId.includes('global-')) {
+                return true;
+            }
+
+            // Check if bbox covers entire world
+            if (layer.bbox) {
+                const bbox = Array.isArray(layer.bbox) ? layer.bbox :
+                             layer.bbox.split(',').map(parseFloat);
+                if (bbox.length === 4) {
+                    const [west, south, east, north] = bbox;
+                    // Check if it's close to world bounds
+                    if (west <= -170 && east >= 170 && south <= -80 && north >= 80) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         // Render filtered layers
         function renderLayers() {
             const searchTerm = $('#search-input').val().toLowerCase().trim();
@@ -474,55 +528,72 @@
             const atlasData = atlasMetadata.get(layer._sourceAtlas) || {};
 
             const $card = $('<div>', {
-                class: 'layer-card bg-white rounded-lg shadow border-2 border-transparent overflow-hidden' +
+                class: 'layer-card bg-white rounded-lg shadow-sm border border-gray-200' +
                        (isActive ? ' active' : ''),
-                'data-layer-id': layer.id
+                'data-layer-id': layer.id,
+                'data-type': layer.type
             });
 
-            // Thumbnail
-            if (layer.headerImage) {
-                $card.append($('<img>', {
-                    src: layer.headerImage,
-                    class: 'layer-thumbnail',
-                    alt: layer.title || layer.id,
-                    onerror: 'this.style.display="none"'
-                }));
-            } else {
-                $card.append($('<div>', {
-                    class: 'layer-thumbnail flex items-center justify-center text-gray-400 text-4xl',
-                    html: '🗺️'
-                }));
+            // Horizontal layout container
+            const $container = $('<div>', { class: 'flex items-stretch' });
+
+            // Generate and append thumbnail
+            const thumbnail = window.LayerThumbnail.generate(layer, 80);
+            thumbnail.style.margin = '0';
+            thumbnail.style.borderRadius = '0.5rem 0 0 0.5rem';
+            $container.append(thumbnail);
+
+            // Content area
+            const $content = $('<div>', {
+                class: 'flex-1 p-3 flex flex-col justify-between min-w-0'
+            });
+
+            // Top section: Title and buttons
+            const $top = $('<div>', { class: 'flex items-start justify-between gap-2 mb-2' });
+
+            const $titleSection = $('<div>', { class: 'flex-1 min-w-0 flex items-center gap-2' });
+
+            if (layer._sourceAtlas) {
+                const $badge = $('<span>', {
+                    class: 'text-xs px-2 py-0.5 rounded flex-shrink-0',
+                    style: `background-color: ${atlasData.color || '#2563eb'}; color: white; opacity: 0.85; font-size: 9px;`,
+                    text: atlasData.name || layer._sourceAtlas
+                });
+                $titleSection.append($badge);
             }
-
-            // Content
-            const $content = $('<div>', { class: 'p-3' });
-
-            // Header with title and buttons
-            const $header = $('<div>', { class: 'flex items-start justify-between gap-2 mb-2' });
 
             const $title = $('<h3>', {
-                class: 'font-semibold text-sm text-gray-900 flex-1 line-clamp-2',
-                text: layer.title || layer.id
+                class: 'font-semibold text-sm text-gray-900 truncate',
+                text: layer.title || layer.id,
+                title: layer.title || layer.id
             });
 
-            const $buttonGroup = $('<div>', { class: 'flex gap-1' });
+            $titleSection.append($title);
+            $top.append($titleSection);
 
-            // Preview button (only if layer has bbox)
-            if (layer.bbox) {
-                const $previewBtn = $('<button>', {
-                    class: 'preview-btn flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs',
-                    html: '👁',
-                    title: 'Preview on map',
+            // Button group
+            const $buttonGroup = $('<div>', { class: 'flex gap-1 flex-shrink-0' });
+
+            // Zoom button (if layer has bbox or atlas has bbox, and not a global layer)
+            const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
+            const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
+
+            if (hasBbox && !isGlobalLayer) {
+                const $zoomBtn = $('<button>', {
+                    class: 'zoom-btn w-7 h-7 rounded flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-xs',
+                    html: '🔍',
+                    title: 'Zoom to layer',
                     click: function(e) {
                         e.stopPropagation();
-                        previewLayerOnMap(layer);
+                        zoomToLayer(layer);
                     }
                 });
-                $buttonGroup.append($previewBtn);
+                $buttonGroup.append($zoomBtn);
             }
 
+            // Toggle button
             const $toggleBtn = $('<button>', {
-                class: 'toggle-btn flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white ' +
+                class: 'toggle-btn w-7 h-7 rounded flex items-center justify-center text-white text-sm ' +
                        (isActive ? 'active' : 'bg-gray-400 hover:bg-gray-500'),
                 html: isActive ? '✓' : '+',
                 click: function(e) {
@@ -532,29 +603,20 @@
             });
 
             $buttonGroup.append($toggleBtn);
-            $header.append($title, $buttonGroup);
-            $content.append($header);
+            $top.append($buttonGroup);
+            $content.append($top);
 
-            // Description
+            // Description (if exists)
             if (layer.description) {
-                const cleanDesc = $('<div>').html(layer.description).text().substring(0, 100);
+                const cleanDesc = $('<div>').html(layer.description).text().substring(0, 60);
                 $content.append($('<p>', {
-                    class: 'text-xs text-gray-600 mb-2 line-clamp-2',
-                    text: cleanDesc + (cleanDesc.length >= 100 ? '...' : '')
+                    class: 'text-xs text-gray-600',
+                    text: cleanDesc + (cleanDesc.length >= 60 ? '...' : '')
                 }));
             }
 
-            // Footer with atlas badge
-            if (layer._sourceAtlas) {
-                const $badge = $('<span>', {
-                    class: 'atlas-badge',
-                    style: `background-color: ${atlasData.color || '#2563eb'}`,
-                    text: atlasData.name || layer._sourceAtlas
-                });
-                $content.append($badge);
-            }
-
-            $card.append($content);
+            $container.append($content);
+            $card.append($container);
 
             // Click card to toggle
             $card.on('click', function() {
@@ -655,6 +717,27 @@
                 type: 'layer-toggle',
                 layerId: layerId,
                 active: !wasActive
+            }, '*');
+        }
+
+        // Zoom to layer bounds
+        function zoomToLayer(layer) {
+            // Get bbox from layer or atlas
+            let bbox = layer.bbox;
+
+            if (!bbox && layer._sourceAtlas) {
+                const atlasData = atlasMetadata.get(layer._sourceAtlas);
+                if (atlasData && atlasData.bbox) {
+                    bbox = atlasData.bbox;
+                }
+            }
+
+            if (!bbox) return;
+
+            // Notify parent to zoom
+            window.parent.postMessage({
+                type: 'zoom-to-bounds',
+                bounds: bbox
             }, '*');
         }
 
