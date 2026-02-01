@@ -458,16 +458,30 @@ export class MapLayerControl {
         }
 
         try {
-            // If type is missing, try to resolve it from the registry
-            if (!group.type && group.id && window.layerRegistry) {
+            // If type or _sourceAtlas is missing, try to resolve from the registry
+            if ((!group.type || !group._sourceAtlas) && group.id && window.layerRegistry) {
                 const resolvedLayer = window.layerRegistry.getLayer(group.id);
-                if (resolvedLayer && resolvedLayer.type) {
-                    console.warn(`[MapLayerControl] Resolved missing type for layer ${group.id} from registry: ${resolvedLayer.type}`);
-                    group = { ...group, type: resolvedLayer.type };
-                    // Update the group in state so we don't have to resolve it again
-                    const stateGroupIndex = this._state.groups.findIndex(g => g.id === group.id);
-                    if (stateGroupIndex !== -1) {
-                        this._state.groups[stateGroupIndex] = group;
+                if (resolvedLayer) {
+                    const updates = {};
+                    if (!group.type && resolvedLayer.type) {
+                        updates.type = resolvedLayer.type;
+                        console.warn(`[MapLayerControl] Resolved missing type for layer ${group.id} from registry: ${resolvedLayer.type}`);
+                    }
+                    if (!group._sourceAtlas && resolvedLayer._sourceAtlas) {
+                        updates._sourceAtlas = resolvedLayer._sourceAtlas;
+                        console.log(`[MapLayerControl] Resolved _sourceAtlas for layer ${group.id}: ${resolvedLayer._sourceAtlas}`);
+                    }
+                    // Merge other useful properties from registry
+                    if (resolvedLayer._prefixedId) updates._prefixedId = resolvedLayer._prefixedId;
+                    if (resolvedLayer._originalId) updates._originalId = resolvedLayer._originalId;
+
+                    if (Object.keys(updates).length > 0) {
+                        group = { ...group, ...updates };
+                        // Update the group in state so we don't have to resolve it again
+                        const stateGroupIndex = this._state.groups.findIndex(g => g.id === group.id);
+                        if (stateGroupIndex !== -1) {
+                            this._state.groups[stateGroupIndex] = group;
+                        }
                     }
                 }
             }
@@ -552,6 +566,59 @@ export class MapLayerControl {
         }
 
         return null;
+    }
+
+    /**
+     * Add a layer directly from the registry without UI element
+     * Used for dynamically adding layers from imported atlases
+     */
+    async _addLayerDirectly(layerConfig) {
+        if (!this._mapboxAPI) {
+            throw new Error('MapboxAPI not initialized');
+        }
+
+        if (!layerConfig || !layerConfig.id) {
+            throw new Error('Invalid layer config');
+        }
+
+        console.log('[MapLayerControl] Adding layer directly:', layerConfig.id);
+
+        try {
+            // Create the layer on the map
+            await this._mapboxAPI.createLayerGroup(layerConfig.id, layerConfig, { visible: true });
+
+            // Apply initial opacity if specified
+            if (layerConfig.opacity !== undefined && layerConfig.opacity !== 1) {
+                this._mapboxAPI.updateLayerOpacity(layerConfig.id, layerConfig, 1.0);
+            }
+
+            // Register with state manager if available
+            if (this._stateManager) {
+                this._registerLayerWithStateManager(layerConfig);
+            }
+
+            // Update attribution
+            if (window.attributionControl) {
+                window.attributionControl._updateAttribution();
+            }
+
+            // Trigger layer-toggled event
+            window.dispatchEvent(new CustomEvent('layer-toggled', {
+                detail: { layerId: layerConfig.id, visible: true }
+            }));
+
+            // Update URL if urlManager is available
+            if (window.urlManager) {
+                setTimeout(() => {
+                    window.urlManager.updateURL();
+                }, 50);
+            }
+
+            console.log('[MapLayerControl] Layer added successfully:', layerConfig.id);
+        } catch (error) {
+            console.error(`[MapLayerControl] Error adding layer ${layerConfig.id}:`, error);
+            throw error;
+        }
     }
 
     /**

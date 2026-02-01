@@ -263,7 +263,16 @@ export class MapBrowserControl {
         if (window.urlManager) {
             const activeLayers = window.urlManager.getCurrentActiveLayers();
             activeLayers.forEach(layer => {
+                // Add both the original ID and any prefixed version from the registry
                 active.add(layer.id);
+
+                // Check if this layer exists in the registry with a prefixed ID
+                if (window.layerRegistry) {
+                    const registryLayer = window.layerRegistry.getLayer(layer.id);
+                    if (registryLayer && registryLayer._prefixedId) {
+                        active.add(registryLayer._prefixedId);
+                    }
+                }
             });
         }
 
@@ -280,32 +289,71 @@ export class MapBrowserControl {
         console.log('[MapBrowser] Looking for layer in state.groups:', layerId);
         console.log('[MapBrowser] Total groups:', mapLayerControl._state.groups.length);
 
-        const groupIndex = mapLayerControl._state.groups.findIndex(g =>
+        // Try to find the layer by checking multiple ID variations
+        // Layers from imported atlases may have prefixed IDs like "imported-ambulances"
+        // but be registered in layer control as "ambulances"
+        let groupIndex = mapLayerControl._state.groups.findIndex(g =>
             g.id === layerId || g._prefixedId === layerId || g._originalId === layerId
         );
+
+        // If not found and layerId has a prefix (e.g., "imported-ambulances"),
+        // try without the prefix (e.g., "ambulances")
+        let actualLayerId = layerId;
+        if (groupIndex === -1 && layerId.includes('-')) {
+            const parts = layerId.split('-');
+            const potentialPrefix = parts[0];
+            const unprefixedId = parts.slice(1).join('-');
+
+            groupIndex = mapLayerControl._state.groups.findIndex(g =>
+                g.id === unprefixedId || g._prefixedId === layerId || g._originalId === unprefixedId
+            );
+
+            if (groupIndex !== -1) {
+                actualLayerId = unprefixedId;
+                console.log('[MapBrowser] Found layer with unprefixed ID:', actualLayerId);
+            }
+        }
 
         if (groupIndex === -1) {
             console.warn(`[MapBrowser] Layer ${layerId} not found in map layer control state`);
             console.log('[MapBrowser] Available layer IDs:', mapLayerControl._state.groups.map(g => g.id));
+
+            // Check if layer exists in layer registry (imported layers)
+            if (window.layerRegistry && window.layerRegistry._registry.has(layerId)) {
+                console.log('[MapBrowser] Layer found in registry, dynamically adding it');
+                const layerConfig = window.layerRegistry._registry.get(layerId);
+
+                if (active) {
+                    // Add layer to the map dynamically
+                    mapLayerControl._addLayerDirectly(layerConfig).then(() => {
+                        console.log('[MapBrowser] Layer added successfully:', layerId);
+                        this._updateIframeActiveLayers();
+                    }).catch(err => {
+                        console.error('[MapBrowser] Failed to add layer:', err);
+                    });
+                }
+                return;
+            }
+
             return;
         }
 
-        console.log('[MapBrowser] Found layer at group index:', groupIndex);
+        console.log('[MapBrowser] Found layer at group index:', groupIndex, 'with ID:', actualLayerId);
 
         const groupElement = mapLayerControl._sourceControls[groupIndex];
         if (!groupElement) {
-            console.warn(`[MapBrowser] UI element for layer ${layerId} not found at index ${groupIndex}`);
+            console.warn(`[MapBrowser] UI element for layer ${actualLayerId} not found at index ${groupIndex}`);
             console.log('[MapBrowser] Total source controls:', mapLayerControl._sourceControls.length);
             return;
         }
 
         const checkbox = groupElement.querySelector('.toggle-switch input[type="checkbox"]');
         if (!checkbox) {
-            console.warn(`[MapBrowser] Checkbox for layer ${layerId} not found`);
+            console.warn(`[MapBrowser] Checkbox for layer ${actualLayerId} not found`);
             return;
         }
 
-        console.log('[MapBrowser] Toggling layer:', layerId, 'to', active);
+        console.log('[MapBrowser] Toggling layer:', actualLayerId, 'to', active);
 
         if (active) {
             if (!checkbox.checked) {
