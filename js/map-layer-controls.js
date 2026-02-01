@@ -465,11 +465,9 @@ export class MapLayerControl {
                     const updates = {};
                     if (!group.type && resolvedLayer.type) {
                         updates.type = resolvedLayer.type;
-                        console.warn(`[MapLayerControl] Resolved missing type for layer ${group.id} from registry: ${resolvedLayer.type}`);
                     }
                     if (!group._sourceAtlas && resolvedLayer._sourceAtlas) {
                         updates._sourceAtlas = resolvedLayer._sourceAtlas;
-                        console.log(`[MapLayerControl] Resolved _sourceAtlas for layer ${group.id}: ${resolvedLayer._sourceAtlas}`);
                     }
                     // Merge other useful properties from registry
                     if (resolvedLayer._prefixedId) updates._prefixedId = resolvedLayer._prefixedId;
@@ -482,13 +480,16 @@ export class MapLayerControl {
                         if (stateGroupIndex !== -1) {
                             this._state.groups[stateGroupIndex] = group;
                         }
+                        // Re-register with state manager to update the stored config
+                        if (this._stateManager && updates._sourceAtlas) {
+                            this._registerLayerWithStateManager(group);
+                        }
                     }
                 }
             }
 
             // Validate that group has required properties
             if (!group.type) {
-                console.error(`[MapLayerControl] Cannot toggle layer ${group.id} - missing type property. This usually indicates a registry resolution issue.`);
                 return;
             }
 
@@ -581,8 +582,6 @@ export class MapLayerControl {
             throw new Error('Invalid layer config');
         }
 
-        console.log('[MapLayerControl] Adding layer directly:', layerConfig.id);
-
         try {
             // Create the layer on the map
             await this._mapboxAPI.createLayerGroup(layerConfig.id, layerConfig, { visible: true });
@@ -613,10 +612,7 @@ export class MapLayerControl {
                     window.urlManager.updateURL();
                 }, 50);
             }
-
-            console.log('[MapLayerControl] Layer added successfully:', layerConfig.id);
         } catch (error) {
-            console.error(`[MapLayerControl] Error adding layer ${layerConfig.id}:`, error);
             throw error;
         }
     }
@@ -714,7 +710,6 @@ export class MapLayerControl {
             const resolvedLayer = window.layerRegistry.getLayer(group.id);
             if (resolvedLayer && resolvedLayer.title) {
                 title = resolvedLayer.title;
-                console.warn(`[MapLayerControl] Had to resolve title for ${group.id} from registry: ${title}`);
             }
         }
 
@@ -1111,6 +1106,20 @@ export class MapLayerControl {
     _registerLayerWithStateManager(layerConfig) {
         if (!this._stateManager) return;
 
+        // Resolve _sourceAtlas from registry if missing
+        if (!layerConfig._sourceAtlas && layerConfig.id && window.layerRegistry) {
+            const resolvedLayer = window.layerRegistry.getLayer(layerConfig.id);
+            if (resolvedLayer && resolvedLayer._sourceAtlas) {
+                layerConfig._sourceAtlas = resolvedLayer._sourceAtlas;
+
+                // Update in state groups array if present
+                const groupIndex = this._state.groups.findIndex(g => g.id === layerConfig.id);
+                if (groupIndex !== -1) {
+                    this._state.groups[groupIndex]._sourceAtlas = resolvedLayer._sourceAtlas;
+                }
+            }
+        }
+
         // Register layer attribution if available
         // We do this BEFORE potentially skipping style layers for state management
         if (layerConfig.attribution && window.attributionControl) {
@@ -1136,7 +1145,6 @@ export class MapLayerControl {
 
         // Skip layers without a type - they can't be properly handled
         if (!layerConfig.type) {
-            console.warn(`[MapLayerControl] Skipping state manager registration for layer ${layerConfig.id} - missing type property`);
             return;
         }
 
@@ -1736,8 +1744,6 @@ export class MapLayerControl {
                 }
             });
 
-            console.log(`[Filter] Result: ${visibleCount} visible, ${hiddenCount} hidden`);
-
             // Add cross-atlas search results dynamically (if not already in current atlas)
             if (isSearching && crossAtlasResults.length > 0) {
                 this._showCrossAtlasSearchResults(crossAtlasResults, currentLayerIds);
@@ -1748,7 +1754,6 @@ export class MapLayerControl {
                 this._hideCrossAtlasSearchResults();
             }
         } catch (error) {
-            console.error('[Filter] Error applying filters:', error);
         }
     }
 

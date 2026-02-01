@@ -60,7 +60,6 @@ export class MapboxAPI {
             try {
                 this._updateLayerTime(groupId, config, timeString);
             } catch (error) {
-                console.error(`[MapboxAPI] Error updating time for layer ${groupId}:`, error);
             }
         });
     }
@@ -93,8 +92,6 @@ export class MapboxAPI {
             case 'img':
                 this._updateImageLayerTime(groupId, config, newUrl);
                 break;
-            default:
-                console.warn(`[MapboxAPI] Time updates not supported for layer type: ${config.type}`);
         }
     }
 
@@ -403,7 +400,6 @@ export class MapboxAPI {
             // Remove from time-based layers tracking
             if (this._timeBasedLayers.has(groupId)) {
                 this._timeBasedLayers.delete(groupId);
-                console.log(`[MapboxAPI] Removed time-based layer tracking: ${groupId}`);
             }
 
             switch (config.type) {
@@ -481,7 +477,6 @@ export class MapboxAPI {
                     .map(styleLayer => styleLayer.id);
 
                 if (layerIds.length === 0) {
-                    console.debug(`[MapboxAPI] No style layers found for sourceLayer: ${layer.sourceLayer}`);
                 }
 
                 layerIds.forEach(layerId => {
@@ -489,8 +484,6 @@ export class MapboxAPI {
                         // When creating/showing a style layer, make sure visibility matches the expected state
                         this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
                         totalLayersProcessed++;
-                    } else {
-                        console.warn(`[MapboxAPI] Layer ${layerId} not found in map style`);
                     }
                 });
             });
@@ -948,10 +941,6 @@ export class MapboxAPI {
             // Add error handling for failed tile requests
             this._map.on('error', (e) => {
                 if (e.sourceId === sourceId) {
-                    console.warn(`[MapboxAPI] WMTS layer '${groupId}' tile load error:`, e.error);
-                    console.warn(`[MapboxAPI] If you see 400 errors, the layer may not be available in EPSG:3857 projection`);
-                    console.warn(`[MapboxAPI] Original URL: ${config.url}`);
-                    console.warn(`[MapboxAPI] Converted URL: ${tileUrl}`);
                 }
             });
         } else {
@@ -994,9 +983,6 @@ export class MapboxAPI {
                 xyzUrl = xyzUrl.replace(/tilematrixset=[^&]+/, 'tilematrixset=GoogleMapsCompatible_Level9');
             }
         }
-
-        // Log the converted URL for debugging
-        console.debug(`[MapboxAPI] Converted WMTS URL: ${wmtsUrl} -> ${xyzUrl}`);
 
         return xyzUrl;
     }
@@ -1097,9 +1083,6 @@ export class MapboxAPI {
             // Add error handling for failed tile requests
             this._map.on('error', (e) => {
                 if (e.sourceId === sourceId) {
-                    console.warn(`[MapboxAPI] WMS layer '${groupId}' tile load error:`, e.error);
-                    console.warn(`[MapboxAPI] Original URL: ${config.url}`);
-                    console.warn(`[MapboxAPI] Converted URL: ${tileUrl}`);
                 }
             });
         } else {
@@ -1168,8 +1151,6 @@ export class MapboxAPI {
             }
         }
 
-        console.debug(`[MapboxAPI] Converted WMS URL (${targetSrs}): ${wmsUrl} -> ${tileUrl}`);
-
         return tileUrl;
     }
 
@@ -1219,8 +1200,6 @@ export class MapboxAPI {
             }, 'raster');
 
             this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'wms', null, config, this._orderedGroups));
-
-            console.log(`[MapboxAPI] Updated WMS layer ${groupId} with new time URL: ${tileUrl}`);
         }
     }
 
@@ -2161,13 +2140,10 @@ export class MapboxAPI {
         }
 
         try {
-            console.log(`[MapboxAPI] Loading custom icon: ${iconUrl}`);
             const img = await this._loadImage(iconUrl);
             this._map.addImage(imageName, img);
-            console.log(`[MapboxAPI] Registered icon as: ${imageName}`);
             return imageName;
         } catch (error) {
-            console.warn(`[MapboxAPI] Failed to load icon image: ${iconUrl}`, error);
             return iconUrl;
         }
     }
@@ -2916,11 +2892,9 @@ export class MapboxAPI {
         } catch (error) {
             // Handle DEM data range errors gracefully
             if (error.message && error.message.includes('out of range source coordinates for DEM data')) {
-                console.debug('[MapboxAPI] DEM data out of range, returning empty features array');
                 return [];
             } else {
                 // Re-throw other errors as they might be more serious
-                console.error('[MapboxAPI] Error querying rendered features:', error);
                 throw error;
             }
         }

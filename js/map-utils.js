@@ -380,9 +380,6 @@ export class URLUtils {
     static parseLayersFromUrl(layersParam) {
         if (!layersParam) return [];
 
-        console.log('[URLUtils] Parsing layers parameter:', layersParam);
-        console.log('[URLUtils] Parameter length:', layersParam.length);
-
         const layers = [];
         let currentItem = '';
         let braceCount = 0;
@@ -486,16 +483,6 @@ export class URLUtils {
                 layers.push({ id: trimmedItem });
             }
         }
-
-        console.log('[URLUtils] Parsed layers:', layers);
-        console.log('[URLUtils] Number of layers parsed:', layers.length);
-        layers.forEach((layer, index) => {
-            console.log(`[URLUtils] Layer ${index}:`, {
-                id: layer.id,
-                hasOriginalJson: !!layer._originalJson,
-                originalJsonLength: layer._originalJson?.length
-            });
-        });
 
         return layers;
     }

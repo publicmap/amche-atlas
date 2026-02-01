@@ -279,7 +279,6 @@ export class LayerRegistry {
      * @param {string} baseUrl - Base URL to resolve against
      */
     _resolveRelativeUrls(layer, baseUrl) {
-        console.log(`[LayerRegistry] Resolving URLs for layer: ${layer.id}`);
 
         const urlFields = ['url', 'thumbnail', 'tiles', 'headerImage'];
 
@@ -287,16 +286,10 @@ export class LayerRegistry {
             if (layer[field]) {
                 if (typeof layer[field] === 'string') {
                     const resolved = this._resolveUrl(layer[field], baseUrl);
-                    if (resolved !== layer[field]) {
-                        console.log(`[LayerRegistry]   ${field}: ${layer[field]} → ${resolved}`);
-                    }
                     layer[field] = resolved;
                 } else if (Array.isArray(layer[field])) {
                     layer[field] = layer[field].map(url => {
                         const resolved = this._resolveUrl(url, baseUrl);
-                        if (resolved !== url) {
-                            console.log(`[LayerRegistry]   ${field}[]: ${url} → ${resolved}`);
-                        }
                         return resolved;
                     });
                 }
@@ -306,17 +299,11 @@ export class LayerRegistry {
         if (layer.source && typeof layer.source === 'object') {
             if (layer.source.url) {
                 const resolved = this._resolveUrl(layer.source.url, baseUrl);
-                if (resolved !== layer.source.url) {
-                    console.log(`[LayerRegistry]   source.url: ${layer.source.url} → ${resolved}`);
-                }
                 layer.source.url = resolved;
             }
             if (layer.source.tiles && Array.isArray(layer.source.tiles)) {
                 layer.source.tiles = layer.source.tiles.map(url => {
                     const resolved = this._resolveUrl(url, baseUrl);
-                    if (resolved !== url) {
-                        console.log(`[LayerRegistry]   source.tiles[]: ${url} → ${resolved}`);
-                    }
                     return resolved;
                 });
             }
@@ -348,9 +335,6 @@ export class LayerRegistry {
             if (styleObj[prop]) {
                 if (typeof styleObj[prop] === 'string') {
                     const resolved = this._resolveUrl(styleObj[prop], baseUrl);
-                    if (resolved !== styleObj[prop]) {
-                        console.log(`[LayerRegistry]   ${objName}.${prop}: ${styleObj[prop]} → ${resolved}`);
-                    }
                     styleObj[prop] = resolved;
                 } else if (Array.isArray(styleObj[prop])) {
                     this._resolveUrlsInExpression(styleObj[prop], baseUrl, `${objName}.${prop}`);
@@ -370,7 +354,6 @@ export class LayerRegistry {
             if (typeof expression[i] === 'string' && this._looksLikeIconPath(expression[i])) {
                 const resolved = this._resolveUrl(expression[i], baseUrl);
                 if (resolved !== expression[i]) {
-                    console.log(`[LayerRegistry]   ${context}[${i}]: ${expression[i]} → ${resolved}`);
                     expression[i] = resolved;
                 }
             } else if (Array.isArray(expression[i])) {
@@ -387,9 +370,9 @@ export class LayerRegistry {
     _looksLikeIconPath(str) {
         // Must have a file extension or be a URL
         return (str.includes('.png') || str.includes('.jpg') || str.includes('.svg') ||
-                str.includes('.jpeg') || str.includes('.gif') ||
-                str.startsWith('http://') || str.startsWith('https://') ||
-                str.startsWith('assets/') || str.startsWith('data/') || str.startsWith('images/'));
+            str.includes('.jpeg') || str.includes('.gif') ||
+            str.startsWith('http://') || str.startsWith('https://') ||
+            str.startsWith('assets/') || str.startsWith('data/') || str.startsWith('images/'));
     }
 
     /**
@@ -427,7 +410,6 @@ export class LayerRegistry {
                 if (rootPathIndex && pathParts.length > rootPathIndex) {
                     const rootPath = '/' + pathParts.slice(0, rootPathIndex).join('/') + '/' + url;
                     baseUrlObj.pathname = rootPath;
-                    console.log(`[LayerRegistry]   Detected repo-root relative path: ${url} → ${baseUrlObj.toString()}`);
                     return baseUrlObj.toString();
                 }
             }
