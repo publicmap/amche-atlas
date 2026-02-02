@@ -70,7 +70,8 @@ export class LayerRegistry {
                     name: config.name || atlasId,
                     areaOfInterest: config.areaOfInterest || '',
                     description: config.description || '',
-                    bbox: this._extractBbox(config)
+                    bbox: this._extractBbox(config),
+                    tags: config.tags || []
                 });
 
                 if (config.layers && Array.isArray(config.layers)) {
@@ -224,6 +225,7 @@ export class LayerRegistry {
     markImportedAtlas(atlasId, metadata, config = null) {
         this._atlasMetadata.set(atlasId, {
             ...metadata,
+            tags: metadata.tags || (config && config.tags) || [],
             isImported: true
         });
 
@@ -233,6 +235,7 @@ export class LayerRegistry {
             const baseUrl = metadata.sourceUrl ? this._getBaseUrl(metadata.sourceUrl) : null;
 
             config.layers.forEach(layer => {
+                // Resolve layer with atlas tags
                 const resolvedLayer = this._resolveLayer(layer, atlasId);
                 if (resolvedLayer && baseUrl) {
                     this._resolveRelativeUrls(resolvedLayer, baseUrl);
@@ -434,10 +437,27 @@ export class LayerRegistry {
     }
 
     /**
-     * Resolve a layer (currently just returns as-is, kept for future extensibility)
+     * Resolve a layer (merge atlas-level tags into layer)
      */
     _resolveLayer(layer, atlasId) {
-        return layer;
+        const atlasMetadata = this._atlasMetadata.get(atlasId);
+
+        if (!atlasMetadata) {
+            return layer;
+        }
+
+        const resolvedLayer = { ...layer };
+
+        if (atlasMetadata.tags && Array.isArray(atlasMetadata.tags)) {
+            if (!resolvedLayer.tags) {
+                resolvedLayer.tags = [...atlasMetadata.tags];
+            } else if (Array.isArray(resolvedLayer.tags)) {
+                const mergedTags = [...new Set([...atlasMetadata.tags, ...resolvedLayer.tags])];
+                resolvedLayer.tags = mergedTags;
+            }
+        }
+
+        return resolvedLayer;
     }
 
     /**

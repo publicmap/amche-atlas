@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Inspector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #111827;
+        }
+
+        .layer-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .layer-card:hover {
+            transform: translateX(2px);
+        }
+
+        .layer-card.highlighted {
+            border-left-color: #3b82f6;
+            background-color: #1e3a5f;
+        }
+
+        .layer-card.expanded {
+            border-left-color: #3b82f6;
+        }
+
+        .layer-card-compact {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            min-height: 56px;
+        }
+
+        .layer-card-expanded {
+            display: none;
+            padding: 12px;
+            background: #1f2937;
+        }
+
+        .layer-card.expanded .layer-card-expanded {
+            display: block;
+        }
+
+        .layer-header-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0.15;
+            background-size: cover;
+            background-position: center;
+            pointer-events: none;
+        }
+
+        .layer-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .atlas-badge {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .info-button {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #374151;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .info-button:hover {
+            background: #4b5563;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #374151;
+        }
+
+        .action-button {
+            flex: 1;
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid #374151;
+            background: #1f2937;
+            color: white;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .action-button:hover {
+            background: #374151;
+            border-color: #4b5563;
+        }
+
+        .opacity-slider {
+            width: 100%;
+            margin: 8px 0;
+        }
+
+        .feature-info {
+            background: #1f2937;
+            border-radius: 4px;
+            padding: 8px;
+            margin-top: 8px;
+        }
+
+        .property-row {
+            display: flex;
+            font-size: 11px;
+            padding: 2px 0;
+            border-bottom: 1px solid #374151;
+        }
+
+        .property-row:last-child {
+            border-bottom: none;
+        }
+
+        .property-key {
+            color: #9ca3af;
+            min-width: 100px;
+            font-weight: 500;
+        }
+
+        .property-value {
+            color: #e5e7eb;
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            background: #4b5563;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle-switch.active {
+            background: #3b82f6;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(16px);
+        }
+
+        .section-header {
+            transition: background 0.2s;
+        }
+
+        .section-header:hover {
+            background: #4b5563 !important;
+        }
+
+        .section-header .toggle-icon {
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-white">
+    <!-- Header -->
+    <div class="header" style="background: #1f2937; padding: 12px; border-bottom: 1px solid #374151;">
+        <div class="flex items-center justify-between">
+            <div class="text-sm font-semibold">Map Inspector</div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-400">Isolate on click</span>
+                <div class="toggle-switch active" id="isolate-toggle"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layer List -->
+    <div id="layer-container" style="display: flex; flex-direction: column; height: calc(100vh - 48px); position: relative;">
+        <!-- Overlay Maps Section (Sticky Top) -->
+        <div style="position: sticky; top: 0; z-index: 10; background: #111827; padding: 8px 8px 0 8px;">
+            <div class="section-header" id="overlay-header" style="padding: 8px 12px; background: #374151; border-radius: 4px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between;">
+                <span class="text-xs font-semibold text-gray-300">
+                    OVERLAY MAPS <span id="overlay-count" class="text-gray-400">(0)</span>
+                </span>
+                <span class="toggle-icon" style="font-size: 12px; transition: transform 0.2s;">▼</span>
+            </div>
+        </div>
+
+        <!-- Overlay List (Scrollable) -->
+        <div id="overlay-list" class="overflow-y-auto scrollbar-thin" style="flex: 1; padding: 8px; padding-top: 4px;"></div>
+
+        <!-- Base Maps Section (Sticky Bottom) -->
+        <div style="position: sticky; bottom: 0; z-index: 10; background: #111827; padding: 0 8px 8px 8px;">
+            <div class="section-header" id="basemap-header" style="padding: 8px 12px; background: #374151; border-radius: 4px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                <span class="text-xs font-semibold text-gray-300">
+                    BASE MAPS <span id="basemap-count" class="text-gray-400">(0)</span>
+                </span>
+                <span class="toggle-icon" style="font-size: 12px; transition: transform 0.2s; transform: rotate(-90deg);">▼</span>
+            </div>
+            <div id="basemap-list" style="display: none; max-height: 40vh; overflow-y: auto;" class="scrollbar-thin"></div>
+        </div>
+    </div>
+
+    <!-- Information Modal (iframe) -->
+    <div id="info-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 9999;">
+        <div style="position: absolute; top: 20px; right: 20px; left: 20px; bottom: 20px; background: #1f2937; border-radius: 8px; overflow: hidden;">
+            <div style="position: absolute; top: 12px; right: 12px; z-index: 10;">
+                <button id="close-info-modal" style="width: 32px; height: 32px; border-radius: 4px; background: #374151; color: white; border: none; cursor: pointer; font-size: 20px; line-height: 1;">×</button>
+            </div>
+            <iframe id="info-iframe" style="width: 100%; height: 100%; border: none;"></iframe>
+        </div>
+    </div>
+
+    <script type="module">
+        import { LayerThumbnail } from './js/layer-thumbnail.js';
+
+        // State
+        let activeLayers = [];
+        let layerRegistry = null;
+        let expandedLayerId = null;
+        let isolateEnabled = true;
+        let highlightedLayerIds = new Set();
+
+        // Make LayerThumbnail available globally
+        window.LayerThumbnail = LayerThumbnail;
+
+        // Initialize
+        $(document).ready(function () {
+            setupEventListeners();
+            requestLayerData();
+        });
+
+        // Request layer data from parent
+        function requestLayerData() {
+            window.parent.postMessage({
+                type: 'request-inspector-data'
+            }, '*');
+        }
+
+        // Notify parent about height changes
+        function notifyHeightChange() {
+            const overlayOpen = $('#overlay-list').is(':visible');
+            const basemapOpen = $('#basemap-list').is(':visible');
+            const overlayCount = $('#overlay-list').children('.layer-card').length;
+            const basemapCount = $('#basemap-list').children('.layer-card').length;
+
+            window.parent.postMessage({
+                type: 'inspector-height-change',
+                overlayOpen: overlayOpen,
+                basemapOpen: basemapOpen,
+                overlayCount: overlayCount,
+                basemapCount: basemapCount
+            }, '*');
+        }
+
+        // Setup message listener for parent communication
+        window.addEventListener('message', function (event) {
+            if (event.data.type === 'inspector-data') {
+                activeLayers = event.data.activeLayers || [];
+                layerRegistry = event.data.layerRegistry;
+                renderLayers();
+            }
+
+            if (event.data.type === 'active-layers-update') {
+                activeLayers = event.data.activeLayers || [];
+                renderLayers();
+            }
+
+            if (event.data.type === 'highlight-layers') {
+                highlightedLayerIds = new Set(event.data.layerIds || []);
+                updateHighlights();
+            }
+
+            if (event.data.type === 'clear-highlights') {
+                highlightedLayerIds.clear();
+                updateHighlights();
+            }
+
+            if (event.data.type === 'feature-selected') {
+                const layerId = event.data.layerId;
+                const feature = event.data.feature;
+                showFeatureInfo(layerId, feature);
+            }
+
+            if (event.data.type === 'request-height-update') {
+                notifyHeightChange();
+            }
+        });
+
+        // Setup UI event listeners
+        function setupEventListeners() {
+            $('#isolate-toggle').on('click', function () {
+                isolateEnabled = !isolateEnabled;
+                $(this).toggleClass('active', isolateEnabled);
+            });
+
+            $('#close-info-modal').on('click', function () {
+                $('#info-modal').hide();
+            });
+
+            $('#info-modal').on('click', function (e) {
+                if (e.target.id === 'info-modal') {
+                    $('#info-modal').hide();
+                }
+            });
+
+            $('#basemap-header').on('click', function () {
+                const $basemapList = $('#basemap-list');
+                const $basemapIcon = $(this).find('.toggle-icon');
+                const $overlayList = $('#overlay-list');
+                const $overlayIcon = $('#overlay-header').find('.toggle-icon');
+
+                // If basemap list is currently hidden, show it and hide overlay list
+                if (!$basemapList.is(':visible')) {
+                    $overlayList.slideUp(200, notifyHeightChange);
+                    $overlayIcon.css('transform', 'rotate(-90deg)');
+                    $basemapList.slideDown(200, notifyHeightChange);
+                    $basemapIcon.css('transform', 'rotate(0deg)');
+                } else {
+                    // Otherwise just toggle basemap list
+                    $basemapList.slideToggle(200, notifyHeightChange);
+                    $basemapIcon.css('transform', $basemapList.is(':visible') ? 'rotate(0deg)' : 'rotate(-90deg)');
+                }
+            });
+
+            $('#overlay-header').on('click', function () {
+                const $overlayList = $('#overlay-list');
+                const $overlayIcon = $(this).find('.toggle-icon');
+                const $basemapList = $('#basemap-list');
+                const $basemapIcon = $('#basemap-header').find('.toggle-icon');
+
+                // If overlay list is currently hidden, show it and hide basemap list
+                if (!$overlayList.is(':visible')) {
+                    $basemapList.slideUp(200, notifyHeightChange);
+                    $basemapIcon.css('transform', 'rotate(-90deg)');
+                    $overlayList.slideDown(200, notifyHeightChange);
+                    $overlayIcon.css('transform', 'rotate(0deg)');
+                } else {
+                    // Otherwise just toggle overlay list
+                    $overlayList.slideToggle(200, notifyHeightChange);
+                    $overlayIcon.css('transform', $overlayList.is(':visible') ? 'rotate(0deg)' : 'rotate(-90deg)');
+                }
+            });
+        }
+
+        // Render all active layers
+        function renderLayers() {
+            const $overlayList = $('#overlay-list');
+            const $basemapList = $('#basemap-list');
+            $overlayList.empty();
+            $basemapList.empty();
+
+            if (activeLayers.length === 0) {
+                $overlayList.html('<div class="text-center text-gray-500 py-4 text-xs">No overlay maps</div>');
+                $basemapList.html('<div class="text-center text-gray-500 py-4 text-xs">No base maps</div>');
+                $('#overlay-count').text('(0)');
+                $('#basemap-count').text('(0)');
+                return;
+            }
+
+            const overlayMaps = [];
+            const baseMaps = [];
+
+            activeLayers.forEach(layerConfig => {
+                const isBasemap = layerConfig.tags && Array.isArray(layerConfig.tags) &&
+                                layerConfig.tags.includes('basemap');
+
+                if (isBasemap) {
+                    baseMaps.push(layerConfig);
+                } else {
+                    overlayMaps.push(layerConfig);
+                }
+            });
+
+            // Update counts
+            $('#overlay-count').text(`(${overlayMaps.length})`);
+            $('#basemap-count').text(`(${baseMaps.length})`);
+
+            if (overlayMaps.length === 0) {
+                $overlayList.html('<div class="text-center text-gray-500 py-4 text-xs">No overlay maps</div>');
+            } else {
+                overlayMaps.forEach(layerConfig => {
+                    const $card = createLayerCard(layerConfig);
+                    $overlayList.append($card);
+                });
+            }
+
+            if (baseMaps.length === 0) {
+                $basemapList.html('<div class="text-center text-gray-500 py-4 text-xs">No base maps</div>');
+            } else {
+                baseMaps.forEach(layerConfig => {
+                    const $card = createLayerCard(layerConfig);
+                    $basemapList.append($card);
+                });
+            }
+
+            // Notify parent about potential height change
+            setTimeout(notifyHeightChange, 100);
+        }
+
+        // Create layer card
+        function createLayerCard(layer) {
+            const atlasMetadata = layerRegistry?._atlasMetadata?.get(layer._sourceAtlas) || {};
+            const isExpanded = expandedLayerId === layer.id;
+            const isHighlighted = highlightedLayerIds.has(layer.id);
+
+            const $card = $('<div>', {
+                class: 'layer-card bg-gray-800 rounded mb-2' +
+                    (isExpanded ? ' expanded' : '') +
+                    (isHighlighted ? ' highlighted' : ''),
+                'data-layer-id': layer.id
+            });
+
+            // Header background
+            if (layer.headerImage) {
+                const $bg = $('<div>', { class: 'layer-header-bg' });
+                $bg.css('background-image', `url('${layer.headerImage}')`);
+                $card.append($bg);
+            }
+
+            // Compact view
+            const $compact = $('<div>', { class: 'layer-card-compact layer-content' });
+
+            // Thumbnail
+            const thumbnail = window.LayerThumbnail.generate(layer, 40);
+            thumbnail.style.margin = '0';
+            thumbnail.style.borderRadius = '4px';
+            $compact.append(thumbnail);
+
+            // Info section
+            const $info = $('<div>', { class: 'flex-1 min-w-0' });
+
+            // Atlas badge and layer name
+            const $header = $('<div>', { class: 'flex items-center gap-2' });
+            if (atlasMetadata.name) {
+                const $badge = $('<span>', {
+                    class: 'atlas-badge',
+                    text: atlasMetadata.name,
+                    css: {
+                        backgroundColor: atlasMetadata.color || '#2563eb'
+                    }
+                });
+                $header.append($badge);
+            }
+
+            const $name = $('<span>', {
+                class: 'text-sm font-medium text-white truncate flex-1',
+                text: layer.title || layer.id
+            });
+            $header.append($name);
+
+            if (isExpanded) {
+                const $infoBtn = $('<button>', {
+                    class: 'info-button',
+                    html: 'i',
+                    title: 'Layer information',
+                    click: function (e) {
+                        e.stopPropagation();
+                        openLayerInfo(layer);
+                    }
+                });
+                $header.append($infoBtn);
+            }
+
+            $info.append($header);
+            $compact.append($info);
+            $card.append($compact);
+
+            // Expanded view
+            if (isExpanded) {
+                const $expanded = $('<div>', { class: 'layer-card-expanded layer-content' });
+
+                // Description
+                if (layer.description) {
+                    const $desc = $('<div>', {
+                        class: 'text-xs text-gray-300 mb-3',
+                        html: layer.description
+                    });
+                    $expanded.append($desc);
+                }
+
+                // Features info (if selected)
+                const $featuresContainer = $('<div>', {
+                    id: `features-${layer.id}`,
+                    class: 'features-container'
+                });
+                $expanded.append($featuresContainer);
+
+                // Action buttons
+                const $actions = $('<div>', { class: 'action-buttons' });
+
+                // Opacity control
+                const $opacityContainer = $('<div>', { class: 'flex-1' });
+                const $opacityLabel = $('<div>', {
+                    class: 'text-xs text-gray-400 mb-1',
+                    text: 'Opacity'
+                });
+                const currentOpacity = layer.opacity !== undefined ? layer.opacity : 0.9;
+                const $opacitySlider = $('<input>', {
+                    type: 'range',
+                    class: 'opacity-slider',
+                    min: 0,
+                    max: 100,
+                    value: Math.round(currentOpacity * 100),
+                    css: {
+                        width: '100%',
+                        accentColor: '#3b82f6'
+                    }
+                });
+                $opacitySlider.on('input', function () {
+                    const opacity = $(this).val() / 100;
+                    window.parent.postMessage({
+                        type: 'update-layer-opacity',
+                        layerId: layer.id,
+                        opacity: opacity
+                    }, '*');
+                });
+                $opacityContainer.append($opacityLabel);
+                $opacityContainer.append($opacitySlider);
+                $actions.append($opacityContainer);
+
+                $expanded.append($actions);
+
+                // Button row
+                const $buttonRow = $('<div>', {
+                    class: 'flex gap-2 mt-2'
+                });
+
+                // Zoom button (if layer has bbox)
+                if (layer.bbox || atlasMetadata.bbox) {
+                    const $zoomBtn = $('<button>', {
+                        class: 'action-button',
+                        html: '🔍 Zoom',
+                        click: function (e) {
+                            e.stopPropagation();
+                            window.parent.postMessage({
+                                type: 'zoom-to-layer',
+                                layerId: layer.id
+                            }, '*');
+                        }
+                    });
+                    $buttonRow.append($zoomBtn);
+                }
+
+                // Delete button
+                const $deleteBtn = $('<button>', {
+                    class: 'action-button',
+                    html: '🗑️ Remove',
+                    css: { color: '#ef4444' },
+                    click: function (e) {
+                        e.stopPropagation();
+                        window.parent.postMessage({
+                            type: 'remove-layer',
+                            layerId: layer.id
+                        }, '*');
+                    }
+                });
+                $buttonRow.append($deleteBtn);
+
+                $expanded.append($buttonRow);
+                $card.append($expanded);
+            }
+
+            // Click handler
+            $card.on('click', function (e) {
+                if (!$(e.target).closest('.info-button, .action-button, input').length) {
+                    toggleLayerExpanded(layer.id);
+                }
+            });
+
+            return $card;
+        }
+
+        // Toggle layer expanded state
+        function toggleLayerExpanded(layerId) {
+            if (expandedLayerId === layerId) {
+                expandedLayerId = null;
+                if (isolateEnabled) {
+                    window.parent.postMessage({
+                        type: 'clear-layer-isolation'
+                    }, '*');
+                }
+            } else {
+                expandedLayerId = layerId;
+                if (isolateEnabled) {
+                    window.parent.postMessage({
+                        type: 'isolate-layer',
+                        layerId: layerId
+                    }, '*');
+                }
+            }
+            renderLayers();
+        }
+
+        // Update highlight states
+        function updateHighlights() {
+            $('.layer-card').each(function () {
+                const layerId = $(this).data('layer-id');
+                $(this).toggleClass('highlighted', highlightedLayerIds.has(layerId));
+            });
+        }
+
+        // Show feature info in expanded layer
+        function showFeatureInfo(layerId, feature) {
+            const $container = $(`#features-${layerId}`);
+            if (!$container.length) return;
+
+            $container.empty();
+
+            const $featureInfo = $('<div>', { class: 'feature-info' });
+            const $title = $('<div>', {
+                class: 'text-xs font-semibold text-gray-300 mb-2',
+                text: 'Selected Feature'
+            });
+            $featureInfo.append($title);
+
+            if (feature.properties) {
+                const $props = $('<div>');
+                Object.entries(feature.properties).forEach(([key, value]) => {
+                    if (value !== null && value !== undefined && value !== '') {
+                        const $row = $('<div>', { class: 'property-row' });
+                        $row.append($('<div>', { class: 'property-key', text: key }));
+                        $row.append($('<div>', { class: 'property-value', text: String(value) }));
+                        $props.append($row);
+                    }
+                });
+                $featureInfo.append($props);
+            }
+
+            $container.append($featureInfo);
+        }
+
+        // Open layer information modal
+        function openLayerInfo(layer) {
+            const $iframe = $('#info-iframe');
+            const layerJson = encodeURIComponent(JSON.stringify(layer));
+            $iframe.attr('src', `map-information.html?layer=${layerJson}`);
+            $('#info-modal').show();
+        }
+    </script>
+</body>
+
+</html>

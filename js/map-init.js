@@ -1,19 +1,19 @@
-import {URLManager} from './url-manager.js';
-import {TimeControl} from './time-control.js';
-import {ButtonShareLink} from './button-share-link.js';
-import {MapLayerControl} from './map-layer-controls.js';
-import {StatePersistence} from './state-persistence.js';
-import {MapSearchControl} from './map-search-control.js';
-import {MapExportControl} from './map-export-control.js';
-import {Terrain3DControl} from './terrain-3d-control.js';
-import {MapFeatureControl} from './map-feature-control.js';
-import {MapBrowserControl} from './map-browser-control.js';
-import {ButtonResetMapView} from './button-reset-map-view.js';
-import {MapAttributionControl} from './map-attribution-control.js';
-import {ButtonExternalMapLinks} from './button-external-map-links.js';
-import {MapFeatureStateManager} from './map-feature-state-manager.js';
-import {ButtonGeolocationManager} from './button-geolocation-manager.js';
-import {DataUtils, MapUtils, URLUtils} from './map-utils.js';
+import { URLManager } from './url-manager.js';
+import { TimeControl } from './time-control.js';
+import { ButtonShareLink } from './button-share-link.js';
+import { MapLayerControl } from './map-layer-controls.js';
+import { StatePersistence } from './state-persistence.js';
+import { MapSearchControl } from './map-search-control.js';
+import { MapExportControl } from './map-export-control.js';
+import { Terrain3DControl } from './terrain-3d-control.js';
+import { MapFeatureControl } from './map-feature-control-iframe.js';
+import { MapBrowserControl } from './map-browser-control.js';
+import { ButtonResetMapView } from './button-reset-map-view.js';
+import { MapAttributionControl } from './map-attribution-control.js';
+import { ButtonExternalMapLinks } from './button-external-map-links.js';
+import { MapFeatureStateManager } from './map-feature-state-manager.js';
+import { ButtonGeolocationManager } from './button-geolocation-manager.js';
+import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 
 export class MapInitializer {
     // Function to load configuration

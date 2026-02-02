@@ -458,8 +458,8 @@ export class MapLayerControl {
         }
 
         try {
-            // If type or _sourceAtlas is missing, try to resolve from the registry
-            if ((!group.type || !group._sourceAtlas) && group.id && window.layerRegistry) {
+            // If type, _sourceAtlas, or tags are missing, try to resolve from the registry
+            if ((!group.type || !group._sourceAtlas || !group.tags) && group.id && window.layerRegistry) {
                 const resolvedLayer = window.layerRegistry.getLayer(group.id);
                 if (resolvedLayer) {
                     const updates = {};
@@ -468,6 +468,9 @@ export class MapLayerControl {
                     }
                     if (!group._sourceAtlas && resolvedLayer._sourceAtlas) {
                         updates._sourceAtlas = resolvedLayer._sourceAtlas;
+                    }
+                    if (!group.tags && resolvedLayer.tags) {
+                        updates.tags = resolvedLayer.tags;
                     }
                     // Merge other useful properties from registry
                     if (resolvedLayer._prefixedId) updates._prefixedId = resolvedLayer._prefixedId;
@@ -481,7 +484,7 @@ export class MapLayerControl {
                             this._state.groups[stateGroupIndex] = group;
                         }
                         // Re-register with state manager to update the stored config
-                        if (this._stateManager && updates._sourceAtlas) {
+                        if (this._stateManager && (updates._sourceAtlas || updates.tags)) {
                             this._registerLayerWithStateManager(group);
                         }
                     }
@@ -1106,16 +1109,28 @@ export class MapLayerControl {
     _registerLayerWithStateManager(layerConfig) {
         if (!this._stateManager) return;
 
-        // Resolve _sourceAtlas from registry if missing
-        if (!layerConfig._sourceAtlas && layerConfig.id && window.layerRegistry) {
+        // Resolve _sourceAtlas and tags from registry if missing
+        if (layerConfig.id && window.layerRegistry) {
             const resolvedLayer = window.layerRegistry.getLayer(layerConfig.id);
-            if (resolvedLayer && resolvedLayer._sourceAtlas) {
-                layerConfig._sourceAtlas = resolvedLayer._sourceAtlas;
+            if (resolvedLayer) {
+                const updates = {};
+
+                if (!layerConfig._sourceAtlas && resolvedLayer._sourceAtlas) {
+                    updates._sourceAtlas = resolvedLayer._sourceAtlas;
+                    layerConfig._sourceAtlas = resolvedLayer._sourceAtlas;
+                }
+
+                if (!layerConfig.tags && resolvedLayer.tags) {
+                    updates.tags = resolvedLayer.tags;
+                    layerConfig.tags = resolvedLayer.tags;
+                }
 
                 // Update in state groups array if present
-                const groupIndex = this._state.groups.findIndex(g => g.id === layerConfig.id);
-                if (groupIndex !== -1) {
-                    this._state.groups[groupIndex]._sourceAtlas = resolvedLayer._sourceAtlas;
+                if (Object.keys(updates).length > 0) {
+                    const groupIndex = this._state.groups.findIndex(g => g.id === layerConfig.id);
+                    if (groupIndex !== -1) {
+                        Object.assign(this._state.groups[groupIndex], updates);
+                    }
                 }
             }
         }
