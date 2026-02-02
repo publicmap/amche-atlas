@@ -213,10 +213,6 @@
           "rgba(255, 255, 255, 0.5)"
         ]
       }
-    },
-    {
-      "initiallyChecked": true,
-      "id": "mapbox-satellite"
     }
   ]
 }

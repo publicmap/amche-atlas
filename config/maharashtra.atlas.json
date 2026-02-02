@@ -250,10 +250,6 @@
       "headerImage": "https://mapwarper.net/uploads/101557/thumb/RP_Nashik.png",
       "bbox": "73.1319366,19.6069601,75.4532274,20.8870761",
       "initiallyChecked": false
-    },
-    {
-      "initiallyChecked": true,
-      "id": "mapbox-satellite"
     }
   ]
 }

@@ -1109,9 +1109,10 @@ export class MapLayerControl {
     _registerLayerWithStateManager(layerConfig) {
         if (!this._stateManager) return;
 
-        // Resolve _sourceAtlas and tags from registry if missing
+        // Resolve _sourceAtlas and tags from registry
         if (layerConfig.id && window.layerRegistry) {
             const resolvedLayer = window.layerRegistry.getLayer(layerConfig.id);
+
             if (resolvedLayer) {
                 const updates = {};
 
@@ -1120,9 +1121,19 @@ export class MapLayerControl {
                     layerConfig._sourceAtlas = resolvedLayer._sourceAtlas;
                 }
 
-                if (!layerConfig.tags && resolvedLayer.tags) {
-                    updates.tags = resolvedLayer.tags;
-                    layerConfig.tags = resolvedLayer.tags;
+                // Always merge tags from registry (registry has cascaded tags from atlas)
+                if (resolvedLayer.tags) {
+                    if (!layerConfig.tags) {
+                        updates.tags = resolvedLayer.tags;
+                        layerConfig.tags = resolvedLayer.tags;
+                    } else if (Array.isArray(layerConfig.tags) && Array.isArray(resolvedLayer.tags)) {
+                        // Merge tags if both exist
+                        const mergedTags = [...new Set([...layerConfig.tags, ...resolvedLayer.tags])];
+                        if (JSON.stringify(layerConfig.tags) !== JSON.stringify(mergedTags)) {
+                            updates.tags = mergedTags;
+                            layerConfig.tags = mergedTags;
+                        }
+                    }
                 }
 
                 // Update in state groups array if present

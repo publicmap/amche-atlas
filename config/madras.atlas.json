@@ -225,10 +225,6 @@
       "headerImage": null,
       "bbox": "80.2332728,13.0305666,80.3423048,13.2795135",
       "initiallyChecked": false
-    },
-    {
-      "initiallyChecked": true,
-      "id": "mapbox-satellite"
     }
   ]
 }

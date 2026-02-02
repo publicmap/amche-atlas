@@ -2312,10 +2312,6 @@
       "id": "1775-admiralty-chart",
       "url": "https://warper.wmflabs.org/maps/tile/8717/{z}/{x}/{y}.png",
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_793_Goa_Harbour,_with_a_View,_Published_1775.jpg'>Wikimedia Commons: Admiralty Chart No 793 Goa Harbour, with a View, Published 1775</a> via <a href='https://warper.wmflabs.org/maps/8717#Show_tab'>Wikimaps Warper</a> released in public domain"
-    },
-    {
-      "initiallyChecked": true,
-      "id": "mapbox-satellite"
     }
   ]
 }

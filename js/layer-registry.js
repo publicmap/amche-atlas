@@ -122,8 +122,14 @@ export class LayerRegistry {
                             } else if (existingEntry && (!existingEntry.type || !existingEntry.title)) {
                                 // Registry has an incomplete entry (from a cross-atlas reference loaded earlier)
                                 // Update it with the complete definition from the source atlas
+                                // Merge tags from both entries to preserve cascaded tags
+                                const mergedTags = existingEntry.tags && resolvedLayer.tags
+                                    ? [...new Set([...existingEntry.tags, ...resolvedLayer.tags])]
+                                    : (existingEntry.tags || resolvedLayer.tags || []);
+
                                 this._registry.set(prefixedId, {
                                     ...resolvedLayer,
+                                    tags: mergedTags,
                                     _sourceAtlas: sourceAtlas,
                                     _prefixedId: prefixedId,
                                     _originalId: layerId,
@@ -448,7 +454,11 @@ export class LayerRegistry {
 
         const resolvedLayer = { ...layer };
 
-        if (atlasMetadata.tags && Array.isArray(atlasMetadata.tags)) {
+        // Only cascade atlas tags if this is a complete layer definition (has type or title)
+        // References to layers from other atlases (no type/title) should not get atlas tags
+        const isCompleteDefinition = resolvedLayer.type || resolvedLayer.title;
+
+        if (isCompleteDefinition && atlasMetadata.tags && Array.isArray(atlasMetadata.tags)) {
             if (!resolvedLayer.tags) {
                 resolvedLayer.tags = [...atlasMetadata.tags];
             } else if (Array.isArray(resolvedLayer.tags)) {

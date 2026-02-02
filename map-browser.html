@@ -386,10 +386,10 @@
         </div>
 
         <!-- Results Section -->
-        <div class="flex flex-col flex-1 overflow-hidden">
+        <div class="flex flex-col flex-1 min-h-0">
             <!-- Results Nav -->
             <div id="results-nav" class="results-nav"
-                style="background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 8px 12px; display: flex; gap: 16px; overflow-x: auto;">
+                style="background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 8px 12px; display: flex; gap: 16px; overflow-x: auto; flex-shrink: 0;">
                 <a href="#featured-section" class="nav-link" data-section="featured"
                     style="text-decoration: none; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 4px 8px; border-radius: 4px; transition: all 0.2s;">
                     Featured <span class="count">(0)</span>
@@ -409,13 +409,13 @@
             </div>
 
             <!-- Layer Grid -->
-            <div id="layer-container" class="flex-1 overflow-y-auto scrollbar-thin">
+            <div id="layer-container" class="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
                 <div id="layer-grid" class="layer-grid"></div>
             </div>
 
             <!-- Status Bar -->
             <div class="status-bar"
-                style="background: #1f2937; border-top: 1px solid #374151; padding: 8px 12px; color: #9ca3af; font-size: 12px; display: flex; align-items: center; gap: 16px;">
+                style="background: #1f2937; border-top: 1px solid #374151; padding: 8px 12px; color: #9ca3af; font-size: 12px; display: flex; align-items: center; gap: 16px; flex-shrink: 0;">
                 <div class="flex items-center gap-3 flex-wrap flex-1">
                     <span class="text-gray-400 text-xs">Map filter:</span>
                     <label class="flex items-center gap-1 cursor-pointer text-white text-xs">

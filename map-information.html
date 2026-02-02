@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layer Information</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #111827;
+            color: #e5e7eb;
+        }
+
+        .header-bg {
+            position: relative;
+            height: 200px;
+            background-size: cover;
+            background-position: center;
+            background-color: #1f2937;
+        }
+
+        .header-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.7));
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 24px;
+        }
+
+        .section {
+            background: #1f2937;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #f3f4f6;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #374151;
+        }
+
+        .info-row {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid #374151;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            min-width: 140px;
+            color: #9ca3af;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .info-value {
+            flex: 1;
+            color: #e5e7eb;
+            font-size: 13px;
+            word-break: break-word;
+        }
+
+        .code-block {
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 400px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px;
+            background: #111827;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <div class="header-bg" id="header-bg">
+        <div class="header-overlay"></div>
+        <div class="header-content">
+            <h1 id="layer-title" class="text-3xl font-bold text-white mb-2"></h1>
+            <div id="layer-type" class="text-sm text-gray-300"></div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="p-6 scrollbar-thin" style="max-height: calc(100vh - 200px); overflow-y: auto;">
+        <!-- Description -->
+        <div id="description-section" class="section" style="display: none;">
+            <div class="section-title">Description</div>
+            <div id="description-content" class="text-sm"></div>
+        </div>
+
+        <!-- Attribution -->
+        <div id="attribution-section" class="section" style="display: none;">
+            <div class="section-title">Attribution</div>
+            <div id="attribution-content" class="text-sm"></div>
+        </div>
+
+        <!-- Data Source -->
+        <div id="source-section" class="section" style="display: none;">
+            <div class="section-title">Data Source</div>
+            <div id="source-content"></div>
+        </div>
+
+        <!-- Legend -->
+        <div id="legend-section" class="section" style="display: none;">
+            <div class="section-title">Legend</div>
+            <div id="legend-content"></div>
+        </div>
+
+        <!-- Style -->
+        <div id="style-section" class="section" style="display: none;">
+            <div class="section-title">Style Properties</div>
+            <div id="style-content"></div>
+        </div>
+
+        <!-- Metadata -->
+        <div id="metadata-section" class="section" style="display: none;">
+            <div class="section-title">Metadata</div>
+            <div id="metadata-content"></div>
+        </div>
+
+        <!-- Raw Configuration -->
+        <div id="config-section" class="section">
+            <div class="section-title">Raw Configuration</div>
+            <pre id="config-content" class="code-block scrollbar-thin"></pre>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            const urlParams = new URLSearchParams(window.location.search);
+            const layerJson = urlParams.get('layer');
+
+            if (layerJson) {
+                try {
+                    const layer = JSON.parse(decodeURIComponent(layerJson));
+                    renderLayerInfo(layer);
+                } catch (error) {
+                    console.error('Error parsing layer data:', error);
+                    $('#layer-title').text('Error loading layer information');
+                }
+            }
+        });
+
+        function renderLayerInfo(layer) {
+            // Header
+            $('#layer-title').text(layer.title || layer.id || 'Unknown Layer');
+            $('#layer-type').text(`Type: ${(layer.type || 'unknown').toUpperCase()}`);
+
+            if (layer.headerImage) {
+                $('#header-bg').css('background-image', `url('${layer.headerImage}')`);
+            }
+
+            // Description
+            if (layer.description) {
+                $('#description-content').html(layer.description);
+                $('#description-section').show();
+            }
+
+            // Attribution
+            if (layer.attribution) {
+                $('#attribution-content').html(layer.attribution);
+                $('#attribution-section').show();
+            }
+
+            // Data Source
+            if (layer.type && layer.type !== 'style') {
+                const $sourceContent = $('#source-content');
+                $sourceContent.empty();
+
+                if (layer.type === 'vector') {
+                    $sourceContent.append(createInfoRow('Format', 'Vector Tiles'));
+                    if (layer.url) $sourceContent.append(createInfoRow('URL', layer.url));
+                    if (layer.sourceLayer) $sourceContent.append(createInfoRow('Source Layer', layer.sourceLayer));
+                    if (layer.maxzoom) $sourceContent.append(createInfoRow('Max Zoom', layer.maxzoom));
+                } else if (layer.type === 'geojson') {
+                    $sourceContent.append(createInfoRow('Format', 'GeoJSON'));
+                    if (layer.url) $sourceContent.append(createInfoRow('URL', layer.url));
+                } else if (layer.type === 'tms') {
+                    $sourceContent.append(createInfoRow('Format', 'Raster Tiles (TMS)'));
+                    if (layer.url) $sourceContent.append(createInfoRow('URL', layer.url));
+                    if (layer.tileSize) $sourceContent.append(createInfoRow('Tile Size', layer.tileSize));
+                } else if (layer.type === 'csv') {
+                    $sourceContent.append(createInfoRow('Format', 'CSV'));
+                    if (layer.url) $sourceContent.append(createInfoRow('URL', layer.url));
+                } else if (layer.type === 'raster-style-layer') {
+                    $sourceContent.append(createInfoRow('Format', 'Raster Style Layer'));
+                    if (layer.styleLayer) $sourceContent.append(createInfoRow('Style Layer', layer.styleLayer));
+                }
+
+                $('#source-section').show();
+            }
+
+            // Legend
+            if (layer.legendImage) {
+                const $img = $('<img>', {
+                    src: layer.legendImage,
+                    alt: 'Legend',
+                    css: {
+                        maxWidth: '100%',
+                        borderRadius: '4px'
+                    }
+                });
+                $('#legend-content').append($img);
+                $('#legend-section').show();
+            } else if (layer.style) {
+                const legendHtml = generateStyleLegend(layer);
+                if (legendHtml) {
+                    $('#legend-content').html(legendHtml);
+                    $('#legend-section').show();
+                }
+            }
+
+            // Style Properties
+            if (layer.style) {
+                const $styleContent = $('#style-content');
+                $styleContent.empty();
+
+                Object.entries(layer.style).forEach(([key, value]) => {
+                    $styleContent.append(createInfoRow(key, formatValue(value)));
+                });
+
+                $('#style-section').show();
+            }
+
+            // Metadata
+            const metadata = {};
+            if (layer.bbox) metadata['Bounding Box'] = formatValue(layer.bbox);
+            if (layer.minzoom) metadata['Min Zoom'] = layer.minzoom;
+            if (layer.maxzoom) metadata['Max Zoom'] = layer.maxzoom;
+            if (layer._sourceAtlas) metadata['Source Atlas'] = layer._sourceAtlas;
+            if (layer.opacity !== undefined) metadata['Opacity'] = `${Math.round(layer.opacity * 100)}%`;
+
+            if (Object.keys(metadata).length > 0) {
+                const $metadataContent = $('#metadata-content');
+                $metadataContent.empty();
+                Object.entries(metadata).forEach(([key, value]) => {
+                    $metadataContent.append(createInfoRow(key, value));
+                });
+                $('#metadata-section').show();
+            }
+
+            // Raw Configuration
+            $('#config-content').text(JSON.stringify(layer, null, 2));
+        }
+
+        function createInfoRow(label, value) {
+            const $row = $('<div>', { class: 'info-row' });
+            $row.append($('<div>', { class: 'info-label', text: label }));
+
+            let displayValue = value;
+            if (typeof value === 'string' && value.startsWith('http')) {
+                displayValue = $('<a>', {
+                    href: value,
+                    target: '_blank',
+                    text: value,
+                    css: { color: '#60a5fa', textDecoration: 'underline' }
+                });
+            }
+
+            const $valueDiv = $('<div>', { class: 'info-value' });
+            if (typeof displayValue === 'string') {
+                $valueDiv.text(displayValue);
+            } else {
+                $valueDiv.append(displayValue);
+            }
+            $row.append($valueDiv);
+
+            return $row;
+        }
+
+        function formatValue(value) {
+            if (value === null || value === undefined) return 'null';
+            if (Array.isArray(value)) return JSON.stringify(value);
+            if (typeof value === 'object') return JSON.stringify(value, null, 2);
+            return String(value);
+        }
+
+        function generateStyleLegend(layer) {
+            const style = layer.style;
+            let html = '';
+
+            // Helper to get simple value from expression
+            const getValue = (value, defaultValue = null) => {
+                if (typeof value === 'string' || typeof value === 'number') return value;
+                if (Array.isArray(value)) {
+                    for (let i = 1; i < value.length; i++) {
+                        if (typeof value[i] === 'string' || typeof value[i] === 'number') {
+                            return value[i];
+                        }
+                    }
+                }
+                return defaultValue;
+            };
+
+            // Point/Circle style
+            if (style['circle-radius'] || style['circle-color']) {
+                const color = getValue(style['circle-color'], '#3b82f6');
+                const radius = getValue(style['circle-radius'], 6);
+                const strokeColor = getValue(style['circle-stroke-color'], '#ffffff');
+                const strokeWidth = getValue(style['circle-stroke-width'], 1);
+                const opacity = getValue(style['circle-opacity'], 0.9);
+
+                html += `
+                    <div class="legend-item">
+                        <div style="width: ${radius * 2}px; height: ${radius * 2}px; background: ${color};
+                                    border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; opacity: ${opacity};"></div>
+                        <div class="text-sm">Point Feature</div>
+                    </div>`;
+            }
+
+            // Line style
+            if (style['line-color']) {
+                const color = getValue(style['line-color'], '#3b82f6');
+                const width = getValue(style['line-width'], 2);
+                const opacity = getValue(style['line-opacity'], 1);
+
+                html += `
+                    <div class="legend-item">
+                        <svg width="40" height="20">
+                            <line x1="0" y1="10" x2="40" y2="10"
+                                  stroke="${color}" stroke-width="${width}" opacity="${opacity}"/>
+                        </svg>
+                        <div class="text-sm">Line Feature</div>
+                    </div>`;
+            }
+
+            // Polygon style
+            if (style['fill-color']) {
+                const fillColor = getValue(style['fill-color'], '#3b82f6');
+                const fillOpacity = getValue(style['fill-opacity'], 0.5);
+                const lineColor = getValue(style['line-color'], '#1e40af');
+                const lineWidth = getValue(style['line-width'], 2);
+
+                html += `
+                    <div class="legend-item">
+                        <svg width="30" height="30">
+                            <rect x="2" y="2" width="26" height="26"
+                                  fill="${fillColor}" fill-opacity="${fillOpacity}"
+                                  stroke="${lineColor}" stroke-width="${lineWidth}"/>
+                        </svg>
+                        <div class="text-sm">Polygon Feature</div>
+                    </div>`;
+            }
+
+            return html;
+        }
+    </script>
+</body>
+
+</html>

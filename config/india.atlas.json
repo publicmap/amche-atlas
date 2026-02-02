@@ -2952,7 +2952,8 @@
       "title": "Bhuvan Satellite Imagery",
       "description": "High-resolution satellite imagery from ISRO Bhuvan",
       "tags": [
-        "basemap"
+        "basemap",
+        "satellite"
       ],
       "type": "wms",
       "url": "https://bhuvan-ras1.nrsc.gov.in/tilecache/tilecache.py?service=WMS&version=1.1.1&request=GetMap&layers=bhuvan_ocm_wbase&styles=&format=image/jpeg&transparent=false",

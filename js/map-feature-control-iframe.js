@@ -135,7 +135,8 @@ export class MapFeatureControl {
         this._panel.className = 'map-feature-panel';
 
         const isMobile = window.innerWidth <= 768;
-        const initialHeight = isMobile ? '40vh' : '200px';
+        const initialHeight = isMobile ? '40vh' : 'auto';
+        const maxHeight = isMobile ? '40vh' : '85vh';
 
         this._panel.style.cssText = `
             display: none;
@@ -145,7 +146,7 @@ export class MapFeatureControl {
             width: ${this.options.maxWidth};
             max-width: calc(100vw - 70px);
             height: ${initialHeight};
-            max-height: 90vh;
+            max-height: ${maxHeight};
             background: #111827;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -161,9 +162,27 @@ export class MapFeatureControl {
             width: 100%;
             height: 100%;
             border: none;
+            pointer-events: auto;
         `;
 
         this._panel.appendChild(this._iframe);
+
+        // Create drag handle overlay (invisible, sits on top of iframe header)
+        this._dragHandle = document.createElement('div');
+        this._dragHandle.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            cursor: move;
+            z-index: 10;
+            background: transparent;
+        `;
+        this._panel.appendChild(this._dragHandle);
+
+        // Setup drag on the panel itself
+        this._setupPanelDrag();
 
         // Close panel when clicking outside
         setTimeout(() => {
@@ -179,6 +198,65 @@ export class MapFeatureControl {
 
         // Apply initial responsive sizing
         this._handleResize();
+    }
+
+    /**
+     * Setup drag functionality on the panel
+     */
+    _setupPanelDrag() {
+        let isDragging = false;
+        let currentX = 0;
+        let currentY = 0;
+        let initialX = 0;
+        let initialY = 0;
+        let xOffset = 0;
+        let yOffset = 0;
+
+        const dragStart = (e) => {
+            initialX = e.clientX - xOffset;
+            initialY = e.clientY - yOffset;
+            isDragging = true;
+
+            // Disable iframe pointer events during drag
+            this._iframe.style.pointerEvents = 'none';
+            this._dragHandle.style.cursor = 'grabbing';
+        };
+
+        const dragEnd = () => {
+            initialX = currentX;
+            initialY = currentY;
+            isDragging = false;
+
+            // Re-enable iframe pointer events
+            this._iframe.style.pointerEvents = 'auto';
+            this._dragHandle.style.cursor = 'move';
+        };
+
+        const drag = (e) => {
+            if (isDragging) {
+                e.preventDefault();
+
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+
+                xOffset = currentX;
+                yOffset = currentY;
+
+                this._panel.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+            }
+        };
+
+        // Listen on the drag handle overlay
+        this._dragHandle.addEventListener('mousedown', dragStart);
+        document.addEventListener('mouseup', dragEnd);
+        document.addEventListener('mousemove', drag);
+
+        // Store listeners for cleanup
+        this._panelDragListeners = {
+            dragStart,
+            dragEnd,
+            drag
+        };
     }
 
     /**
@@ -200,6 +278,10 @@ export class MapFeatureControl {
                 this._removeLayer(event.data.layerId);
             } else if (event.data.type === 'inspector-height-change') {
                 this._adjustPanelHeight(event.data);
+            } else if (event.data.type === 'close-panel') {
+                this._hidePanel();
+            } else if (event.data.type === 'toggle-popups') {
+                this._togglePopups(event.data.enabled);
             }
         });
     }
@@ -214,7 +296,23 @@ export class MapFeatureControl {
         const layerConfigs = [];
 
         for (const [layerId, layerData] of activeLayers.entries()) {
-            layerConfigs.push(layerData.config);
+            const config = { ...layerData.config };
+
+            // Always resolve tags from registry to ensure cascaded tags are included
+            if (window.layerRegistry) {
+                const registryLayer = window.layerRegistry.getLayer(config.id);
+
+                if (registryLayer && registryLayer.tags) {
+                    if (!config.tags) {
+                        config.tags = registryLayer.tags;
+                    } else if (Array.isArray(config.tags) && Array.isArray(registryLayer.tags)) {
+                        // Merge tags from registry with config tags
+                        config.tags = [...new Set([...config.tags, ...registryLayer.tags])];
+                    }
+                }
+            }
+
+            layerConfigs.push(config);
         }
 
         this._iframe.contentWindow.postMessage({
@@ -288,15 +386,144 @@ export class MapFeatureControl {
     }
 
     /**
-     * Get active layers from state manager
+     * Get active layers from layer control and state manager
      */
     _getActiveLayersFromConfig() {
-        if (!this._stateManager) {
-            return new Map();
+        const activeLayers = new Map();
+
+        // Get layers from layer control's state (includes style layers)
+        if (window.layerControl && window.layerControl._state && window.layerControl._state.groups) {
+            window.layerControl._state.groups.forEach(group => {
+                // Check if layer is actually visible on the map
+                if (this._isLayerVisible(group)) {
+                    activeLayers.set(group.id, {
+                        config: group,
+                        interactive: group.type !== 'style' && group.type !== 'raster-style-layer'
+                    });
+                }
+            });
         }
 
-        const activeLayers = this._stateManager.getActiveLayers();
+        // Also get layers from state manager for interactive status
+        if (this._stateManager) {
+            const stateManagerLayers = this._stateManager.getActiveLayers();
+            stateManagerLayers.forEach((layerData, layerId) => {
+                if (activeLayers.has(layerId)) {
+                    // Update interactive status from state manager
+                    activeLayers.get(layerId).interactive = true;
+                } else {
+                    // Add if not already present
+                    activeLayers.set(layerId, layerData);
+                }
+            });
+        }
+
         return activeLayers;
+    }
+
+    /**
+     * Check if a layer is actually visible on the map
+     */
+    _isLayerVisible(layerConfig) {
+        if (!this._map) return false;
+
+        try {
+            // For style layers, check the layer control's state
+            // Style layers control existing base style layers and don't create new layers
+            if (layerConfig.type === 'style') {
+                // Check if layer is in the visible state from layer control
+                if (window.layerControl && window.layerControl._state) {
+                    const stateGroup = window.layerControl._state.groups.find(g => g.id === layerConfig.id);
+                    // If initiallyChecked or if we have state tracking, consider it visible
+                    // Style layers don't create map layers, so we rely on the layer control state
+                    return stateGroup && (stateGroup.initiallyChecked || this._hasVisibleStyleLayers(layerConfig));
+                }
+                // Fallback: check if it has initiallyChecked
+                return layerConfig.initiallyChecked === true;
+            }
+
+            // For raster-style-layer, check if matching layers exist and are visible
+            if (layerConfig.type === 'raster-style-layer') {
+                const style = this._map.getStyle();
+                if (!style || !style.layers) return false;
+
+                // Check if any map layer matches this config
+                const matchingLayers = style.layers.filter(layer => {
+                    return layer.id === layerConfig.id ||
+                           layer.id.startsWith(layerConfig.id + '-') ||
+                           layer.id.startsWith(layerConfig.id + ' ');
+                });
+
+                // If we found matching layers, check if at least one is visible
+                if (matchingLayers.length > 0) {
+                    return matchingLayers.some(layer => {
+                        const visibility = this._map.getLayoutProperty(layer.id, 'visibility');
+                        return visibility !== 'none';
+                    });
+                }
+                return false;
+            }
+
+            // For other layer types, check if the layer/source exists and is visible
+            const layer = this._map.getLayer(layerConfig.id);
+            if (layer) {
+                const visibility = this._map.getLayoutProperty(layerConfig.id, 'visibility');
+                return visibility !== 'none';
+            }
+
+            // Check for prefixed layer IDs
+            const style = this._map.getStyle();
+            if (style && style.layers) {
+                const matchingLayers = style.layers.filter(layer => {
+                    return layer.id.startsWith(layerConfig.id + '-') ||
+                           layer.id.startsWith(layerConfig.id + ' ') ||
+                           layer.id.startsWith(`geojson-${layerConfig.id}`) ||
+                           layer.id.startsWith(`vector-layer-${layerConfig.id}`) ||
+                           layer.id.startsWith(`csv-${layerConfig.id}`);
+                });
+
+                if (matchingLayers.length > 0) {
+                    return matchingLayers.some(layer => {
+                        const visibility = this._map.getLayoutProperty(layer.id, 'visibility');
+                        return visibility !== 'none';
+                    });
+                }
+            }
+
+            return false;
+        } catch (error) {
+            console.warn(`[MapFeatureControl] Error checking visibility for layer ${layerConfig.id}:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Check if any of a style layer's source layers are visible
+     */
+    _hasVisibleStyleLayers(layerConfig) {
+        if (!layerConfig.layers || !Array.isArray(layerConfig.layers)) {
+            return false;
+        }
+
+        const style = this._map.getStyle();
+        if (!style || !style.layers) return false;
+
+        // Check if any source layers from the config are visible
+        return layerConfig.layers.some(configLayer => {
+            const sourceLayer = configLayer.sourceLayer;
+            if (!sourceLayer) return false;
+
+            // Find map layers that use this source layer
+            const matchingLayers = style.layers.filter(layer => {
+                return layer['source-layer'] === sourceLayer;
+            });
+
+            // Check if any are visible
+            return matchingLayers.some(layer => {
+                const visibility = this._map.getLayoutProperty(layer.id, 'visibility');
+                return visibility !== 'none';
+            });
+        });
     }
 
     /**
@@ -461,6 +688,13 @@ export class MapFeatureControl {
 
         window.removeEventListener('resize', this._resizeListener);
         window.removeEventListener('orientationchange', this._resizeListener);
+
+        // Clean up drag listeners
+        if (this._panelDragListeners && this._dragHandle) {
+            this._dragHandle.removeEventListener('mousedown', this._panelDragListeners.dragStart);
+            document.removeEventListener('mouseup', this._panelDragListeners.dragEnd);
+            document.removeEventListener('mousemove', this._panelDragListeners.drag);
+        }
     }
 
     /**
@@ -688,27 +922,74 @@ export class MapFeatureControl {
         const { overlayOpen, basemapOpen, overlayCount, basemapCount } = data;
         const headerHeight = 48;
         const sectionHeaderHeight = 40;
-        const cardHeight = 60;
-        const padding = 20;
+        const cardHeight = 64; // Approximate height per layer card
+        const padding = 16;
 
-        let totalHeight = headerHeight + (sectionHeaderHeight * 2) + padding;
+        // Calculate base height (header + section headers + padding)
+        let contentHeight = headerHeight + padding;
 
+        // Add overlay section header
+        contentHeight += sectionHeaderHeight;
+
+        // Add overlay content if open
         if (overlayOpen && overlayCount > 0) {
-            totalHeight += Math.min(overlayCount * cardHeight, 300);
+            // Add height for each overlay card
+            contentHeight += overlayCount * cardHeight;
         }
 
+        // Add basemap section header
+        contentHeight += sectionHeaderHeight;
+
+        // Add basemap content if open
         if (basemapOpen && basemapCount > 0) {
-            totalHeight += Math.min(basemapCount * cardHeight, 200);
+            // Add height for each basemap card
+            contentHeight += basemapCount * cardHeight;
         }
 
+        // Determine max height based on screen size
         const isMobile = window.innerWidth <= 768;
         const maxHeight = isMobile ? window.innerHeight * 0.4 : window.innerHeight * 0.85;
-        const minHeight = headerHeight + (sectionHeaderHeight * 2) + padding;
 
-        const finalHeight = Math.min(Math.max(totalHeight, minHeight), maxHeight);
+        // Set minimum height to show at least headers
+        const minHeight = headerHeight + (sectionHeaderHeight * 2) + padding + 100;
+
+        // Use content height but cap at max height
+        const finalHeight = Math.min(Math.max(contentHeight, minHeight), maxHeight);
 
         this._panel.style.height = `${finalHeight}px`;
-        this._panel.style.maxHeight = `${maxHeight}px`;
+    }
+
+    /**
+     * Toggle popup display for hovered/selected features
+     */
+    _togglePopups(enabled) {
+        // Store the preference
+        this._showPopups = enabled;
+
+        // If disabling, remove any existing popups
+        if (!enabled) {
+            this._removeAllPopups();
+        }
+
+        // Update the state manager or map to show/hide popups
+        // This would integrate with the map's popup system
+        if (window.mapFeatureControl) {
+            window.mapFeatureControl.options.showHoverPopups = enabled;
+        }
+    }
+
+    /**
+     * Remove all popups from the map
+     */
+    _removeAllPopups() {
+        // Get all popups and remove them
+        const popups = document.querySelectorAll('.mapboxgl-popup');
+        popups.forEach(popup => {
+            const popupInstance = popup._popup;
+            if (popupInstance) {
+                popupInstance.remove();
+            }
+        });
     }
 
     /**

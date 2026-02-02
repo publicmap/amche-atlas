@@ -114,46 +114,6 @@
       "headerImage": "https://mapwarper.net/uploads/98327/thumb/Screenshot_2025-10-22_at_11.29.32%E2%80%AFPM.png",
       "bbox": "73.6232307,15.0563609,74.4812173,15.7425805",
       "initiallyChecked": false
-    },
-    {
-      "initiallyChecked": true,
-      "id": "mapbox-satellite",
-      "type": "raster-style-layer",
-      "title": "Satellite Imagery",
-      "description": "Satellite imagery from Mapbox. See <a href='https://docs.mapbox.com/help/dive-deeper/imagery/'>Mapbox Satellite Imagery</a> for details.",
-      "headerImage": "assets/map-layers/mhadei/map-layer-satellite.png",
-      "styleLayer": "satellite",
-      "style": {
-        "raster-contrast": 0.2,
-        "raster-saturation": 0.4,
-        "raster-brightness-min": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          8,
-          0.5,
-          16,
-          0.3
-        ],
-        "raster-brightness-max": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          8,
-          0.7,
-          16,
-          0.8
-        ],
-        "raster-opacity": 1
-      }
     }
   ]
 }
