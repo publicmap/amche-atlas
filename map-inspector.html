@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Map Inspector</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.16.0/cdn/themes/light.css" />
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.16.0/cdn/shoelace-autoloader.js"></script>
+    <script type="module"
+        src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.16.0/cdn/shoelace-autoloader.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <style>
@@ -231,17 +232,20 @@
 
 <body class="bg-gray-900 text-white">
     <!-- Header -->
-    <div class="header" id="drag-handle" style="background: #1f2937; padding: 12px; border-bottom: 1px solid #374151; cursor: move;">
+    <div class="header" id="drag-handle"
+        style="background: #1f2937; padding: 12px; border-bottom: 1px solid #374151; cursor: move;">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <div class="text-sm font-semibold" style="user-select: none;">Map Inspector</div>
+                <div class="text-sm font-semibold" style="user-select: none;">Map Layers</div>
                 <sl-dropdown distance="5" placement="bottom-start" id="options-dropdown">
-                    <button slot="trigger" class="text-xs" style="background: transparent; border: none; color: rgba(235, 235, 235, 0.7); cursor: pointer; padding: 4px 8px;">
+                    <button slot="trigger" class="text-xs"
+                        style="background: transparent; border: none; color: rgba(235, 235, 235, 0.7); cursor: pointer; padding: 4px 8px;">
                         Options
                     </button>
                     <sl-menu>
                         <sl-menu-item id="isolate-menu-item">
-                            <sl-switch size="small" checked style="pointer-events: none;" id="isolate-switch"></sl-switch>
+                            <sl-switch size="small" checked style="pointer-events: none;"
+                                id="isolate-switch"></sl-switch>
                             <span style="margin-left: 8px;">Isolate layers on click</span>
                         </sl-menu-item>
                         <sl-menu-item id="popups-menu-item">
@@ -251,15 +255,19 @@
                     </sl-menu>
                 </sl-dropdown>
             </div>
-            <button id="close-button" class="text-white" style="background: transparent; border: none; cursor: pointer; padding: 4px; opacity: 0.7; font-size: 20px; line-height: 1;" title="Close panel">×</button>
+            <button id="close-button" class="text-white"
+                style="background: transparent; border: none; cursor: pointer; padding: 4px; opacity: 0.7; font-size: 20px; line-height: 1;"
+                title="Close panel">×</button>
         </div>
     </div>
 
     <!-- Layer List -->
-    <div id="layer-container" style="display: flex; flex-direction: column; height: calc(100vh - 48px); overflow: hidden;">
+    <div id="layer-container"
+        style="display: flex; flex-direction: column; height: calc(100vh - 48px); overflow: hidden;">
         <!-- Overlay Maps Section -->
         <div style="flex-shrink: 0; background: #111827; padding: 8px 4px 0 4px;">
-            <div class="section-header" id="overlay-header" style="padding: 8px 12px; background: #374151; border-radius: 4px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between;">
+            <div class="section-header" id="overlay-header"
+                style="padding: 8px 12px; background: #374151; border-radius: 4px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between;">
                 <span class="text-xs font-semibold text-gray-300">
                     OVERLAY MAPS <span id="overlay-count" class="text-gray-400">(0)</span>
                 </span>
@@ -268,25 +276,32 @@
         </div>
 
         <!-- Overlay List (Scrollable) -->
-        <div id="overlay-list" class="scrollbar-thin" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px;"></div>
+        <div id="overlay-list" class="scrollbar-thin"
+            style="flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px;"></div>
 
         <!-- Base Maps Section -->
         <div style="flex-shrink: 0; background: #111827; padding: 0 4px 8px 4px;">
-            <div class="section-header" id="basemap-header" style="padding: 8px 12px; background: #374151; border-radius: 4px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <div class="section-header" id="basemap-header"
+                style="padding: 8px 12px; background: #374151; border-radius: 4px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
                 <span class="text-xs font-semibold text-gray-300">
                     BASE MAPS <span id="basemap-count" class="text-gray-400">(0)</span>
                 </span>
-                <span class="toggle-icon" style="font-size: 12px; transition: transform 0.2s; transform: rotate(-90deg);">▼</span>
+                <span class="toggle-icon"
+                    style="font-size: 12px; transition: transform 0.2s; transform: rotate(-90deg);">▼</span>
             </div>
-            <div id="basemap-list" class="scrollbar-thin" style="display: none; max-height: 40vh; overflow-y: auto; padding: 0 4px;"></div>
+            <div id="basemap-list" class="scrollbar-thin"
+                style="display: none; max-height: 40vh; overflow-y: auto; padding: 0 4px;"></div>
         </div>
     </div>
 
     <!-- Information Modal (iframe) -->
-    <div id="info-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 9999;">
-        <div style="position: absolute; top: 20px; right: 20px; left: 20px; bottom: 20px; background: #1f2937; border-radius: 8px; overflow: hidden;">
+    <div id="info-modal"
+        style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 9999;">
+        <div
+            style="position: absolute; top: 20px; right: 20px; left: 20px; bottom: 20px; background: #1f2937; border-radius: 8px; overflow: hidden;">
             <div style="position: absolute; top: 12px; right: 12px; z-index: 10;">
-                <button id="close-info-modal" style="width: 32px; height: 32px; border-radius: 4px; background: #374151; color: white; border: none; cursor: pointer; font-size: 20px; line-height: 1;">×</button>
+                <button id="close-info-modal"
+                    style="width: 32px; height: 32px; border-radius: 4px; background: #374151; color: white; border: none; cursor: pointer; font-size: 20px; line-height: 1;">×</button>
             </div>
             <iframe id="info-iframe" style="width: 100%; height: 100%; border: none;"></iframe>
         </div>
@@ -498,7 +513,7 @@
 
             activeLayers.forEach(layerConfig => {
                 const isBasemap = layerConfig.tags && Array.isArray(layerConfig.tags) &&
-                                layerConfig.tags.includes('basemap');
+                    layerConfig.tags.includes('basemap');
 
                 if (isBasemap) {
                     baseMaps.push(layerConfig);

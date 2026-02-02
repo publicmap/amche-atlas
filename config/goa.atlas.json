@@ -50,6 +50,10 @@
   },
   "layers": [
     {
+      "tags": [
+        "disaster",
+        "live"
+      ],
       "title": "Live Fire Trucks",
       "description": "Live locations of fire trucks from the Directorate of Fire Emergency Services. Location updated every 5 minutes from <a href='https://github.com/publicmap/goa-fire-trucks-geojson/'>Goa Fire Trucks API</a>.",
       "headerImage": "assets/map-layers/goa/map-layer-fire-trucks.png",
@@ -120,6 +124,10 @@
       }
     },
     {
+      "tags": [
+        "basemap",
+        "amenity"
+      ],
       "title": "Schools",
       "description": "Schools locations by capacity",
       "headerImage": "assets/map-layers/goa/map-layer-schools.png",
@@ -226,6 +234,10 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "regulatory",
+        "slope"
+      ],
       "id": "slope",
       "title": "Slope Zoning",
       "description": "Slope zone classification using <a href='https://asterweb.jpl.nasa.gov/gdem.asp'>NASA NASADEM 30m</a> for entire Goa and <a href='https://bhuvan-app3.nrsc.gov.in/data/'>ISRO CartoDEM 2.5m (Bardez)</a> terrain data for Bardez taluka.<br>The output is a 30x30m grid indicating the minimum gradient within that cell. Details of the algorithm are in the <a href='https://github.com/publicmap/amche-goa/blob/main/data/slope/dem_slope_processor.py'>slope processor script</a>.",
@@ -257,6 +269,10 @@
       "attribution": "<a href='https://mapwarper.net/layers/2157'>CC-BY-SA Mapwarper community maps of Goa</a>"
     },
     {
+      "tags": [
+        "regulatory",
+        "masterplan"
+      ],
       "title": "Regional Development Plan for Goa 2021",
       "description": "Regional landuse plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
       "headerImage": "assets/map-layers/goa/map-layer-rdp.png",
@@ -268,6 +284,10 @@
       "initiallyChecked": true
     },
     {
+      "tags": [
+        "regulatory",
+        "masterplan"
+      ],
       "title": "Outline Development Plan 2011",
       "description": "Outline Development Plan 2011 prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a>",
       "headerImage": "assets/map-layers/goa/map-layer-rdp.png",
@@ -278,6 +298,10 @@
       "attribution": "<a href='https://tcp.goa.gov.in/'>Outline Development Plan 2011, TCP Goa</a>. Georeferenced using <a href='https://mapwarper.net/layers/2151#Show_tab'>Mapwarper</a>"
     },
     {
+      "tags": [
+        "regulatory",
+        "masterplan"
+      ],
       "title": "Taluka Land Use Plans 2021",
       "description": "Taluka level regional plans",
       "date": "",
@@ -294,6 +318,9 @@
       }
     },
     {
+      "tags": [
+        "survey"
+      ],
       "title": "Water Body Atlas 2025",
       "description": "Springs, lakes and other minor water bodies surveyed by the Department of Water Resources, Government of Goa.",
       "headerImage": "assets/map-layers/goa/map-layer-water-bodies.png",
@@ -331,6 +358,9 @@
       }
     },
     {
+      "tags": [
+        "boundaries"
+      ],
       "initiallyChecked": true,
       "title": "Local Body Boundaries",
       "description": "Municipal and Panchayat local body boundaries. Please see <a href='https://grammanchitra.gov.in/gm4MVC' target='_blank'>Gramanchiitra</a> for panchayat demographic profile and information on elected representatives.",
@@ -433,6 +463,9 @@
       }
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "title": "Plots with No Development Slopes",
       "description": "Survey numbers with No Development Slopes (NDS). The output location of plots having atleast 25% of the plot area with NDS or slopes greater than 1:4 (25% slope).<br>Processed using slope computed with NASADEM 30m data and cadastral boundaries from OneMapGoa GIS. See <a href='https://github.com/publicmap/amche-goa/tree/main/data/slope'>processing code</a> for details.",
       "headerImage": "assets/map-layers/goa/map-layer-nds-plots.png",
@@ -622,6 +655,9 @@
       }
     },
     {
+      "tags": [
+        "survey"
+      ],
       "title": "Survey Plot Boundaries",
       "description": "Survey and plot subdivision boundaries from the <a href='Directorate of Settlement & Land Records'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31' target='_blank' rel='noopener noreferrer'>Goa Online</a> and <a href='https://dslr.goa.gov.in/f114new.aspx' target='_blank' rel='noopener noreferrer'>Directorate of Settlement & Land Records (Form 1 & 14)</a>",
       "headerImage": "assets/map-layers/goa/map-layer-survey.png",
@@ -742,6 +778,9 @@
       }
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "id": "bhunaksha-communidade",
       "title": "Communidade Lands (Bhunaksha)",
       "description": "Land parcels with 'Communidade'or variants listed in Bhunaksha Goa occupant info.",
@@ -783,6 +822,9 @@
       }
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "id": "bhunaksha-government",
       "title": "Government Lands (Bhunaksha)",
       "description": "Land parcels with 'Government' or variants listed in Bhunaksha Goa occupant info.",
@@ -805,6 +847,9 @@
       }
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "id": "bhunaksha-tenanted",
       "title": "Tenanted Lands (Bhunaksha)",
       "description": "Land parcels with 'Tenant' or variants listed in Bhunaksha Goa occupant info.",
@@ -827,6 +872,9 @@
       }
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "id": "communidade-plots",
       "title": "Communidade Land",
       "description": "Land parcels governed by the <a href='https://cdn.s3waas.gov.in/s3d840cc5d906c3e9c84374c8919d2074e/uploads/2018/07/2018070597.pdf'>Code of Communidades</a>. Prepared using survey numbers submitted by the following communidadeds: Goltim, Saligao.",
@@ -847,6 +895,9 @@
       }
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "title": "Notified Private Forests",
       "description": "Private forests identified by Thomas and Arujao expert committees",
       "headerImage": "assets/map-layers/goa/map-layer-forest.png",
@@ -873,6 +924,9 @@
       }
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "title": "Notified Wetlands",
       "description": "Maps of notified wetland 50m buffer zones and 10m zones of influence.",
       "headerImage": "assets/map-layers/goa/map-layer-wetland-buffer.png",
@@ -883,6 +937,9 @@
       "attribution": "<a href='https://gswa.goa.gov.in/gazette-notification/'>Gazette Notifications, Goa State Wetland Authority</a>. Georeferenced using <a href='https://mapwarper.net/layers/2359'>Mapwarper</a>"
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "id": "notified-wetland-plots",
       "title": "Notified Wetlands Plots",
       "description": "Notified Wetlands as per the <a href='https://gswa.goa.gov.in/gazette-notification/'>Goa State Wetland Authority Notifications</a>",
@@ -1051,6 +1108,9 @@
       }
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "title": "Bund Sluice Gates",
       "description": "Sluice gates for notified bunds existing before 1991 from Goa CZMP. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a>",
       "type": "vector",
@@ -1090,6 +1150,9 @@
       "headerImage": "https://api-main-432878571563.europe-west4.run.app/maps/f7c37496-7c7d-484d-8339-bcb0f2e39c4b/thumbnail"
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "title": "Notified Khazan Bunds",
       "description": "Notified and private Khazan Bunds from Goa CZMP. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a>",
       "type": "vector",
@@ -1167,6 +1230,9 @@
       "headerImage": "https://api-main-432878571563.europe-west4.run.app/maps/f7c37496-7c7d-484d-8339-bcb0f2e39c4b/thumbnail"
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "id": "notified-khazan",
       "title": "Notified Khazan Lands",
       "description": "Notified and protected Khazan Lands from Goa CZMP. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a> <br><small>The ground truthing of the Marginal bunds, sluice gates and the defended Khazan lands was carried out by the Water Resources Department, along with the Members of Bio Diversity, Surveyors of DSLR. Soil Conservation Engineers of the Agriculture department, Forest officials.</p><p>It is further certified that the ground truthing is carried with details enumerated on the Toposheets published by the Survey of India in the year 1964, Cadastral village maps published by the land survey department in the year 1972-76. The Khazan land, bunds sluice gates mapped by the village Panchayat were also used utilised for identification and ground truthing. Thus, the Bunds/Sluice gates and Khazan Lands shown in this map are verified and it is certified that the Bunds and Sluice gates shown in this map exist now and were constructed in the past, prior to the date of notification issued vide S. O. 114(E) dated 19th February 1999.</small>",
@@ -1188,6 +1254,9 @@
       }
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "id": "crz-1a",
       "title": "CRZ-1A Protected Areas",
       "description": "Protected coastal features of mangroves, sand dunes, mudflats, salt pans, corals, nesting sites and archaeological sites falling under CRZ-1A zone from Goa CZMP. View <a href='https://drive.google.com/file/d/1uo4bHGPvci1uR3cMhzvke7LzF_onKqLK/view?usp=sharing'>Coastal Sand Dunes of Goa Report by NCSCM</a> - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a> for more information.",
@@ -1298,6 +1367,9 @@
       }
     },
     {
+      "tags": [
+        "landuse"
+      ],
       "title": "Current Landuse Map (Panjim)",
       "description": "Current Land-Use data for Panaji Urban Agglomeration collected in 2020-2023 under <a href='http://164.100.87.10/DocumentOMs.aspx'>Atal Mission for Rejuvenation and Urban Transformation (AMRUT)</a> at 1:4000 scale.",
       "headerImage": "assets/map-layers/goa/map-layer-landuse-amrut.png",
@@ -1710,6 +1782,9 @@
       }
     },
     {
+      "tags": [
+        "construction"
+      ],
       "title": "Bhutani Project Site Plan With Contours",
       "description": "For proposed project in Survey No. 257/1 in Sancoale, Mormugao, Goa.\r\n\r\nObtained via RTI",
       "source": "https://drive.google.com/drive/folders/1PlkPwtWfuFjfjHiPmDuC7y-KNXp2QZz6",
@@ -1741,6 +1816,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "construction"
+      ],
       "title": "Bhutani Project Site Plan With Drainage",
       "description": "For proposed project in Survey No. 257/1 in Sancoale, Mormugao, Goa. Obtained via RTI ",
       "source": "",
@@ -1772,6 +1850,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "construction"
+      ],
       "title": "PM Ekta Unity Mall at Chimbel Goa",
       "description": "Poposed Plan For PM Ekta Unity Mall at Chimbel from ekta mall_landscape layout.pdf",
       "date": "",
@@ -1801,6 +1882,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "construction"
+      ],
       "title": "Swadesh Darshan - Project Plans",
       "description": "Map 14: Proposed Interventions for Development of Nautical and Ecological Experience in and around Ekoshim Creek<br>Map 15: Proposed Elements of Ekoshim Road Promenade Development",
       "source": "https://sd2.tourism.gov.in/DocumentRepoFiles/MasterPlan/MP353addb8-ecdb-4942-8cff-6f71e069304a.pdf",
@@ -1831,6 +1915,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "construction"
+      ],
       "title": "Swadesh Darshan - Project Drawings",
       "source": "https://sd2.tourism.gov.in/DocumentRepoFiles/MasterPlan/MP353addb8-ecdb-4942-8cff-6f71e069304a.pdf",
       "date": "",
@@ -1860,6 +1947,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "title": "Goa Mining Leases Map",
       "description": "Carta das concessos mineira do distrito do Goa showing all the Portuguese era mining leases in Goa.<br> Obtained via Goa Foundation",
       "source": "",
@@ -1890,6 +1980,112 @@
       "initiallyChecked": false
     },
     {
+      "title": "Zonation Map of Madei Wildlife Sanctuary",
+      "description": "From the Management Plan, Madei WLS",
+      "source": "https://forest.goa.gov.in/sites/default/files/2025-09/Management-Plan-of-Madei-Widllife-Sanctuary.pdf",
+      "dateDepicted": "",
+      "type": "tms",
+      "id": "mhadei-wls-zonation-map",
+      "url": "https://mapwarper.net/maps/tile/97500/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://mapwarper.net/maps/97500#Rectify_tab' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/97500/thumb/Screenshot_2025-09-30_at_3.06.41%E2%80%AFPM.png",
+      "bbox": "74.0563668,15.3793377,74.3106547,15.7209933",
+      "initiallyChecked": false
+    },
+    {
+      "title": "Mhadei Diversion Project",
+      "description": "Construction Project Sites for Mhadei RiverDiversion Project by Karnataka",
+      "headerImage": "assets/map-layers/mhadei/map-layer-construction.png",
+      "type": "geojson",
+      "id": "mhadei-diversion-project",
+      "url": "https://gist.githubusercontent.com/planemad/841266d3a44935383860dcb4d3c8e322/raw/03002a2ea4f029c39ca22b8865552b94c10435d9/mhadei-project.geojson",
+      "attribution": "Collected by <a href='https://gist.github.com/planemad/841266d3a44935383860dcb4d3c8e322'>Amche Goa Community</a>",
+      "style": {
+        "line-color": "blue",
+        "fill-color": "blue",
+        "fill-opacity": [
+          "match",
+          [
+            "get",
+            "type"
+          ],
+          "reservoir",
+          0.6,
+          "catchment",
+          0.2,
+          0
+        ],
+        "line-width": 5,
+        "line-opacity": 0.5,
+        "text-color": "white",
+        "text-halo-color": "blue",
+        "text-halo-width": 2,
+        "text-size": 12
+      },
+      "inspect": {
+        "title": "Name",
+        "label": "name",
+        "fields": [
+          "type",
+          "description"
+        ],
+        "fieldTitles": [
+          "Type",
+          "Description"
+        ]
+      }
+    },
+    {
+      "title": "Map showing Mahadayi river along with its riparian states",
+      "description": "River basin boundaries are plotted in bold gray curves. The\r\nGoa state boundary is plotted as a black curve and the Karnataka-Maharashtra state boundary as a yellow curve. The greenish curve\r\nrunning from top to bottom east of the Goa-Karnataka boundary is the meteorological ridge separating the windward and leeward sides.\r\nThe background colour is used to highlight distinct areas of the Mahadayi river basin and the adjacent river basins. The Mahadayi river\r\nbasin is divided into five sub-regions: freshwater and salt-water regimes in Goa,windward and leeward sides of the ridge in Karnataka, and\r\nthe sub-basin in Maharashtra. Other adjacent river basins (where various water transfer projects have been planned) are also highlighted:\r\nKalinadi or Kali basin, Malaprabha basin, Chapora (Tillari) basin, and Zuari basin. Towns, dams in Goa and the proposed dams, wildlife\r\nsanctuaries and national parks, the state-border crossing points for the streams, the limit of tidal incursion or the freshwater limiting point,\r\nand water treatment plants.",
+      "source": "https://www.ias.ac.in/public/Volumes/jess/133/00/0182/0182suppl.pdf",
+      "dateDepicted": "",
+      "type": "tms",
+      "id": "basin-zones",
+      "url": "https://mapwarper.net/maps/tile/98327/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "The water budget of the Mahadayi river and its implications for the inter-state dispute via<a href='https://mapwarper.net/maps/98327' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/98327/thumb/Screenshot_2025-10-22_at_11.29.32%E2%80%AFPM.png",
+      "bbox": "73.6232307,15.0563609,74.4812173,15.7425805",
+      "initiallyChecked": false
+    },
+    {
+      "tags": [
+        "historic"
+      ],
       "title": "AMS Goa Maps (1970s)",
       "description": "1:250000 maps from the U.S. Army Map Service created 1955-1970s",
       "headerImage": "assets/map-layers/goa/map-layer-ams.png",
@@ -1899,6 +2095,9 @@
       "attribution": "<a href='https://maps.lib.utexas.edu/maps/ams/india/'>Perry-Castañeda Library Map Collection, The University of Texas at Austin</a> released in public domain"
     },
     {
+      "tags": [
+        "transit"
+      ],
       "title": "Kadamba Bus Routes",
       "id": "bus",
       "description": "Bus route network operated by Kadamba Transport Corporation Limited (KTCL) in Goa as on January 2025.Bus route lines are scaled by trip count.",
@@ -1914,6 +2113,9 @@
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Goa_Bus_Network_Map_2025.png'>CC-BY Wikipedia/user:Planemad</a>, CC-by <a href='https://ktclgoa.com/gtfs/'>Kadamba Transport Corporation Limited GTFS updated Jan 2025</a>"
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "title": "Proposed Tiger Reserve for Goa",
       "description": "Proposed Tiger Reserve Plan showing the location of all habitats, all weather roads, large habitations excluded from the proposed tiger reserve and household particulars inside & outside the proposed proposed Tiger Reserve",
       "source": "",
@@ -1944,6 +2146,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "survey"
+      ],
       "title": "Forest Map Of Goa 2007",
       "description": "Forest Survey Map Of Goa 2007 by Forest Department of Goa. Map shows administrative jurisdiction limits and divisions of the forest of Goa. Map also includes details of revenue village divisions (outlined red) and major roads (yellow). See <a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg' target='_blank'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a>",
       "source": "<a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg' target='_blank'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a>",
@@ -1975,6 +2180,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "basemap"
+      ],
       "title": "District",
       "description": "Mask for the district of Goa.",
       "headerImage": "assets/map-layers/goa/map-layer-goa-districts.png",
@@ -2074,6 +2282,9 @@
       }
     },
     {
+      "tags": [
+        "survey"
+      ],
       "title": "Forest Type Map of Goa",
       "description": "Based on digital interpretation of IRS P6 LISS-III remote sensing data.",
       "source": "https://forest.goa.gov.in/sites/default/files/inline-images/fcm.jpg",
@@ -2102,6 +2313,9 @@
       "headerImage": "https://mapwarper.net/uploads/95901/thumb/ftm_0.png"
     },
     {
+      "tags": [
+        "survey"
+      ],
       "title": "Forest Cover Map of Goa",
       "description": "Based on digital interpretation of IRS P6 LISS-III remote sensing data.",
       "source": "https://forest.goa.gov.in/sites/default/files/inline-images/fcm.jpg",
@@ -2130,6 +2344,9 @@
       "headerImage": "https://mapwarper.net/uploads/95898/thumb/fcm.png"
     },
     {
+      "tags": [
+        "regulatory"
+      ],
       "title": "Tillari Command Area Development Scheme",
       "description": "Notified Command Area Development Scheme for the Tillari Irrigation Project covering talukas of Bicholim, Pernem and Bardez in North Goa.",
       "headerImage": "assets/map-layers/goa/map-layer-tillari.png",
@@ -2140,6 +2357,9 @@
       "attribution": "<a href='https://archive.org/details/in.goa.egaz.2425-36.SI/2425-36-SI-EOG-2/'>Department of Water Resources, Government of Goa, notified on 2024-12-06</a>. Georeferenced using <a href='https://mapwarper.net/layers/2267#Show_tab'>Mapwarper</a>"
     },
     {
+      "tags": [
+        "landuse"
+      ],
       "title": "Village Panchayat Landuse Survey",
       "description": "Salvador Do Mundo VP Landuse Survey",
       "type": "tms",
@@ -2180,6 +2400,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "historic"
+      ],
       "title": "Plan of Panjim (1888)",
       "description": "From: https://commons.wikimedia.org/wiki/File:1888_Plan_of_Nova_Goa_(Panjim).jpg",
       "source": "https://commons.wikimedia.org/wiki/File:1888_Plan_of_Nova_Goa_(Panjim).jpg",
@@ -2209,6 +2432,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "historic"
+      ],
       "title": "Plan of Mapusa (1888)",
       "description": "Plan of the town of Mapuçá: municipality of Bardez / reduced and drawn in the Public Works Directorate, on October 26, 1888, by the draftsman José Francisco da Silva",
       "source": "https://commons.wikimedia.org/wiki/File:1888_plan_of_Mapusa.jpg",
@@ -2238,6 +2464,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "historic"
+      ],
       "title": "Plan of Mormugao (1840)",
       "description": "Map of Mormugão / drawn and offered to the Most Illustrious Mr. Adrião Acácio da Silvr.a Pinto by Infantry Captain Jozé Manoel de Carvalho e Souza. - 1840. - 1 drawing: Indian ink and red washes; 51 x 79 cm",
       "source": "https://commons.wikimedia.org/wiki/File:1840_Plan_of_Mormugao.jpg",
@@ -2267,6 +2496,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "historic"
+      ],
       "title": "Portuguese Territory at Goa (1814)",
       "description": "From: https://commons.wikimedia.org/wiki/File:1814_Portugueze_Territory_at_Goa.jpg",
       "source": "https://commons.wikimedia.org/wiki/File:1814_Portugueze_Territory_at_Goa.jpg",
@@ -2296,6 +2528,9 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "historic"
+      ],
       "title": "Goa Admiralty Chart (1914)",
       "description": "Nautical chart of the West Coast of India from Achra River to Cape Ramas. Surveyed by Lieut. A.D. Taylor 1853-4 for Eat India Company. Not current - not to be used for navigation!",
       "headerImage": "assets/map-layers/goa/map-layer-1914-admiralty-chart.png",

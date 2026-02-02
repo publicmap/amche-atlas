@@ -1,6 +1,6 @@
 {
   "name": "OpenStreetMap",
-  "description": "Freely editable map of the world.",
+  "description": "Freely editable map of the world by <a href='https://openstreetmap.org/'>OpenStreetMap contributors</a>. Join your <a href='https://openstreetmap.community'>community</a>",
   "areaOfInterest": "Global",
   "tags": [
     "basemap"
@@ -1030,8 +1030,8 @@
     },
     {
       "id": "mapnik",
-      "title": "OpenStreetMap",
-      "description": "Map data contributed by the <a href='https://www.openstreetmap.in/'>OpenStreetMap India Community.</a>",
+      "title": "OpenStreetMap Carto",
+      "description": "Map data contributed by the <a href='https://www.openstreetmap.in/'>OpenStreetMap India Community</a> rendered in the deafult <a href='https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto'>OSM Carto style</a>",
       "headerImage": "assets/map-layers/osm/map-layer-osm.png",
       "type": "tms",
       "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",

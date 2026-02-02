@@ -2,19 +2,6 @@
   "name": "Amche Atlas",
   "areaOfInterest": "Goa, India",
   "description": "Atlas of Goa by the <a href='https://amche.in'>Amche Atlas</a> community",
-  "tags": [
-    "historic",
-    "india",
-    "streets",
-    "traffic",
-    "pedestrian",
-    "roads",
-    "geology",
-    "atlas",
-    "survey",
-    "plan",
-    "regulation"
-  ],
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/index.atlas.json",
   "color": "#2563eb",
@@ -27,8 +14,8 @@
     "zoom": 11.4
   },
   "ui": {
-    "title": "Maps नकासो",
-    "shareButton": "Share वांटो"
+    "title": "Maps",
+    "shareButton": "Share"
   },
   "atlases": [
     "osm",
@@ -44,7 +31,6 @@
     "kerala",
     "india",
     "world",
-    "mhadei",
     "mapbox"
   ],
   "geojson": {

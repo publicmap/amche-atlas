@@ -161,7 +161,9 @@
                         style="display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.625rem 0.75rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s;">
                         <svg style="width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px;" fill="currentColor"
                             viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                            <path fill-rule="evenodd"
+                                d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                                clip-rule="evenodd" />
                         </svg>
                         <div>
                             <div style="font-size: 0.9375rem; font-weight: 500; line-height: 1.2;">Latest Updates</div>
@@ -307,13 +309,13 @@
     <!-- Latest Updates Presentation Modal -->
     <div id="updates-modal-overlay"
         style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 2000; align-items: center; justify-content: center;">
-        <div style="position: relative; width: 90%; max-width: 1200px; height: 90vh; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);">
+        <div
+            style="position: relative; width: 90%; max-width: 1200px; height: 90vh; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);">
             <button id="updates-modal-close"
                 style="position: absolute; top: 10px; right: 10px; z-index: 2001; background: rgba(0, 0, 0, 0.7); border: none; color: white; font-size: 24px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;"
-                onmouseover="this.style.background='rgba(0, 0, 0, 0.9)'" onmouseout="this.style.background='rgba(0, 0, 0, 0.7)'">&times;</button>
-            <iframe id="updates-iframe"
-                style="width: 100%; height: 100%; border: none;"
-                src="about:blank"
+                onmouseover="this.style.background='rgba(0, 0, 0, 0.9)'"
+                onmouseout="this.style.background='rgba(0, 0, 0, 0.7)'">&times;</button>
+            <iframe id="updates-iframe" style="width: 100%; height: 100%; border: none;" src="about:blank"
                 allowfullscreen="true"></iframe>
         </div>
     </div>
@@ -465,55 +467,7 @@
         <!-- Map Container -->
         <main class="flex-grow relative h-full">
             <div id="map" style="width: 100%; height: 100%;"></div>
-            <!-- Add drawer inside the map container -->
-            <sl-drawer id="map-controls-drawer" label="Maps नकासो" placement="end" class="drawer-placement-end">
-                <div slot="label" class="flex items-center gap-2">
-                    <sl-icon name="globe" style="font-size: 16px;"></sl-icon>
-                    Maps नकासो
-                </div>
-                <div id="map-layer-filter" class="sticky top-0 z-10 hidden">
-                    <!-- Search Input -->
-                    <div class="mb-3">
-                        <sl-input id="layer-search-input" placeholder="Search layers..." clearable class="w-full"
-                            size="small">
-                            <sl-icon slot="prefix" name="search"></sl-icon>
-                        </sl-input>
-                    </div>
-
-                    <!-- Filters Section -->
-                    <div class="pt-3 border-t border-gray-700">
-                        <div class="text-xs text-gray-400 mb-2 px-1">Filters</div>
-                        <div class="flex flex-col gap-2">
-                            <label class="flex items-center gap-2 text-sm text-white cursor-pointer">
-                                <sl-checkbox id="filter-active-maps" size="small"></sl-checkbox>
-                                <span>Active Maps</span>
-                            </label>
-                            <label class="flex items-center gap-2 text-sm text-white cursor-pointer">
-                                <sl-checkbox id="filter-maps-in-view" size="small" checked></sl-checkbox>
-                                <span>Maps in current view</span>
-                            </label>
-                            <div class="flex items-center gap-2 text-sm text-white mt-1">
-                                <span class="text-gray-400">Atlas:</span>
-                                <button id="atlas-filter-select" class="atlas-selector-btn flex-1">
-                                    <sl-icon name="globe" style="font-size: 14px; margin-right: 6px;"></sl-icon>
-                                    <span id="atlas-filter-text">All Atlases</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- New Layer Button -->
-                    <div class="mt-3 pt-3 border-t border-gray-700">
-                        <button id="new-layer-btn"
-                            class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors">
-                            <sl-icon name="plus-square" style="font-size: 14px;"></sl-icon>
-                            <span>New Data Source</span>
-                        </button>
-                    </div>
-                </div>
-                <div id="layer-controls-container"></div>
-            </sl-drawer>
-
+            <div id="map-layer-filter" class="sticky top-0 z-10 hidden">
         </main>
     </div>
 </body>

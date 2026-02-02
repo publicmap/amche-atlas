@@ -114,7 +114,15 @@ export class MapFeatureControl {
         button.className = 'mapboxgl-ctrl-icon map-feature-control-btn map-control-dark';
         button.type = 'button';
         button.setAttribute('aria-label', 'Map Inspector');
-        button.innerHTML = '<span style="font-size: 18px;">ℹ️</span>';
+        button.style.cssText = `
+            width: 31px;
+            height: 31px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        `;
+        button.innerHTML = '<span style="font-size: 20px; line-height: 1;"><sl-icon name="layers" style="font-size: 14px;" aria-hidden="true" library="default"></sl-icon></span>';
 
         // Add event handlers
         button.addEventListener('click', () => {
@@ -450,8 +458,8 @@ export class MapFeatureControl {
                 // Check if any map layer matches this config
                 const matchingLayers = style.layers.filter(layer => {
                     return layer.id === layerConfig.id ||
-                           layer.id.startsWith(layerConfig.id + '-') ||
-                           layer.id.startsWith(layerConfig.id + ' ');
+                        layer.id.startsWith(layerConfig.id + '-') ||
+                        layer.id.startsWith(layerConfig.id + ' ');
                 });
 
                 // If we found matching layers, check if at least one is visible
@@ -476,10 +484,10 @@ export class MapFeatureControl {
             if (style && style.layers) {
                 const matchingLayers = style.layers.filter(layer => {
                     return layer.id.startsWith(layerConfig.id + '-') ||
-                           layer.id.startsWith(layerConfig.id + ' ') ||
-                           layer.id.startsWith(`geojson-${layerConfig.id}`) ||
-                           layer.id.startsWith(`vector-layer-${layerConfig.id}`) ||
-                           layer.id.startsWith(`csv-${layerConfig.id}`);
+                        layer.id.startsWith(layerConfig.id + ' ') ||
+                        layer.id.startsWith(`geojson-${layerConfig.id}`) ||
+                        layer.id.startsWith(`vector-layer-${layerConfig.id}`) ||
+                        layer.id.startsWith(`csv-${layerConfig.id}`);
                 });
 
                 if (matchingLayers.length > 0) {

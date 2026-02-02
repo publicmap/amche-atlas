@@ -1294,10 +1294,10 @@ export class MapSearchControl {
                             top: 100%;
                             left: 0;
                             right: 0;
-                            background: white;
-                            border: 1px solid #ccc;
+                            background: #1f2937;
+                            border: 1px solid #374151;
                             border-radius: 4px;
-                            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
                             max-height: 200px;
                             overflow-y: auto;
                             z-index: 1000;
@@ -1348,11 +1348,11 @@ export class MapSearchControl {
 
                 // Create the suggestion HTML with robust styling
                 const suggestionHtml = `
-                    <div class="mbx09bc48e7--Suggestion local-suggestion" 
-                         role="option" 
-                         tabindex="-1" 
-                         id="mbx09bc48e7-ResultsList-${suggestionIndex}" 
-                         aria-posinset="${suggestionIndex + 1}" 
+                    <div class="mbx09bc48e7--Suggestion local-suggestion"
+                         role="option"
+                         tabindex="-1"
+                         id="mbx09bc48e7-ResultsList-${suggestionIndex}"
+                         aria-posinset="${suggestionIndex + 1}"
                          aria-setsize="${totalCount}"
                          data-suggestion-index="${suggestionIndex}"
                          data-local-index="${index}"
@@ -1362,15 +1362,15 @@ export class MapSearchControl {
                              align-items: center;
                              padding: 8px 12px;
                              cursor: pointer;
-                             background: white;
-                             border-bottom: 1px solid #eee;
+                             background: #1f2937;
+                             border-bottom: 1px solid #374151;
                              min-height: 40px;
                              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                          ">
                         <div class="mbx09bc48e7--SuggestionIcon" aria-hidden="true" style="margin-right: 8px; font-size: 16px;">📍</div>
                         <div class="mbx09bc48e7--SuggestionText" style="flex: 1; overflow: hidden;">
-                            <div class="mbx09bc48e7--SuggestionName" style="font-weight: 500; color: #333; font-size: 14px; line-height: 1.2;">${plotName}</div>
-                            <div class="mbx09bc48e7--SuggestionDesc" style="color: #666; font-size: 12px; line-height: 1.2; margin-top: 2px;">${plotDesc}</div>
+                            <div class="mbx09bc48e7--SuggestionName" style="font-weight: 500; color: #f3f4f6; font-size: 14px; line-height: 1.2;">${plotName}</div>
+                            <div class="mbx09bc48e7--SuggestionDesc" style="color: #9ca3af; font-size: 12px; line-height: 1.2; margin-top: 2px;">${plotDesc}</div>
                         </div>
                     </div>
                 `;
@@ -1414,7 +1414,7 @@ export class MapSearchControl {
                     const localIndex = parseInt($(event.currentTarget).data('local-index'));
 
                     // Change suggestion item background
-                    $(event.currentTarget).css('background-color', '#f0f0f0');
+                    $(event.currentTarget).css('background-color', '#374151');
 
                     // Handle marker hover effect
                     this.handleSuggestionHover(localIndex, true);
@@ -1423,7 +1423,7 @@ export class MapSearchControl {
                     const localIndex = parseInt($(event.currentTarget).data('local-index'));
 
                     // Reset suggestion item background
-                    $(event.currentTarget).css('background-color', 'white');
+                    $(event.currentTarget).css('background-color', '#1f2937');
 
                     // Handle marker hover effect
                     this.handleSuggestionHover(localIndex, false);

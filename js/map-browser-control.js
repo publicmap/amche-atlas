@@ -71,7 +71,9 @@ export class MapBrowserControl {
         `;
 
         if (window.matchMedia('(min-width: 768px)').matches) {
-            this._browserContainer.style.width = '66.67%';
+            this._browserContainer.style.width = '40%';
+        } else {
+            this._browserContainer.style.width = '75%';
         }
 
         const updateLayout = () => {
@@ -80,9 +82,9 @@ export class MapBrowserControl {
             this._overlay.style.top = `${headerHeight}px`;
 
             if (window.matchMedia('(min-width: 768px)').matches) {
-                this._browserContainer.style.width = '66.67%';
+                this._browserContainer.style.width = '40%';
             } else {
-                this._browserContainer.style.width = '100%';
+                this._browserContainer.style.width = '75%';
             }
         };
 
@@ -101,22 +103,16 @@ export class MapBrowserControl {
     _updateButtonState(isOpen) {
         if (isOpen) {
             this._button.classList.add('active');
-            this._button.style.backgroundColor = '#3b82f6';
-            this._button.style.borderColor = '#3b82f6';
-            this._button.style.color = 'white';
             this._button.innerHTML = `
-                <sl-icon name="layers" style="font-size: 14px; color: white;"></sl-icon>
-                <span class="map-browser-text" style="color: white;">Maps</span>
-                <sl-icon name="x-lg" style="font-size: 12px; margin-left: -4px; color: white;"></sl-icon>
+                <sl-icon name="grid" style="font-size: 14px;"></sl-icon>
+                <span class="map-browser-text"s">Map Browser</span>
+                <sl-icon name="x-lg" style="font-size: 12px; margin-left: -4px;"></sl-icon>
             `;
         } else {
             this._button.classList.remove('active');
-            this._button.style.backgroundColor = '';
-            this._button.style.borderColor = '';
-            this._button.style.color = '';
             this._button.innerHTML = `
-                <sl-icon name="layers" style="font-size: 14px;"></sl-icon>
-                <span class="map-browser-text">Maps</span>
+                <sl-icon name="grid" style="font-size: 14px;"></sl-icon>
+                <span class="map-browser-text">Map Browser</span>
             `;
         }
     }
@@ -207,9 +203,9 @@ export class MapBrowserControl {
 
             // Include top-level style properties
             const styleProps = ['icon-image', 'icon-size', 'circle-radius', 'circle-color',
-                               'circle-stroke-color', 'circle-stroke-width', 'circle-opacity',
-                               'line-color', 'line-width', 'line-opacity', 'line-dasharray',
-                               'fill-color', 'fill-opacity', 'fill-outline-color'];
+                'circle-stroke-color', 'circle-stroke-width', 'circle-opacity',
+                'line-color', 'line-width', 'line-opacity', 'line-dasharray',
+                'fill-color', 'fill-opacity', 'fill-outline-color'];
 
             styleProps.forEach(prop => {
                 if (layer[prop] !== undefined) {

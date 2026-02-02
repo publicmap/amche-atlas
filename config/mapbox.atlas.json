@@ -4,7 +4,12 @@
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/goa.atlas.json",
   "color": "#2563eb",
-  "bbox": [-180, -90, 180, 90],
+  "bbox": [
+    -180,
+    -90,
+    180,
+    90
+  ],
   "map": {
     "center": [
       73.8,
@@ -28,7 +33,10 @@
     },
     {
       "id": "streets",
-      "tags": ["basemap", "streets"],
+      "tags": [
+        "basemap",
+        "streets"
+      ],
       "title": "Mapbox Street Map",
       "description": "Detailed street level map data layers sourced from <a href='https://www.openstreetmap.org/#map=11/15.4054/73.9280' target='_blank'>OpenStreetMap contributors</a> and other data sources via <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-streets-v8/' target='_blank'>Mapbox Streets</a> vector tiles.",
       "type": "style",
@@ -105,8 +113,8 @@
       "initiallyChecked": true,
       "id": "satellite",
       "tags": [
-        "satellite",
-        "basemap"
+        "basemap",
+        "satellite"
       ],
       "type": "raster-style-layer",
       "title": "Satellite Imagery",
