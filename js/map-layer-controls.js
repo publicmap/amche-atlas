@@ -1027,6 +1027,11 @@ export class MapLayerControl {
      * Initialize with animation
      */
     _initializeWithAnimation() {
+        if (!this._container) {
+            console.warn('[MapLayerControl] Container not initialized yet, skipping animation');
+            return;
+        }
+
         const allToggles = this._container.querySelectorAll('.group-header .toggle-switch input[type="checkbox"]');
         const groupHeaders = Array.from(allToggles).filter(toggle =>
             !toggle.closest('.layer-controls')

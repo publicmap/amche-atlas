@@ -24,7 +24,9 @@ export default defineConfig({
       input: {
         main: 'index.html',
         'map-browser': 'map-browser.html',
-        'map-creator': 'map-creator.html'
+        'map-creator': 'map-creator.html',
+        'map-inspector': 'map-inspector.html',
+        'map-information': 'map-information.html'
       }
     }
   },

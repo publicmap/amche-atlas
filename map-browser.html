@@ -375,7 +375,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            padding-left: 24px;
+            padding-left: 0;
             margin-top: 8px;
         }
 
@@ -390,7 +390,7 @@
             font-weight: 600;
             color: #9ca3af;
             text-transform: capitalize;
-            padding-left: 0;
+            padding-left: 8px;
             margin-bottom: 2px;
         }
 
@@ -400,26 +400,14 @@
             gap: 8px;
             font-size: 12px;
             color: #d1d5db;
-            padding-left: 16px;
-            position: relative;
             cursor: pointer;
             transition: background 0.2s;
-            padding: 4px 4px 4px 16px;
+            padding: 4px 8px;
             border-radius: 4px;
         }
 
         .atlas-collapsed-layer:hover {
             background: #374151;
-        }
-
-        .atlas-collapsed-layer::before {
-            content: '';
-            position: absolute;
-            left: 4px;
-            top: 50%;
-            width: 8px;
-            height: 1px;
-            background: #4b5563;
         }
 
         .atlas-collapsed-layer img,
@@ -452,8 +440,15 @@
             flex-shrink: 0;
         }
 
-        .atlas-collapsed-layer:hover .atlas-collapsed-layer-actions {
+        .atlas-collapsed-layer:hover .atlas-collapsed-layer-actions,
+        .atlas-collapsed-layer.active .atlas-collapsed-layer-actions {
             display: flex;
+        }
+
+        .atlas-collapsed-layer.active {
+            background: #374151;
+            border-left: 2px solid #3b82f6;
+            padding-left: 6px;
         }
 
         .atlas-collapsed-layer-btn {
@@ -498,7 +493,7 @@
         }
 
         .atlas-collapsed-layer-expanded {
-            margin-left: 16px;
+            margin-left: 0;
             margin-top: 8px;
             margin-bottom: 8px;
         }
@@ -510,7 +505,7 @@
         .atlas-collapsed-more {
             font-size: 11px;
             color: #9ca3af;
-            padding-left: 24px;
+            padding-left: 8px;
             margin-top: 4px;
         }
     </style>
@@ -817,12 +812,58 @@
 
                     // Smooth scroll to atlas section
                     const container = $('#layer-container')[0];
+                    const $atlasNav = $('.atlas-nav');
+                    const navHeight = $atlasNav.length ? $atlasNav.outerHeight() : 0;
                     const targetOffset = $target.offset().top - $(container).offset().top + container.scrollTop;
                     $(container).animate({
-                        scrollTop: targetOffset - 10
+                        scrollTop: targetOffset - navHeight - 10
                     }, 400);
                 }
             });
+
+            // Setup scroll listener to update active nav link
+            const container = $('#layer-container')[0];
+            if (container) {
+                let scrollTimeout;
+                $(container).on('scroll', function() {
+                    clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(updateActiveNavLink, 100);
+                });
+            }
+        }
+
+        // Update active nav link based on scroll position
+        function updateActiveNavLink() {
+            const container = $('#layer-container')[0];
+            if (!container) return;
+
+            const $atlasNav = $('.atlas-nav');
+            const navHeight = $atlasNav.length ? $atlasNav.outerHeight() : 0;
+            const scrollTop = container.scrollTop;
+            const containerTop = $(container).offset().top;
+            const threshold = scrollTop + navHeight + 20;
+
+            let activeAtlasId = null;
+
+            // Find the last atlas section that has scrolled past the threshold
+            $('.atlas-collapsed').each(function() {
+                const $section = $(this);
+                const atlasId = $section.attr('id')?.replace('atlas-', '');
+                if (!atlasId) return;
+
+                const sectionTop = $section.offset().top - containerTop + scrollTop;
+
+                // Only activate if section top has passed the threshold
+                if (sectionTop <= threshold) {
+                    activeAtlasId = atlasId;
+                }
+            });
+
+            // Update active state
+            if (activeAtlasId) {
+                $('.atlas-nav-link').removeClass('active');
+                $(`.atlas-nav-link[data-atlas="${activeAtlasId}"]`).addClass('active');
+            }
         }
 
         // Show atlas filter menu
@@ -1176,11 +1217,8 @@
                 });
             }
 
-            // Set first atlas as active
-            setTimeout(() => {
-                $('.atlas-nav-link').removeClass('active');
-                $('.atlas-nav-link').first().addClass('active');
-            }, 100);
+            // Set active atlas based on scroll position
+            setTimeout(updateActiveNavLink, 100);
         }
 
         // Render atlas in collapsed view
@@ -1287,8 +1325,10 @@
                         $tagGroup.append($expandedContainer);
                     } else {
                         // Render compact preview
+                        const isActive = activeLayers.has(layer.id);
                         const $layerPreview = $('<div>', {
-                            class: 'atlas-collapsed-layer'
+                            class: 'atlas-collapsed-layer' + (isActive ? ' active' : ''),
+                            'data-layer-id': layer.id
                         });
 
                         const thumbnail = window.LayerThumbnail.generate(layer, 40);
@@ -1311,7 +1351,6 @@
                             class: 'atlas-collapsed-layer-actions'
                         });
 
-                        const isActive = activeLayers.has(layer.id);
                         const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
                         const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
 
@@ -1373,38 +1412,61 @@
                 'data-type': layer.type
             });
 
-            // Horizontal layout container
-            const $container = $('<div>', { class: 'flex items-stretch' });
+            if (showButtonText) {
+                // Expanded layout: 3 rows
+                const $container = $('<div>', { class: 'p-3 flex flex-col gap-3' });
 
-            // Generate and append thumbnail
-            const thumbnail = window.LayerThumbnail.generate(layer, 80);
-            thumbnail.style.margin = '0';
-            thumbnail.style.borderRadius = '0.5rem 0 0 0.5rem';
-            $container.append(thumbnail);
+                // Row 1: Thumbnail (2) + Title (8)
+                const $row1 = $('<div>', {
+                    class: 'grid gap-3',
+                    style: 'grid-template-columns: 2fr 8fr;'
+                });
 
-            // Content area
-            const $content = $('<div>', {
-                class: 'flex-1 p-3 flex flex-col justify-between min-w-0'
-            });
+                const thumbnail = window.LayerThumbnail.generate(layer, 80);
+                thumbnail.style.margin = '0';
+                thumbnail.style.borderRadius = '0.375rem';
+                thumbnail.style.width = '80px';
+                thumbnail.style.height = '80px';
+                thumbnail.style.objectFit = 'cover';
+                $row1.append(thumbnail);
 
-            // Title
-            const $title = $('<h3>', {
-                class: showButtonText ?
-                    'font-semibold text-sm text-gray-100 mb-2' :
-                    'font-semibold text-sm text-gray-100 truncate',
-                text: layer.title || layer.id,
-                title: layer.title || layer.id
-            });
+                const $title = $('<h3>', {
+                    class: 'font-semibold text-base text-gray-100 self-center',
+                    text: layer.title || layer.id,
+                    title: layer.title || layer.id
+                });
+                $row1.append($title);
+                $container.append($row1);
 
-            // Button group
-            const $buttonGroup = $('<div>', { class: 'flex gap-2 flex-shrink-0 mb-2' });
+                // Row 2: Description and Attribution
+                const $row2 = $('<div>', { class: 'flex flex-col gap-2' });
+                if (layer.description) {
+                    const cleanDesc = $('<div>').html(layer.description).text();
+                    $row2.append($('<p>', {
+                        class: 'text-xs text-gray-300',
+                        text: cleanDesc
+                    }));
+                }
+                if (layer.attribution) {
+                    const firstLine = layer.attribution.split('\n')[0].trim();
+                    if (firstLine) {
+                        $row2.append($('<p>', {
+                            class: 'text-xs text-gray-400 italic',
+                            html: firstLine
+                        }));
+                    }
+                }
+                if ($row2.children().length > 0) {
+                    $container.append($row2);
+                }
 
-            // Zoom button (if layer has bbox or atlas has bbox, and not a global layer)
-            const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
-            const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
+                // Row 3: Action buttons
+                const $row3 = $('<div>', { class: 'flex gap-2 flex-wrap' });
 
-            if (hasBbox && !isGlobalLayer) {
-                if (showButtonText) {
+                const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
+                const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
+
+                if (hasBbox && !isGlobalLayer) {
                     const $zoomBtn = $('<button>', {
                         class: 'zoom-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs whitespace-nowrap',
                         html: '<span>🔍</span><span>Zoom to area</span>',
@@ -1413,8 +1475,57 @@
                             zoomToLayer(layer);
                         }
                     });
-                    $buttonGroup.append($zoomBtn);
-                } else {
+                    $row3.append($zoomBtn);
+                }
+
+                const $toggleBtn = $('<button>', {
+                    class: 'toggle-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 text-white text-xs whitespace-nowrap ' +
+                        (isActive ? 'active' : 'bg-gray-400 hover:bg-gray-500'),
+                    html: isActive ? '<span>✓</span><span>Added to map</span>' : '<span>+</span><span>Add this map layer</span>',
+                    click: function (e) {
+                        e.stopPropagation();
+                        toggleLayer(layer.id);
+                    }
+                });
+                $row3.append($toggleBtn);
+
+                const $detailsBtn = $('<button>', {
+                    class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 hover:bg-gray-500 text-white text-xs whitespace-nowrap',
+                    html: '<span>ℹ️</span><span>Details</span>',
+                    click: function (e) {
+                        e.stopPropagation();
+                        openLayerDetails(layer);
+                    }
+                });
+                $row3.append($detailsBtn);
+
+                $container.append($row3);
+                $card.append($container);
+            } else {
+                // Compact layout: Horizontal
+                const $container = $('<div>', { class: 'flex items-stretch' });
+
+                const thumbnail = window.LayerThumbnail.generate(layer, 80);
+                thumbnail.style.margin = '0';
+                thumbnail.style.borderRadius = '0.5rem 0 0 0.5rem';
+                $container.append(thumbnail);
+
+                const $content = $('<div>', {
+                    class: 'flex-1 p-3 flex flex-col justify-between min-w-0'
+                });
+
+                const $title = $('<h3>', {
+                    class: 'font-semibold text-sm text-gray-100 truncate',
+                    text: layer.title || layer.id,
+                    title: layer.title || layer.id
+                });
+
+                const $buttonGroup = $('<div>', { class: 'flex gap-2 flex-shrink-0 mb-2' });
+
+                const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
+                const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
+
+                if (hasBbox && !isGlobalLayer) {
                     const $zoomBtn = $('<button>', {
                         class: 'zoom-btn w-7 h-7 rounded flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-xs',
                         html: '🔍',
@@ -1426,25 +1537,7 @@
                     });
                     $buttonGroup.append($zoomBtn);
                 }
-            }
 
-            // Toggle button
-            if (showButtonText) {
-                const $toggleBtn = $('<button>', {
-                    class: 'toggle-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 text-white text-xs whitespace-nowrap ' +
-                        (isActive ? 'active' : 'bg-gray-400 hover:bg-gray-500'),
-                    html: isActive ? '<span>✓</span><span>Added to map</span>' : '<span>+</span><span>Add this map layer</span>',
-                    click: function (e) {
-                        e.stopPropagation();
-                        toggleLayer(layer.id);
-                    }
-                });
-                $buttonGroup.append($toggleBtn);
-
-                // Layout: Title first, then buttons below
-                $content.append($title);
-                $content.append($buttonGroup);
-            } else {
                 const $toggleBtn = $('<button>', {
                     class: 'toggle-btn w-7 h-7 rounded flex items-center justify-center text-white text-sm ' +
                         (isActive ? 'active' : 'bg-gray-400 hover:bg-gray-500'),
@@ -1456,37 +1549,34 @@
                 });
                 $buttonGroup.append($toggleBtn);
 
-                // Layout: Title and buttons side by side
                 const $top = $('<div>', { class: 'flex items-start justify-between gap-2 mb-2' });
                 const $titleSection = $('<div>', { class: 'flex-1 min-w-0' });
                 $titleSection.append($title);
                 $top.append($titleSection);
                 $top.append($buttonGroup);
                 $content.append($top);
-            }
 
-            // Description (if exists)
-            if (layer.description) {
-                const cleanDesc = $('<div>').html(layer.description).text().substring(0, 60);
-                $content.append($('<p>', {
-                    class: 'text-xs text-gray-400',
-                    text: cleanDesc + (cleanDesc.length >= 60 ? '...' : '')
-                }));
-            }
-
-            // Attribution (first line if exists)
-            if (layer.attribution) {
-                const firstLine = layer.attribution.split('\n')[0].trim();
-                if (firstLine) {
+                if (layer.description) {
+                    const cleanDesc = $('<div>').html(layer.description).text().substring(0, 60);
                     $content.append($('<p>', {
-                        class: 'text-xs text-gray-500 italic mt-1',
-                        html: firstLine
+                        class: 'text-xs text-gray-400',
+                        text: cleanDesc + (cleanDesc.length >= 60 ? '...' : '')
                     }));
                 }
-            }
 
-            $container.append($content);
-            $card.append($container);
+                if (layer.attribution) {
+                    const firstLine = layer.attribution.split('\n')[0].trim();
+                    if (firstLine) {
+                        $content.append($('<p>', {
+                            class: 'text-xs text-gray-500 italic mt-1',
+                            html: firstLine
+                        }));
+                    }
+                }
+
+                $container.append($content);
+                $card.append($container);
+            }
 
             // Click card to toggle
             $card.on('click', function () {
@@ -1494,6 +1584,13 @@
             });
 
             return $card;
+        }
+
+        // Open layer details in popup
+        function openLayerDetails(layer) {
+            const layerJson = encodeURIComponent(JSON.stringify(layer));
+            const url = `map-information.html?layer=${layerJson}`;
+            window.open(url, 'layer-details', 'width=1200,height=800');
         }
 
         // Preview layer on map
@@ -1613,6 +1710,7 @@
 
         // Update card active state
         function updateCardState(layerId, isActive) {
+            // Update expanded layer cards
             const $card = $(`.layer-card[data-layer-id="${layerId}"]`);
             const $btn = $card.find('.toggle-btn');
 
@@ -1623,11 +1721,31 @@
                 $card.removeClass('active');
                 $btn.removeClass('active').addClass('bg-gray-400 hover:bg-gray-500').html('+');
             }
+
+            // Update collapsed layer items
+            const $collapsedLayer = $(`.atlas-collapsed-layer[data-layer-id="${layerId}"]`);
+            const $collapsedBtn = $collapsedLayer.find('.toggle');
+
+            if (isActive) {
+                $collapsedLayer.addClass('active');
+                $collapsedBtn.removeClass('inactive').html('✓').attr('title', 'Remove from map');
+            } else {
+                $collapsedLayer.removeClass('active');
+                $collapsedBtn.addClass('inactive').html('+').attr('title', 'Add to map');
+            }
         }
 
         // Update all active states
         function updateActiveStates() {
+            // Update expanded cards
             $('.layer-card').each(function () {
+                const layerId = $(this).data('layer-id');
+                const isActive = activeLayers.has(layerId);
+                updateCardState(layerId, isActive);
+            });
+
+            // Update collapsed layers
+            $('.atlas-collapsed-layer').each(function () {
                 const layerId = $(this).data('layer-id');
                 const isActive = activeLayers.has(layerId);
                 updateCardState(layerId, isActive);

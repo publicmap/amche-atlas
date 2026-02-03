@@ -1696,6 +1696,10 @@
       "legendImage": "assets/map-layers/india/legend-landslide-risk.png"
     },
     {
+      "tags": [
+        "survey",
+        "basemap"
+      ],
       "title": "SOI 1:50K Open Series Maps 2011",
       "description": "Open Series Map from Survey of India as per the <a href='https://www.surveyofindia.gov.in/files/nmp/National%20Map%20Policy.pdf'>National Map Policy 2005</a> for supporting development activities in the country. See <a href='https://www.pmv.ac.in/pdf/lecture/geography/OSM-Numbering-System.pdf'>OSM sheet numbering system</a> for more details.",
       "headerImage": "assets/map-layers/india/map-layer-soi.png",
@@ -1716,6 +1720,9 @@
       "attribution": "<a href='https://czmp.ncscm.res.in/'>National Center For Sustainable Coastal Management</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
+      "tags": [
+        "landuse"
+      ],
       "title": "SISDP 2016-2023 1:10k Landcover",
       "description": "Space based Information Support for Decentralized Planning (SISDP) Phase 2 10k Land Usage Land Cover data. Check the <a href='https://bhuvanpanchayat.nrsc.gov.in/SISDP/BP-lrdpwrdpmanual.pdf'>SISDP technical manual</a> for background about the project and <a href='https://github.com/ramSeraph/indian_land_features/releases/download/landuse/key_to_levels.csv'>Key to landuse codes</a>.",
       "headerImage": "assets/map-layers/india/map-layer-landcover.png",
@@ -2241,6 +2248,9 @@
       }
     },
     {
+      "tags": [
+        "landuse"
+      ],
       "title": "SISDP 2010-2012 1:10k Landcover",
       "description": "Space based Information Support for Decentralized Planning (SISDP) Phase 1 10k Land Usage Land Cover data. Check the <a href='https://bhuvanpanchayat.nrsc.gov.in/SISDP/BP-lrdpwrdpmanual.pdf'>SISDP technical manual</a> for background about the project and <a href='https://bhuvanpanchayat.nrsc.gov.in/SISDP/BP-lrdpwrdpmanual.pdf'>Bhuvan Panchayat Portal User Manual</a> for more details.",
       "headerImage": "assets/map-layers/india/map-layer-landcover.png",
@@ -2441,6 +2451,10 @@
       }
     },
     {
+      "tags": [
+        "survey",
+        "geology"
+      ],
       "title": "Geomorphological Lineaments",
       "description": "Geomorphological lineaments based on <a href='https://bhuvan-app1.nrsc.gov.in/2dresources/thematic/gm/gm.pdf'>genesis based classification schema</a>.",
       "headerImage": "assets/map-layers/india/map-layer-lineament.png",
@@ -2531,6 +2545,10 @@
       }
     },
     {
+      "tags": [
+        "survey",
+        "groundwater"
+      ],
       "title": "Groundwater Prospects",
       "description": "Groundwater prospect maps prepared at 1:50k scale. Refer to the <a href='https://bhuvan-app1.nrsc.gov.in/gwis/docs/GW_Manual.pdf'>methodology</a> and <a href='https://www.nrsc.gov.in/sites/default/files/pdf/ebooks/RGNationalDrinkingWater_UserManual.pdf'>user manual</a> for more details. Check <a href'https://ingres.iith.ac.in/gecdataonline/gis/INDIA'>INDIA-Groundwater Resource Estimation System (IN-GRES)</a> for taluk level groundwater assessment reports.<br>View  <a href='https://www.cgwb.gov.in/old_website/GW-Assessment/GWR-2022-Reports%20State/Goa.pdf'>Dynamic Groundwater Report of Goa State 2022</a> | <a href='https://www.cgwb.gov.in/cgwbpnm/public/uploads/documents/1705640315968744698file.pdf'>2024</a>.",
       "headerImage": "assets/map-layers/india/map-layer-groundwater.png",
@@ -2657,6 +2675,10 @@
       }
     },
     {
+      "tags": [
+        "survey",
+        "geology"
+      ],
       "title": "Geomorphological Ecozones",
       "description": "Geomorphological landforms based on <a href='https://bhuvan-app1.nrsc.gov.in/2dresources/thematic/gm/gm.pdf'>genesis based classification schema</a>.",
       "headerImage": "assets/map-layers/india/map-layer-geomorphology.png",
@@ -2802,6 +2824,10 @@
       }
     },
     {
+      "tags": [
+        "survey",
+        "forest"
+      ],
       "title": "All India Tiger Presence 2022",
       "source": "https://ntca.gov.in/assets/uploads/Reports/AITM/status_of_tiger-copredators-2022.pdf",
       "dateDepicted": "",
@@ -2842,6 +2868,10 @@
       "attribution": "<a href='https://www.gsi.gov.in/webcenter/portal/OCBIS/pageQuickLinks/pageNLSM' target='_blank'>National Landslide Susceptibility Mapping (NLSM), Geological Survey Of India</a> via <a href='https://bhukosh.gsi.gov.in/Bhukosh/MapViewer.aspx' target='_blank'>Bhukosh</a>"
     },
     {
+      "tags": [
+        "survey",
+        "geology"
+      ],
       "title": "GSI Marine Geology Map",
       "description": "The landslide susceptibility maps show the total area classified into high, moderate and low zones based on their relative likelihood of susceptibility to landslide initiation, and can be used as a vital geo-information tool for regional land-use planning in landslide prone fragile slopes. GSI also collected information on 91,000 historical landslides using both remote sensing (RS) and field-based source data. A total number of 33,904 landslides are field validated and the database is continuously being updated with the new landslide data collected year-wise as part of post-disaster studies. Statewise landslide reports are available at <a href='https://gsi.gov.in/webcenter/portal/OCBIS/pages_pageQuickLinks/pageStatewiselandslide' target='_blank'>GSI</a>",
       "headerImage": "https://bhukosh.gsi.gov.in/Bhukosh/images/Marine%20Geology.png",
@@ -2891,7 +2921,6 @@
       "attribution": "<a href='https://commons.wikimedia.org/wiki/Category:Atlas_of_India_(1827-1906)'>Wikimedia Commons: Atlas of India (1827-1906)</a> via <a href='https://warper.wmflabs.org/mosaics/15#Show_tab'>Wikimaps Warper</a> released in public domain",
       "tags": [
         "historic",
-        "india",
         "atlas"
       ]
     },
@@ -2905,7 +2934,6 @@
       "attribution": "<a href=https://commons.wikimedia.org/wiki/File:Greenough_Geology_India_1855.jpg'>Wikimedia Commons: Greenough Geology India 1855</a> via <a href='https://warper.wmflabs.org/maps/2258'>Wikimaps Warper</a> released in public domain",
       "tags": [
         "historic",
-        "india",
         "geology"
       ]
     },
@@ -2919,11 +2947,13 @@
       "attribution": "<a href='https://commons.wikimedia.org/wiki/Category:Lambton%27s_peninsular_survey'>Wikimedia Commons: Lambtons peninsular survey</a> via <a href='https://warper.wmflabs.org/mosaics/13#Show_tab'>Wikimaps Warper</a> released in public domain",
       "tags": [
         "historic",
-        "deccan",
         "survey"
       ]
     },
     {
+      "tags": [
+        "historic"
+      ],
       "title": "Robert Wilkinsons General Atlas  (1792)",
       "description": "Engraved by Thomas Conder and issued as plate no. 37 in the 1792 edition of Robert Wilkinsons General Atlas",
       "headerImage": "assets/map-layers/india/map-layer-1792-general-atlas.png",
@@ -2933,6 +2963,10 @@
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Southern_India_Wilkinson.png'>Wikimedia Commons: Southern India Wilkinson.png </a> via <a href='https://warper.wmflabs.org/maps/7050'>Wikimaps Warper</a> released in public domain"
     },
     {
+      "tags": [
+        "weather",
+        "live"
+      ],
       "title": "Realtime Meteorological Satellite",
       "id": "insat-img",
       "description": "Visible spectrum satellite view from INSAT-3DR rapid scan satellite. The imagery is refreshed every 30 mins with the latest capture from <a href='https://mausam.imd.gov.in/'>IMD Mausam portal</a>. Check <a href='https://mausam.imd.gov.in/imd_latest/contents/pdf/forecasting_sop.pdf'>2021 IMD Forecasting SOP Guidelines</a> for documentation",
@@ -2964,6 +2998,10 @@
       "initiallyChecked": true
     },
     {
+      "tags": [
+        "basemap",
+        "physical"
+      ],
       "id": "bhuvan-terrain",
       "title": "Bhuvan Physical Terrain",
       "description": "Physical terrain layer from ISRO Bhuvan",

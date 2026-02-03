@@ -290,6 +290,10 @@ export class MapFeatureControl {
                 this._hidePanel();
             } else if (event.data.type === 'toggle-popups') {
                 this._togglePopups(event.data.enabled);
+            } else if (event.data.type === 'clear-all-selections') {
+                if (this._stateManager) {
+                    this._stateManager.clearAllSelections();
+                }
             }
         });
     }
@@ -348,6 +352,10 @@ export class MapFeatureControl {
             case 'feature-click':
                 this._sendFeatureSelectionToIframe(data.layerId, data.feature);
                 break;
+            case 'selections-cleared':
+            case 'feature-deselected':
+                this._sendSelectionClearedToIframe(data.layerId);
+                break;
             case 'layer-registered':
             case 'layer-unregistered':
                 this._sendDataToIframe();
@@ -390,6 +398,18 @@ export class MapFeatureControl {
             type: 'feature-selected',
             layerId: layerId,
             feature: feature
+        }, '*');
+    }
+
+    /**
+     * Send selection cleared message to iframe
+     */
+    _sendSelectionClearedToIframe(layerId) {
+        if (!this._iframe || !this._iframe.contentWindow) return;
+
+        this._iframe.contentWindow.postMessage({
+            type: 'selection-cleared',
+            layerId: layerId
         }, '*');
     }
 

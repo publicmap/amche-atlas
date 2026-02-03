@@ -227,6 +227,21 @@
             display: inline-block;
             transition: transform 0.2s;
         }
+
+        #status-bar {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 
@@ -263,7 +278,7 @@
 
     <!-- Layer List -->
     <div id="layer-container"
-        style="display: flex; flex-direction: column; height: calc(100vh - 48px); overflow: hidden;">
+        style="display: flex; flex-direction: column; height: calc(100vh - 48px - 44px); overflow: hidden;">
         <!-- Overlay Maps Section -->
         <div style="flex-shrink: 0; background: #111827; padding: 8px 4px 0 4px;">
             <div class="section-header" id="overlay-header"
@@ -294,6 +309,17 @@
         </div>
     </div>
 
+    <!-- Status Bar -->
+    <div id="status-bar" style="display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 44px; background: #111827; border-top: 1px solid #374151; padding: 0 12px; align-items: center; justify-content: space-between; z-index: 100;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <sl-icon name="check-circle-fill" style="color: #10b981; font-size: 16px;"></sl-icon>
+            <span id="status-text" style="font-size: 11px; color: #d1d5db;"></span>
+        </div>
+        <button id="clear-selection-btn" style="padding: 6px 12px; background: #374151; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; transition: background 0.2s;">
+            Clear Selection
+        </button>
+    </div>
+
     <!-- Information Modal (iframe) -->
     <div id="info-modal"
         style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 9999;">
@@ -317,6 +343,7 @@
         let isolateEnabled = true;
         let showPopups = false;
         let highlightedLayerIds = new Set();
+        let selectedFeatures = new Map();
 
         // Make LayerThumbnail available globally
         window.LayerThumbnail = LayerThumbnail;
@@ -376,11 +403,29 @@
             if (event.data.type === 'feature-selected') {
                 const layerId = event.data.layerId;
                 const feature = event.data.feature;
-                showFeatureInfo(layerId, feature);
+
+                selectedFeatures.set(layerId, feature);
+
+                if (expandedLayerId !== layerId) {
+                    expandedLayerId = layerId;
+                }
+
+                renderLayers();
+                updateStatusBar();
             }
 
             if (event.data.type === 'request-height-update') {
                 notifyHeightChange();
+            }
+
+            if (event.data.type === 'selection-cleared') {
+                const layerId = event.data.layerId;
+                selectedFeatures.delete(layerId);
+                if (expandedLayerId === layerId) {
+                    expandedLayerId = null;
+                }
+                renderLayers();
+                updateStatusBar();
             }
         });
 
@@ -468,6 +513,18 @@
 
                 // Notify after animation completes
                 setTimeout(notifyHeightChange, 250);
+            });
+
+            $('#clear-selection-btn').on('click', function () {
+                clearAllSelections();
+            });
+
+            $('#clear-selection-btn').on('mouseenter', function () {
+                $(this).css('background', '#4b5563');
+            });
+
+            $('#clear-selection-btn').on('mouseleave', function () {
+                $(this).css('background', '#374151');
             });
 
             $('#overlay-header').on('click', function () {
@@ -620,21 +677,39 @@
             if (isExpanded) {
                 const $expanded = $('<div>', { class: 'layer-card-expanded layer-content' });
 
-                // Description
-                if (layer.description) {
-                    const $desc = $('<div>', {
-                        class: 'text-xs text-gray-300 mb-3',
-                        html: layer.description
+                // Show feature details if selected, otherwise show description
+                const selectedFeature = selectedFeatures.get(layer.id);
+                if (selectedFeature) {
+                    const $featureInfo = $('<div>', { class: 'feature-info' });
+                    const $title = $('<div>', {
+                        class: 'text-xs font-semibold text-gray-300 mb-2',
+                        text: 'Selected Feature'
                     });
-                    $expanded.append($desc);
-                }
+                    $featureInfo.append($title);
 
-                // Features info (if selected)
-                const $featuresContainer = $('<div>', {
-                    id: `features-${layer.id}`,
-                    class: 'features-container'
-                });
-                $expanded.append($featuresContainer);
+                    if (selectedFeature.properties) {
+                        const $props = $('<div>');
+                        Object.entries(selectedFeature.properties).forEach(([key, value]) => {
+                            if (value !== null && value !== undefined && value !== '') {
+                                const $row = $('<div>', { class: 'property-row' });
+                                $row.append($('<div>', { class: 'property-key', text: key }));
+                                $row.append($('<div>', { class: 'property-value', text: String(value) }));
+                                $props.append($row);
+                            }
+                        });
+                        $featureInfo.append($props);
+                    }
+                    $expanded.append($featureInfo);
+                } else {
+                    // Description
+                    if (layer.description) {
+                        const $desc = $('<div>', {
+                            class: 'text-xs text-gray-300 mb-3',
+                            html: layer.description
+                        });
+                        $expanded.append($desc);
+                    }
+                }
 
                 // Action buttons
                 const $actions = $('<div>', { class: 'action-buttons' });
@@ -750,34 +825,32 @@
             });
         }
 
-        // Show feature info in expanded layer
-        function showFeatureInfo(layerId, feature) {
-            const $container = $(`#features-${layerId}`);
-            if (!$container.length) return;
+        // Update status bar
+        function updateStatusBar() {
+            const $statusBar = $('#status-bar');
+            const $statusText = $('#status-text');
 
-            $container.empty();
-
-            const $featureInfo = $('<div>', { class: 'feature-info' });
-            const $title = $('<div>', {
-                class: 'text-xs font-semibold text-gray-300 mb-2',
-                text: 'Selected Feature'
-            });
-            $featureInfo.append($title);
-
-            if (feature.properties) {
-                const $props = $('<div>');
-                Object.entries(feature.properties).forEach(([key, value]) => {
-                    if (value !== null && value !== undefined && value !== '') {
-                        const $row = $('<div>', { class: 'property-row' });
-                        $row.append($('<div>', { class: 'property-key', text: key }));
-                        $row.append($('<div>', { class: 'property-value', text: String(value) }));
-                        $props.append($row);
-                    }
-                });
-                $featureInfo.append($props);
+            if (selectedFeatures.size === 0) {
+                $statusBar.hide();
+                return;
             }
 
-            $container.append($featureInfo);
+            const featureCount = selectedFeatures.size;
+            const layerCount = selectedFeatures.size;
+            $statusText.text(`${featureCount} feature${featureCount !== 1 ? 's' : ''} selected`);
+            $statusBar.css('display', 'flex');
+        }
+
+        // Clear all selections
+        function clearAllSelections() {
+            selectedFeatures.clear();
+            expandedLayerId = null;
+            renderLayers();
+            updateStatusBar();
+
+            window.parent.postMessage({
+                type: 'clear-all-selections'
+            }, '*');
         }
 
         // Open layer information modal

@@ -12,16 +12,21 @@
             margin: 0;
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #111827;
+            background: #0f172a;
             color: #e5e7eb;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
         .header-bg {
             position: relative;
-            height: 200px;
+            height: 180px;
             background-size: cover;
             background-position: center;
             background-color: #1f2937;
+            flex-shrink: 0;
         }
 
         .header-overlay {
@@ -30,7 +35,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.7));
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.8));
         }
 
         .header-content {
@@ -39,30 +44,63 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end;
-            padding: 24px;
+            justify-content: space-between;
+            padding: 20px 32px;
+        }
+
+        .close-btn {
+            align-self: flex-end;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .close-btn:hover {
+            background: rgba(0, 0, 0, 0.7);
+        }
+
+        .content-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            background: #0f172a;
+        }
+
+        .content-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px;
         }
 
         .section {
-            background: #1f2937;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 16px;
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
         }
 
         .section-title {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 700;
-            color: #f3f4f6;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #374151;
+            color: #f1f5f9;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #475569;
         }
 
         .info-row {
             display: flex;
-            padding: 8px 0;
-            border-bottom: 1px solid #374151;
+            padding: 12px 0;
+            border-bottom: 1px solid #334155;
         }
 
         .info-row:last-child {
@@ -70,56 +108,72 @@
         }
 
         .info-label {
-            min-width: 140px;
-            color: #9ca3af;
-            font-size: 13px;
-            font-weight: 500;
+            min-width: 180px;
+            color: #94a3b8;
+            font-size: 14px;
+            font-weight: 600;
         }
 
         .info-value {
             flex: 1;
-            color: #e5e7eb;
-            font-size: 13px;
+            color: #e2e8f0;
+            font-size: 14px;
             word-break: break-word;
         }
 
         .code-block {
-            background: #111827;
-            border: 1px solid #374151;
-            border-radius: 4px;
-            padding: 12px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
             overflow-x: auto;
-            max-height: 400px;
+            max-height: 500px;
+            line-height: 1.6;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 8px;
-            background: #111827;
-            border-radius: 4px;
-            margin-bottom: 8px;
+            gap: 16px;
+            padding: 12px;
+            background: #0f172a;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #334155;
         }
 
         .scrollbar-thin::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 10px;
+            height: 10px;
         }
 
         .scrollbar-thin::-webkit-scrollbar-track {
-            background: #1f2937;
+            background: #0f172a;
         }
 
         .scrollbar-thin::-webkit-scrollbar-thumb {
-            background: #4b5563;
-            border-radius: 4px;
+            background: #475569;
+            border-radius: 5px;
         }
 
         .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-            background: #6b7280;
+            background: #64748b;
+        }
+
+        @media (max-width: 768px) {
+            .content-container {
+                padding: 20px;
+            }
+
+            .header-content {
+                padding: 16px 20px;
+            }
+
+            .section {
+                padding: 16px;
+            }
         }
     </style>
 </head>
@@ -129,13 +183,17 @@
     <div class="header-bg" id="header-bg">
         <div class="header-overlay"></div>
         <div class="header-content">
-            <h1 id="layer-title" class="text-3xl font-bold text-white mb-2"></h1>
-            <div id="layer-type" class="text-sm text-gray-300"></div>
+            <button class="close-btn" onclick="window.close()">✕</button>
+            <div>
+                <h1 id="layer-title" class="text-4xl font-bold text-white mb-2"></h1>
+                <div id="layer-type" class="text-sm text-gray-300 font-medium"></div>
+            </div>
         </div>
     </div>
 
     <!-- Content -->
-    <div class="p-6 scrollbar-thin" style="max-height: calc(100vh - 200px); overflow-y: auto;">
+    <div class="content-wrapper scrollbar-thin">
+        <div class="content-container">
         <!-- Description -->
         <div id="description-section" class="section" style="display: none;">
             <div class="section-title">Description</div>
@@ -176,6 +234,7 @@
         <div id="config-section" class="section">
             <div class="section-title">Raw Configuration</div>
             <pre id="config-content" class="code-block scrollbar-thin"></pre>
+        </div>
         </div>
     </div>
 

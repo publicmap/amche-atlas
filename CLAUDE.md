@@ -148,3 +148,9 @@ Example atlas structure:
 - Dev branch deploys to https://amche.in/dev (testing)
 - Deployment via GitHub Pages with ~1 minute deploy time
 - Use `git push origin HEAD:dev --force` to test changes live
+
+**IMPORTANT: New HTML Files**
+- When adding new HTML files to the project root, they MUST be added to `vite.config.js`
+- Add them to `build.rollupOptions.input` object to ensure they're built and deployed
+- Example: `'map-inspector': 'map-inspector.html'`
+- Without this, new HTML files will work locally but return 404 on GitHub Pages
