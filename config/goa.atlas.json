@@ -925,7 +925,8 @@
     },
     {
       "tags": [
-        "regulatory"
+        "regulatory",
+        "wetland"
       ],
       "title": "Notified Wetlands",
       "description": "Maps of notified wetland 50m buffer zones and 10m zones of influence.",
@@ -938,7 +939,8 @@
     },
     {
       "tags": [
-        "regulatory"
+        "regulatory",
+        "wetland"
       ],
       "id": "notified-wetland-plots",
       "title": "Notified Wetlands Plots",
@@ -1109,7 +1111,8 @@
     },
     {
       "tags": [
-        "regulatory"
+        "regulatory",
+        "wetland"
       ],
       "title": "Bund Sluice Gates",
       "description": "Sluice gates for notified bunds existing before 1991 from Goa CZMP. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a>",
@@ -1231,7 +1234,8 @@
     },
     {
       "tags": [
-        "regulatory"
+        "regulatory",
+        "wetland"
       ],
       "id": "notified-khazan",
       "title": "Notified Khazan Lands",
@@ -2084,7 +2088,8 @@
     },
     {
       "tags": [
-        "historic"
+        "historic",
+        "basemap"
       ],
       "title": "AMS Goa Maps (1970s)",
       "description": "1:250000 maps from the U.S. Army Map Service created 1955-1970s",

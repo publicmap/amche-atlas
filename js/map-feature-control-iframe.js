@@ -143,14 +143,14 @@ export class MapFeatureControl {
         this._panel.className = 'map-feature-panel';
 
         const isMobile = window.innerWidth <= 768;
-        const initialHeight = isMobile ? '40vh' : 'auto';
+        const initialHeight = isMobile ? '40vh' : '500px';
         const maxHeight = isMobile ? '40vh' : '85vh';
 
         this._panel.style.cssText = `
             display: none;
             position: fixed;
             top: 60px;
-            right: 10px;
+            right: 8px;
             width: ${this.options.maxWidth};
             max-width: calc(100vw - 70px);
             height: ${initialHeight};
@@ -160,7 +160,7 @@ export class MapFeatureControl {
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             z-index: 1000;
             overflow: hidden;
-            transition: height 0.2s ease;
+            transition: height 0.3s ease;
         `;
 
         // Create iframe
@@ -175,13 +175,13 @@ export class MapFeatureControl {
 
         this._panel.appendChild(this._iframe);
 
-        // Create drag handle overlay (invisible, sits on top of iframe header)
+        // Create drag handle overlay (invisible, sits on top of iframe header "Map Layers" text only)
         this._dragHandle = document.createElement('div');
         this._dragHandle.style.cssText = `
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
+            width: 120px;
             height: 48px;
             cursor: move;
             z-index: 10;
@@ -275,7 +275,7 @@ export class MapFeatureControl {
             if (event.data.type === 'request-inspector-data') {
                 this._sendDataToIframe();
             } else if (event.data.type === 'isolate-layer') {
-                this._isolateLayer(event.data.layerId);
+                this._isolateLayer(event.data.layerId, event.data.isBasemap);
             } else if (event.data.type === 'clear-layer-isolation') {
                 this._clearLayerIsolation();
             } else if (event.data.type === 'update-layer-opacity') {
@@ -555,9 +555,9 @@ export class MapFeatureControl {
     }
 
     /**
-     * Isolate a layer by hiding all others
+     * Isolate a layer by hiding all others in the same section
      */
-    _isolateLayer(layerId) {
+    _isolateLayer(layerId, isBasemap) {
         const mapboxAPI = this._getMapboxAPI();
         if (!mapboxAPI) return;
 
@@ -565,7 +565,13 @@ export class MapFeatureControl {
 
         for (const [id, layerData] of activeLayers.entries()) {
             if (id !== layerId) {
-                mapboxAPI.updateLayerGroupVisibility(id, layerData.config, false);
+                const layerIsBasemap = layerData.config.tags &&
+                    Array.isArray(layerData.config.tags) &&
+                    layerData.config.tags.includes('basemap');
+
+                if (layerIsBasemap === isBasemap) {
+                    mapboxAPI.updateLayerGroupVisibility(id, layerData.config, false);
+                }
             }
         }
     }
@@ -637,9 +643,49 @@ export class MapFeatureControl {
      * Remove a layer
      */
     _removeLayer(layerId) {
-        if (window.layerControl) {
-            window.layerControl.toggleLayerVisibility(layerId, false);
+        const mapLayerControl = window.layerControl;
+        if (!mapLayerControl) {
+            console.warn('[MapFeatureControl] Layer control not available');
+            return;
         }
+
+        let groupIndex = mapLayerControl._state.groups.findIndex(g =>
+            g.id === layerId || g._prefixedId === layerId || g._originalId === layerId
+        );
+
+        let actualLayerId = layerId;
+        if (groupIndex === -1 && layerId.includes('-')) {
+            const parts = layerId.split('-');
+            const unprefixedId = parts.slice(1).join('-');
+
+            groupIndex = mapLayerControl._state.groups.findIndex(g =>
+                g.id === unprefixedId || g._prefixedId === layerId || g._originalId === unprefixedId
+            );
+
+            if (groupIndex !== -1) {
+                actualLayerId = unprefixedId;
+            }
+        }
+
+        if (groupIndex === -1) {
+            console.warn(`[MapFeatureControl] Layer ${layerId} not found in layer control state`);
+            return;
+        }
+
+        const groupElement = mapLayerControl._sourceControls[groupIndex];
+        if (!groupElement) {
+            console.warn(`[MapFeatureControl] UI element for layer ${actualLayerId} not found`);
+            return;
+        }
+
+        const checkbox = groupElement.querySelector('.toggle-switch input[type="checkbox"]');
+        if (checkbox && checkbox.checked) {
+            checkbox.checked = false;
+            groupElement.hide();
+            mapLayerControl._toggleLayerGroup(groupIndex, false);
+        }
+
+        this._sendDataToIframe();
     }
 
     /**
@@ -671,6 +717,14 @@ export class MapFeatureControl {
     _showPanel() {
         this._panel.style.display = 'block';
         this._sendDataToIframe();
+
+        setTimeout(() => {
+            if (this._iframe && this._iframe.contentWindow) {
+                this._iframe.contentWindow.postMessage({
+                    type: 'request-height-update'
+                }, '*');
+            }
+        }, 200);
     }
 
     _hidePanel() {
@@ -688,13 +742,11 @@ export class MapFeatureControl {
             this._panel.style.width = 'calc(100vw - 70px)';
             this._panel.style.maxWidth = 'calc(100vw - 70px)';
             this._panel.style.maxHeight = '40vh';
-            this._panel.style.right = '42px';
             this._panel.style.left = 'auto';
         } else {
             this._panel.style.width = this.options.maxWidth;
             this._panel.style.maxWidth = 'calc(100vw - 70px)';
             this._panel.style.maxHeight = '85vh';
-            this._panel.style.right = '42px';
             this._panel.style.left = 'auto';
         }
 
@@ -947,41 +999,31 @@ export class MapFeatureControl {
     _adjustPanelHeight(data) {
         if (!this._panel) return;
 
-        const { overlayOpen, basemapOpen, overlayCount, basemapCount } = data;
+        const { overlayOpen, basemapOpen, overlayHeight, basemapHeight } = data;
         const headerHeight = 48;
         const sectionHeaderHeight = 40;
-        const cardHeight = 64; // Approximate height per layer card
-        const padding = 16;
+        const padding = 24;
+        const statusBarHeight = 0;
 
-        // Calculate base height (header + section headers + padding)
-        let contentHeight = headerHeight + padding;
+        let contentHeight = headerHeight + padding + statusBarHeight;
 
-        // Add overlay section header
         contentHeight += sectionHeaderHeight;
 
-        // Add overlay content if open
-        if (overlayOpen && overlayCount > 0) {
-            // Add height for each overlay card
-            contentHeight += overlayCount * cardHeight;
+        if (overlayOpen && overlayHeight) {
+            contentHeight += overlayHeight + 8;
         }
 
-        // Add basemap section header
         contentHeight += sectionHeaderHeight;
 
-        // Add basemap content if open
-        if (basemapOpen && basemapCount > 0) {
-            // Add height for each basemap card
-            contentHeight += basemapCount * cardHeight;
+        if (basemapOpen && basemapHeight) {
+            contentHeight += basemapHeight + 8;
         }
 
-        // Determine max height based on screen size
         const isMobile = window.innerWidth <= 768;
         const maxHeight = isMobile ? window.innerHeight * 0.4 : window.innerHeight * 0.85;
 
-        // Set minimum height to show at least headers
-        const minHeight = headerHeight + (sectionHeaderHeight * 2) + padding + 100;
+        const minHeight = isMobile ? 200 : 400;
 
-        // Use content height but cap at max height
         const finalHeight = Math.min(Math.max(contentHeight, minHeight), maxHeight);
 
         this._panel.style.height = `${finalHeight}px`;

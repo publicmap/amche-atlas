@@ -55,7 +55,6 @@ module.exports = {
                 { from: 'map-creator.html', to: 'map-creator.html' },
                 { from: 'map-inspector.html', to: 'map-inspector.html' },
                 { from: 'map-information.html', to: 'map-information.html' },
-                { from: 'menu.html', to: 'menu.html' },
                 { from: 'pdf-layout.html', to: 'pdf-layout.html' },
                 { from: 'offline.html', to: 'offline.html' },
                 { from: 'privacy.html', to: 'privacy.html' },

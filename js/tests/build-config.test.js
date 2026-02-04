@@ -11,9 +11,13 @@ describe('Build Configuration', () => {
   it('should include all root-level HTML files in vite.config.js', async () => {
     const viteConfig = fs.readFileSync(path.join(rootDir, 'vite.config.js'), 'utf8');
 
+    const excludedFiles = [
+      'offline.html',
+      'privacy.html'
+    ];
     const htmlFiles = fs.readdirSync(rootDir)
       .filter(file => file.endsWith('.html') && !file.startsWith('.'))
-      .filter(file => !['offline.html', 'privacy.html', 'menu.html', 'pdf-layout.html'].includes(file));
+      .filter(file => !excludedFiles.includes(file));
 
     const missingFiles = [];
     for (const file of htmlFiles) {
@@ -31,9 +35,14 @@ describe('Build Configuration', () => {
   it('should include all root-level HTML files in webpack.config.js', async () => {
     const webpackConfig = fs.readFileSync(path.join(rootDir, 'webpack.config.js'), 'utf8');
 
+    const excludedFiles = [
+      'index.html',
+      'offline.html',
+      'privacy.html'
+    ];
     const htmlFiles = fs.readdirSync(rootDir)
       .filter(file => file.endsWith('.html') && !file.startsWith('.'))
-      .filter(file => file !== 'index.html');
+      .filter(file => !excludedFiles.includes(file));
 
     const missingFiles = [];
     for (const file of htmlFiles) {

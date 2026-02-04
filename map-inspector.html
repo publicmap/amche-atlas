@@ -11,10 +11,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <style>
+        html,
         body {
+            height: 100%;
             margin: 0;
             padding: 0;
             overflow: hidden;
+        }
+
+        body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #111827;
         }
@@ -38,6 +43,15 @@
 
         .layer-card.expanded {
             border-left-color: #3b82f6;
+        }
+
+        .layer-card.dimmed {
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+        }
+
+        .layer-card.dimmed:hover {
+            opacity: 0.9;
         }
 
         .layer-card-compact {
@@ -237,6 +251,7 @@
                 transform: translateY(100%);
                 opacity: 0;
             }
+
             to {
                 transform: translateY(0);
                 opacity: 1;
@@ -247,11 +262,14 @@
 
 <body class="bg-gray-900 text-white">
     <!-- Header -->
-    <div class="header" id="drag-handle"
-        style="background: #1f2937; padding: 12px; border-bottom: 1px solid #374151; cursor: move;">
+    <div class="header" style="background: #1f2937; padding: 12px; border-bottom: 1px solid #374151;">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <div class="text-sm font-semibold" style="user-select: none;">Map Layers</div>
+                <div id="drag-handle" class="text-sm font-semibold flex items-center gap-2"
+                    style="user-select: none; cursor: move; padding: 4px 8px; margin: -4px -8px; color: #60a5fa;">
+                    <sl-icon name="layers" style="font-size: 16px;"></sl-icon>
+                    <span>Map Layers</span>
+                </div>
                 <sl-dropdown distance="5" placement="bottom-start" id="options-dropdown">
                     <button slot="trigger" class="text-xs"
                         style="background: transparent; border: none; color: rgba(235, 235, 235, 0.7); cursor: pointer; padding: 4px 8px;">
@@ -278,12 +296,13 @@
 
     <!-- Layer List -->
     <div id="layer-container"
-        style="display: flex; flex-direction: column; height: calc(100vh - 48px - 44px); overflow: hidden;">
+        style="display: flex; flex-direction: column; height: calc(100% - 48px); overflow: hidden;">
         <!-- Overlay Maps Section -->
         <div style="flex-shrink: 0; background: #111827; padding: 8px 4px 0 4px;">
             <div class="section-header" id="overlay-header"
                 style="padding: 8px 12px; background: #374151; border-radius: 4px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between;">
-                <span class="text-xs font-semibold text-gray-300">
+                <span class="text-xs font-semibold text-gray-300 flex items-center gap-2">
+                    <sl-icon name="layers-half" style="font-size: 14px;"></sl-icon>
                     OVERLAY MAPS <span id="overlay-count" class="text-gray-400">(0)</span>
                 </span>
                 <span class="toggle-icon" style="font-size: 12px; transition: transform 0.2s;">▼</span>
@@ -295,27 +314,30 @@
             style="flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px;"></div>
 
         <!-- Base Maps Section -->
-        <div style="flex-shrink: 0; background: #111827; padding: 0 4px 8px 4px;">
+        <div style="flex-shrink: 0; background: #111827; padding: 0 4px 8px 4px; margin-top:6px">
             <div class="section-header" id="basemap-header"
                 style="padding: 8px 12px; background: #374151; border-radius: 4px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                <span class="text-xs font-semibold text-gray-300">
+                <span class="text-xs font-semibold text-gray-300 flex items-center gap-2">
+                    <sl-icon name="stack" style="font-size: 14px;"></sl-icon>
                     BASE MAPS <span id="basemap-count" class="text-gray-400">(0)</span>
                 </span>
                 <span class="toggle-icon"
                     style="font-size: 12px; transition: transform 0.2s; transform: rotate(-90deg);">▼</span>
             </div>
             <div id="basemap-list" class="scrollbar-thin"
-                style="display: none; max-height: 40vh; overflow-y: auto; padding: 0 4px;"></div>
+                style="display: none; overflow-y: auto; padding: 0 4px;"></div>
         </div>
     </div>
 
     <!-- Status Bar -->
-    <div id="status-bar" style="display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 44px; background: #111827; border-top: 1px solid #374151; padding: 0 12px; align-items: center; justify-content: space-between; z-index: 100;">
+    <div id="status-bar"
+        style="display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 44px; background: #111827; border-top: 1px solid #374151; padding: 0 12px; align-items: center; justify-content: space-between; z-index: 100;">
         <div style="display: flex; align-items: center; gap: 8px;">
             <sl-icon name="check-circle-fill" style="color: #10b981; font-size: 16px;"></sl-icon>
             <span id="status-text" style="font-size: 11px; color: #d1d5db;"></span>
         </div>
-        <button id="clear-selection-btn" style="padding: 6px 12px; background: #374151; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; transition: background 0.2s;">
+        <button id="clear-selection-btn"
+            style="padding: 6px 12px; background: #374151; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; transition: background 0.2s;">
             Clear Selection
         </button>
     </div>
@@ -368,12 +390,17 @@
             const overlayCount = $('#overlay-list').children('.layer-card').length;
             const basemapCount = $('#basemap-list').children('.layer-card').length;
 
+            const overlayHeight = overlayOpen ? $('#overlay-list')[0].scrollHeight : 0;
+            const basemapHeight = basemapOpen ? $('#basemap-list')[0].scrollHeight : 0;
+
             window.parent.postMessage({
                 type: 'inspector-height-change',
                 overlayOpen: overlayOpen,
                 basemapOpen: basemapOpen,
                 overlayCount: overlayCount,
-                basemapCount: basemapCount
+                basemapCount: basemapCount,
+                overlayHeight: overlayHeight,
+                basemapHeight: basemapHeight
             }, '*');
         }
 
@@ -383,11 +410,13 @@
                 activeLayers = event.data.activeLayers || [];
                 layerRegistry = event.data.layerRegistry;
                 renderLayers();
+                reapplyVisualIsolationIfNeeded();
             }
 
             if (event.data.type === 'active-layers-update') {
                 activeLayers = event.data.activeLayers || [];
                 renderLayers();
+                reapplyVisualIsolationIfNeeded();
             }
 
             if (event.data.type === 'highlight-layers') {
@@ -411,6 +440,7 @@
                 }
 
                 renderLayers();
+                reapplyVisualIsolationIfNeeded();
                 updateStatusBar();
             }
 
@@ -423,8 +453,14 @@
                 selectedFeatures.delete(layerId);
                 if (expandedLayerId === layerId) {
                     expandedLayerId = null;
+                    if (isolateEnabled) {
+                        window.parent.postMessage({
+                            type: 'clear-layer-isolation'
+                        }, '*');
+                    }
                 }
                 renderLayers();
+                clearVisualIsolation();
                 updateStatusBar();
             }
         });
@@ -443,6 +479,7 @@
                     window.parent.postMessage({
                         type: 'clear-layer-isolation'
                     }, '*');
+                    clearVisualIsolation();
                 }
             });
 
@@ -474,14 +511,6 @@
                 $(this).css('opacity', '0.7');
             });
 
-            // Clear layer isolation when mouse leaves the panel
-            $(document.body).on('mouseleave', function () {
-                if (isolateEnabled && expandedLayerId) {
-                    window.parent.postMessage({
-                        type: 'clear-layer-isolation'
-                    }, '*');
-                }
-            });
 
             $('#close-info-modal').on('click', function () {
                 $('#info-modal').hide();
@@ -805,16 +834,51 @@
                         type: 'clear-layer-isolation'
                     }, '*');
                 }
+                renderLayers();
+                clearVisualIsolation();
             } else {
                 expandedLayerId = layerId;
+                renderLayers();
                 if (isolateEnabled) {
+                    const layer = activeLayers.find(l => l.id === layerId);
+                    const isBasemap = layer && layer.tags && Array.isArray(layer.tags) && layer.tags.includes('basemap');
+
                     window.parent.postMessage({
                         type: 'isolate-layer',
-                        layerId: layerId
+                        layerId: layerId,
+                        isBasemap: isBasemap
                     }, '*');
+                    setTimeout(() => applyVisualIsolation(layerId, isBasemap), 10);
                 }
             }
-            renderLayers();
+            setTimeout(notifyHeightChange, 50);
+        }
+
+        function applyVisualIsolation(isolatedLayerId, isBasemap) {
+            const targetList = isBasemap ? $('#basemap-list') : $('#overlay-list');
+
+            targetList.find('.layer-card').each(function () {
+                const layerId = $(this).data('layer-id');
+                if (layerId !== isolatedLayerId) {
+                    $(this).addClass('dimmed');
+                } else {
+                    $(this).removeClass('dimmed');
+                }
+            });
+        }
+
+        function clearVisualIsolation() {
+            $('.layer-card').removeClass('dimmed');
+        }
+
+        function reapplyVisualIsolationIfNeeded() {
+            if (isolateEnabled && expandedLayerId) {
+                const layer = activeLayers.find(l => l.id === expandedLayerId);
+                if (layer) {
+                    const isBasemap = layer.tags && Array.isArray(layer.tags) && layer.tags.includes('basemap');
+                    setTimeout(() => applyVisualIsolation(expandedLayerId, isBasemap), 10);
+                }
+            }
         }
 
         // Update highlight states
@@ -845,7 +909,13 @@
         function clearAllSelections() {
             selectedFeatures.clear();
             expandedLayerId = null;
+            if (isolateEnabled) {
+                window.parent.postMessage({
+                    type: 'clear-layer-isolation'
+                }, '*');
+            }
             renderLayers();
+            clearVisualIsolation();
             updateStatusBar();
 
             window.parent.postMessage({

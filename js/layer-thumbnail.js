@@ -50,11 +50,9 @@ export class LayerThumbnail {
         const typeLabel = document.createElement('div');
         typeLabel.style.cssText = `
             position: absolute;
-            bottom: 4px;
-            right: 4px;
             padding: 2px 5px;
             border-radius: 3px;
-            font-size: 8px;
+            font-size: 6px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.3px;
