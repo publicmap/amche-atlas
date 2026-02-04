@@ -294,8 +294,47 @@ export class MapFeatureControl {
                 if (this._stateManager) {
                     this._stateManager.clearAllSelections();
                 }
+            } else if (event.data.type === 'open-layer-info') {
+                this._openLayerInfo(event.data.layer);
             }
         });
+    }
+
+    /**
+     * Open layer information modal
+     */
+    _openLayerInfo(layer) {
+        const modal = document.getElementById('layer-info-modal');
+        const iframe = document.getElementById('layer-info-iframe');
+
+        if (!modal || !iframe) {
+            console.warn('Layer info modal not found in page');
+            return;
+        }
+
+        const layerJson = encodeURIComponent(JSON.stringify(layer));
+        iframe.src = `map-information.html?layer=${layerJson}`;
+        modal.style.display = 'block';
+
+        const closeHandler = (e) => {
+            if (e.data.type === 'close-layer-info') {
+                modal.style.display = 'none';
+                iframe.src = '';
+                window.removeEventListener('message', closeHandler);
+            }
+        };
+
+        const keyHandler = (e) => {
+            if (e.key === 'Escape') {
+                modal.style.display = 'none';
+                iframe.src = '';
+                document.removeEventListener('keydown', keyHandler);
+                window.removeEventListener('message', closeHandler);
+            }
+        };
+
+        window.addEventListener('message', closeHandler);
+        document.addEventListener('keydown', keyHandler);
     }
 
     /**
@@ -999,11 +1038,11 @@ export class MapFeatureControl {
     _adjustPanelHeight(data) {
         if (!this._panel) return;
 
-        const { overlayOpen, basemapOpen, overlayHeight, basemapHeight } = data;
+        const { overlayOpen, basemapOpen, overlayHeight, basemapHeight, statusBarVisible } = data;
         const headerHeight = 48;
         const sectionHeaderHeight = 40;
         const padding = 24;
-        const statusBarHeight = 0;
+        const statusBarHeight = statusBarVisible ? 44 : 0;
 
         let contentHeight = headerHeight + padding + statusBarHeight;
 

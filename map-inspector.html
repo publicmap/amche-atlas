@@ -260,9 +260,9 @@
     </style>
 </head>
 
-<body class="bg-gray-900 text-white">
+<body class="bg-gray-900 text-white" style="display: flex; flex-direction: column;">
     <!-- Header -->
-    <div class="header" style="background: #1f2937; padding: 12px; border-bottom: 1px solid #374151;">
+    <div class="header" style="flex-shrink: 0; background: #1f2937; padding: 12px; border-bottom: 1px solid #374151;">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <div id="drag-handle" class="text-sm font-semibold flex items-center gap-2"
@@ -294,9 +294,9 @@
         </div>
     </div>
 
-    <!-- Layer List -->
+    <!-- Main Content (Layer List) -->
     <div id="layer-container"
-        style="display: flex; flex-direction: column; height: calc(100% - 48px); overflow: hidden;">
+        style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
         <!-- Overlay Maps Section -->
         <div style="flex-shrink: 0; background: #111827; padding: 8px 4px 0 4px;">
             <div class="section-header" id="overlay-header"
@@ -329,9 +329,9 @@
         </div>
     </div>
 
-    <!-- Status Bar -->
+    <!-- Footer (Status Bar) -->
     <div id="status-bar"
-        style="display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 44px; background: #111827; border-top: 1px solid #374151; padding: 0 12px; align-items: center; justify-content: space-between; z-index: 100;">
+        style="display: none; flex-shrink: 0; height: 44px; background: #111827; border-top: 1px solid #374151; padding: 0 12px; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 8px;">
             <sl-icon name="check-circle-fill" style="color: #10b981; font-size: 16px;"></sl-icon>
             <span id="status-text" style="font-size: 11px; color: #d1d5db;"></span>
@@ -340,19 +340,6 @@
             style="padding: 6px 12px; background: #374151; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; transition: background 0.2s;">
             Clear Selection
         </button>
-    </div>
-
-    <!-- Information Modal (iframe) -->
-    <div id="info-modal"
-        style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 9999;">
-        <div
-            style="position: absolute; top: 20px; right: 20px; left: 20px; bottom: 20px; background: #1f2937; border-radius: 8px; overflow: hidden;">
-            <div style="position: absolute; top: 12px; right: 12px; z-index: 10;">
-                <button id="close-info-modal"
-                    style="width: 32px; height: 32px; border-radius: 4px; background: #374151; color: white; border: none; cursor: pointer; font-size: 20px; line-height: 1;">×</button>
-            </div>
-            <iframe id="info-iframe" style="width: 100%; height: 100%; border: none;"></iframe>
-        </div>
     </div>
 
     <script type="module">
@@ -392,6 +379,7 @@
 
             const overlayHeight = overlayOpen ? $('#overlay-list')[0].scrollHeight : 0;
             const basemapHeight = basemapOpen ? $('#basemap-list')[0].scrollHeight : 0;
+            const statusBarVisible = $('#status-bar').is(':visible');
 
             window.parent.postMessage({
                 type: 'inspector-height-change',
@@ -400,7 +388,8 @@
                 overlayCount: overlayCount,
                 basemapCount: basemapCount,
                 overlayHeight: overlayHeight,
-                basemapHeight: basemapHeight
+                basemapHeight: basemapHeight,
+                statusBarVisible: statusBarVisible
             }, '*');
         }
 
@@ -512,15 +501,6 @@
             });
 
 
-            $('#close-info-modal').on('click', function () {
-                $('#info-modal').hide();
-            });
-
-            $('#info-modal').on('click', function (e) {
-                if (e.target.id === 'info-modal') {
-                    $('#info-modal').hide();
-                }
-            });
 
             $('#basemap-header').on('click', function () {
                 const $basemapList = $('#basemap-list');
@@ -923,12 +903,12 @@
             }, '*');
         }
 
-        // Open layer information modal
+        // Open layer information modal in parent
         function openLayerInfo(layer) {
-            const $iframe = $('#info-iframe');
-            const layerJson = encodeURIComponent(JSON.stringify(layer));
-            $iframe.attr('src', `map-information.html?layer=${layerJson}`);
-            $('#info-modal').show();
+            window.parent.postMessage({
+                type: 'open-layer-info',
+                layer: layer
+            }, '*');
         }
     </script>
 </body>

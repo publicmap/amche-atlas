@@ -1586,11 +1586,12 @@
             return $card;
         }
 
-        // Open layer details in popup
+        // Open layer details in parent modal
         function openLayerDetails(layer) {
-            const layerJson = encodeURIComponent(JSON.stringify(layer));
-            const url = `map-information.html?layer=${layerJson}`;
-            window.open(url, 'layer-details', 'width=1200,height=800');
+            window.parent.postMessage({
+                type: 'open-layer-info',
+                layer: layer
+            }, '*');
         }
 
         // Preview layer on map

@@ -183,7 +183,7 @@
     <div class="header-bg" id="header-bg">
         <div class="header-overlay"></div>
         <div class="header-content">
-            <button class="close-btn" onclick="window.close()">✕</button>
+            <button class="close-btn" id="close-layer-info">✕</button>
             <div>
                 <h1 id="layer-title" class="text-4xl font-bold text-white mb-2"></h1>
                 <div id="layer-type" class="text-sm text-gray-300 font-medium"></div>
@@ -252,6 +252,14 @@
                     $('#layer-title').text('Error loading layer information');
                 }
             }
+
+            $('#close-layer-info').on('click', function() {
+                if (window.self !== window.top) {
+                    window.parent.postMessage({ type: 'close-layer-info' }, '*');
+                } else {
+                    window.close();
+                }
+            });
         });
 
         function renderLayerInfo(layer) {
