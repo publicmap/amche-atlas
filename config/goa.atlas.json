@@ -691,7 +691,7 @@
             ],
             {
               "text-color": "white",
-              "font-scale": 1.17
+              "font-scale": 1.25
             },
             " / ",
             {},
@@ -707,8 +707,54 @@
         ],
         "text-color": "white",
         "text-halo-color": "black",
-        "text-halo-width": 2,
-        "text-size": 12,
+        "text-halo-width": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          3,
+          2
+        ],
+        "text-opacity": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          1,
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          1,
+          0.6
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          6,
+          16,
+          14
+        ],
         "fill-color": [
           "interpolate",
           [

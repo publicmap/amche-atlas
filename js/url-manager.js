@@ -25,12 +25,12 @@ export class URLManager {
 
         if (stateManager) {
             stateManager.addEventListener('state-change', (event) => {
-                const { eventType } = event.detail;
+                const { eventType, data } = event.detail;
                 if (eventType === 'feature-click' ||
                     eventType === 'feature-click-multiple' ||
                     eventType === 'selections-cleared' ||
                     eventType === 'feature-deselected') {
-                    if (!this.isUpdatingFromURL) {
+                    if (!this.isUpdatingFromURL && !data?.fromURL) {
                         this.updateURL({ updateSelections: true, updateLayers: false });
                     }
                 }
@@ -867,7 +867,15 @@ export class URLManager {
 
         console.log(`[URL API] Applying ${selectionsByLayer.size} layer selections from URL`);
 
-        await this.waitForLayersReady(Array.from(selectionsByLayer.keys()));
+        const layersReady = await this.waitForLayersReady(Array.from(selectionsByLayer.keys()));
+
+        if (!layersReady) {
+            console.warn('[URL API] Not all layers ready, attempting selection anyway');
+        }
+
+        await this.waitForMapIdle();
+
+        const allSelectedFeatures = [];
 
         selectionsByLayer.forEach((featureIds, layerId) => {
             if (!this.stateManager.isLayerRegistered(layerId)) {
@@ -882,30 +890,76 @@ export class URLManager {
             }
 
             featureIds.forEach(rawFeatureId => {
-                this.selectFeatureFromURL(layerId, rawFeatureId, layerConfig);
+                const selectedFeature = this.selectFeatureFromURL(layerId, rawFeatureId, layerConfig);
+                if (selectedFeature) {
+                    allSelectedFeatures.push(selectedFeature);
+                }
             });
+        });
+
+        if (allSelectedFeatures.length > 0) {
+            this.stateManager._updateLineSortKeys();
+
+            this.stateManager._emitStateChange('feature-click-multiple', {
+                selectedFeatures: allSelectedFeatures,
+                clearedFeatures: [],
+                fromURL: true
+            });
+
+            console.log(`[URL API] Successfully selected ${allSelectedFeatures.length} features from URL`);
+        } else {
+            console.warn('[URL API] No features were selected from URL');
+        }
+    }
+
+    async waitForMapIdle(timeout = 3000) {
+        return new Promise((resolve) => {
+            if (this.map.loaded() && this.map.areTilesLoaded()) {
+                resolve();
+                return;
+            }
+
+            const timeoutId = setTimeout(() => {
+                console.warn('[URL API] Timeout waiting for map idle');
+                resolve();
+            }, timeout);
+
+            const onIdle = () => {
+                clearTimeout(timeoutId);
+                this.map.off('idle', onIdle);
+                resolve();
+            };
+
+            this.map.once('idle', onIdle);
         });
     }
 
-    async waitForLayersReady(layerIds, timeout = 5000) {
+    async waitForLayersReady(layerIds, timeout = 10000) {
         const startTime = Date.now();
-        const checkInterval = 100;
+        const checkInterval = 200;
+
+        console.log(`[URL API] Waiting for layers to be ready: ${layerIds.join(', ')}`);
 
         return new Promise((resolve) => {
             const checkLayers = () => {
                 if (!this.stateManager) {
+                    console.warn('[URL API] State manager not available');
                     resolve(false);
                     return;
                 }
 
-                const allReady = layerIds.every(layerId =>
+                const readyLayers = layerIds.filter(layerId =>
                     this.stateManager.isLayerRegistered(layerId)
                 );
 
+                const allReady = readyLayers.length === layerIds.length;
+
                 if (allReady) {
+                    console.log('[URL API] All layers ready');
                     resolve(true);
                 } else if (Date.now() - startTime > timeout) {
-                    console.warn('[URL API] Timeout waiting for layers to be ready');
+                    const notReady = layerIds.filter(id => !readyLayers.includes(id));
+                    console.warn(`[URL API] Timeout waiting for layers: ${notReady.join(', ')}`);
                     resolve(false);
                 } else {
                     setTimeout(checkLayers, checkInterval);
@@ -953,11 +1007,20 @@ export class URLManager {
                 this.stateManager._setMapboxFeatureState(featureId, layerId, { selected: true });
 
                 console.log(`[URL API] Selected feature ${rawFeatureId} from layer ${layerId}`);
+
+                return {
+                    featureId,
+                    layerId,
+                    feature: matchingFeature,
+                    lngLat: null
+                };
             } else {
                 console.warn(`[URL API] Feature ${rawFeatureId} not found in layer ${layerId}`);
+                return null;
             }
         } catch (error) {
             console.warn(`[URL API] Error selecting feature ${rawFeatureId} from layer ${layerId}:`, error);
+            return null;
         }
     }
 
