@@ -173,15 +173,16 @@
         }
 
         .feature-custom-info {
-            background: #1f2937;
-            border-radius: 4px;
-            padding: 8px;
-            margin-bottom: 8px;
-            border-left: 3px solid #3b82f6;
+            background: transparent;
+            margin: 8px 0;
+            font-size: 11px;
+            color: #d1d5db;
+            line-height: 1.5;
         }
 
         .feature-custom-info strong {
             color: #e5e7eb;
+            font-weight: 600;
         }
 
         .feature-custom-info a {
@@ -192,6 +193,14 @@
         .feature-custom-info a:hover {
             color: #93c5fd;
             text-decoration: underline;
+        }
+
+        .feature-custom-info div {
+            margin-bottom: 4px;
+        }
+
+        .feature-custom-info div:last-child {
+            margin-bottom: 0;
         }
 
         .property-row {
@@ -382,6 +391,7 @@
 
     <script type="module">
         import { LayerThumbnail } from './js/layer-thumbnail.js';
+        import { handlerLoader } from './js/inspection-handler-loader.js';
 
         // State
         let activeLayers = [];
@@ -505,8 +515,8 @@
                 // Re-render to show custom HTML
                 renderLayers();
 
-                // Process any async loaders (like Bhunaksha) after a short delay
-                setTimeout(processBhunakshaLoaders, 100);
+                // Process any async loaders after a short delay
+                setTimeout(processApiLoaders, 100);
             }
 
             if (event.data.type === 'request-height-update') {
@@ -748,10 +758,10 @@
             // Notify parent about potential height change
             setTimeout(notifyHeightChange, 100);
 
-            // Process any async loaders (like Bhunaksha) after DOM updates
+            // Process any async API loaders after DOM updates
             // Use requestAnimationFrame to ensure DOM has updated
             requestAnimationFrame(() => {
-                setTimeout(processBhunakshaLoaders, 50);
+                setTimeout(processApiLoaders, 50);
             });
         }
 
@@ -835,37 +845,47 @@
 
             $info.append($headerRow);
 
-            // Feature count badge (always visible for selected layers)
-            const featureCount = featuresMap.size;
-            const $countBadge = $('<div>', {
+            // Feature badges (always visible for selected layers)
+            const $badgesContainer = $('<div>', {
                 css: {
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    marginTop: '4px',
-                    fontSize: '11px',
-                    color: '#9ca3af'
+                    flexWrap: 'wrap',
+                    gap: '4px',
+                    marginTop: '6px'
                 }
             });
-            const $countLabel = $('<span>', { text: 'Selected:' });
-            const $countCircle = $('<span>', {
-                text: featureCount,
-                css: {
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: '20px',
-                    height: '20px',
-                    padding: '0 6px',
-                    background: '#3b82f6',
-                    color: 'white',
-                    borderRadius: '10px',
-                    fontSize: '11px',
-                    fontWeight: '600'
-                }
+
+            // Get the inspect config to know which field to use for labels
+            const inspectConfig = layerConfig.inspect || {};
+            const labelField = inspectConfig.label || inspectConfig.id || 'id';
+
+            // Create a badge for each selected feature
+            featuresMap.forEach((feature, featureId) => {
+                const labelValue = feature.properties?.[labelField] || featureId;
+
+                const $badge = $('<span>', {
+                    text: labelValue,
+                    css: {
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '3px 8px',
+                        background: '#3b82f6',
+                        color: 'white',
+                        borderRadius: '10px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        whiteSpace: 'nowrap',
+                        maxWidth: '150px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                    },
+                    title: String(labelValue)
+                });
+
+                $badgesContainer.append($badge);
             });
-            $countBadge.append($countLabel, $countCircle);
-            $info.append($countBadge);
+
+            $info.append($badgesContainer);
 
             $compact.append($info);
 
@@ -903,18 +923,6 @@
                         }
                     });
 
-                    // Show custom HTML if available (from inspection handler)
-                    const customHTML = customHTMLMap.get(featureId);
-                    console.log(`[Inspector] Rendering custom HTML for feature ${featureId}:`, customHTML ? 'present' : 'missing');
-                    if (customHTML) {
-                        const $customSection = $('<div>').addClass('feature-custom-info');
-                        $customSection.html(customHTML);
-                        $featureContainer.append($customSection);
-                        console.log('[Inspector] Custom section appended, checking for loaders...');
-                        const loadersInSection = $customSection.find('.bhunaksha-loader').length;
-                        console.log(`[Inspector] Found ${loadersInSection} loaders in this section`);
-                    }
-
                     // Show standard feature properties
                     const $featureInfo = $('<div>', { class: 'feature-info' });
                     const $title = $('<div>', {
@@ -922,6 +930,25 @@
                         text: `Feature: ${featureId}`
                     });
                     $featureInfo.append($title);
+
+                    // Show custom HTML if available (from inspection handler) - below title
+                    const customHTML = customHTMLMap.get(featureId);
+                    console.log(`[Inspector] Rendering custom HTML for feature ${featureId}:`, customHTML ? 'present' : 'missing');
+                    if (customHTML) {
+                        const $customSection = $('<div>').addClass('feature-custom-info');
+                        $customSection.html(customHTML);
+
+                        // Add data attributes to loader elements for cache updating
+                        $customSection.find('.api-data-loader').each(function() {
+                            $(this).attr('data-layer-id', layerConfig.id);
+                            $(this).attr('data-feature-id', featureId);
+                        });
+
+                        $featureInfo.append($customSection);
+                        console.log('[Inspector] Custom section appended, checking for loaders...');
+                        const loadersInSection = $customSection.find('.api-data-loader').length;
+                        console.log(`[Inspector] Found ${loadersInSection} loaders in this section`);
+                    }
 
                     if (feature.properties) {
                         const $props = $('<div>');
@@ -1132,14 +1159,6 @@
 
                     // Render each selected feature
                     featuresMap.forEach((feature, featureId) => {
-                        // Show custom HTML if available (from inspection handler)
-                        const customHTML = customHTMLMap.get(featureId);
-                        if (customHTML) {
-                            const $customSection = $('<div>').addClass('feature-custom-info');
-                            $customSection.html(customHTML);
-                            $expanded.append($customSection);
-                        }
-
                         // Show standard feature properties
                         const $featureInfo = $('<div>', { class: 'feature-info' });
                         const $title = $('<div>', {
@@ -1147,6 +1166,21 @@
                             text: featuresMap.size > 1 ? `Feature: ${featureId}` : 'Selected Feature'
                         });
                         $featureInfo.append($title);
+
+                        // Show custom HTML if available (from inspection handler) - below title
+                        const customHTML = customHTMLMap.get(featureId);
+                        if (customHTML) {
+                            const $customSection = $('<div>').addClass('feature-custom-info');
+                            $customSection.html(customHTML);
+
+                            // Add data attributes to loader elements for cache updating
+                            $customSection.find('.api-data-loader').each(function() {
+                                $(this).attr('data-layer-id', layer.id);
+                                $(this).attr('data-feature-id', featureId);
+                            });
+
+                            $featureInfo.append($customSection);
+                        }
 
                         if (feature.properties) {
                             const $props = $('<div>');
@@ -1381,85 +1415,86 @@
             }, '*');
         }
 
-        // Process Bhunaksha async loaders
-        async function processBhunakshaLoaders() {
-            const loaders = document.querySelectorAll('.bhunaksha-loader');
-            console.log(`[Inspector] Processing ${loaders.length} Bhunaksha loaders`);
+        // Process API data loaders (generic, handler-agnostic)
+        async function processApiLoaders() {
+            const loaders = document.querySelectorAll('.api-data-loader');
+            console.log(`[Inspector] Processing ${loaders.length} API loaders`);
 
             for (const loader of loaders) {
                 const apiUrl = loader.getAttribute('data-api-url');
+                const handlerName = loader.getAttribute('data-response-handler');
+                const atlasName = loader.getAttribute('data-atlas-name');
+                const layerId = loader.getAttribute('data-layer-id');
+                const featureId = loader.getAttribute('data-feature-id');
+
                 if (!apiUrl) {
                     console.warn('[Inspector] Loader missing data-api-url', loader);
                     continue;
                 }
 
-                console.log('[Inspector] Fetching Bhunaksha data from:', apiUrl);
+                console.log('[Inspector] Fetching data from:', apiUrl);
 
                 // Remove the loader class to prevent reprocessing
-                loader.classList.remove('bhunaksha-loader');
+                loader.classList.remove('api-data-loader');
 
                 try {
                     // Fetch data from API
                     const response = await fetch(apiUrl);
                     const data = await response.json();
-                    console.log('[Inspector] Bhunaksha data received:', data);
+                    console.log('[Inspector] Data received:', data);
 
-                    const getHeader = (withLink = false, color = '') => {
-                        const style = color ? `style="color: ${color};"` : '';
-                        const content = withLink
-                            ? 'Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>'
-                            : 'Additional Information from Bhunaksha';
-                        return `<div style="margin-bottom: 8px; font-weight: 600;" ${style}>${content}</div>`;
-                    };
-
-                    if (data.info && data.has_data === 'Y') {
-                        // Format the info text
-                        let infoText;
-                        const isHTML = /<[^>]*>/g.test(data.info);
-
-                        if (isHTML) {
-                            // Clean up HTML response
-                            infoText = data.info
-                                .replace(/<\/?html>/gi, '')
-                                .replace(/<font[^>]*>/gi, '<span>')
-                                .replace(/<\/font>/gi, '</span>')
-                                .trim();
-                        } else {
-                            // Format plain text (skip first 3 lines, format headers)
-                            const rawText = data.info.split('\n').slice(3).join('\n').replace(/-{10,}/g, '');
-                            const formattedText = rawText.replace(/^([^:\n]+:)/gm, '<strong>$1</strong><br>');
-                            infoText = formattedText.replace(/\n/g, '<br>');
+                    // Load handlers for the atlas if handler name is specified
+                    let formattedHTML;
+                    if (handlerName && atlasName) {
+                        try {
+                            const handlers = await handlerLoader.loadHandlers(atlasName);
+                            if (handlers[handlerName]) {
+                                console.log('[Inspector] Using formatter:', handlerName, 'from atlas:', atlasName);
+                                formattedHTML = handlers[handlerName](data);
+                            } else {
+                                console.warn('[Inspector] Formatter not found:', handlerName);
+                                formattedHTML = `<pre style="color: #d1d5db; font-size: 10px;">${JSON.stringify(data, null, 2)}</pre>`;
+                            }
+                        } catch (error) {
+                            console.error('[Inspector] Error loading handlers:', error);
+                            formattedHTML = `<pre style="color: #d1d5db; font-size: 10px;">${JSON.stringify(data, null, 2)}</pre>`;
                         }
-
-                        loader.innerHTML = `
-                            <div style="font-size: 12px;">
-                                ${getHeader()}
-                                <div style="margin-bottom: 8px; line-height: 1.5;">${infoText}</div>
-                                <div style="font-style: italic; font-size: 11px; color: #6b7280;">
-                                    <svg style="display: inline; width: 12px; height: 12px; margin-right: 4px;" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    Retrieved from <a href="${apiUrl}" target="_blank" style="color: #60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
-                                </div>
-                            </div>
-                        `;
                     } else {
-                        // No data available
-                        loader.innerHTML = `
-                            <div style="font-size: 12px; color: #d1d5db;">
-                                ${getHeader(false, '#f3f4f6')}
-                                <span style="color: #9ca3af;">No occupant data available</span>
-                            </div>
-                        `;
+                        // Fallback: display raw JSON
+                        formattedHTML = `<pre style="color: #d1d5db; font-size: 10px;">${JSON.stringify(data, null, 2)}</pre>`;
+                    }
+
+                    loader.innerHTML = formattedHTML;
+
+                    // Update the cached custom HTML with the processed content
+                    if (layerId && featureId && featureCustomHTML.has(layerId)) {
+                        const customHTMLMap = featureCustomHTML.get(layerId);
+                        if (customHTMLMap.has(featureId)) {
+                            // Get the parent feature-custom-info container
+                            const $container = $(loader).closest('.feature-custom-info');
+                            if ($container.length > 0) {
+                                // Update the cached HTML with the processed version
+                                const updatedHTML = $container.html();
+                                customHTMLMap.set(featureId, updatedHTML);
+                                console.log('[Inspector] Updated cached custom HTML for', layerId, featureId);
+                            }
+                        }
                     }
                 } catch (error) {
-                    console.error('[Inspector] Error fetching Bhunaksha details:', error);
-                    loader.innerHTML = `
-                        <div style="font-size: 12px;">
-                            <div style="margin-bottom: 8px; font-weight: 600;">Additional Information from Bhunaksha</div>
-                            <span style="color: #ef4444;">Error loading details: ${error.message}</span>
-                        </div>
-                    `;
+                    console.error('[Inspector] Error fetching data:', error);
+                    loader.innerHTML = `<span style="color: #f87171;">Error loading data: ${error.message}</span>`;
+
+                    // Update the cached custom HTML even for errors
+                    if (layerId && featureId && featureCustomHTML.has(layerId)) {
+                        const customHTMLMap = featureCustomHTML.get(layerId);
+                        if (customHTMLMap.has(featureId)) {
+                            const $container = $(loader).closest('.feature-custom-info');
+                            if ($container.length > 0) {
+                                const updatedHTML = $container.html();
+                                customHTMLMap.set(featureId, updatedHTML);
+                            }
+                        }
+                    }
                 }
             }
         }

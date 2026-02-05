@@ -48,6 +48,7 @@ export class LayerThumbnail {
 
         const typeBadge = this.getTypeBadge(layer.type);
         const typeLabel = document.createElement('div');
+        typeLabel.className = 'layer-type-badge';
         typeLabel.style.cssText = `
             position: absolute;
             padding: 2px 5px;
@@ -58,10 +59,19 @@ export class LayerThumbnail {
             letter-spacing: 0.3px;
             color: ${typeBadge.color};
             background-color: ${typeBadge.bg};
-            opacity: 0.9;
+            opacity: 0;
+            transition: opacity 0.2s ease;
         `;
         typeLabel.textContent = typeBadge.label;
         container.appendChild(typeLabel);
+
+        // Show type badge on hover
+        container.addEventListener('mouseenter', () => {
+            typeLabel.style.opacity = '0.9';
+        });
+        container.addEventListener('mouseleave', () => {
+            typeLabel.style.opacity = '0';
+        });
 
         return container;
     }
@@ -111,74 +121,243 @@ export class LayerThumbnail {
             left: 0;
         `;
 
-        // Helper to extract simple value from Mapbox expressions
+        // Helper to extract all values from case expressions for multi-symbol rendering
+        const getCaseValues = (value) => {
+            if (!Array.isArray(value) || value[0] !== 'case') return null;
+
+            const values = [];
+            // Case expression format: ["case", condition1, value1, condition2, value2, ..., defaultValue]
+            // Extract all non-condition values (odd indices after the "case" operator)
+            for (let i = 2; i < value.length; i += 2) {
+                values.push(value[i]);
+            }
+            // Add the default value (last item)
+            if (value.length % 2 === 0) {
+                values.push(value[value.length - 1]);
+            }
+
+            return values.length > 1 ? values : null;
+        };
+
+        // Helper to extract representative value from Mapbox expressions
+        // Assumes zoom level 16 for balanced visibility
         const getValue = (value, defaultValue = null) => {
             if (typeof value === 'string' || typeof value === 'number') return value;
-            if (Array.isArray(value)) {
-                for (let i = 1; i < value.length; i++) {
-                    if (typeof value[i] === 'string' || typeof value[i] === 'number') {
-                        return value[i];
+            if (!Array.isArray(value)) return defaultValue;
+
+            const expr = value[0];
+
+            // Handle interpolate expressions: ["interpolate", ["linear"], ["zoom"], 14, val1, 18, val2]
+            if (expr === 'interpolate' && value.length >= 7) {
+                // Find zoom stops and values
+                const stops = [];
+                for (let i = 3; i < value.length; i += 2) {
+                    if (typeof value[i] === 'number' && i + 1 < value.length) {
+                        stops.push({ zoom: value[i], value: value[i + 1] });
+                    }
+                }
+                // Use zoom 16 for balanced styling
+                if (stops.length >= 2) {
+                    const targetZoom = 16;
+                    for (let i = 0; i < stops.length - 1; i++) {
+                        if (targetZoom >= stops[i].zoom && targetZoom <= stops[i + 1].zoom) {
+                            // Take average of zoom position to pick appropriate value
+                            const zoomProgress = (targetZoom - stops[i].zoom) / (stops[i + 1].zoom - stops[i].zoom);
+                            // Use higher value if halfway or more, for better visibility
+                            const val = zoomProgress >= 0.5 ? stops[i + 1].value : stops[i].value;
+                            return Array.isArray(val) ? getValue(val, defaultValue) : val;
+                        }
+                    }
+                    // Use middle stop value if available, otherwise first
+                    const val = stops[Math.floor(stops.length / 2)].value;
+                    return Array.isArray(val) ? getValue(val, defaultValue) : val;
+                }
+            }
+
+            // Handle case expressions: ["case", condition, trueVal, falseVal]
+            // For thumbnails, ignore feature-state and return the default/false value
+            if (expr === 'case') {
+                // Skip condition, get the last value (default/false case)
+                const lastVal = value[value.length - 1];
+                return Array.isArray(lastVal) ? getValue(lastVal, defaultValue) : lastVal;
+            }
+
+            // Handle step expressions: ["step", ["zoom"], defaultVal, stop1, val1, ...]
+            if (expr === 'step' && value.length >= 3) {
+                const targetZoom = 16;
+                const defaultVal = value[2];
+                let selectedVal = defaultVal;
+                // Find appropriate step value
+                for (let i = 3; i < value.length; i += 2) {
+                    if (i + 1 < value.length && typeof value[i] === 'number') {
+                        if (targetZoom >= value[i]) {
+                            selectedVal = value[i + 1];
+                        }
+                    }
+                }
+                return Array.isArray(selectedVal) ? getValue(selectedVal, defaultValue) : selectedVal;
+            }
+
+            // For other expressions, try to find first concrete value
+            for (let i = 1; i < value.length; i++) {
+                const item = value[i];
+                if (typeof item === 'string' || typeof item === 'number') {
+                    // Skip expression operators and property accessors
+                    if (item !== 'get' && item !== 'zoom' && item !== 'feature-state' &&
+                        item !== 'linear' && item !== 'exponential' && item !== 'boolean') {
+                        return item;
                     }
                 }
             }
+
             return defaultValue;
         };
 
-        // Add semi-transparent background
-        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        bg.setAttribute('width', size);
-        bg.setAttribute('height', size);
-        bg.setAttribute('fill', 'rgba(255, 255, 255, 0.5)');
-        svg.appendChild(bg);
-
         // Circle symbology
         if (style['circle-radius'] || style['circle-color']) {
-            const color = getValue(style['circle-color'], '#3b82f6');
             const radius = getValue(style['circle-radius'], 6);
             const strokeColor = getValue(style['circle-stroke-color'], '#ffffff');
             const strokeWidth = getValue(style['circle-stroke-width'], 1);
             const opacity = getValue(style['circle-opacity'], 0.9);
 
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('cx', size / 2);
-            circle.setAttribute('cy', size / 2);
-            circle.setAttribute('r', Math.min(radius * 3, size / 3));
-            circle.setAttribute('fill', color);
-            circle.setAttribute('opacity', opacity);
-            circle.setAttribute('stroke', strokeColor);
-            circle.setAttribute('stroke-width', strokeWidth * 1.5);
-            svg.appendChild(circle);
+            // Check if circle-color is a case expression with multiple values
+            const caseValues = getCaseValues(style['circle-color']);
+
+            if (caseValues && caseValues.length > 1) {
+                // Render multiple circles, one for each case value
+                const numCircles = Math.min(caseValues.length, 4); // Limit to 4 for visibility
+                const offsetStep = size * 0.12; // 12% offset between each circle
+
+                for (let i = 0; i < numCircles; i++) {
+                    const color = caseValues[i];
+                    const offset = i * offsetStep;
+
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', size * 0.35 + offset);
+                    circle.setAttribute('cy', size * 0.35 + offset);
+                    circle.setAttribute('r', Math.min(radius * 2.5, size / 4));
+                    circle.setAttribute('fill', color);
+                    circle.setAttribute('opacity', opacity);
+                    circle.setAttribute('stroke', strokeColor);
+                    circle.setAttribute('stroke-width', Math.max(strokeWidth * 1.5, 0.5));
+                    svg.appendChild(circle);
+                }
+            } else {
+                // Single circle for non-case expressions
+                const color = getValue(style['circle-color'], '#3b82f6');
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', size / 2);
+                circle.setAttribute('cy', size / 2);
+                circle.setAttribute('r', Math.min(radius * 3, size / 3));
+                circle.setAttribute('fill', color);
+                circle.setAttribute('opacity', opacity);
+                circle.setAttribute('stroke', strokeColor);
+                circle.setAttribute('stroke-width', Math.max(strokeWidth * 1.5, 0.5));
+                svg.appendChild(circle);
+            }
+        }
+        // Fill symbology (with optional line)
+        else if (style['fill-color']) {
+            const fillOpacity = getValue(style['fill-opacity'], 0.5);
+            const lineColor = getValue(style['line-color'], '#1e40af');
+            const lineWidth = getValue(style['line-width'], 1);
+
+            // Check if fill-color is a case expression with multiple values
+            const caseValues = getCaseValues(style['fill-color']);
+
+            if (caseValues && caseValues.length > 1) {
+                // Render multiple polygons, one for each case value
+                const numPolygons = Math.min(caseValues.length, 4); // Limit to 4 for visibility
+                const offsetStep = size * 0.08; // 8% offset between each polygon
+
+                for (let i = 0; i < numPolygons; i++) {
+                    const fillColor = caseValues[i];
+                    const offset = i * offsetStep;
+
+                    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    // Create offset polygons from bottom-right to top-left
+                    const x1 = size * 0.2 + offset;
+                    const y1 = size * 0.2 + offset;
+                    const x2 = size * 0.7 + offset;
+                    const y2 = size * 0.7 + offset;
+                    const points = `${x1},${y1} ${x2},${y1} ${x2},${y2} ${x1},${y2}`;
+
+                    polygon.setAttribute('points', points);
+                    polygon.setAttribute('fill', fillColor);
+                    polygon.setAttribute('fill-opacity', fillOpacity);
+
+                    // Add stroke to make layers distinguishable
+                    if (lineWidth > 0) {
+                        polygon.setAttribute('stroke', lineColor);
+                        polygon.setAttribute('stroke-width', Math.min(lineWidth * 1.5, 3));
+                    } else {
+                        // Add thin white stroke to separate overlapping polygons
+                        polygon.setAttribute('stroke', 'white');
+                        polygon.setAttribute('stroke-width', 0.5);
+                    }
+
+                    svg.appendChild(polygon);
+                }
+            } else {
+                // Single polygon for non-case expressions
+                const fillColor = getValue(style['fill-color'], '#3b82f6');
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                // Larger polygon covering more area (from 20% to 80%)
+                const points = `${size * 0.2},${size * 0.2} ${size * 0.8},${size * 0.2} ${size * 0.8},${size * 0.8} ${size * 0.2},${size * 0.8}`;
+                polygon.setAttribute('points', points);
+                polygon.setAttribute('fill', fillColor);
+                polygon.setAttribute('fill-opacity', fillOpacity);
+
+                // Only show stroke if line-width is meaningful (> 0)
+                if (lineWidth > 0) {
+                    polygon.setAttribute('stroke', lineColor);
+                    polygon.setAttribute('stroke-width', Math.min(lineWidth * 1.5, 3));
+                }
+                svg.appendChild(polygon);
+            }
         }
         // Line symbology
         else if (style['line-color']) {
-            const color = getValue(style['line-color'], '#3b82f6');
             const width = getValue(style['line-width'], 2);
             const opacity = getValue(style['line-opacity'], 1);
 
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            const d = `M ${size * 0.2},${size * 0.5} L ${size * 0.5},${size * 0.3} L ${size * 0.8},${size * 0.5} L ${size * 0.5},${size * 0.7} Z`;
-            path.setAttribute('d', d);
-            path.setAttribute('stroke', color);
-            path.setAttribute('stroke-width', Math.max(width * 2, 3));
-            path.setAttribute('opacity', opacity);
-            path.setAttribute('fill', 'none');
-            svg.appendChild(path);
-        }
-        // Fill symbology
-        else if (style['fill-color']) {
-            const fillColor = getValue(style['fill-color'], '#3b82f6');
-            const fillOpacity = getValue(style['fill-opacity'], 0.5);
-            const lineColor = getValue(style['line-color'], '#1e40af');
-            const lineWidth = getValue(style['line-width'], 2);
+            // Check if line-color is a case expression with multiple values
+            const caseValues = getCaseValues(style['line-color']);
 
-            const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-            const points = `${size * 0.3},${size * 0.3} ${size * 0.7},${size * 0.3} ${size * 0.7},${size * 0.7} ${size * 0.3},${size * 0.7}`;
-            polygon.setAttribute('points', points);
-            polygon.setAttribute('fill', fillColor);
-            polygon.setAttribute('fill-opacity', fillOpacity);
-            polygon.setAttribute('stroke', lineColor);
-            polygon.setAttribute('stroke-width', lineWidth);
-            svg.appendChild(polygon);
+            if (caseValues && caseValues.length > 1) {
+                // Render multiple lines, one for each case value
+                const numLines = Math.min(caseValues.length, 4); // Limit to 4 for visibility
+                const offsetStep = size * 0.08; // 8% offset between each line
+
+                for (let i = 0; i < numLines; i++) {
+                    const color = caseValues[i];
+                    const offset = i * offsetStep;
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    // Create offset zigzag lines
+                    const y1 = size * 0.3 + offset;
+                    const y2 = size * 0.5 + offset;
+                    const d = `M ${size * 0.15},${y1} L ${size * 0.35},${y2} L ${size * 0.5},${y1} L ${size * 0.65},${y2} L ${size * 0.85},${y1}`;
+
+                    path.setAttribute('d', d);
+                    path.setAttribute('stroke', color);
+                    path.setAttribute('stroke-width', Math.min(Math.max(width * 2, 2), 4));
+                    path.setAttribute('opacity', opacity);
+                    path.setAttribute('fill', 'none');
+                    svg.appendChild(path);
+                }
+            } else {
+                // Single line for non-case expressions
+                const color = getValue(style['line-color'], '#3b82f6');
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const d = `M ${size * 0.2},${size * 0.5} L ${size * 0.5},${size * 0.3} L ${size * 0.8},${size * 0.5} L ${size * 0.5},${size * 0.7} Z`;
+                path.setAttribute('d', d);
+                path.setAttribute('stroke', color);
+                path.setAttribute('stroke-width', Math.min(Math.max(width * 2, 2), 4));
+                path.setAttribute('opacity', opacity);
+                path.setAttribute('fill', 'none');
+                svg.appendChild(path);
+            }
         }
 
         return svg;

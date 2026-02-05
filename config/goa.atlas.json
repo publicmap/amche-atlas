@@ -278,7 +278,7 @@
       ],
       "title": "Regional Development Plan for Goa 2021",
       "description": "Regional landuse plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
-      "headerImage": "assets/map-layers/goa/map-layer-rdp.png",
+      "headerImage": "https://mapwarper.net/uploads/74193/thumb/siolim-marna.png",
       "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
       "type": "tms",
       "id": "2021-regional-plan",
@@ -373,7 +373,7 @@
       "url": "mapbox://planemad.2bqa1pq1",
       "sourceLayer": "goa-local-body-boundaries",
       "maxzoom": 10,
-      "attribution": "<a href='https://onemapgoagis.goa.gov.in/map/?c=0%2C0&s=0'>OneMapGoa</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "Goa Panchayat Boundaries, <a href='http://14.139.123.73:8080/geoserver/nbss_geoserver/wms?service=WMS&version=1.1.0&request=GetMap&layers=nbss_geoserver%3AGoa_Panchayat_Boundary&bbox=358120.81269999966%2C1647470.1993000004%2C428762.7175999997%2C1747300.0592&width=543&height=768&srs=EPSG%3A32643&styles=&format=application/openlayers'>ICAR-NBSS</a>",
       "style": {
         "text-field": [
           "step",

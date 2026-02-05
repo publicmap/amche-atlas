@@ -42,24 +42,63 @@ export const handlers = {
         // Build API URL
         const apiUrl = `https://bhunaksha.goa.gov.in/bhunaksha/ScalarDatahandler?OP=5&state=30&levels=${levels}%2C&plotno=${plotEncoded}`;
 
-        // Create unique container ID
-        const containerId = `bhunaksha-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        try {
+            // Fetch data from API
+            const response = await fetch(apiUrl);
+            const data = await response.json();
 
-        // Return loading state with data attributes for the iframe to process
-        return `
-            <div id="${containerId}"
-                 class="bhunaksha-loader"
-                 data-api-url="${apiUrl}"
-                 style="font-size: 12px; padding: 10px; background: #f9fafb; border-radius: 4px; margin-bottom: 10px;">
-                <div style="margin-bottom: 8px; font-weight: 600;">
-                    Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>
+            // Format the data
+            let contentHTML;
+            if (data.info && data.has_data === 'Y') {
+                // Format the info text
+                let infoText;
+                const isHTML = /<[^>]*>/g.test(data.info);
+
+                if (isHTML) {
+                    // Clean up HTML response
+                    infoText = data.info
+                        .replace(/<\/?html>/gi, '')
+                        .replace(/<font[^>]*>/gi, '<span>')
+                        .replace(/<\/font>/gi, '</span>')
+                        .trim();
+                } else {
+                    // Format plain text (skip first 3 lines, format headers)
+                    const rawText = data.info.split('\n').slice(3).join('\n').replace(/-{10,}/g, '');
+                    const formattedText = rawText.replace(/^([^:\n]+:)/gm, '<strong>$1</strong><br>');
+                    infoText = formattedText.replace(/\n/g, '<br>');
+                }
+
+                contentHTML = `<div style="margin-bottom: 8px; line-height: 1.5; color: #d1d5db;">${infoText}</div>`;
+            } else {
+                contentHTML = '<span style="color: #9ca3af;">No occupant data available</span>';
+            }
+
+            // Return complete HTML structure with data
+            return `
+                <div style="font-size: 11px; color: #d1d5db; margin: 8px 0;">
+                    <div style="margin-bottom: 8px; font-weight: 600; color: #e5e7eb;">
+                        Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>
+                    </div>
+                    ${contentHTML}
+                    <div style="font-style: italic; font-size: 10px; color: #9ca3af; margin-top: 8px;">
+                        <svg style="display: inline; width: 12px; height: 12px; margin-right: 4px;" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                        </svg>
+                        Retrieved from <a href="${apiUrl}" target="_blank" style="color: #60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
+                    </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <sl-spinner style="font-size: 14px; --indicator-color: #9ca3af;"></sl-spinner>
-                    <span>Requesting Occupant Details...</span>
+            `;
+        } catch (error) {
+            console.error('[Bhunaksha] Error fetching occupant details:', error);
+            return `
+                <div style="font-size: 11px; color: #d1d5db; margin: 8px 0;">
+                    <div style="margin-bottom: 8px; font-weight: 600; color: #e5e7eb;">
+                        Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>
+                    </div>
+                    <span style="color: #f87171;">Error loading details: ${error.message}</span>
                 </div>
-            </div>
-        `;
+            `;
+        }
     },
 
 };

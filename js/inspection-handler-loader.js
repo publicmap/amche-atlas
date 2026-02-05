@@ -51,6 +51,7 @@ export class InspectionHandlerLoader {
 
             if (handlersModule.handlers && typeof handlersModule.handlers === 'object') {
                 console.log(`[HandlerLoader] Loaded ${Object.keys(handlersModule.handlers).length} handlers from ${atlasName}.js`);
+                this._exposeHandlersGlobally(handlersModule.handlers);
                 return handlersModule.handlers;
             } else {
                 console.warn(`[HandlerLoader] No handlers export found in ${atlasName}.js`);
@@ -64,6 +65,15 @@ export class InspectionHandlerLoader {
                 console.error(`[HandlerLoader] Error loading handlers from ${atlasName}.js:`, error);
             }
             return {};
+        }
+    }
+
+    _exposeHandlersGlobally(handlers) {
+        if (typeof window !== 'undefined') {
+            if (!window.inspectionHandlers) {
+                window.inspectionHandlers = {};
+            }
+            Object.assign(window.inspectionHandlers, handlers);
         }
     }
 

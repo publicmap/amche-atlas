@@ -407,7 +407,8 @@
         }
 
         .atlas-collapsed-layer {
-            display: flex;
+            display: grid;
+            grid-template-columns: 40px 1fr auto;
             align-items: center;
             gap: 8px;
             font-size: 12px;
@@ -434,27 +435,42 @@
             flex: 1;
             min-width: 0;
             display: flex;
-            align-items: center;
-            gap: 8px;
+            flex-direction: column;
+            justify-content: center;
+            gap: 2px;
         }
 
         .atlas-collapsed-layer-title {
-            flex: 1;
-            min-width: 0;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .atlas-collapsed-layer-meta {
+            font-size: 11px;
+            color: #9ca3af;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            transition: color 0.2s;
+        }
+
+        .atlas-collapsed-layer:hover .atlas-collapsed-layer-meta {
+            color: #d1d5db;
+            font-style: italic;
         }
 
         .atlas-collapsed-layer-actions {
-            display: none;
+            display: flex;
             gap: 4px;
             flex-shrink: 0;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.2s;
         }
 
         .atlas-collapsed-layer:hover .atlas-collapsed-layer-actions,
         .atlas-collapsed-layer.active .atlas-collapsed-layer-actions {
-            display: flex;
+            opacity: 1;
         }
 
         .atlas-collapsed-layer.active {
@@ -1495,10 +1511,21 @@
                             }
                         });
 
-                        $content.append($('<span>', {
+                        $content.append($('<div>', {
                             class: 'atlas-collapsed-layer-title',
                             text: layer.title || layer.id
                         }));
+
+                        const cleanDesc = layer.description ? $('<div>').html(layer.description).text() : '';
+                        const cleanAttr = layer.attribution ? layer.attribution.split('\n')[0].trim() : '';
+
+                        const $meta = $('<div>', {
+                            class: 'atlas-collapsed-layer-meta',
+                            text: cleanDesc || cleanAttr || ''
+                        });
+
+                        $content.append($meta);
+                        $layerPreview.append($content);
 
                         const $actions = $('<div>', {
                             class: 'atlas-collapsed-layer-actions'
@@ -1533,8 +1560,15 @@
                         addToggleButtonHover($toggleBtn, isActive, true);
                         $actions.append($toggleBtn);
 
-                        $content.append($actions);
-                        $layerPreview.append($content);
+                        $layerPreview.append($actions);
+
+                        if (cleanDesc && cleanAttr) {
+                            $layerPreview.on('mouseenter', function() {
+                                $meta.text(cleanAttr);
+                            }).on('mouseleave', function() {
+                                $meta.text(cleanDesc);
+                            });
+                        }
 
                         $tagGroup.append($layerPreview);
                     }
