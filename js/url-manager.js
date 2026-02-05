@@ -9,6 +9,7 @@ export class URLManager {
         this.map = map;
         this.isUpdatingFromURL = false; // Prevent circular updates
         this.pendingURLUpdate = null; // Debounce URL updates
+        this.stateManager = null; // Reference to feature state manager
 
         // Set up browser history handling
         this.setupHistoryHandling();
@@ -17,6 +18,24 @@ export class URLManager {
         this.setupLayerControlEventListeners();
 
         $(document).on('update_url', this.updateGeolocateParam );
+    }
+
+    setStateManager(stateManager) {
+        this.stateManager = stateManager;
+
+        if (stateManager) {
+            stateManager.addEventListener('state-change', (event) => {
+                const { eventType } = event.detail;
+                if (eventType === 'feature-click' ||
+                    eventType === 'feature-click-multiple' ||
+                    eventType === 'selections-cleared' ||
+                    eventType === 'feature-deselected') {
+                    if (!this.isUpdatingFromURL) {
+                        this.updateURL({ updateSelections: true, updateLayers: false });
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -354,6 +373,7 @@ export class URLManager {
         let fogParam = null;
         let wireframeParam = null;
         let terrainSourceParam = null;
+        let selectedParam = null;
 
         // Handle layers parameter
         if (options.updateLayers !== false) {
@@ -500,6 +520,17 @@ export class URLManager {
             }
         }
 
+        // Handle selected features parameter
+        if (options.updateSelections && this.stateManager) {
+            const newSelectedParam = this.serializeSelectionsForURL();
+            const currentSelectedParam = urlParams.get('selected');
+
+            if (newSelectedParam !== currentSelectedParam) {
+                selectedParam = newSelectedParam;
+                hasChanges = true;
+            }
+        }
+
         // Update URL if there are changes
         if (hasChanges) {
             // Create a pretty, readable URL without URL encoding
@@ -517,6 +548,7 @@ export class URLManager {
             otherParams.delete('fog');
             otherParams.delete('wireframe');
             otherParams.delete('terrainSource');
+            otherParams.delete('selected');
 
             // Add other parameters first (these will be URL-encoded by URLSearchParams)
             const otherParamsString = otherParams.toString();
@@ -585,6 +617,17 @@ export class URLManager {
                 params.push('terrainSource=' + currentTerrainSource);
             }
 
+            // Add selected features parameter
+            if (selectedParam !== null && selectedParam !== '') {
+                params.push('selected=' + selectedParam);
+            } else if (options.updateSelections !== true) {
+                // If we're not explicitly updating selections, preserve existing parameter
+                const currentSelectedParam = urlParams.get('selected');
+                if (currentSelectedParam) {
+                    params.push('selected=' + currentSelectedParam);
+                }
+            }
+
             // Build the final pretty URL
             let newUrl = baseUrl;
             if (params.length > 0) {
@@ -620,6 +663,67 @@ export class URLManager {
         return serialized;
     }
 
+    serializeSelectionsForURL() {
+        if (!this.stateManager) {
+            return '';
+        }
+
+        const selectionsByLayer = new Map();
+
+        this.stateManager._selectedFeatures.forEach(compositeKey => {
+            const featureState = this.stateManager._featureStates.get(compositeKey);
+            if (featureState) {
+                const layerId = featureState.layerId;
+                const featureId = this.stateManager._getFeatureId(featureState.feature);
+                const rawFeatureId = this.stateManager._extractRawFeatureId(featureId);
+
+                if (!selectionsByLayer.has(layerId)) {
+                    selectionsByLayer.set(layerId, []);
+                }
+                selectionsByLayer.get(layerId).push(rawFeatureId);
+            }
+        });
+
+        if (selectionsByLayer.size === 0) {
+            return '';
+        }
+
+        const segments = [];
+        selectionsByLayer.forEach((featureIds, layerId) => {
+            const featureIdsStr = featureIds.join(',');
+            segments.push(`${layerId}:${featureIdsStr}`);
+        });
+
+        return segments.join(';');
+    }
+
+    parseSelectionsFromURL(selectedParam) {
+        if (!selectedParam) {
+            return new Map();
+        }
+
+        const selectionsByLayer = new Map();
+
+        const layerSegments = selectedParam.split(';');
+        layerSegments.forEach(segment => {
+            const colonIndex = segment.indexOf(':');
+            if (colonIndex === -1) {
+                console.warn(`Invalid selection segment: ${segment}`);
+                return;
+            }
+
+            const layerId = segment.substring(0, colonIndex);
+            const featureIdsStr = segment.substring(colonIndex + 1);
+            const featureIds = featureIdsStr.split(',').map(id => id.trim()).filter(id => id);
+
+            if (layerId && featureIds.length > 0) {
+                selectionsByLayer.set(layerId, featureIds);
+            }
+        });
+
+        return selectionsByLayer;
+    }
+
     /**
      * Update URL when layers change
      */
@@ -640,6 +744,7 @@ export class URLManager {
         const fogParam = urlParams.get('fog');
         const wireframeParam = urlParams.get('wireframe');
         const terrainSourceParam = urlParams.get('terrainSource');
+        const selectedParam = urlParams.get('selected');
 
         // Auto-add terrain parameter if not present
         if (!terrainParam) {
@@ -647,7 +752,7 @@ export class URLManager {
             this.autoAddTerrainParameter();
         }
 
-        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam) {
+        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !selectedParam) {
             return false;
         }
 
@@ -734,6 +839,12 @@ export class URLManager {
                 window.terrain3DControl.setTerrainSource(terrainSourceParam);
             }
 
+            // Handle selected features parameter
+            if (selectedParam && this.stateManager) {
+                applied = true;
+                await this.applySelectionsFromURL(selectedParam);
+            }
+
         } catch (error) {
             console.error('🔗 Error applying URL parameters:', error);
         } finally {
@@ -741,6 +852,113 @@ export class URLManager {
         }
 
         return applied;
+    }
+
+    async applySelectionsFromURL(selectedParam) {
+        if (!this.stateManager) {
+            console.warn('[URL API] State manager not available for applying selections');
+            return;
+        }
+
+        const selectionsByLayer = this.parseSelectionsFromURL(selectedParam);
+        if (selectionsByLayer.size === 0) {
+            return;
+        }
+
+        console.log(`[URL API] Applying ${selectionsByLayer.size} layer selections from URL`);
+
+        await this.waitForLayersReady(Array.from(selectionsByLayer.keys()));
+
+        selectionsByLayer.forEach((featureIds, layerId) => {
+            if (!this.stateManager.isLayerRegistered(layerId)) {
+                console.warn(`[URL API] Layer ${layerId} not registered, skipping selections`);
+                return;
+            }
+
+            const layerConfig = this.stateManager.getLayerConfig(layerId);
+            if (!layerConfig) {
+                console.warn(`[URL API] Layer config not found for ${layerId}`);
+                return;
+            }
+
+            featureIds.forEach(rawFeatureId => {
+                this.selectFeatureFromURL(layerId, rawFeatureId, layerConfig);
+            });
+        });
+    }
+
+    async waitForLayersReady(layerIds, timeout = 5000) {
+        const startTime = Date.now();
+        const checkInterval = 100;
+
+        return new Promise((resolve) => {
+            const checkLayers = () => {
+                if (!this.stateManager) {
+                    resolve(false);
+                    return;
+                }
+
+                const allReady = layerIds.every(layerId =>
+                    this.stateManager.isLayerRegistered(layerId)
+                );
+
+                if (allReady) {
+                    resolve(true);
+                } else if (Date.now() - startTime > timeout) {
+                    console.warn('[URL API] Timeout waiting for layers to be ready');
+                    resolve(false);
+                } else {
+                    setTimeout(checkLayers, checkInterval);
+                }
+            };
+
+            checkLayers();
+        });
+    }
+
+    selectFeatureFromURL(layerId, rawFeatureId, layerConfig) {
+        try {
+            const features = this.map.querySourceFeatures(
+                layerConfig.source || `${layerConfig.type}-${layerId}`,
+                {
+                    sourceLayer: layerConfig.sourceLayer
+                }
+            );
+
+            const matchingFeature = features.find(f => {
+                if (f.id !== undefined && f.id !== null && f.id.toString() === rawFeatureId.toString()) {
+                    return true;
+                }
+                if (f.properties?.id !== undefined && f.properties?.id !== null && f.properties.id.toString() === rawFeatureId.toString()) {
+                    return true;
+                }
+                if (f.properties?.fid !== undefined && f.properties?.fid !== null && f.properties.fid.toString() === rawFeatureId.toString()) {
+                    return true;
+                }
+                return false;
+            });
+
+            if (matchingFeature) {
+                const featureId = this.stateManager._getFeatureId(matchingFeature);
+                const compositeKey = this.stateManager._getCompositeKey(layerId, featureId);
+
+                this.stateManager._updateFeatureState(compositeKey, {
+                    feature: matchingFeature,
+                    layerId,
+                    isSelected: true,
+                    timestamp: Date.now()
+                });
+
+                this.stateManager._selectedFeatures.add(compositeKey);
+                this.stateManager._setMapboxFeatureState(featureId, layerId, { selected: true });
+
+                console.log(`[URL API] Selected feature ${rawFeatureId} from layer ${layerId}`);
+            } else {
+                console.warn(`[URL API] Feature ${rawFeatureId} not found in layer ${layerId}`);
+            }
+        } catch (error) {
+            console.warn(`[URL API] Error selecting feature ${rawFeatureId} from layer ${layerId}:`, error);
+        }
     }
 
     /**

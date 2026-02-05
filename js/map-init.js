@@ -526,6 +526,9 @@ export class MapInitializer {
             // Make URL manager globally accessible
             window.urlManager = urlManager;
 
+            // Connect URL manager with state manager for feature selection URL sync
+            urlManager.setStateManager(stateManager);
+
             // Apply URL parameters (including geolocate parameter)
             // Skip URL parameter application if state was restored from localStorage
             if (!stateRestored) {

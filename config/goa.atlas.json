@@ -682,16 +682,32 @@
             "zoom"
           ],
           "",
-          15,
+          13,
           [
-            "to-string",
+            "format",
             [
               "get",
-              "plot"
-            ]
+              "survey"
+            ],
+            {
+              "text-color": "white",
+              "font-scale": 1.17
+            },
+            " / ",
+            {},
+            [
+              "get",
+              "subdiv"
+            ],
+            {
+              "text-color": "#eee",
+              "font-scale": 1.0
+            }
           ]
         ],
-        "text-color": "black",
+        "text-color": "white",
+        "text-halo-color": "black",
+        "text-halo-width": 2,
         "text-size": 12,
         "fill-color": [
           "interpolate",
@@ -704,7 +720,28 @@
           15,
           "rgba(0, 0, 0, 0.05)",
           18,
-          "rgba(0, 0, 0, 0.1)"
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            "rgba(0, 0, 0, 0)",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            "rgba(0, 0, 0, 1)",
+            "rgba(0, 0, 0, 1)"
+          ]
         ],
         "line-color": "#333",
         "line-width": [
@@ -715,7 +752,7 @@
           [
             "zoom"
           ],
-          13,
+          14,
           [
             "case",
             [
@@ -749,7 +786,7 @@
               ],
               false
             ],
-            6,
+            3,
             [
               "boolean",
               [
@@ -758,7 +795,7 @@
               ],
               false
             ],
-            5,
+            2,
             1
           ]
         ]
