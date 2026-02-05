@@ -76,10 +76,6 @@
       "initiallyChecked": false
     },
     {
-      "id": "india-2023-open-buildings",
-      "initiallyChecked": true
-    },
-    {
       "id": "goa-plots",
       "initiallyChecked": true
     },
@@ -125,6 +121,10 @@
     },
     {
       "id": "goa-amrut-panjim-landuse"
+    },
+    {
+      "id": "india-2023-open-buildings",
+      "initiallyChecked": true
     },
     {
       "id": "india-2024-landslide-susceptibility-map"

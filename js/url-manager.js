@@ -902,7 +902,7 @@ export class URLManager {
 
             // Execute inspection handlers and emit events for each selected feature
             for (const selectedFeature of allSelectedFeatures) {
-                const { feature, layerId, lngLat } = selectedFeature;
+                const { feature, featureId, layerId, lngLat } = selectedFeature;
 
                 // Execute inspection handler if configured
                 await this.stateManager._executeInspectionHandler(feature, layerId, lngLat);
@@ -911,6 +911,7 @@ export class URLManager {
                 // This ensures the iframe receives the feature data
                 this.stateManager._emitStateChange('feature-click', {
                     feature,
+                    featureId,
                     layerId,
                     lngLat,
                     fromURL: true

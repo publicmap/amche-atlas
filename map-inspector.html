@@ -22,6 +22,8 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #111827;
+            --hover-color: #fbbf24;
+            --selected-color: #000000;
         }
 
         .layer-card {
@@ -43,6 +45,16 @@
 
         .layer-card.expanded {
             border-left-color: #3b82f6;
+        }
+
+        .layer-card.hover {
+            border-left-color: #fbbf24 !important;
+            background-color: rgba(251, 191, 36, 0.15) !important;
+        }
+
+        .layer-card.selected {
+            border-left-color: #000000 !important;
+            background-color: rgba(0, 0, 0, 0.25) !important;
         }
 
         .layer-card.dimmed {
@@ -321,19 +333,6 @@
     <div id="layer-container"
         style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
 
-        <!-- Selected Features Section -->
-        <div id="selected-features-section" style="display: none; flex-shrink: 0; background: #111827; padding: 8px 4px 0 4px;">
-            <div class="section-header"
-                style="padding: 8px 12px; background: #3b82f6; border-radius: 4px; user-select: none; display: flex; align-items: center; justify-content: space-between;">
-                <span class="text-xs font-semibold text-white flex items-center gap-2">
-                    <sl-icon name="check-circle-fill" style="font-size: 14px;"></sl-icon>
-                    LAYERS WITH SELECTION <span id="selected-count" class="text-blue-200">(0)</span>
-                </span>
-            </div>
-            <div id="selected-features-list" class="scrollbar-thin"
-                style="overflow-y: auto; padding: 4px; max-height: 400px;"></div>
-        </div>
-
         <!-- Overlay Maps Section -->
         <div style="flex-shrink: 0; background: #111827; padding: 8px 4px 0 4px;">
             <div class="section-header" id="overlay-header"
@@ -374,7 +373,9 @@
             <span id="status-text" style="font-size: 11px; color: #d1d5db;"></span>
         </div>
         <button id="clear-selection-btn"
-            style="padding: 6px 12px; background: #374151; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; transition: background 0.2s;">
+            style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
+            onmouseover="this.style.background='#2563eb'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.4)';"
+            onmouseout="this.style.background='#3b82f6'; this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.3)';">
             Clear Selection
         </button>
     </div>
@@ -389,8 +390,10 @@
         let isolateEnabled = true;
         let showPopups = false;
         let highlightedLayerIds = new Set();
-        let selectedFeatures = new Map();
-        let featureCustomHTML = new Map(); // layerId -> custom HTML
+        let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
+        let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
+        let manuallyExpandedLayers = new Set(); // Track layers manually expanded by user
+        let hoveredFeatures = new Map(); // layerId -> Set<featureId>
 
         // Make LayerThumbnail available globally
         window.LayerThumbnail = LayerThumbnail;
@@ -398,6 +401,12 @@
         // Initialize
         $(document).ready(function () {
             setupEventListeners();
+
+            // Signal to parent that iframe is ready
+            window.parent.postMessage({
+                type: 'inspector-ready'
+            }, '*');
+
             requestLayerData();
         });
 
@@ -459,9 +468,15 @@
             if (event.data.type === 'feature-selected') {
                 const layerId = event.data.layerId;
                 const feature = event.data.feature;
+                const featureId = event.data.featureId; // Use the featureId from state manager
 
-                console.log('[Inspector] Feature selected:', layerId, feature);
-                selectedFeatures.set(layerId, feature);
+                console.log('[Inspector] Feature selected:', layerId, featureId, feature);
+
+                // Initialize layer map if needed
+                if (!selectedFeatures.has(layerId)) {
+                    selectedFeatures.set(layerId, new Map());
+                }
+                selectedFeatures.get(layerId).set(featureId, feature);
 
                 if (expandedLayerId !== layerId) {
                     expandedLayerId = layerId;
@@ -474,19 +489,52 @@
 
             if (event.data.type === 'feature-inspection-data') {
                 const layerId = event.data.layerId;
+                const featureId = event.data.featureId;
                 const customHTML = event.data.customHTML;
 
-                console.log('[Inspector] Inspection data received:', layerId, customHTML ? 'HTML present' : 'No HTML');
+                console.log('[Inspector] Inspection data received:', layerId, featureId, customHTML ? 'HTML present' : 'No HTML');
 
-                // Store custom HTML for this layer
-                featureCustomHTML.set(layerId, customHTML);
+                // Initialize layer map if needed
+                if (!featureCustomHTML.has(layerId)) {
+                    featureCustomHTML.set(layerId, new Map());
+                }
+
+                // Store custom HTML for this feature
+                featureCustomHTML.get(layerId).set(featureId, customHTML);
 
                 // Re-render to show custom HTML
                 renderLayers();
+
+                // Process any async loaders (like Bhunaksha) after a short delay
+                setTimeout(processBhunakshaLoaders, 100);
             }
 
             if (event.data.type === 'request-height-update') {
                 notifyHeightChange();
+            }
+
+            if (event.data.type === 'feature-deselected') {
+                const layerId = event.data.layerId;
+                const featureId = event.data.featureId;
+
+                console.log('[Inspector] Feature deselected:', layerId, featureId);
+
+                if (selectedFeatures.has(layerId)) {
+                    selectedFeatures.get(layerId).delete(featureId);
+                    if (selectedFeatures.get(layerId).size === 0) {
+                        selectedFeatures.delete(layerId);
+                    }
+                }
+
+                if (featureCustomHTML.has(layerId)) {
+                    featureCustomHTML.get(layerId).delete(featureId);
+                    if (featureCustomHTML.get(layerId).size === 0) {
+                        featureCustomHTML.delete(layerId);
+                    }
+                }
+
+                renderLayers();
+                updateStatusBar();
             }
 
             if (event.data.type === 'selection-cleared') {
@@ -630,34 +678,24 @@
         function renderLayers() {
             const $overlayList = $('#overlay-list');
             const $basemapList = $('#basemap-list');
-            const $selectedList = $('#selected-features-list');
-            const $selectedSection = $('#selected-features-section');
 
             $overlayList.empty();
             $basemapList.empty();
-            $selectedList.empty();
 
             if (activeLayers.length === 0) {
                 $overlayList.html('<div class="text-center text-gray-500 py-4 text-xs">No overlay maps</div>');
                 $basemapList.html('<div class="text-center text-gray-500 py-4 text-xs">No base maps</div>');
                 $('#overlay-count').text('(0)');
                 $('#basemap-count').text('(0)');
-                $selectedSection.hide();
                 return;
             }
 
             const overlayMaps = [];
             const baseMaps = [];
-            const selectedLayers = [];
 
             activeLayers.forEach(layerConfig => {
-                const hasSelection = selectedFeatures.has(layerConfig.id);
                 const isBasemap = layerConfig.tags && Array.isArray(layerConfig.tags) &&
                     layerConfig.tags.includes('basemap');
-
-                if (hasSelection) {
-                    selectedLayers.push(layerConfig);
-                }
 
                 if (isBasemap) {
                     baseMaps.push(layerConfig);
@@ -666,18 +704,22 @@
                 }
             });
 
-            // Render selected features section
-            if (selectedLayers.length > 0) {
-                $selectedSection.show();
-                $('#selected-count').text(`(${selectedLayers.length})`);
+            // Sort each group: layers with selections OR hovers first
+            overlayMaps.sort((a, b) => {
+                const aHasActivity = selectedFeatures.has(a.id) || hoveredFeatures.has(a.id);
+                const bHasActivity = selectedFeatures.has(b.id) || hoveredFeatures.has(b.id);
+                if (aHasActivity && !bHasActivity) return -1;
+                if (!aHasActivity && bHasActivity) return 1;
+                return 0;
+            });
 
-                selectedLayers.forEach(layerConfig => {
-                    const $card = createSelectedFeatureCard(layerConfig);
-                    $selectedList.append($card);
-                });
-            } else {
-                $selectedSection.hide();
-            }
+            baseMaps.sort((a, b) => {
+                const aHasActivity = selectedFeatures.has(a.id) || hoveredFeatures.has(a.id);
+                const bHasActivity = selectedFeatures.has(b.id) || hoveredFeatures.has(b.id);
+                if (aHasActivity && !bHasActivity) return -1;
+                if (!aHasActivity && bHasActivity) return 1;
+                return 0;
+            });
 
             // Update counts
             $('#overlay-count').text(`(${overlayMaps.length})`);
@@ -687,7 +729,8 @@
                 $overlayList.html('<div class="text-center text-gray-500 py-4 text-xs">No overlay maps</div>');
             } else {
                 overlayMaps.forEach(layerConfig => {
-                    const $card = createLayerCard(layerConfig);
+                    const hasSelection = selectedFeatures.has(layerConfig.id);
+                    const $card = hasSelection ? createSelectedFeatureCard(layerConfig) : createLayerCard(layerConfig);
                     $overlayList.append($card);
                 });
             }
@@ -696,30 +739,56 @@
                 $basemapList.html('<div class="text-center text-gray-500 py-4 text-xs">No base maps</div>');
             } else {
                 baseMaps.forEach(layerConfig => {
-                    const $card = createLayerCard(layerConfig);
+                    const hasSelection = selectedFeatures.has(layerConfig.id);
+                    const $card = hasSelection ? createSelectedFeatureCard(layerConfig) : createLayerCard(layerConfig);
                     $basemapList.append($card);
                 });
             }
 
             // Notify parent about potential height change
             setTimeout(notifyHeightChange, 100);
+
+            // Process any async loaders (like Bhunaksha) after DOM updates
+            // Use requestAnimationFrame to ensure DOM has updated
+            requestAnimationFrame(() => {
+                setTimeout(processBhunakshaLoaders, 50);
+            });
         }
 
-        // Create selected feature card (always expanded, with hover isolation)
+        // Create selected feature card (collapsible, with layer and feature isolation)
+        // Supports multiple features per layer
         function createSelectedFeatureCard(layerConfig) {
+            console.log('[Inspector] createSelectedFeatureCard called for:', layerConfig.id);
             const atlasMetadata = layerRegistry?._atlasMetadata?.get(layerConfig._sourceAtlas) || {};
-            const selectedFeature = selectedFeatures.get(layerConfig.id);
+            const featuresMap = selectedFeatures.get(layerConfig.id);
+            const customHTMLMap = featureCustomHTML.get(layerConfig.id) || new Map();
+            const isExpanded = expandedLayerId === layerConfig.id;
+            const hasSelection = selectedFeatures.has(layerConfig.id);
+            const hasHover = hoveredFeatures.has(layerConfig.id);
 
-            if (!selectedFeature) {
-                return $('<div>'); // Return empty div if no feature
+            console.log('[Inspector] featuresMap size:', featuresMap ? featuresMap.size : 0);
+            console.log('[Inspector] customHTMLMap size:', customHTMLMap.size);
+            console.log('[Inspector] isExpanded:', isExpanded);
+            console.log('[Inspector] hasSelection:', hasSelection);
+            console.log('[Inspector] hasHover:', hasHover);
+            console.log('[Inspector] expandedLayerId:', expandedLayerId);
+
+            if (!featuresMap || featuresMap.size === 0) {
+                console.log('[Inspector] No features for this layer, returning empty div');
+                return $('<div>'); // Return empty div if no features
             }
 
+            const cardClasses = 'layer-card bg-gray-800 rounded mb-2' +
+                (isExpanded ? ' expanded' : '') +
+                (hasSelection ? ' selected' : '') +
+                (hasHover ? ' hover' : '');
+            console.log('[Inspector] Card classes:', cardClasses);
+
             const $card = $('<div>', {
-                class: 'layer-card bg-gray-800 rounded mb-2 border-l-4',
+                class: cardClasses,
                 'data-layer-id': layerConfig.id,
                 css: {
-                    borderLeftColor: '#10b981',
-                    cursor: 'default'
+                    cursor: 'pointer'
                 }
             });
 
@@ -730,15 +799,19 @@
                 $card.append($bg);
             }
 
-            // Header (non-clickable)
-            const $header = $('<div>', {
-                class: 'layer-content',
-                css: {
-                    padding: '8px 12px',
-                    borderBottom: '1px solid #374151'
-                }
-            });
+            // Compact header view (always visible)
+            const $compact = $('<div>', { class: 'layer-card-compact layer-content' });
 
+            // Thumbnail
+            const thumbnail = window.LayerThumbnail.generate(layerConfig, 40);
+            thumbnail.style.margin = '0';
+            thumbnail.style.borderRadius = '4px';
+            $compact.append(thumbnail);
+
+            // Info section
+            const $info = $('<div>', { class: 'flex-1 min-w-0' });
+
+            // Atlas badge and layer name row
             const $headerRow = $('<div>', { class: 'flex items-center gap-2' });
 
             // Atlas badge
@@ -755,87 +828,143 @@
 
             // Layer name
             const $name = $('<span>', {
-                class: 'text-sm font-medium text-white',
+                class: 'text-sm font-medium text-white truncate flex-1',
                 text: layerConfig.title || layerConfig.id
             });
             $headerRow.append($name);
 
-            // Info button
-            const $infoBtn = $('<button>', {
-                class: 'info-button',
-                html: 'i',
-                title: 'Layer information',
-                click: function (e) {
-                    e.stopPropagation();
-                    openLayerInfo(layerConfig);
-                }
-            });
-            $headerRow.append($infoBtn);
+            $info.append($headerRow);
 
-            $header.append($headerRow);
-            $card.append($header);
-
-            // Feature content (always expanded)
-            const $content = $('<div>', {
-                class: 'layer-content',
+            // Feature count badge (always visible for selected layers)
+            const featureCount = featuresMap.size;
+            const $countBadge = $('<div>', {
                 css: {
-                    padding: '12px'
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginTop: '4px',
+                    fontSize: '11px',
+                    color: '#9ca3af'
                 }
             });
-
-            // Show custom HTML if available (from inspection handler)
-            const customHTML = featureCustomHTML.get(layerConfig.id);
-            if (customHTML) {
-                const $customSection = $('<div>', {
-                    class: 'feature-custom-info',
-                    html: customHTML
-                });
-                $content.append($customSection);
-            }
-
-            // Show standard feature properties
-            const $featureInfo = $('<div>', { class: 'feature-info' });
-            const $title = $('<div>', {
-                class: 'text-xs font-semibold text-gray-300 mb-2',
-                text: 'Feature Properties'
+            const $countLabel = $('<span>', { text: 'Selected:' });
+            const $countCircle = $('<span>', {
+                text: featureCount,
+                css: {
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '20px',
+                    height: '20px',
+                    padding: '0 6px',
+                    background: '#3b82f6',
+                    color: 'white',
+                    borderRadius: '10px',
+                    fontSize: '11px',
+                    fontWeight: '600'
+                }
             });
-            $featureInfo.append($title);
+            $countBadge.append($countLabel, $countCircle);
+            $info.append($countBadge);
 
-            if (selectedFeature.properties) {
-                const $props = $('<div>');
-                Object.entries(selectedFeature.properties).forEach(([key, value]) => {
-                    if (value !== null && value !== undefined && value !== '') {
-                        const $row = $('<div>', { class: 'property-row' });
-                        $row.append($('<div>', { class: 'property-key', text: key }));
-                        $row.append($('<div>', { class: 'property-value', text: String(value) }));
-                        $props.append($row);
+            $compact.append($info);
+
+            // Info button (only when expanded)
+            if (isExpanded) {
+                const $infoBtn = $('<button>', {
+                    class: 'info-button',
+                    html: 'i',
+                    title: 'Layer information',
+                    click: function (e) {
+                        e.stopPropagation();
+                        openLayerInfo(layerConfig);
                     }
                 });
-                $featureInfo.append($props);
+                $compact.append($infoBtn);
             }
-            $content.append($featureInfo);
-            $card.append($content);
 
-            // Add hover handlers for map isolation
-            $card.on('mouseenter', function () {
-                // Get feature ID for state management
-                const featureId = selectedFeature.id || selectedFeature.properties?.id;
+            $card.append($compact);
 
-                // Notify parent to isolate this feature on the map
-                window.parent.postMessage({
-                    type: 'hover-isolate-feature',
-                    layerId: layerConfig.id,
-                    featureId: featureId,
-                    feature: selectedFeature
-                }, '*');
-            });
+            // Expanded view (only when expanded)
+            if (isExpanded) {
+                const $expanded = $('<div>', { class: 'layer-card-expanded layer-content' });
 
-            $card.on('mouseleave', function () {
-                // Notify parent to clear feature isolation
-                window.parent.postMessage({
-                    type: 'clear-feature-isolation',
-                    layerId: layerConfig.id
-                }, '*');
+                // Render each selected feature
+                console.log('[Inspector] Rendering features for layer:', layerConfig.id);
+
+                featuresMap.forEach((feature, featureId) => {
+                    console.log('[Inspector] Processing feature:', featureId);
+                    const $featureContainer = $('<div>', {
+                        class: 'feature-container',
+                        'data-feature-id': featureId,
+                        css: {
+                            padding: '12px',
+                            borderBottom: '1px solid #374151'
+                        }
+                    });
+
+                    // Show custom HTML if available (from inspection handler)
+                    const customHTML = customHTMLMap.get(featureId);
+                    console.log(`[Inspector] Rendering custom HTML for feature ${featureId}:`, customHTML ? 'present' : 'missing');
+                    if (customHTML) {
+                        const $customSection = $('<div>').addClass('feature-custom-info');
+                        $customSection.html(customHTML);
+                        $featureContainer.append($customSection);
+                        console.log('[Inspector] Custom section appended, checking for loaders...');
+                        const loadersInSection = $customSection.find('.bhunaksha-loader').length;
+                        console.log(`[Inspector] Found ${loadersInSection} loaders in this section`);
+                    }
+
+                    // Show standard feature properties
+                    const $featureInfo = $('<div>', { class: 'feature-info' });
+                    const $title = $('<div>', {
+                        class: 'text-xs font-semibold text-gray-300 mb-2',
+                        text: `Feature: ${featureId}`
+                    });
+                    $featureInfo.append($title);
+
+                    if (feature.properties) {
+                        const $props = $('<div>');
+                        Object.entries(feature.properties).forEach(([key, value]) => {
+                            if (value !== null && value !== undefined && value !== '') {
+                                const $row = $('<div>', { class: 'property-row' });
+                                $row.append($('<div>', { class: 'property-key', text: key }));
+                                $row.append($('<div>', { class: 'property-value', text: String(value) }));
+                                $props.append($row);
+                            }
+                        });
+                        $featureInfo.append($props);
+                    }
+                    $featureContainer.append($featureInfo);
+
+                    // Add hover handlers for feature isolation
+                    $featureContainer.on('mouseenter', function () {
+                        window.parent.postMessage({
+                            type: 'hover-isolate-feature',
+                            layerId: layerConfig.id,
+                            featureId: featureId,
+                            feature: feature
+                        }, '*');
+                    });
+
+                    $featureContainer.on('mouseleave', function () {
+                        window.parent.postMessage({
+                            type: 'clear-feature-isolation',
+                            layerId: layerConfig.id
+                        }, '*');
+                    });
+
+                    $expanded.append($featureContainer);
+                });
+
+                $card.append($expanded);
+            }
+
+            // Click handler to toggle expansion and apply layer isolation
+            $card.on('click', function (e) {
+                if (!$(e.target).closest('.info-button, .feature-container').length) {
+                    toggleLayerExpanded(layerConfig.id);
+                }
             });
 
             return $card;
@@ -846,11 +975,15 @@
             const atlasMetadata = layerRegistry?._atlasMetadata?.get(layer._sourceAtlas) || {};
             const isExpanded = expandedLayerId === layer.id;
             const isHighlighted = highlightedLayerIds.has(layer.id);
+            const hasSelection = selectedFeatures.has(layer.id);
+            const hasHover = hoveredFeatures.has(layer.id);
 
             const $card = $('<div>', {
                 class: 'layer-card bg-gray-800 rounded mb-2' +
                     (isExpanded ? ' expanded' : '') +
-                    (isHighlighted ? ' highlighted' : ''),
+                    (isHighlighted ? ' highlighted' : '') +
+                    (hasSelection ? ' selected' : '') +
+                    (hasHover ? ' hover' : ''),
                 'data-layer-id': layer.id
             });
 
@@ -892,6 +1025,78 @@
             });
             $header.append($name);
 
+            // Feature preview section (only when collapsed and has active features)
+            if (!isExpanded && (hasSelection || hasHover)) {
+                const $previewSection = $('<div>', {
+                    class: 'feature-preview',
+                    css: {
+                        marginTop: '4px',
+                        padding: '4px 8px',
+                        background: hasSelection ? 'var(--selected-bg, #f3f4f6)' : 'var(--hover-bg, #fef3c7)',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        color: hasSelection ? 'var(--selected-color, #1f2937)' : '#92400e',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }
+                });
+
+                // Get inspect config from layer
+                const inspectConfig = layer.inspect || {};
+                const labelField = inspectConfig.label || inspectConfig.id || 'id';
+
+                // Collect label values from active features
+                const activeFeatures = hasSelection ?
+                    selectedFeatures.get(layer.id) :
+                    hoveredFeatures.get(layer.id);
+
+                let labelValues = [];
+                let featureCount = 0;
+
+                if (activeFeatures) {
+                    if (activeFeatures instanceof Map) {
+                        activeFeatures.forEach((feature) => {
+                            const labelValue = feature.properties?.[labelField] || feature.id;
+                            labelValues.push(labelValue);
+                        });
+                        featureCount = activeFeatures.size;
+                    } else if (activeFeatures instanceof Set) {
+                        activeFeatures.forEach((featureId) => {
+                            labelValues.push(featureId);
+                        });
+                        featureCount = activeFeatures.size;
+                    }
+                }
+
+                // Create preview text
+                const previewText = labelValues.slice(0, 3).join(', ');
+                const $previewText = $('<span>', {
+                    class: 'truncate flex-1',
+                    text: previewText + (labelValues.length > 3 ? '...' : ''),
+                    title: labelValues.join(', ')
+                });
+                $previewSection.append($previewText);
+
+                // Add count badge
+                const $badge = $('<span>', {
+                    class: 'count-badge',
+                    text: featureCount,
+                    css: {
+                        padding: '2px 6px',
+                        background: hasSelection ? '#1f2937' : '#f59e0b',
+                        color: 'white',
+                        borderRadius: '10px',
+                        fontSize: '10px',
+                        fontWeight: '600',
+                        flexShrink: '0'
+                    }
+                });
+                $previewSection.append($badge);
+
+                $info.append($previewSection);
+            }
+
             if (isExpanded) {
                 const $infoBtn = $('<button>', {
                     class: 'info-button',
@@ -913,40 +1118,61 @@
             if (isExpanded) {
                 const $expanded = $('<div>', { class: 'layer-card-expanded layer-content' });
 
+                // Add thumbnail at the top
+                const thumbnail = window.LayerThumbnail.generate(layer, 120);
+                thumbnail.style.margin = '0 auto 12px auto';
+                thumbnail.style.borderRadius = '6px';
+                thumbnail.style.display = 'block';
+                $expanded.append(thumbnail);
+
                 // Show feature details if selected, otherwise show description
-                const selectedFeature = selectedFeatures.get(layer.id);
-                if (selectedFeature) {
-                    // Show custom HTML if available (from inspection handler)
-                    const customHTML = featureCustomHTML.get(layer.id);
-                    if (customHTML) {
-                        const $customSection = $('<div>', {
-                            class: 'feature-custom-info',
-                            html: customHTML
-                        });
-                        $expanded.append($customSection);
-                    }
+                const featuresMap = selectedFeatures.get(layer.id);
+                if (featuresMap && featuresMap.size > 0) {
+                    const customHTMLMap = featureCustomHTML.get(layer.id) || new Map();
 
-                    // Show standard feature properties
-                    const $featureInfo = $('<div>', { class: 'feature-info' });
-                    const $title = $('<div>', {
-                        class: 'text-xs font-semibold text-gray-300 mb-2',
-                        text: 'Selected Feature'
+                    // Render each selected feature
+                    featuresMap.forEach((feature, featureId) => {
+                        // Show custom HTML if available (from inspection handler)
+                        const customHTML = customHTMLMap.get(featureId);
+                        if (customHTML) {
+                            const $customSection = $('<div>').addClass('feature-custom-info');
+                            $customSection.html(customHTML);
+                            $expanded.append($customSection);
+                        }
+
+                        // Show standard feature properties
+                        const $featureInfo = $('<div>', { class: 'feature-info' });
+                        const $title = $('<div>', {
+                            class: 'text-xs font-semibold text-gray-300 mb-2',
+                            text: featuresMap.size > 1 ? `Feature: ${featureId}` : 'Selected Feature'
+                        });
+                        $featureInfo.append($title);
+
+                        if (feature.properties) {
+                            const $props = $('<div>');
+                            Object.entries(feature.properties).forEach(([key, value]) => {
+                                if (value !== null && value !== undefined && value !== '') {
+                                    const $row = $('<div>', { class: 'property-row' });
+                                    $row.append($('<div>', { class: 'property-key', text: key }));
+                                    $row.append($('<div>', { class: 'property-value', text: String(value) }));
+                                    $props.append($row);
+                                }
+                            });
+                            $featureInfo.append($props);
+                        }
+                        $expanded.append($featureInfo);
+
+                        // Add separator if multiple features
+                        if (featuresMap.size > 1) {
+                            $expanded.append($('<div>', {
+                                css: {
+                                    height: '1px',
+                                    background: '#374151',
+                                    margin: '12px 0'
+                                }
+                            }));
+                        }
                     });
-                    $featureInfo.append($title);
-
-                    if (selectedFeature.properties) {
-                        const $props = $('<div>');
-                        Object.entries(selectedFeature.properties).forEach(([key, value]) => {
-                            if (value !== null && value !== undefined && value !== '') {
-                                const $row = $('<div>', { class: 'property-row' });
-                                $row.append($('<div>', { class: 'property-key', text: key }));
-                                $row.append($('<div>', { class: 'property-value', text: String(value) }));
-                                $props.append($row);
-                            }
-                        });
-                        $featureInfo.append($props);
-                    }
-                    $expanded.append($featureInfo);
                 } else {
                     // Description
                     if (layer.description) {
@@ -1117,15 +1343,21 @@
                 return;
             }
 
-            const featureCount = selectedFeatures.size;
+            // Count total features across all layers
+            let totalFeatures = 0;
+            selectedFeatures.forEach(featuresMap => {
+                totalFeatures += featuresMap.size;
+            });
+
             const layerCount = selectedFeatures.size;
-            $statusText.text(`${featureCount} feature${featureCount !== 1 ? 's' : ''} selected`);
+            $statusText.text(`${totalFeatures} feature${totalFeatures !== 1 ? 's' : ''} selected from ${layerCount} layer${layerCount !== 1 ? 's' : ''}`);
             $statusBar.css('display', 'flex');
         }
 
         // Clear all selections
         function clearAllSelections() {
             selectedFeatures.clear();
+            featureCustomHTML.clear();
             expandedLayerId = null;
             if (isolateEnabled) {
                 window.parent.postMessage({
@@ -1147,6 +1379,89 @@
                 type: 'open-layer-info',
                 layer: layer
             }, '*');
+        }
+
+        // Process Bhunaksha async loaders
+        async function processBhunakshaLoaders() {
+            const loaders = document.querySelectorAll('.bhunaksha-loader');
+            console.log(`[Inspector] Processing ${loaders.length} Bhunaksha loaders`);
+
+            for (const loader of loaders) {
+                const apiUrl = loader.getAttribute('data-api-url');
+                if (!apiUrl) {
+                    console.warn('[Inspector] Loader missing data-api-url', loader);
+                    continue;
+                }
+
+                console.log('[Inspector] Fetching Bhunaksha data from:', apiUrl);
+
+                // Remove the loader class to prevent reprocessing
+                loader.classList.remove('bhunaksha-loader');
+
+                try {
+                    // Fetch data from API
+                    const response = await fetch(apiUrl);
+                    const data = await response.json();
+                    console.log('[Inspector] Bhunaksha data received:', data);
+
+                    const getHeader = (withLink = false, color = '') => {
+                        const style = color ? `style="color: ${color};"` : '';
+                        const content = withLink
+                            ? 'Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>'
+                            : 'Additional Information from Bhunaksha';
+                        return `<div style="margin-bottom: 8px; font-weight: 600;" ${style}>${content}</div>`;
+                    };
+
+                    if (data.info && data.has_data === 'Y') {
+                        // Format the info text
+                        let infoText;
+                        const isHTML = /<[^>]*>/g.test(data.info);
+
+                        if (isHTML) {
+                            // Clean up HTML response
+                            infoText = data.info
+                                .replace(/<\/?html>/gi, '')
+                                .replace(/<font[^>]*>/gi, '<span>')
+                                .replace(/<\/font>/gi, '</span>')
+                                .trim();
+                        } else {
+                            // Format plain text (skip first 3 lines, format headers)
+                            const rawText = data.info.split('\n').slice(3).join('\n').replace(/-{10,}/g, '');
+                            const formattedText = rawText.replace(/^([^:\n]+:)/gm, '<strong>$1</strong><br>');
+                            infoText = formattedText.replace(/\n/g, '<br>');
+                        }
+
+                        loader.innerHTML = `
+                            <div style="font-size: 12px;">
+                                ${getHeader()}
+                                <div style="margin-bottom: 8px; line-height: 1.5;">${infoText}</div>
+                                <div style="font-style: italic; font-size: 11px; color: #6b7280;">
+                                    <svg style="display: inline; width: 12px; height: 12px; margin-right: 4px;" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    Retrieved from <a href="${apiUrl}" target="_blank" style="color: #60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // No data available
+                        loader.innerHTML = `
+                            <div style="font-size: 12px; color: #d1d5db;">
+                                ${getHeader(false, '#f3f4f6')}
+                                <span style="color: #9ca3af;">No occupant data available</span>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('[Inspector] Error fetching Bhunaksha details:', error);
+                    loader.innerHTML = `
+                        <div style="font-size: 12px;">
+                            <div style="margin-bottom: 8px; font-weight: 600;">Additional Information from Bhunaksha</div>
+                            <span style="color: #ef4444;">Error loading details: ${error.message}</span>
+                        </div>
+                    `;
+                }
+            }
         }
     </script>
 </body>

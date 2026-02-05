@@ -660,6 +660,8 @@
         let mapboxAccessToken = null;
         let expandedLayers = new Set();
         let showOutOfViewAtlases = false;
+        let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
+        let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
 
         // Make LayerThumbnail available globally for use in functions
         window.LayerThumbnail = LayerThumbnail;
@@ -712,6 +714,59 @@
 
                 if (event.data.type === 'bounds-update') {
                     currentBounds = event.data.bounds;
+                    renderLayers();
+                }
+
+                if (event.data.type === 'feature-selected') {
+                    const layerId = event.data.layerId;
+                    const feature = event.data.feature;
+                    const featureId = event.data.featureId;
+
+                    console.log('[Browser] Feature selected:', layerId, featureId);
+
+                    if (!selectedFeatures.has(layerId)) {
+                        selectedFeatures.set(layerId, new Map());
+                    }
+                    selectedFeatures.get(layerId).set(featureId, feature);
+
+                    renderLayers();
+                }
+
+                if (event.data.type === 'feature-inspection-data') {
+                    const layerId = event.data.layerId;
+                    const featureId = event.data.featureId;
+                    const customHTML = event.data.customHTML;
+
+                    console.log('[Browser] Feature inspection data:', layerId, featureId, customHTML ? 'HTML present' : 'no HTML');
+
+                    if (!featureCustomHTML.has(layerId)) {
+                        featureCustomHTML.set(layerId, new Map());
+                    }
+                    featureCustomHTML.get(layerId).set(featureId, customHTML);
+
+                    renderLayers();
+                }
+
+                if (event.data.type === 'feature-deselected') {
+                    const layerId = event.data.layerId;
+                    const featureId = event.data.featureId;
+
+                    console.log('[Browser] Feature deselected:', layerId, featureId);
+
+                    if (selectedFeatures.has(layerId)) {
+                        selectedFeatures.get(layerId).delete(featureId);
+                        if (selectedFeatures.get(layerId).size === 0) {
+                            selectedFeatures.delete(layerId);
+                        }
+                    }
+
+                    if (featureCustomHTML.has(layerId)) {
+                        featureCustomHTML.get(layerId).delete(featureId);
+                        if (featureCustomHTML.get(layerId).size === 0) {
+                            featureCustomHTML.delete(layerId);
+                        }
+                    }
+
                     renderLayers();
                 }
             });
@@ -1129,6 +1184,11 @@
 
             renderLayerGrid(filtered);
             updateResultsCount(filtered, allLayers.length);
+
+            // Process Bhunaksha loaders after DOM updates
+            requestAnimationFrame(() => {
+                setTimeout(processBhunakshaLoaders, 50);
+            });
         }
 
         // Check if layer matches search
@@ -1353,6 +1413,15 @@
             tagStrings.forEach(tagString => {
                 const tagLayers = byTag[tagString];
 
+                // Sort layers within tag: selected layers first
+                tagLayers.sort((a, b) => {
+                    const aHasSelection = selectedFeatures.has(a.id);
+                    const bHasSelection = selectedFeatures.has(b.id);
+                    if (aHasSelection && !bHasSelection) return -1;
+                    if (!aHasSelection && bHasSelection) return 1;
+                    return 0;
+                });
+
                 const $tagGroup = $('<div>', {
                     class: 'atlas-collapsed-tag-group'
                 });
@@ -1510,10 +1579,13 @@
         function createLayerCard(layer, showButtonText = false) {
             const isActive = activeLayers.has(layer.id);
             const atlasData = atlasMetadata.get(layer._sourceAtlas) || {};
+            const hasSelection = selectedFeatures.has(layer.id);
+            const inspectionHTML = featureCustomHTML.get(layer.id);
 
             const $card = $('<div>', {
                 class: 'layer-card rounded-lg shadow-sm border border-gray-700' +
-                    (isActive ? ' active' : ''),
+                    (isActive ? ' active' : '') +
+                    (hasSelection ? ' has-selection' : ''),
                 'data-layer-id': layer.id,
                 'data-type': layer.type
             });
@@ -1580,7 +1652,7 @@
                 $buttonRow.append($rightButtons);
                 $content.append($buttonRow);
 
-                // Row 2: Title, description, attribution
+                // Row 2: Title, description/attribution OR inspection content
                 const $title = $('<h3>', {
                     class: 'font-semibold text-base text-gray-100',
                     text: layer.title || layer.id,
@@ -1588,21 +1660,41 @@
                 });
                 $content.append($title);
 
-                if (layer.description) {
-                    const cleanDesc = $('<div>').html(layer.description).text();
-                    $content.append($('<p>', {
-                        class: 'text-xs text-gray-300 mt-1',
-                        text: cleanDesc
-                    }));
-                }
+                if (hasSelection && inspectionHTML) {
+                    // Show inspection content for all selected features
+                    const $inspectionContainer = $('<div>', {
+                        class: 'inspection-content mt-2',
+                        style: 'max-height: 300px; overflow-y: auto;'
+                    });
 
-                if (layer.attribution) {
-                    const firstLine = layer.attribution.split('\n')[0].trim();
-                    if (firstLine) {
+                    inspectionHTML.forEach((html, featureId) => {
+                        const $featureSection = $('<div>', {
+                            class: 'feature-inspection-section',
+                            style: 'margin-bottom: 8px;'
+                        });
+                        $featureSection.html(html);
+                        $inspectionContainer.append($featureSection);
+                    });
+
+                    $content.append($inspectionContainer);
+                } else {
+                    // Show regular description and attribution
+                    if (layer.description) {
+                        const cleanDesc = $('<div>').html(layer.description).text();
                         $content.append($('<p>', {
-                            class: 'text-xs text-gray-400 italic mt-1',
-                            html: firstLine
+                            class: 'text-xs text-gray-300 mt-1',
+                            text: cleanDesc
                         }));
+                    }
+
+                    if (layer.attribution) {
+                        const firstLine = layer.attribution.split('\n')[0].trim();
+                        if (firstLine) {
+                            $content.append($('<p>', {
+                                class: 'text-xs text-gray-400 italic mt-1',
+                                html: firstLine
+                            }));
+                        }
                     }
                 }
 
@@ -1663,21 +1755,41 @@
                 $top.append($buttonGroup);
                 $content.append($top);
 
-                if (layer.description) {
-                    const cleanDesc = $('<div>').html(layer.description).text().substring(0, 60);
-                    $content.append($('<p>', {
-                        class: 'text-xs text-gray-400',
-                        text: cleanDesc + (cleanDesc.length >= 60 ? '...' : '')
-                    }));
-                }
+                if (hasSelection && inspectionHTML) {
+                    // Show inspection content for all selected features
+                    const $inspectionContainer = $('<div>', {
+                        class: 'inspection-content',
+                        style: 'max-height: 200px; overflow-y: auto;'
+                    });
 
-                if (layer.attribution) {
-                    const firstLine = layer.attribution.split('\n')[0].trim();
-                    if (firstLine) {
+                    inspectionHTML.forEach((html, featureId) => {
+                        const $featureSection = $('<div>', {
+                            class: 'feature-inspection-section',
+                            style: 'margin-bottom: 6px;'
+                        });
+                        $featureSection.html(html);
+                        $inspectionContainer.append($featureSection);
+                    });
+
+                    $content.append($inspectionContainer);
+                } else {
+                    // Show regular description and attribution
+                    if (layer.description) {
+                        const cleanDesc = $('<div>').html(layer.description).text().substring(0, 60);
                         $content.append($('<p>', {
-                            class: 'text-xs text-gray-500 italic mt-1',
-                            html: firstLine
+                            class: 'text-xs text-gray-400',
+                            text: cleanDesc + (cleanDesc.length >= 60 ? '...' : '')
                         }));
+                    }
+
+                    if (layer.attribution) {
+                        const firstLine = layer.attribution.split('\n')[0].trim();
+                        if (firstLine) {
+                            $content.append($('<p>', {
+                                class: 'text-xs text-gray-500 italic mt-1',
+                                html: firstLine
+                            }));
+                        }
                     }
                 }
 
@@ -1905,6 +2017,74 @@
         // Hide preview map modal
         function hidePreviewMapModal() {
             $('#preview-map-modal').css('display', 'none');
+        }
+
+        // Process Bhunaksha loaders
+        async function processBhunakshaLoaders() {
+            const loaders = document.querySelectorAll('.bhunaksha-loader');
+            console.log(`[Browser] Processing ${loaders.length} Bhunaksha loaders`);
+
+            for (const loader of loaders) {
+                const apiUrl = loader.getAttribute('data-api-url');
+                if (!apiUrl) continue;
+
+                loader.classList.remove('bhunaksha-loader');
+
+                try {
+                    const response = await fetch(apiUrl);
+                    const data = await response.json();
+
+                    if (data.info && data.has_data === 'Y') {
+                        const info = data.info;
+
+                        const $content = $('<div>', {
+                            style: 'font-size: 12px; color: #1f2937;'
+                        });
+
+                        $content.append($('<div>', {
+                            style: 'margin-bottom: 8px; font-weight: 600; color: #111827;',
+                            html: `Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #3b82f6;">Goa Bhunaksha</a>`
+                        }));
+
+                        if (info.occupancy_land_name) {
+                            $content.append($('<div>', {
+                                style: 'margin-bottom: 4px;',
+                                html: `<strong>Occupant:</strong> ${info.occupancy_land_name}`
+                            }));
+                        }
+
+                        if (info.occupant_type) {
+                            $content.append($('<div>', {
+                                style: 'margin-bottom: 4px;',
+                                html: `<strong>Type:</strong> ${info.occupant_type}`
+                            }));
+                        }
+
+                        if (info.survey_no) {
+                            $content.append($('<div>', {
+                                style: 'margin-bottom: 4px;',
+                                html: `<strong>Survey No:</strong> ${info.survey_no}`
+                            }));
+                        }
+
+                        if (info.area_in_sqm) {
+                            const areaHa = (parseFloat(info.area_in_sqm) / 10000).toFixed(2);
+                            $content.append($('<div>', {
+                                style: 'margin-bottom: 4px;',
+                                html: `<strong>Area:</strong> ${info.area_in_sqm} m² (${areaHa} ha)`
+                            }));
+                        }
+
+                        loader.innerHTML = '';
+                        $(loader).append($content);
+                    } else {
+                        loader.innerHTML = '<div style="color: #9ca3af; font-size: 12px;">No occupant details available</div>';
+                    }
+                } catch (error) {
+                    console.error('[Browser] Error fetching Bhunaksha details:', error);
+                    loader.innerHTML = '<div style="color: #dc2626; font-size: 12px;">Error loading occupant details</div>';
+                }
+            }
         }
 
         // Debounce helper

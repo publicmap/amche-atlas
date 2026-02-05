@@ -2,8 +2,8 @@
  * Inspection Handler Loader
  *
  * Dynamically loads and executes layer inspection handlers from config files.
- * Handlers are defined in config/[atlas-name]-handlers.js files and referenced
- * by name in the layer's inspect.onClick property.
+ * STRICT NAMING CONVENTION: Handler files must match the atlas name.
+ * - config/{atlas-name}.js (e.g., config/goa.js, config/index.js)
  */
 
 export class InspectionHandlerLoader {
@@ -46,22 +46,22 @@ export class InspectionHandlerLoader {
      */
     async _loadHandlersInternal(atlasName) {
         try {
-            // Try to import the handlers file
-            const handlersModule = await import(`../config/${atlasName}-handlers.js`);
+            // Try to import the handlers file (config/{atlas}.js)
+            const handlersModule = await import(`../config/${atlasName}.js`);
 
             if (handlersModule.handlers && typeof handlersModule.handlers === 'object') {
-                console.log(`[HandlerLoader] Loaded ${Object.keys(handlersModule.handlers).length} handlers from ${atlasName}-handlers.js`);
+                console.log(`[HandlerLoader] Loaded ${Object.keys(handlersModule.handlers).length} handlers from ${atlasName}.js`);
                 return handlersModule.handlers;
             } else {
-                console.warn(`[HandlerLoader] No handlers export found in ${atlasName}-handlers.js`);
+                console.warn(`[HandlerLoader] No handlers export found in ${atlasName}.js`);
                 return {};
             }
         } catch (error) {
             // File doesn't exist or failed to load
             if (error.message.includes('Failed to fetch') || error.message.includes('Cannot find module')) {
-                console.log(`[HandlerLoader] No handlers file found for atlas: ${atlasName}`);
+                console.log(`[HandlerLoader] No handlers file found: ${atlasName}.js`);
             } else {
-                console.error(`[HandlerLoader] Error loading handlers for ${atlasName}:`, error);
+                console.error(`[HandlerLoader] Error loading handlers from ${atlasName}.js:`, error);
             }
             return {};
         }
@@ -79,8 +79,8 @@ export class InspectionHandlerLoader {
         const handlers = await this.loadHandlers(atlasName);
 
         // Check if handler exists
-        if (!handlers[handlerName]) {
-            console.warn(`[HandlerLoader] Handler not found: ${handlerName} in ${atlasName}-handlers.js`);
+        if (!handlers || !handlers[handlerName]) {
+            console.warn(`[HandlerLoader] Handler not found: ${handlerName} in ${atlasName}.js`);
             return null;
         }
 
@@ -92,7 +92,7 @@ export class InspectionHandlerLoader {
         }
 
         try {
-            console.log(`[HandlerLoader] Executing handler: ${handlerName}`);
+            console.log(`[HandlerLoader] Executing handler: ${handlerName} from ${atlasName}.js`);
             const result = await handler(context);
             return result;
         } catch (error) {

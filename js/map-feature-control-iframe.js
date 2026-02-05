@@ -21,6 +21,8 @@ export class MapFeatureControl {
         this._iframe = null;
         this._config = null;
         this._globalHandlersAdded = false;
+        this._isIframeReady = false;
+        this._messageQueue = [];
 
         // Set up resize listener
         this._resizeListener = this._handleResize.bind(this);
@@ -272,7 +274,11 @@ export class MapFeatureControl {
      */
     _setupMessageListener() {
         window.addEventListener('message', (event) => {
-            if (event.data.type === 'request-inspector-data') {
+            if (event.data.type === 'inspector-ready') {
+                console.log('[IframeControl] Inspector iframe is ready');
+                this._isIframeReady = true;
+                this._flushMessageQueue();
+            } else if (event.data.type === 'request-inspector-data') {
                 this._sendDataToIframe();
             } else if (event.data.type === 'isolate-layer') {
                 this._isolateLayer(event.data.layerId, event.data.isBasemap);
@@ -411,17 +417,45 @@ export class MapFeatureControl {
                 this._clearHighlightInIframe();
                 break;
             case 'feature-click':
-                console.log('[IframeControl] Feature click event:', data.layerId);
-                this._sendFeatureSelectionToIframe(data.layerId, data.feature);
+                console.log('[IframeControl] Feature click event:', data.layerId, 'featureId:', data.featureId);
+
+                // Clear previously selected features if any (happens when clicking without Cmd/Ctrl)
+                if (data.clearedFeatures && data.clearedFeatures.length > 0) {
+                    console.log('[IframeControl] Clearing', data.clearedFeatures.length, 'previously selected features');
+                    data.clearedFeatures.forEach(cleared => {
+                        this._sendFeatureDeselectedToIframe(cleared.layerId, cleared.featureId);
+                    });
+                }
+
+                this._sendFeatureSelectionToIframe(data.layerId, data.feature, data.featureId);
                 this._showPanel(); // Auto-open panel when feature is clicked
+                break;
+            case 'feature-click-multiple':
+                console.log('[IframeControl] Multiple features click event:', data.selectedFeatures.length, 'features');
+
+                // Clear previously selected features if any
+                if (data.clearedFeatures && data.clearedFeatures.length > 0) {
+                    console.log('[IframeControl] Clearing', data.clearedFeatures.length, 'previously selected features');
+                    data.clearedFeatures.forEach(cleared => {
+                        this._sendFeatureDeselectedToIframe(cleared.layerId, cleared.featureId);
+                    });
+                }
+
+                // Send all new selections
+                data.selectedFeatures.forEach(selection => {
+                    this._sendFeatureSelectionToIframe(selection.layerId, selection.feature, selection.featureId);
+                });
+                this._showPanel();
                 break;
             case 'feature-inspection-data':
                 console.log('[IframeControl] Inspection data event:', data.layerId, data.customHTML ? 'Has HTML' : 'No HTML');
                 this._sendInspectionDataToIframe(data);
                 break;
             case 'selections-cleared':
-            case 'feature-deselected':
                 this._sendSelectionClearedToIframe(data.layerId);
+                break;
+            case 'feature-deselected':
+                this._sendFeatureDeselectedToIframe(data.layerId, data.featureId);
                 break;
             case 'layer-registered':
             case 'layer-unregistered':
@@ -458,14 +492,22 @@ export class MapFeatureControl {
     /**
      * Send feature selection to iframe
      */
-    _sendFeatureSelectionToIframe(layerId, feature) {
+    _sendFeatureSelectionToIframe(layerId, feature, featureId) {
         if (!this._iframe || !this._iframe.contentWindow) return;
 
-        this._iframe.contentWindow.postMessage({
+        const message = {
             type: 'feature-selected',
             layerId: layerId,
-            feature: feature
-        }, '*');
+            feature: feature,
+            featureId: featureId
+        };
+
+        this._sendMessageToIframe(message);
+
+        // Also send to browser iframe if it exists
+        if (window.browserControl && window.browserControl._iframe && window.browserControl._iframe.contentWindow) {
+            window.browserControl._iframe.contentWindow.postMessage(message, '*');
+        }
     }
 
     /**
@@ -474,12 +516,19 @@ export class MapFeatureControl {
     _sendInspectionDataToIframe(data) {
         if (!this._iframe || !this._iframe.contentWindow) return;
 
-        this._iframe.contentWindow.postMessage({
+        const message = {
             type: 'feature-inspection-data',
             layerId: data.layerId,
             featureId: data.featureId,
             customHTML: data.customHTML
-        }, '*');
+        };
+
+        this._sendMessageToIframe(message);
+
+        // Also send to browser iframe if it exists
+        if (window.browserControl && window.browserControl._iframe && window.browserControl._iframe.contentWindow) {
+            window.browserControl._iframe.contentWindow.postMessage(message, '*');
+        }
     }
 
     /**
@@ -488,10 +537,37 @@ export class MapFeatureControl {
     _sendSelectionClearedToIframe(layerId) {
         if (!this._iframe || !this._iframe.contentWindow) return;
 
-        this._iframe.contentWindow.postMessage({
+        const message = {
             type: 'selection-cleared',
             layerId: layerId
-        }, '*');
+        };
+
+        this._iframe.contentWindow.postMessage(message, '*');
+
+        // Also send to browser iframe if it exists
+        if (window.browserControl && window.browserControl._iframe && window.browserControl._iframe.contentWindow) {
+            window.browserControl._iframe.contentWindow.postMessage(message, '*');
+        }
+    }
+
+    /**
+     * Send feature deselected message to iframe
+     */
+    _sendFeatureDeselectedToIframe(layerId, featureId) {
+        if (!this._iframe || !this._iframe.contentWindow) return;
+
+        const message = {
+            type: 'feature-deselected',
+            layerId: layerId,
+            featureId: featureId
+        };
+
+        this._iframe.contentWindow.postMessage(message, '*');
+
+        // Also send to browser iframe if it exists
+        if (window.browserControl && window.browserControl._iframe && window.browserControl._iframe.contentWindow) {
+            window.browserControl._iframe.contentWindow.postMessage(message, '*');
+        }
     }
 
     /**
@@ -1148,5 +1224,30 @@ export class MapFeatureControl {
      */
     isInspectModeEnabled() {
         return true; // Always enabled for iframe version
+    }
+
+    /**
+     * Send message to iframe, queueing if iframe not ready
+     */
+    _sendMessageToIframe(message) {
+        if (this._isIframeReady && this._iframe && this._iframe.contentWindow) {
+            this._iframe.contentWindow.postMessage(message, '*');
+        } else {
+            console.log('[IframeControl] Queueing message (iframe not ready):', message.type);
+            this._messageQueue.push(message);
+        }
+    }
+
+    /**
+     * Flush queued messages to iframe
+     */
+    _flushMessageQueue() {
+        console.log('[IframeControl] Flushing message queue:', this._messageQueue.length, 'messages');
+        while (this._messageQueue.length > 0) {
+            const message = this._messageQueue.shift();
+            if (this._iframe && this._iframe.contentWindow) {
+                this._iframe.contentWindow.postMessage(message, '*');
+            }
+        }
     }
 }

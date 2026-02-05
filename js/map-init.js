@@ -478,10 +478,10 @@ export class MapInitializer {
             window.featureControl = new MapFeatureControl();
 
             // Add map browser control to header instead of map
-            const mapBrowserControl = new MapBrowserControl();
+            window.browserControl = new MapBrowserControl();
             const browserControlContainer = document.getElementById('map-browser-control-container');
             if (browserControlContainer) {
-                const controlElement = mapBrowserControl.onAdd(map);
+                const controlElement = window.browserControl.onAdd(map);
                 browserControlContainer.appendChild(controlElement);
             }
 
