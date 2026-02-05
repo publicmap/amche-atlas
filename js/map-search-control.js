@@ -56,6 +56,7 @@ export class MapSearchControl {
         this.searchBox.setAttribute('country', this.options.country);
         this.searchBox.setAttribute('language', this.options.language);
         this.searchBox.setAttribute('types', this.options.types);
+        this.searchBox.setAttribute('placeholder', 'Search place name or location..');
         this.searchBox.addEventListener('suggest', this.handleSuggest.bind(this));
         this.searchBox.addEventListener('retrieve', this.handleRetrieve.bind(this));
         this.searchBox.addEventListener('input', this.handleInput.bind(this));

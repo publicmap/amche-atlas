@@ -519,8 +519,9 @@
             margin-left: 0;
             margin-top: 8px;
             margin-bottom: 8px;
-            overflow: hidden;
-            animation: expandCard 0.5s ease-out;
+            overflow: visible;
+            animation: expandCard 0.1s ease-out forwards;
+            transform-origin: left center;
         }
 
         .atlas-collapsed-layer-expanded .layer-card {
@@ -528,32 +529,28 @@
         }
 
         .atlas-collapsed-layer-expanded.collapsing {
-            animation: collapseCard 0.5s ease-out;
+            animation: collapseCard 0.1s ease-out forwards;
         }
 
         @keyframes expandCard {
             from {
-                max-height: 0;
+                transform: scale(0.9);
                 opacity: 0;
-                transform: scaleY(0.8);
             }
             to {
-                max-height: 1000px;
+                transform: scale(1);
                 opacity: 1;
-                transform: scaleY(1);
             }
         }
 
         @keyframes collapseCard {
             from {
-                max-height: 1000px;
+                transform: scale(1);
                 opacity: 1;
-                transform: scaleY(1);
             }
             to {
-                max-height: 0;
+                transform: scale(0.9);
                 opacity: 0;
-                transform: scaleY(0.8);
             }
         }
 
@@ -1390,7 +1387,7 @@
                                 setTimeout(() => {
                                     expandedLayers.delete(layer.id);
                                     renderLayers();
-                                }, 500);
+                                }, 100);
                             }
                         });
 
@@ -1419,7 +1416,7 @@
                                         expandedLayers.clear();
                                         expandedLayers.add(layer.id);
                                         renderLayers();
-                                    }, 500);
+                                    }, 100);
                                 } else {
                                     // No other layers expanded, expand immediately
                                     expandedLayers.clear();
@@ -1522,83 +1519,24 @@
             });
 
             if (showButtonText) {
-                // Expanded layout: 3 rows
-                const $container = $('<div>', { class: 'p-3 flex flex-col gap-3' });
+                // Expanded layout: Two columns similar to compact but with full details
+                const $container = $('<div>', { class: 'flex items-stretch' });
 
-                // Row 1: Thumbnail (2) + Title (8)
-                const $row1 = $('<div>', {
-                    class: 'grid gap-3',
-                    style: 'grid-template-columns: 2fr 8fr;'
-                });
-
+                // Column 1: Thumbnail
                 const thumbnail = window.LayerThumbnail.generate(layer, 80);
                 thumbnail.style.margin = '0';
-                thumbnail.style.borderRadius = '0.375rem';
-                thumbnail.style.width = '80px';
-                thumbnail.style.height = '80px';
-                thumbnail.style.objectFit = 'cover';
-                $row1.append(thumbnail);
+                thumbnail.style.borderRadius = '0.5rem 0 0 0.5rem';
+                $container.append(thumbnail);
 
-                const $title = $('<h3>', {
-                    class: 'font-semibold text-base text-gray-100 self-center',
-                    text: layer.title || layer.id,
-                    title: layer.title || layer.id
+                // Column 2: Content (two rows)
+                const $content = $('<div>', {
+                    class: 'flex-1 p-3 flex flex-col gap-2 min-w-0'
                 });
-                $row1.append($title);
-                $container.append($row1);
 
-                // Row 2: Description and Attribution
-                const $row2 = $('<div>', { class: 'flex flex-col gap-2' });
-                if (layer.description) {
-                    const cleanDesc = $('<div>').html(layer.description).text();
-                    $row2.append($('<p>', {
-                        class: 'text-xs text-gray-300',
-                        text: cleanDesc
-                    }));
-                }
-                if (layer.attribution) {
-                    const firstLine = layer.attribution.split('\n')[0].trim();
-                    if (firstLine) {
-                        $row2.append($('<p>', {
-                            class: 'text-xs text-gray-400 italic',
-                            html: firstLine
-                        }));
-                    }
-                }
-                if ($row2.children().length > 0) {
-                    $container.append($row2);
-                }
+                // Row 1: Action buttons (Details left, others right)
+                const $buttonRow = $('<div>', { class: 'flex gap-2 justify-between flex-shrink-0' });
 
-                // Row 3: Action buttons
-                const $row3 = $('<div>', { class: 'flex gap-2 flex-wrap' });
-
-                const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
-                const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
-
-                // Only show zoom button for active layers
-                if (isActive && hasBbox && !isGlobalLayer) {
-                    const $zoomBtn = $('<button>', {
-                        class: 'zoom-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 hover:bg-gray-500 text-white text-xs whitespace-nowrap',
-                        html: '<sl-icon name="geo-alt" style="font-size: 14px;"></sl-icon><span>Zoom To Map</span>',
-                        click: function (e) {
-                            e.stopPropagation();
-                            zoomToLayer(layer);
-                        }
-                    });
-                    $row3.append($zoomBtn);
-                }
-
-                const $toggleBtn = $('<button>', {
-                    class: 'toggle-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 text-white text-xs whitespace-nowrap bg-green-600 hover:bg-green-700',
-                    html: isActive ? '<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span>Added</span>' : '<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span>Add Map</span>',
-                    click: function (e) {
-                        e.stopPropagation();
-                        toggleLayer(layer.id);
-                    }
-                });
-                addToggleButtonHover($toggleBtn, isActive, false);
-                $row3.append($toggleBtn);
-
+                // Details button (left)
                 const $detailsBtn = $('<button>', {
                     class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 hover:bg-gray-500 text-white text-xs whitespace-nowrap',
                     html: '<span>ℹ️</span><span>Details</span>',
@@ -1607,9 +1545,68 @@
                         openLayerDetails(layer);
                     }
                 });
-                $row3.append($detailsBtn);
+                $buttonRow.append($detailsBtn);
 
-                $container.append($row3);
+                // Right buttons group
+                const $rightButtons = $('<div>', { class: 'flex gap-2' });
+
+                const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
+                const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
+
+                // Only show zoom button for active layers
+                if (isActive && hasBbox && !isGlobalLayer) {
+                    const $zoomBtn = $('<button>', {
+                        class: 'zoom-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 hover:bg-gray-500 text-white text-xs whitespace-nowrap',
+                        html: '<sl-icon name="geo-alt" style="font-size: 14px;"></sl-icon><span>Zoom To</span>',
+                        click: function (e) {
+                            e.stopPropagation();
+                            zoomToLayer(layer);
+                        }
+                    });
+                    $rightButtons.append($zoomBtn);
+                }
+
+                const $toggleBtn = $('<button>', {
+                    class: 'toggle-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 text-white text-xs whitespace-nowrap bg-green-600 hover:bg-green-700',
+                    html: isActive ? '<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span>Added</span>' : '<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span>Add</span>',
+                    click: function (e) {
+                        e.stopPropagation();
+                        toggleLayer(layer.id);
+                    }
+                });
+                addToggleButtonHover($toggleBtn, isActive, false);
+                $rightButtons.append($toggleBtn);
+
+                $buttonRow.append($rightButtons);
+                $content.append($buttonRow);
+
+                // Row 2: Title, description, attribution
+                const $title = $('<h3>', {
+                    class: 'font-semibold text-base text-gray-100',
+                    text: layer.title || layer.id,
+                    title: layer.title || layer.id
+                });
+                $content.append($title);
+
+                if (layer.description) {
+                    const cleanDesc = $('<div>').html(layer.description).text();
+                    $content.append($('<p>', {
+                        class: 'text-xs text-gray-300 mt-1',
+                        text: cleanDesc
+                    }));
+                }
+
+                if (layer.attribution) {
+                    const firstLine = layer.attribution.split('\n')[0].trim();
+                    if (firstLine) {
+                        $content.append($('<p>', {
+                            class: 'text-xs text-gray-400 italic mt-1',
+                            html: firstLine
+                        }));
+                    }
+                }
+
+                $container.append($content);
                 $card.append($container);
             } else {
                 // Compact layout: Horizontal

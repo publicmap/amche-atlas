@@ -195,7 +195,7 @@ export class MapFeatureControl {
         // Close panel when clicking outside
         setTimeout(() => {
             document.addEventListener('click', (e) => {
-                if (!e.target.closest('.map-feature-panel, .mapboxgl-ctrl-icon, .mapboxgl-canvas-container')) {
+                if (!e.target.closest('.map-feature-panel, .mapboxgl-ctrl-icon, .mapboxgl-canvas-container, .map-browser-panel, #map-browser-modal, .mapboxgl-ctrl-group')) {
                     this._hidePanel();
                 }
             });
@@ -296,6 +296,10 @@ export class MapFeatureControl {
                 }
             } else if (event.data.type === 'open-layer-info') {
                 this._openLayerInfo(event.data.layer);
+            } else if (event.data.type === 'hover-isolate-feature') {
+                this._hoverIsolateFeature(event.data.layerId, event.data.featureId, event.data.feature);
+            } else if (event.data.type === 'clear-feature-isolation') {
+                this._clearFeatureIsolation(event.data.layerId);
             }
         });
     }
@@ -335,6 +339,24 @@ export class MapFeatureControl {
 
         window.addEventListener('message', closeHandler);
         document.addEventListener('keydown', keyHandler);
+    }
+
+    /**
+     * Hover isolate a specific feature on the map
+     */
+    _hoverIsolateFeature(layerId, featureId, feature) {
+        if (!this._stateManager) return;
+
+        this._stateManager.setFeatureHoverState(layerId, featureId, true);
+    }
+
+    /**
+     * Clear feature isolation hover state
+     */
+    _clearFeatureIsolation(layerId) {
+        if (!this._stateManager) return;
+
+        this._stateManager.clearLayerHoverStates(layerId);
     }
 
     /**
@@ -389,7 +411,13 @@ export class MapFeatureControl {
                 this._clearHighlightInIframe();
                 break;
             case 'feature-click':
+                console.log('[IframeControl] Feature click event:', data.layerId);
                 this._sendFeatureSelectionToIframe(data.layerId, data.feature);
+                this._showPanel(); // Auto-open panel when feature is clicked
+                break;
+            case 'feature-inspection-data':
+                console.log('[IframeControl] Inspection data event:', data.layerId, data.customHTML ? 'Has HTML' : 'No HTML');
+                this._sendInspectionDataToIframe(data);
                 break;
             case 'selections-cleared':
             case 'feature-deselected':
@@ -437,6 +465,20 @@ export class MapFeatureControl {
             type: 'feature-selected',
             layerId: layerId,
             feature: feature
+        }, '*');
+    }
+
+    /**
+     * Send inspection data (custom HTML) to iframe
+     */
+    _sendInspectionDataToIframe(data) {
+        if (!this._iframe || !this._iframe.contentWindow) return;
+
+        this._iframe.contentWindow.postMessage({
+            type: 'feature-inspection-data',
+            layerId: data.layerId,
+            featureId: data.featureId,
+            customHTML: data.customHTML
         }, '*');
     }
 

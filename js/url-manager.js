@@ -900,6 +900,23 @@ export class URLManager {
         if (allSelectedFeatures.length > 0) {
             this.stateManager._updateLineSortKeys();
 
+            // Execute inspection handlers and emit events for each selected feature
+            for (const selectedFeature of allSelectedFeatures) {
+                const { feature, layerId, lngLat } = selectedFeature;
+
+                // Execute inspection handler if configured
+                await this.stateManager._executeInspectionHandler(feature, layerId, lngLat);
+
+                // Emit individual feature-click event for each feature
+                // This ensures the iframe receives the feature data
+                this.stateManager._emitStateChange('feature-click', {
+                    feature,
+                    layerId,
+                    lngLat,
+                    fromURL: true
+                });
+            }
+
             this.stateManager._emitStateChange('feature-click-multiple', {
                 selectedFeatures: allSelectedFeatures,
                 clearedFeatures: [],

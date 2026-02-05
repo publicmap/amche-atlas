@@ -207,7 +207,8 @@ export const LAYER_SPECIFICATIONS = {
                     id: { type: 'string', description: 'Property to use as feature ID' },
                     title: { type: 'string', description: 'Title for popup' },
                     label: { type: 'string', description: 'Property to use as feature label' },
-                    fields: { type: 'array', description: 'Properties to display in popup' }
+                    fields: { type: 'array', description: 'Properties to display in popup' },
+                    onClick: { type: 'string', description: 'Handler function name from config handlers file (e.g., "getBhunakshaInfo"). Function receives { feature, layerId, layerConfig, map, lngLat } and returns HTML.' }
                 }
             }
         },
@@ -357,7 +358,8 @@ export const LAYER_SPECIFICATIONS = {
                     id: { type: 'string', description: 'Property to use as feature ID' },
                     title: { type: 'string', description: 'Title for popup' },
                     label: { type: 'string', description: 'Property to use as feature label' },
-                    fields: { type: 'array', description: 'Properties to display in popup' }
+                    fields: { type: 'array', description: 'Properties to display in popup' },
+                    onClick: { type: 'string', description: 'Handler function name from config handlers file (e.g., "getBhunakshaInfo"). Function receives { feature, layerId, layerConfig, map, lngLat } and returns HTML.' }
                 }
             }
         },
@@ -406,7 +408,8 @@ export const LAYER_SPECIFICATIONS = {
                     id: { type: 'string', description: 'Property to use as feature ID' },
                     title: { type: 'string', description: 'Title for popup' },
                     label: { type: 'string', description: 'Property to use as feature label' },
-                    fields: { type: 'array', description: 'Properties to display in popup' }
+                    fields: { type: 'array', description: 'Properties to display in popup' },
+                    onClick: { type: 'string', description: 'Handler function name from config handlers file (e.g., "getBhunakshaInfo"). Function receives { feature, layerId, layerConfig, map, lngLat } and returns HTML.' }
                 }
             }
         },

@@ -160,6 +160,28 @@
             margin-top: 8px;
         }
 
+        .feature-custom-info {
+            background: #1f2937;
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 8px;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .feature-custom-info strong {
+            color: #e5e7eb;
+        }
+
+        .feature-custom-info a {
+            color: #60a5fa;
+            text-decoration: none;
+        }
+
+        .feature-custom-info a:hover {
+            color: #93c5fd;
+            text-decoration: underline;
+        }
+
         .property-row {
             display: flex;
             font-size: 11px;
@@ -298,6 +320,20 @@
     <!-- Main Content (Layer List) -->
     <div id="layer-container"
         style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
+
+        <!-- Selected Features Section -->
+        <div id="selected-features-section" style="display: none; flex-shrink: 0; background: #111827; padding: 8px 4px 0 4px;">
+            <div class="section-header"
+                style="padding: 8px 12px; background: #3b82f6; border-radius: 4px; user-select: none; display: flex; align-items: center; justify-content: space-between;">
+                <span class="text-xs font-semibold text-white flex items-center gap-2">
+                    <sl-icon name="check-circle-fill" style="font-size: 14px;"></sl-icon>
+                    LAYERS WITH SELECTION <span id="selected-count" class="text-blue-200">(0)</span>
+                </span>
+            </div>
+            <div id="selected-features-list" class="scrollbar-thin"
+                style="overflow-y: auto; padding: 4px; max-height: 400px;"></div>
+        </div>
+
         <!-- Overlay Maps Section -->
         <div style="flex-shrink: 0; background: #111827; padding: 8px 4px 0 4px;">
             <div class="section-header" id="overlay-header"
@@ -354,6 +390,7 @@
         let showPopups = false;
         let highlightedLayerIds = new Set();
         let selectedFeatures = new Map();
+        let featureCustomHTML = new Map(); // layerId -> custom HTML
 
         // Make LayerThumbnail available globally
         window.LayerThumbnail = LayerThumbnail;
@@ -423,6 +460,7 @@
                 const layerId = event.data.layerId;
                 const feature = event.data.feature;
 
+                console.log('[Inspector] Feature selected:', layerId, feature);
                 selectedFeatures.set(layerId, feature);
 
                 if (expandedLayerId !== layerId) {
@@ -434,6 +472,19 @@
                 updateStatusBar();
             }
 
+            if (event.data.type === 'feature-inspection-data') {
+                const layerId = event.data.layerId;
+                const customHTML = event.data.customHTML;
+
+                console.log('[Inspector] Inspection data received:', layerId, customHTML ? 'HTML present' : 'No HTML');
+
+                // Store custom HTML for this layer
+                featureCustomHTML.set(layerId, customHTML);
+
+                // Re-render to show custom HTML
+                renderLayers();
+            }
+
             if (event.data.type === 'request-height-update') {
                 notifyHeightChange();
             }
@@ -441,6 +492,7 @@
             if (event.data.type === 'selection-cleared') {
                 const layerId = event.data.layerId;
                 selectedFeatures.delete(layerId);
+                featureCustomHTML.delete(layerId); // Clear custom HTML
                 if (expandedLayerId === layerId) {
                     expandedLayerId = null;
                     if (isolateEnabled) {
@@ -558,29 +610,54 @@
                 // Notify after animation completes
                 setTimeout(notifyHeightChange, 250);
             });
+
+            // Mouse leave handler - clear isolation when mouse leaves panel
+            $(document.body).on('mouseleave', function () {
+                if (expandedLayerId) {
+                    expandedLayerId = null;
+                    if (isolateEnabled) {
+                        window.parent.postMessage({
+                            type: 'clear-layer-isolation'
+                        }, '*');
+                    }
+                    renderLayers();
+                    clearVisualIsolation();
+                }
+            });
         }
 
         // Render all active layers
         function renderLayers() {
             const $overlayList = $('#overlay-list');
             const $basemapList = $('#basemap-list');
+            const $selectedList = $('#selected-features-list');
+            const $selectedSection = $('#selected-features-section');
+
             $overlayList.empty();
             $basemapList.empty();
+            $selectedList.empty();
 
             if (activeLayers.length === 0) {
                 $overlayList.html('<div class="text-center text-gray-500 py-4 text-xs">No overlay maps</div>');
                 $basemapList.html('<div class="text-center text-gray-500 py-4 text-xs">No base maps</div>');
                 $('#overlay-count').text('(0)');
                 $('#basemap-count').text('(0)');
+                $selectedSection.hide();
                 return;
             }
 
             const overlayMaps = [];
             const baseMaps = [];
+            const selectedLayers = [];
 
             activeLayers.forEach(layerConfig => {
+                const hasSelection = selectedFeatures.has(layerConfig.id);
                 const isBasemap = layerConfig.tags && Array.isArray(layerConfig.tags) &&
                     layerConfig.tags.includes('basemap');
+
+                if (hasSelection) {
+                    selectedLayers.push(layerConfig);
+                }
 
                 if (isBasemap) {
                     baseMaps.push(layerConfig);
@@ -588,6 +665,19 @@
                     overlayMaps.push(layerConfig);
                 }
             });
+
+            // Render selected features section
+            if (selectedLayers.length > 0) {
+                $selectedSection.show();
+                $('#selected-count').text(`(${selectedLayers.length})`);
+
+                selectedLayers.forEach(layerConfig => {
+                    const $card = createSelectedFeatureCard(layerConfig);
+                    $selectedList.append($card);
+                });
+            } else {
+                $selectedSection.hide();
+            }
 
             // Update counts
             $('#overlay-count').text(`(${overlayMaps.length})`);
@@ -613,6 +703,142 @@
 
             // Notify parent about potential height change
             setTimeout(notifyHeightChange, 100);
+        }
+
+        // Create selected feature card (always expanded, with hover isolation)
+        function createSelectedFeatureCard(layerConfig) {
+            const atlasMetadata = layerRegistry?._atlasMetadata?.get(layerConfig._sourceAtlas) || {};
+            const selectedFeature = selectedFeatures.get(layerConfig.id);
+
+            if (!selectedFeature) {
+                return $('<div>'); // Return empty div if no feature
+            }
+
+            const $card = $('<div>', {
+                class: 'layer-card bg-gray-800 rounded mb-2 border-l-4',
+                'data-layer-id': layerConfig.id,
+                css: {
+                    borderLeftColor: '#10b981',
+                    cursor: 'default'
+                }
+            });
+
+            // Header background
+            if (layerConfig.headerImage) {
+                const $bg = $('<div>', { class: 'layer-header-bg' });
+                $bg.css('background-image', `url('${layerConfig.headerImage}')`);
+                $card.append($bg);
+            }
+
+            // Header (non-clickable)
+            const $header = $('<div>', {
+                class: 'layer-content',
+                css: {
+                    padding: '8px 12px',
+                    borderBottom: '1px solid #374151'
+                }
+            });
+
+            const $headerRow = $('<div>', { class: 'flex items-center gap-2' });
+
+            // Atlas badge
+            if (atlasMetadata.name) {
+                const $badge = $('<span>', {
+                    class: 'atlas-badge',
+                    text: atlasMetadata.name,
+                    css: {
+                        backgroundColor: atlasMetadata.color || '#2563eb'
+                    }
+                });
+                $headerRow.append($badge);
+            }
+
+            // Layer name
+            const $name = $('<span>', {
+                class: 'text-sm font-medium text-white',
+                text: layerConfig.title || layerConfig.id
+            });
+            $headerRow.append($name);
+
+            // Info button
+            const $infoBtn = $('<button>', {
+                class: 'info-button',
+                html: 'i',
+                title: 'Layer information',
+                click: function (e) {
+                    e.stopPropagation();
+                    openLayerInfo(layerConfig);
+                }
+            });
+            $headerRow.append($infoBtn);
+
+            $header.append($headerRow);
+            $card.append($header);
+
+            // Feature content (always expanded)
+            const $content = $('<div>', {
+                class: 'layer-content',
+                css: {
+                    padding: '12px'
+                }
+            });
+
+            // Show custom HTML if available (from inspection handler)
+            const customHTML = featureCustomHTML.get(layerConfig.id);
+            if (customHTML) {
+                const $customSection = $('<div>', {
+                    class: 'feature-custom-info',
+                    html: customHTML
+                });
+                $content.append($customSection);
+            }
+
+            // Show standard feature properties
+            const $featureInfo = $('<div>', { class: 'feature-info' });
+            const $title = $('<div>', {
+                class: 'text-xs font-semibold text-gray-300 mb-2',
+                text: 'Feature Properties'
+            });
+            $featureInfo.append($title);
+
+            if (selectedFeature.properties) {
+                const $props = $('<div>');
+                Object.entries(selectedFeature.properties).forEach(([key, value]) => {
+                    if (value !== null && value !== undefined && value !== '') {
+                        const $row = $('<div>', { class: 'property-row' });
+                        $row.append($('<div>', { class: 'property-key', text: key }));
+                        $row.append($('<div>', { class: 'property-value', text: String(value) }));
+                        $props.append($row);
+                    }
+                });
+                $featureInfo.append($props);
+            }
+            $content.append($featureInfo);
+            $card.append($content);
+
+            // Add hover handlers for map isolation
+            $card.on('mouseenter', function () {
+                // Get feature ID for state management
+                const featureId = selectedFeature.id || selectedFeature.properties?.id;
+
+                // Notify parent to isolate this feature on the map
+                window.parent.postMessage({
+                    type: 'hover-isolate-feature',
+                    layerId: layerConfig.id,
+                    featureId: featureId,
+                    feature: selectedFeature
+                }, '*');
+            });
+
+            $card.on('mouseleave', function () {
+                // Notify parent to clear feature isolation
+                window.parent.postMessage({
+                    type: 'clear-feature-isolation',
+                    layerId: layerConfig.id
+                }, '*');
+            });
+
+            return $card;
         }
 
         // Create layer card
@@ -690,6 +916,17 @@
                 // Show feature details if selected, otherwise show description
                 const selectedFeature = selectedFeatures.get(layer.id);
                 if (selectedFeature) {
+                    // Show custom HTML if available (from inspection handler)
+                    const customHTML = featureCustomHTML.get(layer.id);
+                    if (customHTML) {
+                        const $customSection = $('<div>', {
+                            class: 'feature-custom-info',
+                            html: customHTML
+                        });
+                        $expanded.append($customSection);
+                    }
+
+                    // Show standard feature properties
                     const $featureInfo = $('<div>', { class: 'feature-info' });
                     const $title = $('<div>', {
                         class: 'text-xs font-semibold text-gray-300 mb-2',
