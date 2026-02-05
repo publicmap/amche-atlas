@@ -95,6 +95,24 @@
     display: flex !important;
     align-items: center !important;
     box-shadow: none !important;
+    background: var(--primary-color) !important;
+    color: #000 !important;
+    font-weight: 600 !important;
+}
+
+.map-browser-btn:hover {
+    background: var(--primary-hover) !important;
+}
+
+.map-browser-btn.active {
+    background: #1f2937 !important;
+    color: white !important;
+    border-color: #374151 !important;
+    box-shadow: none !important;
+}
+
+.map-browser-btn.active:hover {
+    background: #1f2937 !important;
 }
 
 /* Mapbox Search Box */

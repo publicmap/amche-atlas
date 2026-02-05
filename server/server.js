@@ -5,8 +5,18 @@ import cors from 'cors';
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-app.use(cors());
-app.options('*', cors());
+// Enhanced CORS configuration
+const corsOptions = {
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['*'],
+    credentials: false,
+    maxAge: 86400 // 24 hours
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 app.get('/proxy', async (req, res) => {
     try {
@@ -35,8 +45,10 @@ app.get('/proxy', async (req, res) => {
 
         const refererHeader = customReferer || `${parsedUrl.protocol}//${parsedUrl.host}/`;
 
+        console.log(`[Proxy] ===== New Request =====`);
         console.log(`[Proxy] ${req.method} ${targetUrl}`);
         console.log(`[Proxy] Referer: ${refererHeader}`);
+        console.log(`[Proxy] Request origin: ${req.headers.origin || 'none'}`);
 
         const response = await fetch(targetUrl, {
             method: req.method,
@@ -51,8 +63,11 @@ app.get('/proxy', async (req, res) => {
             }
         });
 
+        console.log(`[Proxy] Response status: ${response.status} ${response.statusText}`);
+        console.log(`[Proxy] Response content-type: ${response.headers.get('content-type')}`);
+
         if (!response.ok) {
-            console.error(`[Proxy] Target returned ${response.status}: ${response.statusText}`);
+            console.error(`[Proxy] ❌ Target returned ${response.status}: ${response.statusText}`);
             console.error(`[Proxy] Target URL: ${targetUrl}`);
             console.error(`[Proxy] Response headers:`, Object.fromEntries(response.headers));
 
@@ -70,17 +85,25 @@ app.get('/proxy', async (req, res) => {
             });
         }
 
+        console.log(`[Proxy] ✓ Success! Returning ${response.headers.get('content-length') || 'unknown'} bytes`);
+
+        // Set CORS headers FIRST to ensure they're not overridden
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Expose-Headers', '*');
+        res.setHeader('Cache-Control', `public, max-age=${cacheSeconds}`);
+
+        // Set content type from response
         const contentType = response.headers.get('content-type');
         if (contentType) {
             res.setHeader('Content-Type', contentType);
         }
 
-        res.setHeader('Cache-Control', `public, max-age=${cacheSeconds}`);
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+        // Get the response body
         const buffer = await response.arrayBuffer();
+
+        // Send the response
         res.send(Buffer.from(buffer));
 
     } catch (error) {

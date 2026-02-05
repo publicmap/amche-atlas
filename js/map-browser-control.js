@@ -26,7 +26,7 @@ export class MapBrowserControl {
         this._button.className = 'map-browser-btn flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white rounded transition-colors border border-gray-700 text-sm font-medium';
         this._button.type = 'button';
         this._button.setAttribute('aria-label', 'Browse Maps');
-        this._button.style.cssText = 'height: 36px; padding: 0 0.75rem; border-radius: 0.375rem;';
+        this._button.style.cssText = 'height: 36px; padding: 0 0.75rem; border-radius: 0.375rem; position: relative;';
 
         this._updateButtonState(false);
 
@@ -63,10 +63,13 @@ export class MapBrowserControl {
             left: 0;
             width: 100%;
             height: 100%;
-            background: white;
+            background: #1f2937;
             overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            border-bottom: 2px solid black;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border-left: 1px solid #374151;
+            border-right: 1px solid #374151;
+            border-bottom: 1px solid #374151;
+            border-top: none;
             pointer-events: auto;
         `;
 
@@ -103,13 +106,14 @@ export class MapBrowserControl {
     _updateButtonState(isOpen) {
         if (isOpen) {
             this._button.classList.add('active');
+            this._button.style.cssText = 'height: 38px; padding: 0 0.75rem; border-radius: 0.375rem 0.375rem 0 0; border-bottom: none; position: relative; z-index: 1000;';
             this._button.innerHTML = `
                 <sl-icon name="grid" style="font-size: 14px;"></sl-icon>
-                <span class="map-browser-text"s">Map Browser</span>
-                <sl-icon name="x-lg" style="font-size: 12px; margin-left: -4px;"></sl-icon>
+                <span class="map-browser-text">Map Browser</span>
             `;
         } else {
             this._button.classList.remove('active');
+            this._button.style.cssText = 'height: 36px; padding: 0 0.75rem; border-radius: 0.375rem; position: relative;';
             this._button.innerHTML = `
                 <sl-icon name="grid" style="font-size: 14px;"></sl-icon>
                 <span class="map-browser-text">Map Browser</span>
@@ -606,6 +610,13 @@ export class MapBrowserControl {
         }
 
         let jsonString = JSON.stringify(config);
+        // Escape single quotes within string values before converting double quotes to single quotes
+        // This regex finds content within double quotes and escapes any single quotes inside
+        jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
+            // Escape single quotes in the content
+            const escaped = content.replace(/'/g, "\\'");
+            return `"${escaped}"`;
+        });
         jsonString = jsonString.replace(/"/g, "'");
         console.log('[MapBrowserControl] New layer JSON:', jsonString);
 

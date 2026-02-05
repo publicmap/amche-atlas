@@ -140,6 +140,7 @@ export class MapExportControl {
             <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="export-format" value="kml" checked> KML</label>
             <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="export-format" value="geojson"> GeoJSON</label>
             <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="export-format" value="pdf"> PDF</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="export-format" value="style"> Style JSON</label>
         `;
         formatContainer.onchange = (e) => {
             this._format = e.target.value;
@@ -153,6 +154,36 @@ export class MapExportControl {
         formatDescription.textContent = 'Popular format for Google Earth';
         this._formatDescription = formatDescription;
         this._exportPanel.appendChild(formatDescription);
+
+        // Style Spec Selection (only for Style JSON format)
+        this._styleSpecContainer = document.createElement('div');
+        this._styleSpecContainer.className = 'mb-3';
+        this._styleSpecContainer.style.display = 'none';
+        const specLabel = this._createLabel('Style Spec');
+        this._styleSpecContainer.appendChild(specLabel);
+        const specOptions = document.createElement('div');
+        specOptions.className = 'flex gap-4';
+        specOptions.innerHTML = `
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="style-spec" value="maplibre" checked> MapLibre</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="style-spec" value="mapbox"> Mapbox</label>
+        `;
+        specOptions.onchange = (e) => {
+            this._styleSpec = e.target.value;
+        };
+        this._styleSpecContainer.appendChild(specOptions);
+
+        const tokenInput = document.createElement('input');
+        tokenInput.type = 'text';
+        tokenInput.placeholder = 'Add your Mapbox Access Token';
+        tokenInput.className = 'w-full px-2 py-1 mt-2 border border-gray-300 rounded text-sm';
+        tokenInput.oninput = (e) => {
+            this._mapboxAccessToken = e.target.value;
+        };
+        this._styleSpecContainer.appendChild(tokenInput);
+
+        this._exportPanel.appendChild(this._styleSpecContainer);
+        this._styleSpec = 'maplibre';
+        this._mapboxAccessToken = '';
 
         // Export Selected Features Checkbox
         this._selectedFeaturesContainer = document.createElement('div');
@@ -625,14 +656,15 @@ export class MapExportControl {
         const descriptions = {
             'kml': 'For Google Earth and mapping apps',
             'geojson': 'For web development and GIS software',
-            'pdf': 'For printing and sharing as documents'
+            'pdf': 'For printing and sharing as documents',
+            'style': 'For <a href="https://maputnik.github.io/" target="_blank" rel="noopener">Maputnik</a> and <a href="https://studio.mapbox.com/" target="_blank" rel="noopener">Mapbox Studio</a>'
         };
 
-        this._formatDescription.textContent = descriptions[this._format] || '';
+        this._formatDescription.innerHTML = descriptions[this._format] || '';
     }
 
     _updatePanelVisibility() {
-        const isVectorFormat = this._format === 'geojson' || this._format === 'kml';
+        const isVectorFormat = this._format === 'geojson' || this._format === 'kml' || this._format === 'style';
 
         this._exportPanel.style.maxHeight = 'none';
 
@@ -667,6 +699,10 @@ export class MapExportControl {
 
         if (this._geojsonIOContainer) {
             this._geojsonIOContainer.style.display = this._format === 'geojson' ? 'block' : 'none';
+        }
+
+        if (this._styleSpecContainer) {
+            this._styleSpecContainer.style.display = this._format === 'style' ? 'block' : 'none';
         }
 
         requestAnimationFrame(() => {
@@ -841,7 +877,9 @@ export class MapExportControl {
         this._exportButton.disabled = true;
 
         try {
-            if (this._format === 'geojson') {
+            if (this._format === 'style') {
+                this._exportStyleJSON();
+            } else if (this._format === 'geojson') {
                 this._exportGeoJSON();
             } else if (this._format === 'kml') {
                 this._exportKML();
@@ -979,6 +1017,151 @@ export class MapExportControl {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
+    }
+
+    _exportStyleJSON() {
+        let style = this._map.getStyle();
+
+        if (this._styleSpec === 'maplibre') {
+            style = this._cleanStyleForMapLibre(style);
+        }
+
+        const styleString = JSON.stringify(style, null, 2);
+        const blob = new Blob([styleString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const filename = 'style.json';
+
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        if (isIOS) {
+            window.open(url, '_blank');
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 60000);
+        } else {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    }
+
+    _cleanStyleForMapLibre(style) {
+        const cleaned = JSON.parse(JSON.stringify(style));
+
+        delete cleaned.name;
+        delete cleaned.metadata;
+        if (cleaned.light) delete cleaned.light.name;
+        if (cleaned.fog) delete cleaned.fog.name;
+
+        const accessToken = this._mapboxAccessToken || 'YOUR_MAPBOX_ACCESS_TOKEN';
+
+        if (cleaned.glyphs && cleaned.glyphs.startsWith('mapbox://')) {
+            cleaned.glyphs = cleaned.glyphs.replace('mapbox://fonts/', `https://api.mapbox.com/fonts/v1/`);
+        }
+
+        if (cleaned.sprite && cleaned.sprite.startsWith('mapbox://')) {
+            const match = cleaned.sprite.match(/mapbox:\/\/sprites\/([^\/]+)\/([^\/]+)/);
+            if (match) {
+                const [, username, styleId] = match;
+                cleaned.sprite = `https://api.mapbox.com/styles/v1/${username}/${styleId}/sprite`;
+            }
+        }
+
+        if (cleaned.terrain) {
+            if (cleaned.terrain.exaggeration && Array.isArray(cleaned.terrain.exaggeration)) {
+                cleaned.terrain.exaggeration = 1;
+            }
+        }
+
+        if (cleaned.sources) {
+            Object.keys(cleaned.sources).forEach(sourceId => {
+                const source = cleaned.sources[sourceId];
+
+                delete source.name;
+                delete source.metadata;
+
+                if (source.type !== 'geojson' && source.type !== 'image') {
+                    delete source.data;
+                }
+
+                if (source.url && source.url.startsWith('mapbox://')) {
+                    const tilesetId = source.url.replace('mapbox://', '');
+                    source.tiles = [`https://api.mapbox.com/v4/${tilesetId}/{z}/{x}/{y}.mvt?access_token=${accessToken}`];
+                    delete source.url;
+                }
+            });
+        }
+
+        const unsupportedProps = {
+            'fill-extrusion': [
+                'fill-extrusion-ambient-occlusion-intensity',
+                'fill-extrusion-ambient-occlusion-radius',
+                'fill-extrusion-edge-radius',
+                'fill-extrusion-rounded-roof'
+            ],
+            'symbol': ['text-size-scale-range'],
+            'line': ['line-elevation-reference', 'line-z-offset', 'line-cross-slope']
+        };
+
+        const containsPitchOrUnsupportedExpression = (value) => {
+            if (typeof value === 'string' && (value === 'pitch' || value === 'Open Sans Bold')) return true;
+            if (!Array.isArray(value)) return false;
+            return value.some(item => containsPitchOrUnsupportedExpression(item));
+        };
+
+        if (cleaned.layers) {
+            cleaned.layers = cleaned.layers
+                .filter(layer => {
+                    if (layer.type === 'slot') return false;
+                    if (layer.filter && containsPitchOrUnsupportedExpression(layer.filter)) return false;
+                    return true;
+                })
+                .map(layer => {
+                    const layerCopy = { ...layer };
+
+                    delete layerCopy.name;
+                    delete layerCopy.metadata;
+
+                    if (unsupportedProps[layer.type]) {
+                        if (layerCopy.paint) {
+                            unsupportedProps[layer.type].forEach(prop => {
+                                delete layerCopy.paint[prop];
+                            });
+                        }
+                        if (layerCopy.layout) {
+                            unsupportedProps[layer.type].forEach(prop => {
+                                delete layerCopy.layout[prop];
+                            });
+                        }
+                    }
+
+                    if (layerCopy.layout) {
+                        Object.keys(layerCopy.layout).forEach(key => {
+                            const value = layerCopy.layout[key];
+                            if (containsPitchOrUnsupportedExpression(value)) {
+                                delete layerCopy.layout[key];
+                            }
+                        });
+                    }
+
+                    if (layerCopy.paint) {
+                        Object.keys(layerCopy.paint).forEach(key => {
+                            const value = layerCopy.paint[key];
+                            if (containsPitchOrUnsupportedExpression(value)) {
+                                delete layerCopy.paint[key];
+                            }
+                        });
+                    }
+
+                    return layerCopy;
+                });
+        }
+
+        return cleaned;
     }
 
     _generateFilenameFromFeatures(selectedFeatures, extension) {

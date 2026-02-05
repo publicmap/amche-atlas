@@ -261,6 +261,9 @@
     },
     {
       "title": "Goa Community Maps",
+      "tags": [
+        "community"
+      ],
       "description": "Sketches, maps and plans by the people of Goa",
       "headerImage": "assets/map-layers/goa/map-layer-community-maps.png",
       "type": "tms",
@@ -670,6 +673,7 @@
       "style": {
         "text-padding": 10,
         "text-font": [
+          "Courier New",
           "Open Sans SemiBold"
         ],
         "text-field": [
@@ -1854,6 +1858,34 @@
       "initiallyChecked": false
     },
     {
+      "title": "GSBB Plan For Colva Lake Ground",
+      "description": "Proposed plan for construction of playground at Colva Lake prepared by Goa State Biodiversity Board",
+      "type": "tms",
+      "id": "gsbb-colva-lake-ground",
+      "url": "https://mapwarper.net/maps/tile/102030/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "GSBB <a href='https://mapwarper.net/maps/102030' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/102030/thumb/11._2025_GSBB_Detail_Plan_for_Colva_Lake.png",
+      "bbox": "73.9183777,15.2753816,73.9238164,15.2832137",
+      "initiallyChecked": false
+    },
+    {
       "tags": [
         "construction"
       ],
@@ -2545,6 +2577,9 @@
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_740_West_Coast_of_India,_Published_1858,_New_Edition_1914.jpg'>Wikimedia Commons: Admiralty Chart No 740 West Coast of India, Published 1858, New Edition 1914</a> via <a href='https://warper.wmflabs.org/maps/4749'>Wikimaps Warper</a> released in public domain"
     },
     {
+      "tags": [
+        "historic"
+      ],
       "title": "Goa Harbour Admiralty Chart (1775)",
       "description": "Nautical chart of the West Coast of India from Achra River to Cape Ramas. Surveyed by Lieut. A.D. Taylor 1853-4 for Eat India Company. Not current - not to be used for navigation!",
       "headerImage": "assets/map-layers/goa/map-layer-1775-admiralty-chart.png",

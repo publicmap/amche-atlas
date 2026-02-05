@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -85,7 +86,8 @@
             background: #555;
         }
 
-        .format-chip, .format-info {
+        .format-chip,
+        .format-info {
             position: relative;
         }
 
@@ -115,11 +117,12 @@
             font-size: 12px;
             font-weight: bold;
             border: 2px solid currentColor;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
             z-index: 10;
         }
 
-        .format-chip:not(.active-format):hover::after, .format-info:hover::after {
+        .format-chip:not(.active-format):hover::after,
+        .format-info:hover::after {
             content: attr(data-tooltip);
             position: absolute;
             bottom: 100%;
@@ -139,7 +142,8 @@
             pointer-events: none;
         }
 
-        .format-chip:not(.active-format):hover::before, .format-info:hover::before {
+        .format-chip:not(.active-format):hover::before,
+        .format-info:hover::before {
             content: '';
             position: absolute;
             bottom: 100%;
@@ -192,7 +196,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .animate-spin {
@@ -200,6 +206,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="flex flex-col h-screen">
         <!-- Header -->
@@ -228,11 +235,13 @@
                 <!-- Tab: Import from URL -->
                 <div class="tab-content active" id="tab-url">
                     <div class="relative mb-2">
-                        <input type="text" id="url-input" placeholder="Enter URL to GeoJSON, CSV, KML, Vector tiles, Raster tiles, or MapWarper"
+                        <input type="text" id="url-input"
+                            placeholder="Enter URL to GeoJSON, CSV, KML, Vector tiles, Raster tiles, or MapWarper"
                             class="w-full px-3 py-2 pr-20 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <div class="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
                             <span id="url-validation" class="text-xs"></span>
-                            <button type="button" id="clear-url-btn" class="text-gray-400 hover:text-gray-600 hidden" title="Clear">
+                            <button type="button" id="clear-url-btn" class="text-gray-400 hover:text-gray-600 hidden"
+                                title="Clear">
                                 ✕
                             </button>
                         </div>
@@ -241,7 +250,8 @@
                         Supported formats (click to try example):
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <button type="button" class="format-chip px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        <button type="button"
+                            class="format-chip px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-xs font-medium cursor-pointer transition-colors"
                             data-format="geojson"
                             data-sample="https://gist.githubusercontent.com/planemad/e5ccc47bf2a1aa458a86d6839476f539/raw/goa-water-bodies.geojson"
                             data-tooltip="📍 GeoJSON
@@ -252,7 +262,8 @@ URL format: .geojson or .json
 Click to try example URL">
                             GeoJSON
                         </button>
-                        <button type="button" class="format-chip px-2 py-1 bg-green-100 hover:bg-green-200 text-green-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        <button type="button"
+                            class="format-chip px-2 py-1 bg-green-100 hover:bg-green-200 text-green-800 rounded text-xs font-medium cursor-pointer transition-colors"
                             data-format="csv"
                             data-sample="https://docs.google.com/spreadsheets/d/e/2PACX-1vRhTXMFezW8k996di0qKP7-9-0ro0djuEEtMPYDOMhXtNOiUK_25lv90AThy21X2PRPYI_st93CQVq2/pub?gid=1432085196&single=true&output=csv"
                             data-tooltip="📊 CSV (Tabular Data)
@@ -263,7 +274,8 @@ URL format: .csv or output=csv
 Click to try Google Sheets example">
                             CSV
                         </button>
-                        <button type="button" class="format-chip px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        <button type="button"
+                            class="format-chip px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded text-xs font-medium cursor-pointer transition-colors"
                             data-format="kml"
                             data-sample="https://files.worldwind.arc.nasa.gov/artifactory/web/0.9.0/examples/data/KML_Samples.kml"
                             data-tooltip="🌍 KML (Google Earth)
@@ -274,10 +286,10 @@ URL format: .kml files
 Click to try NASA KML samples">
                             KML
                         </button>
-                        <button type="button" class="format-chip px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        <button type="button"
+                            class="format-chip px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded text-xs font-medium cursor-pointer transition-colors"
                             data-format="vector-tiles"
-                            data-sample="https://tiles.stadiamaps.com/data/openmaptiles/{z}/{x}/{y}.pbf"
-                            data-tooltip="🔷 Vector Tiles
+                            data-sample="https://tiles.stadiamaps.com/data/openmaptiles/{z}/{x}/{y}.pbf" data-tooltip="🔷 Vector Tiles
 Tiled vector data (.pbf/.mvt)
 High performance for large datasets
 
@@ -285,9 +297,9 @@ URL format: {z}/{x}/{y}.pbf
 Click to try Stadia Maps example">
                             Vector Tiles
                         </button>
-                        <button type="button" class="format-chip px-2 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded text-xs font-medium cursor-pointer transition-colors"
-                            data-format="raster-tiles"
-                            data-sample="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        <button type="button"
+                            class="format-chip px-2 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                            data-format="raster-tiles" data-sample="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                             data-tooltip="🗺️ Raster Tiles (TMS/XYZ)
 Tiled images (satellite, maps)
 Standard web map tiles
@@ -296,10 +308,9 @@ URL format: {z}/{x}/{y}.png
 Click to try OpenStreetMap example">
                             Raster Tiles
                         </button>
-                        <button type="button" class="format-chip px-2 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded text-xs font-medium cursor-pointer transition-colors"
-                            data-format="mapwarper"
-                            data-sample="https://mapwarper.net/maps/95676"
-                            data-tooltip="🗺️ MapWarper
+                        <button type="button"
+                            class="format-chip px-2 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                            data-format="mapwarper" data-sample="https://mapwarper.net/maps/95676" data-tooltip="🗺️ MapWarper
 Georeferenced historic maps
 Hosted on mapwarper.net
 
@@ -307,10 +318,9 @@ URL format: mapwarper.net/maps/[ID]
 Click to try example map">
                             MapWarper
                         </button>
-                        <button type="button" class="format-chip px-2 py-1 bg-teal-100 hover:bg-teal-200 text-teal-800 rounded text-xs font-medium cursor-pointer transition-colors"
-                            data-format="atlas-json"
-                            data-sample="https://jsonkeeper.com/b/E576V"
-                            data-tooltip="📋 Amche Atlas JSON
+                        <button type="button"
+                            class="format-chip px-2 py-1 bg-teal-100 hover:bg-teal-200 text-teal-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                            data-format="atlas-json" data-sample="https://jsonkeeper.com/b/E576V" data-tooltip="📋 Amche Atlas JSON
 Complete layer configuration
 Hosted on jsonkeeper.com or any JSON URL
 
@@ -323,8 +333,47 @@ Click to try JSONKeeper example">
 
                 <!-- Tab: Upload File -->
                 <div class="tab-content" id="tab-upload">
-                    <input type="file" id="file-input" accept=".csv,.geojson,.json,.kml"
+                    <input type="file" id="file-input" accept=".csv,.geojson,.json,.kml,.tif,.tiff,.png,.jpg,.jpeg"
                         class="w-full px-3 py-2 border border-gray-300 rounded mb-2">
+
+                    <!-- Georeferencing Notice (for image files) -->
+                    <div id="georef-notice" class="hidden mb-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-6 h-6 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                                </path>
+                            </svg>
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-yellow-800 mb-1">Map image lacks georeferencing
+                                    information</h4>
+                                <p class="text-sm text-yellow-700 mb-3">
+                                    <a href="https://mapwarper.net/maps/new" target="_blank"
+                                        class="font-medium underline hover:text-yellow-900">Upload your map to
+                                        mapwarper.net</a> first (free signup) to georeference the image with matching
+                                    map control points. After rectification, import the mapwarper URL into Amche
+                                    Atlas.
+                                </p>
+                                <div class="text-sm">
+                                    <strong class="text-yellow-800">Help resources:</strong>
+                                    <ul class="mt-1 space-y-1 text-yellow-700">
+                                        <li>
+                                            📖 <a
+                                                href="https://programminghistorian.org/en/lessons/introduction-map-warper"
+                                                target="_blank" class="underline hover:text-yellow-900">Introduction to
+                                                Map Warper Tutorial</a>
+                                        </li>
+                                        <li>
+                                            🎥 <a href="https://www.youtube.com/watch?v=EIZj67YgOXE" target="_blank"
+                                                class="underline hover:text-yellow-900">Video Tutorial on YouTube</a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="text-xs text-gray-600 mb-2">
                         Supported formats (hover for details):
                     </div>
@@ -359,7 +408,8 @@ Select a KML file to upload">
                     </div>
                 </div>
 
-                <button id="load-data-btn" class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                <button id="load-data-btn"
+                    class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
                     Load Data
                 </button>
 
@@ -369,13 +419,16 @@ Select a KML file to upload">
                         <span id="preview-summary">Data Preview</span>
                     </summary>
                     <div class="mt-2">
-                        <textarea id="geojson-editor" rows="10" placeholder='{"type": "FeatureCollection", "features": []}'
+                        <textarea id="geojson-editor" rows="10"
+                            placeholder='{"type": "FeatureCollection", "features": []}'
                             class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-2"></textarea>
                         <div class="flex gap-2">
-                            <button type="button" id="preview-geojson-io-btn" class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
+                            <button type="button" id="preview-geojson-io-btn"
+                                class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
                                 <span>↗</span> Preview in GeoJSON.io
                             </button>
-                            <button type="button" id="download-geojson-btn" class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
+                            <button type="button" id="download-geojson-btn"
+                                class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
                                 <span>⬇</span> Download GeoJSON
                             </button>
                         </div>
@@ -398,6 +451,28 @@ Select a KML file to upload">
                     </div>
 
                     <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">ID *</label>
+                        <input type="text" id="layer-id" placeholder="my-custom-layer-01"
+                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm">
+                        <div class="text-xs text-gray-500 mt-1">Unique identifier for this layer (auto-generated from
+                            title)</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Type *</label>
+                        <select id="layer-type"
+                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="geojson">GeoJSON - Vector features in JSON format</option>
+                            <option value="csv">CSV - Tabular data with lat/lng columns</option>
+                            <option value="vector">Vector Tiles - Tiled vector data (.pbf/.mvt)</option>
+                            <option value="tms">Raster Tiles - Tiled images (TMS/XYZ)</option>
+                            <option value="style">Style - Uses existing Mapbox style sources</option>
+                            <option value="atlas">Atlas - Atlas configuration</option>
+                        </select>
+                        <div class="text-xs text-gray-500 mt-1">Data format type (auto-detected from source)</div>
+                    </div>
+
+                    <div class="mb-4">
                         <label class="block text-sm font-medium mb-2">Description</label>
                         <textarea id="layer-description" rows="2" placeholder="Optional description"
                             class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
@@ -408,14 +483,16 @@ Select a KML file to upload">
 
                         <div class="mb-3">
                             <label class="block text-xs font-medium mb-1">Feature ID</label>
-                            <select id="feature-id-field" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                            <select id="feature-id-field"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
                                 <option value="">Select field...</option>
                             </select>
                         </div>
 
                         <div class="mb-3">
                             <label class="block text-xs font-medium mb-1">Feature Name</label>
-                            <select id="feature-name-field" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                            <select id="feature-name-field"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
                                 <option value="">Select field...</option>
                             </select>
                         </div>
@@ -450,7 +527,8 @@ Select a KML file to upload">
                         <label class="block text-sm font-medium mb-2">Stroke Color</label>
                         <div class="color-picker-wrapper">
                             <input type="color" id="stroke-color" value="#1e40af">
-                            <div class="color-preview" id="stroke-color-preview" style="background-color: #1e40af;"></div>
+                            <div class="color-preview" id="stroke-color-preview" style="background-color: #1e40af;">
+                            </div>
                         </div>
                     </div>
 
@@ -459,8 +537,7 @@ Select a KML file to upload">
                         <label class="block text-sm font-medium mb-2">
                             Stroke Width: <span id="stroke-width-value">2</span>px
                         </label>
-                        <input type="range" id="stroke-width" min="1" max="10" value="2" step="0.5"
-                            class="w-full">
+                        <input type="range" id="stroke-width" min="1" max="10" value="2" step="0.5" class="w-full">
                     </div>
                 </div>
 
@@ -479,8 +556,10 @@ Select a KML file to upload">
                                 <div>
                                     <strong>1. Use inline as URL parameter:</strong>
                                     <div class="mt-1 flex gap-2">
-                                        <input type="text" id="inline-url" readonly class="flex-1 px-2 py-1 bg-gray-50 border border-gray-300 rounded text-xs font-mono">
-                                        <button type="button" id="copy-inline-btn" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs">
+                                        <input type="text" id="inline-url" readonly
+                                            class="flex-1 px-2 py-1 bg-gray-50 border border-gray-300 rounded text-xs font-mono">
+                                        <button type="button" id="copy-inline-btn"
+                                            class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs">
                                             Copy
                                         </button>
                                     </div>
@@ -491,7 +570,8 @@ Select a KML file to upload">
                                         <code class="text-xs">?layers=https://jsonkeeper.com/b/YOUR_ID</code>
                                     </div>
                                     <div class="mt-1 text-gray-500">
-                                        Save your config JSON to <a href="https://jsonkeeper.com" target="_blank" class="text-blue-600 hover:underline">jsonkeeper.com</a> and use the URL
+                                        Save your config JSON to <a href="https://jsonkeeper.com" target="_blank"
+                                            class="text-blue-600 hover:underline">jsonkeeper.com</a> and use the URL
                                     </div>
                                 </div>
                             </div>
@@ -517,6 +597,27 @@ Select a KML file to upload">
 
         const creator = new MapCreator();
         creator.init();
+
+        // Show georeferencing notice for image files
+        const fileInput = document.getElementById('file-input');
+        const georefNotice = document.getElementById('georef-notice');
+
+        fileInput.addEventListener('change', function (e) {
+            if (this.files.length > 0) {
+                const fileName = this.files[0].name.toLowerCase();
+                const imageExtensions = ['.tif', '.tiff', '.png', '.jpg', '.jpeg'];
+                const isImageFile = imageExtensions.some(ext => fileName.endsWith(ext));
+
+                if (isImageFile) {
+                    georefNotice.classList.remove('hidden');
+                } else {
+                    georefNotice.classList.add('hidden');
+                }
+            } else {
+                georefNotice.classList.add('hidden');
+            }
+        });
     </script>
 </body>
+
 </html>

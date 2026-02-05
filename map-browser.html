@@ -166,16 +166,28 @@
             transform: scale(1.05);
         }
 
-        .toggle-btn.active {
+        .toggle-btn {
             background-color: #10b981;
         }
 
+        .toggle-btn:hover {
+            background-color: #059669;
+        }
+
+        .toggle-btn.active-hover {
+            background-color: #dc2626;
+        }
+
+        .toggle-btn.active-hover:hover {
+            background-color: #b91c1c;
+        }
+
         .zoom-btn {
-            background-color: #3b82f6;
+            background-color: #6b7280;
         }
 
         .zoom-btn:hover {
-            background-color: #2563eb;
+            background-color: #4b5563;
         }
 
 
@@ -465,41 +477,84 @@
         }
 
         .atlas-collapsed-layer-btn.zoom {
-            background: #3b82f6;
+            background: #6b7280;
             color: white;
         }
 
         .atlas-collapsed-layer-btn.zoom:hover {
-            background: #2563eb;
+            background: #4b5563;
             transform: scale(1.1);
         }
 
         .atlas-collapsed-layer-btn.toggle {
             background: #10b981;
             color: white;
+            gap: 4px;
+            padding: 0 8px;
+            width: auto;
         }
 
         .atlas-collapsed-layer-btn.toggle:hover {
             background: #059669;
-            transform: scale(1.1);
+            transform: scale(1.05);
+        }
+
+        .atlas-collapsed-layer-btn.toggle.active-hover {
+            background: #dc2626;
+        }
+
+        .atlas-collapsed-layer-btn.toggle.active-hover:hover {
+            background: #b91c1c;
         }
 
         .atlas-collapsed-layer-btn.toggle.inactive {
-            background: #6b7280;
+            background: #10b981;
         }
 
         .atlas-collapsed-layer-btn.toggle.inactive:hover {
-            background: #4b5563;
+            background: #059669;
         }
 
         .atlas-collapsed-layer-expanded {
             margin-left: 0;
             margin-top: 8px;
             margin-bottom: 8px;
+            overflow: hidden;
+            animation: expandCard 0.5s ease-out;
         }
 
         .atlas-collapsed-layer-expanded .layer-card {
             margin: 0;
+        }
+
+        .atlas-collapsed-layer-expanded.collapsing {
+            animation: collapseCard 0.5s ease-out;
+        }
+
+        @keyframes expandCard {
+            from {
+                max-height: 0;
+                opacity: 0;
+                transform: scaleY(0.8);
+            }
+            to {
+                max-height: 1000px;
+                opacity: 1;
+                transform: scaleY(1);
+            }
+        }
+
+        @keyframes collapseCard {
+            from {
+                max-height: 1000px;
+                opacity: 1;
+                transform: scaleY(1);
+            }
+            to {
+                max-height: 0;
+                opacity: 0;
+                transform: scaleY(0.8);
+            }
         }
 
         .atlas-collapsed-more {
@@ -514,7 +569,21 @@
 <body class="bg-gray-900">
     <div class="flex flex-col h-screen">
         <!-- Search Section -->
-        <div class="search-section" style="background: #1f2937; padding: 12px; border-bottom: 1px solid #374151;">
+        <div class="search-section" style="background: #1f2937; padding: 12px 12px 8px 12px; border-bottom: 1px solid #374151;">
+            <!-- Header Text with Close Button -->
+            <div class="mb-2 text-sm text-gray-300 flex items-center gap-2 justify-between">
+                <div class="flex items-center gap-2">
+                    <span>Search Map Collection or</span>
+                    <button id="add-new-map-link" style="background: #ffbf00; color: #000; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.background='#ffd700'" onmouseout="this.style.background='#ffbf00'">
+                        ➕ Add New Map
+                    </button>
+                </div>
+                <button id="close-browser-btn" class="text-white"
+                    style="background: transparent; border: none; cursor: pointer; padding: 4px; opacity: 0.7; font-size: 20px; line-height: 1;"
+                    title="Close browser"
+                    onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</button>
+            </div>
+
             <!-- Main Search Bar -->
             <div class="flex gap-2">
                 <!-- Atlas Filter Button -->
@@ -533,13 +602,6 @@
                         ✕
                     </button>
                 </div>
-
-                <!-- Create New Layer Button -->
-                <button id="create-layer-btn"
-                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 text-sm flex-shrink-0">
-                    <span style="color: white;">➕</span>
-                    <span class="hidden sm:inline">Create Map Layer</span>
-                </button>
             </div>
 
         </div>
@@ -782,8 +844,12 @@
                 showAtlasFilterMenu();
             });
 
-            $('#create-layer-btn').on('click', function () {
+            $('#add-new-map-link').on('click', function () {
                 window.parent.postMessage({ type: 'open-creator' }, '*');
+            });
+
+            $('#close-browser-btn').on('click', function () {
+                window.parent.postMessage({ type: 'close-browser' }, '*');
             });
 
             $('#close-map-modal').on('click', function () {
@@ -1317,8 +1383,14 @@
                         // Update click handler to collapse instead
                         $card.off('click').on('click', function(e) {
                             if (!$(e.target).closest('button').length) {
-                                expandedLayers.delete(layer.id);
-                                renderLayers();
+                                // Trigger collapse animation
+                                $expandedContainer.addClass('collapsing');
+
+                                // Wait for animation to complete, then re-render
+                                setTimeout(() => {
+                                    expandedLayers.delete(layer.id);
+                                    renderLayers();
+                                }, 500);
                             }
                         });
 
@@ -1337,8 +1409,23 @@
                         const $content = $('<div>', {
                             class: 'atlas-collapsed-layer-content',
                             click: function(e) {
-                                expandedLayers.add(layer.id);
-                                renderLayers();
+                                // If there are other expanded layers, collapse them first with animation
+                                if (expandedLayers.size > 0 && !expandedLayers.has(layer.id)) {
+                                    // Trigger collapse animation for all expanded layers
+                                    $('.atlas-collapsed-layer-expanded').addClass('collapsing');
+
+                                    // Wait for collapse animation, then expand the new layer
+                                    setTimeout(() => {
+                                        expandedLayers.clear();
+                                        expandedLayers.add(layer.id);
+                                        renderLayers();
+                                    }, 500);
+                                } else {
+                                    // No other layers expanded, expand immediately
+                                    expandedLayers.clear();
+                                    expandedLayers.add(layer.id);
+                                    renderLayers();
+                                }
                             }
                         });
 
@@ -1354,7 +1441,8 @@
                         const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
                         const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
 
-                        if (hasBbox && !isGlobalLayer) {
+                        // Only show zoom button for active layers
+                        if (isActive && hasBbox && !isGlobalLayer) {
                             const $zoomBtn = $('<button>', {
                                 class: 'atlas-collapsed-layer-btn zoom',
                                 html: '🔍',
@@ -1369,13 +1457,14 @@
 
                         const $toggleBtn = $('<button>', {
                             class: 'atlas-collapsed-layer-btn toggle' + (isActive ? '' : ' inactive'),
-                            html: isActive ? '✓' : '+',
+                            html: isActive ? '<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Added</span>' : '<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Add</span>',
                             title: isActive ? 'Remove from map' : 'Add to map',
                             click: function(e) {
                                 e.stopPropagation();
                                 toggleLayer(layer.id);
                             }
                         });
+                        addToggleButtonHover($toggleBtn, isActive, true);
                         $actions.append($toggleBtn);
 
                         $content.append($actions);
@@ -1398,6 +1487,26 @@
             }
 
             $grid.append($collapsed);
+        }
+
+        // Add hover handlers to toggle button
+        function addToggleButtonHover($btn, isActive, isCollapsed = false) {
+            if (!isActive) return;
+
+            const addedHtml = isCollapsed ?
+                '<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Added</span>' :
+                '<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span>Added</span>';
+            const removeHtml = isCollapsed ?
+                '<sl-icon name="dash-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Remove</span>' :
+                '<sl-icon name="dash-circle" style="font-size: 14px;"></sl-icon><span>Remove</span>';
+
+            $btn.on('mouseenter', function() {
+                $(this).addClass('active-hover').html(removeHtml);
+            });
+
+            $btn.on('mouseleave', function() {
+                $(this).removeClass('active-hover').html(addedHtml);
+            });
         }
 
         // Create layer card
@@ -1466,10 +1575,11 @@
                 const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
                 const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
 
-                if (hasBbox && !isGlobalLayer) {
+                // Only show zoom button for active layers
+                if (isActive && hasBbox && !isGlobalLayer) {
                     const $zoomBtn = $('<button>', {
-                        class: 'zoom-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs whitespace-nowrap',
-                        html: '<span>🔍</span><span>Zoom to area</span>',
+                        class: 'zoom-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 hover:bg-gray-500 text-white text-xs whitespace-nowrap',
+                        html: '<sl-icon name="geo-alt" style="font-size: 14px;"></sl-icon><span>Zoom To Map</span>',
                         click: function (e) {
                             e.stopPropagation();
                             zoomToLayer(layer);
@@ -1479,14 +1589,14 @@
                 }
 
                 const $toggleBtn = $('<button>', {
-                    class: 'toggle-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 text-white text-xs whitespace-nowrap ' +
-                        (isActive ? 'active' : 'bg-gray-400 hover:bg-gray-500'),
-                    html: isActive ? '<span>✓</span><span>Added to map</span>' : '<span>+</span><span>Add this map layer</span>',
+                    class: 'toggle-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 text-white text-xs whitespace-nowrap bg-green-600 hover:bg-green-700',
+                    html: isActive ? '<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span>Added</span>' : '<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span>Add Map</span>',
                     click: function (e) {
                         e.stopPropagation();
                         toggleLayer(layer.id);
                     }
                 });
+                addToggleButtonHover($toggleBtn, isActive, false);
                 $row3.append($toggleBtn);
 
                 const $detailsBtn = $('<button>', {
@@ -1525,9 +1635,10 @@
                 const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
                 const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
 
-                if (hasBbox && !isGlobalLayer) {
+                // Only show zoom button for active layers
+                if (isActive && hasBbox && !isGlobalLayer) {
                     const $zoomBtn = $('<button>', {
-                        class: 'zoom-btn w-7 h-7 rounded flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-xs',
+                        class: 'zoom-btn w-7 h-7 rounded flex items-center justify-center text-white text-xs',
                         html: '🔍',
                         title: 'Zoom to layer',
                         click: function (e) {
@@ -1539,8 +1650,7 @@
                 }
 
                 const $toggleBtn = $('<button>', {
-                    class: 'toggle-btn w-7 h-7 rounded flex items-center justify-center text-white text-sm ' +
-                        (isActive ? 'active' : 'bg-gray-400 hover:bg-gray-500'),
+                    class: 'toggle-btn w-7 h-7 rounded flex items-center justify-center text-white text-sm',
                     html: isActive ? '✓' : '+',
                     click: function (e) {
                         e.stopPropagation();
@@ -1715,24 +1825,32 @@
             const $card = $(`.layer-card[data-layer-id="${layerId}"]`);
             const $btn = $card.find('.toggle-btn');
 
+            // Remove old hover handlers
+            $btn.off('mouseenter mouseleave');
+
             if (isActive) {
                 $card.addClass('active');
-                $btn.addClass('active').removeClass('bg-gray-400 hover:bg-gray-500').html('✓');
+                $btn.html('<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span>Added</span>');
+                addToggleButtonHover($btn, true, false);
             } else {
                 $card.removeClass('active');
-                $btn.removeClass('active').addClass('bg-gray-400 hover:bg-gray-500').html('+');
+                $btn.removeClass('active-hover').html('<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span>Add Map</span>');
             }
 
             // Update collapsed layer items
             const $collapsedLayer = $(`.atlas-collapsed-layer[data-layer-id="${layerId}"]`);
             const $collapsedBtn = $collapsedLayer.find('.toggle');
 
+            // Remove old hover handlers
+            $collapsedBtn.off('mouseenter mouseleave');
+
             if (isActive) {
                 $collapsedLayer.addClass('active');
-                $collapsedBtn.removeClass('inactive').html('✓').attr('title', 'Remove from map');
+                $collapsedBtn.removeClass('inactive').html('<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Added</span>').attr('title', 'Remove from map');
+                addToggleButtonHover($collapsedBtn, true, true);
             } else {
                 $collapsedLayer.removeClass('active');
-                $collapsedBtn.addClass('inactive').html('+').attr('title', 'Add to map');
+                $collapsedBtn.addClass('inactive').removeClass('active-hover').html('<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Add</span>').attr('title', 'Add to map');
             }
         }
 

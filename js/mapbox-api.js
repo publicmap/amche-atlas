@@ -205,12 +205,27 @@ export class MapboxAPI {
             }
             this._map.removeSource(sourceId);
 
+            let tileUrl = newUrl;
+
+            // Wrap with proxy if configured
+            if (config.proxyUrl) {
+                const encodedTileUrl = encodeURIComponent(tileUrl)
+                    .replace(/%7Bz%7D/g, '{z}')
+                    .replace(/%7Bx%7D/g, '{x}')
+                    .replace(/%7By%7D/g, '{y}');
+                tileUrl = `${config.proxyUrl}?url=${encodedTileUrl}`;
+                if (config.proxyReferer) {
+                    const encodedReferer = encodeURIComponent(config.proxyReferer);
+                    tileUrl += `&referer=${encodedReferer}`;
+                }
+            }
+
             // Add source with new URL
             const sourceConfig = {
                 type: 'raster',
                 tileSize: 256,
                 maxzoom: config.maxzoom || 22,
-                tiles: [newUrl]
+                tiles: [tileUrl]
             };
 
             if (config.attribution) {
@@ -742,7 +757,22 @@ export class MapboxAPI {
             if (config.url.startsWith('mapbox://')) {
                 sourceConfig.url = config.url;
             } else {
-                sourceConfig.tiles = [config.url];
+                let tileUrl = config.url;
+
+                // Wrap with proxy if configured
+                if (config.proxyUrl) {
+                    const encodedTileUrl = encodeURIComponent(tileUrl)
+                        .replace(/%7Bz%7D/g, '{z}')
+                        .replace(/%7Bx%7D/g, '{x}')
+                        .replace(/%7By%7D/g, '{y}');
+                    tileUrl = `${config.proxyUrl}?url=${encodedTileUrl}`;
+                    if (config.proxyReferer) {
+                        const encodedReferer = encodeURIComponent(config.proxyReferer);
+                        tileUrl += `&referer=${encodedReferer}`;
+                    }
+                }
+
+                sourceConfig.tiles = [tileUrl];
             }
 
             if (config.attribution) {

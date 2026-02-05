@@ -108,7 +108,19 @@ export class MapCreator {
             this.updateConfigPreview();
         });
 
-        $('#layer-title, #layer-description').on('input', () => {
+        $('#layer-title').on('input', (e) => {
+            const title = e.target.value.trim();
+            if (title) {
+                $('#layer-id').val(this.generateId(title));
+            }
+            this.updateConfigPreview();
+        });
+
+        $('#layer-id, #layer-description').on('input', () => {
+            this.updateConfigPreview();
+        });
+
+        $('#layer-type').on('change', () => {
             this.updateConfigPreview();
         });
 
@@ -188,6 +200,12 @@ export class MapCreator {
         if (urlLower.includes('{z}') && (urlLower.includes('.png') || urlLower.includes('.jpg'))) {
             return 'Raster Tiles';
         }
+        if (/\/\d+\/\d+\/\d+\.(pbf|mvt)($|\?)/i.test(url)) {
+            return 'Vector Tiles';
+        }
+        if (/\/\d+\/\d+\/\d+(\.(png|jpg|jpeg|webp))?($|\?)/i.test(url)) {
+            return 'Raster Tiles';
+        }
         if (urlLower.includes('mapwarper.net/maps/')) {
             return 'MapWarper';
         }
@@ -248,6 +266,7 @@ export class MapCreator {
         if (urlLower.endsWith('.kml')) return true;
         if (urlLower.includes('{z}') && (urlLower.includes('.pbf') || urlLower.includes('.mvt'))) return true;
         if (urlLower.includes('{z}') && (urlLower.includes('.png') || urlLower.includes('.jpg'))) return true;
+        if (/\/\d+\/\d+\/\d+(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i.test(url)) return true;
         if (urlLower.includes('mapwarper.net/maps/')) return true;
         if (urlLower.includes('vector.openstreetmap.org')) return true;
         if (urlLower.includes('earthengine.googleapis.com') && urlLower.includes('/tiles/')) return true;
@@ -395,10 +414,11 @@ export class MapCreator {
         this.currentAtlasLayers = layers;
         this.currentLayerType = 'atlas';
 
-        // Set default title
+        // Set default title and type
         if (!$('#layer-title').val()) {
             $('#layer-title').val(atlasData.name || 'Imported Atlas');
         }
+        $('#layer-type').val('atlas');
 
         // Enable the Add Map Layer button
         $('#add-to-map-btn').prop('disabled', false);
@@ -423,6 +443,10 @@ export class MapCreator {
                 if (!currentTitle || currentTitle === this.currentAtlasData.name || currentTitle === 'Imported Atlas') {
                     $('#layer-title').val(selectedLayer.title || selectedLayer.id);
                 }
+
+                // Update type and ID
+                $('#layer-type').val(selectedLayer.type || 'geojson');
+                $('#layer-id').val(selectedLayer.id || this.generateId(selectedLayer.title || selectedLayer.id));
             }
         });
 
@@ -570,6 +594,8 @@ export class MapCreator {
         this.showStyleSection(geometryType);
         this.showConfigSection();
 
+        $('#layer-type').val('geojson');
+
         if (sourceName === 'edited') {
             return;
         }
@@ -598,6 +624,8 @@ export class MapCreator {
         this.showStyleSection(geometryType);
         this.showConfigSection();
 
+        $('#layer-type').val('csv');
+
         if (csvUrl.includes('docs.google.com/spreadsheets')) {
             $('#layer-title').val('Google Sheet CSV');
             $('#layer-description').val(`Data from Google Sheets - <a href="${csvUrl}" target="_blank">View source</a>`);
@@ -612,7 +640,10 @@ export class MapCreator {
         $('#data-preview-details').hide();
         $('#settings-section').show();
 
-        $('#layer-title').val(config.title || 'Tile Layer');
+        const title = config.title || 'Tile Layer';
+        $('#layer-title').val(title);
+        $('#layer-id').val(config.id || this.generateId(title));
+        $('#layer-type').val(config.type || 'tms');
         $('#layer-description').val(config.description || '');
 
         this.updateTileConfigPreview(config);
@@ -693,7 +724,9 @@ export class MapCreator {
     showConfigSection() {
         $('#settings-section').show();
         if (!$('#layer-title').val()) {
-            $('#layer-title').val(this.generateDefaultTitle());
+            const defaultTitle = this.generateDefaultTitle();
+            $('#layer-title').val(defaultTitle);
+            $('#layer-id').val(this.generateId(defaultTitle));
         }
     }
 
@@ -736,6 +769,7 @@ export class MapCreator {
         }
 
         const title = $('#layer-title').val().trim() || 'Custom Layer';
+        const layerId = $('#layer-id').val().trim() || this.generateId(title);
         const description = $('#layer-description').val().trim();
         const fillColor = $('#fill-color').val();
         const strokeColor = $('#stroke-color').val();
@@ -754,10 +788,12 @@ export class MapCreator {
             selectedFields.push($(this).val());
         });
 
+        const layerType = $('#layer-type').val() || 'geojson';
+
         const config = {
-            id: this.generateId(title),
+            id: layerId,
             title: title,
-            type: 'geojson',
+            type: layerType,
             url: dataUrl,
             initiallyChecked: false,
             style: style,
@@ -781,6 +817,7 @@ export class MapCreator {
 
     generateCSVLayerConfig() {
         const title = $('#layer-title').val().trim() || 'Custom CSV Layer';
+        const layerId = $('#layer-id').val().trim() || this.generateId(title);
         const description = $('#layer-description').val().trim();
         const fillColor = $('#fill-color').val();
         const strokeColor = $('#stroke-color').val();
@@ -795,10 +832,12 @@ export class MapCreator {
             selectedFields.push($(this).val());
         });
 
+        const layerType = $('#layer-type').val() || 'csv';
+
         const config = {
-            id: this.generateId(title),
+            id: layerId,
             title: title,
-            type: 'csv',
+            type: layerType,
             url: this.currentData.csvUrl,
             initiallyChecked: false,
             style: style,
@@ -822,11 +861,15 @@ export class MapCreator {
 
     updateTileConfigPreview(baseConfig) {
         const title = $('#layer-title').val().trim() || baseConfig.title;
+        const layerId = $('#layer-id').val().trim() || baseConfig.id || this.generateId(title);
+        const layerType = $('#layer-type').val() || baseConfig.type;
         const description = $('#layer-description').val().trim() || baseConfig.description;
 
         const config = {
             ...baseConfig,
+            id: layerId,
             title: title,
+            type: layerType,
             description: description
         };
 
@@ -917,11 +960,17 @@ export class MapCreator {
     }
 
     generateId(title) {
-        const base = title.toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '');
-        const random = Math.random().toString(36).substring(2, 8);
-        return `${base}-${random}`;
+        if (!title) return '';
+
+        const words = title.toLowerCase()
+            .replace(/[^a-z0-9\s]+/g, '')
+            .split(/\s+/)
+            .filter(w => w.length > 0)
+            .slice(0, 3);
+
+        const base = words.join('-');
+        const random = String(Math.floor(Math.random() * 90) + 10);
+        return base ? `${base}-${random}` : `layer-${random}`;
     }
 
     addToMap() {

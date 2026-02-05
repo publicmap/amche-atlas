@@ -2998,6 +2998,22 @@
       "initiallyChecked": true
     },
     {
+      "id": "isro-liss",
+      "title": " LISS Satellite Imagery",
+      "description": "High-resolution satellite imagery from Gati Shakti",
+      "tags": [
+        "basemap",
+        "satellite"
+      ],
+      "type": "tms",
+      "url": "https://ugi.pmgatishakti.gov.in/ugi-public-api-3/gis/mirroeLiss/IV/{z}/{x}/{y}",
+      "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
+      "proxyReferer": "https://ugi.pmgatishakti.gov.in/",
+      "attribution": "ISRO Reourcesat LISS via <a href='https://ugi.pmgatishakti.gov.in'>PM GatiShakti</a>",
+      "maxzoom": 19,
+      "initiallyChecked": true
+    },
+    {
       "tags": [
         "basemap",
         "physical"

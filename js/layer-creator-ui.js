@@ -93,6 +93,16 @@ export class LayerConfigGenerator {
     }
 
     /**
+     * Check if URL has actual tile coordinates (z/x/y pattern) with or without extension
+     * @param {string} url - URL to check
+     * @returns {boolean} True if it's a tile URL with coordinates
+     */
+    static isTileUrl(url) {
+        // Match pattern like /15/23112/14953 or /12/2875/1827.png
+        return /\/\d+\/\d+\/\d+(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i.test(url);
+    }
+
+    /**
      * Convert a .pbf tile URL with actual coordinates to a template URL
      * @param {string} url - URL with actual tile coordinates
      * @returns {string} Template URL with {z}/{x}/{y} placeholders
@@ -100,6 +110,22 @@ export class LayerConfigGenerator {
     static convertPbfTileUrlToTemplate(url) {
         // Replace pattern /12/2875/1827.pbf with /{z}/{x}/{y}.pbf
         return url.replace(/\/\d+\/\d+\/\d+\.(pbf|mvt)($|\?)/i, '/{z}/{x}/{y}.$1$2');
+    }
+
+    /**
+     * Convert a tile URL with actual coordinates to a template URL
+     * @param {string} url - URL with actual tile coordinates
+     * @param {string} defaultExtension - Optional extension to add if none present
+     * @returns {string} Template URL with {z}/{x}/{y} placeholders
+     */
+    static convertTileUrlToTemplate(url, defaultExtension = null) {
+        // Replace pattern /15/23112/14953 or /15/23112/14953.ext with /{z}/{x}/{y} or /{z}/{x}/{y}.ext
+        return url.replace(/\/\d+\/\d+\/\d+(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i, (match, ext, extName, end) => {
+            if (!ext && defaultExtension) {
+                return `/{z}/{x}/{y}.${defaultExtension}${end}`;
+            }
+            return `/{z}/{x}/{y}${ext || ''}${end}`;
+        });
     }
 
     /**
@@ -114,7 +140,11 @@ export class LayerConfigGenerator {
         if (/\.geojson($|\?)/i.test(url)) return 'geojson';
         if (this.isPbfTileUrl(url)) return 'vector';
         if (url.includes('{z}') && (url.includes('.pbf') || url.includes('.mvt') || url.includes('vector.openstreetmap.org') || url.includes('/vector/'))) return 'vector';
-        if (url.includes('{z}') && (url.includes('.png') || url.includes('.jpg'))) return 'raster';
+        if (url.includes('{z}') && (url.includes('.png') || url.includes('.jpg') || url.includes('.webp'))) return 'raster';
+        if (this.isTileUrl(url)) {
+            const hasVectorExt = /\.(pbf|mvt)($|\?)/i.test(url);
+            return hasVectorExt ? 'vector' : 'raster';
+        }
         if (/\.json($|\?)/i.test(url)) return 'atlas';
         return 'unknown';
     }
@@ -235,10 +265,11 @@ export class LayerConfigGenerator {
             };
 
             const isEarthEngine = url.includes('earthengine.googleapis.com');
+            const isAutoDetected = metadata?.autoDetected;
 
             config = {
                 title: metadata ? cleanTitle(metadata.title) : (isEarthEngine ? 'Google Earth Engine Image' : 'Raster Layer'),
-                description: metadata ? formatDescription(metadata.description) : (isEarthEngine ? "XYZ tiles generated from <a href='https://developers.google.com/earth-engine/datasets/'>Google Earth Engine</a>" : undefined),
+                description: metadata ? formatDescription(metadata.description) : (isEarthEngine ? "XYZ tiles generated from <a href='https://developers.google.com/earth-engine/datasets/'>Google Earth Engine</a>" : (isAutoDetected ? "Auto-detected as raster tiles. If tiles don't load, try changing type to 'vector' and add a sourceLayer." : undefined)),
                 date: metadata ? metadata.date : undefined,
                 type: 'tms',
                 id: metadata ? `mapwarper-${metadata.mapId}` : (isEarthEngine ? 'earthengine-' + Math.random().toString(36).slice(2, 8) : 'raster-' + Math.random().toString(36).slice(2, 8)),
@@ -328,10 +359,18 @@ export class LayerConfigGenerator {
     static async handleUrlInput(url) {
         let actualUrl = url;
         let tilejson = null;
+        let metadata = null;
+        let wasConverted = false;
 
         // Convert .pbf tile URLs with actual coordinates to template URLs
         if (this.isPbfTileUrl(url)) {
             actualUrl = this.convertPbfTileUrlToTemplate(url);
+            wasConverted = true;
+        }
+        // Convert generic tile URLs with actual coordinates to template URLs
+        else if (this.isTileUrl(url)) {
+            actualUrl = this.convertTileUrlToTemplate(url);
+            wasConverted = true;
         }
 
         // Handle Mapbox tileset IDs (e.g., planemad.np3cjv7ukkcy)
@@ -388,7 +427,11 @@ export class LayerConfigGenerator {
             }
         }
 
-        return this.makeLayerConfig(actualUrl, tilejson, null);
+        if (wasConverted && type === 'raster') {
+            metadata = { autoDetected: true };
+        }
+
+        return this.makeLayerConfig(actualUrl, tilejson, metadata);
     }
 
     /**
@@ -450,6 +493,7 @@ export class LayerCreatorUI {
                     Examples:<br>
                     <span class="block">Mapbox: <code>planemad.np3cjv7ukkcy</code> (tileset ID)</span>
                     <span class="block">Raster: <code>https://warper.wmflabs.org/maps/tile/4749/{z}/{x}/{y}.png</code></span>
+                    <span class="block">Raster (single tile): <code>https://ugi.pmgatishakti.gov.in/ugi-public-api-3/gis/mirroeLiss/IV/15/23112/14953</code></span>
                     <span class="block">Earth Engine: <code>https://earthengine.googleapis.com/v1/projects/.../maps/.../tiles/{z}/{x}/{y}</code></span>
                     <span class="block">MapWarper: <code>https://mapwarper.net/maps/95676#Export_tab</code></span>
                     <span class="block">MapWarper: <code>https://warper.wmflabs.org/maps/8940#Show_tab</code></span>

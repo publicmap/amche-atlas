@@ -5,240 +5,140 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Layer Information</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
         body {
+            height: 100%;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f172a;
-            color: #e5e7eb;
-            height: 100vh;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        .header-bg {
-            position: relative;
-            height: 180px;
-            background-size: cover;
-            background-position: center;
-            background-color: #1f2937;
-            flex-shrink: 0;
-        }
-
-        .header-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.8));
-        }
-
-        .header-content {
-            position: relative;
-            z-index: 1;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 20px 32px;
-        }
-
-        .close-btn {
-            align-self: flex-end;
-            width: 36px;
-            height: 36px;
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.5);
-            border: none;
-            color: white;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-        }
-
-        .close-btn:hover {
-            background: rgba(0, 0, 0, 0.7);
-        }
-
-        .content-wrapper {
-            flex: 1;
-            overflow-y: auto;
-            background: #0f172a;
-        }
-
-        .content-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 32px;
-        }
-
-        .section {
-            background: #1e293b;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 20px;
-            border: 1px solid #334155;
-        }
-
-        .section-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: #f1f5f9;
-            margin-bottom: 16px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #475569;
-        }
-
-        .info-row {
-            display: flex;
-            padding: 12px 0;
-            border-bottom: 1px solid #334155;
-        }
-
-        .info-row:last-child {
-            border-bottom: none;
-        }
-
-        .info-label {
-            min-width: 180px;
-            color: #94a3b8;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .info-value {
-            flex: 1;
-            color: #e2e8f0;
-            font-size: 14px;
-            word-break: break-word;
-        }
-
-        .code-block {
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 16px;
-            font-family: 'Monaco', 'Courier New', monospace;
-            font-size: 13px;
-            overflow-x: auto;
-            max-height: 500px;
-            line-height: 1.6;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 12px;
-            background: #0f172a;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #334155;
-        }
-
-        .scrollbar-thin::-webkit-scrollbar {
+        .content-wrapper::-webkit-scrollbar {
             width: 10px;
-            height: 10px;
         }
 
-        .scrollbar-thin::-webkit-scrollbar-track {
-            background: #0f172a;
+        .content-wrapper::-webkit-scrollbar-track {
+            background: #1e293b;
         }
 
-        .scrollbar-thin::-webkit-scrollbar-thumb {
+        .content-wrapper::-webkit-scrollbar-thumb {
             background: #475569;
             border-radius: 5px;
         }
 
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+        .content-wrapper::-webkit-scrollbar-thumb:hover {
             background: #64748b;
         }
 
-        @media (max-width: 768px) {
-            .content-container {
-                padding: 20px;
-            }
+        .code-block::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
 
-            .header-content {
-                padding: 16px 20px;
-            }
+        .code-block::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
 
-            .section {
-                padding: 16px;
-            }
+        .code-block::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        .icon {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
         }
     </style>
 </head>
 
-<body>
+<body class="bg-slate-900 text-slate-100 flex flex-col">
     <!-- Header -->
-    <div class="header-bg" id="header-bg">
-        <div class="header-overlay"></div>
-        <div class="header-content">
-            <button class="close-btn" id="close-layer-info">✕</button>
-            <div>
-                <h1 id="layer-title" class="text-4xl font-bold text-white mb-2"></h1>
-                <div id="layer-type" class="text-sm text-gray-300 font-medium"></div>
+    <div class="flex-shrink-0 relative bg-slate-800 border-b border-slate-700 px-8 py-6">
+        <button class="absolute top-4 right-4 w-10 h-10 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-slate-100 text-2xl flex items-center justify-center transition-all cursor-pointer border-0" id="close-layer-info">✕</button>
+        <div class="flex gap-6 items-start max-w-6xl mx-auto">
+            <div class="flex-shrink-0" id="thumbnail-container"></div>
+            <div class="flex-1 min-w-0">
+                <h1 class="text-3xl font-bold text-slate-50 mb-2 leading-tight" id="layer-title"></h1>
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-700 rounded-lg text-xs font-semibold text-slate-300 uppercase tracking-wide" id="layer-type"></div>
             </div>
         </div>
     </div>
 
     <!-- Content -->
-    <div class="content-wrapper scrollbar-thin">
-        <div class="content-container">
-        <!-- Description -->
-        <div id="description-section" class="section" style="display: none;">
-            <div class="section-title">Description</div>
-            <div id="description-content" class="text-sm"></div>
-        </div>
+    <div class="flex-1 overflow-y-auto bg-slate-900 content-wrapper">
+        <div class="max-w-6xl mx-auto p-8">
+            <!-- Description -->
+            <div id="description-section" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700" style="display: none;">
+                <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
+                    <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Description</span>
+                </div>
+                <div class="text-base leading-relaxed text-slate-300" id="description-content"></div>
+            </div>
 
-        <!-- Attribution -->
-        <div id="attribution-section" class="section" style="display: none;">
-            <div class="section-title">Attribution</div>
-            <div id="attribution-content" class="text-sm"></div>
-        </div>
+            <!-- Legend -->
+            <div id="legend-section" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700" style="display: none;">
+                <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
+                    <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                    </svg>
+                    <span>Legend</span>
+                </div>
+                <div class="mt-2" id="legend-content"></div>
+            </div>
 
-        <!-- Data Source -->
-        <div id="source-section" class="section" style="display: none;">
-            <div class="section-title">Data Source</div>
-            <div id="source-content"></div>
-        </div>
+            <!-- Data Source -->
+            <div id="source-section" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700" style="display: none;">
+                <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
+                    <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+                    </svg>
+                    <span>Data Source</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="source-content"></div>
+            </div>
 
-        <!-- Legend -->
-        <div id="legend-section" class="section" style="display: none;">
-            <div class="section-title">Legend</div>
-            <div id="legend-content"></div>
-        </div>
+            <!-- Metadata -->
+            <div id="metadata-section" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700" style="display: none;">
+                <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
+                    <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                    </svg>
+                    <span>Metadata</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="metadata-content"></div>
+            </div>
 
-        <!-- Style -->
-        <div id="style-section" class="section" style="display: none;">
-            <div class="section-title">Style Properties</div>
-            <div id="style-content"></div>
-        </div>
-
-        <!-- Metadata -->
-        <div id="metadata-section" class="section" style="display: none;">
-            <div class="section-title">Metadata</div>
-            <div id="metadata-content"></div>
-        </div>
-
-        <!-- Raw Configuration -->
-        <div id="config-section" class="section">
-            <div class="section-title">Raw Configuration</div>
-            <pre id="config-content" class="code-block scrollbar-thin"></pre>
-        </div>
+            <!-- Raw Configuration -->
+            <div id="config-section" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700">
+                <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
+                    <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                    </svg>
+                    <span>Raw Configuration</span>
+                </div>
+                <pre id="config-content" class="bg-slate-950 text-slate-200 rounded-lg p-4 font-mono text-sm overflow-x-auto max-h-96 leading-relaxed code-block"></pre>
+            </div>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import { LayerThumbnail } from './js/layer-thumbnail.js';
+        import { LayerLegend } from './js/layer-legend.js';
+
         $(document).ready(function () {
             const urlParams = new URLSearchParams(window.location.search);
             const layerJson = urlParams.get('layer');
@@ -253,7 +153,7 @@
                 }
             }
 
-            $('#close-layer-info').on('click', function() {
+            $('#close-layer-info').on('click', function () {
                 if (window.self !== window.top) {
                     window.parent.postMessage({ type: 'close-layer-info' }, '*');
                 } else {
@@ -263,207 +163,212 @@
         });
 
         function renderLayerInfo(layer) {
-            // Header
             $('#layer-title').text(layer.title || layer.id || 'Unknown Layer');
-            $('#layer-type').text(`Type: ${(layer.type || 'unknown').toUpperCase()}`);
 
-            if (layer.headerImage) {
-                $('#header-bg').css('background-image', `url('${layer.headerImage}')`);
-            }
+            const typeBadge = LayerThumbnail.getTypeBadge(layer.type);
+            $('#layer-type').html(`
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zM14 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3z"></path>
+                </svg>
+                <span>${typeBadge.label}</span>
+            `).css({
+                'color': typeBadge.color,
+                'background-color': typeBadge.bg
+            });
 
-            // Description
+            const thumbnail = LayerThumbnail.generate(layer, 120);
+            $('#thumbnail-container').append(thumbnail);
+
             if (layer.description) {
                 $('#description-content').html(layer.description);
                 $('#description-section').show();
             }
 
-            // Attribution
-            if (layer.attribution) {
-                $('#attribution-content').html(layer.attribution);
-                $('#attribution-section').show();
+            const legend = LayerLegend.generate(layer);
+            if (legend) {
+                $('#legend-content').append(legend);
+                $('#legend-section').show();
             }
 
-            // Data Source
+            const $sourceContent = $('#source-content');
+            let hasSourceInfo = false;
+
             if (layer.type && layer.type !== 'style') {
-                const $sourceContent = $('#source-content');
-                $sourceContent.empty();
-
                 if (layer.type === 'vector') {
-                    $sourceContent.append(createInfoRow('Format', 'Vector Tiles'));
-                    if (layer.url) $sourceContent.append(createInfoRow('URL', layer.url));
-                    if (layer.sourceLayer) $sourceContent.append(createInfoRow('Source Layer', layer.sourceLayer));
-                    if (layer.maxzoom) $sourceContent.append(createInfoRow('Max Zoom', layer.maxzoom));
+                    $sourceContent.append(createInfoItem('Format', 'Vector Tiles (.mvt)'));
+                    if (layer.sourceLayer) $sourceContent.append(createInfoItem('Source Layer', layer.sourceLayer));
+                    if (layer.maxzoom) $sourceContent.append(createInfoItem('Max Zoom', layer.maxzoom));
+                    if (layer.minzoom) $sourceContent.append(createInfoItem('Min Zoom', layer.minzoom));
+                    hasSourceInfo = true;
                 } else if (layer.type === 'geojson') {
-                    $sourceContent.append(createInfoRow('Format', 'GeoJSON'));
-                    if (layer.url) $sourceContent.append(createInfoRow('URL', layer.url));
+                    $sourceContent.append(createInfoItem('Format', 'GeoJSON'));
+                    hasSourceInfo = true;
                 } else if (layer.type === 'tms') {
-                    $sourceContent.append(createInfoRow('Format', 'Raster Tiles (TMS)'));
-                    if (layer.url) $sourceContent.append(createInfoRow('URL', layer.url));
-                    if (layer.tileSize) $sourceContent.append(createInfoRow('Tile Size', layer.tileSize));
+                    $sourceContent.append(createInfoItem('Format', 'Raster Tiles (TMS)'));
+                    if (layer.tileSize) $sourceContent.append(createInfoItem('Tile Size', layer.tileSize));
+                    hasSourceInfo = true;
                 } else if (layer.type === 'csv') {
-                    $sourceContent.append(createInfoRow('Format', 'CSV'));
-                    if (layer.url) $sourceContent.append(createInfoRow('URL', layer.url));
+                    $sourceContent.append(createInfoItem('Format', 'CSV'));
+                    hasSourceInfo = true;
                 } else if (layer.type === 'raster-style-layer') {
-                    $sourceContent.append(createInfoRow('Format', 'Raster Style Layer'));
-                    if (layer.styleLayer) $sourceContent.append(createInfoRow('Style Layer', layer.styleLayer));
+                    $sourceContent.append(createInfoItem('Format', 'Raster Style Layer'));
+                    if (layer.styleLayer) $sourceContent.append(createInfoItem('Style Layer', layer.styleLayer));
+                    hasSourceInfo = true;
                 }
+            }
 
+            let layerUrl = layer.url || layer.tiles?.[0] || layer.data || '';
+
+            if (!layerUrl && layer.source && typeof layer.source === 'object') {
+                layerUrl = layer.source.url || layer.source.tiles?.[0] || '';
+            }
+
+            if (!layerUrl && layer.type === 'vector' && !layer.sourceLayer) {
+                const sourceId = layer.source || layer.id;
+                try {
+                    if (window.map && window.map.getSource(sourceId)) {
+                        const source = window.map.getSource(sourceId);
+                        if (source.tiles && source.tiles.length > 0) {
+                            layerUrl = source.tiles[0];
+                        } else if (source.url) {
+                            layerUrl = source.url;
+                        }
+                    }
+                } catch (e) {
+                    console.debug('Could not retrieve source URL from map:', e);
+                }
+            }
+
+            if (layerUrl) {
+                $sourceContent.append(createUrlInput('Source URL', layerUrl));
+                hasSourceInfo = true;
+            }
+
+            if (layer.attribution) {
+                $sourceContent.append(createAttributionItem(layer.attribution));
+                hasSourceInfo = true;
+            }
+
+            if (hasSourceInfo) {
                 $('#source-section').show();
             }
 
-            // Legend
-            if (layer.legendImage) {
-                const $img = $('<img>', {
-                    src: layer.legendImage,
-                    alt: 'Legend',
-                    css: {
-                        maxWidth: '100%',
-                        borderRadius: '4px'
-                    }
-                });
-                $('#legend-content').append($img);
-                $('#legend-section').show();
-            } else if (layer.style) {
-                const legendHtml = generateStyleLegend(layer);
-                if (legendHtml) {
-                    $('#legend-content').html(legendHtml);
-                    $('#legend-section').show();
-                }
-            }
-
-            // Style Properties
-            if (layer.style) {
-                const $styleContent = $('#style-content');
-                $styleContent.empty();
-
-                Object.entries(layer.style).forEach(([key, value]) => {
-                    $styleContent.append(createInfoRow(key, formatValue(value)));
-                });
-
-                $('#style-section').show();
-            }
-
-            // Metadata
             const metadata = {};
-            if (layer.bbox) metadata['Bounding Box'] = formatValue(layer.bbox);
-            if (layer.minzoom) metadata['Min Zoom'] = layer.minzoom;
-            if (layer.maxzoom) metadata['Max Zoom'] = layer.maxzoom;
+            if (layer.bbox) metadata['Bounding Box'] = formatBbox(layer.bbox);
+            if (layer.tags && Array.isArray(layer.tags)) metadata['Tags'] = layer.tags.join(', ');
             if (layer._sourceAtlas) metadata['Source Atlas'] = layer._sourceAtlas;
             if (layer.opacity !== undefined) metadata['Opacity'] = `${Math.round(layer.opacity * 100)}%`;
 
             if (Object.keys(metadata).length > 0) {
                 const $metadataContent = $('#metadata-content');
-                $metadataContent.empty();
                 Object.entries(metadata).forEach(([key, value]) => {
-                    $metadataContent.append(createInfoRow(key, value));
+                    $metadataContent.append(createInfoItem(key, value));
                 });
                 $('#metadata-section').show();
             }
 
-            // Raw Configuration
             $('#config-content').text(JSON.stringify(layer, null, 2));
         }
 
-        function createInfoRow(label, value) {
-            const $row = $('<div>', { class: 'info-row' });
-            $row.append($('<div>', { class: 'info-label', text: label }));
+        function createInfoItem(label, value, isLink = false) {
+            const $item = $('<div>', { class: 'p-3 bg-slate-700 rounded-lg border border-slate-600' });
+
+            $item.append($('<div>', {
+                class: 'text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1',
+                text: label
+            }));
 
             let displayValue = value;
-            if (typeof value === 'string' && value.startsWith('http')) {
+            if (isLink && typeof value === 'string' && value.startsWith('http')) {
                 displayValue = $('<a>', {
                     href: value,
                     target: '_blank',
                     text: value,
-                    css: { color: '#60a5fa', textDecoration: 'underline' }
+                    rel: 'noopener noreferrer',
+                    class: 'text-indigo-400 hover:text-indigo-300 hover:underline transition-colors'
                 });
             }
 
-            const $valueDiv = $('<div>', { class: 'info-value' });
+            const $valueDiv = $('<div>', { class: 'text-sm text-slate-200 break-words' });
             if (typeof displayValue === 'string') {
                 $valueDiv.text(displayValue);
             } else {
                 $valueDiv.append(displayValue);
             }
-            $row.append($valueDiv);
 
-            return $row;
+            $item.append($valueDiv);
+            return $item;
         }
 
-        function formatValue(value) {
-            if (value === null || value === undefined) return 'null';
-            if (Array.isArray(value)) return JSON.stringify(value);
-            if (typeof value === 'object') return JSON.stringify(value, null, 2);
-            return String(value);
+        function createUrlInput(label, url) {
+            const $item = $('<div>', { class: 'col-span-full p-3 bg-slate-700 rounded-lg border border-slate-600' });
+
+            $item.append($('<div>', {
+                class: 'text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2',
+                text: label
+            }));
+
+            const $inputWrapper = $('<div>', { class: 'flex gap-2' });
+
+            const $input = $('<input>', {
+                type: 'text',
+                value: url,
+                readonly: true,
+                class: 'flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500'
+            });
+
+            const $copyBtn = $('<button>', {
+                class: 'px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2',
+                html: `
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                    <span>Copy</span>
+                `
+            });
+
+            $copyBtn.on('click', function() {
+                $input[0].select();
+                navigator.clipboard.writeText(url).then(() => {
+                    const originalHtml = $copyBtn.html();
+                    $copyBtn.html(`
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span>Copied!</span>
+                    `);
+                    $copyBtn.addClass('bg-green-600').removeClass('bg-indigo-600 hover:bg-indigo-500');
+
+                    setTimeout(() => {
+                        $copyBtn.html(originalHtml);
+                        $copyBtn.removeClass('bg-green-600').addClass('bg-indigo-600 hover:bg-indigo-500');
+                    }, 2000);
+                });
+            });
+
+            $inputWrapper.append($input).append($copyBtn);
+            $item.append($inputWrapper);
+            return $item;
         }
 
-        function generateStyleLegend(layer) {
-            const style = layer.style;
-            let html = '';
+        function createAttributionItem(attribution) {
+            const $item = $('<div>', { class: 'col-span-full p-3 bg-slate-700 rounded-lg border border-slate-600' });
 
-            // Helper to get simple value from expression
-            const getValue = (value, defaultValue = null) => {
-                if (typeof value === 'string' || typeof value === 'number') return value;
-                if (Array.isArray(value)) {
-                    for (let i = 1; i < value.length; i++) {
-                        if (typeof value[i] === 'string' || typeof value[i] === 'number') {
-                            return value[i];
-                        }
-                    }
-                }
-                return defaultValue;
-            };
+            $item.append($('<div>', {
+                class: 'text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2',
+                text: 'Attribution'
+            }));
 
-            // Point/Circle style
-            if (style['circle-radius'] || style['circle-color']) {
-                const color = getValue(style['circle-color'], '#3b82f6');
-                const radius = getValue(style['circle-radius'], 6);
-                const strokeColor = getValue(style['circle-stroke-color'], '#ffffff');
-                const strokeWidth = getValue(style['circle-stroke-width'], 1);
-                const opacity = getValue(style['circle-opacity'], 0.9);
+            const $content = $('<div>', { class: 'text-sm leading-relaxed text-slate-300' });
+            $content.html(attribution);
 
-                html += `
-                    <div class="legend-item">
-                        <div style="width: ${radius * 2}px; height: ${radius * 2}px; background: ${color};
-                                    border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; opacity: ${opacity};"></div>
-                        <div class="text-sm">Point Feature</div>
-                    </div>`;
-            }
+            $item.append($content);
+            return $item;
+        }
 
-            // Line style
-            if (style['line-color']) {
-                const color = getValue(style['line-color'], '#3b82f6');
-                const width = getValue(style['line-width'], 2);
-                const opacity = getValue(style['line-opacity'], 1);
-
-                html += `
-                    <div class="legend-item">
-                        <svg width="40" height="20">
-                            <line x1="0" y1="10" x2="40" y2="10"
-                                  stroke="${color}" stroke-width="${width}" opacity="${opacity}"/>
-                        </svg>
-                        <div class="text-sm">Line Feature</div>
-                    </div>`;
-            }
-
-            // Polygon style
-            if (style['fill-color']) {
-                const fillColor = getValue(style['fill-color'], '#3b82f6');
-                const fillOpacity = getValue(style['fill-opacity'], 0.5);
-                const lineColor = getValue(style['line-color'], '#1e40af');
-                const lineWidth = getValue(style['line-width'], 2);
-
-                html += `
-                    <div class="legend-item">
-                        <svg width="30" height="30">
-                            <rect x="2" y="2" width="26" height="26"
-                                  fill="${fillColor}" fill-opacity="${fillOpacity}"
-                                  stroke="${lineColor}" stroke-width="${lineWidth}"/>
-                        </svg>
-                        <div class="text-sm">Polygon Feature</div>
-                    </div>`;
-            }
-
-            return html;
+        function formatBbox(bbox) {
+            if (!Array.isArray(bbox) || bbox.length !== 4) return String(bbox);
+            return `[${bbox.map(n => n.toFixed(4)).join(', ')}]`;
         }
     </script>
 </body>
