@@ -638,6 +638,16 @@ Select a KML file to upload">
         const creator = new MapCreator();
         creator.init();
 
+        // Easter egg: Convert 'google' keyword to Google Maps tiles
+        const urlInput = document.getElementById('url-input');
+        urlInput.addEventListener('input', function (e) {
+            const value = this.value.trim().toLowerCase();
+            if (value === 'google') {
+                this.value = 'http://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
+                this.dispatchEvent(new Event('change'));
+            }
+        });
+
         // Show georeferencing notice for image files
         const fileInput = document.getElementById('file-input');
         const georefNotice = document.getElementById('georef-notice');

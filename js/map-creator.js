@@ -237,6 +237,9 @@ export class MapCreator {
         if (urlLower.includes('{z}') && (urlLower.includes('.png') || urlLower.includes('.jpg'))) {
             return 'Raster Tiles';
         }
+        if (urlLower.includes('{x}') && urlLower.includes('{y}') && urlLower.includes('{z}')) {
+            return 'Raster Tiles';
+        }
         if (/\/\d+\/\d+\/\d+\.(pbf|mvt)($|\?)/i.test(url)) {
             return 'Vector Tiles';
         }

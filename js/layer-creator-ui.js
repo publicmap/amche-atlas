@@ -141,6 +141,7 @@ export class LayerConfigGenerator {
         if (this.isPbfTileUrl(url)) return 'vector';
         if (url.includes('{z}') && (url.includes('.pbf') || url.includes('.mvt') || url.includes('vector.openstreetmap.org') || url.includes('/vector/'))) return 'vector';
         if (url.includes('{z}') && (url.includes('.png') || url.includes('.jpg') || url.includes('.webp'))) return 'raster';
+        if (url.includes('{x}') && url.includes('{y}') && url.includes('{z}')) return 'raster';
         if (this.isTileUrl(url)) {
             const hasVectorExt = /\.(pbf|mvt)($|\?)/i.test(url);
             return hasVectorExt ? 'vector' : 'raster';
