@@ -154,10 +154,15 @@
         ]
       },
       "inspect": {
-        "id": "confidence"
+        "id": "confidence",
+        "disabled": true
       }
     },
     {
+      "tags": [
+        "boundaries",
+        "postal"
+      ],
       "id": "pincodes",
       "title": "Pincode Boundaries",
       "headerImage": "assets/map-layers/india/map-layer-pincode.png",

@@ -573,10 +573,49 @@
             padding-left: 8px;
             margin-top: 4px;
         }
+
+        .browser-loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #111827;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .browser-loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #374151;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .layer-loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
     </style>
 </head>
 
 <body class="bg-gray-900">
+    <!-- Loading Overlay -->
+    <div id="browser-loading-overlay" class="browser-loading-overlay">
+        <div class="browser-loading-spinner"></div>
+        <div style="color: #9ca3af; font-size: 14px;">Loading map collection...</div>
+    </div>
+
     <div class="flex flex-col h-screen">
         <!-- Search Section -->
         <div class="search-section" style="background: #1f2937; padding: 12px 12px 8px 12px; border-bottom: 1px solid #374151;">
@@ -674,6 +713,7 @@
         let collapsedAtlases = new Set(); // Track which atlases are collapsed
         let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
+        let loadingLayers = new Set(); // Track layers currently loading
 
         // Make LayerThumbnail available globally for use in functions
         window.LayerThumbnail = LayerThumbnail;
@@ -703,6 +743,9 @@
                     currentBounds = event.data.bounds;
                     mapboxAccessToken = event.data.mapboxToken;
 
+                    // Hide loading overlay
+                    $('#browser-loading-overlay').fadeOut(300);
+
                     // Check for imported atlas and auto-select it
                     if (!window.selectedAtlasId) {
                         for (const [atlasId, metadata] of atlasMetadata.entries()) {
@@ -722,6 +765,19 @@
                 if (event.data.type === 'active-layers-update') {
                     activeLayers = new Set(event.data.activeLayers || []);
                     updateActiveStates();
+                }
+
+                if (event.data.type === 'layer-loaded') {
+                    const layerId = event.data.layerId;
+                    loadingLayers.delete(layerId);
+                    updateCardState(layerId, true);
+                }
+
+                if (event.data.type === 'layer-load-failed') {
+                    const layerId = event.data.layerId;
+                    loadingLayers.delete(layerId);
+                    activeLayers.delete(layerId);
+                    updateCardState(layerId, false);
                 }
 
                 if (event.data.type === 'bounds-update') {
@@ -1994,12 +2050,21 @@
 
             if (wasActive) {
                 activeLayers.delete(layerId);
+                loadingLayers.delete(layerId);
+                updateCardState(layerId, false);
             } else {
                 activeLayers.add(layerId);
-            }
+                loadingLayers.add(layerId);
+                updateCardState(layerId, true, true);
 
-            // Update UI immediately
-            updateCardState(layerId, !wasActive);
+                // Auto-complete loading state after 2 seconds if no confirmation received
+                setTimeout(() => {
+                    if (loadingLayers.has(layerId)) {
+                        loadingLayers.delete(layerId);
+                        updateCardState(layerId, true, false);
+                    }
+                }, 2000);
+            }
 
             // Notify parent
             window.parent.postMessage({
@@ -2031,7 +2096,9 @@
         }
 
         // Update card active state
-        function updateCardState(layerId, isActive) {
+        function updateCardState(layerId, isActive, isLoading = false) {
+            const isLayerLoading = isLoading || loadingLayers.has(layerId);
+
             // Update expanded layer cards
             const $card = $(`.layer-card[data-layer-id="${layerId}"]`);
             const $btn = $card.find('.toggle-btn');
@@ -2039,13 +2106,19 @@
             // Remove old hover handlers
             $btn.off('mouseenter mouseleave');
 
-            if (isActive) {
-                $card.addClass('active');
+            if (isActive && isLayerLoading) {
+                $card.addClass('active layer-loading');
+                $btn.html('<svg style="width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle;" fill="none" viewBox="0 0 24 24"><circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span style="margin-left: 4px;">Loading...</span>');
+                $btn.css('pointer-events', 'none');
+            } else if (isActive) {
+                $card.addClass('active').removeClass('layer-loading');
                 $btn.html('<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span>Added</span>');
+                $btn.css('pointer-events', '');
                 addToggleButtonHover($btn, true, false);
             } else {
-                $card.removeClass('active');
+                $card.removeClass('active layer-loading');
                 $btn.removeClass('active-hover').html('<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span>Add Map</span>');
+                $btn.css('pointer-events', '');
             }
 
             // Update collapsed layer items
@@ -2055,13 +2128,19 @@
             // Remove old hover handlers
             $collapsedBtn.off('mouseenter mouseleave');
 
-            if (isActive) {
-                $collapsedLayer.addClass('active');
+            if (isActive && isLayerLoading) {
+                $collapsedLayer.addClass('active layer-loading');
+                $collapsedBtn.removeClass('inactive').html('<svg style="width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle;" fill="none" viewBox="0 0 24 24"><circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span style="font-size: 11px; margin-left: 4px;">Loading...</span>').attr('title', 'Loading layer...');
+                $collapsedBtn.css('pointer-events', 'none');
+            } else if (isActive) {
+                $collapsedLayer.addClass('active').removeClass('layer-loading');
                 $collapsedBtn.removeClass('inactive').html('<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Added</span>').attr('title', 'Remove from map');
+                $collapsedBtn.css('pointer-events', '');
                 addToggleButtonHover($collapsedBtn, true, true);
             } else {
-                $collapsedLayer.removeClass('active');
+                $collapsedLayer.removeClass('active layer-loading');
                 $collapsedBtn.addClass('inactive').removeClass('active-hover').html('<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Add</span>').attr('title', 'Add to map');
+                $collapsedBtn.css('pointer-events', '');
             }
         }
 
