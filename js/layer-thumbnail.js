@@ -65,12 +65,37 @@ export class LayerThumbnail {
         typeLabel.textContent = typeBadge.label;
         container.appendChild(typeLabel);
 
-        // Show type badge on hover
+        const detailsIcon = document.createElement('div');
+        detailsIcon.className = 'layer-details-icon';
+        detailsIcon.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 19px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        `;
+        detailsIcon.textContent = 'ℹ️';
+        container.appendChild(detailsIcon);
+
+        container.style.cursor = 'pointer';
+
         container.addEventListener('mouseenter', () => {
             typeLabel.style.opacity = '0.9';
+            detailsIcon.style.opacity = '0.9';
         });
         container.addEventListener('mouseleave', () => {
             typeLabel.style.opacity = '0';
+            detailsIcon.style.opacity = '0';
+        });
+
+        container.addEventListener('click', () => {
+            window.parent.postMessage({
+                type: 'open-layer-info',
+                layer: layer
+            }, '*');
         });
 
         return container;

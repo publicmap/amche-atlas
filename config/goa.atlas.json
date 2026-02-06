@@ -1,10 +1,11 @@
 {
   "name": "Goa",
   "areaOfInterest": "Goa, India",
-  "description": "Atlas of Goa curated by the <a href='https://amche.in'>Amche Atlas Goa community</a> ",
+  "description": "Atlas of Goa curated by the <a href='https://github.com/publicmap/amche-atlas/issues'>Amche Atlas community</a> ",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/goa.atlas.json",
   "color": "#059669",
+  "wikidata": "Q1171",
   "map": {
     "center": [
       73.8,

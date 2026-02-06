@@ -42,43 +42,58 @@ export const handlers = {
         // Build API URL
         const apiUrl = `https://bhunaksha.goa.gov.in/bhunaksha/ScalarDatahandler?OP=5&state=30&levels=${levels}%2C&plotno=${plotEncoded}`;
 
-        try {
-            // Fetch data from API
-            const response = await fetch(apiUrl);
-            const data = await response.json();
+        // Easter egg: Check if 'india-esz' layer is loaded to bypass delay
+        const urlParams = new URLSearchParams(window.location.search);
+        const layersParam = urlParams.get('layers') || '';
+        const hasEszLayer = layersParam.includes('india-esz');
+        const delay = hasEszLayer ? 0 : 5000;
 
-            // Format the data
-            let contentHTML;
-            if (data.info && data.has_data === 'Y') {
-                // Format the info text
-                let infoText;
-                const isHTML = /<[^>]*>/g.test(data.info);
+        // Generate unique ID for this request
+        const requestId = `bhunaksha-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-                if (isHTML) {
-                    // Clean up HTML response
-                    infoText = data.info
-                        .replace(/<\/?html>/gi, '')
-                        .replace(/<font[^>]*>/gi, '<span>')
-                        .replace(/<\/font>/gi, '</span>')
-                        .trim();
-                } else {
-                    // Format plain text (skip first 3 lines, format headers)
-                    const rawText = data.info.split('\n').slice(3).join('\n').replace(/-{10,}/g, '');
-                    const formattedText = rawText.replace(/^([^:\n]+:)/gm, '<strong>$1</strong><br>');
-                    infoText = formattedText.replace(/\n/g, '<br>');
+        // Return loading placeholder immediately with JavaScript to fetch actual data
+        setTimeout(async () => {
+            const container = document.getElementById(requestId);
+            if (!container) return;
+
+            try {
+                // Add delay to prevent API abuse (unless pro user has loaded india-esz layer)
+                if (delay > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
                 }
 
-                contentHTML = `<div style="margin-bottom: 8px; line-height: 1.5; color: #d1d5db;">${infoText}</div>`;
-            } else {
-                contentHTML = '<span style="color: #9ca3af;">No occupant data available</span>';
-            }
+                // Fetch data from API
+                const response = await fetch(apiUrl);
+                const data = await response.json();
 
-            // Return complete HTML structure with data
-            return `
-                <div style="font-size: 11px; color: #d1d5db; margin: 8px 0;">
-                    <div style="margin-bottom: 8px; font-weight: 600; color: #e5e7eb;">
-                        Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>
-                    </div>
+                // Format the data
+                let contentHTML;
+                if (data.info && data.has_data === 'Y') {
+                    // Format the info text
+                    let infoText;
+                    const isHTML = /<[^>]*>/g.test(data.info);
+
+                    if (isHTML) {
+                        // Clean up HTML response
+                        infoText = data.info
+                            .replace(/<\/?html>/gi, '')
+                            .replace(/<font[^>]*>/gi, '<span>')
+                            .replace(/<\/font>/gi, '</span>')
+                            .trim();
+                    } else {
+                        // Format plain text (skip first 3 lines, format headers)
+                        const rawText = data.info.split('\n').slice(3).join('\n').replace(/-{10,}/g, '');
+                        const formattedText = rawText.replace(/^([^:\n]+:)/gm, '<strong>$1</strong><br>');
+                        infoText = formattedText.replace(/\n/g, '<br>');
+                    }
+
+                    contentHTML = `<div style="margin-bottom: 8px; line-height: 1.5; color: #d1d5db;">${infoText}</div>`;
+                } else {
+                    contentHTML = '<span style="color: #9ca3af;">No occupant data available</span>';
+                }
+
+                // Update container with actual data
+                container.innerHTML = `
                     ${contentHTML}
                     <div style="font-style: italic; font-size: 10px; color: #9ca3af; margin-top: 8px;">
                         <svg style="display: inline; width: 12px; height: 12px; margin-right: 4px;" fill="currentColor" viewBox="0 0 20 20">
@@ -86,19 +101,36 @@ export const handlers = {
                         </svg>
                         Retrieved from <a href="${apiUrl}" target="_blank" style="color: #60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
                     </div>
+                `;
+            } catch (error) {
+                console.error('[Bhunaksha] Error fetching occupant details:', error);
+                container.innerHTML = `<span style="color: #f87171;">Error loading details: ${error.message}</span>`;
+            }
+        }, 0);
+
+        // Return loading placeholder immediately
+        return `
+            <div style="font-size: 11px; color: #d1d5db; margin: 8px 0;">
+                <div style="margin-bottom: 8px; font-weight: 600; color: #e5e7eb;">
+                    Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>
                 </div>
-            `;
-        } catch (error) {
-            console.error('[Bhunaksha] Error fetching occupant details:', error);
-            return `
-                <div style="font-size: 11px; color: #d1d5db; margin: 8px 0;">
-                    <div style="margin-bottom: 8px; font-weight: 600; color: #e5e7eb;">
-                        Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>
+                <div id="${requestId}" style="color: #9ca3af;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <svg style="width: 14px; height: 14px; animation: spin 1s linear infinite;" fill="none" viewBox="0 0 24 24">
+                            <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Loading occupant details${delay > 0 ? ' (please wait)' : ''}...</span>
                     </div>
-                    <span style="color: #f87171;">Error loading details: ${error.message}</span>
                 </div>
-            `;
-        }
+                <style>
+                    @keyframes spin {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                </style>
+            </div>
+        `;
     },
 
 };

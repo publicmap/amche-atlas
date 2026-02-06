@@ -145,15 +145,6 @@
             .search-section .flex {
                 gap: 8px !important;
             }
-
-            #atlas-filter-btn {
-                padding: 8px 10px !important;
-                font-size: 11px !important;
-            }
-
-            #create-layer-btn {
-                padding: 8px 12px !important;
-            }
         }
 
         .toggle-btn,
@@ -370,6 +361,12 @@
             align-items: center;
             gap: 8px;
             margin-bottom: 8px;
+            transition: background 0.2s;
+        }
+
+        .atlas-collapsed-header:hover {
+            background: #374151;
+            border-radius: 4px;
         }
 
         .atlas-expand-icon {
@@ -586,7 +583,11 @@
             <!-- Header Text with Close Button -->
             <div class="mb-2 text-sm text-gray-300 flex items-center gap-2 justify-between">
                 <div class="flex items-center gap-2">
-                    <span>Search Map Collection or</span>
+                    <span>Explore</span>
+                    <button id="atlas-filter-btn" style="background: #3b82f6; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                        All Map Collections
+                    </button>
+                    <span>or</span>
                     <button id="add-new-map-link" style="background: #ffbf00; color: #000; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.background='#ffd700'" onmouseout="this.style.background='#ffbf00'">
                         ➕ Add New Map
                     </button>
@@ -599,12 +600,6 @@
 
             <!-- Main Search Bar -->
             <div class="flex gap-2">
-                <!-- Atlas Filter Button -->
-                <button id="atlas-filter-btn"
-                    class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded border border-gray-600 transition-colors whitespace-nowrap flex-shrink-0">
-                    All Map Collections
-                </button>
-
                 <!-- Search Input -->
                 <div class="relative flex-1 min-w-0">
                     <input type="text" id="search-input" placeholder="Search maps..."
@@ -676,6 +671,7 @@
         let mapboxAccessToken = null;
         let expandedLayers = new Set();
         let showOutOfViewAtlases = false;
+        let collapsedAtlases = new Set(); // Track which atlases are collapsed
         let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
 
@@ -909,7 +905,12 @@
             $('#show-only-active').on('change', renderLayers);
 
             $('#atlas-filter-btn').on('click', function () {
-                showAtlasFilterMenu();
+                // Toggle menu - close if already open
+                if ($('.atlas-filter-menu').length > 0) {
+                    $('.atlas-filter-menu').remove();
+                } else {
+                    showAtlasFilterMenu();
+                }
             });
 
             $('#add-new-map-link').on('click', function () {
@@ -1075,11 +1076,15 @@
 
             atlases.forEach(([id, metadata]) => {
                 // Count layers for this atlas
-                const layerCount = allLayers.filter(layer => layer._sourceAtlas === id).length;
+                const atlasLayers = allLayers.filter(layer => layer._sourceAtlas === id);
+                const layerCount = atlasLayers.length;
+
+                // Check if atlas has any layers in current view
+                const hasInViewLayers = atlasLayers.some(layer => isInView(layer));
 
                 const $option = $('<div>', {
                     class: 'atlas-menu-item',
-                    style: 'padding: 8px 12px; cursor: pointer; color: white; font-size: 12px; transition: background 0.2s; display: flex; align-items: center; gap: 6px;',
+                    style: `padding: 8px 12px; cursor: pointer; color: white; font-size: 12px; transition: all 0.2s; display: flex; align-items: center; gap: 6px; opacity: ${hasInViewLayers ? '1' : '0.7'};`,
                     click: function() {
                         selectAtlas(id, metadata.name || id);
                         $('.atlas-filter-menu').remove();
@@ -1107,10 +1112,13 @@
                     $option.css('background-color', '#4b5563');
                 }
                 $option.on('mouseenter', function() {
-                    $(this).css('background-color', '#4b5563');
+                    $(this).css({ 'background-color': '#4b5563', 'opacity': '1' });
                 }).on('mouseleave', function() {
+                    const baseOpacity = hasInViewLayers ? '1' : '0.7';
                     if (window.selectedAtlasId !== id) {
-                        $(this).css('background-color', '');
+                        $(this).css({ 'background-color': '', 'opacity': baseOpacity });
+                    } else {
+                        $(this).css('opacity', baseOpacity);
                     }
                 });
 
@@ -1362,25 +1370,66 @@
 
         // Render atlas in collapsed view
         function renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid) {
+            const isCollapsed = collapsedAtlases.has(atlasId);
+
             const $collapsed = $('<div>', {
                 class: 'atlas-collapsed',
                 id: `atlas-${atlasId}`
             });
 
             const $header = $('<div>', {
-                class: 'atlas-collapsed-header'
+                class: 'atlas-collapsed-header',
+                style: 'cursor: pointer;',
+                click: function(e) {
+                    // Don't toggle if clicking on links or buttons
+                    if ($(e.target).closest('a, button').length) return;
+
+                    // Toggle collapse state
+                    if (collapsedAtlases.has(atlasId)) {
+                        collapsedAtlases.delete(atlasId);
+                    } else {
+                        collapsedAtlases.add(atlasId);
+                    }
+                    renderLayers();
+                }
             });
 
-            $header.append($('<span>', {
+            // Expand/collapse icon
+            const $expandIcon = $('<span>', {
                 class: 'atlas-expand-icon',
-                text: '▼'
-            }));
+                text: isCollapsed ? '▶' : '▼'
+            });
+            $header.append($expandIcon);
 
+            // Atlas name
             $header.append($('<span>', {
-                style: `color: ${atlasData.color || '#f3f4f6'}; font-size: 15px; font-weight: 600;`,
+                style: `color: ${atlasData.color || '#f3f4f6'}; font-size: 15px; font-weight: 600; flex: 1;`,
                 text: atlasData.name || atlasId
             }));
 
+            // Zoom button (if atlas has bbox)
+            if (atlasData.bbox) {
+                const $zoomBtn = $('<button>', {
+                    html: '🔍',
+                    title: 'Zoom to atlas',
+                    style: 'background: #4b5563; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.2s; margin-right: 4px;',
+                    click: function(e) {
+                        e.stopPropagation();
+                        window.parent.postMessage({
+                            type: 'zoom-to-bounds',
+                            bounds: atlasData.bbox
+                        }, '*');
+                    }
+                });
+                $zoomBtn.on('mouseenter', function() {
+                    $(this).css('background', '#6b7280');
+                }).on('mouseleave', function() {
+                    $(this).css('background', '#4b5563');
+                });
+                $header.append($zoomBtn);
+            }
+
+            // Config link
             const configUrl = `https://raw.githubusercontent.com/publicmap/amche-atlas/refs/heads/dev/config/${atlasId}.atlas.json`;
             const $configLink = $('<a>', {
                 href: configUrl,
@@ -1396,6 +1445,15 @@
             $header.append($configLink);
 
             $collapsed.append($header);
+
+            // Add description if available
+            if (atlasData.description && !isCollapsed) {
+                const $description = $('<div>', {
+                    style: 'padding: 8px 12px 12px 32px; color: #9ca3af; font-size: 12px; line-height: 1.5;',
+                    html: atlasData.description
+                });
+                $collapsed.append($description);
+            }
 
             const inViewLayers = [];
             const notInViewLayers = [];
@@ -1516,13 +1574,20 @@
                             text: layer.title || layer.id
                         }));
 
+                        // Get plain text for description, keep HTML for attribution
                         const cleanDesc = layer.description ? $('<div>').html(layer.description).text() : '';
                         const cleanAttr = layer.attribution ? layer.attribution.split('\n')[0].trim() : '';
 
                         const $meta = $('<div>', {
-                            class: 'atlas-collapsed-layer-meta',
-                            text: cleanDesc || cleanAttr || ''
+                            class: 'atlas-collapsed-layer-meta'
                         });
+
+                        // Set initial content (prefer description as plain text)
+                        if (cleanDesc) {
+                            $meta.text(cleanDesc);
+                        } else if (cleanAttr) {
+                            $meta.html(cleanAttr);
+                        }
 
                         $content.append($meta);
                         $layerPreview.append($content);
@@ -1562,9 +1627,10 @@
 
                         $layerPreview.append($actions);
 
+                        // On hover, switch to attribution (rendered as HTML)
                         if (cleanDesc && cleanAttr) {
                             $layerPreview.on('mouseenter', function() {
-                                $meta.text(cleanAttr);
+                                $meta.html(cleanAttr);
                             }).on('mouseleave', function() {
                                 $meta.text(cleanDesc);
                             });
@@ -1577,13 +1643,16 @@
                 $layersContainer.append($tagGroup);
             });
 
-            $collapsed.append($layersContainer);
+            // Only show layers if not collapsed
+            if (!isCollapsed) {
+                $collapsed.append($layersContainer);
 
-            if (notInViewLayers.length > 0) {
-                $collapsed.append($('<div>', {
-                    class: 'atlas-collapsed-more',
-                    text: `+ ${notInViewLayers.length} more`
-                }));
+                if (notInViewLayers.length > 0) {
+                    $collapsed.append($('<div>', {
+                        class: 'atlas-collapsed-more',
+                        text: `+ ${notInViewLayers.length} more`
+                    }));
+                }
             }
 
             $grid.append($collapsed);
@@ -1714,10 +1783,9 @@
                 } else {
                     // Show regular description and attribution
                     if (layer.description) {
-                        const cleanDesc = $('<div>').html(layer.description).text();
-                        $content.append($('<p>', {
+                        $content.append($('<div>', {
                             class: 'text-xs text-gray-300 mt-1',
-                            text: cleanDesc
+                            html: layer.description
                         }));
                     }
 

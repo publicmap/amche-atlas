@@ -10,6 +10,7 @@
         src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.16.0/cdn/shoelace-autoloader.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
     <style>
         html,
         body {
@@ -381,12 +382,20 @@
             <sl-icon name="check-circle-fill" style="color: #10b981; font-size: 16px;"></sl-icon>
             <span id="status-text" style="font-size: 11px; color: #d1d5db;"></span>
         </div>
-        <button id="clear-selection-btn"
-            style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
-            onmouseover="this.style.background='#2563eb'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.4)';"
-            onmouseout="this.style.background='#3b82f6'; this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.3)';">
-            Clear Selection
-        </button>
+        <div style="display: flex; gap: 8px;">
+            <button id="zoom-to-selection-btn"
+                style="padding: 6px 12px; background: #ffbf00; color: #000; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
+                onmouseover="this.style.background='#ffd700'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.4)';"
+                onmouseout="this.style.background='#ffbf00'; this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.3)';">
+                Zoom
+            </button>
+            <button id="clear-selection-btn"
+                style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
+                onmouseover="this.style.background='#2563eb'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.4)';"
+                onmouseout="this.style.background='#3b82f6'; this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.3)';">
+                Clear
+            </button>
+        </div>
     </div>
 
     <script type="module">
@@ -635,16 +644,12 @@
                 setTimeout(notifyHeightChange, 250);
             });
 
+            $('#zoom-to-selection-btn').on('click', function () {
+                zoomToSelection();
+            });
+
             $('#clear-selection-btn').on('click', function () {
                 clearAllSelections();
-            });
-
-            $('#clear-selection-btn').on('mouseenter', function () {
-                $(this).css('background', '#4b5563');
-            });
-
-            $('#clear-selection-btn').on('mouseleave', function () {
-                $(this).css('background', '#374151');
             });
 
             $('#overlay-header').on('click', function () {
@@ -669,9 +674,9 @@
                 setTimeout(notifyHeightChange, 250);
             });
 
-            // Mouse leave handler - clear isolation when mouse leaves panel
+            // Mouse leave handler - clear isolation when mouse leaves panel (unless pinned)
             $(document.body).on('mouseleave', function () {
-                if (expandedLayerId) {
+                if (expandedLayerId && !manuallyExpandedLayers.has(expandedLayerId)) {
                     expandedLayerId = null;
                     if (isolateEnabled) {
                         window.parent.postMessage({
@@ -889,18 +894,19 @@
 
             $compact.append($info);
 
-            // Info button (only when expanded)
+            // Pin button (only when expanded)
             if (isExpanded) {
-                const $infoBtn = $('<button>', {
+                const isPinned = manuallyExpandedLayers.has(layerConfig.id);
+                const $pinBtn = $('<button>', {
                     class: 'info-button',
-                    html: 'i',
-                    title: 'Layer information',
+                    html: isPinned ? '📌' : '📍',
+                    title: isPinned ? 'Unpin layer' : 'Pin layer',
                     click: function (e) {
                         e.stopPropagation();
-                        openLayerInfo(layerConfig);
+                        toggleLayerPin(layerConfig.id);
                     }
                 });
-                $compact.append($infoBtn);
+                $compact.append($pinBtn);
             }
 
             $card.append($compact);
@@ -1125,16 +1131,17 @@
             }
 
             if (isExpanded) {
-                const $infoBtn = $('<button>', {
+                const isPinned = manuallyExpandedLayers.has(layer.id);
+                const $pinBtn = $('<button>', {
                     class: 'info-button',
-                    html: 'i',
-                    title: 'Layer information',
+                    html: isPinned ? '📌' : '📍',
+                    title: isPinned ? 'Unpin layer' : 'Pin layer',
                     click: function (e) {
                         e.stopPropagation();
-                        openLayerInfo(layer);
+                        toggleLayerPin(layer.id);
                     }
                 });
-                $header.append($infoBtn);
+                $header.append($pinBtn);
             }
 
             $info.append($header);
@@ -1306,14 +1313,17 @@
         // Toggle layer expanded state
         function toggleLayerExpanded(layerId) {
             if (expandedLayerId === layerId) {
-                expandedLayerId = null;
-                if (isolateEnabled) {
-                    window.parent.postMessage({
-                        type: 'clear-layer-isolation'
-                    }, '*');
+                // Don't collapse if pinned
+                if (!manuallyExpandedLayers.has(layerId)) {
+                    expandedLayerId = null;
+                    if (isolateEnabled) {
+                        window.parent.postMessage({
+                            type: 'clear-layer-isolation'
+                        }, '*');
+                    }
+                    renderLayers();
+                    clearVisualIsolation();
                 }
-                renderLayers();
-                clearVisualIsolation();
             } else {
                 expandedLayerId = layerId;
                 renderLayers();
@@ -1330,6 +1340,16 @@
                 }
             }
             setTimeout(notifyHeightChange, 50);
+        }
+
+        // Toggle layer pin state
+        function toggleLayerPin(layerId) {
+            if (manuallyExpandedLayers.has(layerId)) {
+                manuallyExpandedLayers.delete(layerId);
+            } else {
+                manuallyExpandedLayers.add(layerId);
+            }
+            renderLayers();
         }
 
         function applyVisualIsolation(isolatedLayerId, isBasemap) {
@@ -1386,6 +1406,19 @@
             const layerCount = selectedFeatures.size;
             $statusText.text(`${totalFeatures} feature${totalFeatures !== 1 ? 's' : ''} selected from ${layerCount} layer${layerCount !== 1 ? 's' : ''}`);
             $statusBar.css('display', 'flex');
+        }
+
+        // Zoom to selected features
+        function zoomToSelection() {
+            if (selectedFeatures.size === 0) {
+                return;
+            }
+
+            // Send message to parent to zoom to all selected features
+            // Parent will calculate bounds using state manager data (which has geometries)
+            window.parent.postMessage({
+                type: 'zoom-to-selection'
+            }, '*');
         }
 
         // Clear all selections

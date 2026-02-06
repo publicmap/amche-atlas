@@ -306,6 +306,10 @@ export class MapFeatureControl {
                 this._hoverIsolateFeature(event.data.layerId, event.data.featureId, event.data.feature);
             } else if (event.data.type === 'clear-feature-isolation') {
                 this._clearFeatureIsolation(event.data.layerId);
+            } else if (event.data.type === 'fit-bounds') {
+                this._fitBounds(event.data.bounds, event.data.padding);
+            } else if (event.data.type === 'zoom-to-selection') {
+                this._zoomToSelection();
             }
         });
     }
@@ -363,6 +367,72 @@ export class MapFeatureControl {
         if (!this._stateManager) return;
 
         this._stateManager.clearLayerHoverStates(layerId);
+    }
+
+    /**
+     * Fit map to bounds
+     */
+    _fitBounds(bounds, padding = 50) {
+        if (!this._map || !bounds) return;
+
+        this._map.fitBounds(bounds, {
+            padding: padding,
+            duration: 1000
+        });
+    }
+
+    /**
+     * Zoom to all selected features using state manager data
+     */
+    _zoomToSelection() {
+        if (!this._stateManager || !this._map) return;
+
+        try {
+            // Check if turf is available
+            if (typeof turf === 'undefined') {
+                console.error('[MapFeatureControl] Turf.js not loaded');
+                return;
+            }
+
+            // Collect all selected features from state manager
+            const features = [];
+            const activeLayers = this._stateManager.getActiveLayers();
+
+            activeLayers.forEach((layerData, layerId) => {
+                layerData.features.forEach((featureState, featureId) => {
+                    if (featureState.isSelected && featureState.feature) {
+                        const feature = featureState.feature;
+
+                        // Validate feature has geometry with coordinates
+                        if (feature.geometry &&
+                            feature.geometry.coordinates &&
+                            Array.isArray(feature.geometry.coordinates)) {
+                            features.push(feature);
+                        }
+                    }
+                });
+            });
+
+            if (features.length === 0) {
+                console.warn('[MapFeatureControl] No features with valid geometries to zoom to');
+                return;
+            }
+
+            // Use Turf.js to calculate bounding box
+            const featureCollection = turf.featureCollection(features);
+            const bbox = turf.bbox(featureCollection);
+
+            // Fit map to bounds
+            this._map.fitBounds([
+                [bbox[0], bbox[1]],
+                [bbox[2], bbox[3]]
+            ], {
+                padding: 50,
+                duration: 1000
+            });
+        } catch (error) {
+            console.error('[MapFeatureControl] Error zooming to selection:', error);
+        }
     }
 
     /**
