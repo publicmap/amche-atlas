@@ -245,6 +245,10 @@ export class MapBrowserControl {
                 console.log('[MapBrowserControl] Received zoom-to-layer message for:', event.data.layerId);
                 this._handleZoomToLayer(event.data.layerId);
             }
+
+            if (event.data.type === 'update-atlas-param') {
+                this._handleUpdateAtlasParam(event.data.atlasId);
+            }
         });
 
         window.addEventListener('layer-toggled', () => {
@@ -341,13 +345,17 @@ export class MapBrowserControl {
             this._map.getBounds().getNorth()
         ] : null;
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const atlasParam = urlParams.get('atlas');
+
         this._iframe.contentWindow.postMessage({
             type: 'layer-data',
             layers: layers,
             activeLayers: Array.from(activeLayers),
             atlasMetadata: atlasMetadata,
             bounds: bounds,
-            mapboxToken: window.amche?.MAPBOXGL_ACCESS_TOKEN || mapboxgl.accessToken
+            mapboxToken: window.amche?.MAPBOXGL_ACCESS_TOKEN || mapboxgl.accessToken,
+            selectedAtlasId: atlasParam
         }, '*');
     }
 
@@ -763,9 +771,65 @@ export class MapBrowserControl {
         jsonString = jsonString.replace(/"/g, "'");
         console.log('[MapBrowserControl] New layer JSON:', jsonString);
 
-        // Decode existing layers, combine with new, then re-encode
+        // Decode existing layers, combine with new while maintaining basemap grouping
         const existingLayersDecoded = existingLayersEncoded ? decodeURIComponent(existingLayersEncoded) : '';
-        const newLayersDecoded = existingLayersDecoded ? jsonString + ',' + existingLayersDecoded : jsonString;
+
+        // Parse existing layers to separate overlays and basemaps
+        let overlayLayers = [];
+        let basemapLayers = [];
+
+        if (existingLayersDecoded) {
+            const layers = existingLayersDecoded.split(',');
+            layers.forEach(layerStr => {
+                const layerStr_trimmed = layerStr.trim();
+                // Try to parse as JSON to check for basemap tag
+                try {
+                    if (layerStr_trimmed.startsWith('{') || layerStr_trimmed.startsWith("{'")) {
+                        const parsed = JSON.parse(layerStr_trimmed.replace(/'/g, '"'));
+                        const isBasemap = parsed.tags && Array.isArray(parsed.tags) && parsed.tags.includes('basemap');
+                        if (isBasemap) {
+                            basemapLayers.push(layerStr_trimmed);
+                        } else {
+                            overlayLayers.push(layerStr_trimmed);
+                        }
+                    } else {
+                        // Simple layer ID - check if it's a basemap in the registry
+                        const layerId = layerStr_trimmed;
+                        const layer = window.layerRegistry?.getLayer(layerId);
+                        const isBasemap = layer && layer.tags && Array.isArray(layer.tags) && layer.tags.includes('basemap');
+                        if (isBasemap) {
+                            basemapLayers.push(layerStr_trimmed);
+                        } else {
+                            overlayLayers.push(layerStr_trimmed);
+                        }
+                    }
+                } catch (e) {
+                    // If parsing fails, assume it's an overlay ID
+                    const layerId = layerStr_trimmed;
+                    const layer = window.layerRegistry?.getLayer(layerId);
+                    const isBasemap = layer && layer.tags && Array.isArray(layer.tags) && layer.tags.includes('basemap');
+                    if (isBasemap) {
+                        basemapLayers.push(layerStr_trimmed);
+                    } else {
+                        overlayLayers.push(layerStr_trimmed);
+                    }
+                }
+            });
+        }
+
+        // Determine if new layer is a basemap
+        const isNewLayerBasemap = config.tags && Array.isArray(config.tags) && config.tags.includes('basemap');
+
+        // Add new layer at the beginning of appropriate group
+        if (isNewLayerBasemap) {
+            basemapLayers.unshift(jsonString);
+        } else {
+            overlayLayers.unshift(jsonString);
+        }
+
+        // Combine: overlays first, then basemaps (maintaining order within each group)
+        const allLayers = [...overlayLayers, ...basemapLayers];
+        const newLayersDecoded = allLayers.join(',');
         console.log('[MapBrowserControl] Combined layers (decoded):', newLayersDecoded);
 
         // Build URL manually
@@ -824,5 +888,18 @@ export class MapBrowserControl {
 
         console.log('[MapBrowserControl] Reloading with atlas URL:', finalUrl);
         window.location.href = finalUrl;
+    }
+
+    _handleUpdateAtlasParam(atlasId) {
+        const params = new URLSearchParams(window.location.search);
+
+        if (atlasId) {
+            params.set('atlas', atlasId);
+        } else {
+            params.delete('atlas');
+        }
+
+        const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
+        window.history.replaceState(null, '', newUrl);
     }
 }

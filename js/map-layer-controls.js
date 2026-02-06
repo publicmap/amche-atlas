@@ -260,29 +260,17 @@ export class MapLayerControl {
      */
     _initializeAllLayers() {
         this._state.groups.forEach((group, groupIndex) => {
-            // Initialize the layer state using MapboxAPI
-            // For all layers, explicitly set their initial visibility state
             if (group.initiallyChecked) {
-                requestAnimationFrame(() => {
-                    this._toggleLayerGroup(groupIndex, true);
-                });
+                this._toggleLayerGroup(groupIndex, true);
             } else {
-                // Explicitly hide layers that should not be visible initially
-                // This is especially important for style layers which are visible by default
-                // For style layers, we need to ensure the map style is loaded before hiding
                 const shouldDelay = group.type === 'style' && !this._map.getStyle();
 
                 if (shouldDelay) {
-                    // Wait for style to load before hiding style layers
                     this._map.once('style.load', () => {
-                        requestAnimationFrame(() => {
-                            this._toggleLayerGroup(groupIndex, false);
-                        });
-                    });
-                } else {
-                    requestAnimationFrame(() => {
                         this._toggleLayerGroup(groupIndex, false);
                     });
+                } else {
+                    this._toggleLayerGroup(groupIndex, false);
                 }
             }
         });

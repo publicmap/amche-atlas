@@ -712,8 +712,12 @@
                     currentBounds = event.data.bounds;
                     mapboxAccessToken = event.data.mapboxToken;
 
-                    // Check for imported atlas and auto-select it
-                    if (!window.selectedAtlasId) {
+                    // Check for atlas selection from URL parameter first
+                    if (event.data.selectedAtlasId && atlasMetadata.has(event.data.selectedAtlasId)) {
+                        const metadata = atlasMetadata.get(event.data.selectedAtlasId);
+                        selectAtlas(event.data.selectedAtlasId, metadata.name || event.data.selectedAtlasId, true);
+                    } else if (!window.selectedAtlasId) {
+                        // Check for imported atlas and auto-select it
                         for (const [atlasId, metadata] of atlasMetadata.entries()) {
                             if (metadata.isImported) {
                                 window.selectedAtlasId = atlasId;
@@ -1180,7 +1184,7 @@
         }
 
         // Select atlas filter
-        function selectAtlas(atlasId, atlasName) {
+        function selectAtlas(atlasId, atlasName, skipURLUpdate = false) {
             window.selectedAtlasId = atlasId;
             const $btn = $('#atlas-filter-btn');
             $btn.text(atlasName);
@@ -1191,13 +1195,37 @@
                 const color = metadata.color || '#3b82f6';
                 $btn.css('background', color);
                 $btn.data('atlas-color', color);
+
+                // Expand the selected atlas
+                expandedAtlasId = atlasId;
             } else {
                 // Reset to default blue for "All Map Collections"
                 $btn.css('background', '#3b82f6');
                 $btn.data('atlas-color', '#3b82f6');
+
+                // When "All" is selected, expand the first atlas
+                expandedAtlasId = null; // Will be set to first atlas in renderLayerGrid
             }
 
             renderLayers();
+
+            // Notify parent to update URL with atlas parameter (unless this is from URL initialization)
+            if (!skipURLUpdate) {
+                window.parent.postMessage({
+                    type: 'update-atlas-param',
+                    atlasId: atlasId || ''
+                }, '*');
+            }
+
+            // Scroll to the selected atlas after rendering
+            if (atlasId) {
+                setTimeout(() => {
+                    document.getElementById(`atlas-${atlasId}`)?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }, 200);
+            }
         }
 
         // Check if layer is a global/world layer

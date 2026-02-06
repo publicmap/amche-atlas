@@ -3,6 +3,8 @@
  * Supports deep linking with ?atlas=X and ?layers=X parameters
  */
 
+import { LayerOrderManager } from './layer-order-manager.js';
+
 export class URLManager {
     constructor(mapLayerControl, map) {
         this.mapLayerControl = mapLayerControl;
@@ -57,7 +59,7 @@ export class URLManager {
         }
 
         // If it's a simple layer with just an ID (no opacity or other properties), return the normalized ID
-        if (layer.id && Object.keys(layer).filter(k => !k.startsWith('_')).length === 1) {
+        if (layer.id && Object.keys(layer).filter(k => !k.startsWith('_') && k !== 'tags' && k !== 'initiallyChecked').length === 1) {
             return layerId;
         }
 
@@ -66,7 +68,7 @@ export class URLManager {
         Object.keys(layer).forEach(key => {
             if (key !== '_originalJson' && key !== '_normalizedId' &&
                 key !== '_sourceAtlas' && key !== '_prefixedId' &&
-                key !== 'id' && key !== 'initiallyChecked') {
+                key !== 'id' && key !== 'initiallyChecked' && key !== 'tags') {
                 cleanLayer[key] = layer[key];
             }
         });
@@ -254,10 +256,20 @@ export class URLManager {
         const crossAtlasLayers = this.getActiveCrossAtlasLayers();
         activeLayers.push(...crossAtlasLayers);
 
-        // Reverse the order so newest layers appear first in the URL
-        activeLayers.reverse();
+        // Enrich layers with full config to check basemap tags
+        const enrichedLayers = activeLayers.map(layer => {
+            const layerConfig = this.mapLayerControl._state.groups.find(g =>
+                g.id === layer.id || g._prefixedId === layer.id
+            );
+            return {
+                ...layer,
+                tags: layerConfig?.tags || layer.tags
+            };
+        });
 
-        return activeLayers;
+        // Use centralized ordering logic: map order → URL order
+        // This handles: reversal + basemap grouping (overlays first, basemaps at end)
+        return LayerOrderManager.mapOrderToUrlOrder(enrichedLayers);
     }
 
     /**

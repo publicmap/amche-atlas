@@ -116,41 +116,13 @@
         "basemap",
         "satellite"
       ],
-      "type": "raster-style-layer",
+      "type": "tms",
       "title": "Satellite Imagery",
       "description": "Satellite imagery from Mapbox. See <a href='https://docs.mapbox.com/help/dive-deeper/imagery/'>Mapbox Satellite Imagery</a> for details.",
       "headerImage": "assets/map-layers/mapbox/map-layer-satellite.png",
       "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
-      "styleLayer": "satellite",
-      "style": {
-        "raster-brightness-min": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          8,
-          0.5,
-          16,
-          0.3
-        ],
-        "raster-brightness-max": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          8,
-          0.7,
-          16,
-          0.8
-        ],
-        "raster-opacity": 1
-      }
+      "url": "mapbox://mapbox.satellite",
+      "maxzoom": 22
     }
   ]
 }

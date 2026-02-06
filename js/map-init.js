@@ -2,6 +2,7 @@ import { URLManager } from './url-manager.js';
 import { TimeControl } from './time-control.js';
 import { ButtonShareLink } from './button-share-link.js';
 import { MapLayerControl } from './map-layer-controls.js';
+import { LayerOrderManager } from './layer-order-manager.js';
 import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
 import { MapExportControl } from './map-export-control.js';
@@ -171,57 +172,50 @@ export class MapInitializer {
                     window.history.replaceState({}, '', newUrl);
                 }
 
-                // Merge URL layers while preserving the original config order and respecting URL ordering
-                const urlLayersMap = new Map(processedUrlLayers.map(l => [l.id, l]));
+                // Convert URL order to map rendering order using centralized logic
+                // This handles: URL reversal + basemap grouping
+                const mapOrderLayers = LayerOrderManager.urlOrderToMapOrder(processedUrlLayers);
 
-                // Build final layers array
-                const finalLayers = [...existingLayers];
+                // Build final layers array by merging with existing config
+                const finalLayers = [];
 
-                // Process URL layers in the order they appear in the URL
-                let lastInsertedIndex = -1;
+                // Add URL layers in map order (basemaps first, overlays after)
+                mapOrderLayers.forEach(urlLayer => {
+                    // Find matching layer in existing config to merge properties
+                    const existingLayer = existingLayers.find(layer => layer.id === urlLayer.id);
 
-                processedUrlLayers.forEach((urlLayer, urlIndex) => {
-                    const existingIndex = finalLayers.findIndex(layer => layer.id === urlLayer.id);
-
-                    if (existingIndex !== -1) {
-                        // Merge existing layer with URL layer properties (preserving all config properties while adding URL-specific ones)
-                        finalLayers[existingIndex] = {
-                            ...finalLayers[existingIndex],
+                    if (existingLayer) {
+                        // Merge existing layer with URL layer properties
+                        finalLayers.push({
+                            ...existingLayer,
                             ...urlLayer,
                             // Ensure critical URL properties are preserved
                             ...(urlLayer._originalJson && { _originalJson: urlLayer._originalJson }),
                             ...(urlLayer.initiallyChecked !== undefined && { initiallyChecked: urlLayer.initiallyChecked }),
                             ...(urlLayer.opacity !== undefined && { opacity: urlLayer.opacity })
-                        };
-                        lastInsertedIndex = existingIndex;
+                        });
                     } else {
-                        // This is a new layer - insert it in the right position based on URL order
-                        let insertPosition;
-
-                        if (lastInsertedIndex !== -1) {
-                            // Insert after the last processed URL layer
-                            insertPosition = lastInsertedIndex + 1;
-                        } else {
-                            // First new layer - find where to insert based on previous URL layers
-                            let insertAfterIndex = -1;
-
-                            // Look for the previous URL layer in the URL list
-                            for (let i = urlIndex - 1; i >= 0; i--) {
-                                const prevUrlLayer = processedUrlLayers[i];
-                                const prevLayerIndex = finalLayers.findIndex(layer => layer.id === prevUrlLayer.id);
-                                if (prevLayerIndex !== -1) {
-                                    insertAfterIndex = prevLayerIndex;
-                                    break;
-                                }
-                            }
-
-                            insertPosition = insertAfterIndex !== -1 ? insertAfterIndex + 1 : 0;
-                        }
-
-                        // Insert the new layer
-                        finalLayers.splice(insertPosition, 0, urlLayer);
-                        lastInsertedIndex = insertPosition;
+                        // New layer not in existing config
+                        finalLayers.push(urlLayer);
                     }
+                });
+
+                // Add any remaining layers from existing config that weren't in URL (set to not initially checked)
+                existingLayers.forEach(layer => {
+                    if (!urlLayerIds.has(layer.id)) {
+                        finalLayers.push({
+                            ...layer,
+                            initiallyChecked: false
+                        });
+                    }
+                });
+
+                console.log('[map-init] Final layers order (will be added to map in this order):');
+                finalLayers.forEach((layer, index) => {
+                    const isFromUrl = urlLayerIds.has(layer.id);
+                    const tags = layer.tags ? ` [${layer.tags.join(', ')}]` : '';
+                    const isBasemap = LayerOrderManager.isBasemap(layer);
+                    console.log(`  ${index}: ${layer.id}${tags}${isBasemap ? ' [BASEMAP]' : ''}${isFromUrl ? ' (from URL)' : ''}`);
                 });
 
                 config.layers = finalLayers;

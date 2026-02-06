@@ -97,7 +97,6 @@
     {
       "title": "Open Building Footprints 2023 ",
       "description": "Open data of AI generated building footprints from satellite imagery upto 2023. For technical details see <a href='https://arxiv.org/abs/2107.12283'>Continental-Scale Building Detection from High Resolution Satellite Imagery</a>.",
-      "headerImage": "assets/map-layers/world/map-layer-open-buildings.png",
       "type": "vector",
       "id": "2023-open-buildings",
       "url": "https://indianopenmaps.fly.dev/google-buildings/{z}/{x}/{y}.pbf",

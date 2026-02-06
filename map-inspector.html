@@ -403,6 +403,7 @@
     <script type="module">
         import { LayerThumbnail } from './js/layer-thumbnail.js';
         import { handlerLoader } from './js/inspection-handler-loader.js';
+        import { LayerOrderManager } from './js/layer-order-manager.js';
 
         // State
         let activeLayers = [];
@@ -704,36 +705,117 @@
                 return;
             }
 
-            const overlayMaps = [];
-            const baseMaps = [];
+            // Get the layer order from URL parameters for mapping
+            // Use proper JSON-aware parsing to handle objects like {"id":"layer","opacity":0.5}
+            const urlParams = new URLSearchParams(window.location.search);
+            const layersParam = urlParams.get('layers');
+            const urlLayerOrder = new Map(); // layerId -> order index
+            const urlLayers = []; // Store parsed layers for ordering
 
-            activeLayers.forEach(layerConfig => {
-                const isBasemap = layerConfig.tags && Array.isArray(layerConfig.tags) &&
-                    layerConfig.tags.includes('basemap');
+            if (layersParam) {
+                // Parse layers properly handling JSON objects with commas
+                let currentItem = '';
+                let braceCount = 0;
+                let inQuotes = false;
+                let index = 0;
 
-                if (isBasemap) {
-                    baseMaps.push(layerConfig);
-                } else {
-                    overlayMaps.push(layerConfig);
+                for (let i = 0; i < layersParam.length; i++) {
+                    const char = layersParam[i];
+
+                    if (char === '"' && (i === 0 || layersParam[i-1] !== '\\')) {
+                        inQuotes = !inQuotes;
+                    }
+
+                    if (!inQuotes) {
+                        if (char === '{') braceCount++;
+                        else if (char === '}') braceCount--;
+                    }
+
+                    if (char === ',' && braceCount === 0 && !inQuotes) {
+                        // Found a separator, process current item
+                        const trimmed = currentItem.trim();
+                        if (trimmed) {
+                            try {
+                                if (trimmed.startsWith('{')) {
+                                    const parsed = JSON.parse(trimmed);
+                                    urlLayerOrder.set(parsed.id, index);
+                                    urlLayers.push(parsed);
+                                } else {
+                                    urlLayerOrder.set(trimmed, index);
+                                    urlLayers.push({ id: trimmed });
+                                }
+                            } catch (e) {
+                                urlLayerOrder.set(trimmed, index);
+                                urlLayers.push({ id: trimmed });
+                            }
+                            index++;
+                        }
+                        currentItem = '';
+                    } else {
+                        currentItem += char;
+                    }
                 }
-            });
 
-            // Sort each group: layers with selections OR hovers first
-            overlayMaps.sort((a, b) => {
+                // Process last item
+                const trimmed = currentItem.trim();
+                if (trimmed) {
+                    try {
+                        if (trimmed.startsWith('{')) {
+                            const parsed = JSON.parse(trimmed);
+                            urlLayerOrder.set(parsed.id, index);
+                            urlLayers.push(parsed);
+                        } else {
+                            urlLayerOrder.set(trimmed, index);
+                            urlLayers.push({ id: trimmed });
+                        }
+                    } catch (e) {
+                        urlLayerOrder.set(trimmed, index);
+                        urlLayers.push({ id: trimmed });
+                    }
+                }
+            }
+
+            // Use centralized ordering logic for inspector display
+            const { overlays: overlayMaps, basemaps: baseMaps } = LayerOrderManager.getInspectorDisplayOrder(activeLayers);
+
+            // Sort function: selections/hovers first, then URL order
+            const sortWithActivityPriority = (a, b) => {
                 const aHasActivity = selectedFeatures.has(a.id) || hoveredFeatures.has(a.id);
                 const bHasActivity = selectedFeatures.has(b.id) || hoveredFeatures.has(b.id);
                 if (aHasActivity && !bHasActivity) return -1;
                 if (!aHasActivity && bHasActivity) return 1;
-                return 0;
-            });
 
-            baseMaps.sort((a, b) => {
-                const aHasActivity = selectedFeatures.has(a.id) || hoveredFeatures.has(a.id);
-                const bHasActivity = selectedFeatures.has(b.id) || hoveredFeatures.has(b.id);
-                if (aHasActivity && !bHasActivity) return -1;
-                if (!aHasActivity && bHasActivity) return 1;
+                // Maintain URL order (already in correct order from LayerOrderManager)
+                const aOrder = urlLayerOrder.get(a.id);
+                const bOrder = urlLayerOrder.get(b.id);
+                if (aOrder !== undefined && bOrder !== undefined) {
+                    return aOrder - bOrder;
+                }
                 return 0;
+            };
+
+            overlayMaps.sort(sortWithActivityPriority);
+            baseMaps.sort(sortWithActivityPriority);
+
+            // Log the layer order for debugging with visual stack representation
+            console.log('[Inspector] Layer display order (matches visual stack on map):');
+            console.log('  ┌─ TOP OF STACK (visually on top) ─┐');
+            console.log('  │ === OVERLAY MAPS ===');
+            overlayMaps.forEach((layer, index) => {
+                const hasActivity = selectedFeatures.has(layer.id) || hoveredFeatures.has(layer.id);
+                const urlOrder = urlLayerOrder.get(layer.id);
+                const prefix = index === 0 ? '  ├─' : '  │ ';
+                console.log(`${prefix} ${layer.id} (URL:${urlOrder !== undefined ? urlOrder : 'N/A'})${hasActivity ? ' 🎯' : ''}`);
             });
+            console.log('  │ === BASE MAPS ===');
+            baseMaps.forEach((layer, index) => {
+                const hasActivity = selectedFeatures.has(layer.id) || hoveredFeatures.has(layer.id);
+                const urlOrder = urlLayerOrder.get(layer.id);
+                const isLast = index === baseMaps.length - 1;
+                const prefix = isLast ? '  └─' : '  │ ';
+                console.log(`${prefix} ${layer.id} (URL:${urlOrder !== undefined ? urlOrder : 'N/A'})${hasActivity ? ' 🎯' : ''}`);
+            });
+            console.log('  └─ BOTTOM OF STACK (base layer) ───┘');
 
             // Update counts
             $('#overlay-count').text(`(${overlayMaps.length})`);
