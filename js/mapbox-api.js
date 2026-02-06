@@ -1143,6 +1143,10 @@ export class MapboxAPI {
         // Determine the SRS/CRS to use
         const targetSrs = srs || params.srs || params.crs || 'EPSG:3857';
 
+        // Determine WMS version
+        const version = params.version || '1.1.1';
+        const useCRS = version >= '1.3.0';
+
         // Choose the appropriate bbox placeholder based on SRS
         const bboxPlaceholder = targetSrs === 'EPSG:4326' ? '{bbox-epsg-4326}' : '{bbox-epsg-3857}';
 
@@ -1153,9 +1157,9 @@ export class MapboxAPI {
             'bbox': bboxPlaceholder,
             'format': params.format || 'image/png',
             'service': params.service || 'WMS',
-            'version': params.version || '1.1.1',
+            'version': version,
             'request': params.request || 'GetMap',
-            'srs': targetSrs,
+            [useCRS ? 'crs' : 'srs']: targetSrs,
             'transparent': params.transparent || 'true',
             'width': tileSize.toString(),
             'height': tileSize.toString(),

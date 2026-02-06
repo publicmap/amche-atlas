@@ -131,7 +131,6 @@
       ],
       "title": "Schools",
       "description": "Schools locations by capacity",
-      "headerImage": "assets/map-layers/goa/map-layer-schools.png",
       "type": "csv",
       "id": "goa-schools",
       "url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQAjIaxmEf4dv9eGjASL9YSlVGJLsmvfggZpGApiUP4YD6uexFG4otpwy0wQAWUFW4De4Pz4QKy79yV/pub?gid=1786282296&single=true&output=csv",
@@ -294,7 +293,7 @@
       ],
       "title": "Outline Development Plan 2011",
       "description": "Outline Development Plan 2011 prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a>",
-      "headerImage": "assets/map-layers/goa/map-layer-rdp.png",
+      "headerImage": "https://mapwarper.net/uploads/91643/thumb/2008_Final_Panaji_ODP-2011.png",
       "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
       "type": "tms",
       "id": "2011-outline-plan",
@@ -367,7 +366,7 @@
       ],
       "initiallyChecked": true,
       "title": "Local Body Boundaries",
-      "description": "Municipal and Panchayat local body boundaries. Please see <a href='https://grammanchitra.gov.in/gm4MVC' target='_blank'>Gramanchiitra</a> for panchayat demographic profile and information on elected representatives.",
+      "description": "Municipal and Panchayat local body boundaries. Please see <a href='https://grammanchitra.gov.in/gm4MVC'>Gramanchiitra</a> for panchayat demographic profile and information on elected representatives.",
       "headerImage": "assets/map-layers/goa/map-layer-local-boundaries.png",
       "type": "vector",
       "id": "local-body",
@@ -664,7 +663,7 @@
         "survey"
       ],
       "title": "Survey Plot Boundaries",
-      "description": "Survey and plot subdivision boundaries from the <a href='Directorate of Settlement & Land Records'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31' target='_blank' rel='noopener noreferrer'>Goa Online</a> and <a href='https://dslr.goa.gov.in/f114new.aspx' target='_blank' rel='noopener noreferrer'>Directorate of Settlement & Land Records (Form 1 & 14)</a>",
+      "description": "Survey and plot subdivision boundaries from the <a href='Directorate of Settlement & Land Records'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online</a> and <a href='https://dslr.goa.gov.in/f114new.aspx'>Directorate of Settlement & Land Records (Form 1 & 14)</a>",
       "headerImage": "assets/map-layers/goa/map-layer-survey.png",
       "type": "vector",
       "id": "plots",
@@ -866,7 +865,7 @@
           "Taluk",
           "Shape Area (sqm)"
         ],
-        "customHtml": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/' target='_blank'>Bhunaksha Goa</a> | <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31' target='_blank'>View RoR</a> | <a href='https://davepaiva.github.io/goa-cadastral-duckdb-demo/' target='_blank'>Search</a>",
+        "customHtml": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Bhunaksha Goa</a> | <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>View RoR</a> | <a href='https://davepaiva.github.io/goa-cadastral-duckdb-demo/'>Search</a>",
         "onClick": "getBhunakshaInfo"
       }
     },
@@ -1199,7 +1198,7 @@
           "Type",
           " Coverage"
         ],
-        "customHtml": "<a href='https://www.fao.org/soils-portal/data-hub/soil-maps-and-databases/faounesco-soil-map-of-the-world/en/' target='_blank'>Soil Code Lookup</a> | <a href='https://www.fao.org/soils-portal/data-hub/soil-maps-and-databases/faounesco-soil-map-of-the-world/en/'>Soil Unit Lookup</a> | <a href='https://www.fao.org/fileadmin/user_upload/soils/docs/Soil_map_FAOUNESCO/acrobat/South_Asia_VII_II.pdf' target='_blank'>South Asia Soil Unit Map</a>"
+        "customHtml": "<a href='https://www.fao.org/soils-portal/data-hub/soil-maps-and-databases/faounesco-soil-map-of-the-world/en/'>Soil Code Lookup</a> | <a href='https://www.fao.org/soils-portal/data-hub/soil-maps-and-databases/faounesco-soil-map-of-the-world/en/'>Soil Unit Lookup</a> | <a href='https://www.fao.org/fileadmin/user_upload/soils/docs/Soil_map_FAOUNESCO/acrobat/South_Asia_VII_II.pdf'>South Asia Soil Unit Map</a>"
       }
     },
     {
@@ -1907,7 +1906,7 @@
           "rgba(255, 255, 255,0)"
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/99226' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/99226'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/99226/thumb/Contour_Plan___Section.png",
       "bbox": "73.887982,15.3975793,73.8910762,15.4018527",
       "initiallyChecked": false
@@ -1941,7 +1940,7 @@
           "rgba(255, 255, 255,0)"
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/99229' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/99229'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/99229/thumb/Site_Plan_with_Drainage_System.png",
       "bbox": "73.8875597,15.3975526,73.8906675,15.401894",
       "initiallyChecked": false
@@ -1969,7 +1968,7 @@
           0.3
         ]
       },
-      "attribution": "GSBB <a href='https://mapwarper.net/maps/102030' target='_blank'>MapWarper</a>",
+      "attribution": "GSBB <a href='https://mapwarper.net/maps/102030'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/102030/thumb/11._2025_GSBB_Detail_Plan_for_Colva_Lake.png",
       "bbox": "73.9183777,15.2753816,73.9238164,15.2832137",
       "initiallyChecked": false
@@ -2001,7 +2000,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://parivesh.nic.in/newupgrade/#/report/ec?proposalId=122438739' target='_blank'>Parivesh</a> via <a href='https://mapwarper.net/maps/98587' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://parivesh.nic.in/newupgrade/#/report/ec?proposalId=122438739'>Parivesh</a> via <a href='https://mapwarper.net/maps/98587'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/98587/thumb/replinshment_study_report_20.08.25.png",
       "bbox": "73.8839661,15.4909629,73.8853313,15.492675",
       "initiallyChecked": false
@@ -2034,7 +2033,7 @@
           0
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/98268' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/98268'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/98268/thumb/Screenshot_2025-10-21_at_6.04.27%E2%80%AFPM.png",
       "bbox": "73.8341072,15.5020322,73.8719055,15.5296044",
       "initiallyChecked": false
@@ -2066,7 +2065,7 @@
           0
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/98250' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/98250'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/98250/thumb/DPR_Annexures_Feb_2024.png",
       "bbox": "73.8248838,15.4937915,73.8712939,15.5425383",
       "initiallyChecked": false
@@ -2099,7 +2098,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/98680' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/98680'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/98680/thumb/carta_mining.png",
       "bbox": "73.6444309,14.9127963,74.3573385,15.8364441",
       "initiallyChecked": false
@@ -2129,7 +2128,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/97500#Rectify_tab' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/97500#Rectify_tab'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/97500/thumb/Screenshot_2025-09-30_at_3.06.41%E2%80%AFPM.png",
       "bbox": "74.0563668,15.3793377,74.3106547,15.7209933",
       "initiallyChecked": false
@@ -2202,7 +2201,7 @@
           0.3
         ]
       },
-      "attribution": "The water budget of the Mahadayi river and its implications for the inter-state dispute via<a href='https://mapwarper.net/maps/98327' target='_blank'>MapWarper</a>",
+      "attribution": "The water budget of the Mahadayi river and its implications for the inter-state dispute via<a href='https://mapwarper.net/maps/98327'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/98327/thumb/Screenshot_2025-10-22_at_11.29.32%E2%80%AFPM.png",
       "bbox": "73.6232307,15.0563609,74.4812173,15.7425805",
       "initiallyChecked": false
@@ -2218,7 +2217,7 @@
       "type": "tms",
       "id": "ams-map",
       "url": "https://mapwarper.net/maps/tile/89833/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://maps.lib.utexas.edu/maps/ams/india/'>Perry-Castañeda Library Map Collection, The University of Texas at Austin</a> via <a href='https://mapwarper.net/maps/89833' target='_blank'>MapWarper</a>"
+      "attribution": "<a href='https://maps.lib.utexas.edu/maps/ams/india/'>Perry-Castañeda Library Map Collection, The University of Texas at Austin</a> via <a href='https://mapwarper.net/maps/89833'>MapWarper</a>"
     },
     {
       "tags": [
@@ -2266,7 +2265,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/95676' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/95676'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/95676/thumb/Proposed_TR_Map__1_.png",
       "bbox": "73.9288025,15.2009539,74.4074284,15.7801554",
       "initiallyChecked": false
@@ -2276,8 +2275,8 @@
         "survey"
       ],
       "title": "Forest Map Of Goa 2007",
-      "description": "Forest Survey Map Of Goa 2007 by Forest Department of Goa. Map shows administrative jurisdiction limits and divisions of the forest of Goa. Map also includes details of revenue village divisions (outlined red) and major roads (yellow). See <a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg' target='_blank'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a>",
-      "source": "<a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg' target='_blank'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a>",
+      "description": "Forest Survey Map Of Goa 2007 by Forest Department of Goa. Map shows administrative jurisdiction limits and divisions of the forest of Goa. Map also includes details of revenue village divisions (outlined red) and major roads (yellow). See <a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a>",
+      "source": "<a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a>",
       "date": "2007",
       "type": "tms",
       "id": "forest-2007",
@@ -2300,7 +2299,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg' target='_blank'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a> via <a href='https://warper.wmflabs.org/maps/9257#Rectify_tab' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a> via <a href='https://warper.wmflabs.org/maps/9257#Rectify_tab'>MapWarper</a>",
       "headerImage": "assets/map-layers/goa/map-layer-goa-forest.png",
       "bbox": "73.6475218,14.8655995,74.379549,15.8221062",
       "initiallyChecked": false
@@ -2479,7 +2478,7 @@
           0.05
         ]
       },
-      "attribution": "Fish, Curry and Rice via <a href='https://mapwarper.net/maps/89528' target='_blank'>MapWarper</a>",
+      "attribution": "Fish, Curry and Rice via <a href='https://mapwarper.net/maps/89528'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/89528/thumb/IMG_4225.png",
       "bbox": "73.8625273,15.5908022,73.8877474,15.6217674",
       "initiallyChecked": false

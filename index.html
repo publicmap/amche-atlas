@@ -79,6 +79,7 @@
         .full-viewport-height {
             height: 100vh;
         }
+
         @supports (height: 100dvh) {
             .full-viewport-height {
                 height: 100dvh;
@@ -86,33 +87,81 @@
         }
 
         /* Basic layout utilities */
-        .flex { display: flex; }
-        .flex-col { flex-direction: column; }
-        .flex-grow { flex-grow: 1; }
-        .flex-shrink-0 { flex-shrink: 0; }
-        .items-center { align-items: center; }
-        .justify-between { justify-content: space-between; }
-        .justify-start { justify-content: flex-start; }
-        .gap-2 { gap: 0.5rem; }
-        .gap-3 { gap: 0.75rem; }
-        .min-w-0 { min-width: 0; }
-        .relative { position: relative; }
-        .h-full { height: 100%; }
+        .flex {
+            display: flex;
+        }
+
+        .flex-col {
+            flex-direction: column;
+        }
+
+        .flex-grow {
+            flex-grow: 1;
+        }
+
+        .flex-shrink-0 {
+            flex-shrink: 0;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .justify-start {
+            justify-content: flex-start;
+        }
+
+        .gap-2 {
+            gap: 0.5rem;
+        }
+
+        .gap-3 {
+            gap: 0.75rem;
+        }
+
+        .min-w-0 {
+            min-width: 0;
+        }
+
+        .relative {
+            position: relative;
+        }
+
+        .h-full {
+            height: 100%;
+        }
 
         /* Header navigation */
         .header-nav {
             padding: 0.625rem 1rem;
             height: 56px;
         }
-        .bg-gray-900 { background-color: #111827; }
-        .text-white { color: white; }
-        .border-b { border-bottom-width: 1px; }
-        .border-gray-800 { border-color: #1f2937; }
+
+        .bg-gray-900 {
+            background-color: #111827;
+        }
+
+        .text-white {
+            color: white;
+        }
+
+        .border-b {
+            border-bottom-width: 1px;
+        }
+
+        .border-gray-800 {
+            border-color: #1f2937;
+        }
 
         /* Navigation brand */
         .nav-brand {
             height: 36px;
         }
+
         .nav-logo {
             width: 28px;
             height: 28px;
@@ -121,6 +170,7 @@
             flex-shrink: 0;
             object-fit: contain;
         }
+
         .nav-title {
             font-size: 1.125rem;
             line-height: 1.2;
@@ -128,13 +178,19 @@
             font-weight: 600;
             letter-spacing: -0.025em;
         }
-        .rounded { border-radius: 0.375rem; }
+
+        .rounded {
+            border-radius: 0.375rem;
+        }
 
         /* Header controls */
         .header-controls {
             height: 36px;
         }
-        .max-w-md { max-width: 28rem; }
+
+        .max-w-md {
+            max-width: 28rem;
+        }
 
         /* Responsive adjustments */
         @media (max-width: 640px) {
@@ -142,30 +198,44 @@
                 padding: 0.5rem 0.75rem;
                 height: 52px;
             }
+
             .nav-logo {
                 width: 24px;
                 height: 24px;
                 max-width: 24px;
                 max-height: 24px;
             }
+
             .nav-brand {
                 height: 32px;
             }
-            .sm\:gap-3 { gap: 0.75rem; }
-            .sm\:flex { display: flex; }
+
+            .sm\:gap-3 {
+                gap: 0.75rem;
+            }
+
+            .sm\:flex {
+                display: flex;
+            }
         }
 
         /* Loading spinner animation */
         @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
         }
     </style>
 
     <!-- Application Scripts -->
     <script defer src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script><!-- Tailwind CSS via CDN -->
     <script defer src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script><!-- Add jQuery -->
-    <script defer src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script><!-- Turf.js for geospatial operations -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
+    <!-- Turf.js for geospatial operations -->
     <script defer src="https://cdn.jsdelivr.net/npm/mapbox-gl@3.16.0/dist/mapbox-gl.min.js"></script>
     <!-- Mapbox GL JS -->
     <script defer src="https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js"></script><!-- Mapbox GL JS -->
@@ -213,29 +283,90 @@
         style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 1000;">
         <div id="nav-menu-container"
             style="position: absolute; top: 0; right: 0; width: 360px; height: 100%; background: #1f2937; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); overflow-y: auto;">
-            <!-- Menu Header -->
+            <!-- Hero Header -->
             <div
-                style="background: linear-gradient(135deg, #111827 0%, #1f2937 100%); padding: 1.25rem; border-bottom: 1px solid #374151;">
+                style="position: relative; padding: 2rem 1.25rem; border-bottom: 1px solid #374151; overflow: hidden; min-height: 200px;">
                 <div
-                    style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.75rem;">
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <img src="/assets/img/icon-192x192.png" alt="amche.in"
-                            style="width: 40px; height: 40px; border-radius: 8px;">
-                        <div>
+                    style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: url('https://raw.githubusercontent.com/publicmap/amche-atlas/refs/heads/dev/assets/img/og_image.jpg'); background-size: cover; background-position: center; opacity: 0.25; animation: subtlePan 60s ease-in-out infinite;">
+                </div>
+                <div style="position: relative; z-index: 1;">
+                    <div
+                        style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <img src="/assets/img/icon-192x192.png" alt="amche.in"
+                                style="width: 48px; height: 48px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);">
                             <a href="./"
-                                style="font-size: 1.125rem; color:white; font-weight: 600; margin: 0; line-height: 1.2; text-decoration: none; display: block; transition: opacity 0.2s;"
-                                onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-                                amche.in</a>
-                            <p style="font-size: 0.75rem; color: #9ca3af; margin: 0.25rem 0 0 0; line-height: 1.3;">
-                                Amche Atlas is a digitial library of public maps maintained by the open data community
-                                in Goa.</p>
+                                style="font-size: 1.5rem; color: white; font-weight: 700; margin: 0; line-height: 1; text-decoration: none; display: block; transition: opacity 0.2s; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);"
+                                onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">amche.in</a>
                         </div>
+                        <button id="nav-menu-close"
+                            style="background: rgba(0, 0, 0, 0.4); border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 0.25rem 0.5rem; line-height: 1; border-radius: 4px; transition: background 0.2s;"
+                            onmouseover="this.style.background='rgba(0, 0, 0, 0.6)'"
+                            onmouseout="this.style.background='rgba(0, 0, 0, 0.4)'">&times;</button>
                     </div>
-                    <button id="nav-menu-close"
-                        style="background: none; border: none; color: #9ca3af; font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1; margin-left: 0.5rem; transition: color 0.2s;"
-                        onmouseover="this.style.color='white'" onmouseout="this.style.color='#9ca3af'">&times;</button>
+                    <p
+                        style="font-size: 0.875rem; color: #e5e7eb; margin: 0 0 1rem 0; line-height: 1.4; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);">
+                        Amche Atlas is a digital public library of maps maintained by the open data community in Goa.
+                    </p>
+                    <div style="display: flex; gap: 0.375rem; flex-wrap: wrap; align-items: center;">
+                        <a href="https://github.com/publicmap/amche-goa" target="_blank"
+                            style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.5rem; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); color: white; text-decoration: none; border-radius: 4px; font-size: 0.75rem; font-weight: 500; transition: background 0.2s; border: 1px solid rgba(255, 255, 255, 0.2);"
+                            onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
+                            onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
+                            <sl-icon name="github" style="font-size: 0.75rem;"></sl-icon>
+                            Source Code
+                        </a>
+                        <a href="./privacy.html"
+                            style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.5rem; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); color: white; text-decoration: none; border-radius: 4px; font-size: 0.75rem; font-weight: 500; transition: background 0.2s; border: 1px solid rgba(255, 255, 255, 0.2);"
+                            onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
+                            onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
+                            <sl-icon name="lock" style="font-size: 0.75rem;"></sl-icon>
+                            Privacy Policy
+                        </a>
+                        <sl-dropdown id="install-dropdown">
+                            <button slot="trigger"
+                                style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.5rem; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: background 0.2s;"
+                                onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
+                                onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
+                                <sl-icon name="download" style="font-size: 0.75rem;"></sl-icon>
+                                Install
+                                <sl-icon name="chevron-down" style="font-size: 0.625rem;"></sl-icon>
+                            </button>
+                            <sl-menu>
+                                <sl-menu-item value="pwa">
+                                    <sl-icon slot="prefix" name="phone"></sl-icon>
+                                    Install Web App
+                                </sl-menu-item>
+                                <sl-menu-item value="android">
+                                    <sl-icon slot="prefix" name="google-play"></sl-icon>
+                                    Android App (Beta)
+                                </sl-menu-item>
+                            </sl-menu>
+                        </sl-dropdown>
+                    </div>
                 </div>
             </div>
+            <style>
+                @keyframes subtlePan {
+
+                    0%,
+                    100% {
+                        transform: scale(1.2) translate(0, 0);
+                    }
+
+                    25% {
+                        transform: scale(1.25) translate(-8%, -6%);
+                    }
+
+                    50% {
+                        transform: scale(1.3) translate(-10%, 4%);
+                    }
+
+                    75% {
+                        transform: scale(1.25) translate(6%, 8%);
+                    }
+                }
+            </style>
 
             <!-- Menu Items -->
             <div style="padding: 1rem;">
@@ -361,64 +492,6 @@
                     </a>
                 </div>
 
-                <!-- Community Section -->
-                <div style="margin-bottom: 1.25rem;">
-                    <div
-                        style="font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 0.5rem; padding: 0 0.5rem;">
-                        Community</div>
-
-                    <a href="https://github.com/publicmap/amche-goa" target="_blank" class="nav-menu-item"
-                        style="display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.625rem 0.75rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s; margin-bottom: 0.25rem;">
-                        <svg style="width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px;" fill="currentColor"
-                            viewBox="0 0 20 20">
-                            <path fill-rule="evenodd"
-                                d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z"
-                                clip-rule="evenodd" />
-                        </svg>
-                        <div>
-                            <div style="font-size: 0.9375rem; font-weight: 500; line-height: 1.2;">Source Code</div>
-                            <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.125rem; line-height: 1.3;">
-                                View and contribute to the project on GitHub</div>
-                        </div>
-                    </a>
-
-                    <a href="https://forms.gle/8J4HTJMUM1thWpGK9" target="_blank" class="nav-menu-item"
-                        style="display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.625rem 0.75rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s;">
-                        <svg style="width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px;" fill="currentColor"
-                            viewBox="0 0 20 20">
-                            <path fill-rule="evenodd"
-                                d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z"
-                                clip-rule="evenodd" />
-                        </svg>
-                        <div>
-                            <div style="font-size: 0.9375rem; font-weight: 500; line-height: 1.2;">Send Feedback</div>
-                            <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.125rem; line-height: 1.3;">
-                                Share your ideas and report issues</div>
-                        </div>
-                    </a>
-                </div>
-
-                <!-- Legal Section -->
-                <div style="margin-bottom: 0.5rem;">
-                    <div
-                        style="font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 0.5rem; padding: 0 0.5rem;">
-                        Legal</div>
-
-                    <a href="./privacy.html" class="nav-menu-item"
-                        style="display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.625rem 0.75rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s;">
-                        <svg style="width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px;" fill="currentColor"
-                            viewBox="0 0 20 20">
-                            <path fill-rule="evenodd"
-                                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                                clip-rule="evenodd" />
-                        </svg>
-                        <div>
-                            <div style="font-size: 0.9375rem; font-weight: 500; line-height: 1.2;">Privacy Policy</div>
-                            <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.125rem; line-height: 1.3;">How
-                                we handle your data and privacy</div>
-                        </div>
-                    </a>
-                </div>
             </div>
         </div>
     </div>
@@ -452,10 +525,10 @@
                 class="hidden px-2 py-1 bg-yellow-600 text-xs font-semibold rounded"
                 style="text-decoration: none; color: inherit; transition: opacity 0.2s;"
                 onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">DEV</a>
-            <a href="./" class="nav-brand flex items-center gap-2 flex-shrink-0 hidden sm:flex"
+            <a href="./" class="nav-brand flex items-center gap-2 flex-shrink-0"
                 style="text-decoration: none; color: inherit; transition: opacity 0.2s;"
                 onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-                <span class="nav-title font-semibold tracking-tight">amche.in</span>
+                <span class="nav-title font-semibold tracking-tight hidden sm:inline">amche.in</span>
                 <img src="/assets/img/icon-192x192.png" alt="amche.in" class="nav-logo rounded">
             </a>
             <button id="nav-menu-trigger"
@@ -515,6 +588,15 @@
             const updatesModalOverlay = document.getElementById('updates-modal-overlay');
             const updatesModalClose = document.getElementById('updates-modal-close');
             const updatesIframe = document.getElementById('updates-iframe');
+            const installDropdown = document.getElementById('install-dropdown');
+
+            let deferredPrompt;
+
+            // Capture PWA install prompt
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+            });
 
             function openMenu() {
                 overlay.style.display = 'block';
@@ -589,6 +671,36 @@
                     }
                 });
             });
+
+            // Handle install dropdown
+            installDropdown.addEventListener('sl-select', async function (e) {
+                const value = e.detail.item.value;
+
+                if (value === 'pwa') {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        deferredPrompt = null;
+                    } else {
+                        alert('To install the web app:\n\n• On iOS: Tap the Share button and select "Add to Home Screen"\n• On Android: Tap the menu (⋮) and select "Install app" or "Add to Home Screen"');
+                    }
+                } else if (value === 'android') {
+                    const userConfirmed = confirm(
+                        '🚀 Amche Atlas Android App (Closed Beta)\n\n' +
+                        'The Android app is currently in closed beta testing. We need testers!\n\n' +
+                        'To request access:\n' +
+                        '1. Join our WhatsApp group\n' +
+                        '2. Request beta testing access\n\n' +
+                        'Click OK to join the WhatsApp group, or Cancel to open the Play Store listing.'
+                    );
+
+                    if (userConfirmed) {
+                        window.open('https://chat.whatsapp.com/BbzANbnXuekARMMSyeo6Pf', '_blank');
+                    } else {
+                        window.open('https://play.google.com/store/apps/details?id=in.amche', '_blank');
+                    }
+                }
+            });
         })();
     </script>
 
@@ -602,7 +714,8 @@
     </div>
 
     <!-- Layer Information Modal -->
-    <div id="layer-info-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10000; background: #0f172a;">
+    <div id="layer-info-modal"
+        style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10000; background: #0f172a;">
         <iframe id="layer-info-iframe" style="width: 100%; height: 100%; border: none;"></iframe>
     </div>
 </body>

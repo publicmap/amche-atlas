@@ -58,7 +58,8 @@ export class MapCreator {
                     'Vector Tiles': 'vector-tiles',
                     'Raster Tiles': 'raster-tiles',
                     'MapWarper': 'mapwarper',
-                    'Amche Atlas JSON': 'atlas-json'
+                    'Amche Atlas JSON': 'atlas-json',
+                    'WMS': 'wms'
                 };
                 const formatKey = formatMap[validFormat];
                 if (formatKey) {
@@ -212,6 +213,9 @@ export class MapCreator {
     detectUrlFormat(url) {
         const urlLower = url.toLowerCase();
 
+        if (this.isWMSUrl(url)) {
+            return 'WMS';
+        }
         if (this.isCSVUrl(url)) {
             return 'CSV';
         }
@@ -243,6 +247,47 @@ export class MapCreator {
             return 'MapWarper';
         }
         return null;
+    }
+
+    isWMSUrl(url) {
+        const urlLower = url.toLowerCase();
+        if (urlLower.includes('service=wms')) {
+            return true;
+        }
+        if (urlLower.includes('/wms') && (urlLower.includes('request=getmap') || urlLower.includes('getmap'))) {
+            return true;
+        }
+        return false;
+    }
+
+    createWMSConfig(url) {
+        const urlParts = url.split('?');
+        const baseUrl = urlParts[0];
+        const params = new URLSearchParams(urlParts[1] || '');
+
+        const paramsObj = {};
+        for (const [key, value] of params.entries()) {
+            paramsObj[key.toLowerCase()] = value;
+        }
+
+        const layers = paramsObj.layers || paramsObj.layer || '';
+        const version = paramsObj.version || '1.3.0';
+        const format = paramsObj.format || 'image/png';
+        const srs = paramsObj.srs || paramsObj.crs || 'EPSG:3857';
+
+        const title = layers.split(':').pop() || 'WMS Layer';
+        const id = this.generateId(title);
+
+        return {
+            id: id,
+            title: title,
+            type: 'wms',
+            url: url,
+            tileSize: parseInt(paramsObj.width || paramsObj.height || '256'),
+            maxzoom: 18,
+            srs: srs,
+            attribution: baseUrl
+        };
     }
 
     setupColorPickers() {
@@ -315,6 +360,7 @@ export class MapCreator {
             return false;
         }
 
+        if (this.isWMSUrl(url)) return true;
         if (this.isCSVUrl(url)) return true;
         if (urlLower.includes('jsonkeeper.com/b/')) return true;
         if (urlLower.endsWith('.geojson')) return true;
@@ -367,6 +413,15 @@ export class MapCreator {
             if (url.includes('mapwarper.net/maps/') || url.includes('warper.wmflabs.org/maps/')) {
                 const config = await LayerConfigGenerator.handleUrlInput(url);
                 this.currentLayerType = 'raster';
+                this.currentData = config;
+                this.currentDataSource = url;
+                this.showTileLayerSuccess(config);
+                return;
+            }
+
+            if (this.isWMSUrl(url)) {
+                const config = this.createWMSConfig(url);
+                this.currentLayerType = 'wms';
                 this.currentData = config;
                 this.currentDataSource = url;
                 this.showTileLayerSuccess(config);
