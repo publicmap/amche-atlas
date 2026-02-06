@@ -312,6 +312,11 @@ export class MapFeatureStateManager extends EventTarget {
      * @param {Array} clickedFeatures - Array of {feature, layerId, lngLat} objects
      */
     handleFeatureClicks(clickedFeatures) {
+        console.log('=== HANDLE FEATURE CLICKS CALLED ===', {
+            numFeatures: clickedFeatures?.length,
+            features: clickedFeatures
+        });
+
         if (!clickedFeatures || clickedFeatures.length === 0) {
             // Click on empty area - clear all selections
             this.clearAllSelections();
@@ -392,6 +397,12 @@ export class MapFeatureStateManager extends EventTarget {
             });
 
             // Removed verbose selection logging
+
+            console.log('=== ABOUT TO CALL _executeInspectionHandler ===', {
+                featureId,
+                layerId,
+                hasFeature: !!feature
+            });
 
             // Execute inspection handlers if configured
             this._executeInspectionHandler(feature, layerId, lngLat);
@@ -1142,7 +1153,18 @@ export class MapFeatureStateManager extends EventTarget {
     async _executeInspectionHandler(feature, layerId, lngLat) {
         // Get layer config
         const layerConfig = this._registeredLayers.get(layerId);
+
+        console.log('[StateManager] _executeInspectionHandler called:', {
+            layerId,
+            hasConfig: !!layerConfig,
+            hasInspect: !!layerConfig?.inspect,
+            hasOnClick: !!layerConfig?.inspect?.onClick,
+            onClick: layerConfig?.inspect?.onClick,
+            sourceAtlas: layerConfig?._sourceAtlas
+        });
+
         if (!layerConfig || !layerConfig.inspect?.onClick) {
+            console.log('[StateManager] No handler configured for layer:', layerId);
             return;
         }
 
@@ -1150,6 +1172,12 @@ export class MapFeatureStateManager extends EventTarget {
 
         // Determine atlas name from layer config
         const atlasName = layerConfig._sourceAtlas || 'index';
+
+        console.log('[StateManager] Executing handler:', {
+            handlerName,
+            atlasName,
+            layerId
+        });
 
         try {
             // Execute handler and get HTML
@@ -1164,6 +1192,11 @@ export class MapFeatureStateManager extends EventTarget {
                     lngLat
                 }
             );
+
+            console.log('[StateManager] Handler returned:', {
+                hasHTML: !!customHTML,
+                htmlLength: customHTML?.length
+            });
 
             if (customHTML) {
                 // Emit event with custom HTML for inspector to display

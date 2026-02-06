@@ -20,6 +20,9 @@ export const handlers = {
      * Properties needed: plot, giscode
      */
     getBhunakshaInfo: async ({ feature }) => {
+        console.log('=== BHUNAKSHA HANDLER CALLED ===', new Date().toISOString());
+        console.log('Feature:', feature);
+
         const plot = feature.properties.plot || '';
         const giscode = feature.properties.giscode || '';
 
@@ -51,64 +54,12 @@ export const handlers = {
         // Generate unique ID for this request
         const requestId = `bhunaksha-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        // Return loading placeholder immediately with JavaScript to fetch actual data
-        setTimeout(async () => {
-            const container = document.getElementById(requestId);
-            if (!container) return;
+        console.log('[Bhunaksha] Generated request ID:', requestId);
+        console.log('[Bhunaksha] Plot:', plot, 'GISCode:', giscode);
+        console.log('[Bhunaksha] API URL:', apiUrl);
+        console.log('[Bhunaksha] Delay:', delay);
 
-            try {
-                // Add delay to prevent API abuse (unless pro user has loaded india-esz layer)
-                if (delay > 0) {
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-
-                // Fetch data from API
-                const response = await fetch(apiUrl);
-                const data = await response.json();
-
-                // Format the data
-                let contentHTML;
-                if (data.info && data.has_data === 'Y') {
-                    // Format the info text
-                    let infoText;
-                    const isHTML = /<[^>]*>/g.test(data.info);
-
-                    if (isHTML) {
-                        // Clean up HTML response
-                        infoText = data.info
-                            .replace(/<\/?html>/gi, '')
-                            .replace(/<font[^>]*>/gi, '<span>')
-                            .replace(/<\/font>/gi, '</span>')
-                            .trim();
-                    } else {
-                        // Format plain text (skip first 3 lines, format headers)
-                        const rawText = data.info.split('\n').slice(3).join('\n').replace(/-{10,}/g, '');
-                        const formattedText = rawText.replace(/^([^:\n]+:)/gm, '<strong>$1</strong><br>');
-                        infoText = formattedText.replace(/\n/g, '<br>');
-                    }
-
-                    contentHTML = `<div style="margin-bottom: 8px; line-height: 1.5; color: #d1d5db;">${infoText}</div>`;
-                } else {
-                    contentHTML = '<span style="color: #9ca3af;">No occupant data available</span>';
-                }
-
-                // Update container with actual data
-                container.innerHTML = `
-                    ${contentHTML}
-                    <div style="font-style: italic; font-size: 10px; color: #9ca3af; margin-top: 8px;">
-                        <svg style="display: inline; width: 12px; height: 12px; margin-right: 4px;" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                        </svg>
-                        Retrieved from <a href="${apiUrl}" target="_blank" style="color: #60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
-                    </div>
-                `;
-            } catch (error) {
-                console.error('[Bhunaksha] Error fetching occupant details:', error);
-                container.innerHTML = `<span style="color: #f87171;">Error loading details: ${error.message}</span>`;
-            }
-        }, 0);
-
-        // Return loading placeholder immediately
+        // Return loading placeholder with inline script that will execute in iframe context
         return `
             <div style="font-size: 11px; color: #d1d5db; margin: 8px 0;">
                 <div style="margin-bottom: 8px; font-weight: 600; color: #e5e7eb;">
@@ -129,6 +80,83 @@ export const handlers = {
                         to { transform: rotate(360deg); }
                     }
                 </style>
+                <script>
+                    setTimeout(async function() {
+                        const requestId = '${requestId}';
+                        const apiUrl = '${apiUrl.replace(/'/g, "\\'")}';
+                        const delay = ${delay};
+
+                        console.log('[Bhunaksha] Script executing in iframe context for:', requestId);
+
+                        try {
+                            // Wait for delay
+                            if (delay > 0) {
+                                console.log('[Bhunaksha] Waiting', delay, 'ms before fetching...');
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                            }
+
+                            const container = document.getElementById(requestId);
+                            if (!container) {
+                                console.error('[Bhunaksha] Container not found:', requestId);
+                                return;
+                            }
+
+                            if (!document.body.contains(container)) {
+                                console.warn('[Bhunaksha] Container removed from DOM during delay, skipping update');
+                                return;
+                            }
+
+                            console.log('[Bhunaksha] Fetching from API...');
+                            const response = await fetch(apiUrl);
+                            console.log('[Bhunaksha] Response status:', response.status);
+                            const data = await response.json();
+                            console.log('[Bhunaksha] Data received:', data);
+
+                            let contentHTML;
+                            if (data.info && data.has_data === 'Y') {
+                                let infoText;
+                                const isHTML = /<[^>]*>/g.test(data.info);
+
+                                if (isHTML) {
+                                    infoText = data.info
+                                        .replace(/<\\/?html>/gi, '')
+                                        .replace(/<font[^>]*>/gi, '<span>')
+                                        .replace(/<\\/font>/gi, '</span>')
+                                        .trim();
+                                } else {
+                                    const rawText = data.info.split('\\n').slice(3).join('\\n').replace(/-{10,}/g, '');
+                                    const formattedText = rawText.replace(/^([^:\\n]+:)/gm, '<strong>$1</strong><br>');
+                                    infoText = formattedText.replace(/\\n/g, '<br>');
+                                }
+
+                                contentHTML = \`<div style="margin-bottom: 8px; line-height: 1.5; color: #d1d5db;">\${infoText}</div>\`;
+                            } else {
+                                contentHTML = '<span style="color: #9ca3af;">No occupant data available</span>';
+                            }
+
+                            if (!document.body.contains(container)) {
+                                console.warn('[Bhunaksha] Container removed from DOM during fetch, skipping update');
+                                return;
+                            }
+
+                            container.innerHTML = \`
+                                \${contentHTML}
+                                <div style="font-style: italic; font-size: 10px; color: #9ca3af; margin-top: 8px;">
+                                    <svg style="display: inline; width: 12px; height: 12px; margin-right: 4px;" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    Retrieved from <a href="\${apiUrl}" target="_blank" style="color: #60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
+                                </div>
+                            \`;
+                        } catch (error) {
+                            console.error('[Bhunaksha] Error:', error);
+                            const container = document.getElementById(requestId);
+                            if (container) {
+                                container.innerHTML = \`<span style="color: #f87171;">Error loading details: \${error.message}</span>\`;
+                            }
+                        }
+                    }, 0);
+                </script>
             </div>
         `;
     },
