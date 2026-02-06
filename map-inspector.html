@@ -951,7 +951,7 @@
                     console.log(`[Inspector] Rendering custom HTML for feature ${featureId}:`, customHTML ? 'present' : 'missing');
                     if (customHTML) {
                         const $customSection = $('<div>').addClass('feature-custom-info');
-                        $customSection.html(customHTML);
+                        $customSection.html(processLinksForNewWindow(customHTML));
 
                         // Add data attributes to loader elements for cache updating
                         $customSection.find('.api-data-loader').each(function() {
@@ -1187,7 +1187,7 @@
                         const customHTML = customHTMLMap.get(featureId);
                         if (customHTML) {
                             const $customSection = $('<div>').addClass('feature-custom-info');
-                            $customSection.html(customHTML);
+                            $customSection.html(processLinksForNewWindow(customHTML));
 
                             // Add data attributes to loader elements for cache updating
                             $customSection.find('.api-data-loader').each(function() {
@@ -1228,7 +1228,7 @@
                     if (layer.description) {
                         const $desc = $('<div>', {
                             class: 'text-xs text-gray-300 mb-3',
-                            html: layer.description
+                            html: processLinksForNewWindow(layer.description)
                         });
                         $expanded.append($desc);
                     }
@@ -1517,7 +1517,7 @@
                         formattedHTML = `<pre style="color: #d1d5db; font-size: 10px;">${JSON.stringify(data, null, 2)}</pre>`;
                     }
 
-                    loader.innerHTML = formattedHTML;
+                    loader.innerHTML = processLinksForNewWindow(formattedHTML);
 
                     // Update the cached custom HTML with the processed content
                     if (layerId && featureId && featureCustomHTML.has(layerId)) {
