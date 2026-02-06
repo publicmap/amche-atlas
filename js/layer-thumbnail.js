@@ -9,9 +9,11 @@ export class LayerThumbnail {
      * Generate a thumbnail element for a layer
      * @param {Object} layer - Layer configuration
      * @param {number} size - Thumbnail size in pixels (square)
+     * @param {Object} options - Additional options (isInView, currentBounds)
      * @returns {HTMLElement} Thumbnail element
      */
-    static generate(layer, size = 80) {
+    static generate(layer, size = 80, options = {}) {
+        const { isInView = true } = options;
         const container = document.createElement('div');
         container.className = 'layer-thumbnail';
         container.style.cssText = `
@@ -21,6 +23,8 @@ export class LayerThumbnail {
             overflow: hidden;
             position: relative;
             flex-shrink: 0;
+            transition: all 0.2s ease;
+            ${!isInView ? 'opacity: 0.5; border: 2px solid #f59e0b;' : ''}
         `;
 
         // Set background image if available
@@ -31,6 +35,11 @@ export class LayerThumbnail {
             container.style.backgroundColor = '#f3f4f6';
         } else {
             container.style.backgroundColor = '#f9fafb';
+        }
+
+        // Add grayscale filter for out-of-view layers
+        if (!isInView) {
+            container.style.filter = 'grayscale(0.3)';
         }
 
         // Overlay symbology on top
@@ -65,37 +74,105 @@ export class LayerThumbnail {
         typeLabel.textContent = typeBadge.label;
         container.appendChild(typeLabel);
 
-        const detailsIcon = document.createElement('div');
-        detailsIcon.className = 'layer-details-icon';
-        detailsIcon.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 19px;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            pointer-events: none;
-        `;
-        detailsIcon.textContent = 'ℹ️';
-        container.appendChild(detailsIcon);
+        // Add out-of-view badge if layer is not in view
+        if (!isInView) {
+            const outOfViewBadge = document.createElement('div');
+            outOfViewBadge.className = 'layer-out-of-view-badge';
+            outOfViewBadge.style.cssText = `
+                position: absolute;
+                bottom: 4px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-size: 7px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+                color: white;
+                background-color: #f59e0b;
+                opacity: 0.9;
+            `;
+            outOfViewBadge.textContent = 'OUT OF VIEW';
+            container.appendChild(outOfViewBadge);
+        }
+
+        const actionIcon = document.createElement('div');
+        actionIcon.className = 'layer-action-icon';
+
+        if (!isInView) {
+            // Show zoom icon for out-of-view layers
+            actionIcon.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 24px;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+                background: #f59e0b;
+                border-radius: 50%;
+                width: 36px;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            `;
+            actionIcon.textContent = '🔍';
+        } else {
+            // Show info icon for in-view layers
+            actionIcon.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 19px;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+                pointer-events: none;
+            `;
+            actionIcon.textContent = 'ℹ️';
+        }
+        container.appendChild(actionIcon);
 
         container.style.cursor = 'pointer';
 
         container.addEventListener('mouseenter', () => {
             typeLabel.style.opacity = '0.9';
-            detailsIcon.style.opacity = '0.9';
+            actionIcon.style.opacity = '0.9';
+            if (!isInView) {
+                container.style.opacity = '0.8';
+                container.style.transform = 'scale(1.05)';
+            }
         });
         container.addEventListener('mouseleave', () => {
             typeLabel.style.opacity = '0';
-            detailsIcon.style.opacity = '0';
+            actionIcon.style.opacity = '0';
+            if (!isInView) {
+                container.style.opacity = '0.5';
+                container.style.transform = 'scale(1)';
+            }
         });
 
-        container.addEventListener('click', () => {
-            window.parent.postMessage({
-                type: 'open-layer-info',
-                layer: layer
-            }, '*');
+        container.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log('[LayerThumbnail] Clicked thumbnail for layer:', layer.id, 'isInView:', isInView);
+            if (!isInView) {
+                // Zoom to layer if out of view
+                console.log('[LayerThumbnail] Sending zoom-to-layer message for:', layer.id);
+                window.parent.postMessage({
+                    type: 'zoom-to-layer',
+                    layerId: layer.id
+                }, '*');
+            } else {
+                // Open layer info if in view
+                console.log('[LayerThumbnail] Sending open-layer-info message for:', layer.id);
+                window.parent.postMessage({
+                    type: 'open-layer-info',
+                    layer: layer
+                }, '*');
+            }
         });
 
         return container;

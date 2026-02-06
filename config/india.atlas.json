@@ -165,7 +165,6 @@
       ],
       "id": "pincodes",
       "title": "Pincode Boundaries",
-      "headerImage": "assets/map-layers/india/map-layer-pincode.png",
       "description": "Government open data of pincode boundaries published May 2025.",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/pincodes/datagovin/{z}/{x}/{y}.pbf",
@@ -328,7 +327,6 @@
     {
       "id": "village",
       "title": "Village Boundaries",
-      "headerImage": "assets/map-layers/india/map-layer-village.png",
       "description": "Revenue village boundaries with <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory</a> attributes.",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/not-so-open/villages/lgd/{z}/{x}/{y}.pbf ",
@@ -475,7 +473,6 @@
     {
       "id": "municipal-wards",
       "title": "Municipal Ward Boundaries",
-      "headerImage": "assets/map-layers/india/map-layer-ulb-wards.png",
       "description": "Ward boundaries for Panaji Municipal Corporation and Municipal Councils (partial coverage)",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/not-so-open/urban/wards/sbm/{z}/{x}/{y}.pbf",
@@ -646,7 +643,6 @@
     {
       "title": "Assembly Constituencies",
       "description": "Members of Legislative Assembly (MLA) constituencies.",
-      "headerImage": "assets/map-layers/india/map-layer-assembly-boundaries.png",
       "type": "vector",
       "id": "assembly-constituencies",
       "url": "https://indianopenmaps.fly.dev/not-so-open/constituencies/assembly/lgd/{z}/{x}/{y}.pbf ",
@@ -697,7 +693,6 @@
     {
       "title": "Parliamentary Constituencies",
       "description": "Members of Parliament (MP) constituencies",
-      "headerImage": "assets/map-layers/india/map-layer-parliament-boundaries.png",
       "type": "vector",
       "id": "parliamentary-constituencies",
       "url": "https://indianopenmaps.fly.dev/not-so-open/constituencies/parliament/lgd/{z}/{x}/{y}.pbf ",
@@ -810,7 +805,6 @@
     {
       "title": "Wetlands",
       "description": "Wetlands and low lying estuarine areas classified from remote sensing imagery. For methodological details, see <a href='https://vedas.sac.gov.in/static/downloads/atlas/Wetlands/NWIA_Goa_Atlas.pdf'>2009 National Wetland Atlas of Goa, Space Applications Centre, ISRO / Ministry of Environment and Forests</a>.",
-      "headerImage": "assets/map-layers/india/map-layer-wetland.png",
       "type": "vector",
       "id": "wetlands",
       "url": "https://indianopenmaps.fly.dev/not-so-open/wetlands/parivesh/{z}/{x}/{y}.pbf",
@@ -889,7 +883,6 @@
     {
       "title": "Rivers",
       "description": "Rivers and streams with stream order",
-      "headerImage": "assets/map-layers/india/map-layer-rivers.png",
       "type": "vector",
       "id": "rivers",
       "url": "https://indianopenmaps.fly.dev/streams/wris/{z}/{x}/{y}.pbf",
@@ -986,7 +979,6 @@
     {
       "id": "watersheds",
       "title": "Watershed Boundaries",
-      "headerImage": "assets/map-layers/india/map-layer-watersheds.png",
       "description": "Watershed Boundaries",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/watersheds/wris/{z}/{x}/{y}.pbf",
@@ -1019,7 +1011,6 @@
     {
       "id": "micro-watersheds",
       "title": "Micro Watershed Atlas of India",
-      "headerImage": "assets/map-layers/india/map-layer-micro-watersheds.png",
       "description": "Micro Watershed Atlas with <a href='https://slusi.da.gov.in/mwa.pdf'>micro watershed code</a>",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/micro-watersheds/priorities/slusi/{z}/{x}/{y}.pbf",
@@ -1061,7 +1052,6 @@
     {
       "title": "Reserve Forests",
       "description": "Forest areas notified and protectedunder the <a href='http://nbaindia.org/uploaded/Biodiversityindia/Legal/3.%20Indian%20forest%20act.pdf'>Indian Forest Act, 1927</a>",
-      "headerImage": "assets/map-layers/india/map-layer-forest.png",
       "type": "vector",
       "id": "forests",
       "url": "https://indianopenmaps.fly.dev/not-so-open/forests/beats/fsi/{z}/{x}/{y}.pbf",
@@ -1223,7 +1213,6 @@
     {
       "title": "Wildlife Reserves and Corridors",
       "description": "National parks, wildlife sanctuaries and <a href='https://ntca.gov.in/assets/map-layers/uploads/Reports/corridor/connecting_tiger_populations.pdf'>tiger conservations corridors</a>",
-      "headerImage": "assets/map-layers/india/map-layer-wildlife-reserve.png",
       "type": "vector",
       "id": "wildlife-reserve",
       "tags": [
@@ -1252,7 +1241,6 @@
     {
       "title": "Coastal Regulation Zone Lines",
       "description": "Regulatory lines for Coastal Regulation Zones",
-      "headerImage": "assets/map-layers/india/map-layer-crz-line.png",
       "type": "vector",
       "id": "crz-line",
       "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/regulation-lines/parivesh/{z}/{x}/{y}.pbf",
@@ -1373,7 +1361,6 @@
     {
       "title": "Protected Archaeological Sites",
       "description": "Ancient monuments and archaeological sites protected by the Archaeological Survey of India (ASI).",
-      "headerImage": "assets/map-layers/india/map-layer-asi.png",
       "type": "vector",
       "id": "monuments",
       "url": "https://indianopenmaps.fly.dev/not-so-open/cultural/monuments/zones/asi/bhuvan/{z}/{x}/{y}.pbf",
@@ -1494,7 +1481,6 @@
     {
       "title": "Mining Leases",
       "description": "Major mining lease boundaries",
-      "headerImage": "assets/map-layers/india/map-layer-mines.png",
       "type": "vector",
       "id": "mining",
       "url": " https://indianopenmaps.fly.dev/not-so-open/mining/leases/major/ncog/{z}/{x}/{y}.pbf",
@@ -2516,7 +2502,6 @@
       ],
       "title": "Geomorphological Lineaments",
       "description": "Geomorphological lineaments based on <a href='https://bhuvan-app1.nrsc.gov.in/2dresources/thematic/gm/gm.pdf'>genesis based classification schema</a>.",
-      "headerImage": "assets/map-layers/india/map-layer-lineament.png",
       "type": "vector",
       "id": "lineament",
       "url": "https://indianopenmaps.fly.dev/not-so-open/lineament/50k/bhuvan/{z}/{x}/{y}.pbf",
@@ -2610,7 +2595,6 @@
       ],
       "title": "Groundwater Prospects",
       "description": "Groundwater prospect maps prepared at 1:50k scale. Refer to the <a href='https://bhuvan-app1.nrsc.gov.in/gwis/docs/GW_Manual.pdf'>methodology</a> and <a href='https://www.nrsc.gov.in/sites/default/files/pdf/ebooks/RGNationalDrinkingWater_UserManual.pdf'>user manual</a> for more details. Check <a href'https://ingres.iith.ac.in/gecdataonline/gis/INDIA'>INDIA-Groundwater Resource Estimation System (IN-GRES)</a> for taluk level groundwater assessment reports.<br>View  <a href='https://www.cgwb.gov.in/old_website/GW-Assessment/GWR-2022-Reports%20State/Goa.pdf'>Dynamic Groundwater Report of Goa State 2022</a> | <a href='https://www.cgwb.gov.in/cgwbpnm/public/uploads/documents/1705640315968744698file.pdf'>2024</a>.",
-      "headerImage": "assets/map-layers/india/map-layer-groundwater.png",
       "legendImage": "assets/map-layers/india/legend-groundwater.png",
       "type": "vector",
       "id": "groundwater",
@@ -2740,7 +2724,6 @@
       ],
       "title": "Geomorphological Ecozones",
       "description": "Geomorphological landforms based on <a href='https://bhuvan-app1.nrsc.gov.in/2dresources/thematic/gm/gm.pdf'>genesis based classification schema</a>.",
-      "headerImage": "assets/map-layers/india/map-layer-geomorphology.png",
       "type": "vector",
       "id": "geomorphology",
       "url": "https://indianopenmaps.fly.dev/not-so-open/geomorphology/50k/bhuvan/{z}/{x}/{y}.pbf",
@@ -2973,7 +2956,7 @@
     {
       "title": "Atlas of India (1827-1906)",
       "description": "Historical atlas of India published in 1827-1906 by Survey of India",
-      "headerImage": "assets/map-layers/india/map-layer-1906-india-atlas.png",
+      "headerImage": "https://warper.wmflabs.org/uploads/4863/thumb/105_SW_Quarter_Sheet_Indian_Atlas__281877_29.png",
       "type": "tms",
       "id": "1906-atlas",
       "url": "https://warper.wmflabs.org/mosaics/tile/15/{z}/{x}/{y}.png",
@@ -2986,7 +2969,7 @@
     {
       "title": "Geological Map of India (1855)",
       "description": "General sketch of the physical and geological features of British India. Compiled by Greenough, George Bellas (1778-1855)",
-      "headerImage": "assets/map-layers/india/map-layer-1855-geology.png",
+      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Greenough_Geology_India_1855.jpg/100px-Greenough_Geology_India_1855.jpg",
       "type": "tms",
       "id": "1855-geology",
       "url": "https://warper.wmflabs.org/maps/tile/2258/{z}/{x}/{y}.png",
@@ -2999,7 +2982,7 @@
     {
       "title": "Lambtons Peninsular Survey  (1802-1814)",
       "description": "Historical trignometrical survey plans by Colnel William Lambton of the Peninsula of India",
-      "headerImage": "assets/map-layers/india/map-layer-1814-lambton-survey.png",
+      "headerImage": "https://warper.wmflabs.org/uploads/3877/thumb/Lambton3.png",
       "type": "tms",
       "id": "1814-lambton-survey",
       "url": "https://warper.wmflabs.org/mosaics/tile/13/{z}/{x}/{y}.png",
@@ -3015,7 +2998,7 @@
       ],
       "title": "Robert Wilkinsons General Atlas  (1792)",
       "description": "Engraved by Thomas Conder and issued as plate no. 37 in the 1792 edition of Robert Wilkinsons General Atlas",
-      "headerImage": "assets/map-layers/india/map-layer-1792-general-atlas.png",
+      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Southern_India_Wilkinson.png/100px-Southern_India_Wilkinson.png",
       "type": "tms",
       "id": "1792-general-atlas",
       "url": "https://warper.wmflabs.org/maps/tile/7050/{z}/{x}/{y}.png",
@@ -3053,22 +3036,6 @@
       "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
       "proxyReferer": "https://bhuvan.nrsc.gov.in/",
       "attribution": "<a href='https://bhuvan.nrsc.gov.in/ngmaps?mode=Hybrid#3.65/22.91/82.78'>NRSC/ISRO Bhuvan</a>",
-      "maxzoom": 19,
-      "initiallyChecked": true
-    },
-    {
-      "id": "isro-liss",
-      "title": " LISS Satellite Imagery",
-      "description": "High-resolution satellite imagery from Gati Shakti",
-      "tags": [
-        "basemap",
-        "satellite"
-      ],
-      "type": "tms",
-      "url": "https://ugi.pmgatishakti.gov.in/ugi-public-api-3/gis/mirroeLiss/IV/{z}/{x}/{y}",
-      "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
-      "proxyReferer": "https://ugi.pmgatishakti.gov.in/",
-      "attribution": "ISRO Reourcesat LISS via <a href='https://ugi.pmgatishakti.gov.in'>PM GatiShakti</a>",
       "maxzoom": 19,
       "initiallyChecked": true
     },

@@ -151,7 +151,6 @@
     {
       "title": "Railways",
       "description": "Railway network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
-      "headerImage": "assets/map-layers/osm/map-layer-osm-railways.png",
       "type": "vector",
       "id": "railways",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
@@ -217,7 +216,6 @@
     {
       "title": "Pedestrian Paths and Trails",
       "description": "Footpaths and trails from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
-      "headerImage": "assets/map-layers/osm/map-layer-osm-paths.png",
       "type": "vector",
       "id": "paths",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
@@ -270,7 +268,6 @@
     {
       "title": "Motorable Roads",
       "description": "Road network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
-      "headerImage": "assets/map-layers/osm/map-layer-osm-roads.png",
       "type": "vector",
       "id": "roads",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
@@ -517,7 +514,6 @@
     {
       "title": "Water Bodies",
       "description": "Water body polygons data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
-      "headerImage": "assets/map-layers/map-layer-osm-waterways.png",
       "type": "vector",
       "id": "waterbodies",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
@@ -543,7 +539,6 @@
     {
       "title": "Waterways",
       "description": "Waterways network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
-      "headerImage": "assets/map-layers/map-layer-osm-waterways.png",
       "type": "vector",
       "id": "waterways",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
@@ -599,7 +594,6 @@
     {
       "title": "OSM Landuse Sites",
       "description": "High resolution landuse polygons for institutional sites and amenities from the OpenStreetMap project.",
-      "headerImage": "assets/map-layers/osm/map-layer-osm-landuse.png",
       "type": "vector",
       "id": "sites",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
@@ -756,7 +750,6 @@
     {
       "title": "OSM Landuse",
       "description": "High resolution landuse polygons from the OpenStreetMap project.",
-      "headerImage": "assets/map-layers/map-layer-osm-landuse.png",
       "type": "vector",
       "id": "landuse",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",

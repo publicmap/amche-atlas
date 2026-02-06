@@ -885,12 +885,29 @@ export class MapFeatureControl {
      * Zoom to layer bounds
      */
     _zoomToLayer(layerId) {
+        console.log('[MapFeatureControl] _zoomToLayer called for:', layerId);
         const activeLayers = this._getActiveLayersFromConfig();
         const layerData = activeLayers.get(layerId);
 
-        if (!layerData) return;
+        if (!layerData) {
+            console.warn('[MapFeatureControl] Layer not found in active layers:', layerId);
 
-        const config = layerData.config;
+            // Try to get layer from registry even if not active
+            if (window.layerRegistry) {
+                const registryLayer = window.layerRegistry.getLayer(layerId);
+                if (registryLayer) {
+                    console.log('[MapFeatureControl] Found layer in registry:', registryLayer);
+                    this._zoomToLayerConfig(registryLayer);
+                    return;
+                }
+            }
+            return;
+        }
+
+        this._zoomToLayerConfig(layerData.config);
+    }
+
+    _zoomToLayerConfig(config) {
         let bbox = config.bbox;
 
         // Try atlas bbox if layer doesn't have one
@@ -902,10 +919,43 @@ export class MapFeatureControl {
         }
 
         if (bbox && this._map) {
-            this._map.fitBounds([
-                [bbox[0], bbox[1]],
-                [bbox[2], bbox[3]]
-            ], { padding: 50, duration: 1000 });
+            console.log('[MapFeatureControl] Zooming to bbox:', bbox, 'minzoom:', config.minzoom);
+
+            // Parse bbox if it's a string "minLng,minLat,maxLng,maxLat"
+            let parsedBbox;
+            if (typeof bbox === 'string') {
+                const parts = bbox.split(',').map(parseFloat);
+                if (parts.length === 4) {
+                    parsedBbox = [[parts[0], parts[1]], [parts[2], parts[3]]];
+                }
+            } else if (Array.isArray(bbox)) {
+                if (bbox.length === 4) {
+                    parsedBbox = [[bbox[0], bbox[1]], [bbox[2], bbox[3]]];
+                }
+            }
+
+            if (!parsedBbox) {
+                console.warn('[MapFeatureControl] Invalid bbox format:', bbox);
+                return;
+            }
+
+            // First fit bounds to show the full extent
+            this._map.fitBounds(parsedBbox, { padding: 50, duration: 1000 });
+
+            // If minzoom is defined, set zoom to minzoom + 1 after fitBounds completes
+            if (config.minzoom !== undefined) {
+                setTimeout(() => {
+                    const targetZoom = config.minzoom + 1;
+                    const currentZoom = this._map.getZoom();
+                    console.log('[MapFeatureControl] Current zoom after fitBounds:', currentZoom, 'target zoom (minzoom+1):', targetZoom);
+                    // Only zoom in if current zoom is less than target
+                    if (currentZoom < targetZoom) {
+                        this._map.zoomTo(targetZoom, { duration: 500 });
+                    }
+                }, 1100); // Wait for fitBounds animation to complete (1000ms + buffer)
+            }
+        } else {
+            console.warn('[MapFeatureControl] No bbox found for layer');
         }
     }
 

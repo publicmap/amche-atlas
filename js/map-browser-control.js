@@ -240,6 +240,11 @@ export class MapBrowserControl {
             if (event.data.type === 'zoom-to-bounds') {
                 this._handleZoomToBounds(event.data.bounds);
             }
+
+            if (event.data.type === 'zoom-to-layer') {
+                console.log('[MapBrowserControl] Received zoom-to-layer message for:', event.data.layerId);
+                this._handleZoomToLayer(event.data.layerId);
+            }
         });
 
         window.addEventListener('layer-toggled', () => {
@@ -596,6 +601,73 @@ export class MapBrowserControl {
             maxZoom: 16,
             duration: 1000
         });
+    }
+
+    _handleZoomToLayer(layerId) {
+        if (!this._map || !layerId) return;
+
+        console.log('[MapBrowserControl] Zooming to layer:', layerId);
+
+        // Get layer from registry
+        const layer = window.layerRegistry?.getLayer(layerId);
+        if (!layer) {
+            console.warn('[MapBrowserControl] Layer not found in registry:', layerId);
+            return;
+        }
+
+        let bbox = layer.bbox;
+
+        // Try atlas bbox if layer doesn't have one
+        if (!bbox && layer._sourceAtlas) {
+            const atlasMetadata = window.layerRegistry.getAtlasMetadata(layer._sourceAtlas);
+            if (atlasMetadata && atlasMetadata.bbox) {
+                bbox = atlasMetadata.bbox;
+            }
+        }
+
+        if (!bbox) {
+            console.warn('[MapBrowserControl] No bbox found for layer:', layerId);
+            return;
+        }
+
+        console.log('[MapBrowserControl] Zooming to bbox:', bbox, 'minzoom:', layer.minzoom);
+
+        // Parse bbox if it's a string "minLng,minLat,maxLng,maxLat"
+        let parsedBbox;
+        if (typeof bbox === 'string') {
+            const parts = bbox.split(',').map(parseFloat);
+            if (parts.length === 4) {
+                parsedBbox = [[parts[0], parts[1]], [parts[2], parts[3]]];
+            }
+        } else if (Array.isArray(bbox)) {
+            if (bbox.length === 4) {
+                parsedBbox = [[bbox[0], bbox[1]], [bbox[2], bbox[3]]];
+            }
+        }
+
+        if (!parsedBbox) {
+            console.warn('[MapBrowserControl] Invalid bbox format:', bbox);
+            return;
+        }
+
+        // First fit bounds to show the full extent
+        this._map.fitBounds(parsedBbox, {
+            padding: { top: 50, bottom: 50, left: 50, right: 50 },
+            duration: 1000
+        });
+
+        // If minzoom is defined, set zoom to minzoom + 1 after fitBounds completes
+        if (layer.minzoom !== undefined) {
+            setTimeout(() => {
+                const targetZoom = layer.minzoom + 1;
+                const currentZoom = this._map.getZoom();
+                console.log('[MapBrowserControl] Current zoom after fitBounds:', currentZoom, 'target zoom (minzoom+1):', targetZoom);
+                // Only zoom in if current zoom is less than target
+                if (currentZoom < targetZoom) {
+                    this._map.zoomTo(targetZoom, { duration: 500 });
+                }
+            }, 1100); // Wait for fitBounds animation to complete (1000ms + buffer)
+        }
     }
 
     _handleAddCustomLayer(config) {

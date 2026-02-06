@@ -601,12 +601,13 @@
             <div class="mb-2 text-sm text-gray-300 flex items-center gap-2 justify-between">
                 <div class="flex items-center gap-2">
                     <span>Explore</span>
-                    <button id="atlas-filter-btn" style="background: #3b82f6; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                    <button id="atlas-filter-btn" style="background: #3b82f6; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;">
                         All Map Collections
                     </button>
                     <span>or</span>
-                    <button id="add-new-map-link" style="background: #ffbf00; color: #000; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.background='#ffd700'" onmouseout="this.style.background='#ffbf00'">
-                        ➕ Add New Map
+                    <button id="add-new-map-link" style="background: transparent; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 6px;">
+                        <sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon>
+                        <span>Add New Map</span>
                     </button>
                 </div>
                 <button id="close-browser-btn" class="text-white"
@@ -620,7 +621,7 @@
                 <!-- Search Input -->
                 <div class="relative flex-1 min-w-0">
                     <input type="text" id="search-input" placeholder="Search maps..."
-                        class="search-input w-full px-3 py-2 pr-8 rounded border border-gray-300 bg-white text-gray-900 text-sm" />
+                        class="search-input w-full px-2 py-1.5 pr-8 rounded border border-gray-300 bg-white text-gray-900 text-xs" />
                     <button id="clear-search-btn"
                         class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         style="display: none;">
@@ -638,15 +639,6 @@
                 <div id="layer-grid" class="layer-grid"></div>
             </div>
 
-            <!-- Status Bar -->
-            <div class="status-bar"
-                style="background: #1f2937; border-top: 1px solid #374151; padding: 8px 12px; color: #9ca3af; font-size: 12px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
-                <span id="results-count" class="text-gray-400">Loading...</span>
-                <label class="flex items-center gap-2 cursor-pointer text-white text-xs">
-                    <input type="checkbox" id="show-only-active" class="w-3 h-3">
-                    <span>Show only active maps</span>
-                </label>
-            </div>
         </div>
     </div>
 
@@ -687,8 +679,7 @@
         let bboxLayers = [];
         let mapboxAccessToken = null;
         let expandedLayers = new Set();
-        let showOutOfViewAtlases = false;
-        let collapsedAtlases = new Set(); // Track which atlases are collapsed
+        let expandedAtlasId = null; // Track which single atlas is expanded
         let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
         let loadingLayers = new Set(); // Track layers currently loading
@@ -938,7 +929,6 @@
                 $('#search-input').val('').trigger('input');
             });
 
-            $('#show-only-active').on('change', renderLayers);
 
             $('#atlas-filter-btn').on('click', function () {
                 // Toggle menu - close if already open
@@ -949,8 +939,24 @@
                 }
             });
 
+            // Atlas filter button hover effects
+            $('#atlas-filter-btn').on('mouseenter', function () {
+                const baseColor = $(this).data('atlas-color') || '#3b82f6';
+                // Darken the color slightly on hover
+                $(this).css('opacity', '0.85');
+            }).on('mouseleave', function () {
+                $(this).css('opacity', '1');
+            });
+
             $('#add-new-map-link').on('click', function () {
                 window.parent.postMessage({ type: 'open-creator' }, '*');
+            });
+
+            // Add new map button hover effects
+            $('#add-new-map-link').on('mouseenter', function () {
+                $(this).css('background', '#16a34a');
+            }).on('mouseleave', function () {
+                $(this).css('background', 'transparent');
             });
 
             $('#close-browser-btn').on('click', function () {
@@ -1176,7 +1182,21 @@
         // Select atlas filter
         function selectAtlas(atlasId, atlasName) {
             window.selectedAtlasId = atlasId;
-            $('#atlas-filter-btn').text(atlasName);
+            const $btn = $('#atlas-filter-btn');
+            $btn.text(atlasName);
+
+            // Update button color based on selected atlas
+            if (atlasId && atlasMetadata.has(atlasId)) {
+                const metadata = atlasMetadata.get(atlasId);
+                const color = metadata.color || '#3b82f6';
+                $btn.css('background', color);
+                $btn.data('atlas-color', color);
+            } else {
+                // Reset to default blue for "All Map Collections"
+                $btn.css('background', '#3b82f6');
+                $btn.data('atlas-color', '#3b82f6');
+            }
+
             renderLayers();
         }
 
@@ -1220,17 +1240,11 @@
         // Render filtered layers
         function renderLayers() {
             const searchTerm = $('#search-input').val().toLowerCase().trim();
-            const showOnlyActive = $('#show-only-active').is(':checked');
             const selectedAtlas = window.selectedAtlasId || '';
 
             const filtered = allLayers.filter(layer => {
                 // Search filter
                 if (searchTerm && !matchesSearch(layer, searchTerm)) {
-                    return false;
-                }
-
-                // Active filter
-                if (showOnlyActive && !activeLayers.has(layer.id)) {
                     return false;
                 }
 
@@ -1263,7 +1277,19 @@
         function isInView(layer) {
             if (!currentBounds || !layer.bbox) return true;
 
-            const [layerW, layerS, layerE, layerN] = layer.bbox;
+            // Parse bbox if it's a string "minLng,minLat,maxLng,maxLat"
+            let layerBbox;
+            if (typeof layer.bbox === 'string') {
+                layerBbox = layer.bbox.split(',').map(parseFloat);
+            } else if (Array.isArray(layer.bbox)) {
+                layerBbox = layer.bbox;
+            } else {
+                return true;
+            }
+
+            if (layerBbox.length !== 4) return true;
+
+            const [layerW, layerS, layerE, layerN] = layerBbox;
             const [boundsW, boundsS, boundsE, boundsN] = currentBounds;
 
             return !(layerE < boundsW || layerW > boundsE ||
@@ -1283,6 +1309,31 @@
             const width = east - west;
             const height = north - south;
             return width * height;
+        }
+
+        // Calculate distance from atlas center to current view center
+        function calculateAtlasDistanceFromView(atlasId) {
+            if (!currentBounds) return Infinity;
+
+            const atlasData = atlasMetadata.get(atlasId);
+            if (!atlasData || !atlasData.bbox) return Infinity;
+
+            const bbox = atlasData.bbox;
+            const bboxArray = Array.isArray(bbox) ? bbox : bbox.split(',').map(parseFloat);
+            if (bboxArray.length !== 4) return Infinity;
+
+            const [atlasW, atlasS, atlasE, atlasN] = bboxArray;
+            const atlasCenterLng = (atlasW + atlasE) / 2;
+            const atlasCenterLat = (atlasS + atlasN) / 2;
+
+            const [boundsW, boundsS, boundsE, boundsN] = currentBounds;
+            const boundsCenterLng = (boundsW + boundsE) / 2;
+            const boundsCenterLat = (boundsS + boundsN) / 2;
+
+            // Simple Euclidean distance (good enough for relative comparison)
+            const dx = atlasCenterLng - boundsCenterLng;
+            const dy = atlasCenterLat - boundsCenterLat;
+            return Math.sqrt(dx * dx + dy * dy);
         }
 
         // Get tag string for a layer
@@ -1315,11 +1366,14 @@
                 byAtlas[atlasId].push(layer);
             });
 
+            // Get all atlas IDs
+            const atlasIds = Object.keys(byAtlas);
+
             // Separate atlases into in-view and out-of-view
             const inViewAtlasIds = [];
             const outOfViewAtlasIds = [];
 
-            Object.keys(byAtlas).forEach(atlasId => {
+            atlasIds.forEach(atlasId => {
                 const atlasLayers = byAtlas[atlasId];
                 const hasInViewLayers = atlasLayers.some(layer => isInView(layer));
 
@@ -1330,7 +1384,7 @@
                 }
             });
 
-            // Sort both groups by bbox size (ascending) - local first
+            // Sort atlases by bbox size (ascending) - smaller/local first
             const sortAtlasesBySize = (a, b) => {
                 const areaA = calculateAtlasBboxArea(a);
                 const areaB = calculateAtlasBboxArea(b);
@@ -1342,15 +1396,31 @@
                 return areaA - areaB;
             };
 
+            // Sort in-view atlases by size (smallest first)
             inViewAtlasIds.sort(sortAtlasesBySize);
-            outOfViewAtlasIds.sort(sortAtlasesBySize);
+
+            // Sort out-of-view atlases by size and distance from current view
+            outOfViewAtlasIds.sort((a, b) => {
+                // First compare by size
+                const sizeComparison = sortAtlasesBySize(a, b);
+                if (sizeComparison !== 0) return sizeComparison;
+
+                // If same size, compare by distance from current bounds
+                const distA = calculateAtlasDistanceFromView(a);
+                const distB = calculateAtlasDistanceFromView(b);
+                return distA - distB;
+            });
+
+            // Combine: in-view first, then out-of-view
+            const orderedAtlasIds = [...inViewAtlasIds, ...outOfViewAtlasIds];
 
             // Create atlas navigation if there are multiple atlases
-            if (inViewAtlasIds.length + outOfViewAtlasIds.length > 1) {
+            if (orderedAtlasIds.length > 1) {
                 const $atlasNav = $('<div>', {
                     class: 'atlas-nav'
                 });
 
+                // Add in-view atlases
                 inViewAtlasIds.forEach(atlasId => {
                     const atlasData = atlasMetadata.get(atlasId) || {};
                     const count = byAtlas[atlasId].length;
@@ -1362,26 +1432,70 @@
                         class: 'atlas-nav-link',
                         'data-atlas': atlasId,
                         style: `background-color: ${atlasColor};`,
-                        html: `${atlasName} <span class="count">(${count})</span>`
+                        html: `${atlasName} <span class="count">(${count})</span>`,
+                        click: function(e) {
+                            e.preventDefault();
+                            // Expand this atlas
+                            expandedAtlasId = atlasId;
+                            renderLayers();
+                            // Scroll to atlas after render
+                            setTimeout(() => {
+                                document.getElementById(`atlas-${atlasId}`)?.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'start'
+                                });
+                            }, 100);
+                        }
                     });
 
                     $atlasNav.append($atlasLink);
                 });
 
-                if (outOfViewAtlasIds.length > 0) {
-                    const $moreLink = $('<span>', {
-                        class: 'atlas-nav-more',
-                        text: showOutOfViewAtlases ? 'hide others' : `...${outOfViewAtlasIds.length} more`,
-                        click: function() {
-                            showOutOfViewAtlases = !showOutOfViewAtlases;
+                // Add separator if there are out-of-view atlases
+                if (outOfViewAtlasIds.length > 0 && inViewAtlasIds.length > 0) {
+                    const $separator = $('<div>', {
+                        style: 'width: 2px; height: 20px; background: #374151; margin: 0 8px;'
+                    });
+                    $atlasNav.append($separator);
+                }
+
+                // Add out-of-view atlases
+                outOfViewAtlasIds.forEach(atlasId => {
+                    const atlasData = atlasMetadata.get(atlasId) || {};
+                    const count = byAtlas[atlasId].length;
+                    const atlasName = atlasData.name || atlasId;
+                    const atlasColor = atlasData.color || '#6b7280';
+
+                    const $atlasLink = $('<a>', {
+                        href: `#atlas-${atlasId}`,
+                        class: 'atlas-nav-link',
+                        'data-atlas': atlasId,
+                        style: `background-color: ${atlasColor}; opacity: 0.6;`,
+                        html: `${atlasName} <span class="count">(${count})</span>`,
+                        click: function(e) {
+                            e.preventDefault();
+                            // Expand this atlas
+                            expandedAtlasId = atlasId;
                             renderLayers();
+                            // Scroll to atlas after render
+                            setTimeout(() => {
+                                document.getElementById(`atlas-${atlasId}`)?.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'start'
+                                });
+                            }, 100);
                         }
                     });
 
-                    $atlasNav.append($moreLink);
-                }
+                    $atlasNav.append($atlasLink);
+                });
 
                 $grid.append($atlasNav);
+            }
+
+            // Set first atlas as expanded if none is currently expanded
+            if (!expandedAtlasId && orderedAtlasIds.length > 0) {
+                expandedAtlasId = orderedAtlasIds[0];
             }
 
             // Render in-view atlas groups
@@ -1391,14 +1505,21 @@
                 renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid);
             });
 
-            // Render out-of-view atlas groups if toggled
-            if (showOutOfViewAtlases) {
-                outOfViewAtlasIds.forEach(atlasId => {
-                    const atlasData = atlasMetadata.get(atlasId) || {};
-                    const atlasLayers = byAtlas[atlasId];
-                    renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid);
+            // Add separator between in-view and out-of-view if both exist
+            if (inViewAtlasIds.length > 0 && outOfViewAtlasIds.length > 0) {
+                const $separator = $('<div>', {
+                    style: 'margin: 16px 0; padding: 8px 12px; background: #1f2937; border-radius: 4px; text-align: center; color: #9ca3af; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;',
+                    text: 'Other Collections'
                 });
+                $grid.append($separator);
             }
+
+            // Render out-of-view atlas groups
+            outOfViewAtlasIds.forEach(atlasId => {
+                const atlasData = atlasMetadata.get(atlasId) || {};
+                const atlasLayers = byAtlas[atlasId];
+                renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid);
+            });
 
             // Set active atlas based on scroll position
             setTimeout(updateActiveNavLink, 100);
@@ -1406,7 +1527,7 @@
 
         // Render atlas in collapsed view
         function renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid) {
-            const isCollapsed = collapsedAtlases.has(atlasId);
+            const isExpanded = expandedAtlasId === atlasId;
 
             const $collapsed = $('<div>', {
                 class: 'atlas-collapsed',
@@ -1420,11 +1541,13 @@
                     // Don't toggle if clicking on links or buttons
                     if ($(e.target).closest('a, button').length) return;
 
-                    // Toggle collapse state
-                    if (collapsedAtlases.has(atlasId)) {
-                        collapsedAtlases.delete(atlasId);
+                    // Toggle expansion - only one atlas can be expanded at a time
+                    if (expandedAtlasId === atlasId) {
+                        // Clicking on expanded atlas collapses it
+                        expandedAtlasId = null;
                     } else {
-                        collapsedAtlases.add(atlasId);
+                        // Clicking on collapsed atlas expands it (and collapses others)
+                        expandedAtlasId = atlasId;
                     }
                     renderLayers();
                 }
@@ -1433,7 +1556,7 @@
             // Expand/collapse icon
             const $expandIcon = $('<span>', {
                 class: 'atlas-expand-icon',
-                text: isCollapsed ? '▶' : '▼'
+                text: isExpanded ? '▼' : '▶'
             });
             $header.append($expandIcon);
 
@@ -1483,7 +1606,7 @@
             $collapsed.append($header);
 
             // Add description if available
-            if (atlasData.description && !isCollapsed) {
+            if (atlasData.description && isExpanded) {
                 const $description = $('<div>', {
                     style: 'padding: 8px 12px 12px 32px; color: #9ca3af; font-size: 12px; line-height: 1.5;',
                     html: atlasData.description
@@ -1491,24 +1614,13 @@
                 $collapsed.append($description);
             }
 
-            const inViewLayers = [];
-            const notInViewLayers = [];
-
-            atlasLayers.forEach(layer => {
-                if (isInView(layer)) {
-                    inViewLayers.push(layer);
-                } else {
-                    notInViewLayers.push(layer);
-                }
-            });
-
             const $layersContainer = $('<div>', {
                 class: 'atlas-collapsed-layers'
             });
 
-            // Group in-view layers by tags
+            // Group all layers by tags (including out-of-view layers)
             const byTag = {};
-            inViewLayers.forEach(layer => {
+            atlasLayers.forEach(layer => {
                 const tagString = getLayerTagString(layer);
                 if (!byTag[tagString]) {
                     byTag[tagString] = [];
@@ -1523,13 +1635,11 @@
             tagStrings.forEach(tagString => {
                 const tagLayers = byTag[tagString];
 
-                // Sort layers within tag: selected layers first
+                // Sort layers alphabetically within tag
                 tagLayers.sort((a, b) => {
-                    const aHasSelection = selectedFeatures.has(a.id);
-                    const bHasSelection = selectedFeatures.has(b.id);
-                    if (aHasSelection && !bHasSelection) return -1;
-                    if (!aHasSelection && bHasSelection) return 1;
-                    return 0;
+                    const aName = (a.name || a.title || a.id || '').toLowerCase();
+                    const bName = (b.name || b.title || b.id || '').toLowerCase();
+                    return aName.localeCompare(bName);
                 });
 
                 const $tagGroup = $('<div>', {
@@ -1579,7 +1689,9 @@
                             'data-layer-id': layer.id
                         });
 
-                        const thumbnail = window.LayerThumbnail.generate(layer, 40);
+                        const thumbnail = window.LayerThumbnail.generate(layer, 40, {
+                            isInView: isInView(layer)
+                        });
                         $layerPreview.append(thumbnail);
 
                         const $content = $('<div>', {
@@ -1679,16 +1791,9 @@
                 $layersContainer.append($tagGroup);
             });
 
-            // Only show layers if not collapsed
-            if (!isCollapsed) {
+            // Only show layers if expanded
+            if (isExpanded) {
                 $collapsed.append($layersContainer);
-
-                if (notInViewLayers.length > 0) {
-                    $collapsed.append($('<div>', {
-                        class: 'atlas-collapsed-more',
-                        text: `+ ${notInViewLayers.length} more`
-                    }));
-                }
             }
 
             $grid.append($collapsed);
@@ -1734,7 +1839,9 @@
                 const $container = $('<div>', { class: 'flex items-stretch' });
 
                 // Column 1: Thumbnail
-                const thumbnail = window.LayerThumbnail.generate(layer, 80);
+                const thumbnail = window.LayerThumbnail.generate(layer, 80, {
+                    isInView: isInView(layer)
+                });
                 thumbnail.style.margin = '0';
                 thumbnail.style.borderRadius = '0.5rem 0 0 0.5rem';
                 $container.append(thumbnail);
@@ -1842,7 +1949,9 @@
                 // Compact layout: Horizontal
                 const $container = $('<div>', { class: 'flex items-stretch' });
 
-                const thumbnail = window.LayerThumbnail.generate(layer, 80);
+                const thumbnail = window.LayerThumbnail.generate(layer, 80, {
+                    isInView: isInView(layer)
+                });
                 thumbnail.style.margin = '0';
                 thumbnail.style.borderRadius = '0.5rem 0 0 0.5rem';
                 $container.append(thumbnail);
@@ -2144,25 +2253,15 @@
         // Update results count
         function updateResultsCount(filteredLayers, total) {
             const atlasesByLayer = new Set();
-            const inViewAtlases = new Set();
 
             filteredLayers.forEach(layer => {
                 const atlasId = layer._sourceAtlas;
                 atlasesByLayer.add(atlasId);
-                if (isInView(layer)) {
-                    inViewAtlases.add(atlasId);
-                }
             });
 
-            const visibleAtlasCount = showOutOfViewAtlases ? atlasesByLayer.size : inViewAtlases.size;
             const totalAtlasCount = atlasesByLayer.size;
-
-            if (showOutOfViewAtlases || visibleAtlasCount === totalAtlasCount) {
-                $('#results-count').text(`Showing ${filteredLayers.length} of ${total} maps from ${totalAtlasCount} atlases`);
-            } else {
-                const hiddenCount = totalAtlasCount - visibleAtlasCount;
-                $('#results-count').text(`Showing ${filteredLayers.length} of ${total} maps from ${visibleAtlasCount} atlases (${hiddenCount} hidden)`);
-            }
+            const collectionWord = totalAtlasCount === 1 ? 'collection' : 'collections';
+            $('#search-input').attr('placeholder', `Search ${filteredLayers.length} maps from ${totalAtlasCount} ${collectionWord}`);
         }
 
         // Show preview map modal
