@@ -662,6 +662,18 @@ export class MapInitializer {
                 detail: { map: map }
             });
             window.dispatchEvent(mapReadyEvent);
+
+            // Hide loading overlay after initialization is complete
+            requestAnimationFrame(() => {
+                const loadingOverlay = document.getElementById('loading-overlay');
+                if (loadingOverlay) {
+                    loadingOverlay.style.opacity = '0';
+                    loadingOverlay.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => {
+                        loadingOverlay.style.display = 'none';
+                    }, 300);
+                }
+            });
         });
     }
 

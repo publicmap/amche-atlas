@@ -77,17 +77,16 @@ export class DataUtils {
      */
     static parseCSV(csvText) {
         if (!csvText) return [];
-        const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
-        if (lines.length === 0) return [];
 
-        let headerLine = lines[0];
+        const records = this.parseCSVRecords(csvText);
+        if (records.length === 0) return [];
+
+        const headers = records[0];
         let dataStartIndex = 1;
-        const headers = this.parseCSVLine(headerLine);
 
-        for (let i = 1; i < lines.length; i++) {
-            const currentLine = this.parseCSVLine(lines[i]);
-            if (currentLine.length === headers.length &&
-                currentLine.every((val, idx) => val.trim() === headers[idx].trim())) {
+        for (let i = 1; i < records.length; i++) {
+            if (records[i].length === headers.length &&
+                records[i].every((val, idx) => val.trim() === headers[idx].trim())) {
                 dataStartIndex = i + 1;
             } else {
                 break;
@@ -95,8 +94,8 @@ export class DataUtils {
         }
 
         const rows = [];
-        for (let i = dataStartIndex; i < lines.length; i++) {
-            const values = this.parseCSVLine(lines[i]);
+        for (let i = dataStartIndex; i < records.length; i++) {
+            const values = records[i];
             if (values.length !== headers.length) continue;
             const row = {};
             headers.forEach((header, index) => {
@@ -105,6 +104,53 @@ export class DataUtils {
             rows.push(row);
         }
         return rows;
+    }
+
+    static parseCSVRecords(csvText) {
+        const records = [];
+        let currentRecord = [];
+        let currentField = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < csvText.length; i++) {
+            const char = csvText[i];
+            const nextChar = i + 1 < csvText.length ? csvText[i + 1] : null;
+
+            if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                    currentField += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                currentRecord.push(currentField);
+                currentField = '';
+            } else if ((char === '\n' || char === '\r') && !inQuotes) {
+                if (char === '\r' && nextChar === '\n') {
+                    i++;
+                }
+                if (currentField.length > 0 || currentRecord.length > 0) {
+                    currentRecord.push(currentField);
+                    if (currentRecord.some(f => f.trim().length > 0)) {
+                        records.push(currentRecord);
+                    }
+                    currentRecord = [];
+                    currentField = '';
+                }
+            } else {
+                currentField += char;
+            }
+        }
+
+        if (currentField.length > 0 || currentRecord.length > 0) {
+            currentRecord.push(currentField);
+            if (currentRecord.some(f => f.trim().length > 0)) {
+                records.push(currentRecord);
+            }
+        }
+
+        return records;
     }
 
     /**
@@ -251,43 +297,70 @@ export class GeoUtils {
      * @param {boolean} debug - Enable debug logging
      * @returns {Object} GeoJSON FeatureCollection
      */
-    static rowsToGeoJSON(rows, debug = false) {
+    static rowsToGeoJSON(rows, debug = false, explicitLatField = null, explicitLonField = null) {
         if (!rows || rows.length === 0) {
             if (debug) console.warn('No rows provided to rowsToGeoJSON');
             return { type: 'FeatureCollection', features: [] };
         }
 
-        const lonPatterns = ['lon', 'lng', 'longitude', 'x', 'long'];
-        const latPatterns = ['lat', 'latitude', 'y'];
-        let lonField = null;
-        let latField = null;
+        let lonField = explicitLonField;
+        let latField = explicitLatField;
 
-        const firstRow = rows[0];
-        const matchesPattern = (field, pattern) => {
-            const fieldLower = field.toLowerCase();
-            const patternLower = pattern.toLowerCase();
-            if (fieldLower === patternLower) return 2;
-            if (fieldLower.includes(patternLower)) return 1;
-            return 0;
-        };
+        if (!lonField || !latField) {
+            const lonPatterns = [
+                'lon', 'lng', 'longitude', 'long',
+                'x', 'easting',
+                'lon_dd', 'lng_dd', 'decimal_longitude',
+                'gps_lon', 'gps_lng',
+                'geo_lon', 'geo_lng',
+                'point_x', 'coord_x'
+            ];
+            const latPatterns = [
+                'lat', 'latitude',
+                'y', 'northing',
+                'lat_dd', 'decimal_latitude',
+                'gps_lat',
+                'geo_lat',
+                'point_y', 'coord_y'
+            ];
 
-        let bestLonScore = 0;
-        let bestLatScore = 0;
+            const firstRow = rows[0];
+            const matchesPattern = (field, pattern) => {
+                const fieldLower = field.trim().toLowerCase();
+                const patternLower = pattern.toLowerCase();
+                if (fieldLower === patternLower) return 2;
+                if (fieldLower.includes(patternLower)) return 1;
+                return 0;
+            };
 
-        for (const field of Object.keys(firstRow)) {
-            for (const pattern of lonPatterns) {
-                const score = matchesPattern(field, pattern);
-                if (score > bestLonScore) {
-                    bestLonScore = score;
-                    lonField = field;
+            let bestLonScore = 0;
+            let bestLatScore = 0;
+
+            for (const field of Object.keys(firstRow)) {
+                for (const pattern of lonPatterns) {
+                    const score = matchesPattern(field, pattern);
+                    if (score > bestLonScore) {
+                        bestLonScore = score;
+                        lonField = field;
+                    }
+                }
+                for (const pattern of latPatterns) {
+                    const score = matchesPattern(field, pattern);
+                    if (score > bestLatScore) {
+                        bestLatScore = score;
+                        latField = field;
+                    }
                 }
             }
-            for (const pattern of latPatterns) {
-                const score = matchesPattern(field, pattern);
-                if (score > bestLatScore) {
-                    bestLatScore = score;
-                    latField = field;
-                }
+
+            if (debug) {
+                console.log('CSV field detection:', {
+                    columns: Object.keys(firstRow),
+                    detectedLat: latField,
+                    detectedLon: lonField,
+                    latScore: bestLatScore,
+                    lonScore: bestLonScore
+                });
             }
         }
 

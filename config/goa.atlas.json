@@ -2309,15 +2309,9 @@
       "tags": [
         "basemap"
       ],
-      "title": "District",
-      "description": "Mask for the district of Goa.",
-      "headerImage": "assets/map-layers/goa/map-layer-goa-districts.png",
-      "type": "vector",
-      "id": "goa-mask",
-      "url": "https://indianopenmaps.fly.dev/not-so-open/districts/lgd/{z}/{x}/{y}.pbf ",
-      "sourceLayer": "LGD_Districts",
-      "maxzoom": 10,
-      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>LGD/Bharatmaps</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/districts'>Datameet Community:LGD_Districts</a>",
+      "title": "Goa Mask",
+      "description": "Mask for Goa.",
+      "id": "india-district",
       "style": {
         "fill-color": [
           "interpolate",
@@ -2369,41 +2363,6 @@
             "rgba(0, 0, 0, 0)",
             "rgba(255, 255, 255, 0.1)"
           ]
-        ],
-        "fill-opacity": [
-          "case",
-          [
-            "boolean",
-            [
-              "feature-state",
-              "selected"
-            ],
-            false
-          ],
-          0,
-          [
-            "boolean",
-            [
-              "feature-state",
-              "hover"
-            ],
-            false
-          ],
-          0.3,
-          0.5
-        ],
-        "line-color": "black",
-        "line-width": 0.2
-      },
-      "inspect": {
-        "id": "dtname",
-        "title": "District",
-        "label": "dtname",
-        "fields": [
-          "stname"
-        ],
-        "fieldTitles": [
-          "State"
         ]
       }
     },

@@ -93,6 +93,46 @@ export class MapBrowserControl {
 
         window.addEventListener('resize', updateLayout);
 
+        // Create loading overlay in parent
+        this._loadingOverlay = document.createElement('div');
+        this._loadingOverlay.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #111827;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            flex-direction: column;
+            gap: 16px;
+        `;
+
+        const spinner = document.createElement('div');
+        spinner.style.cssText = `
+            width: 40px;
+            height: 40px;
+            border: 4px solid #374151;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        `;
+
+        const loadingText = document.createElement('div');
+        loadingText.style.cssText = 'color: #9ca3af; font-size: 14px;';
+        loadingText.textContent = 'Loading map collection...';
+
+        this._loadingOverlay.appendChild(spinner);
+        this._loadingOverlay.appendChild(loadingText);
+        this._browserContainer.appendChild(this._loadingOverlay);
+
+        // Add spin animation
+        const style = document.createElement('style');
+        style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+        document.head.appendChild(style);
+
         this._overlay.appendChild(this._browserContainer);
         document.body.appendChild(this._overlay);
 
@@ -135,10 +175,36 @@ export class MapBrowserControl {
         this._browserContainer.appendChild(this._iframe);
     }
 
+    _preloadBrowser() {
+        // Preload the browser iframe in the background
+        // Wait a bit to ensure inspector is fully settled
+        setTimeout(() => {
+            this._ensureIframe();
+            // Send initial data once iframe is ready to receive it
+            setTimeout(() => {
+                if (this._iframe) {
+                    this._sendLayerData();
+                }
+            }, 500);
+        }, 1000);
+    }
+
     _setupMessageListener() {
         window.addEventListener('message', (event) => {
             if (event.data.type === 'request-layer-data') {
                 this._sendLayerData();
+            }
+
+            if (event.data.type === 'browser-ready') {
+                // Hide loading overlay when iframe has finished rendering
+                if (this._loadingOverlay) {
+                    this._loadingOverlay.style.display = 'none';
+                }
+            }
+
+            if (event.data.type === 'inspector-ready') {
+                // Preload browser iframe when inspector is ready
+                this._preloadBrowser();
             }
 
             if (event.data.type === 'layer-toggle') {
@@ -430,6 +496,11 @@ export class MapBrowserControl {
     }
 
     openBrowser() {
+        // Show loading overlay immediately
+        if (this._loadingOverlay) {
+            this._loadingOverlay.style.display = 'flex';
+        }
+
         this._ensureIframe();
         this._overlay.style.display = 'block';
         this._isOpen = true;

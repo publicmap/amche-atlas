@@ -12,7 +12,6 @@
 
 import { GeoUtils } from './map-utils.js';
 import { LayerSettingsModal } from './layer-settings-modal.js';
-import { LayerCreatorUI } from './layer-creator-ui.js';
 import { LayerStyleControl } from './layer-style-control.js';
 
 export class MapFeatureControl {

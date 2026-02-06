@@ -593,6 +593,57 @@
       }
     },
     {
+      "tags": [
+        "basemap"
+      ],
+      "title": "District Boundaries",
+      "description": "Districts of India",
+      "type": "vector",
+      "id": "district",
+      "url": "https://indianopenmaps.fly.dev/not-so-open/districts/lgd/{z}/{x}/{y}.pbf ",
+      "sourceLayer": "LGD_Districts",
+      "maxzoom": 10,
+      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>LGD/Bharatmaps</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/districts'>Datameet Community:LGD_Districts</a>",
+      "style": {
+        "fill-color": "rgba(255, 255, 255, 1)",
+        "fill-opacity": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          0,
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          0.3,
+          0.5
+        ],
+        "line-color": "black",
+        "line-width": 0.2
+      },
+      "inspect": {
+        "id": "dtname",
+        "title": "District",
+        "label": "dtname",
+        "fields": [
+          "stname"
+        ],
+        "fieldTitles": [
+          "State"
+        ]
+      }
+    },
+    {
       "title": "Assembly Constituencies",
       "description": "Members of Legislative Assembly (MLA) constituencies.",
       "headerImage": "assets/map-layers/india/map-layer-assembly-boundaries.png",

@@ -23,6 +23,7 @@ export class MapFeatureControl {
         this._globalHandlersAdded = false;
         this._isIframeReady = false;
         this._messageQueue = [];
+        this._inspectorInitialized = false;
 
         // Set up resize listener
         this._resizeListener = this._handleResize.bind(this);
@@ -177,6 +178,42 @@ export class MapFeatureControl {
 
         this._panel.appendChild(this._iframe);
 
+        // Create loading overlay in parent
+        this._loadingOverlay = document.createElement('div');
+        this._loadingOverlay.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #111827;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            flex-direction: column;
+            gap: 16px;
+            border-radius: 8px;
+        `;
+
+        const spinner = document.createElement('div');
+        spinner.style.cssText = `
+            width: 32px;
+            height: 32px;
+            border: 3px solid #374151;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        `;
+
+        const loadingText = document.createElement('div');
+        loadingText.style.cssText = 'color: #9ca3af; font-size: 12px;';
+        loadingText.textContent = 'Loading inspector...';
+
+        this._loadingOverlay.appendChild(spinner);
+        this._loadingOverlay.appendChild(loadingText);
+        this._panel.appendChild(this._loadingOverlay);
+
         // Create drag handle overlay (invisible, sits on top of iframe header "Map Layers" text only)
         this._dragHandle = document.createElement('div');
         this._dragHandle.style.cssText = `
@@ -277,7 +314,13 @@ export class MapFeatureControl {
             if (event.data.type === 'inspector-ready') {
                 console.log('[IframeControl] Inspector iframe is ready');
                 this._isIframeReady = true;
+                this._inspectorInitialized = true;
                 this._flushMessageQueue();
+
+                // Hide loading overlay when inspector is ready
+                if (this._loadingOverlay) {
+                    this._loadingOverlay.style.display = 'none';
+                }
             } else if (event.data.type === 'request-inspector-data') {
                 this._sendDataToIframe();
             } else if (event.data.type === 'isolate-layer') {
@@ -942,6 +985,11 @@ export class MapFeatureControl {
     }
 
     _showPanel() {
+        // Only show loading overlay if inspector hasn't been initialized yet
+        if (this._loadingOverlay && !this._inspectorInitialized) {
+            this._loadingOverlay.style.display = 'flex';
+        }
+
         this._panel.style.display = 'block';
         this._sendDataToIframe();
 

@@ -186,14 +186,16 @@
             font-weight: 600;
         }
 
-        .feature-custom-info a {
+        .feature-custom-info a,
+        .layer-card-expanded a {
             color: #60a5fa;
-            text-decoration: none;
+            text-decoration: underline;
+            cursor: pointer;
         }
 
-        .feature-custom-info a:hover {
+        .feature-custom-info a:hover,
+        .layer-card-expanded a:hover {
             color: #93c5fd;
-            text-decoration: underline;
         }
 
         .feature-custom-info div {
@@ -417,15 +419,12 @@
         // Make LayerThumbnail available globally
         window.LayerThumbnail = LayerThumbnail;
 
+        // Track if initial render is complete
+        let initialRenderComplete = false;
+
         // Initialize
         $(document).ready(function () {
             setupEventListeners();
-
-            // Signal to parent that iframe is ready
-            window.parent.postMessage({
-                type: 'inspector-ready'
-            }, '*');
-
             requestLayerData();
         });
 
@@ -768,6 +767,16 @@
             requestAnimationFrame(() => {
                 setTimeout(processApiLoaders, 50);
             });
+
+            // Signal to parent that initial render is complete (only once)
+            if (!initialRenderComplete) {
+                initialRenderComplete = true;
+                requestAnimationFrame(() => {
+                    window.parent.postMessage({
+                        type: 'inspector-ready'
+                    }, '*');
+                });
+            }
         }
 
         // Create selected feature card (collapsible, with layer and feature isolation)
@@ -1446,6 +1455,17 @@
                 type: 'open-layer-info',
                 layer: layer
             }, '*');
+        }
+
+        // Process HTML to ensure all links open in new window
+        function processLinksForNewWindow(html) {
+            if (!html) return '';
+            const $temp = $('<div>').html(html);
+            $temp.find('a').attr({
+                'target': '_blank',
+                'rel': 'noopener noreferrer'
+            });
+            return $temp.html();
         }
 
         // Process API data loaders (generic, handler-agnostic)

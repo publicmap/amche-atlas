@@ -36,7 +36,7 @@ export class MapCreator {
         let urlInputTimeout;
         $('#url-input').on('input', (e) => {
             clearTimeout(urlInputTimeout);
-            const url = e.target.value.trim();
+            let url = e.target.value.trim();
 
             if (url) {
                 $('#clear-url-btn').removeClass('hidden');
@@ -46,6 +46,7 @@ export class MapCreator {
                 return;
             }
 
+            url = this.normalizeGoogleSheetsUrl(url);
             const validFormat = this.detectUrlFormat(url);
             $('.format-chip').removeClass('active-format');
 
@@ -176,6 +177,38 @@ export class MapCreator {
         return fields[0] || 'name';
     }
 
+    getDefaultLatField(fields) {
+        const latPatterns = ['lat', 'latitude', 'y', 'northing', 'lat_dd', 'decimal_latitude', 'gps_lat', 'geo_lat', 'point_y', 'coord_y'];
+
+        for (const pattern of latPatterns) {
+            const found = fields.find(f => f.toLowerCase().trim() === pattern);
+            if (found) return found;
+        }
+
+        for (const pattern of latPatterns) {
+            const found = fields.find(f => f.toLowerCase().trim().includes(pattern));
+            if (found) return found;
+        }
+
+        return '';
+    }
+
+    getDefaultLonField(fields) {
+        const lonPatterns = ['lon', 'lng', 'longitude', 'long', 'x', 'easting', 'lon_dd', 'lng_dd', 'decimal_longitude', 'gps_lon', 'gps_lng', 'geo_lon', 'geo_lng', 'point_x', 'coord_x'];
+
+        for (const pattern of lonPatterns) {
+            const found = fields.find(f => f.toLowerCase().trim() === pattern);
+            if (found) return found;
+        }
+
+        for (const pattern of lonPatterns) {
+            const found = fields.find(f => f.toLowerCase().trim().includes(pattern));
+            if (found) return found;
+        }
+
+        return '';
+    }
+
     detectUrlFormat(url) {
         const urlLower = url.toLowerCase();
 
@@ -236,6 +269,29 @@ export class MapCreator {
         }
     }
 
+    normalizeGoogleSheetsUrl(url) {
+        if (!url.includes('docs.google.com/spreadsheets')) {
+            return url;
+        }
+
+        const urlLower = url.toLowerCase();
+
+        if (urlLower.includes('/pubhtml')) {
+            return url.replace(/\/pubhtml.*$/i, '/pub?output=csv');
+        }
+
+        if (urlLower.includes('/pub')) {
+            return url.replace(/\/pub(\?.*)?$/i, (match, queryString) => {
+                if (queryString && queryString.includes('output=csv')) {
+                    return match;
+                }
+                return '/pub?output=csv';
+            });
+        }
+
+        return url;
+    }
+
     isCSVUrl(url) {
         const urlLower = url.toLowerCase();
         if (urlLower.endsWith('.csv')) {
@@ -244,7 +300,7 @@ export class MapCreator {
         if (urlLower.includes('output=csv')) {
             return true;
         }
-        if (urlLower.includes('docs.google.com/spreadsheets') && urlLower.includes('output=csv')) {
+        if (urlLower.includes('docs.google.com/spreadsheets')) {
             return true;
         }
         return false;
@@ -277,11 +333,13 @@ export class MapCreator {
     }
 
     async handleURLImport() {
-        const url = $('#url-input').val().trim();
+        let url = $('#url-input').val().trim();
         if (!url) {
             alert('Please enter a URL');
             return;
         }
+
+        url = this.normalizeGoogleSheetsUrl(url);
 
         this.setLoadingState('loading');
 
@@ -330,12 +388,22 @@ export class MapCreator {
             } else if (this.isCSVUrl(url)) {
                 const response = await fetch(url);
                 const csvText = await response.text();
+                console.log('[MapCreator] CSV text length:', csvText.length);
+                console.log('[MapCreator] First 500 chars:', csvText.substring(0, 500));
                 const rows = DataUtils.parseCSV(csvText);
-                const geojson = GeoUtils.rowsToGeoJSON(rows);
-                if (!geojson) {
-                    throw new Error('Could not find lat/lng columns in CSV');
+                console.log('[MapCreator] Parsed rows:', rows.length);
+                if (rows.length > 0) {
+                    console.log('[MapCreator] First row keys:', Object.keys(rows[0]));
                 }
-                this.processCSVLayer(url, geojson, rows);
+                const geojson = GeoUtils.rowsToGeoJSON(rows, true);
+                if (!geojson || geojson.features.length === 0) {
+                    const fields = rows.length > 0 ? Object.keys(rows[0]) : [];
+                    const message = `Could not auto-detect latitude/longitude columns.\n\nColumns found: ${fields.join(', ')}\n\nPlease select the coordinate fields manually below.`;
+                    alert(message);
+                    this.processCSVLayerWithoutCoords(url, rows);
+                } else {
+                    this.processCSVLayer(url, geojson, rows);
+                }
             } else if (url.toLowerCase().endsWith('.kml')) {
                 const response = await fetch(url);
                 const kmlText = await response.text();
@@ -354,12 +422,22 @@ export class MapCreator {
                     }
                 } else if (contentType && (contentType.includes('text/csv') || contentType.includes('text/plain'))) {
                     const csvText = await response.text();
+                    console.log('[MapCreator] CSV text length:', csvText.length);
+                    console.log('[MapCreator] First 500 chars:', csvText.substring(0, 500));
                     const rows = DataUtils.parseCSV(csvText);
-                    const geojson = GeoUtils.rowsToGeoJSON(rows);
-                    if (!geojson) {
-                        throw new Error('Could not find lat/lng columns in CSV');
+                    console.log('[MapCreator] Parsed rows:', rows.length);
+                    if (rows.length > 0) {
+                        console.log('[MapCreator] First row keys:', Object.keys(rows[0]));
                     }
-                    this.processGeoJSON(geojson, url);
+                    const geojson = GeoUtils.rowsToGeoJSON(rows, true);
+                    if (!geojson || geojson.features.length === 0) {
+                        const fields = rows.length > 0 ? Object.keys(rows[0]) : [];
+                        const message = `Could not auto-detect latitude/longitude columns.\n\nColumns found: ${fields.join(', ')}\n\nPlease select the coordinate fields manually below.`;
+                        alert(message);
+                        this.processCSVLayerWithoutCoords(url, rows);
+                    } else {
+                        this.processCSVLayer(url, geojson, rows);
+                    }
                 } else {
                     throw new Error('Unsupported file type');
                 }
@@ -633,6 +711,41 @@ export class MapCreator {
 
         this.updateConfigPreview();
         $('#add-to-map-btn').prop('disabled', false);
+        this.setLoadingState('success');
+    }
+
+    processCSVLayerWithoutCoords(csvUrl, rows) {
+        console.log('[MapCreator] processCSVLayerWithoutCoords called', {
+            rowCount: rows.length,
+            columns: rows.length > 0 ? Object.keys(rows[0]) : []
+        });
+
+        this.currentData = {
+            csvUrl: csvUrl,
+            geojson: null,
+            rows: rows
+        };
+        this.currentDataSource = csvUrl;
+        this.currentLayerType = 'csv';
+
+        $('#settings-section').show();
+        $('#data-preview-details').show();
+
+        const fields = rows.length > 0 ? Object.keys(rows[0]) : [];
+        console.log('[MapCreator] Populating data fields with:', fields);
+        this.populateDataFields(fields);
+
+        $('#geojson-editor').val('// No preview available - select coordinate fields below');
+        $('#preview-summary').html('<span class="text-yellow-600">⚠ Select coordinate fields to preview data</span>');
+
+        $('#layer-type').val('csv');
+
+        if (csvUrl.includes('docs.google.com/spreadsheets')) {
+            $('#layer-title').val('Google Sheet CSV');
+            $('#layer-description').val(`Data from Google Sheets - <a href="${csvUrl}" target="_blank">View source</a>`);
+        }
+
+        $('#add-to-map-btn').prop('disabled', true);
         this.setLoadingState('success');
     }
 
@@ -927,6 +1040,12 @@ export class MapCreator {
     }
 
     populateDataFields(fields) {
+        console.log('[MapCreator] populateDataFields called', {
+            fieldsCount: fields?.length,
+            currentLayerType: this.currentLayerType,
+            fields: fields
+        });
+
         if (!fields || fields.length === 0) {
             $('#data-fields-section').hide();
             return;
@@ -934,18 +1053,54 @@ export class MapCreator {
 
         $('#data-fields-section').show();
 
+        const isCSV = this.currentLayerType === 'csv';
+        console.log('[MapCreator] isCSV:', isCSV);
+
+        const $csvCoordFields = $('#csv-coordinate-fields');
+        console.log('[MapCreator] CSV coordinate fields element found:', $csvCoordFields.length);
+
+        if (isCSV) {
+            console.log('[MapCreator] Showing CSV coordinate fields');
+            $csvCoordFields.show();
+            console.log('[MapCreator] After show(), display style:', $csvCoordFields.css('display'));
+        } else {
+            $csvCoordFields.hide();
+        }
+
+        const $latSelect = $('#csv-latitude-field');
+        const $lonSelect = $('#csv-longitude-field');
         const $idSelect = $('#feature-id-field');
         const $nameSelect = $('#feature-name-field');
         const $fieldsList = $('#inspect-fields-list');
 
+        $latSelect.empty().append('<option value="">Auto-detect or select...</option>');
+        $lonSelect.empty().append('<option value="">Auto-detect or select...</option>');
         $idSelect.empty().append('<option value="">Select field...</option>');
         $nameSelect.empty().append('<option value="">Select field...</option>');
         $fieldsList.empty();
 
+        const defaultLat = this.getDefaultLatField(fields);
+        const defaultLon = this.getDefaultLonField(fields);
         const defaultId = this.getDefaultIdField(fields);
         const defaultName = this.getDefaultNameField(fields);
 
+        console.log('[MapCreator] Default fields detected:', {
+            lat: defaultLat,
+            lon: defaultLon,
+            id: defaultId,
+            name: defaultName
+        });
+
         fields.forEach(field => {
+            if (isCSV) {
+                $latSelect.append(
+                    `<option value="${field}" ${field === defaultLat ? 'selected' : ''}>${field}</option>`
+                );
+                $lonSelect.append(
+                    `<option value="${field}" ${field === defaultLon ? 'selected' : ''}>${field}</option>`
+                );
+            }
+
             $idSelect.append(`<option value="${field}" ${field === defaultId ? 'selected' : ''}>${field}</option>`);
             $nameSelect.append(`<option value="${field}" ${field === defaultName ? 'selected' : ''}>${field}</option>`);
 
@@ -957,6 +1112,48 @@ export class MapCreator {
             `);
             $fieldsList.append($checkbox);
         });
+
+        if (isCSV) {
+            $('#csv-latitude-field, #csv-longitude-field').off('change').on('change', () => {
+                this.reprocessCSV();
+            });
+        }
+    }
+
+    reprocessCSV() {
+        const latField = $('#csv-latitude-field').val();
+        const lonField = $('#csv-longitude-field').val();
+
+        if (!latField || !lonField) {
+            console.warn('Please select both latitude and longitude fields');
+            $('#add-to-map-btn').prop('disabled', true);
+            return;
+        }
+
+        if (!this.currentData || !this.currentData.rows) {
+            console.error('No CSV data available to reprocess');
+            return;
+        }
+
+        const rows = this.currentData.rows;
+        const geojson = GeoUtils.rowsToGeoJSON(rows, false, latField, lonField);
+
+        if (!geojson || geojson.features.length === 0) {
+            console.error('No valid features created with selected fields');
+            $('#preview-summary').html('<span class="text-red-600">⚠ 0 features - Check coordinate fields</span>');
+            $('#add-to-map-btn').prop('disabled', true);
+            return;
+        }
+
+        this.currentData.geojson = geojson;
+        this.updateDataPreview(geojson);
+
+        const geometryType = this.detectGeometryType(geojson);
+        this.currentGeometryType = geometryType;
+
+        this.showStyleSection(geometryType);
+        this.updateConfigPreview();
+        $('#add-to-map-btn').prop('disabled', false);
     }
 
     generateId(title) {

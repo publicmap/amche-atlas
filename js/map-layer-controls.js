@@ -43,7 +43,6 @@
 import {LayerSettingsModal} from './layer-settings-modal.js';
 import {MapboxAPI} from './mapbox-api.js';
 import {DataUtils} from './map-utils.js';
-import {LayerCreatorUI} from './layer-creator-ui.js';
 import {MapWarperAPI} from './mapwarper-url-api.js';
 
 export class MapLayerControl {
@@ -1344,7 +1343,6 @@ export class MapLayerControl {
     _initializeFilterControls() {
         setTimeout(() => {
             const searchInput = document.getElementById('layer-search-input');
-            const newLayerBtn = document.getElementById('new-layer-btn');
             const atlasFilterBtn = document.getElementById('atlas-filter-select');
             const atlasFilterText = document.getElementById('atlas-filter-text');
             const atlasViewLocationBtn = document.getElementById('atlas-view-location-btn');
@@ -1365,13 +1363,6 @@ export class MapLayerControl {
                 });
                 searchInput.addEventListener('sl-clear', () => {
                     this._applyAllFilters();
-                });
-            }
-
-            // Initialize New Layer button
-            if (newLayerBtn) {
-                newLayerBtn.addEventListener('click', () => {
-                    LayerCreatorUI.openLayerCreatorDialog();
                 });
             }
 
