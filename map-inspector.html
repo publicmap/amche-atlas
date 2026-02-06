@@ -924,6 +924,112 @@
             if (isExpanded) {
                 const $expanded = $('<div>', { class: 'layer-card-expanded layer-content' });
 
+                // Action bar at the top
+                const $actionBar = $('<div>', {
+                    class: 'flex gap-2 mb-3 pb-3 border-b border-gray-700',
+                    css: { padding: '0' }
+                });
+
+                // Opacity button
+                const currentOpacity = layerConfig.opacity !== undefined ? layerConfig.opacity : 0.9;
+                const $opacityBtn = $('<button>', {
+                    class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 text-white text-xs whitespace-nowrap',
+                    html: '<sl-icon name="eye" style="font-size: 14px;"></sl-icon><span>Opacity</span>',
+                    css: { 'transition': 'background 0.2s' },
+                    click: function(e) {
+                        e.stopPropagation();
+                        const $slider = $(this).siblings('.opacity-slider-container');
+                        $slider.slideToggle(200);
+                    }
+                });
+                $opacityBtn.on('mouseenter', function() {
+                    $(this).css('background', '#4b5563');
+                }).on('mouseleave', function() {
+                    $(this).css('background', '#6b7280');
+                });
+
+                // Opacity slider container (hidden by default)
+                const $opacityContainer = $('<div>', {
+                    class: 'opacity-slider-container',
+                    css: {
+                        display: 'none',
+                        flex: '1',
+                        minWidth: '0'
+                    }
+                });
+                const $opacitySlider = $('<input>', {
+                    type: 'range',
+                    min: 0,
+                    max: 100,
+                    value: Math.round(currentOpacity * 100),
+                    css: {
+                        width: '100%',
+                        accentColor: '#3b82f6',
+                        height: '20px'
+                    }
+                });
+                $opacitySlider.on('input', function() {
+                    const opacity = $(this).val() / 100;
+                    window.parent.postMessage({
+                        type: 'update-layer-opacity',
+                        layerId: layerConfig.id,
+                        opacity: opacity
+                    }, '*');
+                });
+                $opacityContainer.append($opacitySlider);
+
+                // Zoom button (if layer has bbox)
+                const hasBbox = layerConfig.bbox || atlasMetadata.bbox;
+                let $zoomBtn;
+                if (hasBbox) {
+                    $zoomBtn = $('<button>', {
+                        class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 text-white text-xs whitespace-nowrap',
+                        html: '<sl-icon name="geo-alt" style="font-size: 14px;"></sl-icon><span>Zoom</span>',
+                        css: { 'transition': 'background 0.2s' },
+                        click: function(e) {
+                            e.stopPropagation();
+                            window.parent.postMessage({
+                                type: 'zoom-to-layer',
+                                layerId: layerConfig.id
+                            }, '*');
+                        }
+                    });
+                    $zoomBtn.on('mouseenter', function() {
+                        $(this).css('background', '#4b5563');
+                    }).on('mouseleave', function() {
+                        $(this).css('background', '#6b7280');
+                    });
+                }
+
+                // Remove button
+                const $removeBtn = $('<button>', {
+                    class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 text-white text-xs whitespace-nowrap',
+                    html: '<sl-icon name="trash" style="font-size: 14px;"></sl-icon><span>Remove</span>',
+                    css: {
+                        'background': '#dc2626',
+                        'transition': 'background 0.2s'
+                    },
+                    click: function(e) {
+                        e.stopPropagation();
+                        window.parent.postMessage({
+                            type: 'remove-layer',
+                            layerId: layerConfig.id
+                        }, '*');
+                    }
+                });
+                $removeBtn.on('mouseenter', function() {
+                    $(this).css('background', '#b91c1c');
+                }).on('mouseleave', function() {
+                    $(this).css('background', '#dc2626');
+                });
+
+                // Assemble action bar
+                $actionBar.append($opacityBtn);
+                $actionBar.append($opacityContainer);
+                if ($zoomBtn) $actionBar.append($zoomBtn);
+                $actionBar.append($removeBtn);
+                $expanded.append($actionBar);
+
                 // Render each selected feature
                 console.log('[Inspector] Rendering features for layer:', layerConfig.id);
 
@@ -1004,7 +1110,7 @@
 
             // Click handler to toggle expansion and apply layer isolation
             $card.on('click', function (e) {
-                if (!$(e.target).closest('.info-button, .feature-container').length) {
+                if (!$(e.target).closest('.info-button, .feature-container, button, input').length) {
                     toggleLayerExpanded(layerConfig.id);
                 }
             });
@@ -1161,12 +1267,111 @@
             if (isExpanded) {
                 const $expanded = $('<div>', { class: 'layer-card-expanded layer-content' });
 
-                // Add thumbnail at the top
-                const thumbnail = window.LayerThumbnail.generate(layer, 120);
-                thumbnail.style.margin = '0 auto 12px auto';
-                thumbnail.style.borderRadius = '6px';
-                thumbnail.style.display = 'block';
-                $expanded.append(thumbnail);
+                // Action bar at the top
+                const $actionBar = $('<div>', {
+                    class: 'flex gap-2 mb-3 pb-3 border-b border-gray-700',
+                    css: { padding: '0' }
+                });
+
+                // Opacity button
+                const currentOpacity = layer.opacity !== undefined ? layer.opacity : 0.9;
+                const $opacityBtn = $('<button>', {
+                    class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 text-white text-xs whitespace-nowrap',
+                    html: '<sl-icon name="eye" style="font-size: 14px;"></sl-icon><span>Opacity</span>',
+                    css: { 'transition': 'background 0.2s' },
+                    click: function(e) {
+                        e.stopPropagation();
+                        const $slider = $(this).siblings('.opacity-slider-container');
+                        $slider.slideToggle(200);
+                    }
+                });
+                $opacityBtn.on('mouseenter', function() {
+                    $(this).css('background', '#4b5563');
+                }).on('mouseleave', function() {
+                    $(this).css('background', '#6b7280');
+                });
+
+                // Opacity slider container (hidden by default)
+                const $opacityContainer = $('<div>', {
+                    class: 'opacity-slider-container',
+                    css: {
+                        display: 'none',
+                        flex: '1',
+                        minWidth: '0'
+                    }
+                });
+                const $opacitySlider = $('<input>', {
+                    type: 'range',
+                    min: 0,
+                    max: 100,
+                    value: Math.round(currentOpacity * 100),
+                    css: {
+                        width: '100%',
+                        accentColor: '#3b82f6',
+                        height: '20px'
+                    }
+                });
+                $opacitySlider.on('input', function() {
+                    const opacity = $(this).val() / 100;
+                    window.parent.postMessage({
+                        type: 'update-layer-opacity',
+                        layerId: layer.id,
+                        opacity: opacity
+                    }, '*');
+                });
+                $opacityContainer.append($opacitySlider);
+
+                // Zoom button (if layer has bbox)
+                const hasBbox = layer.bbox || atlasMetadata.bbox;
+                let $zoomBtn;
+                if (hasBbox) {
+                    $zoomBtn = $('<button>', {
+                        class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 text-white text-xs whitespace-nowrap',
+                        html: '<sl-icon name="geo-alt" style="font-size: 14px;"></sl-icon><span>Zoom</span>',
+                        css: { 'transition': 'background 0.2s' },
+                        click: function(e) {
+                            e.stopPropagation();
+                            window.parent.postMessage({
+                                type: 'zoom-to-layer',
+                                layerId: layer.id
+                            }, '*');
+                        }
+                    });
+                    $zoomBtn.on('mouseenter', function() {
+                        $(this).css('background', '#4b5563');
+                    }).on('mouseleave', function() {
+                        $(this).css('background', '#6b7280');
+                    });
+                }
+
+                // Remove button
+                const $removeBtn = $('<button>', {
+                    class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 text-white text-xs whitespace-nowrap',
+                    html: '<sl-icon name="trash" style="font-size: 14px;"></sl-icon><span>Remove</span>',
+                    css: {
+                        'background': '#dc2626',
+                        'transition': 'background 0.2s'
+                    },
+                    click: function(e) {
+                        e.stopPropagation();
+                        window.parent.postMessage({
+                            type: 'remove-layer',
+                            layerId: layer.id
+                        }, '*');
+                    }
+                });
+                $removeBtn.on('mouseenter', function() {
+                    $(this).css('background', '#b91c1c');
+                }).on('mouseleave', function() {
+                    $(this).css('background', '#dc2626');
+                });
+
+                // Assemble action bar
+                $actionBar.append($opacityBtn);
+                $actionBar.append($opacityContainer);
+                if ($zoomBtn) $actionBar.append($zoomBtn);
+                $actionBar.append($removeBtn);
+                $expanded.append($actionBar);
 
                 // Show feature details if selected, otherwise show description
                 const featuresMap = selectedFeatures.get(layer.id);
@@ -1234,84 +1439,12 @@
                     }
                 }
 
-                // Action buttons
-                const $actions = $('<div>', { class: 'action-buttons' });
-
-                // Opacity control
-                const $opacityContainer = $('<div>', { class: 'flex-1' });
-                const $opacityLabel = $('<div>', {
-                    class: 'text-xs text-gray-400 mb-1',
-                    text: 'Opacity'
-                });
-                const currentOpacity = layer.opacity !== undefined ? layer.opacity : 0.9;
-                const $opacitySlider = $('<input>', {
-                    type: 'range',
-                    class: 'opacity-slider',
-                    min: 0,
-                    max: 100,
-                    value: Math.round(currentOpacity * 100),
-                    css: {
-                        width: '100%',
-                        accentColor: '#3b82f6'
-                    }
-                });
-                $opacitySlider.on('input', function () {
-                    const opacity = $(this).val() / 100;
-                    window.parent.postMessage({
-                        type: 'update-layer-opacity',
-                        layerId: layer.id,
-                        opacity: opacity
-                    }, '*');
-                });
-                $opacityContainer.append($opacityLabel);
-                $opacityContainer.append($opacitySlider);
-                $actions.append($opacityContainer);
-
-                $expanded.append($actions);
-
-                // Button row
-                const $buttonRow = $('<div>', {
-                    class: 'flex gap-2 mt-2'
-                });
-
-                // Zoom button (if layer has bbox)
-                if (layer.bbox || atlasMetadata.bbox) {
-                    const $zoomBtn = $('<button>', {
-                        class: 'action-button',
-                        html: '🔍 Zoom',
-                        click: function (e) {
-                            e.stopPropagation();
-                            window.parent.postMessage({
-                                type: 'zoom-to-layer',
-                                layerId: layer.id
-                            }, '*');
-                        }
-                    });
-                    $buttonRow.append($zoomBtn);
-                }
-
-                // Delete button
-                const $deleteBtn = $('<button>', {
-                    class: 'action-button',
-                    html: '🗑️ Remove',
-                    css: { color: '#ef4444' },
-                    click: function (e) {
-                        e.stopPropagation();
-                        window.parent.postMessage({
-                            type: 'remove-layer',
-                            layerId: layer.id
-                        }, '*');
-                    }
-                });
-                $buttonRow.append($deleteBtn);
-
-                $expanded.append($buttonRow);
                 $card.append($expanded);
             }
 
             // Click handler
             $card.on('click', function (e) {
-                if (!$(e.target).closest('.info-button, .action-button, input').length) {
+                if (!$(e.target).closest('.info-button, .action-button, button, input').length) {
                     toggleLayerExpanded(layer.id);
                 }
             });
