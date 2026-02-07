@@ -56,9 +56,6 @@ export class LayerOrderManager {
         // Combine: basemaps first (bottom slot), then overlays (middle slot)
         const mapOrder = [...reversedBasemaps, ...reversedOverlays];
 
-        console.log('[LayerOrder] URL order:', urlLayers.map(l => l.id || l).join(' → '));
-        console.log('[LayerOrder] Map rendering order:', mapOrder.map(l => l.id || l).join(' → '));
-
         return mapOrder;
     }
 
@@ -96,9 +93,6 @@ export class LayerOrderManager {
 
         // Combine: overlays first (on top visually), then basemaps (at bottom)
         const urlOrder = [...reversedOverlays, ...reversedBasemaps];
-
-        console.log('[LayerOrder] Map rendering order:', mapLayers.map(l => l.id || l).join(' → '));
-        console.log('[LayerOrder] URL order:', urlOrder.map(l => l.id || l).join(' → '));
 
         return urlOrder;
     }
@@ -164,7 +158,5 @@ export class LayerOrderManager {
         const layerStack = layers
             .filter(l => l.metadata?.groupId)
             .map((l, index) => `${index}: ${l.metadata.groupId} (${l.metadata.layerType})`);
-
-        console.log(`[LayerOrder] ${label} - Layer stack (bottom to top):`, layerStack);
     }
 }

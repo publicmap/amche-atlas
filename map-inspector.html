@@ -170,7 +170,7 @@
         .feature-info {
             background: #1f2937;
             border-radius: 3px;
-            padding: 6px;
+            padding: 0;
             margin-top: 6px;
         }
 
@@ -524,8 +524,6 @@
                 const feature = event.data.feature;
                 const featureId = event.data.featureId; // Use the featureId from state manager
 
-                console.log('[Inspector] Feature selected:', layerId, featureId, feature);
-
                 // Create snapshot of selections before first new selection
                 if (!selectionSnapshot) {
                     selectionSnapshot = new Set(selectedFeatures.keys());
@@ -550,7 +548,8 @@
                     clearTimeout(selectionDebounceTimer);
                 }
                 selectionDebounceTimer = setTimeout(() => {
-                    determineLayerToExpand();
+                    // Auto-expansion disabled - layers only expand on manual click
+                    // determineLayerToExpand();
                     selectionDebounceTimer = null;
                     selectionSnapshot = null;
                     pendingNewSelections.clear();
@@ -565,8 +564,6 @@
                 const layerId = event.data.layerId;
                 const featureId = event.data.featureId;
                 const customHTML = event.data.customHTML;
-
-                console.log('[Inspector] Inspection data received:', layerId, featureId, customHTML ? 'HTML present' : 'No HTML');
 
                 // Initialize layer map if needed
                 if (!featureCustomHTML.has(layerId)) {
@@ -590,8 +587,6 @@
             if (event.data.type === 'feature-deselected') {
                 const layerId = event.data.layerId;
                 const featureId = event.data.featureId;
-
-                console.log('[Inspector] Feature deselected:', layerId, featureId);
 
                 if (selectedFeatures.has(layerId)) {
                     selectedFeatures.get(layerId).delete(featureId);
@@ -649,7 +644,6 @@
             }
 
             if (event.data.type === 'clear-all-selections') {
-                console.log('[Inspector] Clear all selections received');
                 selectedFeatures.clear();
                 featureCustomHTML.clear();
                 expandedLayerId = null;
@@ -809,13 +803,11 @@
         function determineLayerToExpand() {
             // Don't auto-expand if current layer is manually expanded/pinned
             if (expandedLayerId && manuallyExpandedLayers.has(expandedLayerId)) {
-                console.log('[Inspector] Keeping manually expanded layer:', expandedLayerId);
                 return;
             }
 
             // If no new selections, keep current expansion
             if (pendingNewSelections.size === 0) {
-                console.log('[Inspector] No new selections, keeping current expansion');
                 return;
             }
 
@@ -857,7 +849,6 @@
             const topmostNewLayer = allLayersInOrder.find(layer => pendingNewSelections.has(layer.id));
 
             if (topmostNewLayer) {
-                console.log('[Inspector] Auto-expanding topmost layer with new selections:', topmostNewLayer.id);
                 expandedLayerId = topmostNewLayer.id;
 
                 // Render to apply the expansion
@@ -874,7 +865,6 @@
                     setTimeout(() => applyVisualIsolation(topmostNewLayer.id, isBasemap), 10);
                 }
             } else {
-                console.log('[Inspector] No topmost layer found with new selections');
             }
         }
 
@@ -986,25 +976,6 @@
             overlayMaps.sort(sortWithActivityPriority);
             baseMaps.sort(sortWithActivityPriority);
 
-            // Log the layer order for debugging with visual stack representation
-            console.log('[Inspector] Layer display order (matches visual stack on map):');
-            console.log('  ┌─ TOP OF STACK (visually on top) ─┐');
-            console.log('  │ === OVERLAY MAPS ===');
-            overlayMaps.forEach((layer, index) => {
-                const hasActivity = selectedFeatures.has(layer.id) || hoveredFeatures.has(layer.id);
-                const urlOrder = urlLayerOrder.get(layer.id);
-                const prefix = index === 0 ? '  ├─' : '  │ ';
-                console.log(`${prefix} ${layer.id} (URL:${urlOrder !== undefined ? urlOrder : 'N/A'})${hasActivity ? ' 🎯' : ''}`);
-            });
-            console.log('  │ === BASE MAPS ===');
-            baseMaps.forEach((layer, index) => {
-                const hasActivity = selectedFeatures.has(layer.id) || hoveredFeatures.has(layer.id);
-                const urlOrder = urlLayerOrder.get(layer.id);
-                const isLast = index === baseMaps.length - 1;
-                const prefix = isLast ? '  └─' : '  │ ';
-                console.log(`${prefix} ${layer.id} (URL:${urlOrder !== undefined ? urlOrder : 'N/A'})${hasActivity ? ' 🎯' : ''}`);
-            });
-            console.log('  └─ BOTTOM OF STACK (base layer) ───┘');
 
             // Update counts
             $('#overlay-count').text(`(${overlayMaps.length})`);
@@ -1120,7 +1091,6 @@
         // Create selected feature card (collapsible, with layer and feature isolation)
         // Supports multiple features per layer
         function createSelectedFeatureCard(layerConfig) {
-            console.log('[Inspector] createSelectedFeatureCard called for:', layerConfig.id);
             const atlasMetadata = layerRegistry?._atlasMetadata?.get(layerConfig._sourceAtlas) || {};
             const featuresMap = selectedFeatures.get(layerConfig.id);
             const customHTMLMap = featureCustomHTML.get(layerConfig.id) || new Map();
@@ -1128,15 +1098,8 @@
             const hasSelection = selectedFeatures.has(layerConfig.id);
             const hasHover = hoveredFeatures.has(layerConfig.id);
 
-            console.log('[Inspector] featuresMap size:', featuresMap ? featuresMap.size : 0);
-            console.log('[Inspector] customHTMLMap size:', customHTMLMap.size);
-            console.log('[Inspector] isExpanded:', isExpanded);
-            console.log('[Inspector] hasSelection:', hasSelection);
-            console.log('[Inspector] hasHover:', hasHover);
-            console.log('[Inspector] expandedLayerId:', expandedLayerId);
 
             if (!featuresMap || featuresMap.size === 0) {
-                console.log('[Inspector] No features for this layer, returning empty div');
                 return $('<div>'); // Return empty div if no features
             }
 
@@ -1144,7 +1107,6 @@
                 (isExpanded ? ' expanded' : '') +
                 (hasSelection ? ' selected' : '') +
                 (hasHover ? ' hover' : '');
-            console.log('[Inspector] Card classes:', cardClasses);
 
             const $card = $('<div>', {
                 class: cardClasses,
@@ -1321,7 +1283,6 @@
                 const inspectConfig = layerConfig.inspect || {};
 
                 // Render features FIRST (before action bar)
-                console.log('[Inspector] Rendering features for layer:', layerConfig.id);
 
                 const featuresToRender = [];
 
@@ -1356,7 +1317,6 @@
 
                 // Render all features
                 featuresToRender.forEach(({ featureId, feature, isHovered, isSelected }) => {
-                    console.log('[Inspector] Processing feature:', featureId, { isHovered, isSelected });
                     const $featureContainer = $('<div>', {
                         class: 'feature-container',
                         id: `feature-${featureId}`,
@@ -1387,32 +1347,75 @@
                     const $title = $('<div>', {
                         class: 'font-semibold mb-2',
                         css: {
-                            fontSize: '11px',
+                            fontSize: '14px',
                             color: isHovered ? '#fbbf24' : '#e5e7eb',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px'
+                            gap: '6px',
+                            padding: '6px'
+                        }
+                    });
+
+                    const $titleContent = $('<div>', {
+                        css: {
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            flex: '1'
                         }
                     });
 
                     if (isHovered) {
-                        $title.append($('<span>', { text: '🟡', css: { fontSize: '10px' } }));
+                        $titleContent.append($('<span>', { text: '🟡', css: { fontSize: '10px' } }));
                     }
 
-                    $title.append($('<span>', {
+                    $titleContent.append($('<span>', {
                         css: { color: '#9ca3af', fontWeight: '500' },
                         text: headerLabel + ':'
                     }));
-                    $title.append($('<span>', {
+                    $titleContent.append($('<span>', {
                         css: { color: isHovered ? '#fbbf24' : '#e5e7eb', fontWeight: '600' },
                         text: headerValue
                     }));
+
+                    $title.append($titleContent);
+
+                    // Zoom button
+                    const $zoomBtn = $('<button>', {
+                        html: '<sl-icon name="crosshair" style="font-size: 12px;"></sl-icon>',
+                        title: 'Zoom to feature',
+                        css: {
+                            background: 'transparent',
+                            border: '1px solid #4b5563',
+                            borderRadius: '3px',
+                            padding: '4px 8px',
+                            color: '#d1d5db',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            transition: 'all 0.2s'
+                        },
+                        click: function(e) {
+                            e.stopPropagation();
+                            window.parent.postMessage({
+                                type: 'zoom-to-feature',
+                                layerId: layerConfig.id,
+                                featureId: featureId,
+                                feature: feature
+                            }, '*');
+                        }
+                    });
+                    $zoomBtn.on('mouseenter', function() {
+                        $(this).css({ background: '#374151', borderColor: '#6b7280' });
+                    }).on('mouseleave', function() {
+                        $(this).css({ background: 'transparent', borderColor: '#4b5563' });
+                    });
+                    $title.append($zoomBtn);
 
                     $featureInfo.append($title);
 
                     // Show custom HTML if available (from onClick handler)
                     const customHTML = customHTMLMap.get(featureId);
-                    console.log(`[Inspector] Rendering custom HTML for feature ${featureId}:`, customHTML ? 'present' : 'missing');
                     if (customHTML) {
                         const $customSection = $('<div>').addClass('feature-custom-info');
                         $customSection.html(processLinksForNewWindow(customHTML));
@@ -1423,14 +1426,13 @@
                         });
 
                         $featureInfo.append($customSection);
-                        console.log('[Inspector] Custom section appended, checking for loaders...');
-                        const loadersInSection = $customSection.find('.api-data-loader').length;
-                        console.log(`[Inspector] Found ${loadersInSection} loaders in this section`);
                     }
 
                     // Show metadata table (inspect fields with titles)
+                    const $propsContainer = $('<div>', { css: { marginTop: '8px', padding: '0 6px' } });
+
                     if (inspectConfig.fields && inspectConfig.fields.length > 0) {
-                        const $props = $('<div>', { css: { marginTop: '8px' } });
+                        const $props = $('<div>', { class: 'properties-table' });
                         inspectConfig.fields.forEach((fieldName, index) => {
                             const value = feature.properties?.[fieldName];
                             if (value !== null && value !== undefined && value !== '') {
@@ -1441,8 +1443,74 @@
                                 $props.append($row);
                             }
                         });
-                        $featureInfo.append($props);
+                        $propsContainer.append($props);
                     }
+
+                    // Count all properties
+                    const allProperties = feature.properties || {};
+                    const totalPropsCount = Object.keys(allProperties).length;
+                    const shownPropsCount = inspectConfig.fields ? inspectConfig.fields.length : 0;
+
+                    // Show "Show all properties" button if there are more properties than shown
+                    if (totalPropsCount > shownPropsCount) {
+                        const $allPropsContainer = $('<div>', {
+                            class: 'all-properties-container',
+                            css: { display: 'none', marginTop: '8px' }
+                        });
+
+                        Object.entries(allProperties).forEach(([key, value]) => {
+                            if (value !== null && value !== undefined && value !== '') {
+                                const $row = $('<div>', { class: 'property-row' });
+                                $row.append($('<div>', { class: 'property-key', text: key }));
+                                $row.append($('<div>', { class: 'property-value', text: String(value) }));
+                                $allPropsContainer.append($row);
+                            }
+                        });
+
+                        const $toggleBtn = $('<button>', {
+                            class: 'show-all-props-btn',
+                            text: `Show all ${totalPropsCount} properties`,
+                            css: {
+                                marginTop: '8px',
+                                padding: '6px 12px',
+                                background: '#374151',
+                                color: '#d1d5db',
+                                border: '1px solid #4b5563',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                width: '100%',
+                                transition: 'all 0.2s'
+                            },
+                            click: function(e) {
+                                e.stopPropagation();
+                                const $btn = $(this);
+                                const $container = $btn.siblings('.all-properties-container');
+                                const $regularProps = $btn.siblings('.properties-table');
+
+                                if ($container.is(':visible')) {
+                                    $container.hide();
+                                    $regularProps.show();
+                                    $btn.text(`Show all ${totalPropsCount} properties`);
+                                } else {
+                                    $container.show();
+                                    $regularProps.hide();
+                                    $btn.text('Show Less');
+                                }
+                            }
+                        });
+                        $toggleBtn.on('mouseenter', function() {
+                            $(this).css({ background: '#4b5563', borderColor: '#6b7280' });
+                        }).on('mouseleave', function() {
+                            $(this).css({ background: '#374151', borderColor: '#4b5563' });
+                        });
+
+                        $propsContainer.append($toggleBtn);
+                        $propsContainer.append($allPropsContainer);
+                    }
+
+                    $featureInfo.append($propsContainer);
 
                     $featureContainer.append($featureInfo);
 
@@ -1516,7 +1584,7 @@
                 // Remove button
                 const $removeBtn = $('<button>', {
                     class: 'px-2 py-1 rounded flex items-center justify-center gap-1 text-white whitespace-nowrap',
-                    html: '<sl-icon name="trash" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Remove</span>',
+                    html: '<sl-icon name="trash" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Remove Layer</span>',
                     css: {
                         'background': '#dc2626',
                         'transition': 'background 0.2s'
@@ -1650,6 +1718,9 @@
             });
             $header.append($name);
 
+            // Append header to info first (before badges)
+            $info.append($header);
+
             // Feature badges section (only when collapsed and has active features)
             if (!isExpanded && (hasSelection || hasHover)) {
                 const $badgesSection = $('<div>', {
@@ -1768,7 +1839,6 @@
                 $header.append($pinBtn);
             }
 
-            $info.append($header);
             $compact.append($info);
             $card.append($compact);
 
@@ -1811,22 +1881,66 @@
                         const $title = $('<div>', {
                             class: 'font-semibold mb-2',
                             css: {
-                                fontSize: '11px',
+                                fontSize: '14px',
                                 color: '#e5e7eb',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '6px'
+                                gap: '6px',
+                                padding: '6px'
                             }
                         });
 
-                        $title.append($('<span>', {
+                        const $titleContent = $('<div>', {
+                            css: {
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                flex: '1'
+                            }
+                        });
+
+                        $titleContent.append($('<span>', {
                             css: { color: '#9ca3af', fontWeight: '500' },
                             text: headerLabel + ':'
                         }));
-                        $title.append($('<span>', {
+                        $titleContent.append($('<span>', {
                             css: { color: '#e5e7eb', fontWeight: '600' },
                             text: headerValue
                         }));
+
+                        $title.append($titleContent);
+
+                        // Zoom button
+                        const $zoomBtn = $('<button>', {
+                            html: '<sl-icon name="crosshair" style="font-size: 12px;"></sl-icon>',
+                            title: 'Zoom to feature',
+                            css: {
+                                background: 'transparent',
+                                border: '1px solid #4b5563',
+                                borderRadius: '3px',
+                                padding: '4px 8px',
+                                color: '#d1d5db',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                transition: 'all 0.2s'
+                            },
+                            click: function(e) {
+                                e.stopPropagation();
+                                window.parent.postMessage({
+                                    type: 'zoom-to-feature',
+                                    layerId: layer.id,
+                                    featureId: featureId,
+                                    feature: feature
+                                }, '*');
+                            }
+                        });
+                        $zoomBtn.on('mouseenter', function() {
+                            $(this).css({ background: '#374151', borderColor: '#6b7280' });
+                        }).on('mouseleave', function() {
+                            $(this).css({ background: 'transparent', borderColor: '#4b5563' });
+                        });
+                        $title.append($zoomBtn);
 
                         $featureInfo.append($title);
 
@@ -1845,8 +1959,10 @@
                         }
 
                         // Show metadata table (inspect fields with titles)
+                        const $propsContainer = $('<div>', { css: { marginTop: '8px', padding: '0 6px' } });
+
                         if (inspectConfig.fields && inspectConfig.fields.length > 0) {
-                            const $props = $('<div>', { css: { marginTop: '8px' } });
+                            const $props = $('<div>', { class: 'properties-table' });
                             inspectConfig.fields.forEach((fieldName, index) => {
                                 const value = feature.properties?.[fieldName];
                                 if (value !== null && value !== undefined && value !== '') {
@@ -1857,8 +1973,74 @@
                                     $props.append($row);
                                 }
                             });
-                            $featureInfo.append($props);
+                            $propsContainer.append($props);
                         }
+
+                        // Count all properties
+                        const allProperties = feature.properties || {};
+                        const totalPropsCount = Object.keys(allProperties).length;
+                        const shownPropsCount = inspectConfig.fields ? inspectConfig.fields.length : 0;
+
+                        // Show "Show all properties" button if there are more properties than shown
+                        if (totalPropsCount > shownPropsCount) {
+                            const $allPropsContainer = $('<div>', {
+                                class: 'all-properties-container',
+                                css: { display: 'none', marginTop: '8px' }
+                            });
+
+                            Object.entries(allProperties).forEach(([key, value]) => {
+                                if (value !== null && value !== undefined && value !== '') {
+                                    const $row = $('<div>', { class: 'property-row' });
+                                    $row.append($('<div>', { class: 'property-key', text: key }));
+                                    $row.append($('<div>', { class: 'property-value', text: String(value) }));
+                                    $allPropsContainer.append($row);
+                                }
+                            });
+
+                            const $toggleBtn = $('<button>', {
+                                class: 'show-all-props-btn',
+                                text: `Show all ${totalPropsCount} properties`,
+                                css: {
+                                    marginTop: '8px',
+                                    padding: '6px 12px',
+                                    background: '#374151',
+                                    color: '#d1d5db',
+                                    border: '1px solid #4b5563',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    width: '100%',
+                                    transition: 'all 0.2s'
+                                },
+                                click: function(e) {
+                                    e.stopPropagation();
+                                    const $btn = $(this);
+                                    const $container = $btn.siblings('.all-properties-container');
+                                    const $regularProps = $btn.siblings('.properties-table');
+
+                                    if ($container.is(':visible')) {
+                                        $container.hide();
+                                        $regularProps.show();
+                                        $btn.text(`Show all ${totalPropsCount} properties`);
+                                    } else {
+                                        $container.show();
+                                        $regularProps.hide();
+                                        $btn.text(`Show ${shownPropsCount} properties`);
+                                    }
+                                }
+                            });
+                            $toggleBtn.on('mouseenter', function() {
+                                $(this).css({ background: '#4b5563', borderColor: '#6b7280' });
+                            }).on('mouseleave', function() {
+                                $(this).css({ background: '#374151', borderColor: '#4b5563' });
+                            });
+
+                            $propsContainer.append($toggleBtn);
+                            $propsContainer.append($allPropsContainer);
+                        }
+
+                        $featureInfo.append($propsContainer);
 
                         $featureContainer.append($featureInfo);
                         $expanded.append($featureContainer);
@@ -1925,7 +2107,7 @@
                 // Remove button
                 const $removeBtn = $('<button>', {
                     class: 'px-2 py-1 rounded flex items-center justify-center gap-1 text-white whitespace-nowrap',
-                    html: '<sl-icon name="trash" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Remove</span>',
+                    html: '<sl-icon name="trash" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Remove Layer</span>',
                     css: {
                         'background': '#dc2626',
                         'transition': 'background 0.2s'
@@ -2167,7 +2349,6 @@
         // Process API data loaders (generic, handler-agnostic)
         async function processApiLoaders() {
             const loaders = document.querySelectorAll('.api-data-loader');
-            console.log(`[Inspector] Processing ${loaders.length} API loaders`);
 
             for (const loader of loaders) {
                 const apiUrl = loader.getAttribute('data-api-url');
@@ -2177,11 +2358,9 @@
                 const featureId = loader.getAttribute('data-feature-id');
 
                 if (!apiUrl) {
-                    console.warn('[Inspector] Loader missing data-api-url', loader);
                     continue;
                 }
 
-                console.log('[Inspector] Fetching data from:', apiUrl);
 
                 // Remove the loader class to prevent reprocessing
                 loader.classList.remove('api-data-loader');
@@ -2190,7 +2369,6 @@
                     // Fetch data from API
                     const response = await fetch(apiUrl);
                     const data = await response.json();
-                    console.log('[Inspector] Data received:', data);
 
                     // Load handlers for the atlas if handler name is specified
                     let formattedHTML;
@@ -2198,10 +2376,8 @@
                         try {
                             const handlers = await handlerLoader.loadHandlers(atlasName);
                             if (handlers[handlerName]) {
-                                console.log('[Inspector] Using formatter:', handlerName, 'from atlas:', atlasName);
                                 formattedHTML = handlers[handlerName](data);
                             } else {
-                                console.warn('[Inspector] Formatter not found:', handlerName);
                                 formattedHTML = `<pre style="color: #d1d5db; font-size: 10px;">${JSON.stringify(data, null, 2)}</pre>`;
                             }
                         } catch (error) {
@@ -2225,7 +2401,6 @@
                                 // Update the cached HTML with the processed version
                                 const updatedHTML = $container.html();
                                 customHTMLMap.set(featureId, updatedHTML);
-                                console.log('[Inspector] Updated cached custom HTML for', layerId, featureId);
                             }
                         }
                     }

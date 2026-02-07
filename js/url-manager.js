@@ -760,7 +760,6 @@ export class URLManager {
 
         // Auto-add terrain parameter if not present
         if (!terrainParam) {
-            console.log('[URL API] No terrain parameter found, auto-adding default');
             this.autoAddTerrainParameter();
         }
 
@@ -877,8 +876,6 @@ export class URLManager {
             return;
         }
 
-        console.log(`[URL API] Applying ${selectionsByLayer.size} layer selections from URL`);
-
         const layersReady = await this.waitForLayersReady(Array.from(selectionsByLayer.keys()));
 
         if (!layersReady) {
@@ -935,10 +932,6 @@ export class URLManager {
                 clearedFeatures: [],
                 fromURL: true
             });
-
-            console.log(`[URL API] Successfully selected ${allSelectedFeatures.length} features from URL`);
-        } else {
-            console.warn('[URL API] No features were selected from URL');
         }
     }
 
@@ -950,7 +943,6 @@ export class URLManager {
             }
 
             const timeoutId = setTimeout(() => {
-                console.warn('[URL API] Timeout waiting for map idle');
                 resolve();
             }, timeout);
 
@@ -968,8 +960,6 @@ export class URLManager {
         const startTime = Date.now();
         const checkInterval = 200;
 
-        console.log(`[URL API] Waiting for layers to be ready: ${layerIds.join(', ')}`);
-
         return new Promise((resolve) => {
             const checkLayers = () => {
                 if (!this.stateManager) {
@@ -985,7 +975,6 @@ export class URLManager {
                 const allReady = readyLayers.length === layerIds.length;
 
                 if (allReady) {
-                    console.log('[URL API] All layers ready');
                     resolve(true);
                 } else if (Date.now() - startTime > timeout) {
                     const notReady = layerIds.filter(id => !readyLayers.includes(id));
@@ -1035,8 +1024,6 @@ export class URLManager {
 
                 this.stateManager._selectedFeatures.add(compositeKey);
                 this.stateManager._setMapboxFeatureState(featureId, layerId, { selected: true });
-
-                console.log(`[URL API] Selected feature ${rawFeatureId} from layer ${layerId}`);
 
                 return {
                     featureId,
@@ -1252,14 +1239,11 @@ export class URLManager {
             console.debug('Could not get terrain exaggeration from style, using default:', defaultExaggeration);
         }
 
-        console.log('[URL API] Auto-adding terrain parameter with exaggeration:', defaultExaggeration);
-
         // Add terrain parameter to URL
         this.updateURL({ terrain: defaultExaggeration });
 
         // Also initialize the 3D control if available
         if (window.terrain3DControl) {
-            console.log('[URL API] Initializing 3D control with exaggeration:', defaultExaggeration);
             window.terrain3DControl.setExaggeration(defaultExaggeration);
             window.terrain3DControl.setEnabled(true);
         }

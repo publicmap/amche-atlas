@@ -2617,8 +2617,6 @@ export class MapboxAPI {
         // Check if insertPosition is a slot name
         const slotNames = ['bottom', 'middle', 'top'];
 
-        console.log(`[MapboxAPI] Adding layer: ${layerConfig.id}, type: ${layerConfig.type}, slot: ${insertPosition || 'none'}, groupId: ${layerConfig.metadata?.groupId}`);
-
         if (insertPosition && slotNames.includes(insertPosition)) {
             // Use slot-based insertion
             // Reference: https://docs.mapbox.com/style-spec/reference/layers/#layer-properties

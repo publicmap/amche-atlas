@@ -312,16 +312,8 @@ export class MapFeatureStateManager extends EventTarget {
      * @param {Array} clickedFeatures - Array of {feature, layerId, lngLat} objects
      */
     handleFeatureClicks(clickedFeatures) {
-        console.log('=== HANDLE FEATURE CLICKS CALLED ===', {
-            numFeatures: clickedFeatures?.length,
-            features: clickedFeatures,
-            cmdCtrlPressed: this._isCmdCtrlPressed,
-            currentSelectionCount: this._selectedFeatures.size
-        });
-
         if (!clickedFeatures || clickedFeatures.length === 0) {
             // Click on empty area - clear all selections
-            console.log('[StateManager] Empty click - clearing all selections');
             this.clearAllSelections();
             return;
         }
@@ -342,7 +334,6 @@ export class MapFeatureStateManager extends EventTarget {
         // If Cmd/Ctrl is not pressed, clear existing selections FIRST (to emit proper clear events)
         const clearedFeatures = [];
         if (!this._isCmdCtrlPressed) {
-            console.log('[StateManager] Cmd/Ctrl NOT pressed - clearing existing selections before adding new');
             this._selectedFeatures.forEach(compositeKey => {
                 const featureState = this._featureStates.get(compositeKey);
                 if (featureState) {
@@ -361,8 +352,6 @@ export class MapFeatureStateManager extends EventTarget {
             });
 
             this._selectedFeatures.clear();
-        } else {
-            console.log('[StateManager] Cmd/Ctrl pressed - keeping existing selections');
         }
 
         // Process clicked features and select them
@@ -400,14 +389,6 @@ export class MapFeatureStateManager extends EventTarget {
                 layerId,
                 feature,
                 lngLat
-            });
-
-            // Removed verbose selection logging
-
-            console.log('=== ABOUT TO CALL _executeInspectionHandler ===', {
-                featureId,
-                layerId,
-                hasFeature: !!feature
             });
 
             // Execute inspection handlers if configured
@@ -527,7 +508,6 @@ export class MapFeatureStateManager extends EventTarget {
      * @param {boolean} suppressEvent - Whether to suppress the event emission
      */
     _clearAllSelections(suppressEvent = false) {
-        console.log('[StateManager] _clearAllSelections called, current selections:', this._selectedFeatures.size);
         const clearedFeatures = [];
 
         // Deselect all features
@@ -554,12 +534,9 @@ export class MapFeatureStateManager extends EventTarget {
         this._updateLineSortKeys();
 
         if (!suppressEvent && clearedFeatures.length > 0) {
-            console.log('[StateManager] Emitting selections-cleared event for', clearedFeatures.length, 'features');
             this._emitStateChange('selections-cleared', {
                 clearedFeatures
             });
-        } else if (!suppressEvent) {
-            console.log('[StateManager] No features to clear - not emitting event');
         }
 
         return clearedFeatures;
@@ -1165,17 +1142,7 @@ export class MapFeatureStateManager extends EventTarget {
         // Get layer config
         const layerConfig = this._registeredLayers.get(layerId);
 
-        console.log('[StateManager] _executeInspectionHandler called:', {
-            layerId,
-            hasConfig: !!layerConfig,
-            hasInspect: !!layerConfig?.inspect,
-            hasOnClick: !!layerConfig?.inspect?.onClick,
-            onClick: layerConfig?.inspect?.onClick,
-            sourceAtlas: layerConfig?._sourceAtlas
-        });
-
         if (!layerConfig || !layerConfig.inspect?.onClick) {
-            console.log('[StateManager] No handler configured for layer:', layerId);
             return;
         }
 
@@ -1183,12 +1150,6 @@ export class MapFeatureStateManager extends EventTarget {
 
         // Determine atlas name from layer config
         const atlasName = layerConfig._sourceAtlas || 'index';
-
-        console.log('[StateManager] Executing handler:', {
-            handlerName,
-            atlasName,
-            layerId
-        });
 
         try {
             // Execute handler and get HTML
@@ -1203,11 +1164,6 @@ export class MapFeatureStateManager extends EventTarget {
                     lngLat
                 }
             );
-
-            console.log('[StateManager] Handler returned:', {
-                hasHTML: !!customHTML,
-                htmlLength: customHTML?.length
-            });
 
             if (customHTML) {
                 // Emit event with custom HTML for inspector to display

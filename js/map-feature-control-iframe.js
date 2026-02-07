@@ -363,6 +363,8 @@ export class MapFeatureControl {
                 this._fitBounds(event.data.bounds, event.data.padding);
             } else if (event.data.type === 'zoom-to-selection') {
                 this._zoomToSelection();
+            } else if (event.data.type === 'zoom-to-feature') {
+                this._zoomToFeature(event.data.layerId, event.data.featureId, event.data.feature);
             }
         });
     }
@@ -485,6 +487,54 @@ export class MapFeatureControl {
             });
         } catch (error) {
             console.error('[MapFeatureControl] Error zooming to selection:', error);
+        }
+    }
+
+    /**
+     * Zoom to a specific feature using its geometry
+     */
+    _zoomToFeature(layerId, featureId, feature) {
+        if (!this._map || !this._stateManager) return;
+
+        try {
+            if (typeof turf === 'undefined') {
+                console.error('[MapFeatureControl] Turf.js not loaded');
+                return;
+            }
+
+            // Get the feature from state manager which has full geometry
+            const activeLayers = this._stateManager.getActiveLayers();
+            const layerData = activeLayers.get(layerId);
+
+            if (!layerData || !layerData.features) {
+                console.warn('[MapFeatureControl] Layer not found in state manager');
+                return;
+            }
+
+            const featureState = layerData.features.get(featureId);
+            if (!featureState || !featureState.feature) {
+                console.warn('[MapFeatureControl] Feature not found in state manager');
+                return;
+            }
+
+            const featureWithGeometry = featureState.feature;
+
+            if (!featureWithGeometry.geometry || !featureWithGeometry.geometry.coordinates) {
+                console.warn('[MapFeatureControl] Feature has no valid geometry');
+                return;
+            }
+
+            const bbox = turf.bbox(featureWithGeometry);
+
+            this._map.fitBounds([
+                [bbox[0], bbox[1]],
+                [bbox[2], bbox[3]]
+            ], {
+                padding: 50,
+                duration: 1000
+            });
+        } catch (error) {
+            console.error('[MapFeatureControl] Error zooming to feature:', error);
         }
     }
 

@@ -209,14 +209,6 @@ export class MapInitializer {
                     }
                 });
 
-                console.log('[map-init] Final layers order (will be added to map in this order):');
-                finalLayers.forEach((layer, index) => {
-                    const isFromUrl = urlLayerIds.has(layer.id);
-                    const tags = layer.tags ? ` [${layer.tags.join(', ')}]` : '';
-                    const isBasemap = LayerOrderManager.isBasemap(layer);
-                    console.log(`  ${index}: ${layer.id}${tags}${isBasemap ? ' [BASEMAP]' : ''}${isFromUrl ? ' (from URL)' : ''}`);
-                });
-
                 config.layers = finalLayers;
 
             }
