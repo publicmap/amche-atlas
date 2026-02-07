@@ -30,9 +30,10 @@
         .layer-card {
             transition: all 0.2s ease;
             cursor: pointer;
-            border-left: 3px solid transparent;
+            border-left: 2px solid transparent;
             position: relative;
             overflow: hidden;
+            margin-bottom: 2px;
         }
 
         .layer-card:hover {
@@ -70,14 +71,14 @@
         .layer-card-compact {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px;
-            min-height: 56px;
+            gap: 6px;
+            padding: 6px;
+            min-height: 44px;
         }
 
         .layer-card-expanded {
             display: none;
-            padding: 12px;
+            padding: 8px;
             background: #1f2937;
         }
 
@@ -103,17 +104,17 @@
         }
 
         .atlas-badge {
-            font-size: 9px;
-            padding: 2px 6px;
-            border-radius: 3px;
+            font-size: 8px;
+            padding: 1px 4px;
+            border-radius: 2px;
             font-weight: 600;
             color: white;
             flex-shrink: 0;
         }
 
         .info-button {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             border-radius: 50%;
             background: #374151;
             color: white;
@@ -122,7 +123,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
             transition: background 0.2s;
         }
@@ -133,27 +134,27 @@
 
         .action-buttons {
             display: flex;
-            gap: 8px;
-            margin-top: 12px;
-            padding-top: 12px;
+            gap: 6px;
+            margin-top: 8px;
+            padding-top: 8px;
             border-top: 1px solid #374151;
         }
 
         .action-button {
             flex: 1;
-            padding: 6px 12px;
-            border-radius: 4px;
+            padding: 4px 8px;
+            border-radius: 3px;
             border: 1px solid #ffbf00;
             background: #ffbf00;
             color: #000;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
+            gap: 3px;
         }
 
         .action-button:hover {
@@ -168,17 +169,17 @@
 
         .feature-info {
             background: #1f2937;
-            border-radius: 4px;
-            padding: 8px;
-            margin-top: 8px;
+            border-radius: 3px;
+            padding: 6px;
+            margin-top: 6px;
         }
 
         .feature-custom-info {
             background: transparent;
-            margin: 8px 0;
-            font-size: 11px;
+            margin: 6px 0;
+            font-size: 10px;
             color: #d1d5db;
-            line-height: 1.5;
+            line-height: 1.4;
         }
 
         .feature-custom-info strong {
@@ -208,8 +209,8 @@
 
         .property-row {
             display: flex;
-            font-size: 11px;
-            padding: 2px 0;
+            font-size: 10px;
+            padding: 1px 0;
             border-bottom: 1px solid #374151;
         }
 
@@ -219,7 +220,7 @@
 
         .property-key {
             color: #9ca3af;
-            min-width: 100px;
+            min-width: 80px;
             font-weight: 500;
         }
 
@@ -305,6 +306,27 @@
             }
         }
 
+        #overlay-thumbnails::-webkit-scrollbar,
+        #basemap-thumbnails::-webkit-scrollbar {
+            height: 3px;
+        }
+
+        #overlay-thumbnails::-webkit-scrollbar-track,
+        #basemap-thumbnails::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #overlay-thumbnails::-webkit-scrollbar-thumb,
+        #basemap-thumbnails::-webkit-scrollbar-thumb {
+            background: #6b7280;
+            border-radius: 2px;
+        }
+
+        #overlay-thumbnails::-webkit-scrollbar-thumb:hover,
+        #basemap-thumbnails::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
         @media (max-width: 768px) {
             html, body {
                 width: 100% !important;
@@ -316,17 +338,17 @@
 
 <body class="bg-gray-900 text-white" style="display: flex; flex-direction: column;">
     <!-- Header -->
-    <div class="header" style="flex-shrink: 0; background: #1f2937; padding: 12px; border-bottom: 1px solid #374151;">
+    <div class="header" style="flex-shrink: 0; background: #1f2937; padding: 6px 8px; border-bottom: 1px solid #374151;">
         <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <div id="drag-handle" class="text-sm font-semibold flex items-center gap-2"
-                    style="user-select: none; cursor: move; padding: 4px 8px; margin: -4px -8px; color: #ffbf00;">
-                    <sl-icon name="layers" style="font-size: 16px;"></sl-icon>
+            <div class="flex items-center gap-1">
+                <div id="drag-handle" class="flex items-center gap-1"
+                    style="user-select: none; cursor: move; padding: 2px 4px; margin: -2px -4px; color: #ffbf00; font-size: 12px; font-weight: 600;">
+                    <sl-icon name="layers" style="font-size: 13px;"></sl-icon>
                     <span>Map Layers</span>
                 </div>
-                <sl-dropdown distance="5" placement="bottom-start" id="options-dropdown">
-                    <button slot="trigger" class="text-xs"
-                        style="background: transparent; border: none; color: rgba(235, 235, 235, 0.7); cursor: pointer; padding: 4px 8px;">
+                <sl-dropdown distance="3" placement="bottom-start" id="options-dropdown">
+                    <button slot="trigger"
+                        style="background: transparent; border: none; color: rgba(235, 235, 235, 0.7); cursor: pointer; padding: 2px 6px; font-size: 10px;">
                         Options
                     </button>
                     <sl-menu>
@@ -343,7 +365,7 @@
                 </sl-dropdown>
             </div>
             <button id="close-button" class="text-white"
-                style="background: transparent; border: none; cursor: pointer; padding: 4px; opacity: 0.7; font-size: 20px; line-height: 1;"
+                style="background: transparent; border: none; cursor: pointer; padding: 2px; opacity: 0.7; font-size: 18px; line-height: 1;"
                 title="Close panel">×</button>
         </div>
     </div>
@@ -353,31 +375,39 @@
         style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
 
         <!-- Overlay Maps Section -->
-        <div style="flex-shrink: 0; background: #111827; padding: 8px 4px 0 4px;">
+        <div style="flex-shrink: 0; background: #111827; padding: 4px 4px 0 4px;">
             <div class="section-header" id="overlay-header"
-                style="padding: 8px 12px; background: #374151; border-radius: 4px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between;">
-                <span class="text-xs font-semibold text-gray-300 flex items-center gap-2">
-                    <sl-icon name="layers-half" style="font-size: 14px;"></sl-icon>
-                    OVERLAY MAPS <span id="overlay-count" class="text-gray-400">(0)</span>
-                </span>
-                <span class="toggle-icon" style="font-size: 12px; transition: transform 0.2s;">▼</span>
+                style="padding: 4px 8px; background: #374151; border-radius: 3px; cursor: pointer; user-select: none;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span class="flex items-center gap-1" style="font-size: 10px; font-weight: 600; color: #d1d5db;">
+                        <sl-icon name="layers-half" style="font-size: 11px;"></sl-icon>
+                        OVERLAY MAPS <span id="overlay-count" class="text-gray-400">(0)</span>
+                    </span>
+                    <span class="toggle-icon" style="font-size: 10px; transition: transform 0.2s;">▼</span>
+                </div>
+                <div id="overlay-thumbnails" style="display: none; margin-top: 4px; gap: 3px; overflow-x: auto; overflow-y: hidden; max-width: 100%; scrollbar-width: thin;">
+                </div>
             </div>
         </div>
 
         <!-- Overlay List (Scrollable) -->
         <div id="overlay-list" class="scrollbar-thin"
-            style="flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px;"></div>
+            style="flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 3px;"></div>
 
         <!-- Base Maps Section -->
-        <div style="flex-shrink: 0; background: #111827; padding: 0 4px 8px 4px; margin-top:6px">
+        <div style="flex-shrink: 0; background: #111827; padding: 0 4px 4px 4px; margin-top:4px">
             <div class="section-header" id="basemap-header"
-                style="padding: 8px 12px; background: #374151; border-radius: 4px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                <span class="text-xs font-semibold text-gray-300 flex items-center gap-2">
-                    <sl-icon name="stack" style="font-size: 14px;"></sl-icon>
-                    BASE MAPS <span id="basemap-count" class="text-gray-400">(0)</span>
-                </span>
-                <span class="toggle-icon"
-                    style="font-size: 12px; transition: transform 0.2s; transform: rotate(-90deg);">▼</span>
+                style="padding: 4px 8px; background: #374151; border-radius: 3px; cursor: pointer; user-select: none; margin-bottom: 4px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span class="flex items-center gap-1" style="font-size: 10px; font-weight: 600; color: #d1d5db;">
+                        <sl-icon name="stack" style="font-size: 11px;"></sl-icon>
+                        BASE MAPS <span id="basemap-count" class="text-gray-400">(0)</span>
+                    </span>
+                    <span class="toggle-icon"
+                        style="font-size: 10px; transition: transform 0.2s; transform: rotate(-90deg);">▼</span>
+                </div>
+                <div id="basemap-thumbnails" style="display: none; margin-top: 4px; gap: 3px; overflow-x: auto; overflow-y: hidden; max-width: 100%; scrollbar-width: thin;">
+                </div>
             </div>
             <div id="basemap-list" class="scrollbar-thin"
                 style="display: none; overflow-y: auto; padding: 0 4px;"></div>
@@ -386,20 +416,20 @@
 
     <!-- Footer (Status Bar) -->
     <div id="status-bar"
-        style="display: none; flex-shrink: 0; height: 44px; background: #111827; border-top: 1px solid #374151; padding: 0 12px; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <sl-icon name="check-circle-fill" style="color: #10b981; font-size: 16px;"></sl-icon>
-            <span id="status-text" style="font-size: 11px; color: #d1d5db;"></span>
+        style="display: none; flex-shrink: 0; height: 34px; background: #111827; border-top: 1px solid #374151; padding: 0 8px; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <sl-icon name="check-circle-fill" style="color: #10b981; font-size: 12px;"></sl-icon>
+            <span id="status-text" style="font-size: 10px; color: #d1d5db;"></span>
         </div>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 6px;">
             <button id="zoom-to-selection-btn"
-                style="padding: 6px 12px; background: #ffbf00; color: #000; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
+                style="padding: 4px 10px; background: #ffbf00; color: #000; border: none; border-radius: 3px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
                 onmouseover="this.style.background='#ffd700'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.4)';"
                 onmouseout="this.style.background='#ffbf00'; this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.3)';">
                 Zoom
             </button>
             <button id="clear-selection-btn"
-                style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
+                style="padding: 4px 10px; background: #3b82f6; color: white; border: none; border-radius: 3px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
                 onmouseover="this.style.background='#2563eb'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.4)';"
                 onmouseout="this.style.background='#3b82f6'; this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.3)';">
                 Clear
@@ -647,8 +677,11 @@
                     $basemapIcon.css('transform', $basemapList.is(':visible') ? 'rotate(0deg)' : 'rotate(-90deg)');
                 }
 
-                // Notify after animation completes
-                setTimeout(notifyHeightChange, 250);
+                // Update thumbnails and notify after animation completes
+                setTimeout(() => {
+                    renderLayers();
+                    notifyHeightChange();
+                }, 250);
             });
 
             $('#zoom-to-selection-btn').on('click', function () {
@@ -677,8 +710,11 @@
                     $overlayIcon.css('transform', $overlayList.is(':visible') ? 'rotate(0deg)' : 'rotate(-90deg)');
                 }
 
-                // Notify after animation completes
-                setTimeout(notifyHeightChange, 250);
+                // Update thumbnails and notify after animation completes
+                setTimeout(() => {
+                    renderLayers();
+                    notifyHeightChange();
+                }, 250);
             });
 
             // Mouse leave handler - clear isolation when mouse leaves panel (unless pinned)
@@ -848,6 +884,9 @@
                 });
             }
 
+            // Update thumbnail previews for section headers
+            updateSectionThumbnails(overlayMaps, baseMaps);
+
             // Notify parent about potential height change
             setTimeout(notifyHeightChange, 100);
 
@@ -865,6 +904,69 @@
                         type: 'inspector-ready'
                     }, '*');
                 });
+            }
+        }
+
+        // Update thumbnail previews in section headers
+        function updateSectionThumbnails(overlayMaps, baseMaps) {
+            const $overlayThumbnails = $('#overlay-thumbnails');
+            const $basemapThumbnails = $('#basemap-thumbnails');
+
+            // Clear existing thumbnails
+            $overlayThumbnails.empty();
+            $basemapThumbnails.empty();
+
+            // Show thumbnails only when section is collapsed
+            const overlayCollapsed = !$('#overlay-list').is(':visible');
+            const basemapCollapsed = !$('#basemap-list').is(':visible');
+
+            if (overlayCollapsed && overlayMaps.length > 0) {
+                overlayMaps.slice(0, 8).forEach(layer => {
+                    const thumbnail = window.LayerThumbnail.generate(layer, 24);
+                    thumbnail.style.flexShrink = '0';
+                    thumbnail.style.borderRadius = '2px';
+
+                    // Add blue outline if layer has selected or hovered features
+                    const hasSelection = selectedFeatures.has(layer.id);
+                    const hasHover = hoveredFeatures.has(layer.id);
+                    if (hasSelection || hasHover) {
+                        thumbnail.style.outline = '2px solid #3b82f6';
+                        thumbnail.style.outlineOffset = '0px';
+                        thumbnail.style.boxShadow = '0 0 6px rgba(59, 130, 246, 0.6)';
+                    }
+
+                    // Prevent thumbnail clicks from toggling section
+                    thumbnail.addEventListener('click', (e) => e.stopPropagation());
+
+                    $overlayThumbnails.append(thumbnail);
+                });
+                $overlayThumbnails.css('display', 'flex');
+            } else {
+                $overlayThumbnails.css('display', 'none');
+            }
+
+            if (basemapCollapsed && baseMaps.length > 0) {
+                baseMaps.slice(0, 8).forEach(layer => {
+                    const thumbnail = window.LayerThumbnail.generate(layer, 24);
+                    thumbnail.style.flexShrink = '0';
+                    thumbnail.style.borderRadius = '2px';
+
+                    // Add blue border if layer has selected or hovered features
+                    const hasSelection = selectedFeatures.has(layer.id);
+                    const hasHover = hoveredFeatures.has(layer.id);
+                    if (hasSelection || hasHover) {
+                        thumbnail.style.border = '2px solid #3b82f6';
+                        thumbnail.style.boxShadow = '0 0 4px rgba(59, 130, 246, 0.5)';
+                    }
+
+                    // Prevent thumbnail clicks from toggling section
+                    thumbnail.addEventListener('click', (e) => e.stopPropagation());
+
+                    $basemapThumbnails.append(thumbnail);
+                });
+                $basemapThumbnails.css('display', 'flex');
+            } else {
+                $basemapThumbnails.css('display', 'none');
             }
         }
 
@@ -916,9 +1018,9 @@
             const $compact = $('<div>', { class: 'layer-card-compact layer-content' });
 
             // Thumbnail
-            const thumbnail = window.LayerThumbnail.generate(layerConfig, 40);
+            const thumbnail = window.LayerThumbnail.generate(layerConfig, 32);
             thumbnail.style.margin = '0';
-            thumbnail.style.borderRadius = '4px';
+            thumbnail.style.borderRadius = '3px';
             $compact.append(thumbnail);
 
             // Info section
@@ -941,7 +1043,7 @@
 
             // Layer name
             const $name = $('<span>', {
-                class: 'text-sm font-medium text-white truncate flex-1',
+                class: 'text-xs font-medium text-white truncate flex-1',
                 text: layerConfig.title || layerConfig.id
             });
             $headerRow.append($name);
@@ -1015,15 +1117,15 @@
 
                 // Action bar at the top
                 const $actionBar = $('<div>', {
-                    class: 'flex gap-2 mb-3 pb-3 border-b border-gray-700',
+                    class: 'flex gap-1 mb-2 pb-2 border-b border-gray-700',
                     css: { padding: '0' }
                 });
 
                 // Opacity button
                 const currentOpacity = layerConfig.opacity !== undefined ? layerConfig.opacity : 0.9;
                 const $opacityBtn = $('<button>', {
-                    class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 text-white text-xs whitespace-nowrap',
-                    html: '<sl-icon name="eye" style="font-size: 14px;"></sl-icon><span>Opacity</span>',
+                    class: 'px-2 py-1 rounded flex items-center justify-center gap-1 bg-gray-600 text-white whitespace-nowrap',
+                    html: '<sl-icon name="eye" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Opacity</span>',
                     css: { 'transition': 'background 0.2s' },
                     click: function(e) {
                         e.stopPropagation();
@@ -1072,8 +1174,8 @@
                 let $zoomBtn;
                 if (hasBbox) {
                     $zoomBtn = $('<button>', {
-                        class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 text-white text-xs whitespace-nowrap',
-                        html: '<sl-icon name="geo-alt" style="font-size: 14px;"></sl-icon><span>Zoom</span>',
+                        class: 'px-2 py-1 rounded flex items-center justify-center gap-1 bg-gray-600 text-white whitespace-nowrap',
+                        html: '<sl-icon name="geo-alt" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Zoom</span>',
                         css: { 'transition': 'background 0.2s' },
                         click: function(e) {
                             e.stopPropagation();
@@ -1092,8 +1194,8 @@
 
                 // Remove button
                 const $removeBtn = $('<button>', {
-                    class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 text-white text-xs whitespace-nowrap',
-                    html: '<sl-icon name="trash" style="font-size: 14px;"></sl-icon><span>Remove</span>',
+                    class: 'px-2 py-1 rounded flex items-center justify-center gap-1 text-white whitespace-nowrap',
+                    html: '<sl-icon name="trash" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Remove</span>',
                     css: {
                         'background': '#dc2626',
                         'transition': 'background 0.2s'
@@ -1128,7 +1230,7 @@
                         class: 'feature-container',
                         'data-feature-id': featureId,
                         css: {
-                            padding: '12px',
+                            padding: '8px',
                             borderBottom: '1px solid #374151'
                         }
                     });
@@ -1136,7 +1238,8 @@
                     // Show standard feature properties
                     const $featureInfo = $('<div>', { class: 'feature-info' });
                     const $title = $('<div>', {
-                        class: 'text-xs font-semibold text-gray-300 mb-2',
+                        class: 'font-semibold text-gray-300 mb-1',
+                        css: { fontSize: '10px' },
                         text: `Feature: ${featureId}`
                     });
                     $featureInfo.append($title);
@@ -1235,9 +1338,9 @@
             const $compact = $('<div>', { class: 'layer-card-compact layer-content' });
 
             // Thumbnail
-            const thumbnail = window.LayerThumbnail.generate(layer, 40);
+            const thumbnail = window.LayerThumbnail.generate(layer, 32);
             thumbnail.style.margin = '0';
-            thumbnail.style.borderRadius = '4px';
+            thumbnail.style.borderRadius = '3px';
             $compact.append(thumbnail);
 
             // Info section
@@ -1257,7 +1360,7 @@
             }
 
             const $name = $('<span>', {
-                class: 'text-sm font-medium text-white truncate flex-1',
+                class: 'text-xs font-medium text-white truncate flex-1',
                 text: layer.title || layer.id
             });
             $header.append($name);
@@ -1358,15 +1461,15 @@
 
                 // Action bar at the top
                 const $actionBar = $('<div>', {
-                    class: 'flex gap-2 mb-3 pb-3 border-b border-gray-700',
+                    class: 'flex gap-1 mb-2 pb-2 border-b border-gray-700',
                     css: { padding: '0' }
                 });
 
                 // Opacity button
                 const currentOpacity = layer.opacity !== undefined ? layer.opacity : 0.9;
                 const $opacityBtn = $('<button>', {
-                    class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 text-white text-xs whitespace-nowrap',
-                    html: '<sl-icon name="eye" style="font-size: 14px;"></sl-icon><span>Opacity</span>',
+                    class: 'px-2 py-1 rounded flex items-center justify-center gap-1 bg-gray-600 text-white whitespace-nowrap',
+                    html: '<sl-icon name="eye" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Opacity</span>',
                     css: { 'transition': 'background 0.2s' },
                     click: function(e) {
                         e.stopPropagation();
@@ -1415,8 +1518,8 @@
                 let $zoomBtn;
                 if (hasBbox) {
                     $zoomBtn = $('<button>', {
-                        class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 text-white text-xs whitespace-nowrap',
-                        html: '<sl-icon name="geo-alt" style="font-size: 14px;"></sl-icon><span>Zoom</span>',
+                        class: 'px-2 py-1 rounded flex items-center justify-center gap-1 bg-gray-600 text-white whitespace-nowrap',
+                        html: '<sl-icon name="geo-alt" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Zoom</span>',
                         css: { 'transition': 'background 0.2s' },
                         click: function(e) {
                             e.stopPropagation();
@@ -1435,8 +1538,8 @@
 
                 // Remove button
                 const $removeBtn = $('<button>', {
-                    class: 'px-3 py-1.5 rounded flex items-center justify-center gap-1.5 text-white text-xs whitespace-nowrap',
-                    html: '<sl-icon name="trash" style="font-size: 14px;"></sl-icon><span>Remove</span>',
+                    class: 'px-2 py-1 rounded flex items-center justify-center gap-1 text-white whitespace-nowrap',
+                    html: '<sl-icon name="trash" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Remove</span>',
                     css: {
                         'background': '#dc2626',
                         'transition': 'background 0.2s'
@@ -1512,7 +1615,7 @@
                                 css: {
                                     height: '1px',
                                     background: '#374151',
-                                    margin: '12px 0'
+                                    margin: '8px 0'
                                 }
                             }));
                         }
@@ -1521,7 +1624,8 @@
                     // Description
                     if (layer.description) {
                         const $desc = $('<div>', {
-                            class: 'text-xs text-gray-300 mb-3',
+                            class: 'text-gray-300 mb-2',
+                            css: { fontSize: '10px', lineHeight: '1.4' },
                             html: processLinksForNewWindow(layer.description)
                         });
                         $expanded.append($desc);

@@ -255,29 +255,236 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(17, 24, 39, 0.9);
+        background: #0f172a;
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 10000;
-        flex-direction: column;
-        gap: 20px;
+        overflow: hidden;
     ">
-        <img src="/assets/img/icon-192x192.png" alt="amche.in" style="
-            width: 64px;
-            height: 64px;
-            border-radius: 12px;
-        ">
+        <!-- Animated Background -->
         <div style="
-            width: 48px;
-            height: 48px;
-            border: 4px solid #374151;
-            border-top-color: #3b82f6;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('https://raw.githubusercontent.com/publicmap/amche-atlas/refs/heads/dev/assets/img/og_image.jpg');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.25;
+            animation: subtlePan 60s ease-in-out infinite;
         "></div>
-        <div style="color: #e5e7eb; font-size: 16px; font-weight: 500;">Loading Amche Atlas</div>
+
+        <!-- Content -->
+        <div style="
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            max-width: 400px;
+            padding: 2rem;
+        ">
+            <!-- Logo and Title -->
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="/assets/img/icon-192x192.png" alt="amche.in" style="
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                ">
+                <div style="
+                    font-size: 1.5rem;
+                    color: white;
+                    font-weight: 700;
+                    line-height: 1;
+                    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                ">amche.in</div>
+            </div>
+
+            <!-- Description -->
+            <p style="
+                font-size: 0.875rem;
+                color: #e5e7eb;
+                margin: 0;
+                line-height: 1.4;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+                text-align: center;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            ">Amche Atlas is a digital public library of maps maintained by the open data community in Goa.</p>
+
+            <!-- Buttons -->
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; justify-content: center;">
+                <a href="https://github.com/publicmap/amche-goa" target="_blank" style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 4px 8px;
+                    background: rgba(255, 255, 255, 0.1);
+                    backdrop-filter: blur(10px);
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 4px;
+                    font-size: 0.75rem;
+                    font-weight: 500;
+                    transition: background 0.2s;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                " onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
+                    <svg style="width: 12px; height: 12px; flex-shrink: 0;" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    Source Code
+                </a>
+                <a href="./privacy.html" style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 4px 8px;
+                    background: rgba(255, 255, 255, 0.1);
+                    backdrop-filter: blur(10px);
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 4px;
+                    font-size: 0.75rem;
+                    font-weight: 500;
+                    transition: background 0.2s;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                " onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
+                    <svg style="width: 12px; height: 12px; flex-shrink: 0;" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                    </svg>
+                    Privacy Policy
+                </a>
+                <button id="loading-install-button" style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 4px 8px;
+                    background: rgba(255, 255, 255, 0.1);
+                    backdrop-filter: blur(10px);
+                    color: white;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    border-radius: 4px;
+                    font-size: 0.75rem;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                " onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
+                    <svg style="width: 12px; height: 12px; flex-shrink: 0;" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                    Install
+                    <svg style="width: 10px; height: 10px; flex-shrink: 0;" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Loading Status -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 16px; margin-top: 8px;">
+                <div style="
+                    width: 48px;
+                    height: 48px;
+                    border: 4px solid #374151;
+                    border-top-color: #3b82f6;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                "></div>
+                <div id="loading-status-text" style="
+                    color: #e5e7eb;
+                    font-size: 16px;
+                    font-weight: 500;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    text-align: center;
+                    min-height: 24px;
+                    opacity: 1;
+                    transition: opacity 0.4s ease-in-out;
+                ">Your atlas is loading</div>
+            </div>
+        </div>
     </div>
+
+    <script>
+        // Loading status text rotation with fade effect
+        (function() {
+            const loadingMessages = [
+                'Your atlas is loading',
+                'आमचो नकासो लोड जावपाक लागला'
+            ];
+            let currentIndex = 0;
+            const textElement = document.getElementById('loading-status-text');
+
+            if (textElement) {
+                setInterval(function() {
+                    // Fade out
+                    textElement.style.opacity = '0';
+
+                    // Wait for fade out, then change text and fade in
+                    setTimeout(function() {
+                        currentIndex = (currentIndex + 1) % loadingMessages.length;
+                        textElement.textContent = loadingMessages[currentIndex];
+                        textElement.style.opacity = '1';
+                    }, 400);
+                }, 2000);
+            }
+        })();
+
+        // Loading screen install button handler
+        (function() {
+            const loadingInstallButton = document.getElementById('loading-install-button');
+            let deferredPrompt;
+
+            // Capture PWA install prompt
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+            });
+
+            if (loadingInstallButton) {
+                loadingInstallButton.addEventListener('click', async function() {
+                    const choice = confirm(
+                        'Install Amche Atlas\n\n' +
+                        'Choose your installation option:\n\n' +
+                        'OK = Install as Web App (Works on all devices)\n' +
+                        'Cancel = View Android App (Beta)\n'
+                    );
+
+                    if (choice) {
+                        // Install PWA
+                        if (deferredPrompt) {
+                            deferredPrompt.prompt();
+                            const { outcome } = await deferredPrompt.userChoice;
+                            deferredPrompt = null;
+                        } else {
+                            alert('To install the web app:\n\n• On iOS: Tap the Share button and select "Add to Home Screen"\n• On Android: Tap the menu (⋮) and select "Install app" or "Add to Home Screen"');
+                        }
+                    } else {
+                        // Android app
+                        const userConfirmed = confirm(
+                            '🚀 Amche Atlas Android App (Closed Beta)\n\n' +
+                            'The Android app is currently in closed beta testing. We need testers!\n\n' +
+                            'To request access:\n' +
+                            '1. Join our WhatsApp group\n' +
+                            '2. Request beta testing access\n\n' +
+                            'Click OK to join the WhatsApp group, or Cancel to open the Play Store listing.'
+                        );
+
+                        if (userConfirmed) {
+                            window.open('https://chat.whatsapp.com/BbzANbnXuekARMMSyeo6Pf', '_blank');
+                        } else {
+                            window.open('https://play.google.com/store/apps/details?id=in.amche', '_blank');
+                        }
+                    }
+                });
+            }
+        })();
+    </script>
     <!-- Navigation Menu Overlay -->
     <div id="nav-menu-overlay"
         style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 1000;">
