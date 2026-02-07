@@ -4369,14 +4369,17 @@ export class MapFeatureControl {
             }
         });
 
-        // Set up global mousemove handler for better performance
-        this._map.on('mousemove', (e) => {
-            // Use queryRenderedFeatures with deduplication for optimal performance
-            this._handleMouseMoveWithQueryRendered(e);
+        // Set up global mousemove handler for better performance (skip on touch devices)
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        if (!isTouchDevice) {
+            this._map.on('mousemove', (e) => {
+                // Use queryRenderedFeatures with deduplication for optimal performance
+                this._handleMouseMoveWithQueryRendered(e);
 
-            // Update hover popup position to follow mouse smoothly
-            this._updateHoverPopupPosition(e.lngLat);
-        });
+                // Update hover popup position to follow mouse smoothly
+                this._updateHoverPopupPosition(e.lngLat);
+            });
+        }
 
         // Set up global mouseleave handler for the entire map
         this._map.on('mouseleave', () => {

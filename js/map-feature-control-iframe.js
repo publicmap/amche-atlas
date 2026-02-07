@@ -1270,10 +1270,13 @@ export class MapFeatureControl {
             }
         });
 
-        // Mousemove handler
-        this._map.on('mousemove', (e) => {
-            this._handleMouseMove(e);
-        });
+        // Mousemove handler (skip on touch devices to avoid hover/selection conflicts)
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        if (!isTouchDevice) {
+            this._map.on('mousemove', (e) => {
+                this._handleMouseMove(e);
+            });
+        }
 
         // Mouse leave handlers
         this._map.on('mouseleave', () => {
