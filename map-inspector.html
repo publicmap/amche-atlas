@@ -448,6 +448,9 @@
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
         let manuallyExpandedLayers = new Set(); // Track layers manually expanded by user
         let hoveredFeatures = new Map(); // layerId -> Set<featureId>
+        let selectionSnapshot = null; // Snapshot of selections before new click
+        let selectionDebounceTimer = null; // Timer to batch selection messages
+        let pendingNewSelections = new Set(); // Layers with new selections in current batch
 
         // Make LayerThumbnail available globally
         window.LayerThumbnail = LayerThumbnail;
@@ -523,15 +526,35 @@
 
                 console.log('[Inspector] Feature selected:', layerId, featureId, feature);
 
+                // Create snapshot of selections before first new selection
+                if (!selectionSnapshot) {
+                    selectionSnapshot = new Set(selectedFeatures.keys());
+                }
+
+                // Track if this layer has new selections (didn't exist before or got new features)
+                const isNewSelection = !selectionSnapshot.has(layerId);
+
                 // Initialize layer map if needed
                 if (!selectedFeatures.has(layerId)) {
                     selectedFeatures.set(layerId, new Map());
                 }
                 selectedFeatures.get(layerId).set(featureId, feature);
 
-                if (expandedLayerId !== layerId) {
-                    expandedLayerId = layerId;
+                // Track layers with new selections
+                if (isNewSelection) {
+                    pendingNewSelections.add(layerId);
                 }
+
+                // Debounce expansion to wait for all selection messages
+                if (selectionDebounceTimer) {
+                    clearTimeout(selectionDebounceTimer);
+                }
+                selectionDebounceTimer = setTimeout(() => {
+                    determineLayerToExpand();
+                    selectionDebounceTimer = null;
+                    selectionSnapshot = null;
+                    pendingNewSelections.clear();
+                }, 50);
 
                 renderLayers();
                 reapplyVisualIsolationIfNeeded();
@@ -780,6 +803,79 @@
                     clearVisualIsolation();
                 }
             });
+        }
+
+        // Determine which layer should be expanded based on new selections
+        function determineLayerToExpand() {
+            // Don't auto-expand if current layer is manually expanded/pinned
+            if (expandedLayerId && manuallyExpandedLayers.has(expandedLayerId)) {
+                console.log('[Inspector] Keeping manually expanded layer:', expandedLayerId);
+                return;
+            }
+
+            // If no new selections, keep current expansion
+            if (pendingNewSelections.size === 0) {
+                console.log('[Inspector] No new selections, keeping current expansion');
+                return;
+            }
+
+            // Get the display order by rendering the layers (we need the sorted order)
+            // Use LayerOrderManager to get the same order as displayed
+            const { overlays: overlayMaps, basemaps: baseMaps } = LayerOrderManager.getInspectorDisplayOrder(activeLayers);
+
+            // Combine overlays and basemaps in display order (overlays first)
+            const allLayersInOrder = [...overlayMaps, ...baseMaps];
+
+            // Sort with activity priority (same logic as in renderLayers)
+            const sortWithActivityPriority = (a, b) => {
+                const aHasActivity = selectedFeatures.has(a.id) || hoveredFeatures.has(a.id);
+                const bHasActivity = selectedFeatures.has(b.id) || hoveredFeatures.has(b.id);
+                if (aHasActivity && !bHasActivity) return -1;
+                if (!aHasActivity && bHasActivity) return 1;
+
+                // Get URL order for sorting
+                const urlParams = new URLSearchParams(window.location.search);
+                const layersParam = urlParams.get('layers');
+                const urlLayerOrder = new Map();
+                if (layersParam) {
+                    layersParam.split(',').forEach((id, index) => {
+                        urlLayerOrder.set(id.trim(), index);
+                    });
+                }
+
+                const aOrder = urlLayerOrder.get(a.id);
+                const bOrder = urlLayerOrder.get(b.id);
+                if (aOrder !== undefined && bOrder !== undefined) {
+                    return aOrder - bOrder;
+                }
+                return 0;
+            };
+
+            allLayersInOrder.sort(sortWithActivityPriority);
+
+            // Find the topmost layer with new selections
+            const topmostNewLayer = allLayersInOrder.find(layer => pendingNewSelections.has(layer.id));
+
+            if (topmostNewLayer) {
+                console.log('[Inspector] Auto-expanding topmost layer with new selections:', topmostNewLayer.id);
+                expandedLayerId = topmostNewLayer.id;
+
+                // Render to apply the expansion
+                renderLayers();
+
+                // Apply isolation if enabled
+                if (isolateEnabled) {
+                    const isBasemap = topmostNewLayer.tags && Array.isArray(topmostNewLayer.tags) && topmostNewLayer.tags.includes('basemap');
+                    window.parent.postMessage({
+                        type: 'isolate-layer',
+                        layerId: topmostNewLayer.id,
+                        isBasemap: isBasemap
+                    }, '*');
+                    setTimeout(() => applyVisualIsolation(topmostNewLayer.id, isBasemap), 10);
+                }
+            } else {
+                console.log('[Inspector] No topmost layer found with new selections');
+            }
         }
 
         // Render all active layers
