@@ -4097,7 +4097,7 @@ Styles moved from layer-settings.js
 /* Main Panel */
 .map-feature-panel {
     position: absolute;
-    top: 8px;
+    top: 52px;
     right: 50px;
     width: 350px;
     max-width: 85vw;
@@ -4111,6 +4111,15 @@ Styles moved from layer-settings.js
     font-size: 12px;
     overflow: hidden;
     resize: both;
+}
+
+@media (max-width: 768px) {
+    .map-feature-panel {
+        width: 100%;
+        max-width: 100%;
+        right: 0;
+        left: 0;
+    }
 }
 
 .map-feature-panel-content {

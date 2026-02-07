@@ -148,14 +148,17 @@ export class MapFeatureControl {
         const isMobile = window.innerWidth <= 768;
         const initialHeight = isMobile ? '40vh' : '500px';
         const maxHeight = isMobile ? '40vh' : '85vh';
+        const panelWidth = isMobile ? '100%' : this.options.maxWidth;
+        const panelMaxWidth = isMobile ? '100%' : 'calc(100vw - 70px)';
+        const panelRight = isMobile ? '0' : '8px';
 
         this._panel.style.cssText = `
             display: none;
             position: fixed;
-            top: 60px;
-            right: 8px;
-            width: ${this.options.maxWidth};
-            max-width: calc(100vw - 70px);
+            top: 52px;
+            right: ${panelRight};
+            width: ${panelWidth};
+            max-width: ${panelMaxWidth};
             height: ${initialHeight};
             max-height: ${maxHeight};
             background: #111827;
@@ -1064,15 +1067,17 @@ export class MapFeatureControl {
 
         // Adjust panel size on mobile
         if (window.innerWidth <= 768) {
-            this._panel.style.width = 'calc(100vw - 70px)';
-            this._panel.style.maxWidth = 'calc(100vw - 70px)';
+            this._panel.style.width = '100%';
+            this._panel.style.maxWidth = '100%';
             this._panel.style.maxHeight = '40vh';
             this._panel.style.left = 'auto';
+            this._panel.style.right = '0';
         } else {
             this._panel.style.width = this.options.maxWidth;
             this._panel.style.maxWidth = 'calc(100vw - 70px)';
             this._panel.style.maxHeight = '85vh';
             this._panel.style.left = 'auto';
+            this._panel.style.right = '8px';
         }
 
         // Request iframe to recalculate height

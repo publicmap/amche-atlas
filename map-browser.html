@@ -680,6 +680,7 @@
         let mapboxAccessToken = null;
         let expandedLayers = new Set();
         let expandedAtlasId = null; // Track which single atlas is expanded
+        let userCollapsedAll = false; // Track if user explicitly collapsed all atlases
         let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
         let loadingLayers = new Set(); // Track layers currently loading
@@ -1198,13 +1199,15 @@
 
                 // Expand the selected atlas
                 expandedAtlasId = atlasId;
+                userCollapsedAll = false;
             } else {
                 // Reset to default blue for "All Map Collections"
                 $btn.css('background', '#3b82f6');
                 $btn.data('atlas-color', '#3b82f6');
 
-                // When "All" is selected, expand the first atlas
+                // When "All" is selected, reset collapse state
                 expandedAtlasId = null; // Will be set to first atlas in renderLayerGrid
+                userCollapsedAll = false;
             }
 
             renderLayers();
@@ -1465,6 +1468,7 @@
                             e.preventDefault();
                             // Expand this atlas
                             expandedAtlasId = atlasId;
+                            userCollapsedAll = false;
                             renderLayers();
                             // Scroll to atlas after render
                             setTimeout(() => {
@@ -1504,6 +1508,7 @@
                             e.preventDefault();
                             // Expand this atlas
                             expandedAtlasId = atlasId;
+                            userCollapsedAll = false;
                             renderLayers();
                             // Scroll to atlas after render
                             setTimeout(() => {
@@ -1521,8 +1526,8 @@
                 $grid.append($atlasNav);
             }
 
-            // Set first atlas as expanded if none is currently expanded
-            if (!expandedAtlasId && orderedAtlasIds.length > 0) {
+            // Set first atlas as expanded if none is currently expanded (unless user explicitly collapsed)
+            if (!expandedAtlasId && orderedAtlasIds.length > 0 && !userCollapsedAll) {
                 expandedAtlasId = orderedAtlasIds[0];
             }
 
@@ -1549,6 +1554,32 @@
                 renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid);
             });
 
+            // Add "Show all collections" link at the bottom if an atlas is currently selected
+            if (window.selectedAtlasId) {
+                const $showAllContainer = $('<div>', {
+                    style: 'padding: 24px 12px; text-align: center;'
+                });
+
+                const $showAllLink = $('<a>', {
+                    href: '#',
+                    style: 'color: #9ca3af; font-size: 13px; text-decoration: none; cursor: pointer; transition: color 0.2s;',
+                    html: '← Show results from all collections',
+                    click: function(e) {
+                        e.preventDefault();
+                        selectAtlas('', 'All Map Collections');
+                    }
+                });
+
+                $showAllLink.on('mouseenter', function() {
+                    $(this).css({ 'color': '#d1d5db', 'text-decoration': 'underline' });
+                }).on('mouseleave', function() {
+                    $(this).css({ 'color': '#9ca3af', 'text-decoration': 'none' });
+                });
+
+                $showAllContainer.append($showAllLink);
+                $grid.append($showAllContainer);
+            }
+
             // Set active atlas based on scroll position
             setTimeout(updateActiveNavLink, 100);
         }
@@ -1564,7 +1595,7 @@
 
             const $header = $('<div>', {
                 class: 'atlas-collapsed-header',
-                style: 'cursor: pointer;',
+                style: 'cursor: pointer; padding: 8px 0;',
                 click: function(e) {
                     // Don't toggle if clicking on links or buttons
                     if ($(e.target).closest('a, button').length) return;
@@ -1573,9 +1604,11 @@
                     if (expandedAtlasId === atlasId) {
                         // Clicking on expanded atlas collapses it
                         expandedAtlasId = null;
+                        userCollapsedAll = true;
                     } else {
                         // Clicking on collapsed atlas expands it (and collapses others)
                         expandedAtlasId = atlasId;
+                        userCollapsedAll = false;
                     }
                     renderLayers();
                 }
@@ -1588,11 +1621,28 @@
             });
             $header.append($expandIcon);
 
+            // Atlas name and description container
+            const $titleContainer = $('<div>', {
+                style: 'flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px;'
+            });
+
             // Atlas name
-            $header.append($('<span>', {
-                style: `color: ${atlasData.color || '#f3f4f6'}; font-size: 15px; font-weight: 600; flex: 1;`,
+            const $name = $('<span>', {
+                style: `color: ${atlasData.color || '#f3f4f6'}; font-size: 15px; font-weight: 600;`,
                 text: atlasData.name || atlasId
-            }));
+            });
+            $titleContainer.append($name);
+
+            // Atlas description (if available)
+            if (atlasData.description) {
+                const $description = $('<span>', {
+                    style: 'color: #9ca3af; font-size: 11px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;',
+                    text: atlasData.description.replace(/<[^>]*>/g, '').substring(0, 100)
+                });
+                $titleContainer.append($description);
+            }
+
+            $header.append($titleContainer);
 
             // Zoom button (if atlas has bbox)
             if (atlasData.bbox) {
@@ -1632,15 +1682,6 @@
             $header.append($configLink);
 
             $collapsed.append($header);
-
-            // Add description if available
-            if (atlasData.description && isExpanded) {
-                const $description = $('<div>', {
-                    style: 'padding: 8px 12px 12px 32px; color: #9ca3af; font-size: 12px; line-height: 1.5;',
-                    html: atlasData.description
-                });
-                $collapsed.append($description);
-            }
 
             const $layersContainer = $('<div>', {
                 class: 'atlas-collapsed-layers'
