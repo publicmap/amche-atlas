@@ -1240,7 +1240,12 @@
                     title: String(labelValue),
                     click: function(e) {
                         e.stopPropagation();
-                        scrollToFeature(featureId);
+                        // Expand the layer first if not already expanded
+                        if (expandedLayerId !== layerConfig.id) {
+                            toggleLayerExpanded(layerConfig.id);
+                        }
+                        // Wait for render, then scroll to feature
+                        setTimeout(() => scrollToFeature(featureId), 100);
                     }
                 });
 
@@ -1791,7 +1796,16 @@
                             cursor: 'pointer',
                             transition: 'transform 0.2s, opacity 0.2s'
                         },
-                        title: String(labelValue)
+                        title: String(labelValue),
+                        click: function(e) {
+                            e.stopPropagation();
+                            // Expand the layer first if not already expanded
+                            if (expandedLayerId !== layer.id) {
+                                toggleLayerExpanded(layer.id);
+                            }
+                            // Wait for render, then scroll to feature
+                            setTimeout(() => scrollToFeature(featureId), 100);
+                        }
                     });
 
                     // Hover effect
