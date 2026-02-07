@@ -631,6 +631,9 @@ export class MapFeatureStateManager extends EventTarget {
         const layerConfig = this._registeredLayers.get(layerId);
         if (!layerConfig) return false;
 
+        // Check if inspection is explicitly disabled
+        if (layerConfig.inspect === false) return false;
+
         // Raster layers are registered but not interactive for feature selection
         return !this._isRasterLayer(layerConfig);
     }
