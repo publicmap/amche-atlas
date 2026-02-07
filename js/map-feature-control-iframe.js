@@ -25,6 +25,10 @@ export class MapFeatureControl {
         this._messageQueue = [];
         this._inspectorInitialized = false;
 
+        // Click popup state
+        this._clickPopup = null;
+        this._showClickPopups = false;
+
         // Set up resize listener
         this._resizeListener = this._handleResize.bind(this);
         window.addEventListener('resize', this._resizeListener);
@@ -341,7 +345,11 @@ export class MapFeatureControl {
             } else if (event.data.type === 'close-panel') {
                 this._hidePanel();
             } else if (event.data.type === 'toggle-popups') {
-                this._togglePopups(event.data.enabled);
+                this._showClickPopups = event.data.enabled;
+                if (!this._showClickPopups && this._clickPopup) {
+                    this._clickPopup.remove();
+                    this._clickPopup = null;
+                }
             } else if (event.data.type === 'clear-all-selections') {
                 if (this._stateManager) {
                     this._stateManager.clearAllSelections();
@@ -527,10 +535,12 @@ export class MapFeatureControl {
             case 'feature-hover':
             case 'features-batch-hover':
                 this._sendHighlightToIframe(data);
+                this._sendBatchHoverToIframe(data);
                 break;
             case 'features-hover-cleared':
             case 'map-mouse-leave':
                 this._clearHighlightInIframe();
+                this._sendHoverClearedToIframe();
                 break;
             case 'feature-click':
                 console.log('[IframeControl] Feature click event:', data.layerId, 'featureId:', data.featureId);
@@ -545,6 +555,11 @@ export class MapFeatureControl {
 
                 this._sendFeatureSelectionToIframe(data.layerId, data.feature, data.featureId);
                 this._showPanel(); // Auto-open panel when feature is clicked
+
+                // Show click popup if enabled
+                if (this._showClickPopups) {
+                    this._showClickPopupForFeature(data);
+                }
                 break;
             case 'feature-click-multiple':
                 console.log('[IframeControl] Multiple features click event:', data.selectedFeatures.length, 'features');
@@ -566,9 +581,22 @@ export class MapFeatureControl {
             case 'feature-inspection-data':
                 console.log('[IframeControl] Inspection data event:', data.layerId, data.customHTML ? 'Has HTML' : 'No HTML');
                 this._sendInspectionDataToIframe(data);
+
+                // Update popup if it's showing and matches this feature
+                if (this._clickPopup && this._clickPopup._layerId === data.layerId &&
+                    this._clickPopup._featureId === data.featureId && data.customHTML) {
+                    this._updateClickPopupCustomHTML(data.layerId, data.featureId, data.customHTML);
+                }
                 break;
             case 'selections-cleared':
-                this._sendSelectionClearedToIframe(data.layerId);
+                console.log('[IframeControl] Selections cleared event:', data);
+                this._sendAllSelectionsClearedToIframe(data.clearedFeatures || []);
+
+                // Remove popup when selections are cleared
+                if (this._clickPopup) {
+                    this._clickPopup.remove();
+                    this._clickPopup = null;
+                }
                 break;
             case 'feature-deselected':
                 this._sendFeatureDeselectedToIframe(data.layerId, data.featureId);
@@ -648,7 +676,7 @@ export class MapFeatureControl {
     }
 
     /**
-     * Send selection cleared message to iframe
+     * Send selection cleared message to iframe for a specific layer
      */
     _sendSelectionClearedToIframe(layerId) {
         if (!this._iframe || !this._iframe.contentWindow) return;
@@ -657,6 +685,27 @@ export class MapFeatureControl {
             type: 'selection-cleared',
             layerId: layerId
         };
+
+        this._iframe.contentWindow.postMessage(message, '*');
+
+        // Also send to browser iframe if it exists
+        if (window.browserControl && window.browserControl._iframe && window.browserControl._iframe.contentWindow) {
+            window.browserControl._iframe.contentWindow.postMessage(message, '*');
+        }
+    }
+
+    /**
+     * Send all selections cleared message to iframe
+     */
+    _sendAllSelectionsClearedToIframe(clearedFeatures) {
+        if (!this._iframe || !this._iframe.contentWindow) return;
+
+        const message = {
+            type: 'clear-all-selections',
+            clearedFeatures: clearedFeatures
+        };
+
+        console.log('[IframeControl] Sending clear-all-selections to inspector:', message);
 
         this._iframe.contentWindow.postMessage(message, '*');
 
@@ -676,6 +725,45 @@ export class MapFeatureControl {
             type: 'feature-deselected',
             layerId: layerId,
             featureId: featureId
+        };
+
+        this._iframe.contentWindow.postMessage(message, '*');
+
+        // Also send to browser iframe if it exists
+        if (window.browserControl && window.browserControl._iframe && window.browserControl._iframe.contentWindow) {
+            window.browserControl._iframe.contentWindow.postMessage(message, '*');
+        }
+    }
+
+    /**
+     * Send batch hover data to iframe
+     */
+    _sendBatchHoverToIframe(data) {
+        if (!this._iframe || !this._iframe.contentWindow) return;
+
+        const message = {
+            type: 'features-batch-hover',
+            hoveredFeatures: data.hoveredFeatures || [],
+            affectedLayers: data.affectedLayers || [],
+            lngLat: data.lngLat
+        };
+
+        this._iframe.contentWindow.postMessage(message, '*');
+
+        // Also send to browser iframe if it exists
+        if (window.browserControl && window.browserControl._iframe && window.browserControl._iframe.contentWindow) {
+            window.browserControl._iframe.contentWindow.postMessage(message, '*');
+        }
+    }
+
+    /**
+     * Send hover cleared message to iframe
+     */
+    _sendHoverClearedToIframe() {
+        if (!this._iframe || !this._iframe.contentWindow) return;
+
+        const message = {
+            type: 'map-mouse-leave'
         };
 
         this._iframe.contentWindow.postMessage(message, '*');
@@ -1113,13 +1201,68 @@ export class MapFeatureControl {
     _setupGlobalInteractionHandlers() {
         if (this._globalHandlersAdded) return;
 
+        // Track touch/long-press for mobile
+        let touchTimer = null;
+        let touchStartPoint = null;
+        let isLongPress = false;
+
+        // Touch start handler for long-press detection
+        this._map.on('touchstart', (e) => {
+            if (!e.originalEvent.touches || e.originalEvent.touches.length !== 1) return;
+
+            touchStartPoint = e.point;
+            isLongPress = false;
+
+            // Set timer for long press (500ms)
+            touchTimer = setTimeout(() => {
+                isLongPress = true;
+                // Simulate Cmd/Ctrl press for long-press
+                this._stateManager._isCmdCtrlPressed = true;
+                console.log('[IframeControl] Long press detected - multi-select mode enabled');
+            }, 500);
+        });
+
+        // Touch move handler - cancel long press if moved too much
+        this._map.on('touchmove', (e) => {
+            if (touchTimer && touchStartPoint) {
+                const dx = Math.abs(e.point.x - touchStartPoint.x);
+                const dy = Math.abs(e.point.y - touchStartPoint.y);
+
+                // Cancel if moved more than 10 pixels
+                if (dx > 10 || dy > 10) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                    isLongPress = false;
+                }
+            }
+        });
+
+        // Touch end handler - reset state
+        this._map.on('touchend', () => {
+            if (touchTimer) {
+                clearTimeout(touchTimer);
+                touchTimer = null;
+            }
+            // Reset Cmd/Ctrl state after a short delay
+            setTimeout(() => {
+                if (isLongPress) {
+                    this._stateManager._isCmdCtrlPressed = false;
+                    isLongPress = false;
+                    console.log('[IframeControl] Long press ended - multi-select mode disabled');
+                }
+            }, 100);
+        });
+
         // Click handler
         this._map.on('click', (e) => {
+            console.log('[IframeControl] Click event - Cmd/Ctrl pressed:', this._stateManager._isCmdCtrlPressed);
+
             let features = [];
             try {
                 features = this._map.queryRenderedFeatures(e.point);
             } catch (error) {
                 if (error.message && error.message.includes('out of range source coordinates for DEM data')) {
+                    console.log('[IframeControl] Clearing selections (out of range error)');
                     this._stateManager.clearAllSelections();
                     return;
                 } else {
@@ -1140,9 +1283,12 @@ export class MapFeatureControl {
                 }
             });
 
+            console.log('[IframeControl] Found', interactiveFeatures.length, 'interactive features');
+
             if (interactiveFeatures.length > 0) {
                 this._stateManager.handleFeatureClicks(interactiveFeatures);
             } else {
+                console.log('[IframeControl] No interactive features - clearing all selections');
                 this._stateManager.clearAllSelections();
             }
         });
@@ -1390,6 +1536,127 @@ export class MapFeatureControl {
                 popupInstance.remove();
             }
         });
+    }
+
+    /**
+     * Show click popup for a feature
+     */
+    _showClickPopupForFeature(data) {
+        if (!this._map) return;
+
+        const { layerId, feature, featureId, lngLat } = data;
+
+        // Remove existing popup
+        if (this._clickPopup) {
+            this._clickPopup.remove();
+        }
+
+        // Get layer config
+        const activeLayers = this._getActiveLayersFromConfig();
+        const layerData = activeLayers.get(layerId);
+        if (!layerData) return;
+
+        const layerConfig = layerData.config;
+
+        // Create popup content
+        const content = this._createClickPopupContent(layerId, feature, featureId, layerConfig);
+
+        // Create and show popup
+        this._clickPopup = new mapboxgl.Popup({
+            closeButton: true,
+            closeOnClick: false,
+            maxWidth: '350px',
+            className: 'click-popup'
+        })
+            .setLngLat(lngLat)
+            .setDOMContent(content)
+            .addTo(this._map);
+
+        // Store metadata for updates
+        this._clickPopup._layerId = layerId;
+        this._clickPopup._featureId = featureId;
+
+        // Remove popup reference when closed
+        this._clickPopup.on('close', () => {
+            this._clickPopup = null;
+        });
+    }
+
+    /**
+     * Create popup content with standardized layout
+     */
+    _createClickPopupContent(layerId, feature, featureId, layerConfig) {
+        const container = document.createElement('div');
+        container.style.cssText = 'padding: 8px;';
+
+        const properties = feature.properties || {};
+        const inspect = layerConfig.inspect || {};
+
+        // 1. Feature Heading
+        const heading = document.createElement('div');
+        heading.style.cssText = 'font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #f3f4f6; border-bottom: 1px solid #374151; padding-bottom: 8px;';
+
+        let headerLabel = 'Feature ID';
+        let headerValue = featureId;
+
+        if (inspect.title && inspect.label) {
+            headerLabel = inspect.title;
+            headerValue = properties[inspect.label] || featureId;
+        }
+
+        heading.innerHTML = `<div style="color: #9ca3af; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${headerLabel}</div><div>${headerValue}</div>`;
+        container.appendChild(heading);
+
+        // 2. Custom HTML placeholder
+        const customHTMLDiv = document.createElement('div');
+        customHTMLDiv.id = `popup-custom-${layerId}-${featureId}`;
+        customHTMLDiv.style.cssText = 'margin-bottom: 8px;';
+        container.appendChild(customHTMLDiv);
+
+        // 3. Metadata table
+        if (inspect.fields && inspect.fields.length > 0) {
+            const table = document.createElement('div');
+            table.style.cssText = 'font-size: 12px;';
+
+            inspect.fields.forEach((fieldName, index) => {
+                const value = properties[fieldName];
+                if (value !== null && value !== undefined && value !== '') {
+                    const fieldTitle = inspect.fieldTitles?.[index] || fieldName;
+
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid #374151;';
+
+                    const key = document.createElement('div');
+                    key.style.cssText = 'color: #9ca3af; min-width: 80px; flex-shrink: 0;';
+                    key.textContent = fieldTitle;
+
+                    const val = document.createElement('div');
+                    val.style.cssText = 'color: #f3f4f6; flex: 1; word-break: break-word;';
+                    val.textContent = String(value);
+
+                    row.appendChild(key);
+                    row.appendChild(val);
+                    table.appendChild(row);
+                }
+            });
+
+            container.appendChild(table);
+        }
+
+        return container;
+    }
+
+    /**
+     * Update popup with custom HTML from inspection handler
+     */
+    _updateClickPopupCustomHTML(layerId, featureId, customHTML) {
+        if (!this._clickPopup) return;
+
+        const customHTMLDiv = this._clickPopup._content.querySelector(`#popup-custom-${layerId}-${featureId}`);
+        if (customHTMLDiv && customHTML) {
+            customHTMLDiv.innerHTML = customHTML;
+            customHTMLDiv.style.display = 'block';
+        }
     }
 
     /**

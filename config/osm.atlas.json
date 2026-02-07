@@ -3,7 +3,7 @@
   "description": "Freely editable map of the world by <a href='https://openstreetmap.org/'>OpenStreetMap contributors</a>. Join your <a href='https://openstreetmap.community'>community</a>",
   "areaOfInterest": "Global",
   "tags": [
-    "basemap"
+    "opendata"
   ],
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/osm.atlas.json",
@@ -1022,6 +1022,9 @@
       }
     },
     {
+      "tags": [
+        "basemap"
+      ],
       "id": "mapnik",
       "title": "OpenStreetMap Carto",
       "description": "Map data contributed by the <a href='https://www.openstreetmap.in/'>OpenStreetMap India Community</a> rendered in the deafult <a href='https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto'>OSM Carto style</a>",

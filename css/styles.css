@@ -893,6 +893,41 @@ header h1 {
     border-top-color: white;
 }
 
+/* Click popup styles */
+.click-popup .mapboxgl-popup-content {
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    color: #f3f4f6;
+    min-width: 250px;
+    max-width: 350px;
+}
+
+.click-popup .mapboxgl-popup-tip {
+    border-top-color: #111827 !important;
+}
+
+.click-popup .mapboxgl-popup-close-button {
+    color: #9ca3af;
+    font-size: 20px;
+    padding: 8px;
+}
+
+.click-popup .mapboxgl-popup-close-button:hover {
+    color: #f3f4f6;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.click-popup a {
+    color: #3b82f6;
+    text-decoration: underline;
+}
+
+.click-popup a:hover {
+    color: #60a5fa;
+}
+
 /* Ensure text is black in both hover and active popups */
 .map-popup .text-sm,
 .map-popup .text-2xl,

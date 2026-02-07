@@ -9,7 +9,6 @@ import { MapExportControl } from './map-export-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
-import { ButtonResetMapView } from './button-reset-map-view.js';
 import { MapAttributionControl } from './map-attribution-control.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
@@ -489,7 +488,6 @@ export class MapInitializer {
             map.addControl(window.featureControl, 'top-right');
             map.addControl(new TimeControl(), 'top-right');
             map.addControl(window.terrain3DControl, 'top-right');
-            map.addControl(new ButtonResetMapView(), 'top-right');
             map.addControl(window.attributionControl, 'bottom-right');
             map.addControl(new MapExportControl(), 'bottom-right');
             map.addControl(new ButtonExternalMapLinks(), 'bottom-right');

@@ -46,6 +46,10 @@ export class MapFeatureControl {
         this._hoverPopup = null;
         this._currentHoveredFeature = null;
 
+        // Click popups
+        this._clickPopup = null;
+        this._showClickPopups = false; // Default off
+
         // Drawer state tracking via centralized manager
         this._drawerStateListener = null;
 
@@ -410,6 +414,34 @@ export class MapFeatureControl {
                 animation: layer-flash 0.5s ease-in-out;
             }
 
+            /* Click popup styles */
+            .mapboxgl-popup.click-popup .mapboxgl-popup-content {
+                padding: 0 !important;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+                border-radius: 8px !important;
+            }
+
+            .mapboxgl-popup.click-popup .mapboxgl-popup-close-button {
+                font-size: 20px;
+                padding: 4px 8px;
+                color: #6b7280;
+            }
+
+            .mapboxgl-popup.click-popup .mapboxgl-popup-close-button:hover {
+                background: #f3f4f6;
+                color: #111827;
+            }
+
+            /* Custom HTML content styling */
+            .popup-custom-html a {
+                color: #3b82f6;
+                text-decoration: underline;
+            }
+
+            .popup-custom-html a:hover {
+                color: #2563eb;
+            }
+
         `;
         document.head.appendChild(style);
     }
@@ -690,6 +722,37 @@ export class MapFeatureControl {
         });
 
         menu.appendChild(layerOptionsItem);
+
+        // Feature Popups Toggle Item
+        const popupsItem = document.createElement('sl-menu-item');
+        popupsItem.value = 'feature-popups';
+
+        // Create switch for menu item
+        const popupsSwitch = document.createElement('sl-switch');
+        popupsSwitch.checked = this._showClickPopups;
+        popupsSwitch.size = 'small';
+        popupsSwitch.style.pointerEvents = 'none';
+
+        const popupsLabel = document.createElement('span');
+        popupsLabel.textContent = 'Show Feature Popups';
+        popupsLabel.style.marginLeft = '8px';
+
+        popupsItem.appendChild(popupsSwitch);
+        popupsItem.appendChild(popupsLabel);
+
+        // Handle toggle
+        popupsItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            popupsSwitch.checked = !popupsSwitch.checked;
+            this._showClickPopups = popupsSwitch.checked;
+        });
+
+        // Sync switch state when menu opens
+        settingsPopover.addEventListener('sl-show', () => {
+            popupsSwitch.checked = this._showClickPopups;
+        });
+
+        menu.appendChild(popupsItem);
         settingsPopover.appendChild(menu);
 
         // Store reference to update later
@@ -887,6 +950,10 @@ export class MapFeatureControl {
                 this._expandLayerForFeatureSelection(data.layerId);
                 // Update layer visual state for selection
                 this._updateLayerVisualState(data.layerId, { hasSelection: true });
+                // Show click popup if enabled
+                if (this._showClickPopups) {
+                    this._showClickPopupForFeature(data);
+                }
                 break;
             case 'feature-click-multiple':
                 // Handle multiple feature selections from overlapping click
@@ -909,6 +976,11 @@ export class MapFeatureControl {
                 clearedLayerIds.forEach(layerId => {
                     this._updateLayerVisualState(layerId, { hasSelection: false });
                 });
+                // Close click popup when selections are cleared
+                if (this._clickPopup) {
+                    this._clickPopup.remove();
+                    this._clickPopup = null;
+                }
                 break;
             case 'feature-close':
                 this._renderLayer(data.layerId);
@@ -970,6 +1042,12 @@ export class MapFeatureControl {
                 // Only re-render if visible features were cleaned up
                 if (this._hasVisibleFeatures(data.removedFeatures)) {
                     this._scheduleRender();
+                }
+                break;
+            case 'feature-inspection-data':
+                // Update click popup with custom HTML from onClick handler
+                if (this._showClickPopups && this._clickPopup) {
+                    this._updateClickPopupCustomHTML(data.layerId, data.featureId, data.customHTML);
                 }
                 break;
         }
@@ -4614,6 +4692,12 @@ export class MapFeatureControl {
         this._removeHoverPopup();
         this._currentHoveredFeature = null;
 
+        // Clean up click popup
+        if (this._clickPopup) {
+            this._clickPopup.remove();
+            this._clickPopup = null;
+        }
+
         // Reset cursor to default grab state
         this._updateCursorForFeatures([]);
 
@@ -4779,6 +4863,169 @@ export class MapFeatureControl {
         if (this._hoverPopup) {
             this._hoverPopup.remove();
             this._hoverPopup = null;
+        }
+    }
+
+    /**
+     * Show click popup for a selected feature
+     */
+    _showClickPopupForFeature(data) {
+        const { layerId, feature, lngLat } = data;
+
+        // Remove existing click popup
+        if (this._clickPopup) {
+            this._clickPopup.remove();
+            this._clickPopup = null;
+        }
+
+        // Get layer config
+        const layerConfig = this._getLayerConfig(layerId);
+        if (!layerConfig) return;
+
+        // Create popup content with standardized layout
+        const content = this._createClickPopupContent(layerId, feature, layerConfig);
+
+        // Create and show popup
+        this._clickPopup = new mapboxgl.Popup({
+            closeButton: true,
+            closeOnClick: false,
+            className: 'click-popup',
+            maxWidth: '350px'
+        })
+            .setLngLat(lngLat || [feature.geometry.coordinates[0], feature.geometry.coordinates[1]])
+            .setDOMContent(content)
+            .addTo(this._map);
+
+        // Listen for popup close to clean up
+        this._clickPopup.on('close', () => {
+            this._clickPopup = null;
+        });
+    }
+
+    /**
+     * Create click popup content with standardized layout:
+     * 1. Feature Heading
+     * 2. Custom HTML (if available)
+     * 3. Metadata table
+     */
+    _createClickPopupContent(layerId, feature, layerConfig) {
+        const container = document.createElement('div');
+        container.className = 'click-popup-content';
+        container.style.cssText = `
+            background: white;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #111827;
+        `;
+
+        const inspect = layerConfig.inspect || {};
+        const properties = feature.properties || {};
+
+        // 1. Feature Heading
+        const headerDiv = document.createElement('div');
+        headerDiv.style.cssText = `
+            font-size: 13px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e5e7eb;
+        `;
+
+        let headerLabel = 'Feature ID';
+        let headerValue = this._getFeatureId(feature);
+
+        if (inspect.title && inspect.label) {
+            headerLabel = inspect.title;
+            headerValue = properties[inspect.label] || headerValue;
+        } else if (inspect.id) {
+            headerValue = properties[inspect.id] || headerValue;
+        }
+
+        headerDiv.innerHTML = `<span style="color: #6b7280;">${headerLabel}:</span> <span style="color: #111827;">${headerValue}</span>`;
+        container.appendChild(headerDiv);
+
+        // 2. Custom HTML placeholder (will be populated by onClick handler)
+        const customHTMLDiv = document.createElement('div');
+        customHTMLDiv.className = 'popup-custom-html';
+        customHTMLDiv.id = `popup-custom-${layerId}-${this._getFeatureId(feature)}`;
+        customHTMLDiv.style.cssText = `
+            margin-bottom: 12px;
+            font-size: 11px;
+            color: #374151;
+        `;
+        container.appendChild(customHTMLDiv);
+
+        // 3. Metadata table (inspect fields)
+        if (inspect.fields && inspect.fields.length > 0) {
+            const tableDiv = document.createElement('div');
+            tableDiv.style.cssText = `
+                font-size: 11px;
+                border: 1px solid #e5e7eb;
+                border-radius: 4px;
+                overflow: hidden;
+            `;
+
+            const table = document.createElement('table');
+            table.style.cssText = `
+                width: 100%;
+                border-collapse: collapse;
+            `;
+
+            inspect.fields.forEach((fieldName, index) => {
+                const value = properties[fieldName];
+                if (value !== null && value !== undefined && value !== '') {
+                    const fieldTitle = (inspect.fieldTitles && inspect.fieldTitles[index]) || fieldName;
+                    const row = document.createElement('tr');
+                    row.style.cssText = `
+                        border-bottom: 1px solid #f3f4f6;
+                    `;
+
+                    const keyCell = document.createElement('td');
+                    keyCell.style.cssText = `
+                        padding: 6px 8px;
+                        font-weight: 600;
+                        color: #6b7280;
+                        width: 40%;
+                        border-right: 1px solid #f3f4f6;
+                        background: #f9fafb;
+                    `;
+                    keyCell.textContent = fieldTitle;
+
+                    const valueCell = document.createElement('td');
+                    valueCell.style.cssText = `
+                        padding: 6px 8px;
+                        color: #374151;
+                        word-break: break-word;
+                    `;
+                    valueCell.textContent = String(value);
+
+                    row.appendChild(keyCell);
+                    row.appendChild(valueCell);
+                    table.appendChild(row);
+                }
+            });
+
+            tableDiv.appendChild(table);
+            container.appendChild(tableDiv);
+        }
+
+        return container;
+    }
+
+    /**
+     * Update click popup with custom HTML from onClick handler
+     */
+    _updateClickPopupCustomHTML(layerId, featureId, customHTML) {
+        if (!this._clickPopup) return;
+
+        const customHTMLDiv = document.getElementById(`popup-custom-${layerId}-${featureId}`);
+        if (customHTMLDiv && customHTML) {
+            customHTMLDiv.innerHTML = customHTML;
+            customHTMLDiv.style.display = 'block';
         }
     }
 
