@@ -319,7 +319,6 @@ export class MapFeatureControl {
     _setupMessageListener() {
         window.addEventListener('message', (event) => {
             if (event.data.type === 'inspector-ready') {
-                console.log('[IframeControl] Inspector iframe is ready');
                 this._isIframeReady = true;
                 this._inspectorInitialized = true;
                 this._flushMessageQueue();
@@ -543,11 +542,8 @@ export class MapFeatureControl {
                 this._sendHoverClearedToIframe();
                 break;
             case 'feature-click':
-                console.log('[IframeControl] Feature click event:', data.layerId, 'featureId:', data.featureId);
-
                 // Clear previously selected features if any (happens when clicking without Cmd/Ctrl)
                 if (data.clearedFeatures && data.clearedFeatures.length > 0) {
-                    console.log('[IframeControl] Clearing', data.clearedFeatures.length, 'previously selected features');
                     data.clearedFeatures.forEach(cleared => {
                         this._sendFeatureDeselectedToIframe(cleared.layerId, cleared.featureId);
                     });
@@ -562,11 +558,8 @@ export class MapFeatureControl {
                 }
                 break;
             case 'feature-click-multiple':
-                console.log('[IframeControl] Multiple features click event:', data.selectedFeatures.length, 'features');
-
                 // Clear previously selected features if any
                 if (data.clearedFeatures && data.clearedFeatures.length > 0) {
-                    console.log('[IframeControl] Clearing', data.clearedFeatures.length, 'previously selected features');
                     data.clearedFeatures.forEach(cleared => {
                         this._sendFeatureDeselectedToIframe(cleared.layerId, cleared.featureId);
                     });
@@ -577,9 +570,14 @@ export class MapFeatureControl {
                     this._sendFeatureSelectionToIframe(selection.layerId, selection.feature, selection.featureId);
                 });
                 this._showPanel();
+
+                // Show click popup for the first selected feature if enabled
+                if (this._showClickPopups && data.selectedFeatures.length > 0) {
+                    const firstFeature = data.selectedFeatures[0];
+                    this._showClickPopupForFeature(firstFeature);
+                }
                 break;
             case 'feature-inspection-data':
-                console.log('[IframeControl] Inspection data event:', data.layerId, data.customHTML ? 'Has HTML' : 'No HTML');
                 this._sendInspectionDataToIframe(data);
 
                 // Update popup if it's showing and matches this feature
@@ -589,7 +587,6 @@ export class MapFeatureControl {
                 }
                 break;
             case 'selections-cleared':
-                console.log('[IframeControl] Selections cleared event:', data);
                 this._sendAllSelectionsClearedToIframe(data.clearedFeatures || []);
 
                 // Remove popup when selections are cleared
@@ -704,8 +701,6 @@ export class MapFeatureControl {
             type: 'clear-all-selections',
             clearedFeatures: clearedFeatures
         };
-
-        console.log('[IframeControl] Sending clear-all-selections to inspector:', message);
 
         this._iframe.contentWindow.postMessage(message, '*');
 
@@ -976,18 +971,14 @@ export class MapFeatureControl {
      * Zoom to layer bounds
      */
     _zoomToLayer(layerId) {
-        console.log('[MapFeatureControl] _zoomToLayer called for:', layerId);
         const activeLayers = this._getActiveLayersFromConfig();
         const layerData = activeLayers.get(layerId);
 
         if (!layerData) {
-            console.warn('[MapFeatureControl] Layer not found in active layers:', layerId);
-
             // Try to get layer from registry even if not active
             if (window.layerRegistry) {
                 const registryLayer = window.layerRegistry.getLayer(layerId);
                 if (registryLayer) {
-                    console.log('[MapFeatureControl] Found layer in registry:', registryLayer);
                     this._zoomToLayerConfig(registryLayer);
                     return;
                 }
@@ -1010,8 +1001,6 @@ export class MapFeatureControl {
         }
 
         if (bbox && this._map) {
-            console.log('[MapFeatureControl] Zooming to bbox:', bbox, 'minzoom:', config.minzoom);
-
             // Parse bbox if it's a string "minLng,minLat,maxLng,maxLat"
             let parsedBbox;
             if (typeof bbox === 'string') {
@@ -1026,7 +1015,6 @@ export class MapFeatureControl {
             }
 
             if (!parsedBbox) {
-                console.warn('[MapFeatureControl] Invalid bbox format:', bbox);
                 return;
             }
 
@@ -1038,15 +1026,12 @@ export class MapFeatureControl {
                 setTimeout(() => {
                     const targetZoom = config.minzoom + 1;
                     const currentZoom = this._map.getZoom();
-                    console.log('[MapFeatureControl] Current zoom after fitBounds:', currentZoom, 'target zoom (minzoom+1):', targetZoom);
                     // Only zoom in if current zoom is less than target
                     if (currentZoom < targetZoom) {
                         this._map.zoomTo(targetZoom, { duration: 500 });
                     }
                 }, 1100); // Wait for fitBounds animation to complete (1000ms + buffer)
             }
-        } else {
-            console.warn('[MapFeatureControl] No bbox found for layer');
         }
     }
 
@@ -1218,7 +1203,6 @@ export class MapFeatureControl {
                 isLongPress = true;
                 // Simulate Cmd/Ctrl press for long-press
                 this._stateManager._isCmdCtrlPressed = true;
-                console.log('[IframeControl] Long press detected - multi-select mode enabled');
             }, 500);
         });
 
@@ -1248,21 +1232,17 @@ export class MapFeatureControl {
                 if (isLongPress) {
                     this._stateManager._isCmdCtrlPressed = false;
                     isLongPress = false;
-                    console.log('[IframeControl] Long press ended - multi-select mode disabled');
                 }
             }, 100);
         });
 
         // Click handler
         this._map.on('click', (e) => {
-            console.log('[IframeControl] Click event - Cmd/Ctrl pressed:', this._stateManager._isCmdCtrlPressed);
-
             let features = [];
             try {
                 features = this._map.queryRenderedFeatures(e.point);
             } catch (error) {
                 if (error.message && error.message.includes('out of range source coordinates for DEM data')) {
-                    console.log('[IframeControl] Clearing selections (out of range error)');
                     this._stateManager.clearAllSelections();
                     return;
                 } else {
@@ -1283,12 +1263,9 @@ export class MapFeatureControl {
                 }
             });
 
-            console.log('[IframeControl] Found', interactiveFeatures.length, 'interactive features');
-
             if (interactiveFeatures.length > 0) {
                 this._stateManager.handleFeatureClicks(interactiveFeatures);
             } else {
-                console.log('[IframeControl] No interactive features - clearing all selections');
                 this._stateManager.clearAllSelections();
             }
         });
@@ -1673,7 +1650,6 @@ export class MapFeatureControl {
         if (this._isIframeReady && this._iframe && this._iframe.contentWindow) {
             this._iframe.contentWindow.postMessage(message, '*');
         } else {
-            console.log('[IframeControl] Queueing message (iframe not ready):', message.type);
             this._messageQueue.push(message);
         }
     }
@@ -1682,7 +1658,6 @@ export class MapFeatureControl {
      * Flush queued messages to iframe
      */
     _flushMessageQueue() {
-        console.log('[IframeControl] Flushing message queue:', this._messageQueue.length, 'messages');
         while (this._messageQueue.length > 0) {
             const message = this._messageQueue.shift();
             if (this._iframe && this._iframe.contentWindow) {
