@@ -217,13 +217,13 @@ export class IntroContentManager {
       this.closeModal();
     });
 
-    // Keyboard shortcut 'x' to force close the modal
+    // Keyboard shortcuts
     this.keyboardHandler = (event) => {
       if (event.key === 'x' || event.key === 'X') {
         this.closeModal();
       }
     };
-    
+
     // Add keyboard event listener when modal is shown
     document.addEventListener('keydown', this.keyboardHandler);
   }

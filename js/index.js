@@ -42,10 +42,9 @@ $(window).on('load', function () {
 
     loadGoogleAnalytics();
 
-    initializeKeyboardController();
-
     MapInitializer.initializeMap().then(() => {
         MapInitializer.initializeSearch();
+        initializeKeyboardController();
     });
 
     if (window.amche.ENABLE_INTRO_CONTENT === true) {

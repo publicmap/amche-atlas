@@ -696,6 +696,15 @@
             setupEventListeners();
             setupNavScrolling();
             requestLayerData();
+
+            // Auto-focus search input when browser opens for first time
+            setTimeout(() => {
+                const searchInput = document.getElementById('search-input');
+                if (searchInput) {
+                    searchInput.focus();
+                    console.log('[Browser] Initial auto-focus on page load');
+                }
+            }, 300);
         });
 
         // Request layer data from parent
@@ -814,6 +823,14 @@
                     }
 
                     renderLayers();
+                }
+
+                if (event.data.type === 'focus-search') {
+                    const searchInput = document.getElementById('search-input');
+                    if (searchInput) {
+                        searchInput.focus();
+                        console.log('[Browser] Search input focused via message');
+                    }
                 }
             });
         }

@@ -521,6 +521,11 @@ export class MapBrowserControl {
 
         setTimeout(() => {
             this._sendLayerData();
+
+            // Focus search input in browser
+            if (this._iframe && this._iframe.contentWindow) {
+                this._iframe.contentWindow.postMessage({ type: 'focus-search' }, '*');
+            }
         }, 100);
 
         if (this._map) {
@@ -535,6 +540,11 @@ export class MapBrowserControl {
 
         if (this._map) {
             this._map.off('moveend', this._onMapMove);
+        }
+
+        // Return focus to main search box
+        if (window.keyboardController) {
+            window.keyboardController.focusSearch();
         }
     }
 
