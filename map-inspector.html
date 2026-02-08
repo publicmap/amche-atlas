@@ -436,6 +436,7 @@
         import { LayerThumbnail } from './js/layer-thumbnail.js';
         import { handlerLoader } from './js/inspection-handler-loader.js';
         import { LayerOrderManager } from './js/layer-order-manager.js';
+        import { MapUtils } from './js/map-utils.js';
 
         // State
         let activeLayers = [];
@@ -451,6 +452,7 @@
         let selectionSnapshot = null; // Snapshot of selections before new click
         let selectionDebounceTimer = null; // Timer to batch selection messages
         let pendingNewSelections = new Set(); // Layers with new selections in current batch
+        let currentBounds = null; // Current map bounds [west, south, east, north]
 
         // Make LayerThumbnail available globally
         window.LayerThumbnail = LayerThumbnail;
@@ -499,6 +501,7 @@
             if (event.data.type === 'inspector-data') {
                 activeLayers = event.data.activeLayers || [];
                 layerRegistry = event.data.layerRegistry;
+                currentBounds = event.data.bounds || null;
                 renderLayers();
                 reapplyVisualIsolationIfNeeded();
             }
@@ -656,6 +659,11 @@
                 clearVisualIsolation();
                 updateStatusBar();
             }
+
+            if (event.data.type === 'bounds-update') {
+                currentBounds = event.data.bounds || null;
+                renderLayers();
+            }
         });
 
         // Setup UI event listeners
@@ -797,6 +805,11 @@
                     clearVisualIsolation();
                 }
             });
+        }
+
+        // Check if layer is in current view
+        function isInView(layer) {
+            return MapUtils.isLayerInView(layer, currentBounds);
         }
 
         // Determine which layer should be expanded based on new selections
@@ -1039,7 +1052,9 @@
 
             if (overlayCollapsed && overlayMaps.length > 0) {
                 overlayMaps.slice(0, 8).forEach(layer => {
-                    const thumbnail = window.LayerThumbnail.generate(layer, 20);
+                    const thumbnail = window.LayerThumbnail.generate(layer, 20, {
+                        isInView: isInView(layer)
+                    });
                     thumbnail.style.flexShrink = '0';
                     thumbnail.style.borderRadius = '2px';
 
@@ -1064,7 +1079,9 @@
 
             if (basemapCollapsed && baseMaps.length > 0) {
                 baseMaps.slice(0, 8).forEach(layer => {
-                    const thumbnail = window.LayerThumbnail.generate(layer, 20);
+                    const thumbnail = window.LayerThumbnail.generate(layer, 20, {
+                        isInView: isInView(layer)
+                    });
                     thumbnail.style.flexShrink = '0';
                     thumbnail.style.borderRadius = '2px';
 
@@ -1127,7 +1144,9 @@
             const $compact = $('<div>', { class: 'layer-card-compact layer-content' });
 
             // Thumbnail
-            const thumbnail = window.LayerThumbnail.generate(layerConfig, 32);
+            const thumbnail = window.LayerThumbnail.generate(layerConfig, 32, {
+                isInView: isInView(layerConfig)
+            });
             thumbnail.style.margin = '0';
             thumbnail.style.borderRadius = '3px';
 
@@ -1688,7 +1707,9 @@
             const $compact = $('<div>', { class: 'layer-card-compact layer-content' });
 
             // Thumbnail
-            const thumbnail = window.LayerThumbnail.generate(layer, 32);
+            const thumbnail = window.LayerThumbnail.generate(layer, 32, {
+                isInView: isInView(layer)
+            });
             thumbnail.style.margin = '0';
             thumbnail.style.borderRadius = '3px';
 

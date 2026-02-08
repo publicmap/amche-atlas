@@ -7,6 +7,7 @@
     <title>Map Browser</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css" />
@@ -668,6 +669,7 @@
 
     <script type="module">
         import { LayerThumbnail } from './js/layer-thumbnail.js';
+        import { MapUtils } from './js/map-utils.js';
 
         // State
         let allLayers = [];
@@ -1233,39 +1235,7 @@
 
         // Check if layer is a global/world layer
         function isGlobalLayerCheck(layer, atlasData) {
-            // Check atlas name for global indicators
-            const atlasName = (atlasData?.name || layer._sourceAtlas || '').toLowerCase();
-            if (atlasName.includes('world') || atlasName.includes('global') ||
-                atlasName.includes('mapbox') || atlasName.includes('osm')) {
-                return true;
-            }
-
-            // Check if layer type is a Mapbox style layer
-            if (layer.type === 'style' || layer.type === 'raster-style-layer') {
-                return true;
-            }
-
-            // Check if layer ID suggests it's global
-            const layerId = (layer.id || '').toLowerCase();
-            if (layerId.startsWith('mapbox-') || layerId.startsWith('osm-') ||
-                layerId.includes('world-') || layerId.includes('global-')) {
-                return true;
-            }
-
-            // Check if bbox covers entire world
-            if (layer.bbox) {
-                const bbox = Array.isArray(layer.bbox) ? layer.bbox :
-                    layer.bbox.split(',').map(parseFloat);
-                if (bbox.length === 4) {
-                    const [west, south, east, north] = bbox;
-                    // Check if it's close to world bounds
-                    if (west <= -170 && east >= 170 && south <= -80 && north >= 80) {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
+            return MapUtils.isGlobalLayer(layer, atlasData);
         }
 
         // Render filtered layers
@@ -1306,40 +1276,14 @@
 
         // Check if layer is in current view
         function isInView(layer) {
-            if (!currentBounds || !layer.bbox) return true;
-
-            // Parse bbox if it's a string "minLng,minLat,maxLng,maxLat"
-            let layerBbox;
-            if (typeof layer.bbox === 'string') {
-                layerBbox = layer.bbox.split(',').map(parseFloat);
-            } else if (Array.isArray(layer.bbox)) {
-                layerBbox = layer.bbox;
-            } else {
-                return true;
-            }
-
-            if (layerBbox.length !== 4) return true;
-
-            const [layerW, layerS, layerE, layerN] = layerBbox;
-            const [boundsW, boundsS, boundsE, boundsN] = currentBounds;
-
-            return !(layerE < boundsW || layerW > boundsE ||
-                layerN < boundsS || layerS > boundsN);
+            return MapUtils.isLayerInView(layer, currentBounds);
         }
 
         // Calculate atlas bbox area
         function calculateAtlasBboxArea(atlasId) {
             const atlasData = atlasMetadata.get(atlasId);
             if (!atlasData || !atlasData.bbox) return Infinity;
-
-            const bbox = atlasData.bbox;
-            const bboxArray = Array.isArray(bbox) ? bbox : bbox.split(',').map(parseFloat);
-            if (bboxArray.length !== 4) return Infinity;
-
-            const [west, south, east, north] = bboxArray;
-            const width = east - west;
-            const height = north - south;
-            return width * height;
+            return MapUtils.calculateBboxArea(atlasData.bbox);
         }
 
         // Calculate distance from atlas center to current view center
@@ -1349,22 +1293,11 @@
             const atlasData = atlasMetadata.get(atlasId);
             if (!atlasData || !atlasData.bbox) return Infinity;
 
-            const bbox = atlasData.bbox;
-            const bboxArray = Array.isArray(bbox) ? bbox : bbox.split(',').map(parseFloat);
-            if (bboxArray.length !== 4) return Infinity;
-
-            const [atlasW, atlasS, atlasE, atlasN] = bboxArray;
-            const atlasCenterLng = (atlasW + atlasE) / 2;
-            const atlasCenterLat = (atlasS + atlasN) / 2;
-
             const [boundsW, boundsS, boundsE, boundsN] = currentBounds;
             const boundsCenterLng = (boundsW + boundsE) / 2;
             const boundsCenterLat = (boundsS + boundsN) / 2;
 
-            // Simple Euclidean distance (good enough for relative comparison)
-            const dx = atlasCenterLng - boundsCenterLng;
-            const dy = atlasCenterLat - boundsCenterLat;
-            return Math.sqrt(dx * dx + dy * dy);
+            return MapUtils.calculateBboxDistance(atlasData.bbox, boundsCenterLng, boundsCenterLat);
         }
 
         // Get tag string for a layer

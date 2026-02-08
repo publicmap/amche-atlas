@@ -42,6 +42,7 @@ export class MapFeatureControl {
         this._map = map;
         this._createContainer();
         this._setupMessageListener();
+        this._setupMapEventListeners();
         return this._container;
     }
 
@@ -311,6 +312,38 @@ export class MapFeatureControl {
             dragEnd,
             drag
         };
+    }
+
+    /**
+     * Setup map event listeners to send updates to iframe
+     */
+    _setupMapEventListeners() {
+        if (!this._map) return;
+
+        // Send bounds updates when map moves
+        const sendBoundsUpdate = () => {
+            if (!this._iframe || !this._iframe.contentWindow) return;
+
+            const mapBounds = this._map.getBounds();
+            const bounds = [
+                mapBounds.getWest(),
+                mapBounds.getSouth(),
+                mapBounds.getEast(),
+                mapBounds.getNorth()
+            ];
+
+            this._iframe.contentWindow.postMessage({
+                type: 'bounds-update',
+                bounds: bounds
+            }, '*');
+        };
+
+        // Listen for map move end events
+        this._map.on('moveend', sendBoundsUpdate);
+        this._map.on('zoomend', sendBoundsUpdate);
+
+        // Store the listener for cleanup
+        this._boundsUpdateListener = sendBoundsUpdate;
     }
 
     /**
@@ -1264,6 +1297,12 @@ export class MapFeatureControl {
             this._dragHandle.removeEventListener('mousedown', this._panelDragListeners.dragStart);
             document.removeEventListener('mouseup', this._panelDragListeners.dragEnd);
             document.removeEventListener('mousemove', this._panelDragListeners.drag);
+        }
+
+        // Clean up map event listeners
+        if (this._map && this._boundsUpdateListener) {
+            this._map.off('moveend', this._boundsUpdateListener);
+            this._map.off('zoomend', this._boundsUpdateListener);
         }
     }
 
