@@ -567,10 +567,23 @@ export class MapFeatureControl {
             layerConfigs.push(config);
         }
 
+        // Get current map bounds
+        let bounds = null;
+        if (this._map) {
+            const mapBounds = this._map.getBounds();
+            bounds = [
+                mapBounds.getWest(),
+                mapBounds.getSouth(),
+                mapBounds.getEast(),
+                mapBounds.getNorth()
+            ];
+        }
+
         this._iframe.contentWindow.postMessage({
             type: 'inspector-data',
             activeLayers: layerConfigs,
-            layerRegistry: window.layerRegistry
+            layerRegistry: window.layerRegistry,
+            bounds: bounds
         }, '*');
     }
 
@@ -1068,6 +1081,24 @@ export class MapFeatureControl {
                 return;
             }
 
+            // Check if current map center is within the bbox
+            let preservedCenter = null;
+            if (config.minzoom !== undefined) {
+                const currentCenter = this._map.getCenter();
+                const [minLng, minLat] = parsedBbox[0];
+                const [maxLng, maxLat] = parsedBbox[1];
+
+                const isWithinBounds =
+                    currentCenter.lng >= minLng &&
+                    currentCenter.lng <= maxLng &&
+                    currentCenter.lat >= minLat &&
+                    currentCenter.lat <= maxLat;
+
+                if (isWithinBounds) {
+                    preservedCenter = currentCenter;
+                }
+            }
+
             // First fit bounds to show the full extent
             this._map.fitBounds(parsedBbox, { padding: 50, duration: 1000 });
 
@@ -1078,7 +1109,13 @@ export class MapFeatureControl {
                     const currentZoom = this._map.getZoom();
                     // Only zoom in if current zoom is less than target
                     if (currentZoom < targetZoom) {
-                        this._map.zoomTo(targetZoom, { duration: 500 });
+                        // Use preserved center if available, otherwise use current center from fitBounds
+                        const centerToUse = preservedCenter || this._map.getCenter();
+                        this._map.easeTo({
+                            center: centerToUse,
+                            zoom: targetZoom,
+                            duration: 500
+                        });
                     }
                 }, 1100); // Wait for fitBounds animation to complete (1000ms + buffer)
             }
