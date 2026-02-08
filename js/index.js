@@ -6,6 +6,7 @@ import './mapbox-api.js';
 import { MapInitializer } from './map-init.js';
 import { PermalinkManager } from './permalink-manager.js';
 import { IntroContentManager } from './intro-content-manager.js';
+import { initializeKeyboardController } from './keyboard-controller.js';
 
 // Make IntroContentManager available globally for inline navigation menu
 window.IntroContentManager = IntroContentManager;
@@ -41,8 +42,10 @@ $(window).on('load', function () {
 
     loadGoogleAnalytics();
 
+    initializeKeyboardController();
+
     MapInitializer.initializeMap().then(() => {
-        MapInitializer.initializeSearch(); // Now window.map exists, so we can initialize search
+        MapInitializer.initializeSearch();
     });
 
     if (window.amche.ENABLE_INTRO_CONTENT === true) {

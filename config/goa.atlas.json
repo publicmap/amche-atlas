@@ -671,7 +671,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/cadastrals/goa/onemapgoagis/{z}/{x}/{y}.pbf",
       "sourceLayer": "Onemapgoa_GA_Cadastrals",
       "maxzoom": 15,
-      "minzoom": 13,
+      "minzoom": 14,
       "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>, <a href='https://onemapgoagis.goa.gov.in/map/'>OneMapGoa GIS</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-padding": 10,

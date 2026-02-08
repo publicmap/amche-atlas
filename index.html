@@ -868,11 +868,21 @@
                 }
             });
 
-            // Preserve hash when navigating
+            // Preserve hash when navigating to root
+            document.querySelectorAll('a[href="./"]').forEach(item => {
+                item.addEventListener('click', function (e) {
+                    if (window.location.hash) {
+                        e.preventDefault();
+                        window.location.href = './' + window.location.hash;
+                    }
+                });
+            });
+
+            // Preserve hash when navigating to other pages
             document.querySelectorAll('.nav-menu-item[href^="./"]').forEach(item => {
                 item.addEventListener('click', function (e) {
                     const href = this.getAttribute('href');
-                    if (href && window.location.hash) {
+                    if (href && href !== './' && window.location.hash) {
                         e.preventDefault();
                         window.location.href = href + window.location.hash;
                     }
