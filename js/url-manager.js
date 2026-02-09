@@ -884,27 +884,40 @@ export class URLManager {
 
         await this.waitForMapIdle();
 
+        const sources = [];
+        selectionsByLayer.forEach((featureIds, layerId) => {
+            const layerConfig = this.stateManager.getLayerConfig(layerId);
+            if (layerConfig) {
+                const sourceId = layerConfig.source || `${layerConfig.type}-${layerId}`;
+                if (!sources.includes(sourceId)) {
+                    sources.push(sourceId);
+                }
+            }
+        });
+
+        await this.waitForSourceData(sources);
+
         const allSelectedFeatures = [];
 
-        selectionsByLayer.forEach((featureIds, layerId) => {
+        for (const [layerId, featureIds] of selectionsByLayer.entries()) {
             if (!this.stateManager.isLayerRegistered(layerId)) {
                 console.warn(`[URL API] Layer ${layerId} not registered, skipping selections`);
-                return;
+                continue;
             }
 
             const layerConfig = this.stateManager.getLayerConfig(layerId);
             if (!layerConfig) {
                 console.warn(`[URL API] Layer config not found for ${layerId}`);
-                return;
+                continue;
             }
 
-            featureIds.forEach(rawFeatureId => {
-                const selectedFeature = this.selectFeatureFromURL(layerId, rawFeatureId, layerConfig);
+            for (const rawFeatureId of featureIds) {
+                const selectedFeature = await this.selectFeatureFromURL(layerId, rawFeatureId, layerConfig);
                 if (selectedFeature) {
                     allSelectedFeatures.push(selectedFeature);
                 }
-            });
-        });
+            }
+        }
 
         if (allSelectedFeatures.length > 0) {
             this.stateManager._updateLineSortKeys();
@@ -956,6 +969,42 @@ export class URLManager {
         });
     }
 
+    async waitForSourceData(sourceIds, timeout = 5000) {
+        return new Promise((resolve) => {
+            const loadedSources = new Set();
+            const startTime = Date.now();
+
+            const checkSources = () => {
+                for (const sourceId of sourceIds) {
+                    if (loadedSources.has(sourceId)) continue;
+
+                    const source = this.map.getSource(sourceId);
+                    if (!source) continue;
+
+                    if (source.type === 'geojson' && source._data) {
+                        loadedSources.add(sourceId);
+                    } else if (source.type === 'vector' && this.map.isSourceLoaded(sourceId)) {
+                        loadedSources.add(sourceId);
+                    } else if (source.type === 'raster' && this.map.isSourceLoaded(sourceId)) {
+                        loadedSources.add(sourceId);
+                    }
+                }
+
+                if (loadedSources.size === sourceIds.length) {
+                    resolve();
+                } else if (Date.now() - startTime > timeout) {
+                    const notLoaded = sourceIds.filter(id => !loadedSources.has(id));
+                    console.warn(`[URL API] Timeout waiting for sources: ${notLoaded.join(', ')}`);
+                    resolve();
+                } else {
+                    requestAnimationFrame(checkSources);
+                }
+            };
+
+            checkSources();
+        });
+    }
+
     async waitForLayersReady(layerIds, timeout = 10000) {
         const startTime = Date.now();
         const checkInterval = 200;
@@ -989,56 +1038,64 @@ export class URLManager {
         });
     }
 
-    selectFeatureFromURL(layerId, rawFeatureId, layerConfig) {
-        try {
-            const features = this.map.querySourceFeatures(
-                layerConfig.source || `${layerConfig.type}-${layerId}`,
-                {
-                    sourceLayer: layerConfig.sourceLayer
-                }
-            );
+    async selectFeatureFromURL(layerId, rawFeatureId, layerConfig, retries = 3, retryDelay = 500) {
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const features = this.map.querySourceFeatures(
+                    layerConfig.source || `${layerConfig.type}-${layerId}`,
+                    {
+                        sourceLayer: layerConfig.sourceLayer
+                    }
+                );
 
-            const matchingFeature = features.find(f => {
-                if (f.id !== undefined && f.id !== null && f.id.toString() === rawFeatureId.toString()) {
-                    return true;
-                }
-                if (f.properties?.id !== undefined && f.properties?.id !== null && f.properties.id.toString() === rawFeatureId.toString()) {
-                    return true;
-                }
-                if (f.properties?.fid !== undefined && f.properties?.fid !== null && f.properties.fid.toString() === rawFeatureId.toString()) {
-                    return true;
-                }
-                return false;
-            });
-
-            if (matchingFeature) {
-                const featureId = this.stateManager._getFeatureId(matchingFeature);
-                const compositeKey = this.stateManager._getCompositeKey(layerId, featureId);
-
-                this.stateManager._updateFeatureState(compositeKey, {
-                    feature: matchingFeature,
-                    layerId,
-                    isSelected: true,
-                    timestamp: Date.now()
+                const matchingFeature = features.find(f => {
+                    if (f.id !== undefined && f.id !== null && f.id.toString() === rawFeatureId.toString()) {
+                        return true;
+                    }
+                    if (f.properties?.id !== undefined && f.properties?.id !== null && f.properties.id.toString() === rawFeatureId.toString()) {
+                        return true;
+                    }
+                    if (f.properties?.fid !== undefined && f.properties?.fid !== null && f.properties.fid.toString() === rawFeatureId.toString()) {
+                        return true;
+                    }
+                    return false;
                 });
 
-                this.stateManager._selectedFeatures.add(compositeKey);
-                this.stateManager._setMapboxFeatureState(featureId, layerId, { selected: true });
+                if (matchingFeature) {
+                    const featureId = this.stateManager._getFeatureId(matchingFeature);
+                    const compositeKey = this.stateManager._getCompositeKey(layerId, featureId);
 
-                return {
-                    featureId,
-                    layerId,
-                    feature: matchingFeature,
-                    lngLat: null
-                };
-            } else {
-                console.warn(`[URL API] Feature ${rawFeatureId} not found in layer ${layerId}`);
-                return null;
+                    this.stateManager._updateFeatureState(compositeKey, {
+                        feature: matchingFeature,
+                        layerId,
+                        isSelected: true,
+                        timestamp: Date.now()
+                    });
+
+                    this.stateManager._selectedFeatures.add(compositeKey);
+                    this.stateManager._setMapboxFeatureState(featureId, layerId, { selected: true });
+
+                    return {
+                        featureId,
+                        layerId,
+                        feature: matchingFeature,
+                        lngLat: null
+                    };
+                }
+
+                if (attempt < retries) {
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                }
+            } catch (error) {
+                console.warn(`[URL API] Error selecting feature ${rawFeatureId} from layer ${layerId} (attempt ${attempt + 1}/${retries + 1}):`, error);
+                if (attempt < retries) {
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                }
             }
-        } catch (error) {
-            console.warn(`[URL API] Error selecting feature ${rawFeatureId} from layer ${layerId}:`, error);
-            return null;
         }
+
+        console.warn(`[URL API] Feature ${rawFeatureId} not found in layer ${layerId} after ${retries + 1} attempts`);
+        return null;
     }
 
     /**

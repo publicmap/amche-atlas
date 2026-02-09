@@ -691,7 +691,19 @@
       "minzoom": 13,
       "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>, <a href='https://onemapgoagis.goa.gov.in/map/'>OneMapGoa GIS</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
-        "text-padding": 10,
+        "text-padding": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          15,
+          10,
+          17,
+          2
+        ],
         "text-font": [
           "Courier New",
           "Open Sans SemiBold"
