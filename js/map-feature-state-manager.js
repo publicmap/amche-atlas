@@ -34,6 +34,8 @@ export class MapFeatureStateManager extends EventTarget {
         this._isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         this._centerHoverUpdateTimeout = null;
 
+        console.log('[StateManager] Touch device:', this._isTouchDevice, 'ontouchstart' in window, navigator.maxTouchPoints);
+
         // Start cleanup process
         this._setupCleanup();
 
@@ -288,13 +290,22 @@ export class MapFeatureStateManager extends EventTarget {
      */
     updateCenterHover() {
         if (!this._isTouchDevice) {
+            console.log('[StateManager] updateCenterHover called but not a touch device');
+            return;
+        }
+
+        if (this._registeredLayers.size === 0) {
+            console.log('[StateManager] No registered layers yet');
             return;
         }
 
         const center = this._map.getCenter();
         const point = this._map.project(center);
 
+        console.log('[StateManager] Querying features at center:', center, 'point:', point);
+
         const hoveredFeatures = [];
+        let totalQueriedLayers = 0;
 
         this._registeredLayers.forEach((layerConfig, layerId) => {
             if (this._isRasterLayer(layerConfig)) {
@@ -302,11 +313,17 @@ export class MapFeatureStateManager extends EventTarget {
             }
 
             const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
+            console.log('[StateManager] Layer', layerId, 'has', matchingLayerIds.length, 'matching style layers');
 
             matchingLayerIds.forEach(actualLayerId => {
+                totalQueriedLayers++;
                 const features = this._map.queryRenderedFeatures(point, {
                     layers: [actualLayerId]
                 });
+
+                if (features.length > 0) {
+                    console.log('[StateManager] Found', features.length, 'features in layer', actualLayerId);
+                }
 
                 features.forEach(feature => {
                     hoveredFeatures.push({
@@ -317,6 +334,12 @@ export class MapFeatureStateManager extends EventTarget {
                 });
             });
         });
+
+        console.log('[StateManager] Queried', totalQueriedLayers, 'layers, found', hoveredFeatures.length, 'features total');
+
+        if (hoveredFeatures.length > 0) {
+            console.log('[StateManager] Touch hover: setting hover state for', hoveredFeatures.length, 'features');
+        }
 
         this.handleFeatureHovers(hoveredFeatures, center);
     }
