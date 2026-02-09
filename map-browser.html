@@ -18,6 +18,8 @@
             padding: 0;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            width: 100vw;
+            max-width: 100%;
         }
 
         .layer-card {
@@ -129,6 +131,10 @@
         }
 
         @media (max-width: 768px) {
+            body {
+                overflow-x: hidden;
+            }
+
             #preview-map-container {
                 height: 200px !important;
             }
@@ -144,7 +150,26 @@
             }
 
             .search-section .flex {
-                gap: 8px !important;
+                gap: 4px !important;
+            }
+
+            #atlas-filter-btn {
+                max-width: 100px !important;
+                font-size: 10px !important;
+                padding: 4px 6px !important;
+            }
+
+            #add-new-map-link {
+                font-size: 10px !important;
+                padding: 4px 6px !important;
+            }
+
+            #add-new-map-link span {
+                display: none;
+            }
+
+            #add-new-map-link::after {
+                content: 'Add';
             }
         }
 
@@ -597,22 +622,22 @@
 <body class="bg-gray-900">
     <div class="flex flex-col h-screen max-w-[600px] w-full" style="margin: 0 auto;">
         <!-- Search Section -->
-        <div class="search-section" style="background: #1f2937; padding: 12px 12px 8px 12px; border-bottom: 1px solid #374151;">
+        <div class="search-section" style="background: #1f2937; padding: 8px; border-bottom: 1px solid #374151;">
             <!-- Header Text with Close Button -->
-            <div class="mb-2 text-sm text-gray-300 flex items-center gap-2 justify-between">
-                <div class="flex items-center gap-2">
-                    <span>Explore</span>
-                    <button id="atlas-filter-btn" style="background: #3b82f6; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;">
+            <div class="mb-2 text-sm text-gray-300 flex items-center gap-1 justify-between" style="min-width: 0;">
+                <div class="flex items-center gap-1 flex-wrap" style="min-width: 0; flex: 1;">
+                    <span style="flex-shrink: 0;">Explore</span>
+                    <button id="atlas-filter-btn" style="background: #3b82f6; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 1; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis;">
                         All Map Collections
                     </button>
-                    <span>or</span>
-                    <button id="add-new-map-link" style="background: transparent; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 6px;">
-                        <sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon>
-                        <span>Add New Map</span>
+                    <span style="flex-shrink: 0;">or</span>
+                    <button id="add-new-map-link" style="background: transparent; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                        <sl-icon name="plus-circle" style="font-size: 12px;"></sl-icon>
+                        <span>Add Map</span>
                     </button>
                 </div>
                 <button id="close-browser-btn" class="text-white"
-                    style="background: transparent; border: none; cursor: pointer; padding: 4px; opacity: 0.7; font-size: 20px; line-height: 1;"
+                    style="background: transparent; border: none; cursor: pointer; padding: 4px; opacity: 0.7; font-size: 20px; line-height: 1; flex-shrink: 0;"
                     title="Close browser"
                     onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</button>
             </div>
