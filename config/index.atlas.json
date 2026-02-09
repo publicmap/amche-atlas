@@ -73,7 +73,7 @@
     {
       "id": "mapbox-streets",
       "title": "Street Map रस्त्याचो नकासो",
-      "initiallyChecked": false
+      "initiallyChecked": true
     },
     {
       "id": "goa-plots",
@@ -143,7 +143,8 @@
       "id": "osm-mapnik"
     },
     {
-      "id": "mapbox-satellite"
+      "id": "mapbox-satellite",
+      "initiallyChecked": true
     }
   ]
 }

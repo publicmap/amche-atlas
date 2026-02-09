@@ -122,7 +122,10 @@
       "headerImage": "assets/map-layers/mapbox/map-layer-satellite.png",
       "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
       "url": "mapbox://mapbox.satellite",
-      "maxzoom": 22
+      "maxzoom": 22,
+      "style": {
+        "raster-opacity": 1
+      }
     }
   ]
 }

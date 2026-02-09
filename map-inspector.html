@@ -453,6 +453,7 @@
         let selectionDebounceTimer = null; // Timer to batch selection messages
         let pendingNewSelections = new Set(); // Layers with new selections in current batch
         let currentBounds = null; // Current map bounds [west, south, east, north]
+        let parentUrlSearchParams = null; // URL search params from parent window
 
         // Make LayerThumbnail available globally
         window.LayerThumbnail = LayerThumbnail;
@@ -502,12 +503,14 @@
                 activeLayers = event.data.activeLayers || [];
                 layerRegistry = event.data.layerRegistry;
                 currentBounds = event.data.bounds || null;
+                parentUrlSearchParams = event.data.urlSearchParams || null;
                 renderLayers();
                 reapplyVisualIsolationIfNeeded();
             }
 
             if (event.data.type === 'active-layers-update') {
                 activeLayers = event.data.activeLayers || [];
+                parentUrlSearchParams = event.data.urlSearchParams || null;
                 renderLayers();
                 reapplyVisualIsolationIfNeeded();
             }
@@ -663,6 +666,14 @@
             if (event.data.type === 'bounds-update') {
                 currentBounds = event.data.bounds || null;
                 renderLayers();
+            }
+
+            if (event.data.type === 'map-layer-stack') {
+                // console.group('🗺️  Actual Map Layer Stack (from parent)');
+                // console.log('Total layers:', event.data.layerStack.length);
+                // console.log('Layer order (bottom to top):', event.data.layerStack);
+                // console.log('Layer IDs only:', event.data.layerStack.map(l => l.id || l));
+                // console.groupEnd();
             }
         });
 
@@ -883,6 +894,8 @@
 
         // Render all active layers
         function renderLayers() {
+            // console.group('🔍 Inspector Layer Order Debug');
+
             const $overlayList = $('#overlay-list');
             const $basemapList = $('#basemap-list');
 
@@ -890,6 +903,8 @@
             $basemapList.empty();
 
             if (activeLayers.length === 0) {
+                console.log('⚠️  No active layers');
+                console.groupEnd();
                 $overlayList.html('<div class="text-center text-gray-500 py-4 text-xs">No overlay maps</div>');
                 $basemapList.html('<div class="text-center text-gray-500 py-4 text-xs">No base maps</div>');
                 $('#overlay-count').text('(0)');
@@ -899,10 +914,14 @@
 
             // Get the layer order from URL parameters for mapping
             // Use proper JSON-aware parsing to handle objects like {"id":"layer","opacity":0.5}
-            const urlParams = new URLSearchParams(window.location.search);
+            // Use parent window's URL params instead of iframe's
+            const urlParams = new URLSearchParams(parentUrlSearchParams || window.location.search);
             const layersParam = urlParams.get('layers');
             const urlLayerOrder = new Map(); // layerId -> order index
             const urlLayers = []; // Store parsed layers for ordering
+
+            // console.log('📋 URL search params (from parent):', parentUrlSearchParams);
+            // console.log('📋 URL layers param:', layersParam);
 
             if (layersParam) {
                 // Parse layers properly handling JSON objects with commas
@@ -967,8 +986,21 @@
                 }
             }
 
+            // Log URL layer order
+            // if (urlLayerOrder.size > 0) {
+            //     console.log('🔗 URL Layer Order (parsed):', Array.from(urlLayerOrder.entries()).map(([id, order]) => `${order}: ${id}`));
+            // }
+
+            // Log activeLayers received from parent
+            // console.log('📥 Active Layers (from parent):', activeLayers.map(l => l.id));
+
             // Use centralized ordering logic for inspector display
             const { overlays: overlayMaps, basemaps: baseMaps } = LayerOrderManager.getInspectorDisplayOrder(activeLayers);
+
+            // Log after LayerOrderManager processing
+            // console.log('🏗️  After LayerOrderManager.getInspectorDisplayOrder:');
+            // console.log('  Overlays:', overlayMaps.map(l => l.id));
+            // console.log('  Basemaps:', baseMaps.map(l => l.id));
 
             // Sort function: selections/hovers first, then URL order
             const sortWithActivityPriority = (a, b) => {
@@ -989,6 +1021,28 @@
             overlayMaps.sort(sortWithActivityPriority);
             baseMaps.sort(sortWithActivityPriority);
 
+            // Log after sorting
+            // console.log('🔄 After Activity Priority Sort:');
+            // console.log('  Overlays:', overlayMaps.map(l => {
+            //     const hasActivity = selectedFeatures.has(l.id) || hoveredFeatures.has(l.id);
+            //     const urlOrder = urlLayerOrder.get(l.id);
+            //     return `${l.id} (activity: ${hasActivity}, url: ${urlOrder})`;
+            // }));
+            // console.log('  Basemaps:', baseMaps.map(l => {
+            //     const hasActivity = selectedFeatures.has(l.id) || hoveredFeatures.has(l.id);
+            //     const urlOrder = urlLayerOrder.get(l.id);
+            //     return `${l.id} (activity: ${hasActivity}, url: ${urlOrder})`;
+            // }));
+
+            // Request actual map layer stack from parent for comparison
+            // window.parent.postMessage({
+            //     type: 'request-map-layer-stack'
+            // }, '*');
+
+            // console.groupEnd();
+
+            // Log final render order (minimal logging)
+            console.log('✅ Inspector layers:', [...overlayMaps.map(l => l.id), ...baseMaps.map(l => l.id)].join(', '));
 
             // Update counts
             $('#overlay-count').text(`(${overlayMaps.length})`);
@@ -2085,7 +2139,7 @@
                     if (layer.description) {
                         const $desc = $('<div>', {
                             class: 'text-gray-300 mb-2',
-                            css: { fontSize: '10px', lineHeight: '1.4', padding: '8px', marginBottom: '8px' },
+                            css: { fontSize: '10px', lineHeight: '1.4', marginBottom: '8px' },
                             html: processLinksForNewWindow(layer.description)
                         });
                         $expanded.append($desc);

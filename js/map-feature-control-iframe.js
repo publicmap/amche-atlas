@@ -398,8 +398,34 @@ export class MapFeatureControl {
                 this._zoomToSelection();
             } else if (event.data.type === 'zoom-to-feature') {
                 this._zoomToFeature(event.data.layerId, event.data.featureId, event.data.feature);
+            } else if (event.data.type === 'request-map-layer-stack') {
+                this._sendMapLayerStack();
             }
         });
+    }
+
+    /**
+     * Send actual map layer stack to inspector for debugging
+     */
+    _sendMapLayerStack() {
+        if (!this._iframe || !this._iframe.contentWindow || !this._map) return;
+
+        const style = this._map.getStyle();
+        if (!style || !style.layers) return;
+
+        // Get all layers from the map style
+        const layerStack = style.layers.map(layer => ({
+            id: layer.id,
+            type: layer.type,
+            source: layer.source,
+            'source-layer': layer['source-layer'],
+            metadata: layer.metadata
+        }));
+
+        this._iframe.contentWindow.postMessage({
+            type: 'map-layer-stack',
+            layerStack: layerStack
+        }, '*');
     }
 
     /**
@@ -600,6 +626,33 @@ export class MapFeatureControl {
             layerConfigs.push(config);
         }
 
+        // Sort layerConfigs by URL order to ensure inspector displays them correctly
+        const urlParams = new URLSearchParams(window.location.search);
+        const layersParam = urlParams.get('layers');
+        if (layersParam) {
+            // Parse URL layers to get order
+            const urlLayerIds = layersParam.split(',').map(id => id.trim());
+            const urlOrderMap = new Map();
+            urlLayerIds.forEach((id, index) => {
+                urlOrderMap.set(id, index);
+            });
+
+            // Sort layerConfigs by URL order
+            layerConfigs.sort((a, b) => {
+                const aOrder = urlOrderMap.get(a.id);
+                const bOrder = urlOrderMap.get(b.id);
+
+                // If both have URL order, sort by it
+                if (aOrder !== undefined && bOrder !== undefined) {
+                    return aOrder - bOrder;
+                }
+                // Layers not in URL go to the end
+                if (aOrder !== undefined) return -1;
+                if (bOrder !== undefined) return 1;
+                return 0;
+            });
+        }
+
         // Get current map bounds
         let bounds = null;
         if (this._map) {
@@ -612,11 +665,15 @@ export class MapFeatureControl {
             ];
         }
 
+        // Get URL search params from parent window
+        const urlSearchParams = window.location.search;
+
         this._iframe.contentWindow.postMessage({
             type: 'inspector-data',
             activeLayers: layerConfigs,
             layerRegistry: window.layerRegistry,
-            bounds: bounds
+            bounds: bounds,
+            urlSearchParams: urlSearchParams
         }, '*');
     }
 

@@ -70,6 +70,52 @@ The application supports multiple data layer types:
 - `tms` - Raster tile services
 - `csv` - Tabular data with lat/lng columns
 
+**Layer Ordering Logic**
+The layer ordering system ensures consistent visual stacking between URL parameters, map rendering, and the inspector UI:
+
+1. **URL Convention**: `?layers=layer1,layer2,layer3`
+   - First layer in URL (`layer1`) appears **on top** visually
+   - Last layer in URL (`layer3`) appears **at bottom** visually
+
+2. **Map Rendering Order**: Layers are added in **REVERSE** of URL order
+   - Mapbox GL JS renders: last added = on top, first added = at bottom
+   - To achieve URL convention (first = top), layers are added in reverse
+   - Example: URL `[layer1,layer2,layer3]` → Added as `[layer3, layer2, layer1]`
+
+3. **Basemap vs Overlay Groups**:
+   - Layers tagged with `basemap` are grouped separately from overlays
+   - Basemaps are always added **before** overlays (bottom of stack)
+   - **Both groups are reversed** during map rendering to maintain first-in-URL = top convention
+   - Example URL: `?layers=overlay1,overlay2,basemap1,basemap2`
+     - Map addition order: `basemap2 → basemap1 → overlay2 → overlay1`
+     - Visual stack (top to bottom): `overlay1, overlay2, basemap1, basemap2`
+
+4. **Internal Layer Storage** (MapLayerControl._state.groups):
+   - Layers are stored in **config/visual order** (same as URL order)
+   - NOT stored in map rendering order
+   - This means: first in `_state.groups` = first in URL = top visually
+   - When generating URLs, layers are taken from `_state.groups` as-is (no reversal needed)
+
+5. **Initial Load Logic** (js/map-init.js):
+   - If URL has `?layers=` parameter: layers are loaded from URL in specified order
+   - If no URL parameter: layers marked `initiallyChecked: true` in config are loaded
+   - Config order is preserved when no URL parameter is present
+   - URL layer order always takes precedence over config order
+   - Layers in config are stored in visual order (first = top)
+
+6. **Inspector Display** (map-inspector.html):
+   - Shows layers in same order as URL (first = top)
+   - Gets layers from `_state.groups` which is already in URL/visual order
+   - Overlays section shows overlay layers in visual order
+   - Basemaps section shows basemap layers in visual order
+   - Active/selected layers are sorted to top within each section
+
+7. **Centralized Logic** (js/layer-order-manager.js):
+   - `urlOrderToMapOrder()`: Converts URL order to map rendering order (reverses both groups)
+   - `mapOrderToUrlOrder()`: Returns layers as-is (no reversal - already in URL order)
+   - `getInspectorDisplayOrder()`: Returns layers in URL/visual order for inspector
+   - All layer ordering must use these methods for consistency
+
 ### Key Files
 - `index.html` - Main application entry point
 - `css/styles.css` - Global styles and Tailwind customizations

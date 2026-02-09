@@ -161,6 +161,7 @@ export class MapboxAPI {
             const sourceConfig = {
                 type: 'raster',
                 tileSize: config.tileSize || 256,
+                minzoom: config.minzoom || 0,
                 maxzoom: config.maxzoom || 22,
                 tiles: [tileUrl]
             };
@@ -224,6 +225,7 @@ export class MapboxAPI {
             const sourceConfig = {
                 type: 'raster',
                 tileSize: 256,
+                minzoom: config.minzoom || 0,
                 maxzoom: config.maxzoom || 22,
                 tiles: [tileUrl]
             };
@@ -529,6 +531,7 @@ export class MapboxAPI {
             // Add source
             const sourceConfig = {
                 type: 'vector',
+                minzoom: config.minzoom || 0,
                 maxzoom: config.maxzoom || 22
             };
 
@@ -747,6 +750,7 @@ export class MapboxAPI {
             const sourceConfig = {
                 type: 'raster',
                 tileSize: 256,
+                minzoom: config.minzoom || 0,
                 maxzoom: config.maxzoom || 22
             };
 
@@ -942,6 +946,7 @@ export class MapboxAPI {
             const sourceConfig = {
                 type: 'raster',
                 tileSize: config.tileSize || 256,
+                minzoom: config.minzoom || 0,
                 maxzoom: config.maxzoom || 22
             };
 
@@ -1084,6 +1089,7 @@ export class MapboxAPI {
             const sourceConfig = {
                 type: 'raster',
                 tileSize: config.tileSize || 256,
+                minzoom: config.minzoom || 0,
                 maxzoom: config.maxzoom || 22
             };
 
@@ -1210,6 +1216,7 @@ export class MapboxAPI {
             const sourceConfig = {
                 type: 'raster',
                 tileSize: config.tileSize || 256,
+                minzoom: config.minzoom || 0,
                 maxzoom: config.maxzoom || 22,
                 tiles: [tileUrl]
             };
@@ -2618,6 +2625,7 @@ export class MapboxAPI {
         const slotNames = ['bottom', 'middle', 'top'];
 
         if (insertPosition && slotNames.includes(insertPosition)) {
+            console.log(`  Adding layer ${layerConfig.metadata?.groupId} to slot: ${insertPosition}`);
             // Use slot-based insertion
             // Reference: https://docs.mapbox.com/style-spec/reference/layers/#layer-properties
             layerConfig.slot = insertPosition;

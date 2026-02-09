@@ -44,6 +44,7 @@ import {LayerSettingsModal} from './layer-settings-modal.js';
 import {MapboxAPI} from './mapbox-api.js';
 import {DataUtils} from './map-utils.js';
 import {MapWarperAPI} from './mapwarper-url-api.js';
+import {LayerOrderManager} from './layer-order-manager.js';
 
 export class MapLayerControl {
     constructor(options) {
@@ -84,6 +85,7 @@ export class MapLayerControl {
     async renderToContainer(container, map) {
         this._container = $(container)[0];
         this._map = map;
+        this._initialized = false;
 
         // Make sure default styles are loaded BEFORE creating MapboxAPI
         await this._ensureDefaultStylesLoaded();
@@ -106,24 +108,26 @@ export class MapLayerControl {
         // Add drawer focus management to prevent aria-hidden accessibility issues
         this._setupDrawerFocusManagement();
 
-        // Initialize the control UI
-        if (this._map.isStyleLoaded()) {
+        const initOnce = () => {
+            if (this._initialized) return;
+            this._initialized = true;
             this._initializeControl(container);
             this._initializeFilterControls();
+        };
+
+        // Initialize the control UI
+        if (this._map.isStyleLoaded()) {
+            initOnce();
         } else {
-            // Add a fallback timeout in case style.load event doesn't fire
-            // This can happen when map.isStyleLoaded() returns false even though the style is loaded
             const fallbackTimeout = setTimeout(() => {
                 if (this._map.getStyle()) {
-                    this._initializeControl(container);
-                    this._initializeFilterControls();
+                    initOnce();
                 }
             }, 1000);
 
-            this._map.on('style.load', () => {
+            this._map.once('style.load', () => {
                 clearTimeout(fallbackTimeout);
-                this._initializeControl(container);
-                this._initializeFilterControls();
+                initOnce();
             });
         }
 
@@ -257,12 +261,43 @@ export class MapLayerControl {
 
     /**
      * Initialize all layers to their proper visibility states
+     * Layers in _state.groups are in visual order (first = top visually)
+     * We need to add them to the map in rendering order (reversed, basemaps first)
      */
     _initializeAllLayers() {
+        // Collect initially checked layers with their indices
+        const initiallyCheckedLayers = [];
         this._state.groups.forEach((group, groupIndex) => {
             if (group.initiallyChecked) {
+                initiallyCheckedLayers.push({ group, groupIndex });
+            }
+        });
+
+        // Convert to map rendering order using centralized logic
+        const layersOnly = initiallyCheckedLayers.map(item => item.group);
+        const mapOrderLayers = LayerOrderManager.urlOrderToMapOrder(layersOnly);
+
+        console.log('🔍 Initializing layers in map rendering order:');
+        console.log('  Visual order:', layersOnly.map(l => l.id));
+        console.log('  Map order:', mapOrderLayers.map(l => l.id));
+
+        // Create a map of layer id to group index for quick lookup
+        const layerIdToIndex = new Map();
+        initiallyCheckedLayers.forEach(item => {
+            layerIdToIndex.set(item.group.id, item.groupIndex);
+        });
+
+        // Add layers in map rendering order (basemaps first, reversed within groups)
+        mapOrderLayers.forEach(layer => {
+            const groupIndex = layerIdToIndex.get(layer.id);
+            if (groupIndex !== undefined) {
                 this._toggleLayerGroup(groupIndex, true);
-            } else {
+            }
+        });
+
+        // Handle non-initially-checked layers
+        this._state.groups.forEach((group, groupIndex) => {
+            if (!group.initiallyChecked) {
                 const shouldDelay = group.type === 'style' && !this._map.getStyle();
 
                 if (shouldDelay) {
@@ -573,6 +608,23 @@ export class MapLayerControl {
         }
 
         try {
+            const layerWithChecked = {
+                ...layerConfig,
+                initiallyChecked: true
+            };
+
+            let insertPosition;
+            if (LayerOrderManager.isBasemap(layerWithChecked)) {
+                insertPosition = this._state.groups.findIndex(g => LayerOrderManager.isBasemap(g));
+                if (insertPosition === -1) {
+                    insertPosition = this._state.groups.length;
+                }
+            } else {
+                insertPosition = 0;
+            }
+
+            this._state.groups.splice(insertPosition, 0, layerWithChecked);
+
             // Create the layer on the map
             await this._mapboxAPI.createLayerGroup(layerConfig.id, layerConfig, { visible: true });
 
@@ -2019,7 +2071,17 @@ export class MapLayerControl {
             layerWithPrefix._normalizedId = window.layerRegistry.normalizeLayerId(layerWithPrefix.id);
         }
 
-        this._state.groups.push(layerWithPrefix);
+        let insertPosition;
+        if (LayerOrderManager.isBasemap(layerWithPrefix)) {
+            insertPosition = this._state.groups.findIndex(g => LayerOrderManager.isBasemap(g));
+            if (insertPosition === -1) {
+                insertPosition = this._state.groups.length;
+            }
+        } else {
+            insertPosition = 0;
+        }
+
+        this._state.groups.splice(insertPosition, 0, layerWithPrefix);
 
         // Activate the layer
         if (this._mapboxAPI) {
