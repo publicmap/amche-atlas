@@ -4379,6 +4379,23 @@ export class MapFeatureControl {
                 // Update hover popup position to follow mouse smoothly
                 this._updateHoverPopupPosition(e.lngLat);
             });
+        } else {
+            // On touch devices, update hover state for features at map center
+            const updateCenterHover = () => {
+                this._stateManager.updateCenterHover();
+            };
+
+            // Throttled version to avoid excessive updates
+            let centerHoverTimeout = null;
+            const throttledCenterHover = () => {
+                if (centerHoverTimeout) {
+                    clearTimeout(centerHoverTimeout);
+                }
+                centerHoverTimeout = setTimeout(updateCenterHover, 100);
+            };
+
+            this._map.on('move', throttledCenterHover);
+            this._map.on('moveend', updateCenterHover);
         }
 
         // Set up global mouseleave handler for the entire map

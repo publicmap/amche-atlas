@@ -30,6 +30,10 @@ export class MapFeatureStateManager extends EventTarget {
         this._isStyleChanging = false;
         this._pendingRegistrations = new Map();
 
+        // Touch device detection
+        this._isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        this._centerHoverUpdateTimeout = null;
+
         // Start cleanup process
         this._setupCleanup();
 
@@ -277,6 +281,51 @@ export class MapFeatureStateManager extends EventTarget {
             timestamp: Date.now()
         });
 
+    }
+
+    /**
+     * Update hover state for features at map center (touch devices)
+     */
+    updateCenterHover() {
+        if (!this._isTouchDevice) {
+            return;
+        }
+
+        const center = this._map.getCenter();
+        const point = this._map.project(center);
+
+        const hoveredFeatures = [];
+
+        this._registeredLayers.forEach((layerConfig, layerId) => {
+            if (this._isRasterLayer(layerConfig)) {
+                return;
+            }
+
+            const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
+
+            matchingLayerIds.forEach(actualLayerId => {
+                const features = this._map.queryRenderedFeatures(point, {
+                    layers: [actualLayerId]
+                });
+
+                features.forEach(feature => {
+                    hoveredFeatures.push({
+                        feature,
+                        layerId,
+                        lngLat: center
+                    });
+                });
+            });
+        });
+
+        this.handleFeatureHovers(hoveredFeatures, center);
+    }
+
+    /**
+     * Check if device is touch-based
+     */
+    isTouchDevice() {
+        return this._isTouchDevice;
     }
 
     /**
@@ -1230,6 +1279,12 @@ export class MapFeatureStateManager extends EventTarget {
         if (this._batchUpdateTimeout) {
             clearTimeout(this._batchUpdateTimeout);
             this._batchUpdateTimeout = null;
+        }
+
+        // Clear center hover update timeout
+        if (this._centerHoverUpdateTimeout) {
+            clearTimeout(this._centerHoverUpdateTimeout);
+            this._centerHoverUpdateTimeout = null;
         }
 
         // Remove all event listeners
