@@ -4371,8 +4371,6 @@ export class MapFeatureControl {
 
         // Set up global mousemove handler for better performance (skip on touch devices)
         const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        console.log('[FeatureControl] Touch device detected:', isTouchDevice);
-
         if (!isTouchDevice) {
             this._map.on('mousemove', (e) => {
                 // Use queryRenderedFeatures with deduplication for optimal performance
@@ -4381,28 +4379,6 @@ export class MapFeatureControl {
                 // Update hover popup position to follow mouse smoothly
                 this._updateHoverPopupPosition(e.lngLat);
             });
-        } else {
-            console.log('[FeatureControl] Setting up touch device center hover');
-
-            // On touch devices, update hover state for features at map center
-            const updateCenterHover = () => {
-                console.log('[FeatureControl] Updating center hover');
-                this._stateManager.updateCenterHover();
-            };
-
-            // Throttled version to avoid excessive updates
-            let centerHoverTimeout = null;
-            const throttledCenterHover = () => {
-                if (centerHoverTimeout) {
-                    clearTimeout(centerHoverTimeout);
-                }
-                centerHoverTimeout = setTimeout(updateCenterHover, 100);
-            };
-
-            this._map.on('move', throttledCenterHover);
-            this._map.on('moveend', updateCenterHover);
-
-            console.log('[FeatureControl] Touch device move events registered');
         }
 
         // Set up global mouseleave handler for the entire map

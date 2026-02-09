@@ -804,8 +804,9 @@
             });
 
             // Mouse leave handler - clear isolation when mouse leaves panel (unless pinned)
+            // Only on desktop screens (mobile uses click-outside instead)
             $(document.body).on('mouseleave', function () {
-                if (expandedLayerId && !manuallyExpandedLayers.has(expandedLayerId)) {
+                if (!isMobileScreen() && expandedLayerId && !manuallyExpandedLayers.has(expandedLayerId)) {
                     expandedLayerId = null;
                     if (isolateEnabled) {
                         window.parent.postMessage({
@@ -816,6 +817,33 @@
                     clearVisualIsolation();
                 }
             });
+
+            // Click-outside handler for mobile - collapse when clicking outside layer card
+            $(document).on('click touchstart', function (e) {
+                if (!isMobileScreen()) return;
+
+                if (expandedLayerId && !manuallyExpandedLayers.has(expandedLayerId)) {
+                    const $target = $(e.target);
+                    const $expandedCard = $(`.layer-card[data-layer-id="${expandedLayerId}"]`);
+
+                    // Check if click is outside the expanded card
+                    if ($expandedCard.length && !$target.closest('.layer-card').length) {
+                        expandedLayerId = null;
+                        if (isolateEnabled) {
+                            window.parent.postMessage({
+                                type: 'clear-layer-isolation'
+                            }, '*');
+                        }
+                        renderLayers();
+                        clearVisualIsolation();
+                    }
+                }
+            });
+        }
+
+        // Helper function to detect mobile screens
+        function isMobileScreen() {
+            return window.matchMedia('(max-width: 768px)').matches;
         }
 
         // Check if layer is in current view
