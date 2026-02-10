@@ -2,6 +2,7 @@
   "name": "OpenStreetMap",
   "description": "Freely editable map of the world by <a href='https://openstreetmap.org/'>OpenStreetMap contributors</a>. Join your <a href='https://openstreetmap.community'>community</a>",
   "areaOfInterest": "Global",
+  "headerImage": "assets/map-layers/osm/map-layer-osm.png",
   "tags": [
     "opendata"
   ],

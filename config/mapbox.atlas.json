@@ -1,6 +1,7 @@
 {
   "name": "Mapbox",
   "areaOfInterest": "Global",
+  "description": "Global vector basemaps from Mapbox.com",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/goa.atlas.json",
   "color": "#2563eb",
