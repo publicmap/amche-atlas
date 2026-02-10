@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css" />
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace-autoloader.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            width: 100vw;
+            max-width: 100%;
+            background: #1f2937;
+            color: #f3f4f6;
+        }
+
+        .export-container {
+            max-width: 500px;
+            margin: 0 auto;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .export-header {
+            background: #111827;
+            padding: 16px;
+            border-bottom: 1px solid #374151;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .export-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .export-footer {
+            background: #111827;
+            padding: 16px;
+            border-top: 1px solid #374151;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #d1d5db;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .radio-label:hover {
+            background: #374151;
+        }
+
+        .radio-label input[type="radio"] {
+            cursor: pointer;
+        }
+
+        .format-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .format-button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 8px;
+            background: #374151;
+            border: 2px solid #4b5563;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            min-height: 70px;
+        }
+
+        .format-button:hover {
+            background: #4b5563;
+            border-color: #6b7280;
+        }
+
+        .format-button.selected {
+            background: #1e40af;
+            border-color: #3b82f6;
+        }
+
+        .format-button input[type="radio"] {
+            display: none;
+        }
+
+        .format-icon {
+            font-size: 28px;
+            margin-bottom: 6px;
+        }
+
+        .format-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #d1d5db;
+        }
+
+        .format-description-box {
+            padding: 8px 0;
+            background: transparent;
+            border-top: 1px solid #4b5563;
+            margin-top: 4px;
+            padding-top: 8px;
+        }
+
+        .export-btn {
+            width: 100%;
+            padding: 12px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .export-btn:hover {
+            background: #059669;
+        }
+
+        .export-btn:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .close-btn:hover {
+            opacity: 1;
+        }
+
+        sl-select::part(combobox) {
+            background: #374151;
+            border-color: #4b5563;
+            color: white;
+        }
+
+        sl-select::part(display-input) {
+            color: white;
+        }
+
+        sl-select::part(listbox) {
+            background: #374151;
+            border-color: #4b5563;
+        }
+
+        sl-option::part(base) {
+            color: white;
+        }
+
+        sl-option::part(base):hover {
+            background: #4b5563;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        .format-description {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .advanced-options {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #374151;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            background: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 6px;
+            padding: 8px;
+            color: white;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="export-container">
+        <!-- Header -->
+        <div class="export-header">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <sl-icon name="box-arrow-in-down" style="font-size: 20px;"></sl-icon>
+                <h1 style="font-size: 18px; font-weight: 600; margin: 0;">Export Map</h1>
+            </div>
+            <button class="close-btn" id="close-btn">×</button>
+        </div>
+
+        <!-- Content -->
+        <div class="export-content scrollbar-thin">
+            <!-- Use Map For Selector -->
+            <div class="form-group">
+                <label class="form-label">Use map for</label>
+                <sl-select id="use-for-select" value="print" hoist>
+                    <sl-option value="print">Print</sl-option>
+                    <sl-option value="web">Web</sl-option>
+                    <sl-option value="gis">GIS</sl-option>
+                    <sl-option value="cad">CAD</sl-option>
+                </sl-select>
+            </div>
+
+            <!-- Format Options (dynamically populated) -->
+            <div class="form-group" id="format-options-container">
+                <!-- Will be populated by JavaScript -->
+            </div>
+
+            <!-- Advanced Options -->
+            <div id="advanced-options" style="display: none;">
+                <!-- Page Settings for Print/Web -->
+                <div id="page-settings" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Page Size</label>
+                        <select id="page-size">
+                            <option value="A4">A4 (297 × 210 mm)</option>
+                            <option value="A3">A3 (420 × 297 mm)</option>
+                            <option value="A2">A2 (594 × 420 mm)</option>
+                            <option value="A1">A1 (841 × 594 mm)</option>
+                            <option value="A0">A0 (1189 × 841 mm)</option>
+                            <option value="Letter">Letter (279 × 216 mm)</option>
+                            <option value="Legal">Legal (356 × 216 mm)</option>
+                            <option value="Custom">Custom</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="custom-dimensions" style="display: none;">
+                        <label class="form-label">Custom Dimensions (mm)</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="number" id="custom-width" placeholder="Width" min="100" max="2000" step="1"
+                                   style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
+                            <span>×</span>
+                            <input type="number" id="custom-height" placeholder="Height" min="100" max="2000" step="1"
+                                   style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Orientation</label>
+                        <div class="radio-group" style="flex-direction: row; gap: 16px;">
+                            <label class="radio-label">
+                                <input type="radio" name="orientation" value="landscape" checked>
+                                <span>Landscape</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="orientation" value="portrait">
+                                <span>Portrait</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">DPI</label>
+                        <select id="dpi-select">
+                            <option value="72">72 dpi (Screen)</option>
+                            <option value="96" selected>96 dpi (Web)</option>
+                            <option value="150">150 dpi (Good)</option>
+                            <option value="300">300 dpi (Print)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Title and Description -->
+                <div id="metadata-settings" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Title</label>
+                        <textarea id="map-title" placeholder="Map title..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea id="map-description" placeholder="Map description..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="include-legend">
+                            <span>Include legend in PDF</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Vector Options (GeoJSON/KML/DXF) -->
+                <div id="vector-settings" style="display: none;">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="export-selected-only" checked>
+                            <span>Export only selected features</span>
+                        </label>
+                        <div class="format-description">If no features are selected, all visible features will be exported</div>
+                    </div>
+                </div>
+
+                <!-- DXF Options -->
+                <div id="dxf-settings" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Coordinate System</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="dxf-coords" value="local" checked>
+                                <span>Local (meters from center)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="dxf-coords" value="wgs84">
+                                <span>WGS84 (lat/lon)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="dxf-coords" value="utm">
+                                <span>UTM (auto-detect zone)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="dxf-include-raster" checked>
+                            <span>Include map imagery as raster</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Style JSON Options -->
+                <div id="style-json-settings" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Style Spec</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="style-spec" value="maplibre" checked>
+                                <span>MapLibre</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="style-spec" value="mapbox">
+                                <span>Mapbox</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="mapbox-token-group" style="display: none;">
+                        <label class="form-label">Mapbox Access Token</label>
+                        <input type="text" id="mapbox-token" placeholder="pk.eyJ1...">
+                    </div>
+                </div>
+
+                <!-- Iframe Options -->
+                <div id="iframe-settings" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Iframe Size</label>
+                        <select id="iframe-size">
+                            <option value="responsive">Responsive (100%)</option>
+                            <option value="small">Small (600 × 400)</option>
+                            <option value="medium" selected>Medium (800 × 600)</option>
+                            <option value="large">Large (1200 × 800)</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="iframe-custom-size" style="display: none;">
+                        <label class="form-label">Custom Size (px)</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="number" id="iframe-width" placeholder="Width" min="300" max="2000" step="1"
+                                   style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
+                            <span>×</span>
+                            <input type="number" id="iframe-height" placeholder="Height" min="200" max="2000" step="1"
+                                   style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Generated Embed Code</label>
+                        <textarea id="iframe-code" readonly style="font-family: monospace; font-size: 12px; min-height: 100px;"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="export-footer">
+            <button class="export-btn" id="export-btn">
+                <sl-icon name="box-arrow-in-down" style="font-size: 16px;"></sl-icon>
+                <span>Download</span>
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        // State
+        let currentUseFor = 'print';
+        let currentFormat = 'pdf';
+        let exportData = null;
+
+        // Format definitions with Shoelace icons
+        const formatsByUseFor = {
+            print: {
+                formats: [
+                    { value: 'jpeg', label: 'JPEG', icon: 'filetype-jpg', description: 'Compressed image, smaller file size' },
+                    { value: 'png', label: 'PNG', icon: 'filetype-png', description: 'Lossless image, transparent backgrounds' },
+                    { value: 'pdf', label: 'PDF', icon: 'filetype-pdf', description: 'Vector graphics, best for printing' }
+                ]
+            },
+            web: {
+                formats: [
+                    { value: 'html', label: 'HTML', icon: 'filetype-html', description: 'Interactive web map' },
+                    { value: 'iframe', label: 'Iframe', icon: 'code-square', description: 'Embed code for websites and blogs' }
+                ]
+            },
+            gis: {
+                formats: [
+                    { value: 'geojson', label: 'GeoJSON', icon: 'filetype-json', description: 'For web development and GIS software' },
+                    { value: 'kml', label: 'KML', icon: 'filetype-xml', description: 'For Google Earth and mapping apps' },
+                    { value: 'geotiff', label: 'GeoTIFF', icon: 'filetype-tiff', description: 'Georeferenced raster image' },
+                    { value: 'style', label: 'Style JSON', icon: 'palette', description: 'For Maputnik and Mapbox Studio' }
+                ]
+            },
+            cad: {
+                formats: [
+                    { value: 'dxf', label: 'DXF', icon: 'file-earmark-ruled', description: 'For AutoCAD and CAD software' }
+                ]
+            }
+        };
+
+        $(document).ready(function () {
+            setupEventListeners();
+            updateFormatOptions();
+            updateAdvancedOptions();
+            window.parent.postMessage({ type: 'export-ready' }, '*');
+        });
+
+        function setupEventListeners() {
+            $('#close-btn').on('click', () => {
+                window.parent.postMessage({ type: 'export-close' }, '*');
+            });
+
+            $('#use-for-select').on('sl-change', (e) => {
+                currentUseFor = e.target.value;
+                updateFormatOptions();
+                updateAdvancedOptions();
+            });
+
+            $(document).on('change', 'input[name="format"]', (e) => {
+                currentFormat = e.target.value;
+                updateAdvancedOptions();
+            });
+
+            $(document).on('change', 'input[name="style-spec"]', (e) => {
+                const showToken = e.target.value === 'mapbox';
+                $('#mapbox-token-group').toggle(showToken);
+            });
+
+            $('#page-size').on('change', () => {
+                const isCustom = $('#page-size').val() === 'Custom';
+                $('#custom-dimensions').toggle(isCustom);
+                $('input[name="orientation"]').closest('.form-group').toggle(!isCustom);
+                updateAdvancedOptions();
+            });
+
+            $('#custom-width, #custom-height').on('input', () => {
+                if ($('#page-size').val() === 'Custom') {
+                    updateAdvancedOptions();
+                }
+            });
+
+            $(document).on('change', 'input[name="orientation"]', () => {
+                updateAdvancedOptions();
+            });
+
+            $('#iframe-size').on('change', () => {
+                const isCustom = $('#iframe-size').val() === 'custom';
+                $('#iframe-custom-size').toggle(isCustom);
+                generateIframeCode();
+            });
+
+            $('#iframe-width, #iframe-height').on('input', () => {
+                generateIframeCode();
+            });
+
+            $('#export-btn').on('click', () => {
+                performExport();
+            });
+
+            // Listen for messages from parent
+            window.addEventListener('message', (event) => {
+                if (event.data.type === 'export-data') {
+                    exportData = event.data;
+                } else if (event.data.type === 'title-update') {
+                    const titleInput = $('#map-title');
+                    if (titleInput.val() === '' || !titleInput.data('customized')) {
+                        titleInput.val(event.data.title.replace(/<br\s*\/?>/gi, ' '));
+                        titleInput.data('customized', false);
+                    }
+                } else if (event.data.type === 'export-progress') {
+                    console.log(`Export progress: ${event.data.percent}% - ${event.data.message}`);
+                } else if (event.data.type === 'export-opened') {
+                    updateAdvancedOptions();
+                } else if (event.data.type === 'export-closed') {
+                    // Iframe is being hidden
+                } else if (event.data.type === 'frame-aspect-changed') {
+                    handleFrameAspectChanged(event.data.aspectRatio);
+                }
+            });
+
+            // Track title customization
+            $('#map-title').on('input', function() {
+                $(this).data('customized', true);
+                window.parent.postMessage({
+                    type: 'title-changed',
+                    config: {
+                        title: $(this).val(),
+                        customized: true
+                    }
+                }, '*');
+            });
+
+            $('#map-description').on('input', function() {
+                window.parent.postMessage({
+                    type: 'description-changed',
+                    config: {
+                        description: $(this).val(),
+                        customized: true
+                    }
+                }, '*');
+            });
+        }
+
+        function updateFormatOptions() {
+            const options = formatsByUseFor[currentUseFor];
+            const $container = $('#format-options-container');
+            $container.empty();
+
+            currentFormat = options.formats[0].value;
+
+            if (options.formats.length === 1) {
+                // Single format - show as info
+                const format = options.formats[0];
+                $container.html(`
+                    <label class="form-label">Format</label>
+                    <div class="format-grid">
+                        <label class="format-button selected">
+                            <input type="radio" name="format" value="${format.value}" checked>
+                            <sl-icon name="${format.icon}" class="format-icon"></sl-icon>
+                            <div class="format-label">${format.label}</div>
+                        </label>
+                    </div>
+                    <div class="format-description-box">
+                        <div class="format-description">${format.description}</div>
+                    </div>
+                `);
+            } else {
+                // Multiple formats - show as icon grid
+                $container.html(`
+                    <label class="form-label">Format</label>
+                    <div class="format-grid">
+                        ${options.formats.map((format, index) => `
+                            <label class="format-button ${index === 0 ? 'selected' : ''}" data-format="${format.value}">
+                                <input type="radio" name="format" value="${format.value}" ${index === 0 ? 'checked' : ''}>
+                                <sl-icon name="${format.icon}" class="format-icon"></sl-icon>
+                                <div class="format-label">${format.label}</div>
+                            </label>
+                        `).join('')}
+                    </div>
+                    <div class="format-description-box">
+                        <div class="format-description" id="format-desc">${options.formats[0].description}</div>
+                    </div>
+                `);
+
+                // Add click handlers for format buttons
+                $('.format-button').on('click', function() {
+                    const $button = $(this);
+                    const formatValue = $button.data('format');
+                    const format = options.formats.find(f => f.value === formatValue);
+
+                    // Update selection
+                    $('.format-button').removeClass('selected');
+                    $button.addClass('selected');
+                    $button.find('input[type="radio"]').prop('checked', true);
+
+                    // Update description
+                    $('#format-desc').text(format.description);
+
+                    // Trigger change event
+                    currentFormat = formatValue;
+                    updateAdvancedOptions();
+                });
+            }
+        }
+
+        function handleFrameAspectChanged(aspectRatio) {
+            const currentPageSize = $('#page-size').val();
+
+            if (currentPageSize !== 'Custom') {
+                $('#page-size').val('Custom');
+                $('#custom-dimensions').show();
+            }
+
+            const baseWidth = 400;
+            const calculatedWidth = Math.round(baseWidth);
+            const calculatedHeight = Math.round(baseWidth / aspectRatio);
+
+            $('#custom-width').val(calculatedWidth);
+            $('#custom-height').val(calculatedHeight);
+
+            updateAdvancedOptions();
+        }
+
+        function updateAdvancedOptions() {
+            const $advanced = $('#advanced-options');
+            const $pageSettings = $('#page-settings');
+            const $metadataSettings = $('#metadata-settings');
+            const $vectorSettings = $('#vector-settings');
+            const $dxfSettings = $('#dxf-settings');
+            const $styleJsonSettings = $('#style-json-settings');
+            const $iframeSettings = $('#iframe-settings');
+
+            // Hide all by default
+            $pageSettings.hide();
+            $metadataSettings.hide();
+            $vectorSettings.hide();
+            $dxfSettings.hide();
+            $styleJsonSettings.hide();
+            $iframeSettings.hide();
+
+            let showAdvanced = false;
+
+            // Show relevant options based on format
+            if (currentFormat === 'pdf' || currentFormat === 'geotiff' || currentFormat === 'png' || currentFormat === 'jpeg') {
+                $pageSettings.show();
+                $metadataSettings.show();
+                showAdvanced = true;
+            }
+
+            if (currentFormat === 'geojson' || currentFormat === 'kml') {
+                $vectorSettings.show();
+                showAdvanced = true;
+            }
+
+            if (currentFormat === 'dxf') {
+                $vectorSettings.show();
+                $dxfSettings.show();
+                $metadataSettings.show();
+                showAdvanced = true;
+            }
+
+            if (currentFormat === 'style') {
+                $styleJsonSettings.show();
+                showAdvanced = true;
+            }
+
+            if (currentFormat === 'iframe') {
+                $iframeSettings.show();
+                showAdvanced = true;
+                generateIframeCode();
+            }
+
+            $advanced.toggle(showAdvanced);
+
+            // Update export button text
+            const $exportBtn = $('#export-btn span');
+            if (currentFormat === 'iframe') {
+                $exportBtn.text('Copy Embed Code');
+            } else {
+                $exportBtn.text('Download');
+            }
+
+            // Show/hide export frame for PDF and GeoTIFF
+            if (currentFormat === 'pdf' || currentFormat === 'geotiff') {
+                const pageSize = $('#page-size').val();
+                const orientation = $('input[name="orientation"]:checked').val();
+
+                let size;
+                if (pageSize === 'Custom') {
+                    const customWidth = parseFloat($('#custom-width').val()) || 297;
+                    const customHeight = parseFloat($('#custom-height').val()) || 210;
+                    size = { w: customWidth, h: customHeight };
+                } else {
+                    const sizes = {
+                        'A4': orientation === 'portrait' ? { w: 210, h: 297 } : { w: 297, h: 210 },
+                        'A3': orientation === 'portrait' ? { w: 297, h: 420 } : { w: 420, h: 297 },
+                        'A2': orientation === 'portrait' ? { w: 420, h: 594 } : { w: 594, h: 420 },
+                        'A1': orientation === 'portrait' ? { w: 594, h: 841 } : { w: 841, h: 594 },
+                        'A0': orientation === 'portrait' ? { w: 841, h: 1189 } : { w: 1189, h: 841 },
+                        'Letter': orientation === 'portrait' ? { w: 216, h: 279 } : { w: 279, h: 216 },
+                        'Legal': orientation === 'portrait' ? { w: 216, h: 356 } : { w: 356, h: 216 }
+                    };
+                    size = sizes[pageSize] || sizes['A4'];
+                }
+
+                const aspectRatio = size.w / size.h;
+
+                window.parent.postMessage({
+                    type: 'frame-show',
+                    config: { aspectRatio: aspectRatio }
+                }, '*');
+            } else {
+                window.parent.postMessage({
+                    type: 'frame-hide'
+                }, '*');
+            }
+        }
+
+        function generateIframeCode() {
+            const sizeOption = $('#iframe-size').val();
+            let width, height;
+
+            switch (sizeOption) {
+                case 'responsive':
+                    width = '100%';
+                    height = '600px';
+                    break;
+                case 'small':
+                    width = '600px';
+                    height = '400px';
+                    break;
+                case 'medium':
+                    width = '800px';
+                    height = '600px';
+                    break;
+                case 'large':
+                    width = '1200px';
+                    height = '800px';
+                    break;
+                case 'custom':
+                    width = ($('#iframe-width').val() || 800) + 'px';
+                    height = ($('#iframe-height').val() || 600) + 'px';
+                    break;
+                default:
+                    width = '800px';
+                    height = '600px';
+            }
+
+            const currentUrl = window.parent.location.href;
+            const iframeCode = `<iframe src="${currentUrl}" width="${width}" height="${height}" style="border: none;" allowfullscreen></iframe>`;
+
+            $('#iframe-code').val(iframeCode);
+        }
+
+        function requestExportData() {
+            window.parent.postMessage({ type: 'request-export-data' }, '*');
+        }
+
+        function performExport() {
+            // Handle iframe format separately
+            if (currentFormat === 'iframe') {
+                const iframeCode = $('#iframe-code').val();
+                navigator.clipboard.writeText(iframeCode).then(() => {
+                    alert('Embed code copied to clipboard!');
+                }).catch(() => {
+                    // Fallback: select the text
+                    $('#iframe-code').select();
+                    alert('Embed code is ready - press Ctrl+C to copy');
+                });
+                return;
+            }
+
+            const exportConfig = {
+                format: currentFormat,
+                useFor: currentUseFor
+            };
+
+            // Collect options based on format
+            if (currentFormat === 'pdf' || currentFormat === 'geotiff') {
+                const pageSize = $('#page-size').val();
+                const orientation = $('input[name="orientation"]:checked').val();
+
+                let size;
+                if (pageSize === 'Custom') {
+                    size = {
+                        w: parseFloat($('#custom-width').val()) || 297,
+                        h: parseFloat($('#custom-height').val()) || 210
+                    };
+                } else {
+                    const sizes = {
+                        'A4': orientation === 'portrait' ? { w: 210, h: 297 } : { w: 297, h: 210 },
+                        'A3': orientation === 'portrait' ? { w: 297, h: 420 } : { w: 420, h: 297 },
+                        'A2': orientation === 'portrait' ? { w: 420, h: 594 } : { w: 594, h: 420 },
+                        'A1': orientation === 'portrait' ? { w: 594, h: 841 } : { w: 841, h: 594 },
+                        'A0': orientation === 'portrait' ? { w: 841, h: 1189 } : { w: 1189, h: 841 },
+                        'Letter': orientation === 'portrait' ? { w: 216, h: 279 } : { w: 279, h: 216 },
+                        'Legal': orientation === 'portrait' ? { w: 216, h: 356 } : { w: 356, h: 216 }
+                    };
+                    size = sizes[pageSize] || sizes['A4'];
+                }
+
+                exportConfig.width = size.w;
+                exportConfig.height = size.h;
+                exportConfig.dpi = parseInt($('#dpi-select').val());
+                exportConfig.title = $('#map-title').val();
+                exportConfig.description = $('#map-description').val();
+                exportConfig.includeLegend = $('#include-legend').is(':checked');
+                exportConfig.margin = '10mm';
+            }
+
+            if (currentFormat === 'png' || currentFormat === 'jpeg') {
+                exportConfig.width = 2048;
+                exportConfig.height = 2048;
+            }
+
+            if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'dxf') {
+                exportConfig.exportSelectedOnly = $('#export-selected-only').is(':checked');
+            }
+
+            if (currentFormat === 'dxf') {
+                exportConfig.coordSystem = $('input[name="dxf-coords"]:checked').val();
+                exportConfig.includeRaster = $('#dxf-include-raster').is(':checked');
+            }
+
+            if (currentFormat === 'style') {
+                exportConfig.styleSpec = $('input[name="style-spec"]:checked').val();
+                exportConfig.mapboxToken = $('#mapbox-token').val();
+            }
+
+            window.parent.postMessage({
+                type: 'export-start',
+                config: exportConfig
+            }, '*');
+        }
+    </script>
+</body>
+
+</html>
