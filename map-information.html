@@ -7,6 +7,8 @@
     <title>Layer Information</title>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.12.0/cdn/themes/dark.css" />
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.12.0/cdn/shoelace-autoloader.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -59,21 +61,109 @@
             height: 20px;
             display: inline-block;
         }
+
+        .editable-input {
+            background: #1e293b;
+            border: 1px solid #475569;
+            color: #e2e8f0;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            font-family: inherit;
+        }
+
+        .editable-input:focus {
+            outline: none;
+            border-color: #6366f1;
+            ring: 2px solid #6366f1;
+        }
+
+        textarea.editable-input {
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+
+        #config-content.editable {
+            background: #1e293b;
+            border: 1px solid #475569;
+            outline: none;
+            padding: 1rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        #config-content.editable:focus {
+            border-color: #6366f1;
+        }
+
+        #config-content.invalid {
+            border-color: #ef4444;
+            background: #7f1d1d;
+        }
+
+        .view-mode {
+            display: block;
+        }
+
+        .edit-mode {
+            display: none;
+        }
+
+        body.editing .view-mode {
+            display: none;
+        }
+
+        body.editing .edit-mode {
+            display: block;
+        }
+
+        .layer-id-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.375rem 0.75rem;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-right: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        sl-icon {
+            font-size: 1rem;
+        }
     </style>
 </head>
 
 <body class="bg-slate-900 text-slate-100 flex flex-col">
-    <!-- Header -->
     <div class="flex-shrink-0 relative bg-slate-800 border-b border-slate-700 px-8 py-6">
+        <button class="absolute top-4 right-16 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-all cursor-pointer border-0 flex items-center gap-2" id="edit-toggle-btn">
+            <sl-icon name="pencil"></sl-icon>
+            <span>Edit</span>
+        </button>
         <button class="absolute top-4 right-4 w-10 h-10 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-slate-100 text-2xl flex items-center justify-center transition-all cursor-pointer border-0" id="close-layer-info">✕</button>
         <div class="flex gap-6 items-start max-w-6xl mx-auto">
             <div class="flex-shrink-0" id="thumbnail-container"></div>
             <div class="flex-1 min-w-0">
-                <h1 class="text-3xl font-bold text-slate-50 mb-2 leading-tight" id="layer-title"></h1>
+                <h1 class="text-3xl font-bold text-slate-50 mb-2 leading-tight view-mode" id="layer-title"></h1>
+                <input type="text" class="text-3xl font-bold text-slate-50 mb-2 leading-tight editable-input edit-mode" id="layer-title-edit" placeholder="Layer Title">
+
                 <div class="flex items-center gap-3 mb-3">
+                    <span class="layer-id-badge view-mode" id="layer-id-display"></span>
                     <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-700 rounded-lg text-xs font-semibold text-slate-300 uppercase tracking-wide" id="layer-type"></div>
                 </div>
-                <div id="header-url-section" style="display: none;">
+
+                <div class="edit-mode mb-3">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Layer ID</label>
+                    <input type="text" class="editable-input text-sm font-mono" id="layer-id-edit" placeholder="layer-id">
+                </div>
+
+                <div id="header-url-section" class="view-mode" style="display: none;">
                     <div class="flex gap-2 items-center">
                         <input type="text" id="header-url-input" readonly class="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-xs text-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                         <button id="header-copy-btn" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-2 whitespace-nowrap">
@@ -88,10 +178,8 @@
         </div>
     </div>
 
-    <!-- Content -->
     <div class="flex-1 overflow-y-auto bg-slate-900 content-wrapper">
         <div class="max-w-6xl mx-auto p-8">
-            <!-- Description -->
             <div id="description-section" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700" style="display: none;">
                 <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
                     <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,10 +187,10 @@
                     </svg>
                     <span>Description</span>
                 </div>
-                <div class="text-base leading-relaxed text-slate-300" id="description-content"></div>
+                <div class="text-base leading-relaxed text-slate-300 view-mode" id="description-content"></div>
+                <textarea class="editable-input edit-mode" id="description-edit" placeholder="Layer description (HTML supported)"></textarea>
             </div>
 
-            <!-- Legend -->
             <div id="legend-section" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700" style="display: none;">
                 <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
                     <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,8 +201,7 @@
                 <div class="mt-2" id="legend-content"></div>
             </div>
 
-            <!-- Data Source -->
-            <div id="source-section" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700" style="display: none;">
+            <div id="source-section-view" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700 view-mode" style="display: none;">
                 <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
                     <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
@@ -124,8 +211,17 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="source-content"></div>
             </div>
 
-            <!-- Metadata -->
-            <div id="metadata-section" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700" style="display: none;">
+            <div id="source-section-edit" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700 edit-mode">
+                <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
+                    <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+                    </svg>
+                    <span>Data Source</span>
+                </div>
+                <div class="space-y-4" id="source-edit-fields"></div>
+            </div>
+
+            <div id="metadata-section-view" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700 view-mode" style="display: none;">
                 <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
                     <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
@@ -135,15 +231,25 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="metadata-content"></div>
             </div>
 
-            <!-- Raw Configuration -->
+            <div id="metadata-section-edit" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700 edit-mode">
+                <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
+                    <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                    </svg>
+                    <span>Metadata</span>
+                </div>
+                <div class="space-y-4" id="metadata-edit-fields"></div>
+            </div>
+
             <div id="config-section" class="bg-slate-800 rounded-xl p-6 mb-5 shadow-lg border border-slate-700">
                 <div class="flex items-center gap-2 text-lg font-bold text-slate-50 mb-4 pb-3 border-b-2 border-slate-700">
                     <svg class="icon text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
                     </svg>
                     <span>Raw Configuration</span>
+                    <span class="ml-auto text-xs text-red-400" id="json-error" style="display: none;"></span>
                 </div>
-                <pre id="config-content" class="bg-slate-950 text-slate-200 rounded-lg p-4 font-mono text-sm overflow-x-auto max-h-96 leading-relaxed code-block"></pre>
+                <pre id="config-content" class="bg-slate-950 text-slate-200 rounded-lg p-4 font-mono text-sm overflow-x-auto max-h-96 leading-relaxed code-block" contenteditable="false"></pre>
             </div>
         </div>
     </div>
@@ -151,6 +257,11 @@
     <script type="module">
         import { LayerThumbnail } from './js/layer-thumbnail.js';
         import { LayerLegend } from './js/layer-legend.js';
+        import { LAYER_SPECIFICATIONS } from './js/config-manager.js';
+
+        let currentLayer = null;
+        let isEditing = false;
+        let hasChanges = false;
 
         $(document).ready(function () {
             const urlParams = new URLSearchParams(window.location.search);
@@ -158,25 +269,254 @@
 
             if (layerJson) {
                 try {
-                    const layer = JSON.parse(decodeURIComponent(layerJson));
-                    renderLayerInfo(layer);
+                    currentLayer = JSON.parse(decodeURIComponent(layerJson));
+                    renderLayerInfo(currentLayer);
                 } catch (error) {
                     console.error('Error parsing layer data:', error);
                     $('#layer-title').text('Error loading layer information');
                 }
             }
 
-            $('#close-layer-info').on('click', function () {
-                if (window.self !== window.top) {
-                    window.parent.postMessage({ type: 'close-layer-info' }, '*');
+            $('#close-layer-info').on('click', closePanel);
+            $('#edit-toggle-btn').on('click', toggleEditMode);
+        });
+
+        function closePanel() {
+            if (window.self !== window.top) {
+                window.parent.postMessage({ type: 'close-layer-info' }, '*');
+            } else {
+                window.close();
+            }
+        }
+
+        function toggleEditMode() {
+            isEditing = !isEditing;
+            $('body').toggleClass('editing', isEditing);
+
+            const $btn = $('#edit-toggle-btn');
+
+            if (isEditing) {
+                $btn.html('<sl-icon name="check-circle"></sl-icon><span>Apply Changes</span>')
+                    .removeClass('bg-indigo-600 hover:bg-indigo-500')
+                    .addClass('bg-green-600 hover:bg-green-500');
+
+                $('#config-content').attr('contenteditable', 'true').addClass('editable');
+                setupEditMode();
+            } else {
+                if (hasChanges) {
+                    applyChanges();
                 } else {
-                    window.close();
+                    $btn.html('<sl-icon name="pencil"></sl-icon><span>Edit</span>')
+                        .removeClass('bg-green-600 hover:bg-green-500')
+                        .addClass('bg-indigo-600 hover:bg-indigo-500');
+                    $('#config-content').attr('contenteditable', 'false').removeClass('editable');
+                }
+            }
+        }
+
+        function setupEditMode() {
+            populateEditFields();
+
+            $('#config-content').on('input', function() {
+                validateAndSyncFromRaw();
+            });
+
+            $('.editable-input, input, textarea, select').on('input change', function() {
+                hasChanges = true;
+                syncToRawConfig();
+            });
+        }
+
+        function populateEditFields() {
+            $('#layer-title-edit').val(currentLayer.title || '');
+            $('#layer-id-edit').val(currentLayer.id || '');
+            $('#description-edit').val(currentLayer.description || '');
+
+            const spec = LAYER_SPECIFICATIONS[currentLayer.type];
+            if (!spec) return;
+
+            const $sourceFields = $('#source-edit-fields').empty();
+            const $metadataFields = $('#metadata-edit-fields').empty();
+
+            const commonFields = ['url', 'sourceLayer', 'maxzoom', 'minzoom', 'tileSize', 'opacity', 'attribution'];
+            const metadataFields = ['initiallyChecked', 'headerImage', 'bbox', 'tags'];
+
+            commonFields.forEach(field => {
+                if (spec.optional?.includes(field) || spec.required?.includes(field)) {
+                    $sourceFields.append(createEditField(field, currentLayer[field], spec.properties[field]));
                 }
             });
-        });
+
+            metadataFields.forEach(field => {
+                if (spec.optional?.includes(field) || spec.required?.includes(field)) {
+                    $metadataFields.append(createEditField(field, currentLayer[field], spec.properties[field]));
+                }
+            });
+
+            if (currentLayer.style) {
+                $sourceFields.append(createEditField('style', JSON.stringify(currentLayer.style, null, 2), { type: 'object', description: 'Mapbox GL style properties' }));
+            }
+        }
+
+        function createEditField(name, value, propertySpec) {
+            const $wrapper = $('<div>', { class: 'space-y-1' });
+            const $label = $('<label>', {
+                class: 'block text-xs font-semibold text-slate-400 uppercase tracking-wide',
+                text: name.replace(/([A-Z])/g, ' $1').trim(),
+                for: `edit-${name}`
+            });
+
+            let $input;
+            const inputClass = 'editable-input';
+
+            if (propertySpec?.type === 'boolean') {
+                $input = $('<select>', {
+                    id: `edit-${name}`,
+                    class: inputClass,
+                    'data-field': name
+                });
+                $input.append($('<option>', { value: 'true', text: 'true', selected: value === true }));
+                $input.append($('<option>', { value: 'false', text: 'false', selected: value === false }));
+            } else if (propertySpec?.type === 'number') {
+                $input = $('<input>', {
+                    type: 'number',
+                    id: `edit-${name}`,
+                    class: inputClass,
+                    value: value || '',
+                    placeholder: propertySpec.description || '',
+                    'data-field': name,
+                    step: (name.includes('opacity') || name.includes('Opacity')) ? '0.1' : '1',
+                    min: propertySpec.min,
+                    max: propertySpec.max
+                });
+            } else if (propertySpec?.type === 'array' || propertySpec?.type === 'object' || name === 'style') {
+                $input = $('<textarea>', {
+                    id: `edit-${name}`,
+                    class: inputClass,
+                    'data-field': name,
+                    placeholder: propertySpec?.description || ''
+                });
+                if (value) {
+                    $input.val(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
+                }
+            } else {
+                $input = $('<input>', {
+                    type: 'text',
+                    id: `edit-${name}`,
+                    class: inputClass,
+                    value: value || '',
+                    placeholder: propertySpec?.description || '',
+                    'data-field': name
+                });
+            }
+
+            $wrapper.append($label).append($input);
+            return $wrapper;
+        }
+
+        function syncToRawConfig() {
+            const updatedLayer = { ...currentLayer };
+
+            updatedLayer.title = $('#layer-title-edit').val();
+            updatedLayer.id = $('#layer-id-edit').val();
+            updatedLayer.description = $('#description-edit').val();
+
+            $('[data-field]').each(function() {
+                const field = $(this).data('field');
+                let value = $(this).val();
+
+                if ($(this).is('select')) {
+                    value = value === 'true';
+                } else if ($(this).attr('type') === 'number') {
+                    value = parseFloat(value);
+                    if (isNaN(value)) value = undefined;
+                } else if ($(this).is('textarea') && (field === 'style' || field === 'bbox' || field === 'tags')) {
+                    try {
+                        value = JSON.parse(value);
+                    } catch (e) {
+                        return;
+                    }
+                }
+
+                if (value !== undefined && value !== '') {
+                    updatedLayer[field] = value;
+                } else {
+                    delete updatedLayer[field];
+                }
+            });
+
+            currentLayer = updatedLayer;
+            $('#config-content').text(JSON.stringify(updatedLayer, null, 2));
+            hasChanges = true;
+        }
+
+        function validateAndSyncFromRaw() {
+            const rawText = $('#config-content').text();
+            const $error = $('#json-error');
+            const $content = $('#config-content');
+
+            try {
+                const parsed = JSON.parse(rawText);
+                currentLayer = parsed;
+                hasChanges = true;
+
+                $content.removeClass('invalid');
+                $error.hide().text('');
+
+                $('#layer-title-edit').val(parsed.title || '');
+                $('#layer-id-edit').val(parsed.id || '');
+                $('#description-edit').val(parsed.description || '');
+
+                $('[data-field]').each(function() {
+                    const field = $(this).data('field');
+                    const value = parsed[field];
+
+                    if ($(this).is('textarea') && (typeof value === 'object')) {
+                        $(this).val(JSON.stringify(value, null, 2));
+                    } else if (value !== undefined) {
+                        $(this).val(value);
+                    }
+                });
+            } catch (e) {
+                $content.addClass('invalid');
+                $error.show().text(`Invalid JSON: ${e.message}`);
+                hasChanges = false;
+            }
+        }
+
+        function applyChanges() {
+            const $content = $('#config-content');
+            if ($content.hasClass('invalid')) {
+                alert('Cannot apply changes: Invalid JSON in raw configuration');
+                return;
+            }
+
+            if (!currentLayer) {
+                console.error('[Layer Info] No layer data to apply');
+                return;
+            }
+
+            console.log('[Layer Info] Applying changes:', currentLayer);
+
+            if (window.self !== window.top) {
+                window.parent.postMessage({
+                    type: 'update-layer',
+                    layer: currentLayer
+                }, '*');
+
+                setTimeout(() => {
+                    closePanel();
+                }, 300);
+            } else {
+                const layerJson = encodeURIComponent(JSON.stringify(currentLayer));
+                const newUrl = `${window.location.pathname}?layer=${layerJson}`;
+                window.location.href = newUrl;
+            }
+        }
 
         function renderLayerInfo(layer) {
             $('#layer-title').text(layer.title || layer.id || 'Unknown Layer');
+            $('#layer-id-display').text(layer.id || 'no-id');
 
             const typeBadge = LayerThumbnail.getTypeBadge(layer.type);
             $('#layer-type').html(`
@@ -194,8 +534,8 @@
 
             if (layer.description) {
                 $('#description-content').html(layer.description);
-                $('#description-section').show();
             }
+            $('#description-section').show();
 
             const legend = LayerLegend.generate(layer);
             if (legend) {
@@ -231,28 +571,10 @@
             }
 
             let layerUrl = layer.url || layer.tiles?.[0] || layer.data || '';
-
             if (!layerUrl && layer.source && typeof layer.source === 'object') {
                 layerUrl = layer.source.url || layer.source.tiles?.[0] || '';
             }
 
-            if (!layerUrl && layer.type === 'vector' && !layer.sourceLayer) {
-                const sourceId = layer.source || layer.id;
-                try {
-                    if (window.map && window.map.getSource(sourceId)) {
-                        const source = window.map.getSource(sourceId);
-                        if (source.tiles && source.tiles.length > 0) {
-                            layerUrl = source.tiles[0];
-                        } else if (source.url) {
-                            layerUrl = source.url;
-                        }
-                    }
-                } catch (e) {
-                    console.debug('Could not retrieve source URL from map:', e);
-                }
-            }
-
-            // Display URL in header for easy copying
             if (layerUrl) {
                 $('#header-url-input').val(layerUrl);
                 $('#header-url-section').show();
@@ -287,7 +609,7 @@
             }
 
             if (hasSourceInfo) {
-                $('#source-section').show();
+                $('#source-section-view').show();
             }
 
             const metadata = {};
@@ -301,15 +623,12 @@
                 Object.entries(metadata).forEach(([key, value]) => {
                     $metadataContent.append(createInfoItem(key, value));
                 });
-                $('#metadata-section').show();
+                $('#metadata-section-view').show();
             }
 
-            // Show complete raw layer configuration without any filtering
-            // This preserves all properties including url, tiles, data, etc.
             const rawConfig = JSON.stringify(layer, null, 2);
             $('#config-content').text(rawConfig);
 
-            // Log to console for debugging if properties appear to be missing
             console.log('[Layer Info] Complete layer object:', layer);
         }
 

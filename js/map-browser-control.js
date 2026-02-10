@@ -278,6 +278,17 @@ export class MapBrowserControl {
                 modal.style.display = 'none';
                 iframe.src = '';
                 window.removeEventListener('message', closeHandler);
+                window.removeEventListener('message', updateHandler);
+            }
+        };
+
+        const updateHandler = (e) => {
+            if (e.data.type === 'update-layer') {
+                this._handleLayerUpdate(e.data.layer);
+                modal.style.display = 'none';
+                iframe.src = '';
+                window.removeEventListener('message', closeHandler);
+                window.removeEventListener('message', updateHandler);
             }
         };
 
@@ -287,11 +298,85 @@ export class MapBrowserControl {
                 iframe.src = '';
                 document.removeEventListener('keydown', keyHandler);
                 window.removeEventListener('message', closeHandler);
+                window.removeEventListener('message', updateHandler);
             }
         };
 
         window.addEventListener('message', closeHandler);
+        window.addEventListener('message', updateHandler);
         document.addEventListener('keydown', keyHandler);
+    }
+
+    _handleLayerUpdate(updatedLayer) {
+        console.log('[MapBrowserControl] Updating layer:', updatedLayer);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const existingLayers = urlParams.get('layers');
+
+        if (!existingLayers) {
+            console.warn('[MapBrowserControl] No layers parameter in URL');
+            return;
+        }
+
+        const layers = existingLayers.split(',').map(l => l.trim());
+        let foundAndReplaced = false;
+
+        const updatedLayers = layers.map(layerStr => {
+            try {
+                if (layerStr.startsWith('{') || layerStr.startsWith("{'")) {
+                    const parsed = JSON.parse(layerStr.replace(/'/g, '"'));
+                    if (parsed.id === updatedLayer.id) {
+                        foundAndReplaced = true;
+                        let jsonString = JSON.stringify(updatedLayer);
+                        jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
+                            const escaped = content.replace(/'/g, "\\'");
+                            return `"${escaped}"`;
+                        });
+                        return jsonString.replace(/"/g, "'");
+                    }
+                    return layerStr;
+                } else {
+                    if (layerStr === updatedLayer.id) {
+                        foundAndReplaced = true;
+                        let jsonString = JSON.stringify(updatedLayer);
+                        jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
+                            const escaped = content.replace(/'/g, "\\'");
+                            return `"${escaped}"`;
+                        });
+                        return jsonString.replace(/"/g, "'");
+                    }
+                    return layerStr;
+                }
+            } catch (e) {
+                console.error('[MapBrowserControl] Error parsing layer:', e);
+                if (layerStr === updatedLayer.id) {
+                    foundAndReplaced = true;
+                    let jsonString = JSON.stringify(updatedLayer);
+                    jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
+                        const escaped = content.replace(/'/g, "\\'");
+                        return `"${escaped}"`;
+                    });
+                    return jsonString.replace(/"/g, "'");
+                }
+                return layerStr;
+            }
+        });
+
+        if (!foundAndReplaced) {
+            console.warn('[MapBrowserControl] Layer not found in URL, adding it');
+            let jsonString = JSON.stringify(updatedLayer);
+            jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
+                const escaped = content.replace(/'/g, "\\'");
+                return `"${escaped}"`;
+            });
+            updatedLayers.unshift(jsonString.replace(/"/g, "'"));
+        }
+
+        urlParams.set('layers', updatedLayers.join(','));
+
+        const newUrl = window.location.pathname + '?' + urlParams.toString() + window.location.hash;
+        console.log('[MapBrowserControl] Reloading with updated layer:', newUrl);
+        window.location.href = newUrl;
     }
 
     _sendLayerData() {
