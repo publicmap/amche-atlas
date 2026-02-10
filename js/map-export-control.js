@@ -139,6 +139,7 @@ export class MapExportControl {
         formatContainer.innerHTML = `
             <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="export-format" value="kml" checked> KML</label>
             <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="export-format" value="geojson"> GeoJSON</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="export-format" value="dxf"> DXF</label>
             <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="export-format" value="pdf"> PDF</label>
             <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="export-format" value="style"> Style JSON</label>
         `;
@@ -184,6 +185,49 @@ export class MapExportControl {
         this._exportPanel.appendChild(this._styleSpecContainer);
         this._styleSpec = 'maplibre';
         this._mapboxAccessToken = '';
+
+        // DXF Export Options
+        this._dxfOptionsContainer = document.createElement('div');
+        this._dxfOptionsContainer.className = 'mb-3';
+        this._dxfOptionsContainer.style.display = 'none';
+
+        const coordSystemLabel = this._createLabel('Coordinate System');
+        this._dxfOptionsContainer.appendChild(coordSystemLabel);
+
+        const coordOptions = document.createElement('div');
+        coordOptions.className = 'flex flex-col gap-2';
+        coordOptions.innerHTML = `
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="dxf-coords" value="local" checked> Local (meters from center)</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="dxf-coords" value="wgs84"> WGS84 (lat/lon)</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="dxf-coords" value="utm"> UTM (auto-detect zone)</label>
+        `;
+        coordOptions.onchange = (e) => {
+            this._dxfCoordSystem = e.target.value;
+        };
+        this._dxfOptionsContainer.appendChild(coordOptions);
+
+        const rasterCheckboxContainer = document.createElement('div');
+        rasterCheckboxContainer.className = 'mb-2';
+        const rasterLabel = document.createElement('label');
+        rasterLabel.className = 'flex items-center gap-2 cursor-pointer';
+        const rasterCheckbox = document.createElement('input');
+        rasterCheckbox.type = 'checkbox';
+        rasterCheckbox.checked = true;
+        rasterCheckbox.onchange = (e) => {
+            this._dxfIncludeRaster = e.target.checked;
+            this._updateDxfModeUI();
+        };
+        const rasterText = document.createElement('span');
+        rasterText.textContent = 'Export imagery as raster PNG';
+        rasterLabel.appendChild(rasterCheckbox);
+        rasterLabel.appendChild(rasterText);
+        rasterCheckboxContainer.appendChild(rasterLabel);
+        this._dxfOptionsContainer.appendChild(rasterCheckboxContainer);
+
+        this._exportPanel.appendChild(this._dxfOptionsContainer);
+
+        this._dxfCoordSystem = 'local';
+        this._dxfIncludeRaster = true;
 
         // Export Selected Features Checkbox
         this._selectedFeaturesContainer = document.createElement('div');
@@ -656,6 +700,7 @@ export class MapExportControl {
         const descriptions = {
             'kml': 'For Google Earth and mapping apps',
             'geojson': 'For web development and GIS software',
+            'dxf': 'For AutoCAD and CAD software',
             'pdf': 'For printing and sharing as documents',
             'style': 'For <a href="https://maputnik.github.io/" target="_blank" rel="noopener">Maputnik</a> and <a href="https://studio.mapbox.com/" target="_blank" rel="noopener">Mapbox Studio</a>'
         };
@@ -665,10 +710,41 @@ export class MapExportControl {
 
     _updatePanelVisibility() {
         const isVectorFormat = this._format === 'geojson' || this._format === 'kml' || this._format === 'style';
+        const isDxfFormat = this._format === 'dxf';
 
         this._exportPanel.style.maxHeight = 'none';
 
-        if (isVectorFormat) {
+        if (isDxfFormat) {
+            if (this._dxfOptionsContainer) {
+                this._dxfOptionsContainer.style.display = 'block';
+            }
+
+            const includeRaster = this._dxfIncludeRaster;
+
+            if (includeRaster) {
+                if (this._pageSettingsDetails) this._pageSettingsDetails.style.display = 'block';
+                this._titleContainer.style.display = 'block';
+                this._descriptionContainer.style.display = 'block';
+                this._legendContainer.style.display = 'none';
+                this._frame.show();
+                this._updateFrameFromInputs();
+                this._updateSelectedFeaturesCheckbox();
+
+                if (!this._exportPanel.classList.contains('hidden')) {
+                    this._loadDefaultTitleAndDescription();
+                }
+            } else {
+                if (this._pageSettingsDetails) this._pageSettingsDetails.style.display = 'none';
+                this._titleContainer.style.display = 'none';
+                this._descriptionContainer.style.display = 'none';
+                this._legendContainer.style.display = 'none';
+                this._frame.hide();
+                this._updateSelectedFeaturesCheckbox();
+            }
+        } else if (isVectorFormat) {
+            if (this._dxfOptionsContainer) {
+                this._dxfOptionsContainer.style.display = 'none';
+            }
             if (this._pageSettingsDetails) {
                 this._pageSettingsDetails.style.display = 'none';
             }
@@ -679,6 +755,9 @@ export class MapExportControl {
 
             this._updateSelectedFeaturesCheckbox();
         } else {
+            if (this._dxfOptionsContainer) {
+                this._dxfOptionsContainer.style.display = 'none';
+            }
             if (this._pageSettingsDetails) {
                 this._pageSettingsDetails.style.display = 'block';
             }
@@ -883,6 +962,8 @@ export class MapExportControl {
                 this._exportGeoJSON();
             } else if (this._format === 'kml') {
                 this._exportKML();
+            } else if (this._format === 'dxf') {
+                await this._exportDXF();
             } else {
                 await this._exportPDF();
             }
@@ -999,6 +1080,438 @@ export class MapExportControl {
         });
 
         const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
+        const url = URL.createObjectURL(blob);
+
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        if (isIOS) {
+            window.open(url, '_blank');
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 60000);
+        } else {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    }
+
+    _updateDxfModeUI() {
+        this._updatePanelVisibility();
+    }
+
+    async _exportDXF() {
+        const { DXFConverter } = await import('./dxf-converter.js');
+        const { DXFCoordinateTransformer } = await import('./dxf-coordinate-transformer.js');
+
+        this._updateExportProgress(10, 'Preparing data');
+
+        if (!this._dxfIncludeRaster) {
+            let features;
+            let filename;
+
+            if (this._exportSelectedOnly && this._hasSelectedFeatures()) {
+                const selectedFeatures = this._getSelectedFeatures();
+                features = selectedFeatures.map(item => item.feature);
+                filename = this._generateFilenameFromFeatures(selectedFeatures, 'dxf');
+            } else {
+                features = this._map.queryRenderedFeatures();
+                filename = 'map-export.dxf';
+            }
+
+            this._updateExportProgress(30, 'Converting coordinates');
+
+            const mapCenter = this._map.getCenter();
+            const transformer = new DXFCoordinateTransformer({
+                coordSystem: this._dxfCoordSystem,
+                mapCenter: mapCenter,
+                map: this._map
+            });
+
+            const transformedFeatures = transformer.transformFeatures(features);
+
+            this._updateExportProgress(60, 'Generating DXF');
+
+            const geojson = {
+                type: 'FeatureCollection',
+                features: transformedFeatures
+            };
+
+            const dxfContent = DXFConverter.geoJsonToDxf(geojson, {
+                title: this._title || 'Exported Features',
+                coordSystem: this._dxfCoordSystem,
+                units: transformer.getUnits()
+            });
+
+            this._updateExportProgress(90, 'Downloading');
+
+            this._downloadFile(dxfContent, filename, 'application/dxf');
+        } else {
+            await this._exportDXFHybrid();
+        }
+
+        this._updateExportProgress(100, 'Complete');
+    }
+
+    async _exportDXFHybrid() {
+        const { DXFConverter } = await import('./dxf-converter.js');
+        const { DXFCoordinateTransformer } = await import('./dxf-coordinate-transformer.js');
+
+        this._updateExportProgress(10, 'Preparing capture');
+
+        const originalStyle = this._map.getContainer().style.cssText;
+        const originalCenter = this._map.getCenter();
+        const originalZoom = this._map.getZoom();
+        const originalBearing = this._map.getBearing();
+        const originalPitch = this._map.getPitch();
+
+        let terrainControl = null;
+        let originalTerrainEnabled = false;
+
+        const controls = this._map._controls || [];
+        for (const control of controls) {
+            if (control.constructor.name === 'Terrain3DControl') {
+                terrainControl = control;
+                originalTerrainEnabled = control.getEnabled();
+                break;
+            }
+        }
+
+        const frameRect = this._frame._el.getBoundingClientRect();
+        const mapRect = this._map.getContainer().getBoundingClientRect();
+
+        const frameCenterX = (frameRect.left + frameRect.width / 2) - mapRect.left;
+        const frameCenterY = (frameRect.top + frameRect.height / 2) - mapRect.top;
+        const frameWidth = frameRect.width;
+        const frameHeight = frameRect.height;
+
+        this._updateExportProgress(15, 'Resetting camera');
+
+        if (terrainControl && originalTerrainEnabled) {
+            terrainControl.setEnabled(false);
+        }
+
+        const needsReset = originalBearing !== 0 || originalPitch !== 0;
+
+        if (needsReset) {
+            this._map.setBearing(0);
+            this._map.setPitch(0);
+
+            await Promise.race([
+                new Promise(resolve => this._map.once('moveend', resolve)),
+                new Promise(resolve => setTimeout(resolve, 1000))
+            ]);
+        }
+
+        this._updateExportProgress(20, 'Calculating frame bounds');
+
+        const frameCenter = this._map.unproject([frameCenterX, frameCenterY]);
+
+        this._updateExportProgress(30, 'Processing raster layers');
+
+        this._frame.hide();
+
+        const widthMm = parseFloat(this._widthInput.input.value);
+        const heightMm = parseFloat(this._heightInput.input.value);
+        const dpi = this._dpi;
+        const targetWidth = Math.round((widthMm * dpi) / 25.4);
+        const targetHeight = Math.round((heightMm * dpi) / 25.4);
+
+        const container = this._map.getContainer();
+        Object.assign(container.style, {
+            width: targetWidth + 'px',
+            height: targetHeight + 'px',
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            zIndex: '-9999'
+        });
+
+        this._map.resize();
+
+        const scaleFactor = targetWidth / frameWidth;
+        const newZoom = originalZoom + Math.log2(scaleFactor);
+
+        this._map.jumpTo({
+            center: frameCenter,
+            zoom: newZoom,
+            bearing: 0,
+            pitch: 0,
+            animate: false
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        await new Promise(resolve => {
+            this._map.once('idle', resolve);
+        });
+
+        this._updateExportProgress(50, 'Rendering raster');
+
+        const nw = this._map.unproject([0, 0]);
+        const se = this._map.unproject([targetWidth, targetHeight]);
+
+        const canvas = this._map.getCanvas();
+        let imageDataUrl = canvas.toDataURL('image/png');
+
+        const actualPixelWidth = canvas.width;
+        const actualPixelHeight = canvas.height;
+
+        this._updateExportProgress(52, 'Adding attribution');
+
+        imageDataUrl = await this._addFooterToRaster(imageDataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing);
+
+        this._updateExportProgress(55, 'Extracting vector features');
+
+        const features = this._map.queryRenderedFeatures();
+        const filteredFeatures = features.filter(feature => {
+            if (feature.geometry.type === 'Point') {
+                const [lng, lat] = feature.geometry.coordinates;
+                return lng >= nw.lng && lng <= se.lng && lat <= nw.lat && lat >= se.lat;
+            }
+            return true;
+        });
+
+        this._updateExportProgress(60, 'Calculating dimensions');
+
+        const transformer = new DXFCoordinateTransformer({
+            coordSystem: this._dxfCoordSystem,
+            mapCenter: frameCenter,
+            map: this._map,
+            bounds: { nw, se }
+        });
+
+        const transformedNW = transformer._transformCoordinate([nw.lng, nw.lat, 0]);
+        const transformedSE = transformer._transformCoordinate([se.lng, se.lat, 0]);
+
+        const imageDimensions = {
+            width: Math.abs(transformedSE[0] - transformedNW[0]),
+            height: Math.abs(transformedNW[1] - transformedSE[1])
+        };
+
+        container.style.cssText = originalStyle;
+        this._map.resize();
+        this._map.jumpTo({
+            center: originalCenter,
+            zoom: originalZoom,
+            bearing: originalBearing,
+            pitch: originalPitch
+        });
+
+        if (terrainControl && originalTerrainEnabled) {
+            terrainControl.setEnabled(true);
+        }
+
+        this._frame.show();
+
+        this._updateExportProgress(70, 'Converting coordinates');
+
+        const transformedFeatures = transformer.transformFeatures(filteredFeatures);
+
+        this._updateExportProgress(85, 'Generating DXF');
+
+        const geojson = {
+            type: 'FeatureCollection',
+            features: transformedFeatures
+        };
+
+        let baseFilename = 'map-export';
+        if (this._title && this._title.trim()) {
+            const titleText = this._title.replace(/<br\s*\/?>/gi, ', ').replace(/<[^>]*>/g, '');
+            const sanitized = titleText
+                .replace(/[<>:"/\\|?*]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .substring(0, 200);
+
+            if (sanitized && sanitized.length > 0) {
+                baseFilename = sanitized;
+            }
+        }
+
+        const rasterFilename = `${baseFilename}_raster.png`;
+
+        const dxfContent = DXFConverter.geoJsonToDxf(geojson, {
+            title: this._title || 'Map Export',
+            coordSystem: this._dxfCoordSystem,
+            units: transformer.getUnits(),
+            rasterImage: {
+                dataUrl: imageDataUrl,
+                width: imageDimensions.width,
+                height: imageDimensions.height,
+                position: [0, 0],
+                filename: rasterFilename,
+                pixelWidth: actualPixelWidth,
+                pixelHeight: actualPixelHeight
+            }
+        });
+
+        this._updateExportProgress(90, 'Downloading DXF');
+
+        this._downloadFile(dxfContent, `${baseFilename}.dxf`, 'application/dxf');
+
+        this._updateExportProgress(93, 'Downloading raster');
+
+        const imageBlob = await fetch(imageDataUrl).then(r => r.blob());
+        this._downloadFile(imageBlob, rasterFilename, 'image/png');
+
+        this._updateExportProgress(95, 'Creating world file');
+
+        const worldFileContent = this._generateWorldFile(imageDimensions, transformer, frameCenter, actualPixelWidth, actualPixelHeight);
+        this._downloadFile(worldFileContent, `${baseFilename}_raster.pgw`, 'text/plain');
+    }
+
+    async _addFooterToRaster(mapImageDataUrl, width, height, center, bearing) {
+        try {
+            const html2canvas = (await import('html2canvas')).default;
+
+            let shareUrl = window.location.href;
+            if (window.urlManager) {
+                shareUrl = window.urlManager.getShareableURL();
+            }
+
+            const qrDataUrl = await this._getQRCodeDataUrl(shareUrl);
+
+            let attributionText = '';
+            const attribCtrl = this._map._controls.find(c => c._container && c._container.classList.contains('mapboxgl-ctrl-attrib'));
+            if (attribCtrl) {
+                attributionText = attribCtrl._container.textContent;
+            }
+
+            const container = document.createElement('div');
+            container.style.position = 'fixed';
+            container.style.left = '-9999px';
+            container.style.top = '0';
+            container.style.width = width + 'px';
+            container.style.height = height + 'px';
+            container.style.background = '#ffffff';
+            document.body.appendChild(container);
+
+            const mapImg = document.createElement('img');
+            mapImg.src = mapImageDataUrl;
+            mapImg.style.width = '100%';
+            mapImg.style.height = '100%';
+            mapImg.style.display = 'block';
+            container.appendChild(mapImg);
+
+            await new Promise(resolve => {
+                mapImg.onload = resolve;
+                if (mapImg.complete) resolve();
+            });
+
+            const footerBox = document.createElement('div');
+            footerBox.style.cssText = 'position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.7); color: white; padding: 8px; box-sizing: border-box; display: flex; gap: 16px; align-items: center;';
+
+            const qrContainer = document.createElement('div');
+            qrContainer.style.cssText = 'flex: 0 0 auto;';
+            const qrImg = document.createElement('img');
+            qrImg.src = qrDataUrl;
+            qrImg.style.cssText = 'width: 80px; height: 80px; display: block;';
+            qrContainer.appendChild(qrImg);
+            footerBox.appendChild(qrContainer);
+
+            const textContainer = document.createElement('div');
+            textContainer.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0;';
+
+            if (this._title) {
+                const titleEl = document.createElement('div');
+                titleEl.innerHTML = this._title.replace(/<br\s*\/?>/gi, '<br>');
+                titleEl.style.cssText = 'font-size: 16px; font-weight: bold; color: white; line-height: 1.2;';
+                textContainer.appendChild(titleEl);
+            }
+
+            const date = new Date();
+            const timestamp = date.toLocaleString('en-GB', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            const descEl = document.createElement('div');
+            descEl.textContent = `Exported at ${timestamp}`;
+            descEl.style.cssText = 'font-size: 12px; color: white;';
+            textContainer.appendChild(descEl);
+
+            if (attributionText) {
+                const attrEl = document.createElement('div');
+                attrEl.textContent = `Data: ${attributionText}`;
+                attrEl.style.cssText = 'font-size: 10px; color: white;';
+                textContainer.appendChild(attrEl);
+            }
+
+            const urlEl = document.createElement('div');
+            urlEl.textContent = shareUrl;
+            urlEl.style.cssText = 'font-size: 10px; color: white; opacity: 0.3; word-break: break-all;';
+            textContainer.appendChild(urlEl);
+
+            footerBox.appendChild(textContainer);
+
+            container.appendChild(footerBox);
+
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            await new Promise(resolve => requestAnimationFrame(resolve));
+
+            const compositeCanvas = await html2canvas(container, {
+                backgroundColor: '#ffffff',
+                scale: 1,
+                logging: false,
+                useCORS: true,
+                width: width,
+                height: height
+            });
+
+            document.body.removeChild(container);
+
+            return compositeCanvas.toDataURL('image/png');
+        } catch (e) {
+            console.warn('Failed to add footer to raster, using plain map', e);
+            return mapImageDataUrl;
+        }
+    }
+
+    _generateWorldFile(imageDimensions, transformer, center, pixelWidth, pixelHeight) {
+        const pixelSizeX = imageDimensions.width / pixelWidth;
+        const pixelSizeY = imageDimensions.height / pixelHeight;
+
+        let centerX, centerY;
+
+        if (transformer.coordSystem === 'wgs84') {
+            centerX = center.lng;
+            centerY = center.lat;
+        } else if (transformer.coordSystem === 'local') {
+            centerX = 0;
+            centerY = 0;
+        } else if (transformer.coordSystem === 'utm') {
+            const transformedCenter = transformer._transformCoordinate([center.lng, center.lat]);
+            centerX = transformedCenter[0];
+            centerY = transformedCenter[1];
+        } else {
+            centerX = 0;
+            centerY = 0;
+        }
+
+        const upperLeftX = centerX - (imageDimensions.width / 2);
+        const upperLeftY = centerY + (imageDimensions.height / 2);
+
+        let worldFile = '';
+        worldFile += pixelSizeX + '\n';
+        worldFile += '0.0\n';
+        worldFile += '0.0\n';
+        worldFile += (-pixelSizeY) + '\n';
+        worldFile += upperLeftX + '\n';
+        worldFile += upperLeftY + '\n';
+
+        return worldFile;
+    }
+
+    _downloadFile(content, filename, mimeType) {
+        const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
         const url = URL.createObjectURL(blob);
 
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;

@@ -328,7 +328,9 @@
         }
 
         @media (max-width: 768px) {
-            html, body {
+
+            html,
+            body {
                 width: 100% !important;
                 max-width: 100% !important;
             }
@@ -338,7 +340,8 @@
 
 <body class="bg-gray-900 text-white" style="display: flex; flex-direction: column;">
     <!-- Header -->
-    <div class="header" style="flex-shrink: 0; background: #1f2937; padding: 6px 8px; border-bottom: 1px solid #374151;">
+    <div class="header"
+        style="flex-shrink: 0; background: #1f2937; padding: 6px 8px; border-bottom: 1px solid #374151;">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-1">
                 <div id="drag-handle" class="flex items-center gap-1"
@@ -371,8 +374,7 @@
     </div>
 
     <!-- Main Content (Layer List) -->
-    <div id="layer-container"
-        style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
+    <div id="layer-container" style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
 
         <!-- Overlay Maps Section -->
         <div style="flex-shrink: 0; background: #111827; padding: 4px 4px 0 4px;">
@@ -382,7 +384,8 @@
                     <sl-icon name="layers-half" style="font-size: 11px;"></sl-icon>
                     OVERLAY MAPS <span id="overlay-count" class="text-gray-400">(0)</span>
                 </span>
-                <div id="overlay-thumbnails" style="display: none; gap: 3px; overflow-x: auto; overflow-y: hidden; max-width: 100%; scrollbar-width: thin; flex: 1;">
+                <div id="overlay-thumbnails"
+                    style="display: none; gap: 3px; overflow-x: auto; overflow-y: hidden; max-width: 100%; scrollbar-width: thin; flex: 1;">
                 </div>
                 <span class="toggle-icon" style="font-size: 10px; transition: transform 0.2s;">▼</span>
             </div>
@@ -400,12 +403,13 @@
                     <sl-icon name="stack" style="font-size: 11px;"></sl-icon>
                     BASE MAPS <span id="basemap-count" class="text-gray-400">(0)</span>
                 </span>
-                <div id="basemap-thumbnails" style="display: flex; gap: 3px; overflow-x: auto; overflow-y: hidden; max-width: 100%; scrollbar-width: thin; flex: 1;">
+                <div id="basemap-thumbnails"
+                    style="display: flex; gap: 3px; overflow-x: auto; overflow-y: hidden; max-width: 100%; scrollbar-width: thin; flex: 1;">
                 </div>
                 <span class="toggle-icon" style="font-size: 10px; transition: transform 0.2s; display: none;">▼</span>
             </div>
-            <div id="basemap-list" class="scrollbar-thin"
-                style="display: none; overflow-y: auto; padding: 0 4px;"></div>
+            <div id="basemap-list" class="scrollbar-thin" style="display: none; overflow-y: auto; padding: 0 4px;">
+            </div>
         </div>
     </div>
 
@@ -668,13 +672,6 @@
                 renderLayers();
             }
 
-            if (event.data.type === 'map-layer-stack') {
-                // console.group('🗺️  Actual Map Layer Stack (from parent)');
-                // console.log('Total layers:', event.data.layerStack.length);
-                // console.log('Layer order (bottom to top):', event.data.layerStack);
-                // console.log('Layer IDs only:', event.data.layerStack.map(l => l.id || l));
-                // console.groupEnd();
-            }
         });
 
         // Setup UI event listeners
@@ -948,9 +945,6 @@
             const urlLayerOrder = new Map(); // layerId -> order index
             const urlLayers = []; // Store parsed layers for ordering
 
-            // console.log('📋 URL search params (from parent):', parentUrlSearchParams);
-            // console.log('📋 URL layers param:', layersParam);
-
             if (layersParam) {
                 // Parse layers properly handling JSON objects with commas
                 let currentItem = '';
@@ -961,7 +955,7 @@
                 for (let i = 0; i < layersParam.length; i++) {
                     const char = layersParam[i];
 
-                    if (char === '"' && (i === 0 || layersParam[i-1] !== '\\')) {
+                    if (char === '"' && (i === 0 || layersParam[i - 1] !== '\\')) {
                         inQuotes = !inQuotes;
                     }
 
@@ -1014,21 +1008,8 @@
                 }
             }
 
-            // Log URL layer order
-            // if (urlLayerOrder.size > 0) {
-            //     console.log('🔗 URL Layer Order (parsed):', Array.from(urlLayerOrder.entries()).map(([id, order]) => `${order}: ${id}`));
-            // }
-
-            // Log activeLayers received from parent
-            // console.log('📥 Active Layers (from parent):', activeLayers.map(l => l.id));
-
             // Use centralized ordering logic for inspector display
             const { overlays: overlayMaps, basemaps: baseMaps } = LayerOrderManager.getInspectorDisplayOrder(activeLayers);
-
-            // Log after LayerOrderManager processing
-            // console.log('🏗️  After LayerOrderManager.getInspectorDisplayOrder:');
-            // console.log('  Overlays:', overlayMaps.map(l => l.id));
-            // console.log('  Basemaps:', baseMaps.map(l => l.id));
 
             // Sort function: selections/hovers first, then URL order
             const sortWithActivityPriority = (a, b) => {
@@ -1048,29 +1029,6 @@
 
             overlayMaps.sort(sortWithActivityPriority);
             baseMaps.sort(sortWithActivityPriority);
-
-            // Log after sorting
-            // console.log('🔄 After Activity Priority Sort:');
-            // console.log('  Overlays:', overlayMaps.map(l => {
-            //     const hasActivity = selectedFeatures.has(l.id) || hoveredFeatures.has(l.id);
-            //     const urlOrder = urlLayerOrder.get(l.id);
-            //     return `${l.id} (activity: ${hasActivity}, url: ${urlOrder})`;
-            // }));
-            // console.log('  Basemaps:', baseMaps.map(l => {
-            //     const hasActivity = selectedFeatures.has(l.id) || hoveredFeatures.has(l.id);
-            //     const urlOrder = urlLayerOrder.get(l.id);
-            //     return `${l.id} (activity: ${hasActivity}, url: ${urlOrder})`;
-            // }));
-
-            // Request actual map layer stack from parent for comparison
-            // window.parent.postMessage({
-            //     type: 'request-map-layer-stack'
-            // }, '*');
-
-            // console.groupEnd();
-
-            // Log final render order (minimal logging)
-            console.log('✅ Inspector layers:', [...overlayMaps.map(l => l.id), ...baseMaps.map(l => l.id)].join(', '));
 
             // Update counts
             $('#overlay-count').text(`(${overlayMaps.length})`);
@@ -1339,7 +1297,7 @@
                         transition: 'transform 0.2s, opacity 0.2s'
                     },
                     title: String(labelValue),
-                    click: function(e) {
+                    click: function (e) {
                         e.stopPropagation();
                         // Expand the layer first if not already expanded
                         if (expandedLayerId !== layerConfig.id) {
@@ -1351,9 +1309,9 @@
                 });
 
                 // Hover effect
-                $badge.on('mouseenter', function() {
+                $badge.on('mouseenter', function () {
                     $(this).css({ transform: 'scale(1.1)', opacity: '0.9' });
-                }).on('mouseleave', function() {
+                }).on('mouseleave', function () {
                     $(this).css({ transform: 'scale(1)', opacity: '1' });
                 });
 
@@ -1501,7 +1459,7 @@
                             alignItems: 'center',
                             transition: 'all 0.2s'
                         },
-                        click: function(e) {
+                        click: function (e) {
                             e.stopPropagation();
                             window.parent.postMessage({
                                 type: 'zoom-to-feature',
@@ -1511,9 +1469,9 @@
                             }, '*');
                         }
                     });
-                    $zoomBtn.on('mouseenter', function() {
+                    $zoomBtn.on('mouseenter', function () {
                         $(this).css({ background: '#374151', borderColor: '#6b7280' });
-                    }).on('mouseleave', function() {
+                    }).on('mouseleave', function () {
                         $(this).css({ background: 'transparent', borderColor: '#4b5563' });
                     });
                     $title.append($zoomBtn);
@@ -1526,7 +1484,7 @@
                         const $customSection = $('<div>').addClass('feature-custom-info');
                         $customSection.html(processLinksForNewWindow(customHTML));
 
-                        $customSection.find('.api-data-loader').each(function() {
+                        $customSection.find('.api-data-loader').each(function () {
                             $(this).attr('data-layer-id', layerConfig.id);
                             $(this).attr('data-feature-id', featureId);
                         });
@@ -1589,7 +1547,7 @@
                                 width: '100%',
                                 transition: 'all 0.2s'
                             },
-                            click: function(e) {
+                            click: function (e) {
                                 e.stopPropagation();
                                 const $btn = $(this);
                                 const $container = $btn.siblings('.all-properties-container');
@@ -1606,9 +1564,9 @@
                                 }
                             }
                         });
-                        $toggleBtn.on('mouseenter', function() {
+                        $toggleBtn.on('mouseenter', function () {
                             $(this).css({ background: '#4b5563', borderColor: '#6b7280' });
-                        }).on('mouseleave', function() {
+                        }).on('mouseleave', function () {
                             $(this).css({ background: '#374151', borderColor: '#4b5563' });
                         });
 
@@ -1652,15 +1610,15 @@
                     class: 'px-2 py-1 rounded flex items-center justify-center gap-1 bg-gray-600 text-white whitespace-nowrap',
                     html: '<sl-icon name="eye" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Opacity</span>',
                     css: { 'transition': 'background 0.2s' },
-                    click: function(e) {
+                    click: function (e) {
                         e.stopPropagation();
                         const $slider = $(this).closest('.layer-card-expanded').find('.opacity-slider-row');
                         $slider.slideToggle(200);
                     }
                 });
-                $opacityBtn.on('mouseenter', function() {
+                $opacityBtn.on('mouseenter', function () {
                     $(this).css('background', '#4b5563');
-                }).on('mouseleave', function() {
+                }).on('mouseleave', function () {
                     $(this).css('background', '#6b7280');
                 });
 
@@ -1672,7 +1630,7 @@
                         class: 'px-2 py-1 rounded flex items-center justify-center gap-1 bg-gray-600 text-white whitespace-nowrap',
                         html: '<sl-icon name="geo-alt" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Zoom</span>',
                         css: { 'transition': 'background 0.2s' },
-                        click: function(e) {
+                        click: function (e) {
                             e.stopPropagation();
                             window.parent.postMessage({
                                 type: 'zoom-to-layer',
@@ -1680,9 +1638,9 @@
                             }, '*');
                         }
                     });
-                    $zoomBtn.on('mouseenter', function() {
+                    $zoomBtn.on('mouseenter', function () {
                         $(this).css('background', '#4b5563');
-                    }).on('mouseleave', function() {
+                    }).on('mouseleave', function () {
                         $(this).css('background', '#6b7280');
                     });
                 }
@@ -1695,7 +1653,7 @@
                         'background': '#dc2626',
                         'transition': 'background 0.2s'
                     },
-                    click: function(e) {
+                    click: function (e) {
                         e.stopPropagation();
                         window.parent.postMessage({
                             type: 'remove-layer',
@@ -1703,9 +1661,9 @@
                         }, '*');
                     }
                 });
-                $removeBtn.on('mouseenter', function() {
+                $removeBtn.on('mouseenter', function () {
                     $(this).css('background', '#b91c1c');
-                }).on('mouseleave', function() {
+                }).on('mouseleave', function () {
                     $(this).css('background', '#dc2626');
                 });
 
@@ -1737,7 +1695,7 @@
                         height: '20px'
                     }
                 });
-                $opacitySlider.on('input', function() {
+                $opacitySlider.on('input', function () {
                     const opacity = $(this).val() / 100;
                     window.parent.postMessage({
                         type: 'update-layer-opacity',
@@ -1900,7 +1858,7 @@
                             transition: 'transform 0.2s, opacity 0.2s'
                         },
                         title: String(labelValue),
-                        click: function(e) {
+                        click: function (e) {
                             e.stopPropagation();
                             // Expand the layer first if not already expanded
                             if (expandedLayerId !== layer.id) {
@@ -1912,9 +1870,9 @@
                     });
 
                     // Hover effect
-                    $badge.on('mouseenter', function() {
+                    $badge.on('mouseenter', function () {
                         $(this).css({ transform: 'scale(1.1)', opacity: '0.9' });
-                    }).on('mouseleave', function() {
+                    }).on('mouseleave', function () {
                         $(this).css({ transform: 'scale(1)', opacity: '1' });
                     });
 
@@ -2042,7 +2000,7 @@
                                 alignItems: 'center',
                                 transition: 'all 0.2s'
                             },
-                            click: function(e) {
+                            click: function (e) {
                                 e.stopPropagation();
                                 window.parent.postMessage({
                                     type: 'zoom-to-feature',
@@ -2052,9 +2010,9 @@
                                 }, '*');
                             }
                         });
-                        $zoomBtn.on('mouseenter', function() {
+                        $zoomBtn.on('mouseenter', function () {
                             $(this).css({ background: '#374151', borderColor: '#6b7280' });
-                        }).on('mouseleave', function() {
+                        }).on('mouseleave', function () {
                             $(this).css({ background: 'transparent', borderColor: '#4b5563' });
                         });
                         $title.append($zoomBtn);
@@ -2067,7 +2025,7 @@
                             const $customSection = $('<div>').addClass('feature-custom-info');
                             $customSection.html(processLinksForNewWindow(customHTML));
 
-                            $customSection.find('.api-data-loader').each(function() {
+                            $customSection.find('.api-data-loader').each(function () {
                                 $(this).attr('data-layer-id', layer.id);
                                 $(this).attr('data-feature-id', featureId);
                             });
@@ -2130,7 +2088,7 @@
                                     width: '100%',
                                     transition: 'all 0.2s'
                                 },
-                                click: function(e) {
+                                click: function (e) {
                                     e.stopPropagation();
                                     const $btn = $(this);
                                     const $container = $btn.siblings('.all-properties-container');
@@ -2147,9 +2105,9 @@
                                     }
                                 }
                             });
-                            $toggleBtn.on('mouseenter', function() {
+                            $toggleBtn.on('mouseenter', function () {
                                 $(this).css({ background: '#4b5563', borderColor: '#6b7280' });
-                            }).on('mouseleave', function() {
+                            }).on('mouseleave', function () {
                                 $(this).css({ background: '#374151', borderColor: '#4b5563' });
                             });
 
@@ -2186,15 +2144,15 @@
                     class: 'px-2 py-1 rounded flex items-center justify-center gap-1 bg-gray-600 text-white whitespace-nowrap',
                     html: '<sl-icon name="eye" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Opacity</span>',
                     css: { 'transition': 'background 0.2s' },
-                    click: function(e) {
+                    click: function (e) {
                         e.stopPropagation();
                         const $slider = $(this).closest('.layer-card-expanded').find('.opacity-slider-row');
                         $slider.slideToggle(200);
                     }
                 });
-                $opacityBtn.on('mouseenter', function() {
+                $opacityBtn.on('mouseenter', function () {
                     $(this).css('background', '#4b5563');
-                }).on('mouseleave', function() {
+                }).on('mouseleave', function () {
                     $(this).css('background', '#6b7280');
                 });
 
@@ -2206,7 +2164,7 @@
                         class: 'px-2 py-1 rounded flex items-center justify-center gap-1 bg-gray-600 text-white whitespace-nowrap',
                         html: '<sl-icon name="geo-alt" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Zoom</span>',
                         css: { 'transition': 'background 0.2s' },
-                        click: function(e) {
+                        click: function (e) {
                             e.stopPropagation();
                             window.parent.postMessage({
                                 type: 'zoom-to-layer',
@@ -2214,9 +2172,9 @@
                             }, '*');
                         }
                     });
-                    $zoomBtn.on('mouseenter', function() {
+                    $zoomBtn.on('mouseenter', function () {
                         $(this).css('background', '#4b5563');
-                    }).on('mouseleave', function() {
+                    }).on('mouseleave', function () {
                         $(this).css('background', '#6b7280');
                     });
                 }
@@ -2229,7 +2187,7 @@
                         'background': '#dc2626',
                         'transition': 'background 0.2s'
                     },
-                    click: function(e) {
+                    click: function (e) {
                         e.stopPropagation();
                         window.parent.postMessage({
                             type: 'remove-layer',
@@ -2237,9 +2195,9 @@
                         }, '*');
                     }
                 });
-                $removeBtn.on('mouseenter', function() {
+                $removeBtn.on('mouseenter', function () {
                     $(this).css('background', '#b91c1c');
-                }).on('mouseleave', function() {
+                }).on('mouseleave', function () {
                     $(this).css('background', '#dc2626');
                 });
 
@@ -2271,7 +2229,7 @@
                         height: '20px'
                     }
                 });
-                $opacitySlider.on('input', function() {
+                $opacitySlider.on('input', function () {
                     const opacity = $(this).val() / 100;
                     window.parent.postMessage({
                         type: 'update-layer-opacity',
