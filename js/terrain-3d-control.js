@@ -6,7 +6,7 @@ export class Terrain3DControl {
         this.options = {
             initialExaggeration: 1.5,
             minExaggeration: 0,
-            maxExaggeration: 100.0,
+            maxExaggeration: 20.0,
             step: 0.5,
             ...options
         };
@@ -276,7 +276,7 @@ export class Terrain3DControl {
         });
 
         const $soundLabel = $('<label>', {
-            text: 'Dance',
+            text: 'Dancing Terrain',
             'for': 'terrain-3d-sound',
             css: {
                 cursor: 'pointer',
@@ -323,7 +323,7 @@ export class Terrain3DControl {
         });
 
         const $sliderLabel = $('<label>', {
-            text: 'Vertical Exaggeration',
+            text: 'Vertical Terrain Scale',
             css: {
                 display: 'block',
                 marginBottom: '5px',

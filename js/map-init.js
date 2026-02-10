@@ -1,6 +1,5 @@
 import { URLManager } from './url-manager.js';
 import { TimeControl } from './time-control.js';
-import { ButtonShareLink } from './button-share-link.js';
 import { MapLayerControl } from './map-layer-controls.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { StatePersistence } from './state-persistence.js';
@@ -511,11 +510,6 @@ export class MapInitializer {
             map.addControl(new ButtonExternalMapLinks(), 'bottom-right');
             map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: true }));
             map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
-            map.addControl(new ButtonShareLink({
-                url: () => window.location.href,
-                showToast: true,
-                qrCodeSize: 500
-            }), 'bottom-right');
 
             // Show feature control panel by default on initial load
             // Show feature control panel by default on initial load

@@ -1,4 +1,5 @@
 import { TransitLayerStyles } from './transit-layer-styles.js';
+import { MapExportControl } from '../js/map-export-control.js';
 
 export class TransitMapController {
     constructor(config = {}) {
@@ -59,6 +60,7 @@ export class TransitMapController {
             showAccuracyCircle: true
         });
         this.map.addControl(this.geolocateControl, 'top-right');
+        this.map.addControl(new MapExportControl(), 'top-right');
 
         this.geolocateControl.on('geolocate', (e) => {
             console.log('📍 Geolocate event:', e.coords);

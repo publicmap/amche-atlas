@@ -230,39 +230,6 @@
             }
         }
 
-        /* ShareLink Button Styles */
-        .share-button {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem;
-            font-size: 0.875rem;
-            color: #ffffff;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            transition: all 0.2s ease;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .share-button:hover {
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.4);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .share-button:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .share-button svg {
-            width: 1rem;
-            height: 1rem;
-        }
-
         /* Toast notification styles */
         .toast-notification {
             position: fixed;
@@ -322,19 +289,8 @@
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
 
-        /* Mobile responsive styles for share button */
+        /* Mobile responsive styles */
         @media (max-width: 768px) {
-            .share-button {
-                font-size: 0;
-                gap: 0;
-                padding: 0.5rem;
-            }
-
-            .share-button svg {
-                width: 1.25rem;
-                height: 1.25rem;
-            }
-
             .city-button {
                 font-size: 0.875rem;
                 padding: 0.25rem 0.5rem;
@@ -427,8 +383,6 @@
                         Enable
                     </button>
                 </div>
-                <!-- Share button container for ShareLink plugin -->
-                <div id="share-button-container"></div>
             </div>
         </div>
     </header>
@@ -689,24 +643,8 @@
     <!-- Main Application -->
     <script type="module" src="transit-explorer.js"></script>
 
-    <!-- ShareLink plugin initialization -->
     <script type="module">
-        import { ButtonShareLink } from '/js/button-share-link.js';
-
-        // Initialize ShareLink plugin when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
-            const shareLink = new ButtonShareLink({
-                containerId: 'share-button-container',
-                url: () => window.location.href, // Dynamic URL function
-                buttonText: 'Share',
-                buttonClasses: 'share-button',
-                showToast: true,
-                qrCodeSize: 500,
-                useURLManager: false // Disable URL Manager for bus app since it has its own system
-            });
-
-            shareLink.render();
-
             // Back button handler to preserve map location
             const backButton = document.getElementById('back-button');
             if (backButton) {

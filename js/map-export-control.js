@@ -126,8 +126,114 @@ export class MapExportControl {
                 if (this._iframe.style.display !== 'none') {
                     this._frame.setAspectRatio(config.aspectRatio);
                 }
+            } else if (type === 'show-qr-fullscreen') {
+                this._showQRFullscreen(event.data.url);
             }
         });
+    }
+
+    _showQRFullscreen(url) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 20px;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '×';
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            z-index: 10001;
+            line-height: 1;
+            padding: 0;
+        `;
+
+        const content = document.createElement('div');
+        content.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            z-index: 10001;
+            pointer-events: none;
+        `;
+
+        const qrCode = document.createElement('sl-qr-code');
+        qrCode.value = url;
+        qrCode.size = 400;
+        qrCode.style.cssText = `
+            max-width: 90vw;
+            max-height: 70vh;
+        `;
+
+        const urlText = document.createElement('div');
+        urlText.textContent = url;
+        urlText.style.cssText = `
+            color: white;
+            font-size: 14px;
+            text-align: center;
+            word-break: break-all;
+            padding: 0 20px;
+            max-width: 90vw;
+            font-family: monospace;
+        `;
+
+        const closeOverlay = () => {
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        };
+
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeOverlay();
+        });
+
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeBtn.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+        });
+
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+            closeBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closeOverlay();
+            }
+        });
+
+        content.appendChild(qrCode);
+        content.appendChild(urlText);
+        overlay.appendChild(closeBtn);
+        overlay.appendChild(content);
+        document.body.appendChild(overlay);
     }
 
     _toggle() {
