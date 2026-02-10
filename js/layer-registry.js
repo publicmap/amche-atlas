@@ -71,7 +71,8 @@ export class LayerRegistry {
                     areaOfInterest: config.areaOfInterest || '',
                     description: config.description || '',
                     bbox: this._extractBbox(config),
-                    tags: config.tags || []
+                    tags: config.tags || [],
+                    headerImage: config.headerImage || null
                 });
 
                 if (config.layers && Array.isArray(config.layers)) {
@@ -232,6 +233,7 @@ export class LayerRegistry {
         this._atlasMetadata.set(atlasId, {
             ...metadata,
             tags: metadata.tags || (config && config.tags) || [],
+            headerImage: metadata.headerImage || (config && config.headerImage) || null,
             isImported: true
         });
 
@@ -443,7 +445,7 @@ export class LayerRegistry {
     }
 
     /**
-     * Resolve a layer (merge atlas-level tags into layer)
+     * Resolve a layer (merge atlas-level tags and headerImage into layer)
      */
     _resolveLayer(layer, atlasId) {
         const atlasMetadata = this._atlasMetadata.get(atlasId);
@@ -465,6 +467,11 @@ export class LayerRegistry {
                 const mergedTags = [...new Set([...atlasMetadata.tags, ...resolvedLayer.tags])];
                 resolvedLayer.tags = mergedTags;
             }
+        }
+
+        // Cascade atlas headerImage to layers if they don't have one
+        if (isCompleteDefinition && atlasMetadata.headerImage && !resolvedLayer.headerImage) {
+            resolvedLayer.headerImage = atlasMetadata.headerImage;
         }
 
         return resolvedLayer;

@@ -49,6 +49,24 @@
       "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
       "style": {
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          [
+            "get",
+            "icao"
+          ],
+          13,
+          [
+            "to-string",
+            [
+              "get",
+              "name"
+            ]
+          ]
+        ],
         "circle-radius": [
           "match",
           [
@@ -76,7 +94,16 @@
         "circle-stroke-color": "#ffffff"
       },
       "inspect": {
-        "id": "name"
+        "id": "name",
+        "title": "Airport",
+        "label": "name",
+        "fields": [
+          "name_en",
+          "name_int",
+          "iata",
+          "icao",
+          "class"
+        ]
       }
     },
     {

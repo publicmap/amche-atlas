@@ -380,6 +380,7 @@
             margin: 0;
             border-bottom: 1px solid black;
             transition: background 0.2s;
+            padding: 0 8px;
         }
 
         .atlas-collapsed-header {
@@ -387,6 +388,16 @@
             align-items: center;
             gap: 8px;
             transition: background 0.2s;
+        }
+
+        .atlas-header-image {
+            width: 100%;
+            height: auto;
+            max-height: 120px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin: 8px 0;
+            display: block;
         }
 
         .atlas-collapsed-header:hover {
@@ -1671,6 +1682,20 @@
             $header.append($configLink);
 
             $collapsed.append($header);
+
+            // Add header image if available
+            if (atlasData.headerImage) {
+                const $headerImage = $('<img>', {
+                    src: atlasData.headerImage,
+                    alt: atlasData.name || atlasId,
+                    class: 'atlas-header-image',
+                    error: function() {
+                        // Hide image if it fails to load
+                        $(this).hide();
+                    }
+                });
+                $collapsed.append($headerImage);
+            }
 
             const $layersContainer = $('<div>', {
                 class: 'atlas-collapsed-layers'

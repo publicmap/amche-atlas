@@ -21,6 +21,9 @@
   "layers": [
     {
       "id": "traffic",
+      "tags": [
+        "traffic"
+      ],
       "title": "Traffic",
       "description": "Live traffic map via <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-traffic-v1/' target='_blank'>Mapbox Traffic</a> vector tiles. Updated every 10 minutes.",
       "type": "style",
@@ -35,7 +38,6 @@
     {
       "id": "streets",
       "tags": [
-        "basemap",
         "streets"
       ],
       "title": "Mapbox Street Map",

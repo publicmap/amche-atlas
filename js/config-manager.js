@@ -94,6 +94,21 @@
  * - opacity (optional): Layer opacity (0-1)
  * - style (optional): Type-specific Mapbox GL style properties
  *
+ * ATLAS-LEVEL CONFIGURATION:
+ * --------------------------
+ * Atlas configuration files (*.atlas.json) support these properties:
+ * - name (required): Atlas display name
+ * - description (optional): Atlas description (supports HTML)
+ * - color (optional): Atlas color hex code (e.g., "#2563eb")
+ * - headerImage (optional): Header image URL displayed in atlas header and cascaded to layers as fallback
+ * - areaOfInterest (optional): Geographic area description
+ * - bbox (optional): Bounding box [west, south, east, north]
+ * - map (optional): Default map view { center: [lng, lat], zoom: number }
+ * - tags (optional): Array of tags cascaded to all layers in atlas
+ * - layers (required): Array of layer configurations
+ *
+ * Note: headerImage at atlas level cascades to all layers without their own headerImage
+ *
  * VALIDATION:
  * -----------
  * Use ConfigManager.validateLayerConfig(config) to validate any layer config.
