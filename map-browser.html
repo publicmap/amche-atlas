@@ -11,7 +11,8 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css" />
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace-autoloader.js"></script>
+    <script type="module"
+        src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace-autoloader.js"></script>
     <style>
         body {
             margin: 0;
@@ -588,6 +589,7 @@
                 transform: scale(0.9);
                 opacity: 0;
             }
+
             to {
                 transform: scale(1);
                 opacity: 1;
@@ -599,6 +601,7 @@
                 transform: scale(1);
                 opacity: 1;
             }
+
             to {
                 transform: scale(0.9);
                 opacity: 0;
@@ -627,19 +630,21 @@
             <div class="mb-2 text-sm text-gray-300 flex items-center gap-1 justify-between" style="min-width: 0;">
                 <div class="flex items-center gap-1 flex-wrap" style="min-width: 0; flex: 1;">
                     <span style="flex-shrink: 0;">Explore</span>
-                    <button id="atlas-filter-btn" style="background: #3b82f6; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 1; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis;">
+                    <button id="atlas-filter-btn"
+                        style="background: #3b82f6; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 1; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis;">
                         All Map Collections
                     </button>
                     <span style="flex-shrink: 0;">or</span>
-                    <button id="add-new-map-link" style="background: transparent; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                    <button id="add-new-map-link"
+                        style="background: transparent; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
                         <sl-icon name="plus-circle" style="font-size: 12px;"></sl-icon>
                         <span>Add Map</span>
                     </button>
                 </div>
                 <button id="close-browser-btn" class="text-white"
                     style="background: transparent; border: none; cursor: pointer; padding: 4px; opacity: 0.7; font-size: 20px; line-height: 1; flex-shrink: 0;"
-                    title="Close browser"
-                    onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</button>
+                    title="Close browser" onmouseover="this.style.opacity='1'"
+                    onmouseout="this.style.opacity='0.7'">×</button>
             </div>
 
             <!-- Main Search Bar -->
@@ -671,9 +676,11 @@
     <!-- Preview Map Modal -->
     <div id="preview-map-modal"
         style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); z-index: 9999; align-items: center; justify-content: center;">
-        <div style="background: #1f2937; border-radius: 8px; width: 90%; max-width: 600px; max-height: 80%; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);">
+        <div
+            style="background: #1f2937; border-radius: 8px; width: 90%; max-width: 600px; max-height: 80%; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);">
             <!-- Header -->
-            <div style="padding: 12px 16px; border-bottom: 1px solid #374151; display: flex; align-items: center; justify-content: space-between;">
+            <div
+                style="padding: 12px 16px; border-bottom: 1px solid #374151; display: flex; align-items: center; justify-content: space-between;">
                 <div style="color: white; font-weight: 600; font-size: 14px;">Preview & Filter Map</div>
                 <button id="close-map-modal"
                     style="width: 28px; height: 28px; border-radius: 4px; background: #374151; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;"
@@ -1051,7 +1058,7 @@
             const container = $('#layer-container')[0];
             if (container) {
                 let scrollTimeout;
-                $(container).on('scroll', function() {
+                $(container).on('scroll', function () {
                     clearTimeout(scrollTimeout);
                     scrollTimeout = setTimeout(updateActiveNavLink, 100);
                 });
@@ -1072,7 +1079,7 @@
             let activeAtlasId = null;
 
             // Find the last atlas section that has scrolled past the threshold
-            $('.atlas-collapsed').each(function() {
+            $('.atlas-collapsed').each(function () {
                 const $section = $(this);
                 const atlasId = $section.attr('id')?.replace('atlas-', '');
                 if (!atlasId) return;
@@ -1123,7 +1130,7 @@
             const $allOption = $('<div>', {
                 class: 'atlas-menu-item',
                 style: 'padding: 8px 12px; cursor: pointer; color: white; font-size: 12px; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;',
-                click: function() {
+                click: function () {
                     selectAtlas('', 'All Map Collections');
                     $('.atlas-filter-menu').remove();
                 }
@@ -1136,9 +1143,9 @@
             if (!window.selectedAtlasId) {
                 $allOption.css('background-color', '#4b5563');
             }
-            $allOption.on('mouseenter', function() {
+            $allOption.on('mouseenter', function () {
                 $(this).css('background-color', '#4b5563');
-            }).on('mouseleave', function() {
+            }).on('mouseleave', function () {
                 if (window.selectedAtlasId || $(this).text() !== 'All Map Collections') {
                     $(this).css('background-color', '');
                 }
@@ -1176,7 +1183,7 @@
                 const $option = $('<div>', {
                     class: 'atlas-menu-item',
                     style: `padding: 8px 12px; cursor: pointer; color: white; font-size: 12px; transition: all 0.2s; display: flex; align-items: center; gap: 6px; opacity: ${hasInViewLayers ? '1' : '0.7'};`,
-                    click: function() {
+                    click: function () {
                         selectAtlas(id, metadata.name || id);
                         $('.atlas-filter-menu').remove();
                     }
@@ -1202,9 +1209,9 @@
                 if (window.selectedAtlasId === id) {
                     $option.css('background-color', '#4b5563');
                 }
-                $option.on('mouseenter', function() {
+                $option.on('mouseenter', function () {
                     $(this).css({ 'background-color': '#4b5563', 'opacity': '1' });
-                }).on('mouseleave', function() {
+                }).on('mouseleave', function () {
                     const baseOpacity = hasInViewLayers ? '1' : '0.7';
                     if (window.selectedAtlasId !== id) {
                         $(this).css({ 'background-color': '', 'opacity': baseOpacity });
@@ -1220,7 +1227,7 @@
 
             // Close menu when clicking outside
             setTimeout(() => {
-                $(document).one('click', function(e) {
+                $(document).one('click', function (e) {
                     if (!$(e.target).closest('.atlas-filter-menu, #atlas-filter-btn').length) {
                         $('.atlas-filter-menu').remove();
                     }
@@ -1299,13 +1306,9 @@
                 return true;
             });
 
-            renderLayerGrid(filtered);
+            renderLayerGrid(filtered, searchTerm);
             updateResultsCount(filtered, allLayers.length);
 
-            // Process Bhunaksha loaders after DOM updates
-            requestAnimationFrame(() => {
-                setTimeout(processBhunakshaLoaders, 50);
-            });
         }
 
         // Check if layer matches search
@@ -1353,7 +1356,7 @@
         }
 
         // Render layer grid
-        function renderLayerGrid(layers) {
+        function renderLayerGrid(layers, searchTerm = '') {
             const $grid = $('#layer-grid');
             $grid.empty();
 
@@ -1374,6 +1377,9 @@
 
             // Get all atlas IDs
             const atlasIds = Object.keys(byAtlas);
+
+            // Determine which atlases should be expanded based on search
+            const atlasIdsWithResults = new Set(atlasIds);
 
             // Separate atlases into in-view and out-of-view
             const inViewAtlasIds = [];
@@ -1439,7 +1445,7 @@
                         'data-atlas': atlasId,
                         style: `background-color: ${atlasColor};`,
                         html: `${atlasName} <span class="count">(${count})</span>`,
-                        click: function(e) {
+                        click: function (e) {
                             e.preventDefault();
                             // Expand this atlas
                             expandedAtlasId = atlasId;
@@ -1479,7 +1485,7 @@
                         'data-atlas': atlasId,
                         style: `background-color: ${atlasColor}; opacity: 0.6;`,
                         html: `${atlasName} <span class="count">(${count})</span>`,
-                        click: function(e) {
+                        click: function (e) {
                             e.preventDefault();
                             // Expand this atlas
                             expandedAtlasId = atlasId;
@@ -1510,7 +1516,7 @@
             inViewAtlasIds.forEach(atlasId => {
                 const atlasData = atlasMetadata.get(atlasId) || {};
                 const atlasLayers = byAtlas[atlasId];
-                renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid);
+                renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid, searchTerm, atlasIdsWithResults);
             });
 
             // Add separator between in-view and out-of-view if both exist
@@ -1526,7 +1532,7 @@
             outOfViewAtlasIds.forEach(atlasId => {
                 const atlasData = atlasMetadata.get(atlasId) || {};
                 const atlasLayers = byAtlas[atlasId];
-                renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid);
+                renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid, searchTerm, atlasIdsWithResults);
             });
 
             // Add "Show all collections" link at the bottom if an atlas is currently selected
@@ -1539,15 +1545,15 @@
                     href: '#',
                     style: 'color: #9ca3af; font-size: 13px; text-decoration: none; cursor: pointer; transition: color 0.2s;',
                     html: '← Show results from all collections',
-                    click: function(e) {
+                    click: function (e) {
                         e.preventDefault();
                         selectAtlas('', 'All Map Collections');
                     }
                 });
 
-                $showAllLink.on('mouseenter', function() {
+                $showAllLink.on('mouseenter', function () {
                     $(this).css({ 'color': '#d1d5db', 'text-decoration': 'underline' });
-                }).on('mouseleave', function() {
+                }).on('mouseleave', function () {
                     $(this).css({ 'color': '#9ca3af', 'text-decoration': 'none' });
                 });
 
@@ -1560,8 +1566,10 @@
         }
 
         // Render atlas in collapsed view
-        function renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid) {
-            const isExpanded = expandedAtlasId === atlasId;
+        function renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid, searchTerm = '', atlasIdsWithResults = new Set()) {
+            // When searching, expand all atlases with results
+            // Otherwise, use the single-expand behavior
+            const isExpanded = searchTerm ? atlasIdsWithResults.has(atlasId) : expandedAtlasId === atlasId;
 
             const $collapsed = $('<div>', {
                 class: 'atlas-collapsed',
@@ -1571,9 +1579,17 @@
             const $header = $('<div>', {
                 class: 'atlas-collapsed-header',
                 style: 'cursor: pointer; padding: 8px 0;',
-                click: function(e) {
+                click: function (e) {
                     // Don't toggle if clicking on links or buttons
                     if ($(e.target).closest('a, button').length) return;
+
+                    // If currently searching, clear search and set this atlas as the only expanded one
+                    if (searchTerm) {
+                        $('#search-input').val('').trigger('input');
+                        expandedAtlasId = atlasId;
+                        userCollapsedAll = false;
+                        return;
+                    }
 
                     // Toggle expansion - only one atlas can be expanded at a time
                     if (expandedAtlasId === atlasId) {
@@ -1625,7 +1641,7 @@
                     html: '🔍',
                     title: 'Zoom to atlas',
                     style: 'background: #4b5563; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.2s; margin-right: 4px;',
-                    click: function(e) {
+                    click: function (e) {
                         e.stopPropagation();
                         window.parent.postMessage({
                             type: 'zoom-to-bounds',
@@ -1633,9 +1649,9 @@
                         }, '*');
                     }
                 });
-                $zoomBtn.on('mouseenter', function() {
+                $zoomBtn.on('mouseenter', function () {
                     $(this).css('background', '#6b7280');
-                }).on('mouseleave', function() {
+                }).on('mouseleave', function () {
                     $(this).css('background', '#4b5563');
                 });
                 $header.append($zoomBtn);
@@ -1650,9 +1666,9 @@
                 html: '🔗',
                 title: 'View config file',
                 style: 'text-decoration: none; opacity: 0.6; transition: opacity 0.2s;',
-                click: function(e) { e.stopPropagation(); },
-                mouseenter: function() { $(this).css('opacity', 1); },
-                mouseleave: function() { $(this).css('opacity', 0.6); }
+                click: function (e) { e.stopPropagation(); },
+                mouseenter: function () { $(this).css('opacity', 1); },
+                mouseleave: function () { $(this).css('opacity', 0.6); }
             });
             $header.append($configLink);
 
@@ -1711,7 +1727,7 @@
                         $expandedContainer.append($card);
 
                         // Update click handler to collapse instead
-                        $card.off('click').on('click', function(e) {
+                        $card.off('click').on('click', function (e) {
                             if (!$(e.target).closest('button').length) {
                                 // Trigger collapse animation
                                 $expandedContainer.addClass('collapsing');
@@ -1740,7 +1756,7 @@
 
                         const $content = $('<div>', {
                             class: 'atlas-collapsed-layer-content',
-                            click: function(e) {
+                            click: function (e) {
                                 // If there are other expanded layers, collapse them first with animation
                                 if (expandedLayers.size > 0 && !expandedLayers.has(layer.id)) {
                                     // Trigger collapse animation for all expanded layers
@@ -1797,7 +1813,7 @@
                                 class: 'atlas-collapsed-layer-btn zoom',
                                 html: '🔍',
                                 title: 'Zoom to layer',
-                                click: function(e) {
+                                click: function (e) {
                                     e.stopPropagation();
                                     zoomToLayer(layer);
                                 }
@@ -1809,7 +1825,7 @@
                             class: 'atlas-collapsed-layer-btn toggle' + (isActive ? '' : ' inactive'),
                             html: isActive ? '<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Added</span>' : '<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Add</span>',
                             title: isActive ? 'Remove from map' : 'Add to map',
-                            click: function(e) {
+                            click: function (e) {
                                 e.stopPropagation();
                                 toggleLayer(layer.id);
                             }
@@ -1821,9 +1837,9 @@
 
                         // On hover, switch to attribution (plain text only)
                         if (cleanDesc && cleanAttr) {
-                            $layerPreview.on('mouseenter', function() {
+                            $layerPreview.on('mouseenter', function () {
                                 $meta.text(cleanAttr);
-                            }).on('mouseleave', function() {
+                            }).on('mouseleave', function () {
                                 $meta.text(cleanDesc);
                             });
                         }
@@ -1854,11 +1870,11 @@
                 '<sl-icon name="dash-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Remove</span>' :
                 '<sl-icon name="dash-circle" style="font-size: 14px;"></sl-icon><span>Remove</span>';
 
-            $btn.on('mouseenter', function() {
+            $btn.on('mouseenter', function () {
                 $(this).addClass('active-hover').html(removeHtml);
             });
 
-            $btn.on('mouseleave', function() {
+            $btn.on('mouseleave', function () {
                 $(this).removeClass('active-hover').html(addedHtml);
             });
         }
@@ -2321,74 +2337,6 @@
         // Hide preview map modal
         function hidePreviewMapModal() {
             $('#preview-map-modal').css('display', 'none');
-        }
-
-        // Process Bhunaksha loaders
-        async function processBhunakshaLoaders() {
-            const loaders = document.querySelectorAll('.bhunaksha-loader');
-            console.log(`[Browser] Processing ${loaders.length} Bhunaksha loaders`);
-
-            for (const loader of loaders) {
-                const apiUrl = loader.getAttribute('data-api-url');
-                if (!apiUrl) continue;
-
-                loader.classList.remove('bhunaksha-loader');
-
-                try {
-                    const response = await fetch(apiUrl);
-                    const data = await response.json();
-
-                    if (data.info && data.has_data === 'Y') {
-                        const info = data.info;
-
-                        const $content = $('<div>', {
-                            style: 'font-size: 12px; color: #1f2937;'
-                        });
-
-                        $content.append($('<div>', {
-                            style: 'margin-bottom: 8px; font-weight: 600; color: #111827;',
-                            html: `Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #3b82f6;">Goa Bhunaksha</a>`
-                        }));
-
-                        if (info.occupancy_land_name) {
-                            $content.append($('<div>', {
-                                style: 'margin-bottom: 4px;',
-                                html: `<strong>Occupant:</strong> ${info.occupancy_land_name}`
-                            }));
-                        }
-
-                        if (info.occupant_type) {
-                            $content.append($('<div>', {
-                                style: 'margin-bottom: 4px;',
-                                html: `<strong>Type:</strong> ${info.occupant_type}`
-                            }));
-                        }
-
-                        if (info.survey_no) {
-                            $content.append($('<div>', {
-                                style: 'margin-bottom: 4px;',
-                                html: `<strong>Survey No:</strong> ${info.survey_no}`
-                            }));
-                        }
-
-                        if (info.area_in_sqm) {
-                            const areaHa = (parseFloat(info.area_in_sqm) / 10000).toFixed(2);
-                            $content.append($('<div>', {
-                                style: 'margin-bottom: 4px;',
-                                html: `<strong>Area:</strong> ${info.area_in_sqm} m² (${areaHa} ha)`
-                            }));
-                        }
-
-                        loader.innerHTML = '';
-                        $(loader).append($content);
-                    } else {
-                        loader.innerHTML = '<div style="color: #9ca3af; font-size: 12px;">No occupant details available</div>';
-                    }
-                } catch (error) {
-                    console.error('[Browser] Error fetching Bhunaksha details:', error);
-                    loader.innerHTML = '<div style="color: #dc2626; font-size: 12px;">Error loading occupant details</div>';
-                }
-            }
         }
 
         // Strip all HTML tags including links, return plain text

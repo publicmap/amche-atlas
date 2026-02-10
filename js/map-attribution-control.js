@@ -249,8 +249,8 @@ export class MapAttributionControl {
                 const lng = center.lng.toFixed(6);
                 const zoomRounded = Math.round(zoom);
 
-                const locationUrl = `https://www.openstreetmap.org/search?lat=${lat}&lon=${lng}&zoom=${zoomRounded}#map=${zoomRounded}/${lat}/${lng}`;
-                const locationAttribution = `<a href="${locationUrl}" target="_blank" rel="noopener noreferrer" title="View on OpenStreetMap">📍 ${this._locationName}</a>`;
+                const locationUrl = `https://nominatim.openstreetmap.org/ui/reverse.html?format=html&lat=${lat}&lon=${lng}&zoom=${zoomRounded}`;
+                const locationAttribution = `<a href="${locationUrl}" target="_blank" rel="noopener noreferrer" title="View on Nominatim"><strong>📍 ${this._locationName}</strong></a>`;
                 processed.add(locationAttribution);
             }
 

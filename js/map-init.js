@@ -556,6 +556,39 @@ export class MapInitializer {
             // Make URL manager globally accessible for ShareLink
             window.urlManager = urlManager;
 
+            // Update attribution with location name on map movement
+            let reverseGeocodeTimeout;
+            const updateAttributionLocation = async () => {
+                try {
+                    const center = map.getCenter();
+                    const zoom = map.getZoom();
+                    const latRounded = Math.round(center.lat * 100000) / 100000;
+                    const lngRounded = Math.round(center.lng * 100000) / 100000;
+                    const nominatimZoom = Math.max(0, Math.min(18, Math.round(zoom)));
+                    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latRounded}&lon=${lngRounded}&zoom=${nominatimZoom}&addressdetails=1`;
+
+                    const response = await fetch(url, {
+                        headers: { 'User-Agent': 'AMChe-Goa-Map/1.0' }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.display_name && window.attributionControl) {
+                            window.attributionControl.setLocation(data.display_name);
+                        }
+                    }
+                } catch (e) {
+                    console.debug('Reverse geocoding failed', e);
+                }
+            };
+
+            map.on('moveend', () => {
+                clearTimeout(reverseGeocodeTimeout);
+                reverseGeocodeTimeout = setTimeout(updateAttributionLocation, 1000);
+            });
+
+            updateAttributionLocation();
+
             // Only set camera position if there's no hash in URL
             if (!window.location.hash) {
                 setTimeout(() => {

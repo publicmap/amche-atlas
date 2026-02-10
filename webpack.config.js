@@ -53,6 +53,7 @@ module.exports = {
                 },
                 { from: 'map-browser.html', to: 'map-browser.html' },
                 { from: 'map-creator.html', to: 'map-creator.html' },
+                { from: 'map-export.html', to: 'map-export.html' },
                 { from: 'map-inspector.html', to: 'map-inspector.html' },
                 { from: 'map-information.html', to: 'map-information.html' },
                 { from: 'pdf-layout.html', to: 'pdf-layout.html' },

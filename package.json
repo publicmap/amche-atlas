@@ -55,6 +55,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.4",
     "lz-string": "^1.5.0",
+    "tokml": "^0.4.0",
     "webpack": "^5.103.0"
   }
 }

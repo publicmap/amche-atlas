@@ -25,6 +25,7 @@ export default defineConfig({
         main: 'index.html',
         'map-browser': 'map-browser.html',
         'map-creator': 'map-creator.html',
+        'map-export': 'map-export.html',
         'map-inspector': 'map-inspector.html',
         'map-information': 'map-information.html',
         'pdf-layout': 'pdf-layout.html'
