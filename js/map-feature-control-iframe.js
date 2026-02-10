@@ -350,7 +350,7 @@ export class MapFeatureControl {
      * Setup message listener for iframe communication
      */
     _setupMessageListener() {
-        window.addEventListener('message', (event) => {
+        window.addEventListener('message', async (event) => {
             if (event.data.type === 'inspector-ready') {
                 this._isIframeReady = true;
                 this._inspectorInitialized = true;
@@ -371,7 +371,7 @@ export class MapFeatureControl {
             } else if (event.data.type === 'zoom-to-layer') {
                 this._zoomToLayer(event.data.layerId);
             } else if (event.data.type === 'remove-layer') {
-                this._removeLayer(event.data.layerId);
+                await this._removeLayer(event.data.layerId);
             } else if (event.data.type === 'inspector-height-change') {
                 this._adjustPanelHeight(event.data);
             } else if (event.data.type === 'close-panel') {
@@ -1215,7 +1215,7 @@ export class MapFeatureControl {
     /**
      * Remove a layer
      */
-    _removeLayer(layerId) {
+    async _removeLayer(layerId) {
         const mapLayerControl = window.layerControl;
         if (!mapLayerControl) {
             console.warn('[MapFeatureControl] Layer control not available');
@@ -1254,8 +1254,12 @@ export class MapFeatureControl {
         const checkbox = groupElement.querySelector('.toggle-switch input[type="checkbox"]');
         if (checkbox && checkbox.checked) {
             checkbox.checked = false;
-            groupElement.hide();
-            mapLayerControl._toggleLayerGroup(groupIndex, false);
+            $(groupElement).hide();
+            await mapLayerControl._toggleLayerGroup(groupIndex, false);
+
+            if (window.urlManager) {
+                window.urlManager.updateURL();
+            }
         }
 
         this._sendDataToIframe();

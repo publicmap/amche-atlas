@@ -530,7 +530,7 @@ export class MapLayerControl {
                 }
 
                 // For style layers, ensure sublayers are properly synchronized
-                if (group.type === 'style' && group.layers) {
+                if (group.type === 'style' && group.layers && this._container) {
                     // Find the group header element to sync sublayer toggles
                     const groupElement = this._container.querySelector(`[data-layer-id="${group.id}"]`);
                     if (groupElement) {
@@ -567,6 +567,18 @@ export class MapLayerControl {
                         console.warn('[LayerControl] Attribution control not available');
                     }
                 }, 50);
+
+                // Trigger layer-toggled event for layer removal
+                window.dispatchEvent(new CustomEvent('layer-toggled', {
+                    detail: { layerId: group.id, visible: false }
+                }));
+
+                // Update URL if urlManager is available
+                if (window.urlManager) {
+                    setTimeout(() => {
+                        window.urlManager.updateURL();
+                    }, 50);
+                }
             }
         } catch (error) {
             console.error(`Error toggling layer group ${group.id}:`, error);

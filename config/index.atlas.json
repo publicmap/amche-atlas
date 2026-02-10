@@ -25,7 +25,6 @@
     "mumbai",
     "bombay",
     "bengaluru",
-    "madras",
     "gurugram",
     "maharashtra",
     "telangana",
@@ -73,7 +72,6 @@
   "layers": [
     {
       "id": "mapbox-streets",
-      "title": "Street Map रस्त्याचो नकासो",
       "initiallyChecked": true
     },
     {

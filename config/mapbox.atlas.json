@@ -114,6 +114,22 @@
     },
     {
       "initiallyChecked": true,
+      "id": "terrain-v2",
+      "tags": [
+        "terrain"
+      ],
+      "type": "vector",
+      "title": "Mapbox Terrain And Contours",
+      "description": "Mapbox Terrain And Contours. See <a href='https://docs.mapbox.com/help/dive-deeper/imagery/'>Mapbox Terrain And Contours</a> for details.",
+      "headerImage": "assets/map-layers/mapbox/map-layer-satellite.png",
+      "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
+      "url": "mapbox://mapbox.mapbox-terrain-v2",
+      "style": {
+        "line-width": 2
+      }
+    },
+    {
+      "initiallyChecked": true,
       "id": "satellite",
       "tags": [
         "basemap",

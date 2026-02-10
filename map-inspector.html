@@ -845,6 +845,15 @@
 
         // Check if layer is in current view
         function isInView(layer) {
+            // If layer has no bbox, check if it should inherit atlas bbox
+            if (!layer.bbox && layer._sourceAtlas && layerRegistry) {
+                const atlasMetadata = layerRegistry._atlasMetadata?.get(layer._sourceAtlas);
+                if (atlasMetadata?.bbox) {
+                    // Create a temporary layer object with atlas bbox for checking
+                    const layerWithAtlasBbox = { ...layer, bbox: atlasMetadata.bbox };
+                    return MapUtils.isLayerInView(layerWithAtlasBbox, currentBounds);
+                }
+            }
             return MapUtils.isLayerInView(layer, currentBounds);
         }
 
