@@ -7,6 +7,7 @@ export class MapExportControl {
         this._iframe = null;
         this._frame = null;
         this._isExporting = false;
+        this._exportCancelled = false;
         this._title = '';
         this._description = '';
         this._titleCustomized = false;
@@ -53,6 +54,9 @@ export class MapExportControl {
         if (this._frame) {
             this._frame.remove();
         }
+        if (this._processingOverlay && this._processingOverlay.parentNode) {
+            this._processingOverlay.parentNode.removeChild(this._processingOverlay);
+        }
         if (this._iframe && this._iframe.parentNode) {
             this._iframe.parentNode.removeChild(this._iframe);
         }
@@ -98,6 +102,20 @@ export class MapExportControl {
         `;
         document.body.appendChild(this._iframe);
 
+        this._processingOverlay = document.createElement('div');
+        this._processingOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(2px);
+            z-index: 999;
+            display: none;
+        `;
+        document.body.appendChild(this._processingOverlay);
+
         window.addEventListener('message', (event) => {
             if (event.source !== this._iframe.contentWindow) return;
 
@@ -128,6 +146,18 @@ export class MapExportControl {
                 }
             } else if (type === 'show-qr-fullscreen') {
                 this._showQRFullscreen(event.data.url);
+            } else if (type === 'export-cancel') {
+                this._exportCancelled = true;
+            } else if (type === 'processing-overlay-show') {
+                if (this._processingOverlay) {
+                    this._processingOverlay.style.display = 'block';
+                    this._iframe.style.zIndex = '1001';
+                }
+            } else if (type === 'processing-overlay-hide') {
+                if (this._processingOverlay) {
+                    this._processingOverlay.style.display = 'none';
+                    this._iframe.style.zIndex = '1000';
+                }
             }
         });
     }
@@ -341,6 +371,7 @@ export class MapExportControl {
 
     async _handleExport(config) {
         this._isExporting = true;
+        this._exportCancelled = false;
         this._sendProgress(5, 'Starting export');
 
         try {
@@ -366,13 +397,21 @@ export class MapExportControl {
                 await this._exportDXF(config);
             }
 
-            this._sendProgress(100, 'Export complete');
-            this._hide();
+            if (this._exportCancelled) {
+                this._sendProgress(-1, 'Export cancelled');
+            } else {
+                this._sendProgress(100, 'Export complete');
+            }
         } catch (error) {
-            console.error('Export failed:', error);
-            this._sendProgress(-1, `Export failed: ${error.message}`);
+            if (this._exportCancelled) {
+                this._sendProgress(-1, 'Export cancelled');
+            } else {
+                console.error('Export failed:', error);
+                this._sendProgress(-1, `Export failed: ${error.message}`);
+            }
         } finally {
             this._isExporting = false;
+            this._exportCancelled = false;
         }
     }
 
@@ -574,6 +613,10 @@ export class MapExportControl {
         return new Promise((resolve, reject) => {
             const capture = async () => {
                 try {
+                    if (this._exportCancelled) {
+                        throw new Error('Export cancelled');
+                    }
+
                     this._sendProgress(50, 'Capturing map');
                     const canvas = this._map.getCanvas();
                     const imgData = canvas.toDataURL('image/png');
@@ -1004,8 +1047,501 @@ export class MapExportControl {
     }
 
     async _exportDXF(config) {
-        this._sendProgress(20, 'Preparing DXF export');
-        alert('DXF export coming soon');
+        const { DXFConverter } = await import('./dxf-converter.js');
+        const { DXFCoordinateTransformer } = await import('./dxf-coordinate-transformer.js');
+
+        this._sendProgress(10, 'Preparing data');
+
+        if (!config.includeRaster) {
+            let features;
+            let filename;
+
+            if (config.exportSelectedOnly && this._hasSelectedFeatures()) {
+                const selectedFeatures = this._getSelectedFeatures();
+                features = selectedFeatures.map(item => item.feature);
+                filename = this._generateFilenameFromFeatures(selectedFeatures, 'dxf');
+            } else {
+                features = this._map.queryRenderedFeatures();
+                filename = this._generateFilename('dxf');
+            }
+
+            this._sendProgress(30, 'Converting coordinates');
+
+            const mapCenter = this._map.getCenter();
+            const transformer = new DXFCoordinateTransformer({
+                coordSystem: config.coordSystem || 'local',
+                mapCenter: mapCenter,
+                map: this._map
+            });
+
+            const transformedFeatures = transformer.transformFeatures(features);
+
+            this._sendProgress(60, 'Generating DXF');
+
+            const geojson = {
+                type: 'FeatureCollection',
+                features: transformedFeatures
+            };
+
+            const dxfContent = DXFConverter.geoJsonToDxf(geojson, {
+                title: this._title || 'Exported Features',
+                coordSystem: config.coordSystem || 'local',
+                units: transformer.getUnits()
+            });
+
+            this._sendProgress(90, 'Downloading');
+
+            this._downloadFile(dxfContent, filename, 'application/dxf');
+        } else {
+            await this._exportDXFHybrid(config);
+        }
+
+        this._sendProgress(100, 'Complete');
+    }
+
+    async _exportDXFHybrid(config) {
+        const { DXFConverter } = await import('./dxf-converter.js');
+        const { DXFCoordinateTransformer } = await import('./dxf-coordinate-transformer.js');
+
+        this._sendProgress(10, 'Preparing capture');
+
+        if (this._exportCancelled) {
+            throw new Error('Export cancelled');
+        }
+
+        if (!this._frame || !this._frame._el) {
+            throw new Error('Export frame is not initialized');
+        }
+
+        const frameRect = this._frame._el.getBoundingClientRect();
+
+        if (!frameRect.width || !frameRect.height || frameRect.width === 0 || frameRect.height === 0) {
+            throw new Error('Export frame dimensions are invalid. Please ensure the frame is visible before exporting.');
+        }
+
+        const originalStyle = this._map.getContainer().style.cssText;
+        const originalCenter = this._map.getCenter();
+        const originalZoom = this._map.getZoom();
+        const originalBearing = this._map.getBearing();
+        const originalPitch = this._map.getPitch();
+
+        let terrainControl = null;
+        let originalTerrainEnabled = false;
+
+        const controls = this._map._controls || [];
+        for (const control of controls) {
+            if (control.constructor.name === 'Terrain3DControl') {
+                terrainControl = control;
+                originalTerrainEnabled = control.getEnabled();
+                break;
+            }
+        }
+
+        const mapRect = this._map.getContainer().getBoundingClientRect();
+
+        const frameCenterX = (frameRect.left + frameRect.width / 2) - mapRect.left;
+        const frameCenterY = (frameRect.top + frameRect.height / 2) - mapRect.top;
+        const frameWidth = frameRect.width;
+        const frameHeight = frameRect.height;
+
+        this._sendProgress(15, 'Resetting camera');
+
+        if (terrainControl && originalTerrainEnabled) {
+            terrainControl.setEnabled(false);
+        }
+
+        const needsReset = originalBearing !== 0 || originalPitch !== 0;
+
+        if (needsReset) {
+            this._map.setBearing(0);
+            this._map.setPitch(0);
+
+            await Promise.race([
+                new Promise(resolve => this._map.once('moveend', resolve)),
+                new Promise(resolve => setTimeout(resolve, 1000))
+            ]);
+        }
+
+        this._sendProgress(20, 'Calculating frame bounds');
+
+        const frameCenter = this._map.unproject([frameCenterX, frameCenterY]);
+
+        this._sendProgress(30, 'Processing raster layers');
+
+        this._frame.hide();
+
+        const widthMm = config.width;
+        const heightMm = config.height;
+        const dpi = config.dpi || 96;
+        const targetWidth = Math.round((widthMm * dpi) / 25.4);
+        const targetHeight = Math.round((heightMm * dpi) / 25.4);
+
+        const container = this._map.getContainer();
+        Object.assign(container.style, {
+            width: targetWidth + 'px',
+            height: targetHeight + 'px',
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            zIndex: '-9999'
+        });
+
+        this._map.resize();
+
+        const scaleFactor = targetWidth / frameWidth;
+        const newZoom = originalZoom + Math.log2(scaleFactor);
+
+        this._map.jumpTo({
+            center: frameCenter,
+            zoom: newZoom,
+            bearing: 0,
+            pitch: 0,
+            animate: false
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        await new Promise(resolve => {
+            this._map.once('idle', resolve);
+        });
+
+        this._sendProgress(50, 'Rendering raster');
+
+        if (this._exportCancelled) {
+            throw new Error('Export cancelled');
+        }
+
+        const nw = this._map.unproject([0, 0]);
+        const se = this._map.unproject([targetWidth, targetHeight]);
+
+        const canvas = this._map.getCanvas();
+        let imageDataUrl = canvas.toDataURL('image/png');
+
+        const actualPixelWidth = canvas.width;
+        const actualPixelHeight = canvas.height;
+
+        this._sendProgress(52, 'Adding attribution');
+
+        imageDataUrl = await this._addFooterToRaster(imageDataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing);
+
+        this._sendProgress(55, 'Extracting vector features');
+
+        const features = this._map.queryRenderedFeatures();
+        const filteredFeatures = features.filter(feature => {
+            if (feature.geometry.type === 'Point') {
+                const [lng, lat] = feature.geometry.coordinates;
+                return lng >= nw.lng && lng <= se.lng && lat <= nw.lat && lat >= se.lat;
+            }
+            return true;
+        });
+
+        this._sendProgress(60, 'Calculating dimensions');
+
+        const transformer = new DXFCoordinateTransformer({
+            coordSystem: config.coordSystem || 'local',
+            mapCenter: frameCenter,
+            map: this._map,
+            bounds: { nw, se }
+        });
+
+        const transformedNW = transformer._transformCoordinate([nw.lng, nw.lat, 0]);
+        const transformedSE = transformer._transformCoordinate([se.lng, se.lat, 0]);
+
+        const imageDimensions = {
+            width: Math.abs(transformedSE[0] - transformedNW[0]),
+            height: Math.abs(transformedNW[1] - transformedSE[1])
+        };
+
+        container.style.cssText = originalStyle;
+        this._map.resize();
+        this._map.jumpTo({
+            center: originalCenter,
+            zoom: originalZoom,
+            bearing: originalBearing,
+            pitch: originalPitch
+        });
+
+        if (terrainControl && originalTerrainEnabled) {
+            terrainControl.setEnabled(true);
+        }
+
+        this._frame.show();
+
+        this._sendProgress(70, 'Converting coordinates');
+
+        const transformedFeatures = transformer.transformFeatures(filteredFeatures);
+
+        this._sendProgress(85, 'Generating DXF');
+
+        const geojson = {
+            type: 'FeatureCollection',
+            features: transformedFeatures
+        };
+
+        let baseFilename = this._generateFilename('dxf').replace('.dxf', '');
+        const rasterFilename = `${baseFilename}_raster.png`;
+
+        const dxfContent = DXFConverter.geoJsonToDxf(geojson, {
+            title: this._title || 'Map Export',
+            coordSystem: config.coordSystem || 'local',
+            units: transformer.getUnits(),
+            rasterImage: {
+                dataUrl: imageDataUrl,
+                width: imageDimensions.width,
+                height: imageDimensions.height,
+                position: [0, 0],
+                filename: rasterFilename,
+                pixelWidth: actualPixelWidth,
+                pixelHeight: actualPixelHeight
+            }
+        });
+
+        this._sendProgress(90, 'Downloading DXF');
+
+        this._downloadFile(dxfContent, `${baseFilename}.dxf`, 'application/dxf');
+
+        this._sendProgress(93, 'Downloading raster');
+
+        const imageBlob = await fetch(imageDataUrl).then(r => r.blob());
+        this._downloadFile(imageBlob, rasterFilename, 'image/png');
+
+        this._sendProgress(95, 'Creating world file');
+
+        const worldFileContent = this._generateWorldFile(imageDimensions, transformer, frameCenter, actualPixelWidth, actualPixelHeight);
+        this._downloadFile(worldFileContent, `${baseFilename}_raster.pgw`, 'text/plain');
+    }
+
+    async _addFooterToRaster(mapImageDataUrl, width, height, center, bearing) {
+        try {
+            const html2canvas = (await import('html2canvas')).default;
+
+            let shareUrl = window.location.href;
+            if (window.urlManager) {
+                shareUrl = window.urlManager.getShareableURL();
+            }
+
+            const qrDataUrl = await this._getQRCodeDataUrl(shareUrl);
+
+            let attributionText = '';
+            const attribCtrl = this._map._controls.find(c => c._container && c._container.classList.contains('mapboxgl-ctrl-attrib'));
+            if (attribCtrl) {
+                attributionText = attribCtrl._container.textContent;
+            }
+
+            const container = document.createElement('div');
+            container.style.position = 'fixed';
+            container.style.left = '-9999px';
+            container.style.top = '0';
+            container.style.width = width + 'px';
+            container.style.height = height + 'px';
+            container.style.background = '#ffffff';
+            document.body.appendChild(container);
+
+            const mapImg = document.createElement('img');
+            mapImg.src = mapImageDataUrl;
+            mapImg.style.width = '100%';
+            mapImg.style.height = '100%';
+            mapImg.style.display = 'block';
+            container.appendChild(mapImg);
+
+            await new Promise(resolve => {
+                mapImg.onload = resolve;
+                if (mapImg.complete) resolve();
+            });
+
+            const footerBox = document.createElement('div');
+            footerBox.style.cssText = 'position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.7); color: white; padding: 8px; box-sizing: border-box; display: flex; gap: 16px; align-items: center;';
+
+            const qrContainer = document.createElement('div');
+            qrContainer.style.cssText = 'flex: 0 0 auto;';
+            const qrImg = document.createElement('img');
+            qrImg.src = qrDataUrl;
+            qrImg.style.cssText = 'width: 80px; height: 80px; display: block;';
+            qrContainer.appendChild(qrImg);
+            footerBox.appendChild(qrContainer);
+
+            const textContainer = document.createElement('div');
+            textContainer.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0;';
+
+            if (this._title) {
+                const titleEl = document.createElement('div');
+                titleEl.innerHTML = this._title.replace(/<br\s*\/?>/gi, '<br>');
+                titleEl.style.cssText = 'font-size: 16px; font-weight: bold; color: white; line-height: 1.2;';
+                textContainer.appendChild(titleEl);
+            }
+
+            const date = new Date();
+            const timestamp = date.toLocaleString('en-GB', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            const descEl = document.createElement('div');
+            descEl.textContent = `Exported at ${timestamp}`;
+            descEl.style.cssText = 'font-size: 12px; color: white;';
+            textContainer.appendChild(descEl);
+
+            if (attributionText) {
+                const attrEl = document.createElement('div');
+                attrEl.textContent = `Data: ${attributionText}`;
+                attrEl.style.cssText = 'font-size: 10px; color: white;';
+                textContainer.appendChild(attrEl);
+            }
+
+            const urlEl = document.createElement('div');
+            urlEl.textContent = shareUrl;
+            urlEl.style.cssText = 'font-size: 10px; color: white; opacity: 0.3; word-break: break-all;';
+            textContainer.appendChild(urlEl);
+
+            footerBox.appendChild(textContainer);
+
+            container.appendChild(footerBox);
+
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            await new Promise(resolve => requestAnimationFrame(resolve));
+
+            const compositeCanvas = await html2canvas(container, {
+                backgroundColor: '#ffffff',
+                scale: 1,
+                logging: false,
+                useCORS: true,
+                width: width,
+                height: height
+            });
+
+            document.body.removeChild(container);
+
+            return compositeCanvas.toDataURL('image/png');
+        } catch (e) {
+            console.warn('Failed to add footer to raster, using plain map', e);
+            return mapImageDataUrl;
+        }
+    }
+
+    _generateWorldFile(imageDimensions, transformer, center, pixelWidth, pixelHeight) {
+        const pixelSizeX = imageDimensions.width / pixelWidth;
+        const pixelSizeY = imageDimensions.height / pixelHeight;
+
+        let centerX, centerY;
+
+        if (transformer.coordSystem === 'wgs84') {
+            centerX = center.lng;
+            centerY = center.lat;
+        } else if (transformer.coordSystem === 'local') {
+            centerX = 0;
+            centerY = 0;
+        } else if (transformer.coordSystem === 'utm') {
+            const transformedCenter = transformer._transformCoordinate([center.lng, center.lat]);
+            centerX = transformedCenter[0];
+            centerY = transformedCenter[1];
+        } else {
+            centerX = 0;
+            centerY = 0;
+        }
+
+        const upperLeftX = centerX - (imageDimensions.width / 2);
+        const upperLeftY = centerY + (imageDimensions.height / 2);
+
+        let worldFile = '';
+        worldFile += pixelSizeX + '\n';
+        worldFile += '0.0\n';
+        worldFile += '0.0\n';
+        worldFile += (-pixelSizeY) + '\n';
+        worldFile += upperLeftX + '\n';
+        worldFile += upperLeftY + '\n';
+
+        return worldFile;
+    }
+
+    _hasSelectedFeatures() {
+        if (!window.stateManager) {
+            return false;
+        }
+
+        const selectedFeatures = this._getSelectedFeatures();
+        return selectedFeatures.length > 0;
+    }
+
+    _getSelectedFeatures() {
+        if (!window.stateManager) return [];
+
+        const allLayers = window.stateManager.getActiveLayers();
+        const selectedFeatures = [];
+
+        allLayers.forEach((layerData, layerId) => {
+            const { features } = layerData;
+            if (features) {
+                features.forEach((featureState, featureId) => {
+                    if (featureState.isSelected) {
+                        selectedFeatures.push({
+                            feature: featureState.feature,
+                            layerId: layerId,
+                            layerConfig: layerData.config
+                        });
+                    }
+                });
+            }
+        });
+
+        return selectedFeatures;
+    }
+
+    _generateFilenameFromFeatures(selectedFeatures, extension) {
+        const layerGroups = new Map();
+
+        for (const item of selectedFeatures) {
+            const layerId = item.layerId;
+            if (!layerGroups.has(layerId)) {
+                layerGroups.set(layerId, {
+                    layerConfig: item.layerConfig,
+                    features: []
+                });
+            }
+            layerGroups.get(layerId).features.push(item.feature);
+        }
+
+        const parts = [];
+
+        for (const [layerId, group] of layerGroups) {
+            const layerTitle = group.layerConfig.title || layerId;
+            const sanitizedLayer = layerTitle
+                .replace(/[<>:"/\\|?*]/g, '')
+                .replace(/\s+/g, '_');
+
+            parts.push(sanitizedLayer);
+
+            for (const feature of group.features) {
+                const featureTitle = this._getFeatureTitle(feature, group.layerConfig);
+                const sanitizedFeature = featureTitle
+                    .replace(/[<>:"/\\|?*]/g, '')
+                    .replace(/\s+/g, '_');
+                parts.push(sanitizedFeature);
+            }
+        }
+
+        const filename = parts.join('_').substring(0, 200);
+        return `${filename}.${extension}`;
+    }
+
+    _getFeatureTitle(feature, layerConfig) {
+        const labelField = layerConfig.inspect?.label;
+        if (labelField && feature.properties[labelField]) {
+            return String(feature.properties[labelField]);
+        }
+
+        if (feature.properties.name) {
+            return String(feature.properties.name);
+        }
+
+        const firstPriorityField = layerConfig.inspect?.fields?.[0];
+        if (firstPriorityField && feature.properties[firstPriorityField]) {
+            return String(feature.properties[firstPriorityField]);
+        }
+
+        return 'Exported Feature';
     }
 
     _generateFilename(extension) {

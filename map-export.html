@@ -8,7 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css" />
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace-autoloader.js"></script>
+    <script type="module"
+        src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace-autoloader.js"></script>
     <style>
         body {
             margin: 0;
@@ -421,6 +422,30 @@
             max-width: 90vw;
             font-family: monospace;
         }
+
+        .export-btn.processing {
+            background: #f59e0b !important;
+            cursor: pointer !important;
+            opacity: 1 !important;
+        }
+
+        .export-btn.processing:hover {
+            background: #d97706 !important;
+        }
+
+        .export-btn.processing sl-icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
@@ -442,10 +467,10 @@
                 <label class="form-label">Select export type</label>
                 <sl-select id="use-for-select" value="link" hoist>
                     <sl-option value="link">Share Link</sl-option>
-                    <sl-option value="print">Print</sl-option>
-                    <sl-option value="web">Web</sl-option>
-                    <sl-option value="gis">GIS</sl-option>
-                    <sl-option value="cad">CAD</sl-option>
+                    <sl-option value="print">Print: Images and PDF</sl-option>
+                    <sl-option value="web">Web: HTML</sl-option>
+                    <sl-option value="gis">GIS: GeoJSON,KML,GeoTIFF</sl-option>
+                    <sl-option value="cad">CAD: DXF</sl-option>
                 </sl-select>
             </div>
 
@@ -476,10 +501,10 @@
                         <label class="form-label">Custom Dimensions (mm)</label>
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <input type="number" id="custom-width" placeholder="Width" min="100" max="2000" step="1"
-                                   style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
+                                style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
                             <span>×</span>
                             <input type="number" id="custom-height" placeholder="Height" min="100" max="2000" step="1"
-                                   style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
+                                style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
                         </div>
                     </div>
 
@@ -519,7 +544,10 @@
                         <label class="form-label">Description</label>
                         <textarea id="map-description" placeholder="Map description..."></textarea>
                     </div>
+                </div>
 
+                <!-- Legend Settings (PDF only) -->
+                <div id="legend-settings" style="display: none;">
                     <div class="form-group">
                         <label class="checkbox-label">
                             <input type="checkbox" id="include-legend">
@@ -535,7 +563,8 @@
                             <input type="checkbox" id="export-selected-only" checked>
                             <span>Export only selected features</span>
                         </label>
-                        <div class="format-description">If no features are selected, all visible features will be exported</div>
+                        <div class="format-description">If no features are selected, all visible features will be
+                            exported</div>
                     </div>
                 </div>
 
@@ -606,16 +635,17 @@
                         <label class="form-label">Custom Size (px)</label>
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <input type="number" id="iframe-width" placeholder="Width" min="300" max="2000" step="1"
-                                   style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
+                                style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
                             <span>×</span>
                             <input type="number" id="iframe-height" placeholder="Height" min="200" max="2000" step="1"
-                                   style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
+                                style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Generated Embed Code</label>
-                        <textarea id="iframe-code" readonly style="font-family: monospace; font-size: 12px; min-height: 100px;"></textarea>
+                        <textarea id="iframe-code" readonly
+                            style="font-family: monospace; font-size: 12px; min-height: 100px;"></textarea>
                     </div>
                 </div>
 
@@ -666,6 +696,10 @@
         let exportData = null;
         let urlParams = {};
         let currentShareUrl = '';
+        let isExporting = false;
+        let exportCancelled = false;
+        let currentExportProgress = 0;
+        let currentExportMessage = '';
 
         // Format definitions with Shoelace icons
         const formatsByUseFor = {
@@ -747,6 +781,10 @@
                 updateAdvancedOptions();
             });
 
+            $('#dxf-include-raster').on('change', () => {
+                updateAdvancedOptions();
+            });
+
             $('#iframe-size').on('change', () => {
                 const isCustom = $('#iframe-size').val() === 'custom';
                 $('#iframe-custom-size').toggle(isCustom);
@@ -758,7 +796,11 @@
             });
 
             $('#export-btn').on('click', () => {
-                performExport();
+                if (isExporting) {
+                    cancelExport();
+                } else {
+                    performExport();
+                }
             });
 
             // Listen for messages from parent
@@ -773,6 +815,9 @@
                     }
                 } else if (event.data.type === 'export-progress') {
                     console.log(`Export progress: ${event.data.percent}% - ${event.data.message}`);
+                    if (isExporting) {
+                        updateButtonProgress(event.data.percent, event.data.message);
+                    }
                 } else if (event.data.type === 'export-opened') {
                     updateAdvancedOptions();
                 } else if (event.data.type === 'export-closed') {
@@ -783,7 +828,7 @@
             });
 
             // Track title customization
-            $('#map-title').on('input', function() {
+            $('#map-title').on('input', function () {
                 $(this).data('customized', true);
                 window.parent.postMessage({
                     type: 'title-changed',
@@ -794,7 +839,7 @@
                 }, '*');
             });
 
-            $('#map-description').on('input', function() {
+            $('#map-description').on('input', function () {
                 window.parent.postMessage({
                     type: 'description-changed',
                     config: {
@@ -852,7 +897,7 @@
                 `);
 
                 // Add click handlers for format buttons
-                $('.format-button').on('click', function() {
+                $('.format-button').on('click', function () {
                     const $button = $(this);
                     const formatValue = $button.data('format');
                     const format = options.formats.find(f => f.value === formatValue);
@@ -899,10 +944,12 @@
             const $styleJsonSettings = $('#style-json-settings');
             const $iframeSettings = $('#iframe-settings');
             const $linkSettings = $('#link-settings');
+            const $legendSettings = $('#legend-settings');
 
             // Hide all by default
             $pageSettings.hide();
             $metadataSettings.hide();
+            $legendSettings.hide();
             $vectorSettings.hide();
             $dxfSettings.hide();
             $styleJsonSettings.hide();
@@ -916,6 +963,11 @@
                 $pageSettings.show();
                 $metadataSettings.show();
                 showAdvanced = true;
+
+                // Show legend settings only for PDF
+                if (currentFormat === 'pdf') {
+                    $legendSettings.show();
+                }
             }
 
             if (currentFormat === 'geojson' || currentFormat === 'kml') {
@@ -926,8 +978,16 @@
             if (currentFormat === 'dxf') {
                 $vectorSettings.show();
                 $dxfSettings.show();
-                $metadataSettings.show();
                 showAdvanced = true;
+
+                // Show page settings if raster is included
+                const includeRaster = $('#dxf-include-raster').is(':checked');
+                if (includeRaster) {
+                    $pageSettings.show();
+                    $metadataSettings.show();
+                } else {
+                    $metadataSettings.show();
+                }
             }
 
             if (currentFormat === 'style') {
@@ -959,8 +1019,13 @@
                 $exportBtn.text('Download');
             }
 
-            // Show/hide export frame for PDF and GeoTIFF
-            if (currentFormat === 'pdf' || currentFormat === 'geotiff') {
+            // Show/hide export frame for PDF, GeoTIFF, and DXF with raster
+            const shouldShowFrame =
+                currentFormat === 'pdf' ||
+                currentFormat === 'geotiff' ||
+                (currentFormat === 'dxf' && $('#dxf-include-raster').is(':checked'));
+
+            if (shouldShowFrame) {
                 const pageSize = $('#page-size').val();
                 const orientation = $('input[name="orientation"]:checked').val();
 
@@ -1105,11 +1170,52 @@
             if (currentFormat === 'dxf') {
                 exportConfig.coordSystem = $('input[name="dxf-coords"]:checked').val();
                 exportConfig.includeRaster = $('#dxf-include-raster').is(':checked');
+
+                // Add page dimensions if raster is included
+                if (exportConfig.includeRaster) {
+                    const pageSize = $('#page-size').val();
+                    const orientation = $('input[name="orientation"]:checked').val();
+
+                    let size;
+                    if (pageSize === 'Custom') {
+                        size = {
+                            w: parseFloat($('#custom-width').val()) || 297,
+                            h: parseFloat($('#custom-height').val()) || 210
+                        };
+                    } else {
+                        const sizes = {
+                            'A4': orientation === 'portrait' ? { w: 210, h: 297 } : { w: 297, h: 210 },
+                            'A3': orientation === 'portrait' ? { w: 297, h: 420 } : { w: 420, h: 297 },
+                            'A2': orientation === 'portrait' ? { w: 420, h: 594 } : { w: 594, h: 420 },
+                            'A1': orientation === 'portrait' ? { w: 594, h: 841 } : { w: 841, h: 594 },
+                            'A0': orientation === 'portrait' ? { w: 841, h: 1189 } : { w: 1189, h: 841 },
+                            'Letter': orientation === 'portrait' ? { w: 216, h: 279 } : { w: 279, h: 216 },
+                            'Legal': orientation === 'portrait' ? { w: 216, h: 356 } : { w: 356, h: 216 }
+                        };
+                        size = sizes[pageSize] || sizes['A4'];
+                    }
+
+                    exportConfig.width = size.w;
+                    exportConfig.height = size.h;
+                    exportConfig.dpi = parseInt($('#dpi-select').val());
+                    exportConfig.title = $('#map-title').val();
+                    exportConfig.description = $('#map-description').val();
+                }
             }
 
             if (currentFormat === 'style') {
                 exportConfig.styleSpec = $('input[name="style-spec"]:checked').val();
                 exportConfig.mapboxToken = $('#mapbox-token').val();
+            }
+
+            // Check if this export requires canvas control
+            const needsProcessing =
+                currentFormat === 'pdf' ||
+                currentFormat === 'geotiff' ||
+                (currentFormat === 'dxf' && exportConfig.includeRaster);
+
+            if (needsProcessing) {
+                startProcessing();
             }
 
             window.parent.postMessage({
@@ -1210,7 +1316,7 @@
                     'data-param': key
                 });
 
-                $checkbox.on('change', function() {
+                $checkbox.on('change', function () {
                     const enabled = $(this).is(':checked');
                     urlParams[key].enabled = enabled;
                     $input.prop('disabled', !enabled);
@@ -1218,7 +1324,7 @@
                     updateQRCode();
                 });
 
-                $input.on('input', function() {
+                $input.on('input', function () {
                     urlParams[key].value = $(this).val();
                     updateShareUrlDisplay();
                     updateQRCode();
@@ -1294,6 +1400,84 @@
             }, 2000);
         }
 
+        function startProcessing() {
+            isExporting = true;
+            exportCancelled = false;
+            currentExportProgress = 0;
+            currentExportMessage = 'Starting export';
+
+            const $btn = $('#export-btn');
+
+            $btn.addClass('processing');
+            $btn.prop('disabled', false);
+
+            window.parent.postMessage({
+                type: 'processing-overlay-show'
+            }, '*');
+
+            updateButtonProgress(0, 'Starting export');
+        }
+
+        function stopProcessing(completed = true) {
+            isExporting = false;
+            exportCancelled = false;
+
+            const $btn = $('#export-btn');
+
+            $btn.removeClass('processing');
+
+            window.parent.postMessage({
+                type: 'processing-overlay-hide'
+            }, '*');
+
+            const $icon = $btn.find('sl-icon');
+            const $text = $btn.find('span');
+
+            if (currentFormat === 'iframe') {
+                $icon.attr('name', 'clipboard');
+                $text.text('Copy Embed Code');
+            } else if (currentFormat === 'link') {
+                $icon.attr('name', 'clipboard');
+                $text.text('Copy Link');
+            } else {
+                $icon.attr('name', 'box-arrow-in-down');
+                $text.text('Download');
+            }
+        }
+
+        function updateButtonProgress(percent, message) {
+            currentExportProgress = percent;
+            currentExportMessage = message;
+
+            const $btn = $('#export-btn');
+            const $icon = $btn.find('sl-icon');
+            const $text = $btn.find('span');
+
+            if (percent < 0) {
+                $icon.attr('name', 'x-circle');
+                $text.text('Export failed - Click to dismiss');
+            } else if (percent >= 100) {
+                $icon.attr('name', 'check-circle');
+                $text.text('Export complete');
+                setTimeout(() => stopProcessing(true), 1000);
+            } else {
+                $icon.attr('name', 'arrow-clockwise');
+                $text.text(`${message} (${Math.round(percent)}%) - Click to cancel`);
+            }
+        }
+
+        function cancelExport() {
+            if (!isExporting) return;
+
+            exportCancelled = true;
+            window.parent.postMessage({
+                type: 'export-cancel'
+            }, '*');
+
+            updateButtonProgress(-1, 'Export cancelled');
+            setTimeout(() => stopProcessing(false), 1500);
+        }
+
         function showQRFullscreen() {
             const url = buildShareUrl();
 
@@ -1342,7 +1526,7 @@
                 closeOverlay();
             });
 
-            $overlay.on('click', function(e) {
+            $overlay.on('click', function (e) {
                 if (e.target === this) {
                     closeOverlay();
                 }

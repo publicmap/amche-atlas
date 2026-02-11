@@ -1525,8 +1525,13 @@
                 $grid.append($atlasNav);
             }
 
-            // Set first atlas as expanded if none is currently expanded (unless user explicitly collapsed)
+            // Always expand first atlas on initial render if none is expanded (unless user explicitly collapsed)
             if (!expandedAtlasId && orderedAtlasIds.length > 0 && !userCollapsedAll) {
+                expandedAtlasId = orderedAtlasIds[0];
+            }
+
+            // If viewing a single selected atlas, ensure it's expanded
+            if (window.selectedAtlasId && orderedAtlasIds.length === 1) {
                 expandedAtlasId = orderedAtlasIds[0];
             }
 
