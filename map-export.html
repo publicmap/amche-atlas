@@ -726,6 +726,7 @@
                     { value: 'geojson', label: 'GeoJSON', icon: 'filetype-json', description: 'For web development and GIS software' },
                     { value: 'kml', label: 'KML', icon: 'filetype-xml', description: 'For Google Earth and mapping apps' },
                     { value: 'geotiff', label: 'GeoTIFF', icon: 'filetype-tiff', description: 'Georeferenced raster image' },
+                    { value: 'csv', label: 'CSV', icon: 'filetype-csv', description: 'Spreadsheet with feature metadata and coordinates' },
                     { value: 'style', label: 'Style JSON', icon: 'palette', description: 'For Maputnik and Mapbox Studio' }
                 ]
             },
@@ -970,7 +971,7 @@
                 }
             }
 
-            if (currentFormat === 'geojson' || currentFormat === 'kml') {
+            if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv') {
                 $vectorSettings.show();
                 showAdvanced = true;
             }
@@ -1190,7 +1191,7 @@
                 exportConfig.description = $('#map-description').val();
             }
 
-            if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'dxf') {
+            if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv' || currentFormat === 'dxf') {
                 exportConfig.exportSelectedOnly = $('#export-selected-only').is(':checked');
             }
 

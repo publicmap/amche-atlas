@@ -21,6 +21,7 @@ export class MapFeatureStateManager extends EventTarget {
         this._retryDelay = 2000; // 2 seconds
         this._eventListenerRefs = new Map(); // Store event listener references for cleanup
         this._featureControl = null; // Reference to feature control for inspect mode checking
+        this._handlerResultsCache = new Map(); // Cache for handler execution results: compositeKey -> HTML
 
         // Performance optimization
         this._batchedUpdates = new Set();
@@ -483,6 +484,9 @@ export class MapFeatureStateManager extends EventTarget {
 
         // Remove from selected set
         this._selectedFeatures.delete(compositeKey);
+
+        // Clear handler results cache for this feature
+        this._handlerResultsCache.delete(compositeKey);
 
         // Remove mapbox feature state
         this._removeMapboxFeatureState(featureId, layerId, 'selected');
@@ -1011,6 +1015,9 @@ export class MapFeatureStateManager extends EventTarget {
                 this._featureStates.delete(compositeKey);
                 this._selectedFeatures.delete(compositeKey);
 
+                // Clear handler results cache
+                this._handlerResultsCache.delete(compositeKey);
+
                 removedFeatures.push(featureId);
             }
         });
@@ -1190,6 +1197,22 @@ export class MapFeatureStateManager extends EventTarget {
             return;
         }
 
+        const featureId = this._getFeatureId(feature);
+        const compositeKey = this._getCompositeKey(layerId, featureId);
+
+        // Check cache first
+        if (this._handlerResultsCache.has(compositeKey)) {
+            const cachedHTML = this._handlerResultsCache.get(compositeKey);
+            this._emitStateChange('feature-inspection-data', {
+                featureId,
+                layerId,
+                feature,
+                customHTML: cachedHTML,
+                lngLat
+            });
+            return;
+        }
+
         const handlerName = layerConfig.inspect.onClick;
 
         // Determine atlas name from layer config
@@ -1210,9 +1233,12 @@ export class MapFeatureStateManager extends EventTarget {
             );
 
             if (customHTML) {
+                // Cache the result
+                this._handlerResultsCache.set(compositeKey, customHTML);
+
                 // Emit event with custom HTML for inspector to display
                 this._emitStateChange('feature-inspection-data', {
-                    featureId: this._getFeatureId(feature),
+                    featureId,
                     layerId,
                     feature,
                     customHTML,
@@ -1286,6 +1312,7 @@ export class MapFeatureStateManager extends EventTarget {
         this._registeredLayers.clear();
         this._retryAttempts.clear();
         this._eventListenerRefs.clear();
+        this._handlerResultsCache.clear();
 
         // Remove keydown and keyup event listeners
         document.removeEventListener('keydown', this._keydownListener);

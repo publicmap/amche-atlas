@@ -1,4 +1,5 @@
 import { ExportFrame } from './export-frame.js';
+import { InspectionHandlerLoader } from './inspection-handler-loader.js';
 
 export class MapExportControl {
     constructor() {
@@ -393,6 +394,8 @@ export class MapExportControl {
                 await this._exportKML(config);
             } else if (format === 'style') {
                 await this._exportStyleJSON(config);
+            } else if (format === 'csv') {
+                await this._exportCSV(config);
             } else if (format === 'dxf') {
                 await this._exportDXF(config);
             }
@@ -1211,6 +1214,241 @@ export class MapExportControl {
         this._downloadFile(JSON.stringify(style, null, 2), filename, 'application/json');
     }
 
+    async _exportCSV(config) {
+        this._sendProgress(20, 'Collecting features');
+
+        let features;
+        let filename;
+
+        const featuresWithMetadata = [];
+
+        if (config.exportSelectedOnly && this._hasSelectedFeatures()) {
+            console.log('CSV Export: Using selected features');
+            const selectedFeatures = this._getSelectedFeatures();
+            console.log(`CSV Export: Found ${selectedFeatures.length} selected features`);
+
+            for (const item of selectedFeatures) {
+                featuresWithMetadata.push({
+                    feature: item.feature,
+                    layerId: item.layerId,
+                    layerTitle: item.layerConfig?.title || item.layerId,
+                    layerConfig: item.layerConfig
+                });
+            }
+            filename = this._generateFilenameFromFeatures(selectedFeatures, 'csv');
+        } else {
+            console.log('CSV Export: Using all rendered features');
+            const allFeatures = this._map.queryRenderedFeatures();
+            console.log(`CSV Export: Found ${allFeatures.length} rendered features`);
+
+            const validFeatures = allFeatures.filter(f => f.geometry && f.geometry.type);
+            console.log(`CSV Export: After filtering: ${validFeatures.length} features with geometry`);
+
+            for (const feature of validFeatures) {
+                const layerConfig = this._getLayerConfigById(feature.layer?.id);
+                featuresWithMetadata.push({
+                    feature: feature,
+                    layerId: feature.layer?.id,
+                    layerTitle: feature.layer?.id,
+                    layerConfig: layerConfig
+                });
+            }
+            filename = this._generateFilename('csv');
+        }
+
+        this._sendProgress(50, 'Processing features');
+
+        console.log(`CSV Export: Found ${featuresWithMetadata.length} features to process`);
+        if (featuresWithMetadata.length > 0) {
+            console.log('First feature:', featuresWithMetadata[0]);
+        }
+
+        const handlerLoader = new InspectionHandlerLoader();
+        const rows = [];
+        const allKeys = new Set(['latitude', 'longitude', 'amche_url', 'amche_info']);
+
+        for (const item of featuresWithMetadata) {
+            const feature = item.feature;
+
+            if (!feature.geometry || !feature.geometry.type) {
+                console.log('Skipping feature without geometry:', feature);
+                continue;
+            }
+
+            const centroid = this._calculateCentroid(feature.geometry);
+
+            const center = this._map.getCenter();
+            const zoom = this._map.getZoom();
+            const bearing = this._map.getBearing();
+            const pitch = this._map.getPitch();
+
+            const baseUrl = window.location.origin + window.location.pathname;
+            const params = new URLSearchParams();
+
+            if (window.urlManager) {
+                const currentUrl = new URL(window.urlManager.getShareableURL());
+                for (const [key, value] of currentUrl.searchParams.entries()) {
+                    if (key !== 'lat' && key !== 'lng' && key !== 'zoom') {
+                        params.set(key, value);
+                    }
+                }
+            }
+
+            params.set('lat', centroid.lat.toFixed(6));
+            params.set('lng', centroid.lng.toFixed(6));
+            params.set('zoom', '14');
+
+            if (bearing !== 0) params.set('bearing', bearing.toFixed(2));
+            if (pitch !== 0) params.set('pitch', pitch.toFixed(2));
+
+            const amcheUrl = `${baseUrl}?${params.toString()}`;
+
+            const row = {
+                latitude: centroid.lat.toFixed(6),
+                longitude: centroid.lng.toFixed(6),
+                amche_url: amcheUrl,
+                amche_info: '',
+                ...feature.properties
+            };
+
+            if (item.layerId) {
+                row.layer_id = item.layerId;
+                allKeys.add('layer_id');
+            }
+            if (item.layerTitle) {
+                row.layer_title = item.layerTitle;
+                allKeys.add('layer_title');
+            }
+
+            if (item.layerConfig?.inspect?.onClick) {
+                const handlerName = item.layerConfig.inspect.onClick;
+                const atlasName = this._getAtlasNameForLayer(item.layerId, item.layerConfig);
+
+                console.log(`CSV Export: Executing handler "${handlerName}" for layer "${item.layerId}" in atlas "${atlasName}"`);
+
+                try {
+                    const handlerOutput = await handlerLoader.executeHandler(
+                        atlasName,
+                        handlerName,
+                        {
+                            feature: feature,
+                            layerId: item.layerId,
+                            layerConfig: item.layerConfig,
+                            map: this._map,
+                            lngLat: { lng: centroid.lng, lat: centroid.lat }
+                        }
+                    );
+
+                    console.log(`CSV Export: Handler output length: ${handlerOutput?.length || 0}`);
+
+                    if (handlerOutput) {
+                        const extractedData = await this._extractHandlerData(handlerOutput, feature);
+                        console.log(`CSV Export: Extracted data: "${extractedData.substring(0, 100)}..."`);
+                        row.amche_info = extractedData;
+                    } else {
+                        console.log('CSV Export: Handler returned null/empty');
+                        row.amche_info = '';
+                    }
+                } catch (error) {
+                    console.warn(`CSV Export: Failed to execute handler ${handlerName}:`, error);
+                    row.amche_info = '[Handler Error]';
+                }
+            } else {
+                console.log(`CSV Export: No handler configured for layer ${item.layerId}`);
+            }
+
+            Object.keys(feature.properties || {}).forEach(key => allKeys.add(key));
+            rows.push(row);
+        }
+
+        this._sendProgress(70, 'Generating CSV');
+
+        const headers = Array.from(allKeys);
+        const csvLines = [];
+
+        csvLines.push(headers.map(h => this._escapeCsvValue(h)).join(','));
+
+        for (const row of rows) {
+            const values = headers.map(header => {
+                const value = row[header];
+                return this._escapeCsvValue(value);
+            });
+            csvLines.push(values.join(','));
+        }
+
+        const csvContent = csvLines.join('\n');
+
+        this._sendProgress(90, 'Downloading file');
+        this._downloadFile(csvContent, filename, 'text/csv');
+    }
+
+    _calculateCentroid(geometry) {
+        if (!geometry || !geometry.type) {
+            const center = this._map.getCenter();
+            return { lng: center.lng, lat: center.lat };
+        }
+
+        if (geometry.type === 'Point') {
+            return {
+                lng: geometry.coordinates[0],
+                lat: geometry.coordinates[1]
+            };
+        }
+
+        if (geometry.type === 'MultiPoint') {
+            const coords = geometry.coordinates;
+            const lng = coords.reduce((sum, c) => sum + c[0], 0) / coords.length;
+            const lat = coords.reduce((sum, c) => sum + c[1], 0) / coords.length;
+            return { lng, lat };
+        }
+
+        if (geometry.type === 'LineString') {
+            const coords = geometry.coordinates;
+            const midIndex = Math.floor(coords.length / 2);
+            return {
+                lng: coords[midIndex][0],
+                lat: coords[midIndex][1]
+            };
+        }
+
+        if (geometry.type === 'MultiLineString') {
+            const allCoords = geometry.coordinates.flat();
+            const lng = allCoords.reduce((sum, c) => sum + c[0], 0) / allCoords.length;
+            const lat = allCoords.reduce((sum, c) => sum + c[1], 0) / allCoords.length;
+            return { lng, lat };
+        }
+
+        if (geometry.type === 'Polygon') {
+            const coords = geometry.coordinates[0];
+            const lng = coords.reduce((sum, c) => sum + c[0], 0) / coords.length;
+            const lat = coords.reduce((sum, c) => sum + c[1], 0) / coords.length;
+            return { lng, lat };
+        }
+
+        if (geometry.type === 'MultiPolygon') {
+            const allCoords = geometry.coordinates.flat(2);
+            const lng = allCoords.reduce((sum, c) => sum + c[0], 0) / allCoords.length;
+            const lat = allCoords.reduce((sum, c) => sum + c[1], 0) / allCoords.length;
+            return { lng, lat };
+        }
+
+        return { lng: 0, lat: 0 };
+    }
+
+    _escapeCsvValue(value) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+
+        const stringValue = String(value);
+
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+            return '"' + stringValue.replace(/"/g, '""') + '"';
+        }
+
+        return stringValue;
+    }
+
     async _exportDXF(config) {
         const { DXFConverter } = await import('./dxf-converter.js');
         const { DXFCoordinateTransformer } = await import('./dxf-coordinate-transformer.js');
@@ -1723,5 +1961,126 @@ export class MapExportControl {
         link.download = filename;
         link.click();
         URL.revokeObjectURL(url);
+    }
+
+    _getCurrentAtlasName() {
+        try {
+            if (window.layerRegistry && window.layerRegistry.currentAtlas) {
+                return window.layerRegistry.currentAtlas.name || 'index';
+            }
+        } catch (e) {
+            console.warn('Could not get atlas from layerRegistry:', e);
+        }
+
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const atlasParam = params.get('atlas');
+            if (atlasParam && !atlasParam.startsWith('http') && !atlasParam.startsWith('{')) {
+                return atlasParam.replace('.atlas.json', '').replace('.json', '');
+            }
+        } catch (e) {
+            console.warn('Could not parse atlas from URL:', e);
+        }
+
+        return 'index';
+    }
+
+    _getAtlasNameForLayer(layerId, layerConfig) {
+        if (!layerId) return this._getCurrentAtlasName();
+
+        try {
+            if (window.layerRegistry && window.layerRegistry._atlases) {
+                for (const [atlasName, atlasConfig] of window.layerRegistry._atlases.entries()) {
+                    if (atlasConfig.layers && atlasConfig.layers.some(l => l.id === layerId)) {
+                        console.log(`CSV Export: Found layer ${layerId} in atlas ${atlasName}`);
+                        return atlasName;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Could not find atlas for layer:', e);
+        }
+
+        const layerIdParts = layerId.split('-');
+        if (layerIdParts.length > 0) {
+            const potentialAtlas = layerIdParts[0];
+            console.log(`CSV Export: Guessing atlas "${potentialAtlas}" from layer ID "${layerId}"`);
+            return potentialAtlas;
+        }
+
+        return this._getCurrentAtlasName();
+    }
+
+    _getLayerConfigById(layerId) {
+        if (!layerId) return null;
+
+        if (window.stateManager) {
+            const layers = window.stateManager.getActiveLayers();
+            const layerData = layers.get(layerId);
+            if (layerData?.config) {
+                return layerData.config;
+            }
+        }
+
+        return null;
+    }
+
+    async _extractHandlerData(htmlOutput, feature) {
+        if (!htmlOutput) return '';
+
+        const apiUrlMatch = htmlOutput.match(/const apiUrl = '([^']+)'/);
+        if (apiUrlMatch && apiUrlMatch[1]) {
+            const apiUrl = apiUrlMatch[1];
+            console.log(`CSV Export: Found Bhunaksha API URL, fetching data...`);
+
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                if (data.info && data.has_data === 'Y') {
+                    const isHTML = /<[^>]*>/g.test(data.info);
+                    let infoText;
+
+                    if (isHTML) {
+                        infoText = data.info
+                            .replace(/<style>[\s\S]*?<\/style>/gi, '')
+                            .replace(/<script[\s\S]*?<\/script>/gi, '')
+                            .replace(/<[^>]*>/g, ' ')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    } else {
+                        const rawText = data.info.split('\n').slice(3).join('\n').replace(/-{10,}/g, '');
+                        infoText = rawText.replace(/^([^:\n]+:)/gm, '$1 ').replace(/\n/g, ' ');
+                    }
+
+                    console.log(`CSV Export: Fetched Bhunaksha data: "${infoText.substring(0, 100)}..."`);
+                    return infoText.trim();
+                } else {
+                    return 'No occupant data available';
+                }
+            } catch (error) {
+                console.warn('CSV Export: Failed to fetch Bhunaksha data:', error);
+                return 'Error loading data';
+            }
+        }
+
+        return this._stripHtmlTags(htmlOutput);
+    }
+
+    _stripHtmlTags(html) {
+        if (!html) return '';
+        return html
+            .replace(/<style>[\s\S]*?<\/style>/gi, '')
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/p>/gi, '\n')
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/\s+/g, ' ')
+            .trim();
     }
 }

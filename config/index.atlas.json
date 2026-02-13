@@ -71,8 +71,7 @@
   },
   "layers": [
     {
-      "id": "mapbox-streets",
-      "initiallyChecked": true
+      "id": "mapbox-streets"
     },
     {
       "id": "goa-plots",
@@ -126,8 +125,7 @@
       "initiallyChecked": true
     },
     {
-      "id": "india-2023-open-buildings",
-      "initiallyChecked": true
+      "id": "india-2023-open-buildings"
     },
     {
       "id": "india-2024-landslide-susceptibility-map"
@@ -146,8 +144,7 @@
       "id": "osm-mapnik"
     },
     {
-      "id": "mapbox-countries",
-      "initiallyChecked": true
+      "id": "mapbox-countries"
     },
     {
       "id": "mapbox-satellite",

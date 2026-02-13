@@ -51,8 +51,8 @@ export const handlers = {
         const hasEszLayer = layersParam.includes('india-esz');
         const delay = hasEszLayer ? 0 : 5000;
 
-        // Generate unique ID for this request
-        const requestId = `bhunaksha-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        // Generate deterministic ID based on feature properties for caching
+        const requestId = `bhunaksha-${giscode}-${plot.replace(/\//g, '-')}`;
 
         console.log('[Bhunaksha] Generated request ID:', requestId);
         console.log('[Bhunaksha] Plot:', plot, 'GISCode:', giscode);
@@ -65,7 +65,7 @@ export const handlers = {
                 <div style="margin-bottom: 8px; font-weight: 600; color: #e5e7eb;">
                     Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>
                 </div>
-                <div id="${requestId}" style="color: #9ca3af;">
+                <div id="${requestId}" data-executed="false" style="color: #9ca3af;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <svg style="width: 14px; height: 14px; animation: spin 1s linear infinite;" fill="none" viewBox="0 0 24 24">
                             <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -81,24 +81,49 @@ export const handlers = {
                     }
                 </style>
                 <script>
-                    setTimeout(async function() {
+                    (function() {
+                        // Initialize global cache if not exists
+                        if (!window.__bhunakshaCache) {
+                            window.__bhunakshaCache = new Map();
+                        }
+
                         const requestId = '${requestId}';
                         const apiUrl = '${apiUrl.replace(/'/g, "\\'")}';
                         const delay = ${delay};
 
-                        console.log('[Bhunaksha] Script executing in iframe context for:', requestId);
+                        const container = document.getElementById(requestId);
+                        if (!container) {
+                            console.error('[Bhunaksha] Container not found:', requestId);
+                            return;
+                        }
+
+                        // Check global cache first
+                        if (window.__bhunakshaCache.has(requestId)) {
+                            console.log('[Bhunaksha] Using cached result for:', requestId);
+                            const cachedHTML = window.__bhunakshaCache.get(requestId);
+                            container.innerHTML = cachedHTML;
+                            container.setAttribute('data-executed', 'true');
+                            return;
+                        }
+
+                        // Check if this script has already been executed for this container
+                        if (container.getAttribute('data-executed') === 'true') {
+                            console.log('[Bhunaksha] Script already executed for:', requestId);
+                            return;
+                        }
+
+                        // Mark as executed to prevent re-execution
+                        container.setAttribute('data-executed', 'true');
+
+                        console.log('[Bhunaksha] Script executing for:', requestId);
+
+                        setTimeout(async function() {
 
                         try {
                             // Wait for delay
                             if (delay > 0) {
                                 console.log('[Bhunaksha] Waiting', delay, 'ms before fetching...');
                                 await new Promise(resolve => setTimeout(resolve, delay));
-                            }
-
-                            const container = document.getElementById(requestId);
-                            if (!container) {
-                                console.error('[Bhunaksha] Container not found:', requestId);
-                                return;
                             }
 
                             if (!document.body.contains(container)) {
@@ -139,7 +164,7 @@ export const handlers = {
                                 return;
                             }
 
-                            container.innerHTML = \`
+                            const finalHTML = \`
                                 \${contentHTML}
                                 <div style="font-style: italic; font-size: 10px; color: #9ca3af; margin-top: 8px;">
                                     <svg style="display: inline; width: 12px; height: 12px; margin-right: 4px;" fill="currentColor" viewBox="0 0 20 20">
@@ -148,14 +173,23 @@ export const handlers = {
                                     Retrieved from <a href="\${apiUrl}" target="_blank" style="color: #60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
                                 </div>
                             \`;
+                            container.innerHTML = finalHTML;
+                            // Cache the final result
+                            window.__bhunakshaCache.set(requestId, finalHTML);
+                            // Keep the executed flag
+                            container.setAttribute('data-executed', 'true');
                         } catch (error) {
                             console.error('[Bhunaksha] Error:', error);
-                            const container = document.getElementById(requestId);
-                            if (container) {
-                                container.innerHTML = \`<span style="color: #f87171;">Error loading details: \${error.message}</span>\`;
+                            const errorHTML = \`<span style="color: #f87171;">Error loading details: \${error.message}</span>\`;
+                            if (container && document.body.contains(container)) {
+                                container.innerHTML = errorHTML;
+                                // Cache the error result too
+                                window.__bhunakshaCache.set(requestId, errorHTML);
+                                container.setAttribute('data-executed', 'true');
                             }
                         }
-                    }, 0);
+                        }, 0);
+                    })();
                 </script>
             </div>
         `;
