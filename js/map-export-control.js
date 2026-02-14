@@ -1265,7 +1265,12 @@ export class MapExportControl {
 
         const handlerLoader = new InspectionHandlerLoader();
         const rows = [];
-        const allKeys = new Set(['latitude', 'longitude', 'amche_url', 'amche_info']);
+        const geometryField = config.geometryField || 'xy';
+        const allKeys = new Set(
+            geometryField === 'wkt'
+                ? ['WKT', 'layer_url']
+                : ['X', 'Y', 'layer_url']
+        );
 
         for (const item of featuresWithMetadata) {
             const feature = item.feature;
@@ -1304,12 +1309,17 @@ export class MapExportControl {
             const amcheUrl = `${baseUrl}?${params.toString()}`;
 
             const row = {
-                latitude: centroid.lat.toFixed(6),
-                longitude: centroid.lng.toFixed(6),
-                amche_url: amcheUrl,
-                amche_info: '',
                 ...feature.properties
             };
+
+            if (geometryField === 'wkt') {
+                row.WKT = this._geometryToWKT(feature.geometry);
+            } else {
+                row.X = centroid.lng.toFixed(6);
+                row.Y = centroid.lat.toFixed(6);
+            }
+
+            row.layer_url = amcheUrl;
 
             if (item.layerId) {
                 row.layer_id = item.layerId;
@@ -1323,6 +1333,9 @@ export class MapExportControl {
             if (item.layerConfig?.inspect?.onClick) {
                 const handlerName = item.layerConfig.inspect.onClick;
                 const atlasName = this._getAtlasNameForLayer(item.layerId, item.layerConfig);
+                const fieldName = `layer_${handlerName}`;
+
+                allKeys.add(fieldName);
 
                 console.log(`CSV Export: Executing handler "${handlerName}" for layer "${item.layerId}" in atlas "${atlasName}"`);
 
@@ -1344,14 +1357,14 @@ export class MapExportControl {
                     if (handlerOutput) {
                         const extractedData = await this._extractHandlerData(handlerOutput, feature);
                         console.log(`CSV Export: Extracted data: "${extractedData.substring(0, 100)}..."`);
-                        row.amche_info = extractedData;
+                        row[fieldName] = extractedData;
                     } else {
                         console.log('CSV Export: Handler returned null/empty');
-                        row.amche_info = '';
+                        row[fieldName] = '';
                     }
                 } catch (error) {
                     console.warn(`CSV Export: Failed to execute handler ${handlerName}:`, error);
-                    row.amche_info = '[Handler Error]';
+                    row[fieldName] = '[Handler Error]';
                 }
             } else {
                 console.log(`CSV Export: No handler configured for layer ${item.layerId}`);
@@ -1433,6 +1446,40 @@ export class MapExportControl {
         }
 
         return { lng: 0, lat: 0 };
+    }
+
+    _geometryToWKT(geometry) {
+        if (!geometry || !geometry.type) {
+            return '';
+        }
+
+        const coordsToString = (coords) => coords.join(' ');
+        const ringToString = (ring) => '(' + ring.map(coordsToString).join(', ') + ')';
+
+        switch (geometry.type) {
+            case 'Point':
+                return `POINT(${coordsToString(geometry.coordinates)})`;
+
+            case 'MultiPoint':
+                return `MULTIPOINT(${geometry.coordinates.map(coordsToString).join(', ')})`;
+
+            case 'LineString':
+                return `LINESTRING(${geometry.coordinates.map(coordsToString).join(', ')})`;
+
+            case 'MultiLineString':
+                return `MULTILINESTRING(${geometry.coordinates.map(ring => ringToString(ring)).join(', ')})`;
+
+            case 'Polygon':
+                return `POLYGON(${geometry.coordinates.map(ring => ringToString(ring)).join(', ')})`;
+
+            case 'MultiPolygon':
+                return `MULTIPOLYGON(${geometry.coordinates.map(polygon =>
+                    '(' + polygon.map(ring => ringToString(ring)).join(', ') + ')'
+                ).join(', ')})`;
+
+            default:
+                return '';
+        }
     }
 
     _escapeCsvValue(value) {

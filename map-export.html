@@ -469,7 +469,7 @@
                     <sl-option value="link">Share Link</sl-option>
                     <sl-option value="print">Print: Images and PDF</sl-option>
                     <sl-option value="web">Web: HTML</sl-option>
-                    <sl-option value="gis">GIS: GeoJSON,KML,GeoTIFF</sl-option>
+                    <sl-option value="gis">GIS: GeoJSON,KML,GeoTIFF,GeoCSV</sl-option>
                     <sl-option value="cad">CAD: DXF</sl-option>
                 </sl-select>
             </div>
@@ -593,6 +593,23 @@
                             <input type="checkbox" id="dxf-include-raster" checked>
                             <span>Include map imagery as raster</span>
                         </label>
+                    </div>
+                </div>
+
+                <!-- CSV Options -->
+                <div id="csv-settings" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Geometry Field</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="csv-geom" value="xy" checked>
+                                <span>X/Y Points</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="csv-geom" value="wkt">
+                                <span>WKT Geometries</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -726,7 +743,7 @@
                     { value: 'geojson', label: 'GeoJSON', icon: 'filetype-json', description: 'For web development and GIS software' },
                     { value: 'kml', label: 'KML', icon: 'filetype-xml', description: 'For Google Earth and mapping apps' },
                     { value: 'geotiff', label: 'GeoTIFF', icon: 'filetype-tiff', description: 'Georeferenced raster image' },
-                    { value: 'csv', label: 'CSV', icon: 'filetype-csv', description: 'Spreadsheet with feature metadata and coordinates' },
+                    { value: 'csv', label: 'GeoCSV', icon: 'filetype-csv', description: 'Spreadsheet with feature metadata and coordinates' },
                     { value: 'style', label: 'Style JSON', icon: 'palette', description: 'For Maputnik and Mapbox Studio' }
                 ]
             },
@@ -942,6 +959,7 @@
             const $metadataSettings = $('#metadata-settings');
             const $vectorSettings = $('#vector-settings');
             const $dxfSettings = $('#dxf-settings');
+            const $csvSettings = $('#csv-settings');
             const $styleJsonSettings = $('#style-json-settings');
             const $iframeSettings = $('#iframe-settings');
             const $linkSettings = $('#link-settings');
@@ -953,6 +971,7 @@
             $legendSettings.hide();
             $vectorSettings.hide();
             $dxfSettings.hide();
+            $csvSettings.hide();
             $styleJsonSettings.hide();
             $iframeSettings.hide();
             $linkSettings.hide();
@@ -971,8 +990,14 @@
                 }
             }
 
-            if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv') {
+            if (currentFormat === 'geojson' || currentFormat === 'kml') {
                 $vectorSettings.show();
+                showAdvanced = true;
+            }
+
+            if (currentFormat === 'csv') {
+                $vectorSettings.show();
+                $csvSettings.show();
                 showAdvanced = true;
             }
 
@@ -1193,6 +1218,10 @@
 
             if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv' || currentFormat === 'dxf') {
                 exportConfig.exportSelectedOnly = $('#export-selected-only').is(':checked');
+            }
+
+            if (currentFormat === 'csv') {
+                exportConfig.geometryField = $('input[name="csv-geom"]:checked').val();
             }
 
             if (currentFormat === 'dxf') {
