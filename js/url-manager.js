@@ -47,7 +47,7 @@ export class URLManager {
      */
     layerToURL(layer) {
         // If the layer has an _originalJson property and no opacity override, use it to preserve the original formatting
-        if (layer._originalJson && layer.opacity === undefined) {
+        if (layer._originalJson && layer.opacity === undefined && !layer.geojson) {
             return layer._originalJson;
         }
 
@@ -59,29 +59,37 @@ export class URLManager {
             layerId = window.layerRegistry.normalizeLayerId(layer.id);
         }
 
-        // If it's a simple layer with just an ID (no opacity or other properties), return the normalized ID
-        if (layer.id && Object.keys(layer).filter(k => !k.startsWith('_') && k !== 'tags' && k !== 'initiallyChecked').length === 1) {
+        // If it's a simple layer with just an ID (no opacity, geojson, or other properties), return the normalized ID
+        const simpleLayerKeys = Object.keys(layer).filter(k =>
+            !k.startsWith('_') &&
+            k !== 'tags' &&
+            k !== 'initiallyChecked' &&
+            k !== 'geojson'
+        );
+
+        if (layer.id && simpleLayerKeys.length === 1 && !layer.geojson) {
             return layerId;
         }
 
-        // If it's a layer with opacity or other properties, create a clean object
+        // If it's a layer with opacity, geojson, or other properties, create a clean object
         const cleanLayer = { id: layerId };
         Object.keys(layer).forEach(key => {
             if (key !== '_originalJson' && key !== '_normalizedId' &&
                 key !== '_sourceAtlas' && key !== '_prefixedId' &&
-                key !== 'id' && key !== 'initiallyChecked' && key !== 'tags') {
+                key !== 'id' && key !== 'initiallyChecked' && key !== 'tags' &&
+                key !== 'type' && key !== 'title' && key !== 'description' &&
+                key !== 'headerImage' && key !== 'attribution' && key !== 'style') {
                 cleanLayer[key] = layer[key];
             }
         });
 
-        // If it's just an ID, return it as string
+        // If it's just an ID (no additional properties), return it as string
         if (Object.keys(cleanLayer).length === 1) {
             return layerId;
         }
 
-        // If it's a complex layer, return minified JSON
-        const minified = JSON.stringify(cleanLayer);
-        return minified;
+        // If it's a complex layer with geojson or other properties, return minified JSON
+        return JSON.stringify(cleanLayer);
     }
 
     /**
@@ -207,6 +215,10 @@ export class URLManager {
                     // Include opacity if it exists and is different from default (1)
                     if (group.opacity !== undefined && group.opacity !== 1) {
                         layerObj.opacity = group.opacity;
+                    }
+                    // Include geojson if it exists and has features
+                    if (group.geojson && group.geojson.features && group.geojson.features.length > 0) {
+                        layerObj.geojson = group.geojson;
                     }
                     activeLayers.push(layerObj);
                 } else if (group.layers && group.layers.length > 0) {
@@ -717,11 +729,7 @@ export class URLManager {
             return '';
         }
 
-        const serialized = layers.map(layer => {
-            return this.layerToURL(layer);
-        }).join(',');
-
-        return serialized;
+        return layers.map(layer => this.layerToURL(layer)).join(',');
     }
 
     serializeSelectionsForURL() {

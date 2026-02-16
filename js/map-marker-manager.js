@@ -6,9 +6,10 @@ import { LayerThumbnail } from './layer-thumbnail.js';
 import { FeatureDisplayRenderer } from './feature-display-renderer.js';
 
 export class MapMarkerManager {
-    constructor(map, stateManager) {
+    constructor(map, stateManager, mapboxAPI = null) {
         this._map = map;
         this._stateManager = stateManager;
+        this._mapboxAPI = mapboxAPI;
         this._markers = new Map();
         this._hoverMarker = null;
         this._currentMarkerIndex = 0;
@@ -16,9 +17,17 @@ export class MapMarkerManager {
         this._expandedFeatures = new Map(); // markerId -> featureId
         this._cameraPositions = new Map(); // markerId-featureId -> camera state
         this._isMapMoving = false;
+        this._selectionLayerId = 'selection'; // Layer ID for selection markers
 
         this._setupEventListeners();
         this._setupMapMovementTracking();
+    }
+
+    /**
+     * Set the MapboxAPI reference (can be called after construction)
+     */
+    setMapboxAPI(mapboxAPI) {
+        this._mapboxAPI = mapboxAPI;
     }
 
     _setupEventListeners() {
@@ -35,6 +44,7 @@ export class MapMarkerManager {
 
             if (eventType === 'map-mouse-leave') {
                 this._clearHoverMarker();
+                this._clearAllMarkerHoverStates();
             }
 
             if (eventType === 'selections-cleared') {
@@ -65,8 +75,9 @@ export class MapMarkerManager {
 
         if (!lngLat) return;
 
-        // Clear hover marker on selection
+        // Clear hover marker and marker hover states on selection
         this._clearHoverMarker();
+        this._clearAllMarkerHoverStates();
 
         // Ensure state manager knows we're in add mode
         if (this._selectionMode === 'add') {
@@ -103,6 +114,7 @@ export class MapMarkerManager {
 
         if (!hoveredFeatures || hoveredFeatures.length === 0) {
             this._clearHoverMarker();
+            this._clearAllMarkerHoverStates();
             return;
         }
 
@@ -110,19 +122,32 @@ export class MapMarkerManager {
 
         if (!lngLat) {
             this._clearHoverMarker();
+            this._clearAllMarkerHoverStates();
             return;
         }
 
-        // Extract labels from all hovered features
-        const labels = hoveredFeatures.map(f => {
-            const layerConfig = this._stateManager.getLayerConfig(f.layerId);
-            const inspectConfig = layerConfig?.inspect || {};
-            const labelField = inspectConfig.label || inspectConfig.id || 'id';
-            return f.feature.properties?.[labelField] || f.featureId;
-        });
-        const labelText = labels.join(', ');
+        // Check if hovering over features that are already selected in a marker
+        const matchingMarker = this._findMarkerByFeatures(hoveredFeatures);
 
-        this._showHoverMarker(lngLat, labelText, hoveredFeatures);
+        if (matchingMarker) {
+            // Hovering over selected features - highlight the selection marker instead
+            this._clearHoverMarker();
+            this._setMarkerHoverState(matchingMarker.id, true);
+        } else {
+            // Hovering over different features - show hover marker
+            this._clearAllMarkerHoverStates();
+
+            // Extract labels from all hovered features
+            const labels = hoveredFeatures.map(f => {
+                const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+                const inspectConfig = layerConfig?.inspect || {};
+                const labelField = inspectConfig.label || inspectConfig.id || 'id';
+                return f.feature.properties?.[labelField] || f.featureId;
+            });
+            const labelText = labels.join(', ');
+
+            this._showHoverMarker(lngLat, labelText, hoveredFeatures);
+        }
     }
 
     _showHoverMarker(lngLat, labelText, features) {
@@ -250,6 +275,63 @@ export class MapMarkerManager {
         }
     }
 
+    _findMarkerByFeatures(hoveredFeatures) {
+        if (!hoveredFeatures || hoveredFeatures.length === 0) return null;
+
+        // Create a set of hovered feature composite keys
+        const hoveredKeys = new Set(
+            hoveredFeatures.map(f => `${f.layerId}:${f.featureId}`)
+        );
+
+        // Find a marker that contains exactly the same features (or is a superset)
+        for (const markerData of this._markers.values()) {
+            const markerKeys = new Set(
+                markerData.features.map(f => `${f.layerId}:${f.featureId}`)
+            );
+
+            // Check if all hovered features are in this marker
+            let allHoveredFeaturesInMarker = true;
+            for (const key of hoveredKeys) {
+                if (!markerKeys.has(key)) {
+                    allHoveredFeaturesInMarker = false;
+                    break;
+                }
+            }
+
+            // If all hovered features are in this marker, it's a match
+            if (allHoveredFeaturesInMarker) {
+                return markerData;
+            }
+        }
+
+        return null;
+    }
+
+    _setMarkerHoverState(markerId, isHovered) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData) return;
+
+        const markerEl = markerData.marker.getElement();
+        if (!markerEl) return;
+
+        const contentEl = markerEl.querySelector('.marker-content');
+        if (!contentEl) return;
+
+        if (isHovered) {
+            contentEl.style.transform = 'scale(1.1)';
+            contentEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+        } else {
+            contentEl.style.transform = 'scale(1)';
+            contentEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
+        }
+    }
+
+    _clearAllMarkerHoverStates() {
+        this._markers.forEach((markerData, markerId) => {
+            this._setMarkerHoverState(markerId, false);
+        });
+    }
+
     addMarker(lngLat, features) {
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
         const markerNumber = this._markers.size + 1;
@@ -266,7 +348,7 @@ export class MapMarkerManager {
 
         const el = document.createElement('div');
         el.className = 'selection-marker';
-        el.style.cssText = 'display: flex; flex-direction: column; align-items: center; transition: none !important;';
+        el.style.cssText = 'display: flex; flex-direction: column; align-items: center;';
 
         // Show label text if available, otherwise show geo-alt icon
         if (hasLabels) {
@@ -280,7 +362,7 @@ export class MapMarkerManager {
                     border: 2px solid white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
                     cursor: pointer;
-                    transition: background 0.2s;
+                    transition: all 0.2s ease;
                 ">
                     <span style="
                         font-size: 11px;
@@ -326,7 +408,7 @@ export class MapMarkerManager {
                     border: 2px solid white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
                     cursor: pointer;
-                    transition: background 0.2s;
+                    transition: all 0.2s ease;
                 ">
                     <sl-icon name="geo-alt" style="
                         font-size: 14px;
@@ -390,6 +472,9 @@ export class MapMarkerManager {
         });
 
         this._showMarkerPopup(markerId);
+
+        // Update selection layer
+        this._updateSelectionLayer();
 
         return markerId;
     }
@@ -1020,6 +1105,9 @@ export class MapMarkerManager {
         if (this._markers.size > 0) {
             this._currentMarkerIndex = Math.min(this._currentMarkerIndex, this._markers.size - 1);
         }
+
+        // Update selection layer
+        this._updateSelectionLayer();
     }
 
     clearAllMarkers() {
@@ -1031,6 +1119,74 @@ export class MapMarkerManager {
         });
         this._markers.clear();
         this._currentMarkerIndex = 0;
+
+        // Update selection layer
+        this._updateSelectionLayer();
+    }
+
+    /**
+     * Update the selection GeoJSON layer with current marker positions
+     */
+    _updateSelectionLayer() {
+        // Get mapboxAPI from global layerControl if not set
+        if (!this._mapboxAPI && window.layerControl?._mapboxAPI) {
+            this._mapboxAPI = window.layerControl._mapboxAPI;
+        }
+
+        if (!this._mapboxAPI) {
+            console.warn('[MarkerManager] MapboxAPI not available, cannot update selection layer');
+            return;
+        }
+
+        // Create GeoJSON from current markers
+        const features = [];
+        this._markers.forEach((markerData, markerId) => {
+            // Extract feature labels for the name property
+            const labels = markerData.features.map(f => {
+                const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+                const inspectConfig = layerConfig?.inspect || {};
+                const labelField = inspectConfig.label || inspectConfig.id || 'id';
+                return f.feature.properties?.[labelField] || f.featureId;
+            });
+            const name = labels.join(', ');
+
+            // Create a point feature at the marker location
+            const feature = {
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: [markerData.lngLat.lng, markerData.lngLat.lat]
+                },
+                properties: {
+                    id: markerId,
+                    name: name,
+                    featureCount: markerData.features.length
+                }
+            };
+
+            features.push(feature);
+        });
+
+        const geojson = {
+            type: 'FeatureCollection',
+            features: features
+        };
+
+        // Update the selection layer
+        this._mapboxAPI.updateGeoJSONLayerData(this._selectionLayerId, geojson);
+
+        // Also update the layer control's state if available
+        if (window.layerControl) {
+            const layerGroup = window.layerControl._state.groups.find(g => g.id === this._selectionLayerId);
+            if (layerGroup) {
+                layerGroup.geojson = geojson;
+
+                // Trigger URL update
+                if (window.urlManager) {
+                    window.urlManager.updateURL({ updateLayers: true });
+                }
+            }
+        }
     }
 
     getSelectionMode() {

@@ -1292,6 +1292,9 @@ export class MapboxAPI {
 
             if (config.data) {
                 dataSource = this._processGeoJSONData(config.data);
+            } else if (config.geojson !== undefined) {
+                // Support geojson property (can be null or a GeoJSON object)
+                dataSource = config.geojson ? this._processGeoJSONData(config.geojson) : { type: 'FeatureCollection', features: [] };
             } else if (config.url) {
                 if (KMLConverter.isKmlUrl(config.url)) {
                     try {
@@ -1304,7 +1307,7 @@ export class MapboxAPI {
                     dataSource = config.url;
                 }
             } else {
-                console.error('GeoJSON layer missing both data and URL:', groupId);
+                console.error('GeoJSON layer missing data, geojson, and URL:', groupId);
                 return false;
             }
 
@@ -1769,6 +1772,32 @@ export class MapboxAPI {
         if (this._map.getLayer(`${sourceId}-cluster-count`)) {
             this._map.setPaintProperty(`${sourceId}-cluster-count`, 'text-opacity', finalOpacity);
         }
+
+        return true;
+    }
+
+    /**
+     * Update GeoJSON layer data dynamically
+     * @param {string} groupId - Layer group identifier
+     * @param {Object} geojsonData - New GeoJSON data
+     * @returns {boolean} - Success status
+     */
+    updateGeoJSONLayerData(groupId, geojsonData) {
+        const sourceId = `geojson-${groupId}`;
+        console.log(`[MapboxAPI] updateGeoJSONLayerData called for groupId: ${groupId}, sourceId: ${sourceId}`);
+
+        const source = this._map.getSource(sourceId);
+
+        if (!source) {
+            console.warn(`[MapboxAPI] Source ${sourceId} not found. Available sources:`, Object.keys(this._map.getStyle().sources));
+            return false;
+        }
+
+        const processedData = geojsonData ? this._processGeoJSONData(geojsonData) : { type: 'FeatureCollection', features: [] };
+        console.log(`[MapboxAPI] Setting data for source ${sourceId}:`, processedData);
+
+        source.setData(processedData);
+        console.log(`[MapboxAPI] Successfully updated data for source ${sourceId}`);
 
         return true;
     }

@@ -71,6 +71,35 @@
   },
   "layers": [
     {
+      "tags": [
+        "poi"
+      ],
+      "title": "Selected Points",
+      "description": "GeoJSON of selected points from the map.",
+      "headerImage": null,
+      "type": "geojson",
+      "id": "selection",
+      "geojson": null,
+      "attribution": "<a href='https://amche.in'>Amche.in Atlas</a>",
+      "style": {
+        "circle-radius": 10,
+        "circle-color": "black",
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "#ffffff",
+        "text-font": [
+          "Open Sans Regular"
+        ],
+        "text-field": [
+          "get",
+          "name"
+        ]
+      },
+      "inspect": {
+        "id": "name"
+      },
+      "initiallyChecked": true
+    },
+    {
       "id": "mapbox-streets",
       "initiallyChecked": false
     },
