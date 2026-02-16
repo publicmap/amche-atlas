@@ -124,7 +124,7 @@ export class MapMarkerManager {
                     border: 2px solid white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
                     cursor: pointer;
-                    transition: transform 0.2s, background 0.2s;
+                    transition: background 0.2s;
                 ">
                     <span style="
                         font-size: 10px;
@@ -170,7 +170,7 @@ export class MapMarkerManager {
                     border: 2px solid white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
                     cursor: pointer;
-                    transition: transform 0.2s, background 0.2s;
+                    transition: background 0.2s;
                 ">
                     <sl-icon name="geo-alt" style="
                         font-size: 12px;
@@ -257,7 +257,7 @@ export class MapMarkerManager {
                     border: 2px solid white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
                     cursor: pointer;
-                    transition: transform 0.2s, background 0.2s;
+                    transition: background 0.2s;
                 ">
                     <span style="
                         font-size: 11px;
@@ -303,7 +303,7 @@ export class MapMarkerManager {
                     border: 2px solid white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
                     cursor: pointer;
-                    transition: transform 0.2s, background 0.2s;
+                    transition: background 0.2s;
                 ">
                     <sl-icon name="geo-alt" style="
                         font-size: 14px;
