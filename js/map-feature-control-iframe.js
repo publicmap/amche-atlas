@@ -735,7 +735,6 @@ export class MapFeatureControl {
                 }
 
                 this._sendFeatureSelectionToIframe(data.layerId, data.feature, data.featureId);
-                this._showPanel(); // Auto-open panel when feature is clicked
 
                 // Show click popup if enabled
                 if (this._showClickPopups) {
@@ -754,7 +753,6 @@ export class MapFeatureControl {
                 data.selectedFeatures.forEach(selection => {
                     this._sendFeatureSelectionToIframe(selection.layerId, selection.feature, selection.featureId);
                 });
-                this._showPanel();
 
                 // Show click popup for the first selected feature if enabled
                 if (this._showClickPopups && data.selectedFeatures.length > 0) {

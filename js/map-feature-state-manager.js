@@ -215,8 +215,8 @@ export class MapFeatureStateManager extends EventTarget {
             timestamp: Date.now()
         });
 
-        // Set mapbox feature state for visual feedback
-        this._setMapboxFeatureState(featureId, layerId, { hover: true });
+        // Set mapbox feature state for visual feedback on all related layers
+        this._setMapboxFeatureStateAllLayers(featureId, layerId, { hover: true });
 
         // Update line layer sort keys for z-ordering
         this._updateLineSortKeys();
@@ -274,8 +274,8 @@ export class MapFeatureStateManager extends EventTarget {
                 timestamp: Date.now()
             });
 
-            // Set mapbox feature state for visual feedback
-            this._setMapboxFeatureState(featureId, layerId, { hover: true });
+            // Set mapbox feature state for visual feedback on all related layers
+            this._setMapboxFeatureStateAllLayers(featureId, layerId, { hover: true });
 
             affectedLayers.add(layerId);
             processedFeatures.push({
@@ -358,7 +358,7 @@ export class MapFeatureStateManager extends EventTarget {
                 // Remove mapbox feature state
                 const { layerId, feature } = featureState;
                 const featureId = this._getFeatureId(feature);
-                this._removeMapboxFeatureState(featureId, layerId, 'hover');
+                this._removeMapboxFeatureStateAllLayers(featureId, layerId, 'hover');
 
                 clearedFeatures.push({
                     featureId,
@@ -407,7 +407,7 @@ export class MapFeatureStateManager extends EventTarget {
 
                     // Remove mapbox feature state
                     const featureId = this._getFeatureId(featureState.feature);
-                    this._removeMapboxFeatureState(featureId, featureState.layerId, 'selected');
+                    this._removeMapboxFeatureStateAllLayers(featureId, featureState.layerId, 'selected');
 
                     clearedFeatures.push({
                         featureId,
@@ -447,8 +447,8 @@ export class MapFeatureStateManager extends EventTarget {
             // Add to selected features set
             this._selectedFeatures.add(compositeKey);
 
-            // Set mapbox feature state for visual feedback
-            this._setMapboxFeatureState(featureId, layerId, { selected: true });
+            // Set mapbox feature state for visual feedback on all related layers
+            this._setMapboxFeatureStateAllLayers(featureId, layerId, { selected: true });
 
             newSelections.push({
                 featureId,
@@ -554,7 +554,7 @@ export class MapFeatureStateManager extends EventTarget {
         this._handlerResultsCache.delete(compositeKey);
 
         // Remove mapbox feature state
-        this._removeMapboxFeatureState(featureId, layerId, 'selected');
+        this._removeMapboxFeatureStateAllLayers(featureId, layerId, 'selected');
 
         // Update line layer sort keys for z-ordering
         this._updateLineSortKeys();
@@ -587,7 +587,7 @@ export class MapFeatureStateManager extends EventTarget {
 
                 // Remove mapbox feature state
                 const featureId = this._getFeatureId(featureState.feature);
-                this._removeMapboxFeatureState(featureId, featureState.layerId, 'selected');
+                this._removeMapboxFeatureStateAllLayers(featureId, featureState.layerId, 'selected');
 
                 clearedFeatures.push({
                     featureId,
@@ -627,7 +627,7 @@ export class MapFeatureStateManager extends EventTarget {
 
                 // Remove mapbox feature state
                 const featureId = this._getFeatureId(featureState.feature);
-                this._removeMapboxFeatureState(featureId, layerId, 'selected');
+                this._removeMapboxFeatureStateAllLayers(featureId, layerId, 'selected');
 
                 clearedFeatures.push({
                     featureId,
@@ -851,10 +851,10 @@ export class MapFeatureStateManager extends EventTarget {
 
         if (hoverState) {
             featureState.isHovered = true;
-            this._setMapboxFeatureState(featureId, layerId, { hover: true });
+            this._setMapboxFeatureStateAllLayers(featureId, layerId, { hover: true });
         } else {
             featureState.isHovered = false;
-            this._removeMapboxFeatureState(featureId, layerId, 'hover');
+            this._removeMapboxFeatureStateAllLayers(featureId, layerId, 'hover');
         }
     }
 
@@ -871,7 +871,7 @@ export class MapFeatureStateManager extends EventTarget {
             if (featureState.layerId === layerId && featureState.isHovered) {
                 featureState.isHovered = false;
                 const featureId = this._getFeatureId(featureState.feature);
-                this._removeMapboxFeatureState(featureId, layerId, 'hover');
+                this._removeMapboxFeatureStateAllLayers(featureId, layerId, 'hover');
             }
         });
     }
@@ -1143,7 +1143,7 @@ export class MapFeatureStateManager extends EventTarget {
 
                 // Remove mapbox feature state
                 const featureId = this._getFeatureId(featureState.feature);
-                this._removeMapboxFeatureState(featureId, layerId, 'hover');
+                this._removeMapboxFeatureStateAllLayers(featureId, layerId, 'hover');
 
                 clearedFeatures.push({
                     featureId,
@@ -1168,8 +1168,8 @@ export class MapFeatureStateManager extends EventTarget {
                 const featureId = this._getFeatureId(featureState.feature);
 
                 // Remove mapbox feature states
-                this._removeMapboxFeatureState(featureId, layerId, 'hover');
-                this._removeMapboxFeatureState(featureId, layerId, 'selected');
+                this._removeMapboxFeatureStateAllLayers(featureId, layerId, 'hover');
+                this._removeMapboxFeatureStateAllLayers(featureId, layerId, 'selected');
 
                 this._featureStates.delete(compositeKey);
                 this._selectedFeatures.delete(compositeKey);
@@ -1554,6 +1554,113 @@ export class MapFeatureStateManager extends EventTarget {
         } catch (error) {
             if (this._isDebug) {
                 console.warn(`[StateManager] Could not remove feature state for ${featureId}:`, error);
+            }
+        }
+    }
+
+    /**
+     * Set Mapbox feature state on all matching style layers for a layer config
+     * This ensures that symbol, fill, line, and other style layers all get the same state
+     */
+    _setMapboxFeatureStateAllLayers(featureId, layerId, state) {
+        try {
+            const layerConfig = this._registeredLayers.get(layerId);
+            if (!layerConfig) return;
+
+            if (layerConfig.type === 'style') {
+                return;
+            }
+
+            const rawFeatureId = this._extractRawFeatureId(featureId);
+            const source = layerConfig.source || `${layerConfig.type}-${layerId}`;
+
+            // Get all matching style layer IDs for this layer config
+            const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
+
+            if (matchingLayerIds.length === 0) {
+                // Fallback to single layer state setting
+                this._setMapboxFeatureState(featureId, layerId, state);
+                return;
+            }
+
+            // Get the style to check sourceLayer for each style layer
+            const style = this._mapboxAPI.getStyle();
+            if (!style.layers) return;
+
+            // Set feature state for each matching style layer
+            matchingLayerIds.forEach(styleLayerId => {
+                const styleLayer = style.layers.find(l => l.id === styleLayerId);
+                if (!styleLayer) return;
+
+                const featureIdentifier = {
+                    source: styleLayer.source || source,
+                    id: rawFeatureId
+                };
+
+                if (styleLayer['source-layer']) {
+                    featureIdentifier.sourceLayer = styleLayer['source-layer'];
+                } else if (layerConfig.sourceLayer) {
+                    featureIdentifier.sourceLayer = layerConfig.sourceLayer;
+                }
+
+                this._mapboxAPI.setFeatureState(featureIdentifier, state);
+            });
+        } catch (error) {
+            if (this._isDebug) {
+                console.warn(`[StateManager] Could not set feature state on all layers for ${featureId}:`, error);
+            }
+        }
+    }
+
+    /**
+     * Remove Mapbox feature state from all matching style layers for a layer config
+     */
+    _removeMapboxFeatureStateAllLayers(featureId, layerId, stateKey = null) {
+        try {
+            const layerConfig = this._registeredLayers.get(layerId);
+            if (!layerConfig) return;
+
+            if (layerConfig.type === 'style') {
+                return;
+            }
+
+            const rawFeatureId = this._extractRawFeatureId(featureId);
+            const source = layerConfig.source || `${layerConfig.type}-${layerId}`;
+
+            // Get all matching style layer IDs for this layer config
+            const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
+
+            if (matchingLayerIds.length === 0) {
+                // Fallback to single layer state removal
+                this._removeMapboxFeatureState(featureId, layerId, stateKey);
+                return;
+            }
+
+            // Get the style to check sourceLayer for each style layer
+            const style = this._mapboxAPI.getStyle();
+            if (!style.layers) return;
+
+            // Remove feature state from each matching style layer
+            matchingLayerIds.forEach(styleLayerId => {
+                const styleLayer = style.layers.find(l => l.id === styleLayerId);
+                if (!styleLayer) return;
+
+                const featureIdentifier = {
+                    source: styleLayer.source || source,
+                    id: rawFeatureId
+                };
+
+                if (styleLayer['source-layer']) {
+                    featureIdentifier.sourceLayer = styleLayer['source-layer'];
+                } else if (layerConfig.sourceLayer) {
+                    featureIdentifier.sourceLayer = layerConfig.sourceLayer;
+                }
+
+                this._mapboxAPI.removeFeatureState(featureIdentifier, stateKey);
+            });
+        } catch (error) {
+            if (this._isDebug) {
+                console.warn(`[StateManager] Could not remove feature state from all layers for ${featureId}:`, error);
             }
         }
     }

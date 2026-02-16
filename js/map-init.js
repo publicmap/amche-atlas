@@ -511,10 +511,8 @@ export class MapInitializer {
             map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: true }));
             map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
 
-            // Show feature control panel by default on initial load
-            // Show feature control panel by default on initial load
+            // Initialize feature control (panel starts collapsed)
             window.featureControl.initialize(stateManager, config);
-            window.featureControl._showPanel();
 
             // Initialize 3D control from URL parameters after URL manager is ready
             window.terrain3DControl.initializeFromURL();
