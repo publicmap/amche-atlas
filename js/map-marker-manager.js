@@ -73,6 +73,62 @@ export class MapMarkerManager {
         });
     }
 
+    /**
+     * Get active layers that are in current view
+     */
+    _getActiveLayersInView() {
+        if (!window.layerControl?._state?.groups) {
+            return [];
+        }
+
+        const currentBounds = this._map.getBounds();
+        const bounds = [
+            currentBounds.getWest(),
+            currentBounds.getSouth(),
+            currentBounds.getEast(),
+            currentBounds.getNorth()
+        ];
+
+        // Get active layers
+        const activeLayers = [];
+        window.layerControl._state.groups.forEach((group, index) => {
+            const isActive = this._isLayerActive(index);
+            if (isActive && group.id) {
+                activeLayers.push(group);
+            }
+        });
+
+        // Filter by view using MapUtils if available
+        if (window.MapUtils) {
+            return activeLayers.filter(layer => {
+                // Check if layer has bbox
+                if (!layer.bbox && layer._sourceAtlas && window.layerRegistry) {
+                    const atlasMetadata = window.layerRegistry._atlasMetadata?.get(layer._sourceAtlas);
+                    if (atlasMetadata?.bbox) {
+                        const layerWithAtlasBbox = { ...layer, bbox: atlasMetadata.bbox };
+                        return window.MapUtils.isLayerInView(layerWithAtlasBbox, bounds);
+                    }
+                }
+                return window.MapUtils.isLayerInView(layer, bounds);
+            });
+        }
+
+        return activeLayers;
+    }
+
+    /**
+     * Check if a layer is currently active
+     */
+    _isLayerActive(groupIndex) {
+        if (!window.layerControl?._sourceControls?.[groupIndex]) {
+            return false;
+        }
+
+        const $groupControl = $(window.layerControl._sourceControls[groupIndex]);
+        const $toggle = $groupControl.find('.toggle-switch input[type="checkbox"]');
+        return $toggle.length > 0 && $toggle.prop('checked');
+    }
+
     _handleSelection(data) {
         const features = data.selectedFeatures || [data];
         const lngLat = features[0]?.lngLat;
@@ -560,6 +616,13 @@ export class MapMarkerManager {
             groupedFeatures.get(layerId).push(f);
         });
 
+        // Get active raster layers in current view (same as inspector)
+        const activeLayers = this._getActiveLayersInView();
+        const rasterLayers = activeLayers.filter(layer => {
+            const rasterTypes = ['tms', 'wmts', 'img', 'raster-style-layer'];
+            return rasterTypes.includes(layer.type);
+        });
+
         // Get atlas metadata for badges
         const getAtlasBadge = (layerConfig) => {
             const atlasName = layerConfig?._sourceAtlas;
@@ -703,6 +766,19 @@ export class MapMarkerManager {
         const showPrevButton = totalMarkers > 1 && markerNumber > 1;
         const showNextButton = totalMarkers > 1 && markerNumber < totalMarkers;
 
+        // Generate layer thumbnails HTML for raster layers in view
+        let layerThumbnailsHTML = '';
+        rasterLayers.forEach(layer => {
+            layerThumbnailsHTML += `
+                <div class="layer-thumbnail-container" data-layer-id="${layer.id}" style="
+                    width: 24px;
+                    height: 24px;
+                    flex-shrink: 0;
+                    cursor: pointer;
+                "></div>
+            `;
+        });
+
         return `
             <div style="
                 background: #1e293b;
@@ -719,7 +795,24 @@ export class MapMarkerManager {
                     padding: 8px;
                     border-bottom: 1px solid #334155;
                 ">
-                    <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex: 1; overflow-x: auto;">
+                        <button class="open-inspector" style="
+                            background: #ffbf00;
+                            border: none;
+                            color: #000;
+                            padding: 4px;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            width: 24px;
+                            height: 24px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            flex-shrink: 0;
+                            transition: all 0.2s;
+                        " title="Open Layer Inspector"><sl-icon name="layers" style="font-size: 12px;"></sl-icon></button>
+                        ${layerThumbnailsHTML}
                         ${showPrevButton ? `
                             <button class="nav-prev" style="
                                 background: #334155;
@@ -729,25 +822,10 @@ export class MapMarkerManager {
                                 border-radius: 3px;
                                 cursor: pointer;
                                 font-size: 12px;
+                                flex-shrink: 0;
+                                margin-left: auto;
                             ">&lt;</button>
                         ` : ''}
-                        <button class="toggle-marker-icon" style="
-                            background: #3b82f6;
-                            border: none;
-                            color: white;
-                            padding: 3px 6px;
-                            border-radius: 50%;
-                            cursor: pointer;
-                            font-size: 14px;
-                            width: 24px;
-                            height: 24px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                        "><sl-icon name="geo-alt" style="font-size: 12px;"></sl-icon></button>
-                        <h4 style="margin: 0; font-size: 13px; font-weight: 600;">
-                            ${features.length} feature${features.length !== 1 ? 's' : ''} selected
-                        </h4>
                         ${showNextButton ? `
                             <button class="nav-next" style="
                                 background: #334155;
@@ -757,70 +835,97 @@ export class MapMarkerManager {
                                 border-radius: 3px;
                                 cursor: pointer;
                                 font-size: 12px;
+                                flex-shrink: 0;
+                                ${!showPrevButton ? 'margin-left: auto;' : ''}
                             ">&gt;</button>
                         ` : ''}
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <button class="remove-selection" style="
-                            background: #dc2626;
-                            border: none;
-                            color: white;
-                            padding: 4px 10px;
-                            border-radius: 3px;
-                            cursor: pointer;
-                            font-size: 11px;
-                            font-weight: 600;
-                        ">Remove Selection</button>
-                        <button class="close-popup" style="
+                    <button class="close-popup" style="
+                        background: transparent;
+                        border: none;
+                        color: #94a3b8;
+                        cursor: pointer;
+                        font-size: 20px;
+                        line-height: 1;
+                        padding: 0;
+                        width: 24px;
+                        height: 24px;
+                        flex-shrink: 0;
+                        margin-left: 6px;
+                    ">&times;</button>
+                </div>
+
+                <div style="padding: 8px;">
+                    <div class="features-list-container" style="max-height: 250px; overflow-y: auto;">
+                        ${featuresList}
+                    </div>
+                </div>
+
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 8px;
+                    border-top: 1px solid #334155;
+                    background: #111827;
+                ">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button class="toggle-location" style="
                             background: transparent;
                             border: none;
                             color: #94a3b8;
                             cursor: pointer;
-                            font-size: 20px;
-                            line-height: 1;
                             padding: 0;
-                            width: 24px;
-                            height: 24px;
-                        ">&times;</button>
+                            display: flex;
+                            align-items: center;
+                            transition: color 0.2s;
+                        " title="Show location details"><sl-icon name="geo-alt" style="font-size: 14px;"></sl-icon></button>
+                        <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">
+                            ${features.length} feature${features.length !== 1 ? 's' : ''} selected
+                        </span>
                     </div>
+                    <button class="remove-selection" style="
+                        padding: 4px 10px;
+                        background: #dc2626;
+                        color: white;
+                        border: none;
+                        border-radius: 3px;
+                        font-size: 10px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    ">Remove Selection</button>
                 </div>
 
-                <div style="padding: 8px;">
-                    <div class="location-details" style="
-                        display: none;
-                        align-items: center;
-                        gap: 6px;
-                        margin-bottom: 8px;
-                        padding: 6px;
-                        background: #334155;
-                        border-radius: 3px;
-                        font-size: 11px;
-                        color: #94a3b8;
-                    ">
-                        <span>${lngLat.lat.toFixed(6)}, ${lngLat.lng.toFixed(6)}</span>
-                        <button class="copy-coords" style="
-                            background: #1e293b;
-                            border: none;
-                            color: #e2e8f0;
-                            padding: 2px 6px;
-                            border-radius: 2px;
-                            cursor: pointer;
-                            font-size: 10px;
-                        ">Copy</button>
-                        <button class="open-with" style="
-                            background: #1e293b;
-                            border: none;
-                            color: #e2e8f0;
-                            padding: 2px 6px;
-                            border-radius: 2px;
-                            cursor: pointer;
-                            font-size: 10px;
-                        ">Open with...</button>
-                    </div>
-
-                    <div class="features-list-container" style="max-height: 250px; overflow-y: auto;">
-                        ${featuresList}
-                    </div>
+                <div class="location-details" style="
+                    display: none;
+                    padding: 8px;
+                    background: #111827;
+                    border-top: 1px solid #334155;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 11px;
+                    color: #94a3b8;
+                ">
+                    <span>${lngLat.lat.toFixed(6)}, ${lngLat.lng.toFixed(6)}</span>
+                    <button class="copy-coords" style="
+                        background: #1e293b;
+                        border: none;
+                        color: #e2e8f0;
+                        padding: 2px 6px;
+                        border-radius: 2px;
+                        cursor: pointer;
+                        font-size: 10px;
+                    ">Copy</button>
+                    <button class="open-with" style="
+                        background: #1e293b;
+                        border: none;
+                        color: #e2e8f0;
+                        padding: 2px 6px;
+                        border-radius: 2px;
+                        cursor: pointer;
+                        font-size: 10px;
+                    ">Open with...</button>
                 </div>
             </div>
         `;
@@ -832,6 +937,23 @@ export class MapMarkerManager {
 
         const popup = markerData.popup.getElement();
         if (!popup) return;
+
+        // Inject layer thumbnails into containers
+        const thumbnailContainers = popup.querySelectorAll('.layer-thumbnail-container');
+        thumbnailContainers.forEach(container => {
+            const layerId = container.dataset.layerId;
+            const layerConfig = this._stateManager.getLayerConfig(layerId);
+            if (layerConfig) {
+                const thumbnail = LayerThumbnail.generate(layerConfig, 24);
+                thumbnail.style.borderRadius = '3px';
+                thumbnail.style.cursor = 'pointer';
+                thumbnail.style.margin = '0';
+                container.appendChild(thumbnail);
+                console.log('[MarkerManager] Generated thumbnail for layer:', layerId);
+            } else {
+                console.warn('[MarkerManager] No layer config found for:', layerId);
+            }
+        });
 
         popup.querySelector('.close-popup')?.addEventListener('click', () => {
             this._closePopup(markerId);
@@ -854,11 +976,38 @@ export class MapMarkerManager {
             this._navigateMarker(1);
         });
 
-        popup.querySelector('.toggle-marker-icon')?.addEventListener('click', () => {
+        popup.querySelector('.open-inspector')?.addEventListener('click', () => {
+            console.log('[MarkerManager] Open inspector clicked');
+
+            // Open the inspector panel
+            if (window.featureControl && window.featureControl._panel) {
+                console.log('[MarkerManager] Panel display before:', window.featureControl._panel.style.display);
+
+                // Always call _showPanel to ensure it's visible
+                window.featureControl._showPanel();
+
+                // Verify it was shown
+                console.log('[MarkerManager] Panel display after:', window.featureControl._panel.style.display);
+
+                // Give the panel time to render before closing popup
+                setTimeout(() => {
+                    this._closePopup(markerId);
+                    console.log('[MarkerManager] Popup closed');
+                }, 100);
+            } else {
+                console.warn('[MarkerManager] window.featureControl or _panel not available');
+                // Close popup immediately if panel can't be shown
+                this._closePopup(markerId);
+            }
+        });
+
+        popup.querySelector('.toggle-location')?.addEventListener('click', (e) => {
             const locationDetails = popup.querySelector('.location-details');
+            const button = e.currentTarget;
             if (locationDetails) {
-                const isVisible = locationDetails.style.display !== 'none';
+                const isVisible = locationDetails.style.display === 'flex';
                 locationDetails.style.display = isVisible ? 'none' : 'flex';
+                button.style.color = isVisible ? '#94a3b8' : '#fbbf24';
             }
         });
 
