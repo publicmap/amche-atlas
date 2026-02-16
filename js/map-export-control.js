@@ -1154,16 +1154,26 @@ export class MapExportControl {
     async _exportGeoJSON(config) {
         this._sendProgress(20, 'Collecting features');
 
-        const features = [];
-        const layers = this._map.getStyle().layers.filter(l =>
-            l.type === 'fill' || l.type === 'line' || l.type === 'circle' || l.type === 'symbol'
-        );
+        let features;
+        let filename;
 
-        for (const layer of layers) {
-            const sourceFeatures = this._map.querySourceFeatures(layer.source, {
-                sourceLayer: layer['source-layer']
-            });
-            features.push(...sourceFeatures);
+        if (config.exportSelectedOnly && this._hasSelectedFeatures()) {
+            const selectedFeatures = this._getSelectedFeatures();
+            features = selectedFeatures.map(item => item.feature);
+            filename = this._generateFilenameFromFeatures(selectedFeatures, 'geojson');
+        } else {
+            features = [];
+            const layers = this._map.getStyle().layers.filter(l =>
+                l.type === 'fill' || l.type === 'line' || l.type === 'circle' || l.type === 'symbol'
+            );
+
+            for (const layer of layers) {
+                const sourceFeatures = this._map.querySourceFeatures(layer.source, {
+                    sourceLayer: layer['source-layer']
+                });
+                features.push(...sourceFeatures);
+            }
+            filename = this._generateFilename('geojson');
         }
 
         const geojson = {
@@ -1172,23 +1182,32 @@ export class MapExportControl {
         };
 
         this._sendProgress(80, 'Downloading file');
-        const filename = this._generateFilename('geojson');
         this._downloadFile(JSON.stringify(geojson, null, 2), filename, 'application/geo+json');
     }
 
     async _exportKML(config) {
         this._sendProgress(20, 'Collecting features');
 
-        const features = [];
-        const layers = this._map.getStyle().layers.filter(l =>
-            l.type === 'fill' || l.type === 'line' || l.type === 'circle' || l.type === 'symbol'
-        );
+        let features;
+        let filename;
 
-        for (const layer of layers) {
-            const sourceFeatures = this._map.querySourceFeatures(layer.source, {
-                sourceLayer: layer['source-layer']
-            });
-            features.push(...sourceFeatures);
+        if (config.exportSelectedOnly && this._hasSelectedFeatures()) {
+            const selectedFeatures = this._getSelectedFeatures();
+            features = selectedFeatures.map(item => item.feature);
+            filename = this._generateFilenameFromFeatures(selectedFeatures, 'kml');
+        } else {
+            features = [];
+            const layers = this._map.getStyle().layers.filter(l =>
+                l.type === 'fill' || l.type === 'line' || l.type === 'circle' || l.type === 'symbol'
+            );
+
+            for (const layer of layers) {
+                const sourceFeatures = this._map.querySourceFeatures(layer.source, {
+                    sourceLayer: layer['source-layer']
+                });
+                features.push(...sourceFeatures);
+            }
+            filename = this._generateFilename('kml');
         }
 
         this._sendProgress(50, 'Converting to KML');
@@ -1201,7 +1220,6 @@ export class MapExportControl {
         const kml = tokml(geojson);
 
         this._sendProgress(80, 'Downloading file');
-        const filename = this._generateFilename('kml');
         this._downloadFile(kml, filename, 'application/vnd.google-earth.kml+xml');
     }
 
