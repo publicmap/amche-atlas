@@ -76,6 +76,7 @@ export class MapMarkerManager {
 
         const el = document.createElement('div');
         el.className = 'selection-marker';
+        el.style.cssText = 'display: flex; flex-direction: column; align-items: center;';
 
         // Show label text if available, otherwise show geo-alt icon
         if (hasLabels) {
@@ -102,6 +103,26 @@ export class MapMarkerManager {
                         max-width: 150px;
                     ">${labelText}</span>
                 </div>
+                <div style="
+                    width: 0;
+                    height: 0;
+                    border-left: 6px solid transparent;
+                    border-right: 6px solid transparent;
+                    border-top: 8px solid white;
+                    position: relative;
+                ">
+                    <div style="
+                        position: absolute;
+                        top: -10px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        width: 0;
+                        height: 0;
+                        border-left: 4px solid transparent;
+                        border-right: 4px solid transparent;
+                        border-top: 6px solid #3b82f6;
+                    "></div>
+                </div>
             `;
         } else {
             el.innerHTML = `
@@ -122,12 +143,32 @@ export class MapMarkerManager {
                         color: white;
                     "></sl-icon>
                 </div>
+                <div style="
+                    width: 0;
+                    height: 0;
+                    border-left: 6px solid transparent;
+                    border-right: 6px solid transparent;
+                    border-top: 8px solid white;
+                    position: relative;
+                ">
+                    <div style="
+                        position: absolute;
+                        top: -10px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        width: 0;
+                        height: 0;
+                        border-left: 4px solid transparent;
+                        border-right: 4px solid transparent;
+                        border-top: 6px solid #3b82f6;
+                    "></div>
+                </div>
             `;
         }
 
         const marker = new mapboxgl.Marker({
             element: el,
-            anchor: 'bottom-left'
+            anchor: 'bottom'
         })
             .setLngLat([lngLat.lng, lngLat.lat])
             .addTo(this._map);
