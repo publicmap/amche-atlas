@@ -420,7 +420,14 @@
             <sl-icon name="check-circle-fill" style="color: #10b981; font-size: 12px;"></sl-icon>
             <span id="status-text" style="font-size: 10px; color: #d1d5db;"></span>
         </div>
-        <div style="display: flex; gap: 6px;">
+        <div style="display: flex; gap: 6px; align-items: center;">
+            <button id="add-selection-toggle"
+                data-active="false"
+                title="Toggle add to selection mode"
+                style="padding: 4px 8px; background: transparent; border: 1px solid #4b5563; border-radius: 3px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 4px; color: #9ca3af;">
+                <sl-icon name="plus-circle-dotted" style="font-size: 14px;"></sl-icon>
+                <span style="font-size: 9px;">Add</span>
+            </button>
             <button id="zoom-to-selection-btn"
                 style="padding: 4px 10px; background: #ffbf00; color: #000; border: none; border-radius: 3px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
                 onmouseover="this.style.background='#ffd700'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.4)';"
@@ -672,6 +679,30 @@
                 renderLayers();
             }
 
+            if (event.data.type === 'add-selection-mode-changed') {
+                // Update button state when keyboard shortcut is used
+                const $btn = $('#add-selection-toggle');
+                const enabled = event.data.enabled;
+
+                $btn.attr('data-active', enabled);
+
+                if (enabled) {
+                    $btn.css({
+                        background: '#3b82f6',
+                        borderColor: '#3b82f6',
+                        color: 'white'
+                    });
+                    $btn.find('sl-icon').attr('name', 'plus-circle-fill');
+                } else {
+                    $btn.css({
+                        background: 'transparent',
+                        borderColor: '#4b5563',
+                        color: '#9ca3af'
+                    });
+                    $btn.find('sl-icon').attr('name', 'plus-circle-dotted');
+                }
+            }
+
         });
 
         // Setup UI event listeners
@@ -755,6 +786,44 @@
                     renderLayers();
                     notifyHeightChange();
                 }, 250);
+            });
+
+            $('#add-selection-toggle').on('click', function () {
+                const $btn = $(this);
+                const isActive = $btn.attr('data-active') === 'true';
+                const newActive = !isActive;
+
+                $btn.attr('data-active', newActive);
+
+                if (newActive) {
+                    // Enable add mode
+                    $btn.css({
+                        background: '#3b82f6',
+                        borderColor: '#3b82f6',
+                        color: 'white'
+                    });
+                    $btn.find('sl-icon').attr('name', 'plus-circle-fill');
+
+                    // Notify parent to enable add mode
+                    window.parent.postMessage({
+                        type: 'set-add-selection-mode',
+                        enabled: true
+                    }, '*');
+                } else {
+                    // Disable add mode
+                    $btn.css({
+                        background: 'transparent',
+                        borderColor: '#4b5563',
+                        color: '#9ca3af'
+                    });
+                    $btn.find('sl-icon').attr('name', 'plus-circle-dotted');
+
+                    // Notify parent to disable add mode
+                    window.parent.postMessage({
+                        type: 'set-add-selection-mode',
+                        enabled: false
+                    }, '*');
+                }
             });
 
             $('#zoom-to-selection-btn').on('click', function () {

@@ -44,11 +44,21 @@ export class MapFeatureStateManager extends EventTarget {
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Meta' || event.key === 'Control') {
                 this._isCmdCtrlPressed = true;
+                // Notify inspector to update button state
+                window.postMessage({
+                    type: 'add-selection-mode-changed',
+                    enabled: true
+                }, '*');
             }
         });
         document.addEventListener('keyup', (event) => {
             if (event.key === 'Meta' || event.key === 'Control') {
                 this._isCmdCtrlPressed = false;
+                // Notify inspector to update button state
+                window.postMessage({
+                    type: 'add-selection-mode-changed',
+                    enabled: false
+                }, '*');
             }
         });
 

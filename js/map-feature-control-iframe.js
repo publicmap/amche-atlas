@@ -407,6 +407,15 @@ export class MapFeatureControl {
                 if (this._stateManager) {
                     this._stateManager.clearAllSelections();
                 }
+            } else if (event.data.type === 'set-add-selection-mode') {
+                if (this._markerManager) {
+                    const mode = event.data.enabled ? 'add' : 'replace';
+                    this._markerManager.setSelectionMode(mode);
+                }
+                // Also update state manager Cmd/Ctrl flag
+                if (this._stateManager) {
+                    this._stateManager._isCmdCtrlPressed = event.data.enabled;
+                }
             } else if (event.data.type === 'open-layer-info') {
                 this._openLayerInfo(event.data.layer);
             } else if (event.data.type === 'hover-isolate-feature') {
