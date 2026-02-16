@@ -1550,6 +1550,14 @@ export class MapFeatureControl {
 
         this._map.on('dragend', () => {
             this._isMapDragging = false;
+
+            // Trigger center hover after drag ends on touch devices
+            if (this._stateManager.isCenterHoverEnabled()) {
+                // Small delay to allow map to settle
+                setTimeout(() => {
+                    this._stateManager.triggerCenterHover();
+                }, 100);
+            }
         });
 
         // Map move handler for center hover (keyboard navigation support)

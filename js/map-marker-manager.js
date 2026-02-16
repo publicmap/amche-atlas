@@ -17,6 +17,7 @@ export class MapMarkerManager {
         this._expandedFeatures = new Map(); // markerId -> featureId
         this._cameraPositions = new Map(); // markerId-featureId -> camera state
         this._isMapMoving = false;
+        this._isProgrammaticZoom = false; // Track programmatic zooms
         this._selectionLayerId = 'selection'; // Layer ID for selection markers
 
         this._setupEventListeners();
@@ -53,9 +54,12 @@ export class MapMarkerManager {
         });
 
         this._map.on('movestart', () => {
-            this._markers.forEach(markerData => {
-                this._closePopup(markerData.id);
-            });
+            // Only close popups on user-initiated movement, not programmatic zooms
+            if (!this._isProgrammaticZoom) {
+                this._markers.forEach(markerData => {
+                    this._closePopup(markerData.id);
+                });
+            }
         });
     }
 
@@ -925,7 +929,12 @@ export class MapMarkerManager {
                     // Zoom to feature
                     const feature = markerData.features.find(f => f.layerId === layerId && f.featureId === featureId);
                     if (feature) {
+                        this._isProgrammaticZoom = true;
                         this._zoomToFeature(feature.feature);
+                        // Reset flag after zoom completes
+                        setTimeout(() => {
+                            this._isProgrammaticZoom = false;
+                        }, 1500);
                     }
 
                     // Load inspection handler if needed
@@ -979,6 +988,7 @@ export class MapMarkerManager {
                     // Collapsing - restore camera position
                     const savedCamera = this._cameraPositions.get(cameraKey);
                     if (savedCamera) {
+                        this._isProgrammaticZoom = true;
                         this._map.flyTo({
                             center: savedCamera.center,
                             zoom: savedCamera.zoom,
@@ -987,6 +997,10 @@ export class MapMarkerManager {
                             duration: 1000
                         });
                         this._cameraPositions.delete(cameraKey);
+                        // Reset flag after zoom completes
+                        setTimeout(() => {
+                            this._isProgrammaticZoom = false;
+                        }, 1500);
                     }
 
                     this._expandedFeatures.delete(markerId);
@@ -1037,10 +1051,15 @@ export class MapMarkerManager {
         markerArray.forEach(m => this._closePopup(m.id));
 
         this._showMarkerPopup(targetMarker.id);
+        this._isProgrammaticZoom = true;
         this._map.flyTo({
             center: [targetMarker.lngLat.lng, targetMarker.lngLat.lat],
             duration: 500
         });
+        // Reset flag after zoom completes
+        setTimeout(() => {
+            this._isProgrammaticZoom = false;
+        }, 700);
     }
 
     _openExternalMapLinks(lngLat) {
