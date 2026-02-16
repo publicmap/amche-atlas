@@ -65,6 +65,34 @@ export class MapFeatureStateManager extends EventTarget {
         // Center-point hover tracking
         this._centerHoverEnabled = false;
         this._lastCenterHoverUpdate = 0;
+
+        // Device detection for hover behavior
+        this._isTouchDevice = this._detectTouchDevice();
+
+        // Track map movement to preserve hover states during pan
+        this._isMapMoving = false;
+        this._setupMapMovementTracking();
+    }
+
+    /**
+     * Detect if device is a touch device
+     * @returns {boolean} True if device has coarse pointer (touch)
+     */
+    _detectTouchDevice() {
+        return window.matchMedia('(pointer: coarse)').matches;
+    }
+
+    /**
+     * Set up map movement tracking to preserve hover states during pan
+     */
+    _setupMapMovementTracking() {
+        this._map.on('movestart', () => {
+            this._isMapMoving = true;
+        });
+
+        this._map.on('moveend', () => {
+            this._isMapMoving = false;
+        });
     }
 
     /**
@@ -162,6 +190,11 @@ export class MapFeatureStateManager extends EventTarget {
      * @param {Object} lngLat - Mouse coordinates
      */
     onFeatureHover(feature, layerId, lngLat) {
+        // Don't update hover states during map movement (pan/zoom)
+        if (this._isMapMoving) {
+            return;
+        }
+
         if (!feature || !layerId) return;
 
         const featureId = this._getFeatureId(feature);
@@ -209,6 +242,11 @@ export class MapFeatureStateManager extends EventTarget {
      * @param {Object} globalLngLat - Global mouse coordinates
      */
     handleFeatureHovers(hoveredFeatures, globalLngLat) {
+        // Don't update hover states during map movement (pan/zoom)
+        if (this._isMapMoving) {
+            return;
+        }
+
         if (!hoveredFeatures || hoveredFeatures.length === 0) {
             this.handleMapMouseLeave();
             return;
@@ -277,6 +315,11 @@ export class MapFeatureStateManager extends EventTarget {
      * Handle mouse leaving the map area
      */
     handleMapMouseLeave() {
+        // Don't clear hover states during map movement
+        if (this._isMapMoving) {
+            return;
+        }
+
         // Clear all hover timeouts
         this._hoverTimeouts.forEach(timeout => clearTimeout(timeout));
         this._hoverTimeouts.clear();
@@ -287,8 +330,9 @@ export class MapFeatureStateManager extends EventTarget {
         // Update line layer sort keys for z-ordering
         this._updateLineSortKeys();
 
-        // Return to center hover only if enabled AND no selections exist
-        if (this._centerHoverEnabled && this._selectedFeatures.size === 0) {
+        // Return to center hover only on touch devices (not pointer devices)
+        // Only if enabled AND no selections exist
+        if (this._isTouchDevice && this._centerHoverEnabled && this._selectedFeatures.size === 0) {
             setTimeout(() => {
                 this.triggerCenterHover();
             }, 100);
@@ -388,7 +432,6 @@ export class MapFeatureStateManager extends EventTarget {
             // If already selected, keep it selected (don't toggle)
             // Only clear buttons should remove selections
             if (this._selectedFeatures.has(compositeKey)) {
-                console.log('[StateManager] Feature already selected, keeping selection:', featureId);
                 return;
             }
 
@@ -699,35 +742,24 @@ export class MapFeatureStateManager extends EventTarget {
      * @returns {Array} Array of {feature, layerId} objects
      */
     getFeaturesAtCenter() {
-        // Get the map's actual center in lng/lat
         const center = this._map.getCenter();
-
-        // Convert to canvas pixel coordinates
         const centerPixel = this._map.project(center);
         const point = [centerPixel.x, centerPixel.y];
 
         const features = [];
 
-        console.log('[StateManager] Map center (lng/lat):', center);
-        console.log('[StateManager] Canvas center (pixels):', point);
-        console.log('[StateManager] Registered layers:', this._registeredLayers.size);
-
         this._registeredLayers.forEach((layerConfig, layerId) => {
             if (this._isRasterLayer(layerConfig)) {
-                console.log('[StateManager] Skipping raster layer:', layerId);
                 return;
             }
 
             const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
-            console.log(`[StateManager] Layer ${layerId} has matching IDs:`, matchingLayerIds);
 
             matchingLayerIds.forEach(actualLayerId => {
                 try {
                     const layerFeatures = this._map.queryRenderedFeatures(point, {
                         layers: [actualLayerId]
                     });
-
-                    console.log(`[StateManager] Found ${layerFeatures.length} features in ${actualLayerId}`);
 
                     layerFeatures.forEach(feature => {
                         features.push({
@@ -742,7 +774,6 @@ export class MapFeatureStateManager extends EventTarget {
             });
         });
 
-        console.log('[StateManager] Total features at center:', features.length);
         return features;
     }
 
@@ -758,10 +789,8 @@ export class MapFeatureStateManager extends EventTarget {
         this._lastCenterHoverUpdate = now;
 
         const centerFeatures = this.getFeaturesAtCenter();
-        console.log('[StateManager] Center hover triggered, found features:', centerFeatures.length);
 
         if (centerFeatures.length > 0) {
-            console.log('[StateManager] Hovering features:', centerFeatures.map(f => f.layerId));
             this.handleFeatureHovers(centerFeatures, centerFeatures[0].lngLat);
         } else {
             this.handleMapMouseLeave();

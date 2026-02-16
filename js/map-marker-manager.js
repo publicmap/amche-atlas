@@ -15,8 +15,10 @@ export class MapMarkerManager {
         this._selectionMode = 'replace';
         this._expandedFeatures = new Map(); // markerId -> featureId
         this._cameraPositions = new Map(); // markerId-featureId -> camera state
+        this._isMapMoving = false;
 
         this._setupEventListeners();
+        this._setupMapMovementTracking();
     }
 
     _setupEventListeners() {
@@ -44,6 +46,16 @@ export class MapMarkerManager {
             this._markers.forEach(markerData => {
                 this._closePopup(markerData.id);
             });
+        });
+    }
+
+    _setupMapMovementTracking() {
+        this._map.on('movestart', () => {
+            this._isMapMoving = true;
+        });
+
+        this._map.on('moveend', () => {
+            this._isMapMoving = false;
         });
     }
 
@@ -82,6 +94,11 @@ export class MapMarkerManager {
     }
 
     _handleBatchHover(data) {
+        // Don't update hover markers during map movement (pan/zoom)
+        if (this._isMapMoving) {
+            return;
+        }
+
         const hoveredFeatures = data.hoveredFeatures || [];
 
         if (!hoveredFeatures || hoveredFeatures.length === 0) {
