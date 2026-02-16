@@ -4932,11 +4932,10 @@ sl-tab:hover::part(base) {
 /* Selection Marker Styles */
 .selection-marker {
     cursor: pointer;
-    transition: transform 0.2s ease;
 }
 
-.selection-marker:hover {
-    transform: scale(1.1);
+.selection-marker:hover .marker-content {
+    transform: scale(1.05);
 }
 
 .selection-popup .mapboxgl-popup-content {

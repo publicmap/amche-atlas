@@ -39,6 +39,12 @@ export class MapMarkerManager {
                 this.clearAllMarkers();
             }
         });
+
+        this._map.on('movestart', () => {
+            this._markers.forEach(markerData => {
+                this._closePopup(markerData.id);
+            });
+        });
     }
 
     _handleSelection(data) {
@@ -110,7 +116,7 @@ export class MapMarkerManager {
 
         const el = document.createElement('div');
         el.className = 'hover-marker';
-        el.style.cssText = 'display: flex; flex-direction: column; align-items: center; pointer-events: auto; cursor: pointer;';
+        el.style.cssText = 'display: flex; flex-direction: column; align-items: center; pointer-events: auto; cursor: pointer; transform: none !important; transition: none !important;';
 
         // Show label text if available, otherwise show geo-alt icon
         if (hasLabels) {
@@ -243,7 +249,7 @@ export class MapMarkerManager {
 
         const el = document.createElement('div');
         el.className = 'selection-marker';
-        el.style.cssText = 'display: flex; flex-direction: column; align-items: center;';
+        el.style.cssText = 'display: flex; flex-direction: column; align-items: center; transition: none !important;';
 
         // Show label text if available, otherwise show geo-alt icon
         if (hasLabels) {

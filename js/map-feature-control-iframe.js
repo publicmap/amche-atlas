@@ -24,6 +24,8 @@ export class MapFeatureControl {
         this._iframe = null;
         this._config = null;
         this._globalHandlersAdded = false;
+        this._isMapDragging = false;
+        this._lastMouseMoveTime = Date.now();
         this._isIframeReady = false;
         this._messageQueue = [];
         this._inspectorInitialized = false;
@@ -1543,12 +1545,23 @@ export class MapFeatureControl {
             this._stateManager.handleMapMouseLeave();
         });
 
+        // Track map dragging state
+        this._map.on('dragstart', () => {
+            this._isMapDragging = true;
+        });
+
+        this._map.on('dragend', () => {
+            this._isMapDragging = false;
+        });
+
         // Map move handler for center hover (keyboard navigation support)
         this._map.on('move', () => {
             const timeSinceMouseMove = Date.now() - this._lastMouseMoveTime;
             const isMouseInactive = timeSinceMouseMove > 500;
 
-            if (this._stateManager.isCenterHoverEnabled() && isMouseInactive) {
+            if (this._stateManager.isCenterHoverEnabled() &&
+                isMouseInactive &&
+                !this._isMapDragging) {
                 this._stateManager.triggerCenterHover();
             }
         });
