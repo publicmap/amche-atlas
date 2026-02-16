@@ -103,20 +103,20 @@
               "boolean",
               [
                 "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            "red",
-            [
-              "boolean",
-              [
-                "feature-state",
                 "hover"
               ],
               false
             ],
             "yellow",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            "red",
             "black"
           ],
           "line-width": [
@@ -133,12 +133,26 @@
               [
                 "boolean",
                 [
+                  "boolean",
+                  [
+                    "feature-state",
+                    "hover"
+                  ],
+                  false
+                ],
+                2,
+                [
                   "feature-state",
                   "selected"
                 ],
                 false
               ],
               2,
+              0.5
+            ],
+            18,
+            [
+              "case",
               [
                 "boolean",
                 [
@@ -147,12 +161,7 @@
                 ],
                 false
               ],
-              1.5,
-              0.5
-            ],
-            16,
-            [
-              "case",
+              4,
               [
                 "boolean",
                 [
@@ -162,15 +171,6 @@
                 false
               ],
               4,
-              [
-                "boolean",
-                [
-                  "feature-state",
-                  "hover"
-                ],
-                false
-              ],
-              3,
               1
             ]
           ],
@@ -213,20 +213,20 @@
               "boolean",
               [
                 "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            "red",
-            [
-              "boolean",
-              [
-                "feature-state",
                 "hover"
               ],
               false
             ],
             "yellow",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            "red",
             "grey"
           ],
           "text-halo-width": 2,
@@ -237,7 +237,7 @@
               "boolean",
               [
                 "feature-state",
-                "selected"
+                "hover"
               ],
               false
             ],
@@ -246,11 +246,11 @@
               "boolean",
               [
                 "feature-state",
-                "hover"
+                "selected"
               ],
               false
             ],
-            0.95,
+            1,
             0.9
           ],
           "text-anchor": "bottom",

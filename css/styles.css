@@ -4928,3 +4928,58 @@ sl-tab:hover::part(base) {
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
 }
+
+/* Selection Marker Styles */
+.selection-marker {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.selection-marker:hover {
+    transform: scale(1.1);
+}
+
+.selection-popup .mapboxgl-popup-content {
+    padding: 0 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.selection-popup .mapboxgl-popup-tip {
+    border-top-color: #1e293b !important;
+}
+
+.selection-popup button:hover {
+    opacity: 0.8;
+}
+
+.selection-popup input[type="radio"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.selection-popup code {
+    font-family: 'Courier New', monospace;
+}
+
+.selection-popup .feature-item:active {
+    background: #5a6a82 !important;
+}
+
+/* Marker popup scrollbar */
+.selection-popup ::-webkit-scrollbar {
+    width: 6px;
+}
+
+.selection-popup ::-webkit-scrollbar-track {
+    background: #1e293b;
+}
+
+.selection-popup ::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 3px;
+}
+
+.selection-popup ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}

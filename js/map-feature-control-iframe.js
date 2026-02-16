@@ -5,6 +5,8 @@
  * Uses map-inspector.html for the UI instead of building it in JavaScript.
  */
 
+import { MapMarkerManager } from './map-marker-manager.js';
+
 export class MapFeatureControl {
     constructor() {
         this.options = {
@@ -16,6 +18,7 @@ export class MapFeatureControl {
 
         this._map = null;
         this._stateManager = null;
+        this._markerManager = null;
         this._container = null;
         this._panel = null;
         this._iframe = null;
@@ -24,6 +27,7 @@ export class MapFeatureControl {
         this._isIframeReady = false;
         this._messageQueue = [];
         this._inspectorInitialized = false;
+        this._lastMouseMoveTime = 0;
 
         // Click popup state
         this._clickPopup = null;
@@ -87,6 +91,11 @@ export class MapFeatureControl {
         // Link the state manager to this control for inspect mode checking
         this._stateManager.setFeatureControl(this);
 
+        // Initialize marker manager
+        console.log('[MapFeatureControl] Initializing marker manager');
+        this._markerManager = new MapMarkerManager(this._map, this._stateManager);
+        console.log('[MapFeatureControl] Marker manager initialized');
+
         // Listen to state changes from the centralized manager
         this._stateChangeListener = (event) => {
             this._handleStateChange(event.detail);
@@ -95,6 +104,18 @@ export class MapFeatureControl {
 
         // Set up global map interaction handlers for hover/click
         this._setupGlobalInteractionHandlers();
+
+        // Enable center hover for keyboard navigation
+        console.log('[MapFeatureControl] Enabling center hover');
+        this._stateManager.setCenterHoverEnabled(true);
+
+        // Trigger initial center hover after a short delay
+        setTimeout(() => {
+            if (this._stateManager.isCenterHoverEnabled()) {
+                console.log('[MapFeatureControl] Triggering initial center hover');
+                this._stateManager.triggerCenterHover();
+            }
+        }, 500);
 
         // Send initial data to iframe
         this._sendDataToIframe();
@@ -1498,6 +1519,8 @@ export class MapFeatureControl {
         const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         if (!isTouchDevice) {
             this._map.on('mousemove', (e) => {
+                // Track mouse movement for center hover prioritization
+                this._lastMouseMoveTime = Date.now();
                 this._handleMouseMove(e);
             });
         }
@@ -1509,6 +1532,23 @@ export class MapFeatureControl {
 
         this._map.on('mouseout', () => {
             this._stateManager.handleMapMouseLeave();
+        });
+
+        // Map move handler for center hover (keyboard navigation support)
+        this._map.on('move', () => {
+            const timeSinceMouseMove = Date.now() - this._lastMouseMoveTime;
+            const isMouseInactive = timeSinceMouseMove > 500;
+
+            if (this._stateManager.isCenterHoverEnabled() && isMouseInactive) {
+                this._stateManager.triggerCenterHover();
+            }
+        });
+
+        // Window message listener for center selection (spacebar trigger)
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'trigger-center-selection') {
+                this._stateManager.triggerCenterSelection();
+            }
         });
 
         this._globalHandlersAdded = true;

@@ -71,7 +71,8 @@
   },
   "layers": [
     {
-      "id": "mapbox-streets"
+      "id": "mapbox-streets",
+      "initiallyChecked": false
     },
     {
       "id": "goa-plots",
@@ -82,45 +83,6 @@
       "initiallyChecked": true
     },
     {
-      "id": "goa-notified-wetlands"
-    },
-    {
-      "id": "goa-notified-bunds"
-    },
-    {
-      "id": "goa-notified-khazan"
-    },
-    {
-      "id": "india-parivesh"
-    },
-    {
-      "id": "goa-2025-water-body-atlas"
-    },
-    {
-      "id": "goa-private-forests"
-    },
-    {
-      "id": "india-forests"
-    },
-    {
-      "id": "india-wildlife-reserve"
-    },
-    {
-      "id": "india-crz"
-    },
-    {
-      "id": "india-monuments"
-    },
-    {
-      "id": "india-mining"
-    },
-    {
-      "id": "goa-slope"
-    },
-    {
-      "id": "goa-amrut-panjim-landuse"
-    },
-    {
       "id": "india-state",
       "initiallyChecked": true
     },
@@ -128,23 +90,15 @@
       "id": "india-2023-open-buildings"
     },
     {
-      "id": "india-2024-landslide-susceptibility-map"
-    },
-    {
-      "id": "india-2019-czmp-map"
-    },
-    {
       "id": "goa-2021-regional-plan",
       "initiallyChecked": true
-    },
-    {
-      "id": "goa-ams-map"
     },
     {
       "id": "osm-mapnik"
     },
     {
-      "id": "mapbox-countries"
+      "id": "mapbox-countries",
+      "initiallyChecked": false
     },
     {
       "id": "mapbox-satellite",

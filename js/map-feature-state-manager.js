@@ -51,6 +51,10 @@ export class MapFeatureStateManager extends EventTarget {
                 this._isCmdCtrlPressed = false;
             }
         });
+
+        // Center-point hover tracking
+        this._centerHoverEnabled = false;
+        this._lastCenterHoverUpdate = 0;
     }
 
     /**
@@ -273,6 +277,13 @@ export class MapFeatureStateManager extends EventTarget {
         // Update line layer sort keys for z-ordering
         this._updateLineSortKeys();
 
+        // Return to center hover only if enabled AND no selections exist
+        if (this._centerHoverEnabled && this._selectedFeatures.size === 0) {
+            setTimeout(() => {
+                this.triggerCenterHover();
+            }, 100);
+        }
+
         // Emit map mouse leave event
         this._emitStateChange('map-mouse-leave', {
             timestamp: Date.now()
@@ -364,9 +375,10 @@ export class MapFeatureStateManager extends EventTarget {
             const featureId = this._getFeatureId(feature);
             const compositeKey = this._getCompositeKey(layerId, featureId);
 
-            // Toggle selection if Cmd/Ctrl is pressed
-            if (this._isCmdCtrlPressed && this._selectedFeatures.has(compositeKey)) {
-                this._deselectFeature(featureId, layerId);
+            // If already selected, keep it selected (don't toggle)
+            // Only clear buttons should remove selections
+            if (this._selectedFeatures.has(compositeKey)) {
+                console.log('[StateManager] Feature already selected, keeping selection:', featureId);
                 return;
             }
 
@@ -670,6 +682,114 @@ export class MapFeatureStateManager extends EventTarget {
      */
     isLayerRegistered(layerId) {
         return this._registeredLayers.has(layerId);
+    }
+
+    /**
+     * Get features at the center of the map canvas
+     * @returns {Array} Array of {feature, layerId} objects
+     */
+    getFeaturesAtCenter() {
+        // Get the map's actual center in lng/lat
+        const center = this._map.getCenter();
+
+        // Convert to canvas pixel coordinates
+        const centerPixel = this._map.project(center);
+        const point = [centerPixel.x, centerPixel.y];
+
+        const features = [];
+
+        console.log('[StateManager] Map center (lng/lat):', center);
+        console.log('[StateManager] Canvas center (pixels):', point);
+        console.log('[StateManager] Registered layers:', this._registeredLayers.size);
+
+        this._registeredLayers.forEach((layerConfig, layerId) => {
+            if (this._isRasterLayer(layerConfig)) {
+                console.log('[StateManager] Skipping raster layer:', layerId);
+                return;
+            }
+
+            const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
+            console.log(`[StateManager] Layer ${layerId} has matching IDs:`, matchingLayerIds);
+
+            matchingLayerIds.forEach(actualLayerId => {
+                try {
+                    const layerFeatures = this._map.queryRenderedFeatures(point, {
+                        layers: [actualLayerId]
+                    });
+
+                    console.log(`[StateManager] Found ${layerFeatures.length} features in ${actualLayerId}`);
+
+                    layerFeatures.forEach(feature => {
+                        features.push({
+                            feature,
+                            layerId: layerConfig.id,
+                            lngLat: this._map.unproject(point)
+                        });
+                    });
+                } catch (error) {
+                    console.warn(`[StateManager] Error querying center features for ${actualLayerId}:`, error);
+                }
+            });
+        });
+
+        console.log('[StateManager] Total features at center:', features.length);
+        return features;
+    }
+
+    /**
+     * Trigger hover for features at the center of the map
+     * Called when map moves or on keyboard navigation
+     */
+    triggerCenterHover() {
+        const now = Date.now();
+        if (now - this._lastCenterHoverUpdate < 100) {
+            return;
+        }
+        this._lastCenterHoverUpdate = now;
+
+        const centerFeatures = this.getFeaturesAtCenter();
+        console.log('[StateManager] Center hover triggered, found features:', centerFeatures.length);
+
+        if (centerFeatures.length > 0) {
+            console.log('[StateManager] Hovering features:', centerFeatures.map(f => f.layerId));
+            this.handleFeatureHovers(centerFeatures, centerFeatures[0].lngLat);
+        } else {
+            this.handleMapMouseLeave();
+        }
+    }
+
+    /**
+     * Trigger selection for features at the center of the map
+     * Called on spacebar press
+     */
+    triggerCenterSelection() {
+        const centerFeatures = this.getFeaturesAtCenter();
+
+        if (centerFeatures.length > 0) {
+            this.handleFeatureClicks(centerFeatures);
+        }
+    }
+
+    /**
+     * Enable or disable center-point hover tracking
+     * @param {boolean} enabled - Whether center hover is enabled
+     */
+    setCenterHoverEnabled(enabled) {
+        this._centerHoverEnabled = enabled;
+
+        if (enabled) {
+            this.triggerCenterHover();
+        } else {
+            this.handleMapMouseLeave();
+        }
+    }
+
+    /**
+     * Check if center hover is enabled
+     * @returns {boolean} True if center hover is enabled
+     */
+    isCenterHoverEnabled() {
+        return this._centerHoverEnabled;
     }
 
     /**

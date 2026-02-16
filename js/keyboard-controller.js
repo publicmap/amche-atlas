@@ -143,6 +143,11 @@ export class KeyboardController {
             this.focusLayerControls();
         }
 
+        if (e.key === ' ' && !this.isInputActive()) {
+            e.preventDefault();
+            this.triggerCenterSelection();
+        }
+
         if (e.key === 'Tab' && this.activeModal) {
             this.handleModalTabbing(e);
         }
@@ -253,6 +258,12 @@ export class KeyboardController {
                 firstCheckbox.focus();
             }
         }
+    }
+
+    triggerCenterSelection() {
+        window.postMessage({
+            type: 'trigger-center-selection'
+        }, '*');
     }
 
     openWelcomeScreen() {

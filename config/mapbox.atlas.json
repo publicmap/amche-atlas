@@ -71,6 +71,7 @@
       "initiallyChecked": true
     },
     {
+      "initiallyChecked": true,
       "id": "streets",
       "tags": [
         "streets"
