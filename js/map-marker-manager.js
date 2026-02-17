@@ -54,10 +54,9 @@ export class MapMarkerManager {
         });
 
         this._map.on('movestart', () => {
-            // Only close popups on user-initiated movement, not programmatic zooms
             if (!this._isProgrammaticZoom) {
                 this._markers.forEach(markerData => {
-                    this._closePopup(markerData.id);
+                    this._fadePopup(markerData.id, true);
                 });
             }
         });
@@ -70,6 +69,11 @@ export class MapMarkerManager {
 
         this._map.on('moveend', () => {
             this._isMapMoving = false;
+            if (!this._isProgrammaticZoom) {
+                this._markers.forEach(markerData => {
+                    this._fadePopup(markerData.id, false);
+                });
+            }
         });
     }
 
@@ -949,9 +953,6 @@ export class MapMarkerManager {
                 thumbnail.style.cursor = 'pointer';
                 thumbnail.style.margin = '0';
                 container.appendChild(thumbnail);
-                console.log('[MarkerManager] Generated thumbnail for layer:', layerId);
-            } else {
-                console.warn('[MarkerManager] No layer config found for:', layerId);
             }
         });
 
@@ -960,10 +961,11 @@ export class MapMarkerManager {
         });
 
         popup.querySelector('.remove-selection')?.addEventListener('click', () => {
-            // Clear selections for all features in this marker
-            markerData.features.forEach(({ layerId }) => {
-                this._stateManager.clearLayerSelections(layerId);
+            // Deselect only the features in this marker
+            markerData.features.forEach(({ layerId, featureId }) => {
+                this._stateManager._deselectFeature(featureId, layerId);
             });
+
             // Remove the marker
             this.removeMarker(markerId);
         });
@@ -976,20 +978,21 @@ export class MapMarkerManager {
             this._navigateMarker(1);
         });
 
-        popup.querySelector('.open-inspector')?.addEventListener('click', () => {
-            // Open the inspector panel
+        popup.querySelector('.open-inspector')?.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent click from propagating to document
+
             if (window.featureControl) {
-                // Check if panel is already visible
                 const isVisible = window.featureControl._panel?.style.display !== 'none';
 
                 if (!isVisible) {
-                    // Call the proper _showPanel method which handles iframe setup
                     window.featureControl._showPanel();
                 }
             }
 
             // Close popup for seamless transition
-            this._closePopup(markerId);
+            setTimeout(() => {
+                this._closePopup(markerId);
+            }, 100);
         });
 
         popup.querySelector('.toggle-location')?.addEventListener('click', (e) => {
@@ -1178,6 +1181,22 @@ export class MapMarkerManager {
         if (markerData?.popup) {
             markerData.popup.remove();
             markerData.popup = null;
+        }
+    }
+
+    _fadePopup(markerId, fade) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData?.popup) return;
+
+        const popupElement = markerData.popup.getElement();
+        if (!popupElement) return;
+
+        if (fade) {
+            popupElement.style.opacity = '0.2';
+            popupElement.style.pointerEvents = 'none';
+        } else {
+            popupElement.style.opacity = '1';
+            popupElement.style.pointerEvents = 'auto';
         }
     }
 

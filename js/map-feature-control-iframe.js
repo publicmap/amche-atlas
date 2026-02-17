@@ -94,9 +94,7 @@ export class MapFeatureControl {
         this._stateManager.setFeatureControl(this);
 
         // Initialize marker manager
-        console.log('[MapFeatureControl] Initializing marker manager');
         this._markerManager = new MapMarkerManager(this._map, this._stateManager);
-        console.log('[MapFeatureControl] Marker manager initialized');
 
         // Listen to state changes from the centralized manager
         this._stateChangeListener = (event) => {
@@ -108,13 +106,11 @@ export class MapFeatureControl {
         this._setupGlobalInteractionHandlers();
 
         // Enable center hover for keyboard navigation
-        console.log('[MapFeatureControl] Enabling center hover');
         this._stateManager.setCenterHoverEnabled(true);
 
         // Trigger initial center hover after a short delay
         setTimeout(() => {
             if (this._stateManager.isCenterHoverEnabled()) {
-                console.log('[MapFeatureControl] Triggering initial center hover');
                 this._stateManager.triggerCenterHover();
             }
         }, 500);
@@ -265,7 +261,7 @@ export class MapFeatureControl {
         // Close panel when clicking outside
         setTimeout(() => {
             document.addEventListener('click', (e) => {
-                if (!e.target.closest('.map-feature-panel, .mapboxgl-ctrl-icon, .mapboxgl-canvas-container, .map-browser-panel, #map-browser-modal, .mapboxgl-ctrl-group')) {
+                if (!e.target.closest('.map-feature-panel, .mapboxgl-ctrl-icon, .mapboxgl-canvas-container, .map-browser-panel, #map-browser-modal, .mapboxgl-ctrl-group, .mapboxgl-popup, .selection-popup')) {
                     this._hidePanel();
                 }
             });

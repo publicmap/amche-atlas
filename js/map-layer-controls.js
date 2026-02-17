@@ -277,10 +277,6 @@ export class MapLayerControl {
         const layersOnly = initiallyCheckedLayers.map(item => item.group);
         const mapOrderLayers = LayerOrderManager.urlOrderToMapOrder(layersOnly);
 
-        console.log('🔍 Initializing layers in map rendering order:');
-        console.log('  Visual order:', layersOnly.map(l => l.id));
-        console.log('  Map order:', mapOrderLayers.map(l => l.id));
-
         // Create a map of layer id to group index for quick lookup
         const layerIdToIndex = new Map();
         initiallyCheckedLayers.forEach(item => {

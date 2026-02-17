@@ -54,7 +54,7 @@
       "headerImage": "assets/map-layers/map-layer-survey.png",
       "type": "vector",
       "id": "plot",
-      "url": "https://indianopenmaps.fly.dev/not-so-open/cadastrals/maharashtra/mrsac/{z}/{x}/{y}.pbf",
+      "url": "https://indianopenmaps.com/not-so-open/cadastrals/maharashtra/mrsac/{z}/{x}/{y}.pbf",
       "sourceLayer": "MRSAC_Cadastrals",
       "maxzoom": 13,
       "attribution": "<a href='https://mrsac.gov.in/MRSAC/'>Maharashtra Remote Sensing Application Centre</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",

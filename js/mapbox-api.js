@@ -1784,7 +1784,6 @@ export class MapboxAPI {
      */
     updateGeoJSONLayerData(groupId, geojsonData) {
         const sourceId = `geojson-${groupId}`;
-        console.log(`[MapboxAPI] updateGeoJSONLayerData called for groupId: ${groupId}, sourceId: ${sourceId}`);
 
         const source = this._map.getSource(sourceId);
 
@@ -1794,10 +1793,8 @@ export class MapboxAPI {
         }
 
         const processedData = geojsonData ? this._processGeoJSONData(geojsonData) : { type: 'FeatureCollection', features: [] };
-        console.log(`[MapboxAPI] Setting data for source ${sourceId}:`, processedData);
 
         source.setData(processedData);
-        console.log(`[MapboxAPI] Successfully updated data for source ${sourceId}`);
 
         return true;
     }
@@ -2654,7 +2651,6 @@ export class MapboxAPI {
         const slotNames = ['bottom', 'middle', 'top'];
 
         if (insertPosition && slotNames.includes(insertPosition)) {
-            console.log(`  Adding layer ${layerConfig.metadata?.groupId} to slot: ${insertPosition}`);
             // Use slot-based insertion
             // Reference: https://docs.mapbox.com/style-spec/reference/layers/#layer-properties
             layerConfig.slot = insertPosition;
