@@ -27,6 +27,28 @@ This is **amche-atlas**, a web-based GIS platform for interactive spatial data v
 
 ### Core Architecture
 
+**Debounced Updates Pattern**
+
+The application uses setTimeout-based debouncing rather than direct event-driven updates in several critical areas:
+
+- **URL Updates** (`url-manager.js`): 300ms debounce prevents excessive browser history entries when multiple state changes occur rapidly (e.g., selecting multiple features, adjusting layers)
+- **Map Interactions**: Debouncing prevents performance issues from frequent map events (pan, zoom, hover)
+
+**Why debouncing instead of direct events:**
+- **Browser History Management**: Each URL change creates a history entry; debouncing batches related changes into a single entry
+- **Performance**: Serializing layer configurations (including GeoJSON) and updating URLs is expensive; batching reduces overhead
+- **User Experience**: Prevents the "back" button requiring many clicks to return to a previous meaningful state
+
+**Tradeoffs:**
+- More complex debugging (asynchronous updates, race conditions)
+- Potential for option conflicts when multiple debounced calls override each other (see `setStateManager` handling selection layer updates)
+- Less predictable timing compared to synchronous event handlers
+
+**When working with debounced updates:**
+- Be aware that the last call's options will override earlier calls within the debounce window
+- Use console logging to trace the sequence of calls and their options
+- Consider whether state changes need to merge options rather than replace them
+
 **Configuration-Driven Maps**
 The entire application is driven by JSON configuration files in `/config/`:
 - `_defaults.json` - Default styling for atlas and layer types

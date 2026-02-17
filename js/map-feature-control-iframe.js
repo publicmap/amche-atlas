@@ -49,6 +49,7 @@ export class MapFeatureControl {
         this._createContainer();
         this._setupMessageListener();
         this._setupMapEventListeners();
+        this._setupKeyboardListeners();
         return this._container;
     }
 
@@ -363,6 +364,33 @@ export class MapFeatureControl {
 
         // Store the listener for cleanup
         this._boundsUpdateListener = sendBoundsUpdate;
+    }
+
+    _setupKeyboardListeners() {
+        this._keydownListener = (event) => {
+            if (event.key === 'Meta' || event.key === 'Control') {
+                if (this._iframe && this._iframe.contentWindow) {
+                    this._iframe.contentWindow.postMessage({
+                        type: 'add-selection-mode-changed',
+                        enabled: true
+                    }, '*');
+                }
+            }
+        };
+
+        this._keyupListener = (event) => {
+            if (event.key === 'Meta' || event.key === 'Control') {
+                if (this._iframe && this._iframe.contentWindow) {
+                    this._iframe.contentWindow.postMessage({
+                        type: 'add-selection-mode-changed',
+                        enabled: false
+                    }, '*');
+                }
+            }
+        };
+
+        document.addEventListener('keydown', this._keydownListener);
+        document.addEventListener('keyup', this._keyupListener);
     }
 
     /**
@@ -1427,6 +1455,14 @@ export class MapFeatureControl {
         if (this._map && this._boundsUpdateListener) {
             this._map.off('moveend', this._boundsUpdateListener);
             this._map.off('zoomend', this._boundsUpdateListener);
+        }
+
+        // Clean up keyboard listeners
+        if (this._keydownListener) {
+            document.removeEventListener('keydown', this._keydownListener);
+        }
+        if (this._keyupListener) {
+            document.removeEventListener('keyup', this._keyupListener);
         }
     }
 

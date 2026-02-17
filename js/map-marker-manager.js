@@ -143,29 +143,20 @@ export class MapMarkerManager {
         this._clearHoverMarker();
         this._clearAllMarkerHoverStates();
 
-        // Ensure state manager knows we're in add mode
-        if (this._selectionMode === 'add') {
-            this._stateManager._isCmdCtrlPressed = true;
-        }
+        // Check if we're in add mode (either via toggle button OR keyboard Cmd/Ctrl)
+        const isAddMode = this._selectionMode === 'add' || this._stateManager._isCmdCtrlPressed;
 
-        if (this._selectionMode === 'replace') {
+        if (!isAddMode) {
+            // Replace mode - clear existing markers
             this.clearAllMarkers();
-        } else if (this._selectionMode === 'add') {
-            // Close all other marker popups when adding new one
+        } else {
+            // Add mode - close all other marker popups when adding new one
             this._markers.forEach(markerData => {
                 this._closePopup(markerData.id);
             });
         }
 
         this.addMarker(lngLat, features);
-
-        // Reset if in replace mode
-        if (this._selectionMode === 'replace') {
-            // Use setTimeout to allow the click event to complete
-            setTimeout(() => {
-                this._stateManager._isCmdCtrlPressed = false;
-            }, 0);
-        }
     }
 
     _handleBatchHover(data) {
@@ -396,7 +387,8 @@ export class MapMarkerManager {
         });
     }
 
-    addMarker(lngLat, features) {
+    addMarker(lngLat, features, options = {}) {
+        const { showPopup = true } = options;
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
         const markerNumber = this._markers.size + 1;
 
@@ -535,7 +527,9 @@ export class MapMarkerManager {
             this._setMarkerFeaturesHoverState(markerId, false);
         });
 
-        this._showMarkerPopup(markerId);
+        if (showPopup) {
+            this._showMarkerPopup(markerId);
+        }
 
         // Update selection layer
         this._updateSelectionLayer();
@@ -948,11 +942,42 @@ export class MapMarkerManager {
             const layerId = container.dataset.layerId;
             const layerConfig = this._stateManager.getLayerConfig(layerId);
             if (layerConfig) {
-                const thumbnail = LayerThumbnail.generate(layerConfig, 24);
+                const currentBounds = this._map.getBounds();
+                const bounds = [
+                    currentBounds.getWest(),
+                    currentBounds.getSouth(),
+                    currentBounds.getEast(),
+                    currentBounds.getNorth()
+                ];
+
+                let isInView = true;
+                if (window.MapUtils && layerConfig.bbox) {
+                    isInView = window.MapUtils.isLayerInView(layerConfig, bounds);
+                }
+
+                const thumbnail = LayerThumbnail.generate(layerConfig, 24, { isInView });
                 thumbnail.style.borderRadius = '3px';
                 thumbnail.style.cursor = 'pointer';
                 thumbnail.style.margin = '0';
                 container.appendChild(thumbnail);
+
+                // Handle thumbnail clicks directly (stop propagation to prevent feature expand)
+                thumbnail.addEventListener('click', (e) => {
+                    e.stopPropagation();
+
+                    if (!isInView) {
+                        // Zoom to layer if out of view
+                        if (window.layerControl) {
+                            window.layerControl._zoomToLayer(layerId);
+                        }
+                    } else {
+                        // Open layer info if in view
+                        window.postMessage({
+                            type: 'open-layer-info',
+                            layer: layerConfig
+                        }, '*');
+                    }
+                });
             }
         });
 
@@ -1328,6 +1353,15 @@ export class MapMarkerManager {
             });
             const name = labels.join(', ');
 
+            // Store feature references for restoration (use raw feature IDs)
+            const featureRefs = markerData.features.map(f => {
+                const rawFeatureId = this._stateManager._extractRawFeatureId(f.featureId);
+                return {
+                    layerId: f.layerId,
+                    featureId: rawFeatureId
+                };
+            });
+
             // Create a point feature at the marker location
             const feature = {
                 type: 'Feature',
@@ -1338,7 +1372,8 @@ export class MapMarkerManager {
                 properties: {
                     id: markerId,
                     name: name,
-                    featureCount: markerData.features.length
+                    featureCount: markerData.features.length,
+                    features: featureRefs
                 }
             };
 
@@ -1365,6 +1400,184 @@ export class MapMarkerManager {
                 }
             }
         }
+    }
+
+    async restoreMarkersFromSelectionLayer() {
+        if (!window.layerControl) {
+            console.warn('[MarkerManager] Layer control not available');
+            return false;
+        }
+
+        const selectionLayer = window.layerControl._state.groups.find(g => g.id === this._selectionLayerId);
+        if (!selectionLayer?.geojson?.features || selectionLayer.geojson.features.length === 0) {
+            return false;
+        }
+
+        const features = selectionLayer.geojson.features.filter(f =>
+            f.properties?.features && Array.isArray(f.properties.features) && f.properties.features.length > 0
+        );
+
+        if (features.length === 0) {
+            return false;
+        }
+
+        console.log('[MarkerManager] Restoring', features.length, 'markers from selection layer');
+
+        const layerIds = new Set();
+        features.forEach(feature => {
+            feature.properties.features.forEach(ref => layerIds.add(ref.layerId));
+        });
+
+        await this._waitForLayersReady(Array.from(layerIds));
+        await this._waitForMapIdle();
+
+        for (const feature of features) {
+            if (feature.geometry.type !== 'Point') continue;
+
+            const [lng, lat] = feature.geometry.coordinates;
+            const lngLat = { lng, lat };
+            const featureRefs = feature.properties.features || [];
+
+            const restoredFeatures = [];
+            for (const ref of featureRefs) {
+                const selectedFeature = await this._restoreFeatureFromRef(ref);
+                if (selectedFeature) {
+                    restoredFeatures.push({
+                        ...selectedFeature,
+                        lngLat
+                    });
+                }
+            }
+
+            if (restoredFeatures.length > 0) {
+                this.addMarker(lngLat, restoredFeatures, { showPopup: false });
+            }
+        }
+
+        if (this._markers.size > 0) {
+            this._stateManager._updateLineSortKeys();
+        }
+
+        return true;
+    }
+
+    async _waitForLayersReady(layerIds, timeout = 10000) {
+        const startTime = Date.now();
+        const checkInterval = 200;
+
+        return new Promise((resolve) => {
+            const checkLayers = () => {
+                if (!this._stateManager) {
+                    console.warn('[MarkerManager] State manager not available');
+                    resolve(false);
+                    return;
+                }
+
+                const readyLayers = layerIds.filter(layerId =>
+                    this._stateManager.isLayerRegistered(layerId)
+                );
+
+                const allReady = readyLayers.length === layerIds.length;
+
+                if (allReady) {
+                    resolve(true);
+                } else if (Date.now() - startTime > timeout) {
+                    const notReady = layerIds.filter(id => !readyLayers.includes(id));
+                    console.warn(`[MarkerManager] Timeout waiting for layers: ${notReady.join(', ')}`);
+                    resolve(false);
+                } else {
+                    setTimeout(checkLayers, checkInterval);
+                }
+            };
+
+            checkLayers();
+        });
+    }
+
+    async _waitForMapIdle(timeout = 3000) {
+        return new Promise((resolve) => {
+            if (this._map.loaded() && this._map.areTilesLoaded()) {
+                resolve();
+                return;
+            }
+
+            const timeoutId = setTimeout(() => {
+                resolve();
+            }, timeout);
+
+            const onIdle = () => {
+                clearTimeout(timeoutId);
+                this._map.off('idle', onIdle);
+                resolve();
+            };
+
+            this._map.once('idle', onIdle);
+        });
+    }
+
+    async _restoreFeatureFromRef(ref, retries = 3) {
+        const { layerId, featureId } = ref;
+
+        if (!this._stateManager.isLayerRegistered(layerId)) {
+            console.warn(`[MarkerManager] Layer ${layerId} not registered`);
+            return null;
+        }
+
+        const layerConfig = this._stateManager.getLayerConfig(layerId);
+        if (!layerConfig) {
+            console.warn(`[MarkerManager] Layer config not found for ${layerId}`);
+            return null;
+        }
+
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const features = this._map.querySourceFeatures(
+                    layerConfig.source || `${layerConfig.type}-${layerId}`,
+                    {
+                        sourceLayer: layerConfig.sourceLayer
+                    }
+                );
+
+                const matchingFeature = features.find(f => {
+                    const fid = this._stateManager._getFeatureId(f);
+                    const rawFid = this._stateManager._extractRawFeatureId(fid);
+                    return rawFid === featureId || fid === featureId;
+                });
+
+                if (matchingFeature) {
+                    const fullFeatureId = this._stateManager._getFeatureId(matchingFeature);
+                    const compositeKey = this._stateManager._getCompositeKey(layerId, fullFeatureId);
+
+                    this._stateManager._updateFeatureState(compositeKey, {
+                        feature: matchingFeature,
+                        layerId,
+                        isSelected: true,
+                        timestamp: Date.now()
+                    });
+
+                    this._stateManager._selectedFeatures.add(compositeKey);
+                    this._stateManager._setMapboxFeatureState(fullFeatureId, layerId, { selected: true });
+
+                    return {
+                        feature: matchingFeature,
+                        featureId: fullFeatureId,
+                        layerId
+                    };
+                }
+
+                if (attempt < retries) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            } catch (error) {
+                console.warn(`[MarkerManager] Error restoring feature ${featureId} from layer ${layerId} (attempt ${attempt + 1}):`, error);
+                if (attempt < retries) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+        }
+
+        console.warn(`[MarkerManager] Feature ${featureId} not found in layer ${layerId}`);
+        return null;
     }
 
     getSelectionMode() {

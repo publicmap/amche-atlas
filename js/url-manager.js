@@ -34,7 +34,15 @@ export class URLManager {
                     eventType === 'selection-cleared' ||
                     eventType === 'feature-deselected') {
                     if (!this.isUpdatingFromURL && !data?.fromURL) {
-                        this.updateURL({ updateSelections: true, updateLayers: false });
+                        // Check if selection layer has features - if so, update layers too
+                        let updateLayers = false;
+                        if (this.mapLayerControl) {
+                            const selectionLayer = this.mapLayerControl._state.groups.find(g => g.id === 'selection');
+                            if (selectionLayer?.geojson?.features?.length > 0) {
+                                updateLayers = true;
+                            }
+                        }
+                        this.updateURL({ updateSelections: true, updateLayers });
                     }
                 }
             });
@@ -186,7 +194,18 @@ export class URLManager {
 
         // Iterate through all groups in the layer control
         this.mapLayerControl._state.groups.forEach((group, groupIndex) => {
-            if (this.isGroupActive(groupIndex)) {
+            // Special case: skip selection layer if it has no features
+            if (group.id === 'selection' && (!group.geojson || !group.geojson.features || group.geojson.features.length === 0)) {
+                return;
+            }
+
+            // Special case: always include selection layer if it has features
+            const isSelectionWithFeatures = group.id === 'selection' &&
+                group.geojson &&
+                group.geojson.features &&
+                group.geojson.features.length > 0;
+
+            if (this.isGroupActive(groupIndex) || isSelectionWithFeatures) {
                 // Use the original layer configuration if it exists
                 if (group._originalJson) {
                     // If this is a custom layer from URL, preserve the original JSON string
@@ -920,7 +939,25 @@ export class URLManager {
             // Handle selected features parameter
             if (selectedParam && this.stateManager) {
                 applied = true;
-                await this.applySelectionsFromURL(selectedParam);
+
+                // First, try to restore markers from selection layer GeoJSON if available
+                let markersRestored = false;
+                if (window.featureControl?._markerManager) {
+                    try {
+                        markersRestored = await window.featureControl._markerManager.restoreMarkersFromSelectionLayer();
+                        if (markersRestored) {
+                            console.log('[URL API] Successfully restored markers from selection layer');
+                        }
+                    } catch (error) {
+                        console.warn('[URL API] Error restoring markers from selection layer:', error);
+                    }
+                }
+
+                // If markers were not restored from selection layer, fall back to selected parameter
+                if (!markersRestored) {
+                    console.log('[URL API] Restoring selections from selected parameter');
+                    await this.applySelectionsFromURL(selectedParam);
+                }
             }
 
         } catch (error) {
