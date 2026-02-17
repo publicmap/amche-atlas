@@ -446,6 +446,103 @@
                 transform: rotate(360deg);
             }
         }
+
+        .customize-features-btn {
+            background: transparent;
+            border: 1px solid #4b5563;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+            margin-left: 8px;
+            transition: all 0.2s;
+        }
+
+        .customize-features-btn:hover {
+            background: #374151;
+            color: #d1d5db;
+            border-color: #6b7280;
+        }
+
+        .feature-list-container {
+            margin-top: 12px;
+            padding: 12px;
+            background: #374151;
+            border-radius: 6px;
+            border: 1px solid #4b5563;
+        }
+
+        .feature-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #4b5563;
+        }
+
+        .feature-list-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #d1d5db;
+        }
+
+        .feature-list-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .feature-list-action-btn {
+            background: transparent;
+            border: 1px solid #4b5563;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .feature-list-action-btn:hover {
+            background: #4b5563;
+            color: #d1d5db;
+            border-color: #6b7280;
+        }
+
+        .feature-list-items {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .feature-list-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .feature-list-item:hover {
+            background: #4b5563;
+        }
+
+        .feature-list-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .feature-list-item-label {
+            font-size: 12px;
+            color: #d1d5db;
+            flex: 1;
+        }
+
+        .feature-list-item-layer {
+            font-size: 11px;
+            color: #9ca3af;
+            font-style: italic;
+        }
     </style>
 </head>
 
@@ -559,12 +656,31 @@
                 <!-- Vector Options (GeoJSON/KML/DXF) -->
                 <div id="vector-settings" style="display: none;">
                     <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="export-selected-only" checked>
-                            <span>Export only selected features</span>
-                        </label>
+                        <div style="display: flex; align-items: center;">
+                            <label class="checkbox-label" style="margin: 0;">
+                                <input type="checkbox" id="export-selected-only" checked>
+                                <span>Export only selected features</span>
+                            </label>
+                            <button class="customize-features-btn" id="customize-features-btn" style="display: none;">
+                                Modify selection
+                            </button>
+                        </div>
                         <div class="format-description">If no features are selected, all visible features will be
                             exported</div>
+
+                        <!-- Feature Selection List -->
+                        <div class="feature-list-container" id="feature-list-container" style="display: none;">
+                            <div class="feature-list-header">
+                                <div class="feature-list-title" id="feature-list-count">0 features selected</div>
+                                <div class="feature-list-actions">
+                                    <button class="feature-list-action-btn" id="select-all-features-btn" style="display: none;">Select All</button>
+                                    <button class="feature-list-action-btn" id="select-none-features-btn" style="display: none;">Select None</button>
+                                </div>
+                            </div>
+                            <div class="feature-list-items scrollbar-thin" id="feature-list-items">
+                                <!-- Features will be populated here -->
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -717,6 +833,8 @@
         let exportCancelled = false;
         let currentExportProgress = 0;
         let currentExportMessage = '';
+        let featureSelectionState = new Map();
+        let isFeatureListVisible = false;
 
         // Format definitions with Shoelace icons
         const formatsByUseFor = {
@@ -842,6 +960,8 @@
                     // Iframe is being hidden
                 } else if (event.data.type === 'frame-aspect-changed') {
                     handleFrameAspectChanged(event.data.aspectRatio);
+                } else if (event.data.type === 'selected-features') {
+                    populateFeatureList(event.data.features);
                 }
             });
 
@@ -882,6 +1002,22 @@
 
             $('#qr-code-container').on('click', () => {
                 showQRFullscreen();
+            });
+
+            $('#customize-features-btn').on('click', () => {
+                toggleFeatureList();
+            });
+
+            $('#select-all-features-btn').on('click', () => {
+                selectAllFeatures();
+            });
+
+            $('#select-none-features-btn').on('click', () => {
+                selectNoneFeatures();
+            });
+
+            $('#export-selected-only').on('change', () => {
+                updateFeatureListVisibility();
             });
         }
 
@@ -993,18 +1129,21 @@
             if (currentFormat === 'geojson' || currentFormat === 'kml') {
                 $vectorSettings.show();
                 showAdvanced = true;
+                updateFeatureListVisibility();
             }
 
             if (currentFormat === 'csv') {
                 $vectorSettings.show();
                 $csvSettings.show();
                 showAdvanced = true;
+                updateFeatureListVisibility();
             }
 
             if (currentFormat === 'dxf') {
                 $vectorSettings.show();
                 $dxfSettings.show();
                 showAdvanced = true;
+                updateFeatureListVisibility();
 
                 // Show page settings if raster is included
                 const includeRaster = $('#dxf-include-raster').is(':checked');
@@ -1218,6 +1357,10 @@
 
             if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv' || currentFormat === 'dxf') {
                 exportConfig.exportSelectedOnly = $('#export-selected-only').is(':checked');
+
+                if (exportConfig.exportSelectedOnly && featureSelectionState.size > 0) {
+                    exportConfig.customSelectedFeatures = getSelectedFeaturesForExport();
+                }
             }
 
             if (currentFormat === 'csv') {
@@ -1602,6 +1745,181 @@
                 createQROverlay(event.data.url);
             }
         });
+
+        function updateFeatureListVisibility() {
+            const isChecked = $('#export-selected-only').is(':checked');
+            const $customizeBtn = $('#customize-features-btn');
+
+            if (isChecked) {
+                requestSelectedFeatures();
+            } else {
+                $customizeBtn.hide();
+                $('#feature-list-container').hide();
+                isFeatureListVisible = false;
+            }
+        }
+
+        function requestSelectedFeatures() {
+            window.parent.postMessage({ type: 'request-selected-features' }, '*');
+        }
+
+        function populateFeatureList(selectedFeatures) {
+            featureSelectionState.clear();
+
+            if (!selectedFeatures || selectedFeatures.length === 0) {
+                $('#customize-features-btn').hide();
+                $('#feature-list-container').hide();
+                return;
+            }
+
+            $('#customize-features-btn').show();
+
+            selectedFeatures.forEach(item => {
+                const key = `${item.layerId}_${JSON.stringify(item.feature.id || item.feature.properties)}`;
+                featureSelectionState.set(key, {
+                    selected: item.isInView !== false,
+                    feature: item.feature,
+                    layerId: item.layerId,
+                    layerTitle: item.layerConfig?.title || item.layerId,
+                    layerConfig: item.layerConfig
+                });
+            });
+
+            if (isFeatureListVisible) {
+                renderFeatureList();
+            }
+        }
+
+        function toggleFeatureList() {
+            isFeatureListVisible = !isFeatureListVisible;
+            const $container = $('#feature-list-container');
+
+            if (isFeatureListVisible) {
+                renderFeatureList();
+                $container.slideDown(200);
+            } else {
+                $container.slideUp(200);
+            }
+        }
+
+        function renderFeatureList() {
+            const $items = $('#feature-list-items');
+            $items.empty();
+
+            if (featureSelectionState.size === 0) {
+                $items.html('<div style="padding: 8px; text-align: center; color: #9ca3af; font-size: 12px;">No features selected</div>');
+                updateSelectionButtons();
+                return;
+            }
+
+            featureSelectionState.forEach((data, key) => {
+                const featureName = getFeatureName(data.feature, data.layerConfig);
+
+                const $item = $('<div>', { class: 'feature-list-item' });
+
+                const $checkbox = $('<input>', {
+                    type: 'checkbox',
+                    checked: data.selected,
+                    'data-key': key
+                });
+
+                $checkbox.on('change', function() {
+                    data.selected = $(this).is(':checked');
+                    updateSelectionButtons();
+                });
+
+                const $label = $('<div>', {
+                    class: 'feature-list-item-label',
+                    text: featureName
+                });
+
+                const $layer = $('<div>', {
+                    class: 'feature-list-item-layer',
+                    text: data.layerTitle
+                });
+
+                $item.append($checkbox).append($label).append($layer);
+                $items.append($item);
+            });
+
+            updateSelectionButtons();
+        }
+
+        function getFeatureName(feature, layerConfig) {
+            if (!feature) return 'Unknown';
+
+            const props = feature.properties || {};
+            const layerTitle = layerConfig?.title || 'Feature';
+
+            const labelField = layerConfig?.inspect?.label;
+            if (labelField && props[labelField]) {
+                return String(props[labelField]);
+            }
+
+            if (props.name) return props.name;
+            if (props.title) return props.title;
+            if (props.label) return props.label;
+
+            const firstValue = Object.values(props).find(v => v && typeof v === 'string' && v.length < 50);
+            if (firstValue) return firstValue;
+
+            if (props.id) return `ID: ${props.id}`;
+
+            return `${layerTitle} feature`;
+        }
+
+        function updateSelectionButtons() {
+            let selectedCount = 0;
+            let totalCount = featureSelectionState.size;
+
+            featureSelectionState.forEach(data => {
+                if (data.selected) selectedCount++;
+            });
+
+            $('#feature-list-count').text(`${selectedCount} of ${totalCount} features selected`);
+
+            const $selectAll = $('#select-all-features-btn');
+            const $selectNone = $('#select-none-features-btn');
+
+            if (selectedCount === 0) {
+                $selectAll.show();
+                $selectNone.hide();
+            } else if (selectedCount === totalCount) {
+                $selectAll.hide();
+                $selectNone.show();
+            } else {
+                $selectAll.show();
+                $selectNone.show();
+            }
+        }
+
+        function selectAllFeatures() {
+            featureSelectionState.forEach(data => {
+                data.selected = true;
+            });
+            renderFeatureList();
+        }
+
+        function selectNoneFeatures() {
+            featureSelectionState.forEach(data => {
+                data.selected = false;
+            });
+            renderFeatureList();
+        }
+
+        function getSelectedFeaturesForExport() {
+            const selected = [];
+            featureSelectionState.forEach(data => {
+                if (data.selected) {
+                    selected.push({
+                        feature: data.feature,
+                        layerId: data.layerId,
+                        layerConfig: data.layerConfig || { title: data.layerTitle }
+                    });
+                }
+            });
+            return selected;
+        }
     </script>
 </body>
 

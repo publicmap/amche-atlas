@@ -159,6 +159,19 @@ export class MapExportControl {
                     this._processingOverlay.style.display = 'none';
                     this._iframe.style.zIndex = '1000';
                 }
+            } else if (type === 'request-selected-features') {
+                const selectedFeatures = this._getSelectedFeatures();
+                const bounds = this._map.getBounds();
+
+                const featuresWithViewFlag = selectedFeatures.map(item => ({
+                    ...item,
+                    isInView: this._isFeatureCompletelyInView(item.feature, bounds)
+                }));
+
+                this._iframe.contentWindow.postMessage({
+                    type: 'selected-features',
+                    features: featuresWithViewFlag
+                }, '*');
             }
         });
     }
@@ -1157,8 +1170,8 @@ export class MapExportControl {
         let features;
         let filename;
 
-        if (config.exportSelectedOnly && this._hasSelectedFeatures()) {
-            const selectedFeatures = this._getSelectedFeatures();
+        if (config.exportSelectedOnly && (config.customSelectedFeatures || this._hasSelectedFeatures())) {
+            const selectedFeatures = config.customSelectedFeatures || this._getSelectedFeatures();
             features = selectedFeatures.map(item => item.feature);
             filename = this._generateFilenameFromFeatures(selectedFeatures, 'geojson');
         } else {
@@ -1191,8 +1204,8 @@ export class MapExportControl {
         let features;
         let filename;
 
-        if (config.exportSelectedOnly && this._hasSelectedFeatures()) {
-            const selectedFeatures = this._getSelectedFeatures();
+        if (config.exportSelectedOnly && (config.customSelectedFeatures || this._hasSelectedFeatures())) {
+            const selectedFeatures = config.customSelectedFeatures || this._getSelectedFeatures();
             features = selectedFeatures.map(item => item.feature);
             filename = this._generateFilenameFromFeatures(selectedFeatures, 'kml');
         } else {
@@ -1240,9 +1253,9 @@ export class MapExportControl {
 
         const featuresWithMetadata = [];
 
-        if (config.exportSelectedOnly && this._hasSelectedFeatures()) {
+        if (config.exportSelectedOnly && (config.customSelectedFeatures || this._hasSelectedFeatures())) {
             console.log('CSV Export: Using selected features');
-            const selectedFeatures = this._getSelectedFeatures();
+            const selectedFeatures = config.customSelectedFeatures || this._getSelectedFeatures();
             console.log(`CSV Export: Found ${selectedFeatures.length} selected features`);
 
             for (const item of selectedFeatures) {
@@ -1524,8 +1537,8 @@ export class MapExportControl {
             let features;
             let filename;
 
-            if (config.exportSelectedOnly && this._hasSelectedFeatures()) {
-                const selectedFeatures = this._getSelectedFeatures();
+            if (config.exportSelectedOnly && (config.customSelectedFeatures || this._hasSelectedFeatures())) {
+                const selectedFeatures = config.customSelectedFeatures || this._getSelectedFeatures();
                 features = selectedFeatures.map(item => item.feature);
                 filename = this._generateFilenameFromFeatures(selectedFeatures, 'dxf');
             } else {
@@ -2147,5 +2160,47 @@ export class MapExportControl {
             .replace(/&quot;/g, '"')
             .replace(/\s+/g, ' ')
             .trim();
+    }
+
+    _isFeatureCompletelyInView(feature, bounds) {
+        if (!feature || !feature.geometry) return false;
+
+        const geometry = feature.geometry;
+        const sw = bounds.getSouthWest();
+        const ne = bounds.getNorthEast();
+
+        const isPointInBounds = (lng, lat) => {
+            return lng >= sw.lng && lng <= ne.lng && lat >= sw.lat && lat <= ne.lat;
+        };
+
+        const checkCoordinates = (coords) => {
+            if (typeof coords[0] === 'number') {
+                return isPointInBounds(coords[0], coords[1]);
+            }
+            return coords.every(checkCoordinates);
+        };
+
+        switch (geometry.type) {
+            case 'Point':
+                return isPointInBounds(geometry.coordinates[0], geometry.coordinates[1]);
+
+            case 'MultiPoint':
+            case 'LineString':
+                return geometry.coordinates.every(coord => isPointInBounds(coord[0], coord[1]));
+
+            case 'MultiLineString':
+            case 'Polygon':
+                return geometry.coordinates.every(ring =>
+                    ring.every(coord => isPointInBounds(coord[0], coord[1]))
+                );
+
+            case 'MultiPolygon':
+                return geometry.coordinates.every(polygon =>
+                    polygon.every(ring => ring.every(coord => isPointInBounds(coord[0], coord[1])))
+                );
+
+            default:
+                return false;
+        }
     }
 }
