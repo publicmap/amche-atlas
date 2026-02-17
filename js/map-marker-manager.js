@@ -977,28 +977,19 @@ export class MapMarkerManager {
         });
 
         popup.querySelector('.open-inspector')?.addEventListener('click', () => {
-            console.log('[MarkerManager] Open inspector clicked');
-
             // Open the inspector panel
-            if (window.featureControl && window.featureControl._panel) {
-                console.log('[MarkerManager] Panel display before:', window.featureControl._panel.style.display);
+            if (window.featureControl) {
+                // Check if panel is already visible
+                const isVisible = window.featureControl._panel?.style.display !== 'none';
 
-                // Always call _showPanel to ensure it's visible
-                window.featureControl._showPanel();
-
-                // Verify it was shown
-                console.log('[MarkerManager] Panel display after:', window.featureControl._panel.style.display);
-
-                // Give the panel time to render before closing popup
-                setTimeout(() => {
-                    this._closePopup(markerId);
-                    console.log('[MarkerManager] Popup closed');
-                }, 100);
-            } else {
-                console.warn('[MarkerManager] window.featureControl or _panel not available');
-                // Close popup immediately if panel can't be shown
-                this._closePopup(markerId);
+                if (!isVisible) {
+                    // Call the proper _showPanel method which handles iframe setup
+                    window.featureControl._showPanel();
+                }
             }
+
+            // Close popup for seamless transition
+            this._closePopup(markerId);
         });
 
         popup.querySelector('.toggle-location')?.addEventListener('click', (e) => {
