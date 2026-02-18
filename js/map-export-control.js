@@ -74,6 +74,12 @@ export class MapExportControl {
         }
     }
 
+    _onFrameInteractionStart() {
+        if (this._iframe) {
+            this._iframe.style.opacity = '0.4';
+        }
+    }
+
     _createIframe() {
         this._iframe = document.createElement('iframe');
         this._iframe.src = 'map-export.html';
@@ -98,10 +104,15 @@ export class MapExportControl {
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             z-index: 1000;
             display: none;
+            transition: opacity 0.2s ease;
             background: #1e293b;
             overflow: hidden;
         `;
         document.body.appendChild(this._iframe);
+
+        this._iframe.addEventListener('mouseenter', () => {
+            this._iframe.style.opacity = '1';
+        });
 
         this._processingOverlay = document.createElement('div');
         this._processingOverlay.style.cssText = `

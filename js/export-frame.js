@@ -178,6 +178,10 @@ export class ExportFrame {
         e.preventDefault();
         e.stopPropagation();
 
+        if (this._control && this._control._onFrameInteractionStart) {
+            this._control._onFrameInteractionStart();
+        }
+
         const isTouch = e.touches && e.touches.length > 0;
         const startX = isTouch ? e.touches[0].clientX : e.clientX;
         const startY = isTouch ? e.touches[0].clientY : e.clientY;
@@ -233,6 +237,10 @@ export class ExportFrame {
     _startResize(e, handle) {
         e.preventDefault();
         e.stopPropagation();
+
+        if (this._control && this._control._onFrameInteractionStart) {
+            this._control._onFrameInteractionStart();
+        }
 
         const isTouch = e.touches && e.touches.length > 0;
 
