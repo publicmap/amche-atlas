@@ -28,7 +28,7 @@ export default defineConfig({
         'map-export': 'map-export.html',
         'map-inspector': 'map-inspector.html',
         'map-information': 'map-information.html',
-        'pdf-layout': 'pdf-layout.html'
+        'map-export-layout': 'map-export-layout.html'
       }
     }
   },

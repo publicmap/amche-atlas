@@ -148,6 +148,12 @@ export class KeyboardController {
             this.triggerCenterSelection();
         }
 
+        if (e.key === 'x' && !this.isInputActive()) {
+            console.log('[KeyboardController] x pressed, opening export panel');
+            e.preventDefault();
+            this.toggleExportPanel();
+        }
+
         if (e.key === 'Tab' && this.activeModal) {
             this.handleModalTabbing(e);
         }
@@ -157,21 +163,21 @@ export class KeyboardController {
         const navMenu = document.getElementById('nav-menu-overlay');
         if (navMenu && navMenu.style.display !== 'none') {
             document.getElementById('nav-menu-close')?.click();
-            this.focusSearch();
+            this.focusMap();
             return;
         }
 
         const updatesModal = document.getElementById('updates-modal-overlay');
         if (updatesModal && updatesModal.style.display !== 'none') {
             document.getElementById('updates-modal-close')?.click();
-            this.focusSearch();
+            this.focusMap();
             return;
         }
 
         const layerInfoModal = document.getElementById('layer-info-modal');
         if (layerInfoModal && layerInfoModal.style.display !== 'none') {
             window.postMessage({ type: 'close-layer-info' }, '*');
-            this.focusSearch();
+            this.focusMap();
             return;
         }
 
@@ -183,14 +189,24 @@ export class KeyboardController {
             } else {
                 window.postMessage({ type: 'close-browser' }, '*');
             }
-            this.focusSearch();
+            this.focusMap();
+            return;
+        }
+
+        const exportIframe = document.querySelector('iframe[src*="map-export.html"]');
+        if (exportIframe && exportIframe.offsetParent !== null) {
+            window.postMessage({ type: 'export-close' }, '*');
+            this.focusMap();
             return;
         }
 
         if (this.activeModal) {
             this.closeActiveModal();
-            this.focusSearch();
+            this.focusMap();
+            return;
         }
+
+        this.focusMap();
     }
 
     isInputActive() {
@@ -243,6 +259,26 @@ export class KeyboardController {
         return false;
     }
 
+    focusMap() {
+        console.log('[KeyboardController] Focusing map canvas');
+        const mapCanvas = document.querySelector('.mapboxgl-canvas');
+        if (mapCanvas) {
+            mapCanvas.focus();
+            console.log('[KeyboardController] Map canvas focused');
+            return true;
+        }
+
+        const mapContainer = document.getElementById('map');
+        if (mapContainer) {
+            mapContainer.focus();
+            console.log('[KeyboardController] Map container focused');
+            return true;
+        }
+
+        console.warn('[KeyboardController] Could not find map to focus');
+        return false;
+    }
+
     toggleMapBrowser() {
         const trigger = document.querySelector('[data-action="toggle-map-browser"]');
         if (trigger) {
@@ -263,6 +299,12 @@ export class KeyboardController {
     triggerCenterSelection() {
         window.postMessage({
             type: 'trigger-center-selection'
+        }, '*');
+    }
+
+    toggleExportPanel() {
+        window.postMessage({
+            type: 'toggle-export'
         }, '*');
     }
 

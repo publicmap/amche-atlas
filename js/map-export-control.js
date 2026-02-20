@@ -14,6 +14,7 @@ export class MapExportControl {
         this._titleCustomized = false;
         this._descriptionCustomized = false;
         this._moveendHandler = null;
+        this._footerTemplateCache = null;
     }
 
     onAdd(map) {
@@ -129,9 +130,14 @@ export class MapExportControl {
         document.body.appendChild(this._processingOverlay);
 
         window.addEventListener('message', (event) => {
-            if (event.source !== this._iframe.contentWindow) return;
-
             const { type, config } = event.data;
+
+            if (type === 'toggle-export') {
+                this._toggle();
+                return;
+            }
+
+            if (event.source !== this._iframe.contentWindow) return;
 
             if (type === 'export-ready') {
                 this._updateTitleFromLocation();
@@ -439,6 +445,22 @@ export class MapExportControl {
         } finally {
             this._isExporting = false;
             this._exportCancelled = false;
+            this._restoreFrameVisibility(config);
+        }
+    }
+
+    _restoreFrameVisibility(config) {
+        if (!this._frame) return;
+
+        const shouldShowFrame =
+            config.format === 'pdf' ||
+            config.format === 'geotiff' ||
+            config.format === 'png' ||
+            config.format === 'jpeg' ||
+            (config.format === 'dxf' && config.includeRaster);
+
+        if (shouldShowFrame && this._iframe && this._iframe.style.display !== 'none') {
+            this._frame.show();
         }
     }
 
@@ -479,6 +501,7 @@ export class MapExportControl {
         const targetHeight = Math.round((contentHeightMm * dpi) / 25.4);
 
         const frameBounds = this._frame.getBounds();
+        const frameCenter = frameBounds.getCenter();
 
         const container = this._map.getContainer();
         const originalWidth = container.style.width;
@@ -664,32 +687,43 @@ export class MapExportControl {
 
                     this._sendProgress(70, 'Adding footer');
 
-                    const footerHeight = 25;
-                    const footerY = heightMm - margins.bottom - footerHeight;
+                    const footerPadding = 2;
+                    const elementGap = 4;
+                    const textGap = 1.2;
+                    const qrSizeMm = 20;
+                    const scaleNorthWidthMm = 30;
 
-                    doc.setFillColor(0, 0, 0);
-                    doc.rect(margins.left, footerY, contentWidthMm, footerHeight, 'F');
+                    const footerY = heightMm - margins.bottom - qrSizeMm - footerPadding;
 
                     if (qrDataUrl) {
-                        const qrSize = 20;
-                        doc.addImage(qrDataUrl, 'PNG', margins.left + 2, footerY + 2.5, qrSize, qrSize);
+                        doc.setFillColor(255, 255, 255);
+                        doc.setGState(new doc.GState({ opacity: 0.5 }));
+                        doc.roundedRect(margins.left + footerPadding, footerY, qrSizeMm, qrSizeMm, 0.5, 0.5, 'F');
+                        doc.addImage(qrDataUrl, 'PNG', margins.left + footerPadding, footerY, qrSizeMm, qrSizeMm);
+                        doc.setGState(new doc.GState({ opacity: 1.0 }));
                     }
 
-                    const textX = margins.left + (qrDataUrl ? 25 : 5);
-                    let textY = footerY + 6;
+                    const textStartX = margins.left + footerPadding + qrSizeMm + elementGap;
+                    const textWidth = contentWidthMm - qrSizeMm - scaleNorthWidthMm - (elementGap * 3) - (footerPadding * 2);
+                    let textY = footerY + 1;
 
-                    doc.setTextColor(255, 255, 255);
+                    doc.setGState(new doc.GState({ opacity: 0.5 }));
 
                     if (this._title) {
-                        doc.setFontSize(12);
+                        doc.setFontSize(10);
                         doc.setFont(undefined, 'bold');
-                        const titleLines = doc.splitTextToSize(this._title.replace(/<br\s*\/?>/gi, '\n'), contentWidthMm - 30);
-                        doc.text(titleLines, textX, textY);
-                        textY += titleLines.length * 5;
-                    }
+                        const titleLines = doc.splitTextToSize(this._title.replace(/<br\s*\/?>/gi, '\n'), textWidth - 4);
+                        const titleHeight = titleLines.length * 3.5 + 2;
 
-                    doc.setFontSize(8);
-                    doc.setFont(undefined, 'normal');
+                        doc.setFillColor(255, 255, 255);
+                        doc.roundedRect(textStartX, textY - 1, textWidth, titleHeight, 0.5, 0.5, 'F');
+
+                        doc.setGState(new doc.GState({ opacity: 1.0 }));
+                        doc.setTextColor(0, 0, 0);
+                        doc.text(titleLines, textStartX + 2, textY + 2);
+                        textY += titleHeight + textGap;
+                        doc.setGState(new doc.GState({ opacity: 0.5 }));
+                    }
 
                     const date = new Date();
                     const timestamp = date.toLocaleString('en-GB', {
@@ -700,18 +734,39 @@ export class MapExportControl {
                         minute: '2-digit'
                     });
 
-                    doc.text(`Exported at ${timestamp}`, textX, textY);
-                    textY += 4;
+                    doc.setFillColor(255, 255, 255);
+                    doc.roundedRect(textStartX, textY - 0.5, textWidth, 3.5, 0.5, 0.5, 'F');
+                    doc.setGState(new doc.GState({ opacity: 1.0 }));
+                    doc.setFontSize(8);
+                    doc.setFont(undefined, 'normal');
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(`Exported at ${timestamp}`, textStartX + 2, textY + 1.5);
+                    textY += 3.5 + textGap;
 
                     if (attributionText) {
-                        doc.setFontSize(6);
-                        doc.text(`Data: ${attributionText}`, textX, textY);
-                        textY += 3;
+                        doc.setGState(new doc.GState({ opacity: 0.5 }));
+                        doc.setFillColor(255, 255, 255);
+                        doc.roundedRect(textStartX, textY - 0.5, textWidth, 3, 0.5, 0.5, 'F');
+                        doc.setGState(new doc.GState({ opacity: 1.0 }));
+                        doc.setFontSize(7);
+                        doc.setTextColor(0, 0, 0);
+                        doc.text(`Data: ${attributionText}`, textStartX + 2, textY + 1.2);
+                        textY += 3 + textGap;
                     }
 
-                    doc.setFontSize(6);
-                    doc.setTextColor(128, 128, 128);
-                    doc.text(shareUrl, textX, textY);
+                    doc.setGState(new doc.GState({ opacity: 0.5 }));
+                    doc.setFillColor(255, 255, 255);
+                    doc.roundedRect(textStartX, textY - 0.5, textWidth, 3, 0.5, 0.5, 'F');
+                    doc.setGState(new doc.GState({ opacity: 0.8 }));
+                    doc.setFontSize(7);
+                    doc.setTextColor(0, 0, 0);
+                    const urlLines = doc.splitTextToSize(shareUrl, textWidth - 4);
+                    doc.text(urlLines.slice(0, 1), textStartX + 2, textY + 1.2);
+
+                    this._addPDFScaleBar(doc, margins.left + contentWidthMm - scaleNorthWidthMm, footerY, scaleNorthWidthMm);
+                    this._addPDFNorthArrow(doc, margins.left + contentWidthMm - scaleNorthWidthMm / 2, footerY + 11, originalBearing);
+
+                    doc.setGState(new doc.GState({ opacity: 1.0 }));
 
                     this._sendProgress(90, 'Saving PDF');
 
@@ -744,10 +799,10 @@ export class MapExportControl {
             this._map.resize();
 
             this._map.once('idle', () => {
-                this._map.fitBounds(frameBounds, {
-                    padding: 0,
-                    bearing: originalBearing,
-                    pitch: originalPitch,
+                const camera = this._calculateCameraForBounds(frameBounds, targetWidth, targetHeight, originalBearing, originalPitch);
+
+                this._map.jumpTo({
+                    ...camera,
                     animate: false
                 });
 
@@ -758,14 +813,14 @@ export class MapExportControl {
         });
     }
 
-    async _getQRCodeDataUrl(text) {
+    async _getQRCodeDataUrl(text, size = 1024) {
         return new Promise(async (resolve, reject) => {
             try {
                 await customElements.whenDefined('sl-qr-code');
 
                 const qr = document.createElement('sl-qr-code');
                 qr.value = text;
-                qr.size = 1024;
+                qr.size = size;
                 qr.style.position = 'fixed';
                 qr.style.top = '-9999px';
                 qr.style.left = '-9999px';
@@ -787,9 +842,8 @@ export class MapExportControl {
                         if (svg || canvas) {
                             requestAnimationFrame(() => {
                                 try {
-                                    const padding = 40;
-                                    const qrSize = 1024;
-                                    const totalSize = qrSize + (padding * 2);
+                                    const padding = Math.round(size * 0.04);
+                                    const totalSize = size + (padding * 2);
 
                                     const outCanvas = document.createElement('canvas');
                                     outCanvas.width = totalSize;
@@ -803,7 +857,7 @@ export class MapExportControl {
                                         const svgData = new XMLSerializer().serializeToString(svg);
                                         const img = new Image();
                                         img.onload = () => {
-                                            ctx.drawImage(img, padding, padding, qrSize, qrSize);
+                                            ctx.drawImage(img, padding, padding, size, size);
                                             document.body.removeChild(qr);
                                             resolve(outCanvas.toDataURL('image/png'));
                                         };
@@ -813,7 +867,7 @@ export class MapExportControl {
                                         };
                                         img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
                                     } else if (canvas) {
-                                        ctx.drawImage(canvas, padding, padding, qrSize, qrSize);
+                                        ctx.drawImage(canvas, padding, padding, size, size);
                                         document.body.removeChild(qr);
                                         resolve(outCanvas.toDataURL('image/png'));
                                     }
@@ -878,10 +932,15 @@ export class MapExportControl {
     async _exportGeoTIFF(config) {
         this._sendProgress(10, 'Preparing GeoTIFF export');
 
-        const width = config.width || 2048;
-        const height = config.height || 2048;
+        const widthMm = config.width || 297;
+        const heightMm = config.height || 210;
+        const dpi = config.dpi || 96;
+
+        const width = Math.round((widthMm * dpi) / 25.4);
+        const height = Math.round((heightMm * dpi) / 25.4);
 
         const bounds = this._frame.getBounds();
+        const center = bounds.getCenter();
         const canvas = this._map.getCanvas();
 
         const container = this._map.getContainer();
@@ -889,6 +948,8 @@ export class MapExportControl {
         const originalHeight = container.style.height;
         const originalCenter = this._map.getCenter();
         const originalZoom = this._map.getZoom();
+        const originalBearing = this._map.getBearing();
+        const originalPitch = this._map.getPitch();
 
         this._frame.hide();
 
@@ -897,7 +958,17 @@ export class MapExportControl {
         container.style.width = width + 'px';
         container.style.height = height + 'px';
         this._map.resize();
-        this._map.fitBounds(bounds, { padding: 0 });
+
+        await new Promise(resolve => {
+            this._map.once('idle', resolve);
+        });
+
+        const camera = this._calculateCameraForBounds(bounds, width, height, originalBearing, originalPitch);
+
+        this._map.jumpTo({
+            ...camera,
+            animate: false
+        });
 
         await new Promise(resolve => {
             this._map.once('idle', resolve);
@@ -937,10 +1008,120 @@ export class MapExportControl {
         this._map.resize();
         this._map.jumpTo({
             center: originalCenter,
-            zoom: originalZoom
+            zoom: originalZoom,
+            bearing: originalBearing,
+            pitch: originalPitch
         });
 
         this._sendProgress(100, 'GeoTIFF exported');
+    }
+
+    _calculateCameraForBounds(bounds, containerWidth, containerHeight, bearing = 0, pitch = 0) {
+        try {
+            const camera = this._map.cameraForBounds(bounds, {
+                padding: 0,
+                bearing: bearing,
+                pitch: pitch
+            });
+
+            if (!camera || camera.zoom === undefined || !isFinite(camera.zoom)) {
+                console.warn('cameraForBounds returned invalid camera');
+                return {
+                    center: bounds.getCenter(),
+                    zoom: this._map.getZoom(),
+                    bearing: bearing,
+                    pitch: pitch
+                };
+            }
+
+            return camera;
+        } catch (e) {
+            console.error('Failed to calculate camera for bounds:', e);
+            return {
+                center: bounds.getCenter(),
+                zoom: this._map.getZoom(),
+                bearing: bearing,
+                pitch: pitch
+            };
+        }
+    }
+
+    _addPDFScaleBar(doc, x, y, widthMm) {
+        const center = this._map.getCenter();
+        const zoom = this._map.getZoom();
+        const metersPerPixel = 40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
+        const pixelsPerMm = 96 / 25.4;
+        const scaleBarWidthMm = widthMm * 0.8;
+        const scaleMeters = Math.round(metersPerPixel * scaleBarWidthMm * pixelsPerMm);
+
+        let scaleText;
+        if (scaleMeters >= 1000) {
+            scaleText = `${(scaleMeters / 1000).toFixed(0)} km`;
+        } else {
+            scaleText = `${scaleMeters} m`;
+        }
+
+        doc.setGState(new doc.GState({ opacity: 0.5 }));
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(x, y, widthMm, 8, 0.5, 0.5, 'F');
+
+        doc.setGState(new doc.GState({ opacity: 1.0 }));
+        doc.setFontSize(6);
+        doc.setTextColor(0, 0, 0);
+        doc.text(scaleText, x + widthMm / 2, y + 2.5, { align: 'center' });
+
+        doc.setFillColor(0, 0, 0);
+        doc.rect(x + (widthMm - scaleBarWidthMm) / 2, y + 4, scaleBarWidthMm, 0.3, 'F');
+        doc.rect(x + (widthMm - scaleBarWidthMm) / 2, y + 4, 0.3, 2, 'F');
+        doc.rect(x + (widthMm - scaleBarWidthMm) / 2 + scaleBarWidthMm - 0.3, y + 4, 0.3, 2, 'F');
+    }
+
+    _addPDFNorthArrow(doc, x, y, bearing) {
+        const arrowSize = 12;
+
+        doc.setGState(new doc.GState({ opacity: 0.5 }));
+        doc.setFillColor(255, 255, 255);
+        doc.circle(x, y, arrowSize / 2, 'F');
+
+        doc.setGState(new doc.GState({ opacity: 1.0 }));
+
+        const centerX = x;
+        const centerY = y;
+        const radius = arrowSize / 2 * 0.8;
+        const angleRad = -bearing * Math.PI / 180;
+
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.15);
+        doc.setGState(new doc.GState({ opacity: 0.3 }));
+        doc.circle(centerX, centerY, radius, 'S');
+
+        doc.setGState(new doc.GState({ opacity: 1.0 }));
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(0, 0, 0);
+
+        const northX = centerX + radius * Math.sin(angleRad);
+        const northY = centerY - radius * Math.cos(angleRad);
+        doc.text('N', northX, northY - 1.5, { align: 'center' });
+
+        doc.setGState(new doc.GState({ opacity: 0.3 }));
+        doc.setFillColor(0, 0, 0);
+
+        const southX = centerX - radius * 0.6 * Math.sin(angleRad);
+        const southY = centerY + radius * 0.6 * Math.cos(angleRad);
+        doc.rect(southX - 0.125, southY - 1.5, 0.25, 3, 'F');
+
+        const eastAngle = angleRad + Math.PI / 2;
+        const eastX = centerX + radius * 0.6 * Math.sin(eastAngle);
+        const eastY = centerY - radius * 0.6 * Math.cos(eastAngle);
+        doc.rect(eastX - 1.5, eastY - 0.125, 3, 0.25, 'F');
+
+        const westAngle = angleRad - Math.PI / 2;
+        const westX = centerX + radius * 0.6 * Math.sin(westAngle);
+        const westY = centerY - radius * 0.6 * Math.cos(westAngle);
+        doc.rect(westX - 1.5, westY - 0.125, 3, 0.25, 'F');
+
+        doc.setGState(new doc.GState({ opacity: 1.0 }));
     }
 
     async _exportPNG(config) {
@@ -954,6 +1135,7 @@ export class MapExportControl {
         const targetHeight = Math.round((heightMm * dpi) / 25.4);
 
         const frameBounds = this._frame.getBounds();
+        const frameCenter = frameBounds.getCenter();
 
         const container = this._map.getContainer();
         const originalWidth = container.style.width;
@@ -972,6 +1154,8 @@ export class MapExportControl {
                         throw new Error('Export cancelled');
                     }
 
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
                     this._sendProgress(50, 'Capturing map');
                     const canvas = this._map.getCanvas();
                     let dataUrl = canvas.toDataURL('image/png');
@@ -980,7 +1164,7 @@ export class MapExportControl {
                     const actualPixelHeight = canvas.height;
 
                     this._sendProgress(60, 'Adding attribution');
-                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, originalCenter, originalBearing);
+                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi);
 
                     const blob = await fetch(dataUrl).then(r => r.blob());
 
@@ -1014,10 +1198,10 @@ export class MapExportControl {
             this._map.resize();
 
             this._map.once('idle', () => {
-                this._map.fitBounds(frameBounds, {
-                    padding: 0,
-                    bearing: originalBearing,
-                    pitch: originalPitch,
+                const camera = this._calculateCameraForBounds(frameBounds, targetWidth, targetHeight, originalBearing, originalPitch);
+
+                this._map.jumpTo({
+                    ...camera,
                     animate: false
                 });
 
@@ -1039,6 +1223,7 @@ export class MapExportControl {
         const targetHeight = Math.round((heightMm * dpi) / 25.4);
 
         const frameBounds = this._frame.getBounds();
+        const frameCenter = frameBounds.getCenter();
 
         const container = this._map.getContainer();
         const originalWidth = container.style.width;
@@ -1057,6 +1242,8 @@ export class MapExportControl {
                         throw new Error('Export cancelled');
                     }
 
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
                     this._sendProgress(50, 'Capturing map');
                     const canvas = this._map.getCanvas();
                     let dataUrl = canvas.toDataURL('image/png');
@@ -1065,7 +1252,7 @@ export class MapExportControl {
                     const actualPixelHeight = canvas.height;
 
                     this._sendProgress(60, 'Adding attribution');
-                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, originalCenter, originalBearing);
+                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi);
 
                     this._sendProgress(70, 'Converting to JPEG');
                     const tempImg = new Image();
@@ -1116,10 +1303,10 @@ export class MapExportControl {
             this._map.resize();
 
             this._map.once('idle', () => {
-                this._map.fitBounds(frameBounds, {
-                    padding: 0,
-                    bearing: originalBearing,
-                    pitch: originalPitch,
+                const camera = this._calculateCameraForBounds(frameBounds, targetWidth, targetHeight, originalBearing, originalPitch);
+
+                this._map.jumpTo({
+                    ...camera,
                     animate: false
                 });
 
@@ -1714,7 +1901,7 @@ export class MapExportControl {
 
         this._sendProgress(52, 'Adding attribution');
 
-        imageDataUrl = await this._addFooterToRaster(imageDataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing);
+        imageDataUrl = await this._addFooterToRaster(imageDataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi);
 
         this._sendProgress(55, 'Extracting vector features');
 
@@ -1803,7 +1990,106 @@ export class MapExportControl {
         this._downloadFile(worldFileContent, `${baseFilename}_raster.pgw`, 'text/plain');
     }
 
-    async _addFooterToRaster(mapImageDataUrl, width, height, center, bearing) {
+    async _loadFooterTemplate() {
+        if (this._footerTemplateCache) {
+            return this._footerTemplateCache;
+        }
+
+        try {
+            const response = await fetch('map-export-layout.html');
+            if (!response.ok) {
+                throw new Error('Failed to load template');
+            }
+            const html = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            const template = doc.getElementById('export-footer-template');
+            if (!template) {
+                throw new Error('Footer template not found');
+            }
+
+            const styles = doc.querySelector('style');
+
+            this._footerTemplateCache = {
+                footer: template,
+                styles: styles
+            };
+
+            return this._footerTemplateCache;
+        } catch (e) {
+            console.error('Failed to load footer template:', e);
+            return null;
+        }
+    }
+
+    _formatUrlForDisplay(url) {
+        try {
+            const urlObj = new URL(url);
+            const parts = [];
+
+            parts.push(urlObj.origin + urlObj.pathname);
+
+            const params = new URLSearchParams(urlObj.search);
+            const paramParts = [];
+
+            for (const [key, value] of params.entries()) {
+                if (key === 'layers') {
+                    const decodedLayers = decodeURIComponent(value);
+                    const layerItems = [];
+                    let current = '';
+                    let depth = 0;
+
+                    for (let i = 0; i < decodedLayers.length; i++) {
+                        const char = decodedLayers[i];
+                        if (char === '{' || char === '[') {
+                            depth++;
+                            current += char;
+                        } else if (char === '}' || char === ']') {
+                            depth--;
+                            current += char;
+                        } else if (char === ',' && depth === 0) {
+                            if (current.trim()) {
+                                layerItems.push(current.trim());
+                            }
+                            current = '';
+                        } else {
+                            current += char;
+                        }
+                    }
+                    if (current.trim()) {
+                        layerItems.push(current.trim());
+                    }
+
+                    const filteredLayers = layerItems.filter(layer => {
+                        return !layer.includes('"id":"selection"') &&
+                               !layer.includes("'id':'selection'");
+                    });
+
+                    if (filteredLayers.length > 0) {
+                        paramParts.push(`layers=${filteredLayers.join(', ')}`);
+                    }
+                } else {
+                    const displayValue = decodeURIComponent(value);
+                    paramParts.push(`${key}=${displayValue}`);
+                }
+            }
+
+            if (paramParts.length > 0) {
+                parts.push('?' + paramParts.join(' & '));
+            }
+
+            if (urlObj.hash) {
+                parts.push(urlObj.hash);
+            }
+
+            return parts.join(' ');
+        } catch (e) {
+            return url;
+        }
+    }
+
+    async _addFooterToRaster(mapImageDataUrl, width, height, center, bearing, dpi = 96) {
         try {
             const html2canvas = (await import('html2canvas')).default;
 
@@ -1812,7 +2098,35 @@ export class MapExportControl {
                 shareUrl = window.urlManager.getShareableURL();
             }
 
-            const qrDataUrl = await this._getQRCodeDataUrl(shareUrl);
+            const urlLength = shareUrl.length;
+            let qrComplexity = 1;
+            if (urlLength > 200) qrComplexity = 1.5;
+            if (urlLength > 400) qrComplexity = 2.0;
+            if (urlLength > 600) qrComplexity = 2.5;
+            if (urlLength > 800) qrComplexity = 3.0;
+
+            const pageWidthPx = width;
+            const qrDisplaySizeRatio = 0.12 + (qrComplexity - 1) * 0.06;
+            const qrDisplaySize = Math.round(pageWidthPx * qrDisplaySizeRatio);
+
+            const minDisplaySize = Math.round((25 * dpi) / 25.4);
+            const maxDisplaySize = Math.round((80 * dpi) / 25.4);
+            const qrSize = Math.max(minDisplaySize, Math.min(qrDisplaySize, maxDisplaySize));
+
+            const qrGenerationSize = Math.max(qrSize * 8, Math.round(2000 * qrComplexity));
+
+            const footerHeightRatio = 0.05;
+            const footerHeight = Math.round(height * footerHeightRatio);
+
+            const footerPadding = Math.round(footerHeight * 0.15);
+            const textGap = Math.round(footerHeight * 0.08);
+
+            const titleFontSize = Math.round(footerHeight * 0.25);
+            const descFontSize = Math.round(footerHeight * 0.18);
+            const attrFontSize = Math.round(footerHeight * 0.15);
+            const urlFontSize = Math.round(footerHeight * 0.13);
+
+            const qrDataUrl = await this._getQRCodeDataUrl(shareUrl, qrGenerationSize);
 
             let attributionText = '';
             const attribCtrl = this._map._controls.find(c => c._container && c._container.classList.contains('mapboxgl-ctrl-attrib'));
@@ -1841,25 +2155,43 @@ export class MapExportControl {
                 if (mapImg.complete) resolve();
             });
 
-            const footerBox = document.createElement('div');
-            footerBox.style.cssText = 'position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.7); color: white; padding: 8px; box-sizing: border-box; display: flex; gap: 16px; align-items: center;';
+            const template = await this._loadFooterTemplate();
+            if (!template) {
+                console.warn('Could not load footer template, using plain map');
+                document.body.removeChild(container);
+                return mapImageDataUrl;
+            }
 
-            const qrContainer = document.createElement('div');
-            qrContainer.style.cssText = 'flex: 0 0 auto;';
-            const qrImg = document.createElement('img');
-            qrImg.src = qrDataUrl;
-            qrImg.style.cssText = 'width: 80px; height: 80px; display: block;';
-            qrContainer.appendChild(qrImg);
-            footerBox.appendChild(qrContainer);
+            const head = document.createElement('head');
+            const styleEl = template.styles.cloneNode(true);
+            head.appendChild(styleEl);
+            container.insertBefore(head, container.firstChild);
 
-            const textContainer = document.createElement('div');
-            textContainer.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0;';
+            const footerBox = template.footer.cloneNode(true);
+            footerBox.style.cssText = 'position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important;';
 
-            if (this._title) {
-                const titleEl = document.createElement('div');
-                titleEl.innerHTML = this._title.replace(/<br\s*\/?>/gi, '<br>');
-                titleEl.style.cssText = 'font-size: 16px; font-weight: bold; color: white; line-height: 1.2;';
-                textContainer.appendChild(titleEl);
+            const qrEl = footerBox.querySelector('[data-export-qr]');
+            if (qrEl && qrDataUrl) {
+                qrEl.style.width = `${qrSize}px`;
+                qrEl.style.height = `${qrSize}px`;
+                qrEl.style.minWidth = `${qrSize}px`;
+                qrEl.style.minHeight = `${qrSize}px`;
+                qrEl.innerHTML = '';
+                const qrImg = document.createElement('img');
+                qrImg.src = qrDataUrl;
+                qrImg.style.width = '100%';
+                qrImg.style.height = '100%';
+                qrImg.style.display = 'block';
+                qrEl.appendChild(qrImg);
+            }
+
+            const titleEl = footerBox.querySelector('[data-export-title]');
+            if (titleEl) {
+                if (this._title) {
+                    titleEl.textContent = this._title.replace(/<br\s*\/?>/gi, ' ');
+                } else {
+                    titleEl.remove();
+                }
             }
 
             const date = new Date();
@@ -1871,24 +2203,182 @@ export class MapExportControl {
                 minute: '2-digit'
             });
 
-            const descEl = document.createElement('div');
-            descEl.textContent = `Exported at ${timestamp}`;
-            descEl.style.cssText = 'font-size: 12px; color: white;';
-            textContainer.appendChild(descEl);
-
-            if (attributionText) {
-                const attrEl = document.createElement('div');
-                attrEl.textContent = `Data: ${attributionText}`;
-                attrEl.style.cssText = 'font-size: 10px; color: white;';
-                textContainer.appendChild(attrEl);
+            const attrEl = footerBox.querySelector('[data-export-attribution]');
+            if (attrEl) {
+                if (attributionText) {
+                    attrEl.textContent = `Data: ${attributionText}`;
+                } else {
+                    attrEl.remove();
+                }
             }
 
-            const urlEl = document.createElement('div');
-            urlEl.textContent = shareUrl;
-            urlEl.style.cssText = 'font-size: 10px; color: white; opacity: 0.3; word-break: break-all;';
-            textContainer.appendChild(urlEl);
+            const infoEl = footerBox.querySelector('[data-export-info]');
+            if (infoEl) {
+                const formattedUrl = this._formatUrlForDisplay(shareUrl);
+                infoEl.textContent = `Exported ${timestamp} | ${formattedUrl}`;
+            }
 
-            footerBox.appendChild(textContainer);
+            const scaleEl = footerBox.querySelector('[data-export-scale-label]');
+            if (scaleEl) {
+                const center = this._map.getCenter();
+                const zoom = this._map.getZoom();
+                const metersPerPixel = 40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
+
+                // Scale bar is 30mm wide in the template
+                const scaleBarWidthMm = 30;
+                const pixelsPerMm = dpi / 25.4;
+                const scaleBarWidthPx = scaleBarWidthMm * pixelsPerMm;
+                const scaleMeters = Math.round(metersPerPixel * scaleBarWidthPx);
+
+                let scaleText;
+                if (scaleMeters >= 1000) {
+                    scaleText = `${(scaleMeters / 1000).toFixed(1)} km`;
+                } else {
+                    scaleText = `${scaleMeters} m`;
+                }
+                scaleEl.textContent = scaleText;
+            }
+
+            const northArrowEl = footerBox.querySelector('[data-export-north-arrow]');
+            if (northArrowEl && bearing !== 0) {
+                const container = northArrowEl.querySelector('.north-arrow-container');
+                if (container) {
+                    container.style.transform = `rotate(${-bearing}deg)`;
+                }
+            }
+
+            const layerThumbnailsEl = footerBox.querySelector('[data-export-layer-thumbnails]');
+            if (layerThumbnailsEl && window.stateManager) {
+                try {
+                    console.log('[Export] Generating layer thumbnails...');
+
+                    // Dynamic imports to avoid initialization issues
+                    const { LayerThumbnail } = await import('./layer-thumbnail.js');
+                    const { MapUtils } = await import('./map-utils.js');
+
+                    const activeLayersMap = window.stateManager.getActiveLayers();
+                    const bounds = this._map.getBounds();
+                    const boundsArray = [
+                        bounds.getWest(),
+                        bounds.getSouth(),
+                        bounds.getEast(),
+                        bounds.getNorth()
+                    ];
+
+                    const imageToDataURL = async (url, useProxy = false) => {
+                        return new Promise((resolve) => {
+                            const img = new Image();
+                            img.crossOrigin = 'anonymous';
+
+                            const PROXY_URL = 'https://amche-atlas-production.up.railway.app/proxy';
+                            const actualUrl = useProxy ? `${PROXY_URL}?url=${encodeURIComponent(url)}` : url;
+
+                            const timeout = setTimeout(() => {
+                                console.warn(`[Export] Image load timeout: ${actualUrl}`);
+                                resolve(null);
+                            }, 10000);
+
+                            img.onload = () => {
+                                clearTimeout(timeout);
+                                try {
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = img.width;
+                                    canvas.height = img.height;
+                                    const ctx = canvas.getContext('2d');
+                                    ctx.drawImage(img, 0, 0);
+                                    const dataURL = canvas.toDataURL('image/png');
+                                    console.log(`[Export] Successfully converted image${useProxy ? ' (via proxy)' : ''}: ${url.substring(0, 50)}...`);
+                                    resolve(dataURL);
+                                } catch (e) {
+                                    console.warn(`[Export] Failed to convert image to canvas: ${actualUrl}`, e);
+                                    resolve(null);
+                                }
+                            };
+
+                            img.onerror = async (e) => {
+                                clearTimeout(timeout);
+                                if (!useProxy) {
+                                    console.log(`[Export] Direct load failed, trying proxy server: ${url}`);
+                                    const proxiedResult = await imageToDataURL(url, true);
+                                    resolve(proxiedResult);
+                                } else {
+                                    console.warn(`[Export] Failed to load image even via proxy: ${url}`, e);
+                                    resolve(null);
+                                }
+                            };
+
+                            img.src = actualUrl;
+                        });
+                    };
+
+                    let thumbnailCount = 0;
+                    for (const [layerId, layerData] of activeLayersMap.entries()) {
+                        try {
+                            const config = { ...layerData.config };
+
+                            if (window.layerRegistry) {
+                                const registryLayer = window.layerRegistry.getLayer(config.id);
+                                if (registryLayer && registryLayer.tags) {
+                                    if (!config.tags) {
+                                        config.tags = registryLayer.tags;
+                                    } else if (Array.isArray(config.tags) && Array.isArray(registryLayer.tags)) {
+                                        config.tags = [...new Set([...config.tags, ...registryLayer.tags])];
+                                    }
+                                }
+                            }
+
+                            if (config.headerImage && (config.headerImage.startsWith('http://') || config.headerImage.startsWith('https://'))) {
+                                const dataURL = await imageToDataURL(config.headerImage);
+                                if (dataURL) {
+                                    config.headerImage = dataURL;
+                                } else {
+                                    console.warn(`[Export] Removing headerImage due to CORS/loading failure: ${config.headerImage}`);
+                                    delete config.headerImage;
+                                }
+                            }
+
+                            const row = document.createElement('div');
+                            row.className = 'layer-thumbnail-row';
+
+                            const thumbnail = LayerThumbnail.generate(config, 38, {
+                                isInView: MapUtils.isLayerInView(config, boundsArray)
+                            });
+                            thumbnail.className = 'layer-thumbnail-item';
+                            thumbnail.style.pointerEvents = 'none';
+                            thumbnail.style.cursor = 'default';
+
+                            // Remove any event listeners by cloning
+                            const cleanThumbnail = thumbnail.cloneNode(true);
+                            row.appendChild(cleanThumbnail);
+
+                            const textContainer = document.createElement('div');
+                            textContainer.className = 'layer-thumbnail-text';
+
+                            const title = document.createElement('div');
+                            title.className = 'layer-thumbnail-title';
+                            title.textContent = config.title || config.id;
+                            textContainer.appendChild(title);
+
+                            if (config.attribution) {
+                                const attribution = document.createElement('div');
+                                attribution.className = 'layer-thumbnail-attribution';
+                                attribution.innerHTML = config.attribution;
+                                textContainer.appendChild(attribution);
+                            }
+
+                            row.appendChild(textContainer);
+
+                            layerThumbnailsEl.appendChild(row);
+                            thumbnailCount++;
+                        } catch (thumbError) {
+                            console.warn(`[Export] Failed to generate thumbnail for layer ${layerId}:`, thumbError);
+                        }
+                    }
+                    console.log(`[Export] Generated ${thumbnailCount} layer thumbnails`);
+                } catch (e) {
+                    console.error('[Export] Failed to generate layer thumbnails:', e);
+                }
+            }
 
             container.appendChild(footerBox);
 
@@ -1900,8 +2390,19 @@ export class MapExportControl {
                 scale: 1,
                 logging: false,
                 useCORS: true,
+                allowTaint: true,
+                foreignObjectRendering: false,
                 width: width,
-                height: height
+                height: height,
+                onclone: (clonedDoc) => {
+                    const clonedContainer = clonedDoc.querySelector('div[style*="position: fixed"]');
+                    if (clonedContainer) {
+                        const clonedFooter = clonedContainer.querySelector('[id="export-footer-template"]');
+                        if (clonedFooter) {
+                            clonedFooter.style.display = 'flex';
+                        }
+                    }
+                }
             });
 
             document.body.removeChild(container);
@@ -1912,6 +2413,7 @@ export class MapExportControl {
             return mapImageDataUrl;
         }
     }
+
 
     _generateWorldFile(imageDimensions, transformer, center, pixelWidth, pixelHeight) {
         const pixelSizeX = imageDimensions.width / pixelWidth;

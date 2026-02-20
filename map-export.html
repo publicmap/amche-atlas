@@ -563,11 +563,11 @@
             <div class="form-group">
                 <label class="form-label">Select export type</label>
                 <sl-select id="use-for-select" value="link" hoist>
-                    <sl-option value="link">Share Link</sl-option>
-                    <sl-option value="print">Print: Images and PDF</sl-option>
-                    <sl-option value="web">Web: HTML</sl-option>
-                    <sl-option value="gis">GIS: GeoJSON,KML,GeoTIFF,GeoCSV</sl-option>
-                    <sl-option value="cad">CAD: DXF</sl-option>
+                    <sl-option value="link"><u>L</u>ink</sl-option>
+                    <sl-option value="print"><u>P</u>rint: Images and PDF</sl-option>
+                    <sl-option value="web"><u>W</u>eb: HTML</sl-option>
+                    <sl-option value="gis"><u>G</u>IS: GeoJSON,KML,GeoTIFF,GeoCSV</sl-option>
+                    <sl-option value="cad"><u>C</u>AD: DXF</sl-option>
                 </sl-select>
             </div>
 
@@ -836,38 +836,37 @@
         let featureSelectionState = new Map();
         let isFeatureListVisible = false;
 
-        // Format definitions with Shoelace icons
         const formatsByUseFor = {
             link: {
                 formats: [
-                    { value: 'link', label: 'Link', icon: 'link-45deg', description: 'Share map via URL or QR code' }
+                    { value: 'link', label: 'Link', shortcut: 'l', icon: 'link-45deg', description: 'Share map via URL or QR code' }
                 ]
             },
             print: {
                 formats: [
-                    { value: 'jpeg', label: 'JPEG', icon: 'filetype-jpg', description: 'Compressed image, smaller file size' },
-                    { value: 'png', label: 'PNG', icon: 'filetype-png', description: 'Lossless image, transparent backgrounds' },
-                    { value: 'pdf', label: 'PDF', icon: 'filetype-pdf', description: 'Vector graphics, best for printing' }
+                    { value: 'jpeg', label: 'JPEG', shortcut: 'j', icon: 'filetype-jpg', description: 'Compressed image, smaller file size' },
+                    { value: 'png', label: 'PNG', shortcut: 'p', icon: 'filetype-png', description: 'Lossless image, transparent backgrounds' },
+                    { value: 'pdf', label: 'PDF', shortcut: 'd', icon: 'filetype-pdf', description: 'Vector graphics, best for printing' }
                 ]
             },
             web: {
                 formats: [
-                    { value: 'html', label: 'HTML', icon: 'filetype-html', description: 'Interactive web map' },
-                    { value: 'iframe', label: 'Iframe', icon: 'code-square', description: 'Embed code for websites and blogs' }
+                    { value: 'html', label: 'HTML', shortcut: 'h', icon: 'filetype-html', description: 'Interactive web map' },
+                    { value: 'iframe', label: 'Iframe', shortcut: 'i', icon: 'code-square', description: 'Embed code for websites and blogs' }
                 ]
             },
             gis: {
                 formats: [
-                    { value: 'kml', label: 'KML', icon: 'filetype-xml', description: 'For Google Earth and mapping apps' },
-                    { value: 'geojson', label: 'GeoJSON', icon: 'filetype-json', description: 'For web development and GIS software' },
-                    { value: 'geotiff', label: 'GeoTIFF', icon: 'filetype-tiff', description: 'Georeferenced raster image' },
-                    { value: 'csv', label: 'GeoCSV', icon: 'filetype-csv', description: 'Spreadsheet with feature metadata and coordinates' },
-                    { value: 'style', label: 'Style JSON', icon: 'palette', description: 'For Maputnik and Mapbox Studio' }
+                    { value: 'kml', label: 'KML', shortcut: 'k', icon: 'filetype-xml', description: 'For Google Earth and mapping apps' },
+                    { value: 'geojson', label: 'GeoJSON', shortcut: 'j', icon: 'filetype-json', description: 'For web development and GIS software' },
+                    { value: 'geotiff', label: 'GeoTIFF', shortcut: 't', icon: 'filetype-tiff', description: 'Georeferenced raster image' },
+                    { value: 'csv', label: 'GeoCSV', shortcut: 'c', icon: 'filetype-csv', description: 'Spreadsheet with feature metadata and coordinates' },
+                    { value: 'style', label: 'Style JSON', shortcut: 's', icon: 'palette', description: 'For Maputnik and Mapbox Studio' }
                 ]
             },
             cad: {
                 formats: [
-                    { value: 'dxf', label: 'DXF', icon: 'file-earmark-ruled', description: 'For AutoCAD and CAD software' }
+                    { value: 'dxf', label: 'DXF', shortcut: 'd', icon: 'file-earmark-ruled', description: 'For AutoCAD and CAD software' }
                 ]
             }
         };
@@ -1019,6 +1018,10 @@
             $('#export-selected-only').on('change', () => {
                 updateFeatureListVisibility();
             });
+
+            $(document).on('keydown', (e) => {
+                handleExportKeydown(e);
+            });
         }
 
         function updateFormatOptions() {
@@ -1037,13 +1040,17 @@
                 $container.html(`
                     <label class="form-label">Format</label>
                     <div class="format-grid">
-                        ${options.formats.map((format, index) => `
+                        ${options.formats.map((format, index) => {
+                            const labelWithShortcut = format.shortcut
+                                ? format.label.replace(new RegExp(`^(${format.shortcut})`, 'i'), '<u>$1</u>')
+                                : format.label;
+                            return `
                             <label class="format-button ${index === 0 ? 'selected' : ''}" data-format="${format.value}">
                                 <input type="radio" name="format" value="${format.value}" ${index === 0 ? 'checked' : ''}>
                                 <sl-icon name="${format.icon}" class="format-icon"></sl-icon>
-                                <div class="format-label">${format.label}</div>
-                            </label>
-                        `).join('')}
+                                <div class="format-label">${labelWithShortcut}</div>
+                            </label>`;
+                        }).join('')}
                     </div>
                     <div class="format-description-box">
                         <div class="format-description" id="format-desc">${options.formats[0].description}</div>
@@ -1919,6 +1926,80 @@
                 }
             });
             return selected;
+        }
+
+        function handleExportKeydown(e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                $('#close-btn').click();
+                return;
+            }
+
+            if (e.key === ' ') {
+                e.preventDefault();
+                $('#export-btn').click();
+                return;
+            }
+
+            const activeElement = $(document.activeElement);
+            if (activeElement.is('input, textarea, select')) {
+                return;
+            }
+
+            const key = e.key.toLowerCase();
+
+            const formatShortcuts = {
+                'l': 'link',
+                'p': 'print',
+                'w': 'web',
+                'g': 'gis',
+                'c': 'cad'
+            };
+
+            const useForValue = formatShortcuts[key];
+            if (useForValue && currentUseFor !== useForValue) {
+                e.preventDefault();
+                $('#use-for-select').val(useForValue).trigger('sl-change');
+                return;
+            }
+
+            if (currentUseFor === 'print') {
+                const printFormatShortcuts = { 'j': 'jpeg', 'p': 'png', 'd': 'pdf' };
+                const formatValue = printFormatShortcuts[key];
+                if (formatValue) {
+                    e.preventDefault();
+                    $(`.format-button[data-format="${formatValue}"]`).click();
+                    return;
+                }
+            }
+
+            if (currentUseFor === 'web') {
+                const webFormatShortcuts = { 'h': 'html', 'i': 'iframe' };
+                const formatValue = webFormatShortcuts[key];
+                if (formatValue) {
+                    e.preventDefault();
+                    $(`.format-button[data-format="${formatValue}"]`).click();
+                    return;
+                }
+            }
+
+            if (currentUseFor === 'gis') {
+                const gisFormatShortcuts = { 'k': 'kml', 'j': 'geojson', 't': 'geotiff', 'c': 'csv', 's': 'style' };
+                const formatValue = gisFormatShortcuts[key];
+                if (formatValue) {
+                    e.preventDefault();
+                    $(`.format-button[data-format="${formatValue}"]`).click();
+                    return;
+                }
+            }
+
+            if (currentUseFor === 'cad') {
+                if (key === 'd') {
+                    e.preventDefault();
+                    $(`.format-button[data-format="dxf"]`).click();
+                    return;
+                }
+            }
         }
     </script>
 </body>

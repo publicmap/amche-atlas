@@ -56,7 +56,7 @@ module.exports = {
                 { from: 'map-export.html', to: 'map-export.html' },
                 { from: 'map-inspector.html', to: 'map-inspector.html' },
                 { from: 'map-information.html', to: 'map-information.html' },
-                { from: 'pdf-layout.html', to: 'pdf-layout.html' },
+                { from: 'map-export-layout.html', to: 'map-export-layout.html' },
                 { from: 'offline.html', to: 'offline.html' },
                 { from: 'privacy.html', to: 'privacy.html' },
                 { from: 'manifest.json', to: 'manifest.json' },
