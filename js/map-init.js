@@ -15,10 +15,218 @@ import { ButtonGeolocationManager } from './button-geolocation-manager.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 
 export class MapInitializer {
+    static async findBestAtlasForLocation(lat, lng) {
+        if (!window.layerRegistry) {
+            console.warn('[MapInit] Layer registry not available');
+            return null;
+        }
+
+        const matchingAtlases = [];
+
+        for (const [atlasId, metadata] of window.layerRegistry._atlasMetadata.entries()) {
+            if (atlasId === 'index') continue;
+
+            if (metadata.bbox && window.layerRegistry.isPointInAtlasBbox(atlasId, lng, lat)) {
+                const area = window.layerRegistry._atlasMetadata.get(atlasId)?.bbox
+                    ? this.calculateBboxArea(metadata.bbox)
+                    : Infinity;
+
+                matchingAtlases.push({
+                    id: atlasId,
+                    name: metadata.name,
+                    area: area,
+                    metadata: metadata
+                });
+            }
+        }
+
+        if (matchingAtlases.length === 0) {
+            return null;
+        }
+
+        matchingAtlases.sort((a, b) => a.area - b.area);
+        return matchingAtlases[0];
+    }
+
+    static calculateBboxArea(bbox) {
+        if (!bbox || bbox.length !== 4) return Infinity;
+        const [west, south, east, north] = bbox;
+        return (east - west) * (north - south);
+    }
+
+    static async waitForStartupChoice() {
+        return new Promise((resolve) => {
+            const checkInterval = setInterval(() => {
+                if (window.loadingStartupState?.proceedNormally) {
+                    clearInterval(checkInterval);
+                    resolve('proceed');
+                } else if (window.loadingStartupState?.userLocation) {
+                    clearInterval(checkInterval);
+                    resolve('location');
+                }
+            }, 100);
+        });
+    }
+
     // Function to load configuration
     static async loadConfiguration() {
         // Initialize the layer registry first
         await layerRegistry.initialize();
+
+        // Handle hash-based layer links (e.g., #layer-name)
+        // Note: Skip hashes that look like map positions (e.g., #12/15.4406/73.8274)
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#') && !hash.includes('/')) {
+            const layerId = hash.substring(1);
+            console.log('[MapInit] Detected hash-based layer link:', layerId);
+
+            // Check if this layer exists in the registry
+            const layer = layerRegistry.getLayer(layerId);
+            console.log('[MapInit] Layer lookup result:', layer ? {
+                id: layer.id,
+                title: layer.title,
+                _sourceAtlas: layer._sourceAtlas,
+                hasBbox: !!layer.bbox,
+                bboxValue: layer.bbox,
+                bboxIsArray: Array.isArray(layer.bbox),
+                bboxLength: Array.isArray(layer.bbox) ? layer.bbox.length : 'N/A'
+            } : 'NOT FOUND');
+
+            if (layer) {
+                // Get initially checked layers from index atlas
+                const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
+                const indexConfig = await indexResponse.json();
+                const indexLayers = indexConfig.layers?.filter(l => l.initiallyChecked).map(l => l.id) || [];
+
+                // Build layers array with the hash layer first, then index layers
+                const allLayers = [layerId, ...indexLayers.filter(id => id !== layerId)];
+                const layersParam = allLayers.join(',');
+
+                // Determine initial view from layer bbox or atlas bbox
+                let bbox = null;
+                let bboxSource = null;
+
+                // Extract bbox from layer (supports multiple formats)
+                if (layer.bbox) {
+                    if (Array.isArray(layer.bbox) && layer.bbox.length === 4) {
+                        // Array format: [west, south, east, north]
+                        bbox = layer.bbox;
+                        bboxSource = 'layer bbox';
+                    } else if (typeof layer.bbox === 'string') {
+                        // String format: "west,south,east,north"
+                        const parts = layer.bbox.split(',').map(v => parseFloat(v.trim()));
+                        if (parts.length === 4 && parts.every(v => !isNaN(v))) {
+                            bbox = parts;
+                            bboxSource = 'layer bbox (parsed from string)';
+                        }
+                    }
+                } else if (layer.map?.bounds && Array.isArray(layer.map.bounds) && layer.map.bounds.length === 2) {
+                    // Handle map.bounds format: [[west, south], [east, north]]
+                    const [sw, ne] = layer.map.bounds;
+                    if (Array.isArray(sw) && Array.isArray(ne) && sw.length === 2 && ne.length === 2) {
+                        bbox = [sw[0], sw[1], ne[0], ne[1]];
+                        bboxSource = 'layer map.bounds';
+                    }
+                }
+
+                // If no layer bbox, try source atlas bbox
+                if (!bbox && layer._sourceAtlas) {
+                    const atlasMetadata = window.layerRegistry?._atlasMetadata?.get(layer._sourceAtlas);
+                    console.log('[MapInit] Source atlas metadata:', layer._sourceAtlas, atlasMetadata ? {
+                        name: atlasMetadata.name,
+                        hasBbox: !!atlasMetadata.bbox
+                    } : 'NOT FOUND');
+
+                    if (atlasMetadata?.bbox && Array.isArray(atlasMetadata.bbox) && atlasMetadata.bbox.length === 4) {
+                        bbox = atlasMetadata.bbox;
+                        bboxSource = `source atlas (${layer._sourceAtlas})`;
+                    }
+                }
+
+                // Store bbox for fitBounds, or use index config defaults
+                if (bbox) {
+                    window.hashLayerView = { bbox, source: bboxSource };
+                    console.log('[MapInit] Stored bbox for fitBounds:', bbox, 'source:', bboxSource);
+
+                    // Calculate center for URL hash display
+                    const [west, south, east, north] = bbox;
+                    const center = [(west + east) / 2, (south + north) / 2];
+                    const latDiff = north - south;
+                    const lngDiff = east - west;
+                    const maxDiff = Math.max(latDiff, lngDiff);
+                    let zoom = 12;
+                    if (maxDiff > 10) zoom = 6;
+                    else if (maxDiff > 5) zoom = 8;
+                    else if (maxDiff > 2) zoom = 10;
+                    else if (maxDiff > 1) zoom = 11;
+                    else if (maxDiff > 0.5) zoom = 12;
+                    else zoom = 13;
+
+                    // Build URL with estimated position hash
+                    const url = new URL(window.location);
+                    url.searchParams.set('layers', layersParam);
+                    url.hash = `#${zoom}/${center[1].toFixed(4)}/${center[0].toFixed(4)}`;
+                    console.log('[MapInit] Converting hash link to layers parameter:', url.toString());
+                    window.history.replaceState({}, '', url.toString());
+                } else if (indexConfig.map?.center && indexConfig.map?.zoom) {
+                    // Use atlas default center and zoom
+                    window.hashLayerView = {
+                        center: indexConfig.map.center,
+                        zoom: indexConfig.map.zoom,
+                        source: 'index atlas defaults'
+                    };
+                    console.log('[MapInit] Using index atlas defaults');
+
+                    const url = new URL(window.location);
+                    url.searchParams.set('layers', layersParam);
+                    url.hash = `#${indexConfig.map.zoom}/${indexConfig.map.center[1].toFixed(4)}/${indexConfig.map.center[0].toFixed(4)}`;
+                    console.log('[MapInit] Converting hash link to layers parameter:', url.toString());
+                    window.history.replaceState({}, '', url.toString());
+                } else {
+                    console.warn('[MapInit] No view calculated for hash layer link');
+                    const url = new URL(window.location);
+                    url.searchParams.set('layers', layersParam);
+                    url.hash = '';
+                    console.log('[MapInit] Converting hash link to layers parameter:', url.toString());
+                    window.history.replaceState({}, '', url.toString());
+                }
+            } else {
+                console.warn('[MapInit] Layer not found in registry:', layerId);
+            }
+        }
+
+        const choice = await this.waitForStartupChoice();
+
+        if (choice === 'location' && window.loadingStartupState?.userLocation) {
+            const loc = window.loadingStartupState.userLocation;
+            const bestAtlas = await this.findBestAtlasForLocation(loc.lat, loc.lng);
+
+            if (bestAtlas) {
+                const atlasParam = bestAtlas.id;
+                const hash = `#12/${loc.lat.toFixed(4)}/${loc.lng.toFixed(4)}`;
+
+                try {
+                    const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
+                    const indexConfig = await indexResponse.json();
+                    const indexLayers = indexConfig.layers?.filter(l => l.initiallyChecked).map(l => l.id) || [];
+
+                    const bestAtlasResponse = await fetch(`config/${atlasParam}.atlas.json`);
+                    const bestAtlasConfig = await bestAtlasResponse.json();
+                    const atlasLayers = bestAtlasConfig.layers?.filter(l => l.initiallyChecked).map(l => l.id) || [];
+
+                    const allLayers = [...atlasLayers, ...indexLayers.filter(id => !atlasLayers.includes(id))];
+
+                    const layersParam = allLayers.length > 0 ? `&layers=${allLayers.join(',')}` : '';
+
+                    window.history.replaceState({}, '', `?atlas=${atlasParam}${layersParam}&geolocate=true${hash}`);
+                } catch (error) {
+                    console.warn('[MapInit] Failed to load atlas configs for layer merging, using simple URL:', error);
+                    window.history.replaceState({}, '', `?atlas=${atlasParam}&geolocate=true${hash}`);
+                }
+
+                window.loadingStartupState.bestAtlas = bestAtlas;
+            }
+        }
 
         // Check if a specific config is requested via URL parameter
         var configParam = URLUtils.getUrlParameter('atlas');
@@ -581,10 +789,41 @@ export class MapInitializer {
 
             updateAttributionLocation();
 
-            // Only set camera position if there's no hash in URL
-            if (!window.location.hash) {
+            // Set camera position: prioritize hash layer view, then URL hash, then config defaults
+            if (window.hashLayerView) {
+                // Hash layer view was calculated from layer/atlas bbox
+                console.log('[MapInit] Applying hashLayerView:', window.hashLayerView);
                 setTimeout(() => {
-                    // Use config center and zoom if available, otherwise fallback to hardcoded values
+                    if (window.hashLayerView.bbox) {
+                        // Fit to full bbox extent
+                        console.log('[MapInit] Fitting to bbox:', window.hashLayerView.bbox);
+                        map.fitBounds(window.hashLayerView.bbox, {
+                            pitch: 0,
+                            bearing: 0,
+                            duration: 3000,
+                            padding: 50,
+                            essential: true
+                        });
+                    } else {
+                        // Fall back to center/zoom if no bbox
+                        const flyToOptions = {
+                            center: window.hashLayerView.center,
+                            zoom: window.hashLayerView.zoom,
+                            pitch: 0,
+                            bearing: 0,
+                            duration: 3000,
+                            essential: true,
+                            curve: 1.42,
+                            speed: 0.6
+                        };
+                        console.log('[MapInit] Flying to:', flyToOptions);
+                        map.flyTo(flyToOptions);
+                    }
+                    delete window.hashLayerView; // Clean up
+                }, 2000);
+            } else if (!window.location.hash) {
+                // No hash in URL, use config defaults
+                setTimeout(() => {
                     const flyToOptions = {
                         center: config.map?.center || [73.8274, 15.4406],
                         zoom: config.map?.zoom || 9,
@@ -698,17 +937,21 @@ export class MapInitializer {
             });
             window.dispatchEvent(mapReadyEvent);
 
-            // Hide loading overlay after initialization is complete
-            requestAnimationFrame(() => {
-                const loadingOverlay = document.getElementById('loading-overlay');
-                if (loadingOverlay) {
-                    loadingOverlay.style.opacity = '0';
-                    loadingOverlay.style.transition = 'opacity 0.3s ease';
-                    setTimeout(() => {
-                        loadingOverlay.style.display = 'none';
-                    }, 300);
-                }
-            });
+            // Hide loading overlay after initialization is complete (only if startup choice was made)
+            // Skip auto-close if manualOverlayControl is enabled (startup handler will close it)
+            if (!window.loadingStartupState?.manualOverlayControl &&
+                (window.loadingStartupState?.proceedNormally || window.loadingStartupState?.userLocation)) {
+                requestAnimationFrame(() => {
+                    const loadingOverlay = document.getElementById('loading-overlay');
+                    if (loadingOverlay) {
+                        loadingOverlay.style.opacity = '0';
+                        loadingOverlay.style.transition = 'opacity 0.3s ease';
+                        setTimeout(() => {
+                            loadingOverlay.style.display = 'none';
+                        }, 300);
+                    }
+                });
+            }
         });
     }
 

@@ -100,33 +100,13 @@
     },
     {
       "id": "mapbox-streets",
-      "initiallyChecked": false
-    },
-    {
-      "id": "goa-plots",
-      "initiallyChecked": true
-    },
-    {
-      "id": "goa-local-body",
-      "initiallyChecked": true
-    },
-    {
-      "id": "india-state",
-      "initiallyChecked": true
-    },
-    {
-      "id": "india-2023-open-buildings"
-    },
-    {
-      "id": "goa-2021-regional-plan",
       "initiallyChecked": true
     },
     {
       "id": "osm-mapnik"
     },
     {
-      "id": "mapbox-countries",
-      "initiallyChecked": false
+      "id": "mapbox-countries"
     },
     {
       "id": "mapbox-satellite",

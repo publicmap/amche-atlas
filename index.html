@@ -316,8 +316,8 @@
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             ">Amche Atlas is a digital public library of maps maintained by the open data community in Goa.</p>
 
-            <!-- Buttons -->
-            <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; justify-content: center;">
+            <!-- Info Links -->
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; justify-content: center; margin-top: 12px;">
                 <a href="https://github.com/publicmap/amche-goa" target="_blank" style="
                     display: inline-flex;
                     align-items: center;
@@ -396,26 +396,141 @@
                 </button>
             </div>
 
-            <!-- Loading Status -->
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 16px; margin-top: 8px;">
-                <div style="
-                    width: 48px;
-                    height: 48px;
-                    border: 4px solid #374151;
-                    border-top-color: #3b82f6;
-                    border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                "></div>
-                <div id="loading-status-text" style="
-                    color: #e5e7eb;
-                    font-size: 16px;
-                    font-weight: 500;
+            <!-- Requested Map Section (shown when URL has params) -->
+            <div id="requested-map-section" style="display: none; margin-top: 16px; width: 100%; max-width: 400px;">
+                <div style="padding: 16px; background: rgba(59, 130, 246, 0.15); backdrop-filter: blur(10px); border-radius: 8px; border: 2px solid rgba(96, 165, 250, 0.5); position: relative; overflow: hidden;">
+                    <!-- Animated fill background -->
+                    <div id="section-fill-animation" style="
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        height: 100%;
+                        width: 0%;
+                        background: rgba(16, 185, 129, 0.2);
+                        transition: width linear;
+                        z-index: 0;
+                    "></div>
+
+                    <div style="position: relative; z-index: 1;">
+                        <!-- Header -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                            <div id="requested-map-status" style="
+                                color: #e5e7eb;
+                                font-size: 0.875rem;
+                                font-weight: 500;
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                                flex: 1;
+                                opacity: 1;
+                                transition: opacity 0.4s ease-in-out;
+                            ">Your atlas is loading</div>
+                            <button id="cancel-auto-proceed-button" style="
+                                padding: 4px 12px;
+                                background: rgba(239, 68, 68, 0.9);
+                                color: white;
+                                border: 1px solid rgba(255, 255, 255, 0.3);
+                                border-radius: 4px;
+                                font-size: 0.75rem;
+                                font-weight: 600;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                            " onmouseover="this.style.background='rgba(220, 38, 38, 0.9)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.9)'">
+                                Cancel
+                            </button>
+                        </div>
+
+                        <!-- URL Info -->
+                        <div id="url-info-content" style="font-size: 0.7rem; color: #d1d5db; line-height: 1.6; font-family: monospace; margin-bottom: 12px; background: rgba(0, 0, 0, 0.2); padding: 8px; border-radius: 4px;">
+                        </div>
+
+                        <!-- Loading Status -->
+                        <div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: rgba(0, 0, 0, 0.2); border-radius: 6px;">
+                            <div id="requested-map-spinner" style="
+                                width: 18px;
+                                height: 18px;
+                                border: 3px solid #374151;
+                                border-top-color: #3b82f6;
+                                border-radius: 50%;
+                                animation: spin 1s linear infinite;
+                                flex-shrink: 0;
+                            "></div>
+                            <div id="requested-map-checkmark" style="display: none; font-size: 20px; color: #10b981; flex-shrink: 0;">✓</div>
+                            <div style="
+                                color: #e5e7eb;
+                                font-size: 0.875rem;
+                                font-weight: 500;
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                                flex: 1;
+                            ">Loading map...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Choose Location Heading -->
+            <div id="choose-location-heading" style="margin-top: 16px; text-align: center; font-size: 1rem; font-weight: 600; color: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                Or choose a location:
+            </div>
+
+            <!-- Startup Action Buttons (Vertical Layout) -->
+            <div id="startup-menu" style="display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: 8px; width: 100%; max-width: 400px;">
+                <button id="location-button" class="startup-button" data-menu-index="0" style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    padding: 12px 20px;
+                    background: rgba(255, 255, 255, 0.1);
+                    backdrop-filter: blur(10px);
+                    color: white;
+                    border: 2px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 8px;
+                    font-size: 0.9375rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    text-align: center;
-                    min-height: 24px;
-                    opacity: 1;
-                    transition: opacity 0.4s ease-in-out;
-                ">Your atlas is loading</div>
+                    width: 100%;
+                    text-align: left;
+                ">
+                    <svg style="width: 18px; height: 18px; flex-shrink: 0;" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+                    </svg>
+                    <span id="location-button-text" style="flex: 1; text-align: center;">View Your Map Location</span>
+                </button>
+                <button id="proceed-button" class="startup-button" data-menu-index="1" style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    padding: 12px 20px;
+                    background: rgba(255, 255, 255, 0.1);
+                    backdrop-filter: blur(10px);
+                    color: white;
+                    border: 2px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 8px;
+                    font-size: 0.9375rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    width: 100%;
+                    text-align: left;
+                ">
+                    <div style="
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 6px;
+                        overflow: hidden;
+                        flex-shrink: 0;
+                        background-image: url('/assets/img/goa-icon.svg');
+                        background-size: cover;
+                        background-position: center;
+                        background-color: #f3f4f6;
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                    "></div>
+                    <span style="flex: 1; text-align: center;">Proceed To Goa Map Atlas</span>
+                </button>
             </div>
         </div>
     </div>
@@ -428,10 +543,17 @@
                 'आमचो नकासो लोड जावपाक लागला'
             ];
             let currentIndex = 0;
-            const textElement = document.getElementById('loading-status-text');
+            const textElement = document.getElementById('requested-map-status');
 
             if (textElement) {
-                setInterval(function () {
+                const intervalId = setInterval(function () {
+                    // Only rotate if still loading
+                    if (textElement.textContent === 'Map loaded - proceeding shortly...' ||
+                        textElement.textContent === 'Auto-proceed cancelled') {
+                        clearInterval(intervalId);
+                        return;
+                    }
+
                     // Fade out
                     textElement.style.opacity = '0';
 
@@ -493,6 +615,293 @@
                     }
                 });
             }
+        })();
+
+        // Startup path handler
+        (function () {
+            const hasURLParams = window.location.search.length > 1 || window.location.hash.length > 1;
+            const locationButton = document.getElementById('location-button');
+            const proceedButton = document.getElementById('proceed-button');
+            const requestedMapSection = document.getElementById('requested-map-section');
+            const requestedMapSpinner = document.getElementById('requested-map-spinner');
+            const requestedMapCheckmark = document.getElementById('requested-map-checkmark');
+            const requestedMapStatus = document.getElementById('requested-map-status');
+            const sectionFillAnimation = document.getElementById('section-fill-animation');
+            const cancelAutoProceedBtn = document.getElementById('cancel-auto-proceed-button');
+            const urlInfoContent = document.getElementById('url-info-content');
+            const chooseLocationHeading = document.getElementById('choose-location-heading');
+            const startupMenu = document.getElementById('startup-menu');
+            const loadingOverlay = document.getElementById('loading-overlay');
+
+            const loadStartTime = Date.now();
+            const MIN_VISIBLE_DURATION = 5000;
+            let mapLoadedTime = null;
+            let fillAnimationTimeout = null;
+            let autoProceedCancelled = false;
+            let ipLocation = null;
+            let originalLocationHandler = null;
+            let currentFocusIndex = 0;
+
+            window.loadingStartupState = {
+                mode: hasURLParams ? 'url-params' : 'basepath',
+                userLocation: null,
+                bestAtlas: null,
+                proceedNormally: false,
+                mapReady: false,
+                manualOverlayControl: hasURLParams
+            };
+
+            const buttons = [locationButton, proceedButton].filter(b => b);
+
+            function onMapReady() {
+                mapLoadedTime = Date.now();
+                const elapsedTime = mapLoadedTime - loadStartTime;
+                const remainingTime = Math.max(0, MIN_VISIBLE_DURATION - elapsedTime);
+
+                if (requestedMapSpinner) {
+                    requestedMapSpinner.style.display = 'none';
+                }
+                if (requestedMapCheckmark) {
+                    requestedMapCheckmark.style.display = 'block';
+                }
+                if (requestedMapStatus) {
+                    requestedMapStatus.textContent = 'Map loaded - proceeding shortly...';
+                }
+
+                window.loadingStartupState.mapReady = true;
+
+                if (autoProceedCancelled) {
+                    if (requestedMapStatus) {
+                        requestedMapStatus.textContent = 'Auto-proceed cancelled';
+                    }
+                    return;
+                }
+
+                if (remainingTime > 0 && sectionFillAnimation) {
+                    sectionFillAnimation.style.transition = `width ${remainingTime}ms linear`;
+                    requestAnimationFrame(() => {
+                        sectionFillAnimation.style.width = '100%';
+                    });
+
+                    fillAnimationTimeout = setTimeout(() => {
+                        if (!autoProceedCancelled && loadingOverlay) {
+                            loadingOverlay.style.opacity = '0';
+                            loadingOverlay.style.transition = 'opacity 0.3s ease';
+                            setTimeout(() => {
+                                loadingOverlay.style.display = 'none';
+                            }, 300);
+                        }
+                    }, remainingTime);
+                } else if (!autoProceedCancelled && loadingOverlay) {
+                    loadingOverlay.style.opacity = '0';
+                    loadingOverlay.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => {
+                        loadingOverlay.style.display = 'none';
+                    }, 300);
+                }
+            }
+
+            function cancelAutoProceed() {
+                autoProceedCancelled = true;
+                if (fillAnimationTimeout) {
+                    clearTimeout(fillAnimationTimeout);
+                    fillAnimationTimeout = null;
+                }
+                if (sectionFillAnimation) {
+                    sectionFillAnimation.style.transition = 'none';
+                    sectionFillAnimation.style.width = '0%';
+                }
+                if (requestedMapStatus) {
+                    requestedMapStatus.textContent = 'Auto-proceed cancelled';
+                }
+                if (cancelAutoProceedBtn) {
+                    cancelAutoProceedBtn.style.display = 'none';
+                }
+            }
+
+            function focusButton(index) {
+                const visibleButtons = buttons.filter(b => b.style.display !== 'none');
+                if (visibleButtons.length === 0) return;
+
+                currentFocusIndex = Math.max(0, Math.min(index, visibleButtons.length - 1));
+
+                visibleButtons.forEach((btn, i) => {
+                    if (i === currentFocusIndex) {
+                        btn.style.background = 'rgba(59, 130, 246, 0.8)';
+                        btn.style.borderColor = 'rgba(96, 165, 250, 0.9)';
+                        btn.style.transform = 'scale(1.02)';
+                        btn.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.3)';
+                        btn.focus();
+                    } else {
+                        btn.style.background = 'rgba(255, 255, 255, 0.1)';
+                        btn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                        btn.style.transform = 'scale(1)';
+                        btn.style.boxShadow = 'none';
+                    }
+                });
+            }
+
+            function setupKeyboardNavigation() {
+                document.addEventListener('keydown', function handleStartupKeys(e) {
+                    if (window.loadingStartupState.proceedNormally || window.loadingStartupState.userLocation) {
+                        document.removeEventListener('keydown', handleStartupKeys);
+                        return;
+                    }
+
+                    const visibleButtons = buttons.filter(b => b.style.display !== 'none');
+
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        focusButton(currentFocusIndex + 1);
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        focusButton(currentFocusIndex - 1);
+                    } else if (e.key === 'Enter' && visibleButtons[currentFocusIndex]) {
+                        e.preventDefault();
+                        visibleButtons[currentFocusIndex].click();
+                    } else if (e.key === ' ' && visibleButtons[currentFocusIndex]) {
+                        e.preventDefault();
+                        visibleButtons[currentFocusIndex].click();
+                    }
+                });
+            }
+
+            function disableButtons() {
+                locationButton.disabled = true;
+                proceedButton.disabled = true;
+            }
+
+            function enableButtons() {
+                locationButton.disabled = false;
+                proceedButton.disabled = false;
+            }
+
+            async function handleGeolocation() {
+                requestedMapStatus.textContent = 'Waiting for device location...';
+                disableButtons();
+
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 0
+                        });
+                    });
+
+                    window.loadingStartupState.userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    requestedMapStatus.textContent = 'Finding best atlas for your location...';
+
+                } catch (error) {
+                    console.warn('Geolocation error:', error);
+                    await handleIPLocationFallback();
+                }
+            }
+
+            async function handleIPLocationFallback() {
+                requestedMapStatus.textContent = 'Device location not received. Trying IP location...';
+
+                try {
+                    const response = await fetch('https://ipapi.co/json/');
+                    const data = await response.json();
+
+                    ipLocation = {
+                        lat: data.latitude,
+                        lng: data.longitude,
+                        city: data.city,
+                        region: data.region,
+                        country: data.country_name
+                    };
+
+                    locationButton.innerHTML = `
+                        <svg style="width: 14px; height: 14px; flex-shrink: 0;" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+                        </svg>
+                        <span id="location-button-text">Use IP location (${ipLocation.city}, ${ipLocation.country})</span>
+                    `;
+
+                    locationButton.removeEventListener('click', originalLocationHandler);
+                    locationButton.addEventListener('click', function useIPLocation() {
+                        window.loadingStartupState.userLocation = ipLocation;
+                        requestedMapStatus.textContent = 'Finding best atlas for your location...';
+                        disableButtons();
+                    });
+
+                    enableButtons();
+
+                    requestedMapStatus.innerHTML = 'Device location not received. <a href="https://support.google.com/chrome/answer/142065" target="_blank" style="color: #60a5fa; text-decoration: underline;">Check your location settings</a>';
+
+                } catch (ipError) {
+                    console.error('IP location failed:', ipError);
+                    requestedMapStatus.textContent = 'Could not determine location';
+                    enableButtons();
+                }
+            }
+
+            window.addEventListener('mapReady', onMapReady);
+
+            // Always show requested-map-section
+            requestedMapSection.style.display = 'block';
+            chooseLocationHeading.style.display = 'block';
+
+            if (hasURLParams) {
+                // Show URL info and cancel button for URL params
+                const urlParams = new URLSearchParams(window.location.search);
+                const atlas = urlParams.get('atlas');
+                const layers = urlParams.get('layers');
+                const terrain = urlParams.get('terrain');
+                const selected = urlParams.get('selected');
+
+                const hash = window.location.hash.substring(1);
+                let hashInfo = '';
+                if (hash) {
+                    const parts = hash.split('/');
+                    if (parts.length === 3) {
+                        hashInfo = `Location: ${parts[2]}, ${parts[1]} (zoom ${parts[0]})`;
+                    }
+                }
+
+                let infoHTML = '';
+                if (atlas) infoHTML += `Atlas: ${atlas.length > 50 ? atlas.substring(0, 50) + '...' : atlas}<br>`;
+                if (layers) {
+                    const layerIds = layers.split(',').map(l => l.includes('{') ? 'custom' : l);
+                    infoHTML += `Layers: ${layerIds.join(', ')}<br>`;
+                }
+                if (terrain) infoHTML += `3D Terrain: ${terrain}x<br>`;
+                if (selected) infoHTML += `Selected Features: ${selected.split(';').length} layer(s)<br>`;
+                if (hashInfo) infoHTML += hashInfo;
+
+                urlInfoContent.innerHTML = infoHTML || 'Custom map configuration';
+                urlInfoContent.style.display = 'block';
+
+                if (cancelAutoProceedBtn) {
+                    cancelAutoProceedBtn.style.display = 'block';
+                    cancelAutoProceedBtn.addEventListener('click', cancelAutoProceed);
+                }
+
+                window.loadingStartupState.proceedNormally = true;
+            } else {
+                // Hide URL info and cancel button for no URL params
+                urlInfoContent.style.display = 'none';
+                if (cancelAutoProceedBtn) {
+                    cancelAutoProceedBtn.style.display = 'none';
+                }
+                currentFocusIndex = 0;
+                setTimeout(() => focusButton(currentFocusIndex), 300);
+            }
+
+            originalLocationHandler = handleGeolocation;
+            locationButton.addEventListener('click', originalLocationHandler);
+
+            proceedButton.addEventListener('click', function() {
+                window.loadingStartupState.proceedNormally = true;
+                requestedMapStatus.textContent = 'Loading Goa Atlas...';
+            });
+
+            setupKeyboardNavigation();
         })();
     </script>
     <!-- Navigation Menu Overlay -->

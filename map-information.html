@@ -134,6 +134,10 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
 
+        .layer-id-badge.copied {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
         sl-icon {
             font-size: 1rem;
         }
@@ -154,7 +158,7 @@
                 <input type="text" class="text-3xl font-bold text-slate-50 mb-2 leading-tight editable-input edit-mode" id="layer-title-edit" placeholder="Layer Title">
 
                 <div class="flex items-center gap-3 mb-3">
-                    <span class="layer-id-badge view-mode" id="layer-id-display"></span>
+                    <button class="layer-id-badge view-mode cursor-pointer transition-all hover:brightness-110 hover:scale-105" id="layer-id-display" title="Click to copy shareable link"></button>
                     <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-700 rounded-lg text-xs font-semibold text-slate-300 uppercase tracking-wide" id="layer-type"></div>
                 </div>
 
@@ -516,7 +520,28 @@
 
         function renderLayerInfo(layer) {
             $('#layer-title').text(layer.title || layer.id || 'Unknown Layer');
-            $('#layer-id-display').text(layer.id || 'no-id');
+            const layerId = layer.id || 'no-id';
+            $('#layer-id-display').text(layerId);
+
+            // Setup click handler for layer ID badge to copy shareable link
+            $('#layer-id-display').off('click').on('click', function() {
+                const baseUrl = window.location.origin;
+                const shareUrl = `${baseUrl}/#${layerId}`;
+
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    const $badge = $(this);
+                    const originalText = $badge.text();
+
+                    // Show success feedback
+                    $badge.addClass('copied').text('LINK COPIED!');
+
+                    setTimeout(() => {
+                        $badge.removeClass('copied').text(originalText);
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy URL:', err);
+                });
+            });
 
             const typeBadge = LayerThumbnail.getTypeBadge(layer.type);
             $('#layer-type').html(`

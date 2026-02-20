@@ -234,6 +234,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory",
         "slope"
       ],
@@ -268,74 +269,6 @@
       "id": "community-maps",
       "url": "https://mapwarper.net/mosaics/tile/2157/{z}/{x}/{y}.png",
       "attribution": "<a href='https://mapwarper.net/layers/2157'>CC-BY-SA Mapwarper community maps of Goa</a>"
-    },
-    {
-      "tags": [
-        "2",
-        "Planning"
-      ],
-      "title": "Regional Development Plan for Goa 2021",
-      "description": "Regional landuse plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
-      "headerImage": "https://mapwarper.net/uploads/74193/thumb/siolim-marna.png",
-      "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
-      "type": "tms",
-      "id": "2021-regional-plan",
-      "url": "https://mapwarper.net/mosaics/tile/2054/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, TCP Goa</a>. Georeferenced using <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
-      "style": {
-        "raster-opacity": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          6,
-          0.95,
-          12,
-          0.8,
-          16,
-          0.6,
-          20,
-          0.05
-        ]
-      },
-      "initiallyChecked": true
-    },
-    {
-      "tags": [
-        "regulatory",
-        "masterplan"
-      ],
-      "title": "Outline Development Plan 2011",
-      "description": "Outline Development Plan 2011 prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a>",
-      "headerImage": "https://mapwarper.net/uploads/91643/thumb/2008_Final_Panaji_ODP-2011.png",
-      "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
-      "type": "tms",
-      "id": "2011-outline-plan",
-      "url": "https://mapwarper.net/mosaics/tile/2151/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://tcp.goa.gov.in/'>Outline Development Plan 2011, TCP Goa</a>. Georeferenced using <a href='https://mapwarper.net/layers/2151#Show_tab'>Mapwarper</a>"
-    },
-    {
-      "tags": [
-        "regulatory",
-        "masterplan"
-      ],
-      "title": "Taluka Land Use Plans 2021",
-      "description": "Taluka level regional plans",
-      "date": "",
-      "type": "tms",
-      "id": "taluka-plan",
-      "url": "https://mapwarper.net/maps/tile/87245/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, Goa Town & Country Planning Department</a>. Georeferenced using <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
-      "headerImage": "https://mapwarper.net/uploads/87245/thumb/tiswadi-taluka_jsrtploe.png",
-      "style": {
-        "raster-contrast": 0.0,
-        "raster-saturation": 0.3,
-        "raster-max-brightness": 0.4,
-        "raster-min-brightness": 0
-      }
     },
     {
       "tags": [
@@ -483,6 +416,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory"
       ],
       "title": "Plots with No Development Slopes",
@@ -675,8 +609,7 @@
     {
       "tags": [
         "1",
-        "Boundaries",
-        "Survey"
+        "Boundaries"
       ],
       "title": "Survey Plot Boundaries",
       "description": "Survey and plot subdivision boundaries from the <a href='Directorate of Settlement & Land Records'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online</a> and <a href='https://dslr.goa.gov.in/f114new.aspx'>Directorate of Settlement & Land Records (Form 1 & 14)</a>. Ownership history can be checked in the <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online Property Register</a>",
@@ -917,7 +850,7 @@
           ]
         ]
       },
-      "initiallyChecked": false,
+      "initiallyChecked": true,
       "inspect": {
         "id": "id",
         "title": "Survey Number",
@@ -937,6 +870,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory"
       ],
       "id": "bhunaksha-communidade",
@@ -980,6 +914,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory"
       ],
       "id": "bhunaksha-government",
@@ -1004,6 +939,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory"
       ],
       "id": "bhunaksha-tenanted",
@@ -1028,6 +964,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory"
       ],
       "id": "communidade-plots",
@@ -1050,6 +987,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory"
       ],
       "title": "Notified Private Forests",
@@ -1078,6 +1016,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory",
         "wetland"
       ],
@@ -1091,6 +1030,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory",
         "wetland"
       ],
@@ -1262,6 +1202,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory",
         "wetland"
       ],
@@ -1305,6 +1246,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory"
       ],
       "title": "Notified Khazan Bunds",
@@ -1385,6 +1327,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory",
         "wetland"
       ],
@@ -1409,6 +1352,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory"
       ],
       "id": "crz-1a",
@@ -2128,6 +2072,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory"
       ],
       "title": "Goa Mining Leases Map",
@@ -2278,6 +2223,7 @@
       "tags": [
         "transit"
       ],
+      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Goa_Bus_Network_Map_2025.png/100px-Goa_Bus_Network_Map_2025.png",
       "title": "Kadamba Bus Routes",
       "id": "bus",
       "description": "Bus route network operated by Kadamba Transport Corporation Limited (KTCL) in Goa as on January 2025.Bus route lines are scaled by trip count.",
@@ -2293,6 +2239,7 @@
     },
     {
       "tags": [
+        "3",
         "regulatory"
       ],
       "title": "Proposed Tiger Reserve for Goa",
@@ -2482,7 +2429,8 @@
     },
     {
       "tags": [
-        "regulatory"
+        "2",
+        "Masterplan"
       ],
       "title": "Tillari Command Area Development Scheme",
       "description": "Notified Command Area Development Scheme for the Tillari Irrigation Project covering talukas of Bicholim, Pernem and Bardez in North Goa.",
@@ -2498,6 +2446,7 @@
         "landuse"
       ],
       "title": "Village Panchayat Landuse Survey",
+      "bbox": "73.8181207,15.5164608,73.8805108,15.5591626",
       "description": "Salvador Do Mundo VP Landuse Survey",
       "type": "tms",
       "id": "salvador-do-mundo-landuse-survey",
@@ -2535,6 +2484,74 @@
       "headerImage": "https://mapwarper.net/uploads/89528/thumb/IMG_4225.png",
       "bbox": "73.8625273,15.5908022,73.8877474,15.6217674",
       "initiallyChecked": false
+    },
+    {
+      "tags": [
+        "2",
+        "Masterplan"
+      ],
+      "title": "Regional Development Plan for Goa 2021",
+      "description": "Regional landuse plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
+      "headerImage": "https://mapwarper.net/uploads/74193/thumb/siolim-marna.png",
+      "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
+      "type": "tms",
+      "id": "2021-regional-plan",
+      "url": "https://mapwarper.net/mosaics/tile/2054/{z}/{x}/{y}.png",
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, TCP Goa</a>. Georeferenced using <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          12,
+          0.8,
+          16,
+          0.6,
+          20,
+          0.05
+        ]
+      },
+      "initiallyChecked": true
+    },
+    {
+      "tags": [
+        "2",
+        "Masterplan"
+      ],
+      "title": "Outline Development Plan 2011",
+      "description": "Outline Development Plan 2011 prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a>",
+      "headerImage": "https://mapwarper.net/uploads/91643/thumb/2008_Final_Panaji_ODP-2011.png",
+      "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
+      "type": "tms",
+      "id": "2011-outline-plan",
+      "url": "https://mapwarper.net/mosaics/tile/2151/{z}/{x}/{y}.png",
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Outline Development Plan 2011, TCP Goa</a>. Georeferenced using <a href='https://mapwarper.net/layers/2151#Show_tab'>Mapwarper</a>"
+    },
+    {
+      "tags": [
+        "2",
+        "Masterplan"
+      ],
+      "title": "Taluka Land Use Plans 2021",
+      "description": "Taluka level regional plans",
+      "date": "",
+      "type": "tms",
+      "id": "taluka-plan",
+      "url": "https://mapwarper.net/maps/tile/87245/{z}/{x}/{y}.png",
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, Goa Town & Country Planning Department</a>. Georeferenced using <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/87245/thumb/tiswadi-taluka_jsrtploe.png",
+      "style": {
+        "raster-contrast": 0.0,
+        "raster-saturation": 0.3,
+        "raster-max-brightness": 0.4,
+        "raster-min-brightness": 0
+      }
     },
     {
       "tags": [

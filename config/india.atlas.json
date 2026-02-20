@@ -2905,6 +2905,34 @@
       }
     },
     {
+      "title": "Proposed Port Layout of Galathea Bay ICTT",
+      "description": "Pg 387 of EIA\n\nFrom Mathematical modelling studies for the proposed development of Deep Sea Port July 2021\nat Galathea Bay in Great Nicobar Island",
+      "type": "tms",
+      "id": "great-nicobar-port-plan",
+      "url": "https://mapwarper.net/maps/tile/102839/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          14,
+          0.8,
+          16,
+          0.1
+        ]
+      },
+      "attribution": "<a href='https://mapwarper.net/maps/102839' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/102839/thumb/Screenshot_2026-02-20_at_3.26.15%E2%80%AFPM.png",
+      "bbox": "93.8331832,6.773293,93.9054805,6.8278547",
+      "initiallyChecked": false
+    },
+    {
       "tags": [
         "masterplan"
       ],
@@ -2924,10 +2952,10 @@
           ],
           6,
           0.95,
-          18,
+          8,
           0.8,
-          19,
-          0.3
+          14,
+          0.1
         ]
       },
       "attribution": "<a href='https://environmentclearance.nic.in/auth/ECGeneral_Report.aspx?pid=41797' target='_blank'>ANIIDCO</a> via <a href='https://mapwarper.net/maps/102833' target='_blank'>MapWarper</a>",
