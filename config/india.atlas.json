@@ -2906,6 +2906,37 @@
     },
     {
       "tags": [
+        "masterplan"
+      ],
+      "title": "Great Nicobar Island Concept Plan",
+      "description": "Source: Andaman and Nicobar Islands Integrated Development Corporation Limited (ANIIDCO)",
+      "type": "tms",
+      "id": "great-nicobar-plan",
+      "url": "https://mapwarper.net/maps/tile/102833/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://environmentclearance.nic.in/auth/ECGeneral_Report.aspx?pid=41797' target='_blank'>ANIIDCO</a> via <a href='https://mapwarper.net/maps/102833' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/102833/thumb/G_Nicobar_1_vjihgmeu.png",
+      "bbox": "93.6180812,6.7051398,93.9702066,7.2571048",
+      "initiallyChecked": false
+    },
+    {
+      "tags": [
         "survey",
         "forest"
       ],
