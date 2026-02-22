@@ -300,7 +300,7 @@
       "id": "roads",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "streets",
-      "maxzoom": 15,
+      "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
       "filter": [
         "match",
@@ -479,6 +479,42 @@
       }
     },
     {
+      "initiallyChecked": true,
+      "id": "boundaries-india",
+      "title": "Boundaries (India)",
+      "description": "Boundaries from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/Tag:boundary%3Dadministrative'>OSM Wiki</a> for details.",
+      "type": "geojson",
+      "url": "https://gist.githubusercontent.com/planemad/73e70f0937db02845c577386d560f65c/raw/85d8c87797b54290867014691f9f766227971663/osm-india-boundary-additions.geojson",
+      "maxzoom": 13,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "style": {
+        "line-color": [
+          "match",
+          [
+            "get",
+            "boundary"
+          ],
+          "claimed",
+          "#b9a8b9",
+          "#f2efea"
+        ],
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          0,
+          0.2,
+          8,
+          2
+        ]
+      },
+      "inspect": false
+    },
+    {
       "id": "boundaries",
       "title": "Boundaries",
       "description": "Boundaries from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/Tag:boundary%3Dadministrative'>OSM Wiki</a> for details.",
@@ -488,7 +524,7 @@
       "maxzoom": 13,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
       "style": {
-        "line-color": "black",
+        "line-color": "#b9a8b9",
         "line-width": [
           "match",
           [
@@ -498,15 +534,13 @@
           2,
           2,
           4,
-          1.5,
+          1,
           5,
           1,
           0.5
         ]
       },
-      "inspect": {
-        "id": "name"
-      }
+      "inspect": false
     },
     {
       "id": "historic-boundaries",

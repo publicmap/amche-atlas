@@ -4330,15 +4330,16 @@ export class MapFeatureControl {
             try {
                 features = this._map.queryRenderedFeatures(e.point);
 
-                // If no features found at exact point, query within 5px buffer
+                // If no features found at exact point, query within 5px buffer and find closest
                 if (!features.length) {
+                    const bufferSize = 5;
                     const bbox = [
-                        [e.point.x - 5, e.point.y - 5],
-                        [e.point.x + 5, e.point.y + 5]
+                        [e.point.x - bufferSize, e.point.y - bufferSize],
+                        [e.point.x + bufferSize, e.point.y + bufferSize]
                     ];
                     const featuresInBuffer = this._map.queryRenderedFeatures(bbox);
                     if (featuresInBuffer.length) {
-                        features = [featuresInBuffer[0]];
+                        features = [this._findClosestFeature(featuresInBuffer, e.point)];
                     }
                 }
             } catch (error) {
@@ -4407,6 +4408,78 @@ export class MapFeatureControl {
         });
 
         this._globalClickHandlerAdded = true;
+    }
+
+    /**
+     * Find the closest feature to a given screen point
+     * @param {Array} features - Array of features to search
+     * @param {Object} point - Screen point {x, y}
+     * @returns {Object} Closest feature
+     */
+    _findClosestFeature(features, point) {
+        if (!features || features.length === 0) return null;
+        if (features.length === 1) return features[0];
+
+        let closestFeature = features[0];
+        let minDistance = Infinity;
+
+        for (const feature of features) {
+            const distance = this._getFeatureDistanceToPoint(feature, point);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestFeature = feature;
+            }
+        }
+
+        return closestFeature;
+    }
+
+    /**
+     * Calculate approximate distance from a feature to a screen point
+     * @param {Object} feature - Mapbox feature
+     * @param {Object} point - Screen point {x, y}
+     * @returns {number} Distance in pixels
+     */
+    _getFeatureDistanceToPoint(feature, point) {
+        if (!feature.geometry) return Infinity;
+
+        const geomType = feature.geometry.type;
+        let coords = feature.geometry.coordinates;
+
+        // Get a representative point for the feature
+        let representativeCoord;
+
+        if (geomType === 'Point') {
+            representativeCoord = coords;
+        } else if (geomType === 'LineString') {
+            // Use middle point of line
+            const midIndex = Math.floor(coords.length / 2);
+            representativeCoord = coords[midIndex];
+        } else if (geomType === 'Polygon') {
+            // Use first coordinate of outer ring
+            representativeCoord = coords[0][0];
+        } else if (geomType === 'MultiPoint') {
+            // Use first point
+            representativeCoord = coords[0];
+        } else if (geomType === 'MultiLineString') {
+            // Use middle point of first line
+            const firstLine = coords[0];
+            const midIndex = Math.floor(firstLine.length / 2);
+            representativeCoord = firstLine[midIndex];
+        } else if (geomType === 'MultiPolygon') {
+            // Use first coordinate of first polygon
+            representativeCoord = coords[0][0][0];
+        } else {
+            return Infinity;
+        }
+
+        // Project to screen coordinates
+        const screenPoint = this._map.project(representativeCoord);
+
+        // Calculate Euclidean distance
+        const dx = screenPoint.x - point.x;
+        const dy = screenPoint.y - point.y;
+        return Math.sqrt(dx * dx + dy * dy);
     }
 
     /**
@@ -5324,15 +5397,16 @@ export class MapFeatureControl {
         try {
             features = this._map.queryRenderedFeatures(e.point);
 
-            // If no features found at exact point, query within 3px buffer
+            // If no features found at exact point, query within 5px buffer and find closest
             if (!features.length) {
+                const bufferSize = 5;
                 const bbox = [
-                    [e.point.x - 3, e.point.y - 3],
-                    [e.point.x + 3, e.point.y + 3]
+                    [e.point.x - bufferSize, e.point.y - bufferSize],
+                    [e.point.x + bufferSize, e.point.y + bufferSize]
                 ];
                 const featuresInBuffer = this._map.queryRenderedFeatures(bbox);
                 if (featuresInBuffer.length) {
-                    features = [featuresInBuffer[0]];
+                    features = [this._findClosestFeature(featuresInBuffer, e.point)];
                 }
             }
         } catch (error) {

@@ -1,6 +1,7 @@
 {
   "name": "India",
   "areaOfInterest": "India",
+  "headerImage": "assets/map-layers/india/map-layer-soi.png",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/india.atlas.json",
   "color": "#f97316",
@@ -299,7 +300,6 @@
     {
       "title": "CartoDEM Contours (10m)",
       "description": "10m interval contour lines derived from ISRO CartoDEM v3r1",
-      "headerImage": "assets/map-layers/map-layer-cartodem-contours.png",
       "type": "vector",
       "id": "cartodem-contours",
       "url": "https://indianopenmaps.fly.dev/dem/contours/cartodem-v3r1/bhuvan/{z}/{x}/{y}.pbf",
@@ -433,7 +433,6 @@
     {
       "id": "block",
       "title": "Block Boundaries",
-      "headerImage": "assets/map-layers/map-layer-block.png",
       "description": "Block boundaries with <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory</a> attributes.",
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/not-so-open/blocks/lgd/{z}/{x}/{y}.pbf ",
@@ -1325,7 +1324,6 @@
     {
       "title": "Coastal Regulation Zones",
       "description": "Coastal Regulation Zones",
-      "headerImage": "assets/map-layers/india/map-layer-crz.png",
       "type": "vector",
       "id": "crz",
       "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/regulation-zones/parivesh/{z}/{x}/{y}.pbf",
@@ -1776,7 +1774,6 @@
       "title": "Indian Landslide Susceptibility Map 2024",
       "description": "Potential of slope failure for given geo-environmental conditions.  landslide susceptibility mapping using ensemble machine learning and geospatial big data. See <a href='https://github.com/hydrosenselab/ILSM'>source code</a> for technical details.",
       "attribution": "<a href='https://hydrosense.users.earthengine.app/view/ilsm'>Indian Landslide Susceptibility Map (ILSM) (100m), Hydrosense Lab, IIT-Delhi</a>",
-      "headerImage": "assets/map-layers/india/map-layer-landslide-risk.png",
       "legendImage": "assets/map-layers/india/legend-landslide-risk.png"
     },
     {
@@ -1809,7 +1806,6 @@
       ],
       "title": "SISDP 2016-2023 1:10k Landcover",
       "description": "Space based Information Support for Decentralized Planning (SISDP) Phase 2 10k Land Usage Land Cover data. Check the <a href='https://bhuvanpanchayat.nrsc.gov.in/SISDP/BP-lrdpwrdpmanual.pdf'>SISDP technical manual</a> for background about the project and <a href='https://github.com/ramSeraph/indian_land_features/releases/download/landuse/key_to_levels.csv'>Key to landuse codes</a>.",
-      "headerImage": "assets/map-layers/india/map-layer-landcover.png",
       "type": "vector",
       "id": "landcover-2023-sisdp",
       "url": "https://indianopenmaps.fly.dev/not-so-open/landuse/10k/sisdp/phase2/bhuvan/{z}/{x}/{y}.pbf",
@@ -2337,7 +2333,6 @@
       ],
       "title": "SISDP 2010-2012 1:10k Landcover",
       "description": "Space based Information Support for Decentralized Planning (SISDP) Phase 1 10k Land Usage Land Cover data. Check the <a href='https://bhuvanpanchayat.nrsc.gov.in/SISDP/BP-lrdpwrdpmanual.pdf'>SISDP technical manual</a> for background about the project and <a href='https://bhuvanpanchayat.nrsc.gov.in/SISDP/BP-lrdpwrdpmanual.pdf'>Bhuvan Panchayat Portal User Manual</a> for more details.",
-      "headerImage": "assets/map-layers/india/map-layer-landcover.png",
       "type": "vector",
       "id": "landcover-2012-sisdp",
       "url": "https://indianopenmaps.fly.dev/not-so-open/landuse/10k/sisdpv2/bhuvan/{z}/{x}/{y}.pbf",
