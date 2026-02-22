@@ -48,17 +48,34 @@
       "url": "mapbox://mapbox.country-boundaries-v1",
       "sourceLayer": "country_boundaries",
       "filter": [
-        "match",
+        "all",
         [
-          "get",
-          "worldview"
+          "==",
+          [
+            "get",
+            "disputed"
+          ],
+          "false"
         ],
         [
-          "all",
-          "IN"
-        ],
-        true,
-        false
+          "any",
+          [
+            "==",
+            "all",
+            [
+              "get",
+              "worldview"
+            ]
+          ],
+          [
+            "in",
+            "IN",
+            [
+              "get",
+              "worldview"
+            ]
+          ]
+        ]
       ],
       "style": {
         "fill-color": "white"

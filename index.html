@@ -467,10 +467,6 @@
                 </div>
             </div>
 
-            <!-- Choose Location Heading -->
-            <div id="choose-location-heading" style="margin-top: 16px; text-align: center; font-size: 1rem; font-weight: 600; color: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-                Or choose a location:
-            </div>
 
             <!-- Startup Action Buttons (Vertical Layout) -->
             <div id="startup-menu" style="display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: 8px; width: 100%; max-width: 400px;">
@@ -619,7 +615,25 @@
 
         // Startup path handler
         (function () {
-            const hasURLParams = window.location.search.length > 1 || window.location.hash.length > 1;
+            const hasURLSearchParams = window.location.search.length > 1;
+            const hasLocationHash = window.location.hash.length > 1;
+
+            // Parse location from hash if present
+            let hashLocation = null;
+            if (hasLocationHash && !hasURLSearchParams) {
+                const hash = window.location.hash.substring(1);
+                const parts = hash.split('/');
+                if (parts.length === 3) {
+                    const zoom = parseFloat(parts[0]);
+                    const lat = parseFloat(parts[1]);
+                    const lng = parseFloat(parts[2]);
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        hashLocation = { lat, lng, zoom };
+                    }
+                }
+            }
+
+            const hasURLParams = hasURLSearchParams || (hasLocationHash && !hashLocation);
             const locationButton = document.getElementById('location-button');
             const proceedButton = document.getElementById('proceed-button');
             const requestedMapSection = document.getElementById('requested-map-section');
@@ -629,7 +643,6 @@
             const sectionFillAnimation = document.getElementById('section-fill-animation');
             const cancelAutoProceedBtn = document.getElementById('cancel-auto-proceed-button');
             const urlInfoContent = document.getElementById('url-info-content');
-            const chooseLocationHeading = document.getElementById('choose-location-heading');
             const startupMenu = document.getElementById('startup-menu');
             const loadingOverlay = document.getElementById('loading-overlay');
 
@@ -643,8 +656,8 @@
             let currentFocusIndex = 0;
 
             window.loadingStartupState = {
-                mode: hasURLParams ? 'url-params' : 'basepath',
-                userLocation: null,
+                mode: hasURLParams ? 'url-params' : (hashLocation ? 'hash-location' : 'basepath'),
+                userLocation: hashLocation,
                 bestAtlas: null,
                 proceedNormally: false,
                 mapReady: false,
@@ -776,9 +789,11 @@
                 proceedButton.disabled = false;
             }
 
-            async function handleGeolocation() {
-                requestedMapStatus.textContent = 'Waiting for device location...';
-                disableButtons();
+            async function handleGeolocation(showStatusMessages = true) {
+                if (showStatusMessages) {
+                    requestedMapStatus.textContent = 'Waiting for device location...';
+                    disableButtons();
+                }
 
                 try {
                     const position = await new Promise((resolve, reject) => {
@@ -793,16 +808,25 @@
                         lat: position.coords.latitude,
                         lng: position.coords.longitude
                     };
-                    requestedMapStatus.textContent = 'Finding best atlas for your location...';
 
+                    if (showStatusMessages) {
+                        requestedMapStatus.innerHTML = `Detected device location: <a href="#${position.coords.latitude.toFixed(6)},${position.coords.longitude.toFixed(6)}" style="color: #60a5fa; text-decoration: underline;">${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}</a>`;
+
+                        // Automatically proceed with device location
+                        setTimeout(() => {
+                            requestedMapStatus.textContent = 'Loading map...';
+                        }, 1500);
+                    }
+
+                    return true;
                 } catch (error) {
                     console.warn('Geolocation error:', error);
-                    await handleIPLocationFallback();
+                    return false;
                 }
             }
 
             async function handleIPLocationFallback() {
-                requestedMapStatus.textContent = 'Device location not received. Trying IP location...';
+                requestedMapStatus.innerHTML = 'Detecting user location from <a href="https://ipapi.co/json/" target="_blank" style="color: #60a5fa; text-decoration: underline;">IP</a>';
 
                 try {
                     const response = await fetch('https://ipapi.co/json/');
@@ -816,6 +840,20 @@
                         country: data.country_name
                     };
 
+                    requestedMapStatus.innerHTML = `Detected IP location: <a href="https://ipapi.co/json/" target="_blank" style="color: #60a5fa; text-decoration: underline;">${ipLocation.city}, ${ipLocation.region}, ${ipLocation.country}</a>. <a href="#" id="use-device-location-link" style="color: #60a5fa; text-decoration: underline;">Use Device Location</a> for better accuracy`;
+
+                    // Add event listener for device location link
+                    setTimeout(() => {
+                        const deviceLocationLink = document.getElementById('use-device-location-link');
+                        if (deviceLocationLink) {
+                            deviceLocationLink.addEventListener('click', async function(e) {
+                                e.preventDefault();
+                                await handleGeolocation();
+                            });
+                        }
+                    }, 100);
+
+                    // Update location button
                     locationButton.innerHTML = `
                         <svg style="width: 14px; height: 14px; flex-shrink: 0;" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
@@ -832,7 +870,11 @@
 
                     enableButtons();
 
-                    requestedMapStatus.innerHTML = 'Device location not received. <a href="https://support.google.com/chrome/answer/142065" target="_blank" style="color: #60a5fa; text-decoration: underline;">Check your location settings</a>';
+                    // Automatically proceed with IP location after a short delay
+                    setTimeout(() => {
+                        window.loadingStartupState.userLocation = ipLocation;
+                        requestedMapStatus.textContent = 'Loading map...';
+                    }, 2000);
 
                 } catch (ipError) {
                     console.error('IP location failed:', ipError);
@@ -841,11 +883,49 @@
                 }
             }
 
+            async function checkAndUseGeolocation() {
+                // Check if Permissions API is available
+                if ('permissions' in navigator) {
+                    try {
+                        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+
+                        if (permissionStatus.state === 'granted') {
+                            // Permission already granted, use device location directly
+                            requestedMapStatus.textContent = 'Using device location...';
+                            const success = await handleGeolocation(true);
+                            if (success) {
+                                return true;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('Permissions API error:', error);
+                    }
+                }
+
+                // If permission not granted or Permissions API not available, try geolocation silently
+                try {
+                    const success = await handleGeolocation(false);
+                    if (success) {
+                        requestedMapStatus.innerHTML = `Detected device location: <a href="#${window.loadingStartupState.userLocation.lat.toFixed(6)},${window.loadingStartupState.userLocation.lng.toFixed(6)}" style="color: #60a5fa; text-decoration: underline;">${window.loadingStartupState.userLocation.lat.toFixed(6)}, ${window.loadingStartupState.userLocation.lng.toFixed(6)}</a>`;
+
+                        // Automatically proceed with device location
+                        setTimeout(() => {
+                            requestedMapStatus.textContent = 'Loading map...';
+                        }, 1500);
+                        return true;
+                    }
+                } catch (error) {
+                    // Silently fail and fall back to IP
+                }
+
+                // Fall back to IP location
+                return false;
+            }
+
             window.addEventListener('mapReady', onMapReady);
 
             // Always show requested-map-section
             requestedMapSection.style.display = 'block';
-            chooseLocationHeading.style.display = 'block';
 
             if (hasURLParams) {
                 // Show URL info and cancel button for URL params
@@ -883,12 +963,37 @@
                 }
 
                 window.loadingStartupState.proceedNormally = true;
+            } else if (hashLocation) {
+                // Location hash detected - use coordinates from URL
+                urlInfoContent.style.display = 'none';
+                if (cancelAutoProceedBtn) {
+                    cancelAutoProceedBtn.style.display = 'none';
+                }
+
+                requestedMapStatus.innerHTML = `Using location from URL: <a href="${window.location.href}" style="color: #60a5fa; text-decoration: underline;">${hashLocation.lat.toFixed(6)}, ${hashLocation.lng.toFixed(6)}</a>`;
+
+                // Automatically proceed with hash location
+                setTimeout(() => {
+                    requestedMapStatus.textContent = 'Loading map...';
+                }, 1000);
+
+                currentFocusIndex = 0;
+                setTimeout(() => focusButton(currentFocusIndex), 300);
             } else {
                 // Hide URL info and cancel button for no URL params
                 urlInfoContent.style.display = 'none';
                 if (cancelAutoProceedBtn) {
                     cancelAutoProceedBtn.style.display = 'none';
                 }
+
+                // Check for device geolocation first, then fall back to IP
+                (async () => {
+                    const geolocationSuccess = await checkAndUseGeolocation();
+                    if (!geolocationSuccess) {
+                        await handleIPLocationFallback();
+                    }
+                })();
+
                 currentFocusIndex = 0;
                 setTimeout(() => focusButton(currentFocusIndex), 300);
             }
