@@ -1,10 +1,16 @@
 {
   "name": "World",
+  "headerImage": "assets/map-layers/world/map-layer-weather-satellite.png",
   "areaOfInterest": "World",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/index.atlas.json",
   "color": "#06b6d4",
-  "bbox": [-180, -90, 180, 90],
+  "bbox": [
+    -180,
+    -90,
+    180,
+    90
+  ],
   "map": {
     "center": [
       76,

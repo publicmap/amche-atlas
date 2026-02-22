@@ -1050,6 +1050,7 @@
       }
     },
     {
+      "initiallyChecked": true,
       "tags": [
         "basemap"
       ],

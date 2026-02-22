@@ -257,10 +257,12 @@
         bottom: 0;
         background: #0f172a;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
         z-index: 10000;
-        overflow: hidden;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 20px 0;
     ">
         <!-- Animated Background -->
         <div style="
@@ -283,9 +285,10 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 24px;
-            max-width: 400px;
-            padding: 2rem;
+            gap: 16px;
+            max-width: 900px;
+            width: 100%;
+            padding: 1rem;
         ">
             <!-- Logo and Title -->
             <div style="display: flex; align-items: center; gap: 12px;">
@@ -468,65 +471,23 @@
             </div>
 
 
-            <!-- Startup Action Buttons (Vertical Layout) -->
-            <div id="startup-menu" style="display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: 8px; width: 100%; max-width: 400px;">
-                <button id="location-button" class="startup-button" data-menu-index="0" style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 10px;
-                    padding: 12px 20px;
-                    background: rgba(255, 255, 255, 0.1);
-                    backdrop-filter: blur(10px);
-                    color: white;
-                    border: 2px solid rgba(255, 255, 255, 0.3);
-                    border-radius: 8px;
-                    font-size: 0.9375rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    width: 100%;
-                    text-align: left;
-                ">
-                    <svg style="width: 18px; height: 18px; flex-shrink: 0;" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
-                    </svg>
-                    <span id="location-button-text" style="flex: 1; text-align: center;">View Your Map Location</span>
-                </button>
-                <button id="proceed-button" class="startup-button" data-menu-index="1" style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 10px;
-                    padding: 12px 20px;
-                    background: rgba(255, 255, 255, 0.1);
-                    backdrop-filter: blur(10px);
-                    color: white;
-                    border: 2px solid rgba(255, 255, 255, 0.3);
-                    border-radius: 8px;
-                    font-size: 0.9375rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    width: 100%;
-                    text-align: left;
-                ">
-                    <div style="
-                        width: 40px;
-                        height: 40px;
-                        border-radius: 6px;
-                        overflow: hidden;
-                        flex-shrink: 0;
-                        background-image: url('/assets/img/goa-icon.svg');
-                        background-size: cover;
-                        background-position: center;
-                        background-color: #f3f4f6;
-                        border: 1px solid rgba(255, 255, 255, 0.2);
-                    "></div>
-                    <span style="flex: 1; text-align: center;">Proceed To Goa Map Atlas</span>
-                </button>
+            <!-- Featured Atlas Picker -->
+            <div id="atlas-picker-heading" style="display: block; margin-top: 16px; text-align: center; font-size: 1rem; font-weight: 600; color: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                Explore Featured Atlases:
+            </div>
+
+            <div id="atlas-picker-container" style="
+                display: grid;
+                margin-top: 12px;
+                width: 100%;
+                max-width: 900px;
+                max-height: 50vh;
+                overflow-y: auto;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+                padding: 0 16px 16px 16px;
+            ">
+                <!-- Atlas cards will be inserted here dynamically -->
             </div>
         </div>
     </div>
@@ -647,13 +608,12 @@
             const loadingOverlay = document.getElementById('loading-overlay');
 
             const loadStartTime = Date.now();
-            const MIN_VISIBLE_DURATION = 5000;
+            const MIN_VISIBLE_DURATION = 3000;
             let mapLoadedTime = null;
             let fillAnimationTimeout = null;
             let autoProceedCancelled = false;
             let ipLocation = null;
-            let originalLocationHandler = null;
-            let currentFocusIndex = 0;
+            let userInteracted = false;
 
             window.loadingStartupState = {
                 mode: hasURLParams ? 'url-params' : (hashLocation ? 'hash-location' : 'basepath'),
@@ -661,10 +621,197 @@
                 bestAtlas: null,
                 proceedNormally: false,
                 mapReady: false,
-                manualOverlayControl: hasURLParams
+                manualOverlayControl: hasURLParams,
+                shouldShowAtlasPicker: !hasURLParams && !hashLocation
             };
 
-            const buttons = [locationButton, proceedButton].filter(b => b);
+            const atlasPickerContainer = document.getElementById('atlas-picker-container');
+            const atlasPickerHeading = document.getElementById('atlas-picker-heading');
+
+            /**
+             * Create an atlas card element
+             */
+            function createAtlasCard(atlasId, metadata) {
+                const card = document.createElement('div');
+                card.className = 'atlas-card';
+                card.dataset.atlasId = atlasId;
+
+                card.style.cssText = `
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 2px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 8px;
+                    overflow: hidden;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    backdrop-filter: blur(10px);
+                    padding: 10px;
+                `;
+
+                // Square thumbnail
+                const thumbnail = document.createElement('div');
+                thumbnail.style.cssText = `
+                    width: 64px;
+                    height: 64px;
+                    margin: 0 auto 8px auto;
+                    border-radius: 6px;
+                    background-image: url('${metadata.headerImage}');
+                    background-size: cover;
+                    background-position: center;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                    transition: transform 0.3s ease;
+                    flex-shrink: 0;
+                `;
+                card.appendChild(thumbnail);
+
+                // Title
+                const title = document.createElement('div');
+                title.textContent = metadata.name || atlasId;
+                title.style.cssText = `
+                    font-size: 0.875rem;
+                    font-weight: 700;
+                    margin-bottom: 2px;
+                    color: white;
+                    text-align: center;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    line-height: 1.2;
+                `;
+                card.appendChild(title);
+
+                // Area of Interest
+                if (metadata.areaOfInterest) {
+                    const area = document.createElement('div');
+                    area.textContent = metadata.areaOfInterest;
+                    area.style.cssText = `
+                        font-size: 0.625rem;
+                        opacity: 0.6;
+                        margin-bottom: 6px;
+                        color: white;
+                        text-align: center;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        line-height: 1.2;
+                    `;
+                    card.appendChild(area);
+                }
+
+                // Layer count badge (always visible)
+                const layerBadge = document.createElement('div');
+                layerBadge.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 3px;
+                    padding: 3px 6px;
+                    background: rgba(59, 130, 246, 0.2);
+                    border: 1px solid rgba(59, 130, 246, 0.4);
+                    border-radius: 10px;
+                    font-size: 0.625rem;
+                    font-weight: 600;
+                    color: rgba(255, 255, 255, 0.9);
+                    margin: 0 auto;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                `;
+
+                const layerIcon = document.createElement('svg');
+                layerIcon.setAttribute('width', '10');
+                layerIcon.setAttribute('height', '10');
+                layerIcon.setAttribute('viewBox', '0 0 24 24');
+                layerIcon.setAttribute('fill', 'currentColor');
+                layerIcon.innerHTML = '<path d="M12 0l-11 6v12.131l11 5.869 11-5.869v-12.131l-11-6zm0 2.236l8.321 4.421-8.321 4.443-8.321-4.443 8.321-4.421zm-9 11.394l9 4.805 9-4.805v-6.508l-9 4.805-9-4.805v6.508z"/>';
+                layerBadge.appendChild(layerIcon);
+
+                const layerCount = document.createElement('span');
+                layerCount.textContent = `${metadata.layerCount || 0}`;
+                layerBadge.appendChild(layerCount);
+
+                card.appendChild(layerBadge);
+
+                // Click handler
+                card.addEventListener('click', () => {
+                    window.location.href = `?atlas=${atlasId}`;
+                });
+
+                // Hover effect
+                card.addEventListener('mouseenter', () => {
+                    card.style.transform = 'translateY(-2px)';
+                    card.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+                    card.style.background = 'rgba(59, 130, 246, 0.1)';
+                    card.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
+                    thumbnail.style.transform = 'scale(1.05)';
+                });
+
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = 'translateY(0)';
+                    card.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    card.style.background = 'rgba(255, 255, 255, 0.05)';
+                    card.style.boxShadow = 'none';
+                    thumbnail.style.transform = 'scale(1)';
+                });
+
+                return card;
+            }
+
+            /**
+             * Load featured atlases
+             */
+            async function loadFeaturedAtlases() {
+                if (!atlasPickerContainer) {
+                    console.warn('Atlas picker container not found');
+                    return;
+                }
+
+                console.log('[Atlas Picker] Loading featured atlases...');
+
+                try {
+                    // Load index config to get atlas order
+                    const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
+                    if (!indexResponse.ok) {
+                        console.error('Failed to load index atlas');
+                        return;
+                    }
+
+                    const indexConfig = await indexResponse.json();
+                    const atlasOrder = indexConfig.atlases || [];
+                    console.log(`[Atlas Picker] Found ${atlasOrder.length} atlases to load`);
+
+                    let loadedCount = 0;
+
+                    // Load each atlas config and create cards
+                    for (const atlasId of atlasOrder) {
+                        try {
+                            const response = await fetch(`config/${atlasId}.atlas.json`);
+                            if (!response.ok) continue;
+
+                            const config = await response.json();
+
+                            // Only show atlases with header images
+                            if (config.headerImage) {
+                                const metadata = {
+                                    name: config.name || atlasId,
+                                    description: config.description || '',
+                                    areaOfInterest: config.areaOfInterest || '',
+                                    headerImage: config.headerImage,
+                                    color: config.color || '#2563eb',
+                                    layerCount: config.layers ? config.layers.length : 0
+                                };
+
+                                const card = createAtlasCard(atlasId, metadata);
+                                atlasPickerContainer.appendChild(card);
+                                loadedCount++;
+                                console.log(`[Atlas Picker] Loaded card for ${atlasId} (${loadedCount}/${atlasOrder.length})`);
+                            }
+                        } catch (error) {
+                            console.warn(`Failed to load atlas ${atlasId}:`, error);
+                        }
+                    }
+
+                    console.log(`[Atlas Picker] Successfully loaded ${loadedCount} atlas cards`);
+                } catch (error) {
+                    console.error('Failed to load featured atlases:', error);
+                }
+            }
 
             function onMapReady() {
                 mapLoadedTime = Date.now();
@@ -677,15 +824,32 @@
                 if (requestedMapCheckmark) {
                     requestedMapCheckmark.style.display = 'block';
                 }
-                if (requestedMapStatus) {
-                    requestedMapStatus.textContent = 'Map loaded - proceeding shortly...';
-                }
 
                 window.loadingStartupState.mapReady = true;
 
+                // If showing atlas picker (basepath mode), don't auto-close at all
+                if (window.loadingStartupState.shouldShowAtlasPicker) {
+                    if (requestedMapStatus) {
+                        requestedMapStatus.textContent = 'Map ready - choose an atlas to explore';
+                    }
+                    return;
+                }
+
+                if (requestedMapStatus) {
+                    requestedMapStatus.textContent = 'Map loaded - click anywhere to continue';
+                }
+
                 if (autoProceedCancelled) {
                     if (requestedMapStatus) {
-                        requestedMapStatus.textContent = 'Auto-proceed cancelled';
+                        requestedMapStatus.textContent = 'Click on an atlas to explore';
+                    }
+                    return;
+                }
+
+                // If user has interacted (clicked), don't auto-close
+                if (userInteracted) {
+                    if (requestedMapStatus) {
+                        requestedMapStatus.textContent = 'Click on an atlas to explore';
                     }
                     return;
                 }
@@ -697,7 +861,7 @@
                     });
 
                     fillAnimationTimeout = setTimeout(() => {
-                        if (!autoProceedCancelled && loadingOverlay) {
+                        if (!autoProceedCancelled && !userInteracted && loadingOverlay) {
                             loadingOverlay.style.opacity = '0';
                             loadingOverlay.style.transition = 'opacity 0.3s ease';
                             setTimeout(() => {
@@ -705,7 +869,7 @@
                             }, 300);
                         }
                     }, remainingTime);
-                } else if (!autoProceedCancelled && loadingOverlay) {
+                } else if (!autoProceedCancelled && !userInteracted && loadingOverlay) {
                     loadingOverlay.style.opacity = '0';
                     loadingOverlay.style.transition = 'opacity 0.3s ease';
                     setTimeout(() => {
@@ -716,6 +880,7 @@
 
             function cancelAutoProceed() {
                 autoProceedCancelled = true;
+                userInteracted = true;
                 if (fillAnimationTimeout) {
                     clearTimeout(fillAnimationTimeout);
                     fillAnimationTimeout = null;
@@ -725,74 +890,39 @@
                     sectionFillAnimation.style.width = '0%';
                 }
                 if (requestedMapStatus) {
-                    requestedMapStatus.textContent = 'Auto-proceed cancelled';
+                    requestedMapStatus.textContent = 'Click on an atlas to explore';
                 }
                 if (cancelAutoProceedBtn) {
                     cancelAutoProceedBtn.style.display = 'none';
                 }
             }
 
-            function focusButton(index) {
-                const visibleButtons = buttons.filter(b => b.style.display !== 'none');
-                if (visibleButtons.length === 0) return;
+            function openLoadingScreen() {
+                if (loadingOverlay) {
+                    loadingOverlay.style.display = 'flex';
+                    loadingOverlay.style.opacity = '1';
+                    userInteracted = true; // Prevent auto-close when manually opened
+                    autoProceedCancelled = true;
 
-                currentFocusIndex = Math.max(0, Math.min(index, visibleButtons.length - 1));
+                    // Always show atlas picker when manually opening
+                    if (atlasPickerHeading) atlasPickerHeading.style.display = 'block';
+                    if (atlasPickerContainer) atlasPickerContainer.style.display = 'grid';
+                    if (requestedMapStatus) requestedMapStatus.textContent = 'Choose an atlas to explore';
 
-                visibleButtons.forEach((btn, i) => {
-                    if (i === currentFocusIndex) {
-                        btn.style.background = 'rgba(59, 130, 246, 0.8)';
-                        btn.style.borderColor = 'rgba(96, 165, 250, 0.9)';
-                        btn.style.transform = 'scale(1.02)';
-                        btn.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.3)';
-                        btn.focus();
-                    } else {
-                        btn.style.background = 'rgba(255, 255, 255, 0.1)';
-                        btn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-                        btn.style.transform = 'scale(1)';
-                        btn.style.boxShadow = 'none';
+                    // Reload atlas cards if container is empty
+                    if (atlasPickerContainer && atlasPickerContainer.children.length === 0) {
+                        loadFeaturedAtlases();
                     }
-                });
+                }
             }
 
-            function setupKeyboardNavigation() {
-                document.addEventListener('keydown', function handleStartupKeys(e) {
-                    if (window.loadingStartupState.proceedNormally || window.loadingStartupState.userLocation) {
-                        document.removeEventListener('keydown', handleStartupKeys);
-                        return;
-                    }
+            // Expose openLoadingScreen globally
+            window.openLoadingScreen = openLoadingScreen;
 
-                    const visibleButtons = buttons.filter(b => b.style.display !== 'none');
-
-                    if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        focusButton(currentFocusIndex + 1);
-                    } else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        focusButton(currentFocusIndex - 1);
-                    } else if (e.key === 'Enter' && visibleButtons[currentFocusIndex]) {
-                        e.preventDefault();
-                        visibleButtons[currentFocusIndex].click();
-                    } else if (e.key === ' ' && visibleButtons[currentFocusIndex]) {
-                        e.preventDefault();
-                        visibleButtons[currentFocusIndex].click();
-                    }
-                });
-            }
-
-            function disableButtons() {
-                locationButton.disabled = true;
-                proceedButton.disabled = true;
-            }
-
-            function enableButtons() {
-                locationButton.disabled = false;
-                proceedButton.disabled = false;
-            }
 
             async function handleGeolocation(showStatusMessages = true) {
                 if (showStatusMessages) {
                     requestedMapStatus.textContent = 'Waiting for device location...';
-                    disableButtons();
                 }
 
                 try {
@@ -853,23 +983,6 @@
                         }
                     }, 100);
 
-                    // Update location button
-                    locationButton.innerHTML = `
-                        <svg style="width: 14px; height: 14px; flex-shrink: 0;" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 2a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
-                        </svg>
-                        <span id="location-button-text">Use IP location (${ipLocation.city}, ${ipLocation.country})</span>
-                    `;
-
-                    locationButton.removeEventListener('click', originalLocationHandler);
-                    locationButton.addEventListener('click', function useIPLocation() {
-                        window.loadingStartupState.userLocation = ipLocation;
-                        requestedMapStatus.textContent = 'Finding best atlas for your location...';
-                        disableButtons();
-                    });
-
-                    enableButtons();
-
                     // Automatically proceed with IP location after a short delay
                     setTimeout(() => {
                         window.loadingStartupState.userLocation = ipLocation;
@@ -877,9 +990,8 @@
                     }, 2000);
 
                 } catch (ipError) {
-                    console.error('IP location failed:', ipError);
+                    console.warn('IP location failed:', ipError);
                     requestedMapStatus.textContent = 'Could not determine location';
-                    enableButtons();
                 }
             }
 
@@ -924,10 +1036,37 @@
 
             window.addEventListener('mapReady', onMapReady);
 
+            // Add click handler to loading overlay to disable auto-close
+            loadingOverlay.addEventListener('click', function(e) {
+                // Don't disable auto-close if clicking on atlas cards or links
+                if (!e.target.closest('.atlas-card') && !e.target.closest('a') && !e.target.closest('button')) {
+                    userInteracted = true;
+                    autoProceedCancelled = true;
+                    if (fillAnimationTimeout) {
+                        clearTimeout(fillAnimationTimeout);
+                        fillAnimationTimeout = null;
+                    }
+                    if (sectionFillAnimation) {
+                        sectionFillAnimation.style.transition = 'none';
+                        sectionFillAnimation.style.width = '0%';
+                    }
+                    if (requestedMapStatus && window.loadingStartupState.mapReady) {
+                        requestedMapStatus.textContent = 'Click on an atlas to explore';
+                    }
+                }
+            });
+
             // Always show requested-map-section
             requestedMapSection.style.display = 'block';
 
+            // Determine if we should show atlas picker
+            const shouldShowAtlasPicker = !hasURLParams && !hashLocation;
+
             if (hasURLParams) {
+                // Hide atlas picker for URL params
+                if (atlasPickerHeading) atlasPickerHeading.style.display = 'none';
+                if (atlasPickerContainer) atlasPickerContainer.style.display = 'none';
+
                 // Show URL info and cancel button for URL params
                 const urlParams = new URLSearchParams(window.location.search);
                 const atlas = urlParams.get('atlas');
@@ -964,6 +1103,10 @@
 
                 window.loadingStartupState.proceedNormally = true;
             } else if (hashLocation) {
+                // Hide atlas picker for hash location
+                if (atlasPickerHeading) atlasPickerHeading.style.display = 'none';
+                if (atlasPickerContainer) atlasPickerContainer.style.display = 'none';
+
                 // Location hash detected - use coordinates from URL
                 urlInfoContent.style.display = 'none';
                 if (cancelAutoProceedBtn) {
@@ -976,15 +1119,15 @@
                 setTimeout(() => {
                     requestedMapStatus.textContent = 'Loading map...';
                 }, 1000);
-
-                currentFocusIndex = 0;
-                setTimeout(() => focusButton(currentFocusIndex), 300);
             } else {
                 // Hide URL info and cancel button for no URL params
                 urlInfoContent.style.display = 'none';
                 if (cancelAutoProceedBtn) {
                     cancelAutoProceedBtn.style.display = 'none';
                 }
+
+                // Atlas picker is already visible by default, just load the data
+                loadFeaturedAtlases();
 
                 // Check for device geolocation first, then fall back to IP
                 (async () => {
@@ -993,20 +1136,7 @@
                         await handleIPLocationFallback();
                     }
                 })();
-
-                currentFocusIndex = 0;
-                setTimeout(() => focusButton(currentFocusIndex), 300);
             }
-
-            originalLocationHandler = handleGeolocation;
-            locationButton.addEventListener('click', originalLocationHandler);
-
-            proceedButton.addEventListener('click', function() {
-                window.loadingStartupState.proceedNormally = true;
-                requestedMapStatus.textContent = 'Loading Goa Atlas...';
-            });
-
-            setupKeyboardNavigation();
         })();
     </script>
     <!-- Navigation Menu Overlay -->
@@ -1026,7 +1156,7 @@
                         <div style="display: flex; align-items: center; gap: 0.75rem;">
                             <img src="/assets/img/icon-192x192.png" alt="amche.in"
                                 style="width: 48px; height: 48px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);">
-                            <a href="./"
+                            <a href="#" id="nav-menu-brand-link"
                                 style="font-size: 1.5rem; color: white; font-weight: 700; margin: 0; line-height: 1; text-decoration: none; display: block; transition: opacity 0.2s; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);"
                                 onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">amche.in</a>
                         </div>
@@ -1256,7 +1386,7 @@
                 class="hidden px-2 py-1 bg-yellow-600 text-xs font-semibold rounded"
                 style="text-decoration: none; color: inherit; transition: opacity 0.2s;"
                 onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">DEV</a>
-            <a href="./" class="nav-brand flex items-center gap-2 flex-shrink-0"
+            <a href="#" id="nav-brand-link" class="nav-brand flex items-center gap-2 flex-shrink-0"
                 style="text-decoration: none; color: inherit; transition: opacity 0.2s;"
                 onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
                 <span class="nav-title font-semibold tracking-tight hidden sm:inline">amche.in</span>
@@ -1293,10 +1423,61 @@
             background-color: #374151;
         }
 
+        /* Loading overlay scrollbar */
+        #loading-overlay::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        #loading-overlay::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        #loading-overlay::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+        }
+
+        #loading-overlay::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Atlas picker scrollbar */
+        #atlas-picker-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #atlas-picker-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        #atlas-picker-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        #atlas-picker-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
         @media (max-width: 640px) {
             #nav-menu-container {
                 width: 340px !important;
                 max-width: 90vw !important;
+            }
+
+            #atlas-picker-container {
+                gap: 8px !important;
+                padding: 0 8px 12px 8px !important;
+                max-height: 45vh !important;
+            }
+
+            .atlas-card {
+                padding: 8px !important;
+            }
+
+            #loading-overlay {
+                padding: 10px 0 !important;
             }
         }
 
@@ -1304,6 +1485,20 @@
             #nav-menu-container {
                 width: 100% !important;
                 max-width: 100vw !important;
+            }
+
+            #atlas-picker-container {
+                gap: 6px !important;
+                padding: 0 6px 12px 6px !important;
+                max-height: 40vh !important;
+            }
+
+            .atlas-card {
+                padding: 6px !important;
+            }
+
+            #loading-overlay {
+                padding: 5px 0 !important;
             }
         }
     </style>
@@ -1360,6 +1555,18 @@
             trigger.addEventListener('click', openMenu);
             closeBtn.addEventListener('click', closeMenu);
 
+            // Handle nav menu brand click to open loading screen
+            const navMenuBrandLink = document.getElementById('nav-menu-brand-link');
+            if (navMenuBrandLink) {
+                navMenuBrandLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    closeMenu();
+                    if (window.openLoadingScreen) {
+                        window.openLoadingScreen();
+                    }
+                });
+            }
+
             overlay.addEventListener('click', function (e) {
                 if (e.target === overlay) {
                     closeMenu();
@@ -1391,6 +1598,18 @@
                     closeUpdatesModal();
                 }
             });
+
+            // Handle nav brand click to open loading screen
+            const navBrandLink = document.getElementById('nav-brand-link');
+            if (navBrandLink) {
+                navBrandLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Trigger the global openLoadingScreen function if it exists
+                    if (window.openLoadingScreen) {
+                        window.openLoadingScreen();
+                    }
+                });
+            }
 
             // Preserve hash when navigating to root
             document.querySelectorAll('a[href="./"]').forEach(item => {
