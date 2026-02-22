@@ -264,6 +264,24 @@
         overflow-x: hidden;
         padding: 20px 0;
     ">
+        <!-- Close Button (shown only when manually opened) -->
+        <button id="loading-overlay-close" style="
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10001;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 32px;
+            line-height: 1;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        " onmouseover="this.style.color='rgba(239, 68, 68, 0.9)'; this.style.transform='scale(1.1)'" onmouseout="this.style.color='rgba(255, 255, 255, 0.6)'; this.style.transform='scale(1)'">&times;</button>
+
         <!-- Animated Background -->
         <div style="
             position: absolute;
@@ -622,11 +640,12 @@
                 proceedNormally: false,
                 mapReady: false,
                 manualOverlayControl: hasURLParams,
-                shouldShowAtlasPicker: !hasURLParams && !hashLocation
+                shouldShowAtlasPicker: false // Will be set later based on conditions
             };
 
             const atlasPickerContainer = document.getElementById('atlas-picker-container');
             const atlasPickerHeading = document.getElementById('atlas-picker-heading');
+            const loadingOverlayClose = document.getElementById('loading-overlay-close');
 
             /**
              * Create an atlas card element
@@ -904,6 +923,11 @@
                     userInteracted = true; // Prevent auto-close when manually opened
                     autoProceedCancelled = true;
 
+                    // Show close button when manually opened
+                    if (loadingOverlayClose) {
+                        loadingOverlayClose.style.display = 'block';
+                    }
+
                     // Always show atlas picker when manually opening
                     if (atlasPickerHeading) atlasPickerHeading.style.display = 'block';
                     if (atlasPickerContainer) atlasPickerContainer.style.display = 'grid';
@@ -916,8 +940,29 @@
                 }
             }
 
-            // Expose openLoadingScreen globally
+            function closeLoadingScreen() {
+                if (loadingOverlay) {
+                    loadingOverlay.style.opacity = '0';
+                    loadingOverlay.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => {
+                        loadingOverlay.style.display = 'none';
+                    }, 300);
+
+                    // Hide close button
+                    if (loadingOverlayClose) {
+                        loadingOverlayClose.style.display = 'none';
+                    }
+                }
+            }
+
+            // Close button click handler
+            if (loadingOverlayClose) {
+                loadingOverlayClose.addEventListener('click', closeLoadingScreen);
+            }
+
+            // Expose functions globally
             window.openLoadingScreen = openLoadingScreen;
+            window.closeLoadingScreen = closeLoadingScreen;
 
 
             async function handleGeolocation(showStatusMessages = true) {
@@ -1059,14 +1104,18 @@
             // Always show requested-map-section
             requestedMapSection.style.display = 'block';
 
+            // Always show atlas picker for quick access
+            if (atlasPickerHeading) atlasPickerHeading.style.display = 'block';
+            if (atlasPickerContainer) atlasPickerContainer.style.display = 'grid';
+
+            // Load atlas cards immediately
+            loadFeaturedAtlases();
+
             // Determine if we should show atlas picker
             const shouldShowAtlasPicker = !hasURLParams && !hashLocation;
+            window.loadingStartupState.shouldShowAtlasPicker = shouldShowAtlasPicker;
 
             if (hasURLParams) {
-                // Hide atlas picker for URL params
-                if (atlasPickerHeading) atlasPickerHeading.style.display = 'none';
-                if (atlasPickerContainer) atlasPickerContainer.style.display = 'none';
-
                 // Show URL info and cancel button for URL params
                 const urlParams = new URLSearchParams(window.location.search);
                 const atlas = urlParams.get('atlas');
@@ -1101,12 +1150,13 @@
                     cancelAutoProceedBtn.addEventListener('click', cancelAutoProceed);
                 }
 
+                // Update heading to indicate current and alternative options
+                if (atlasPickerHeading) {
+                    atlasPickerHeading.textContent = 'Or explore other atlases:';
+                }
+
                 window.loadingStartupState.proceedNormally = true;
             } else if (hashLocation) {
-                // Hide atlas picker for hash location
-                if (atlasPickerHeading) atlasPickerHeading.style.display = 'none';
-                if (atlasPickerContainer) atlasPickerContainer.style.display = 'none';
-
                 // Location hash detected - use coordinates from URL
                 urlInfoContent.style.display = 'none';
                 if (cancelAutoProceedBtn) {
@@ -1114,6 +1164,11 @@
                 }
 
                 requestedMapStatus.innerHTML = `Using location from URL: <a href="${window.location.href}" style="color: #60a5fa; text-decoration: underline;">${hashLocation.lat.toFixed(6)}, ${hashLocation.lng.toFixed(6)}</a>`;
+
+                // Update heading
+                if (atlasPickerHeading) {
+                    atlasPickerHeading.textContent = 'Or explore other atlases:';
+                }
 
                 // Automatically proceed with hash location
                 setTimeout(() => {
@@ -1125,9 +1180,6 @@
                 if (cancelAutoProceedBtn) {
                     cancelAutoProceedBtn.style.display = 'none';
                 }
-
-                // Atlas picker is already visible by default, just load the data
-                loadFeaturedAtlases();
 
                 // Check for device geolocation first, then fall back to IP
                 (async () => {

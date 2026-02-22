@@ -4329,6 +4329,18 @@ export class MapFeatureControl {
             let features = [];
             try {
                 features = this._map.queryRenderedFeatures(e.point);
+
+                // If no features found at exact point, query within 5px buffer
+                if (!features.length) {
+                    const bbox = [
+                        [e.point.x - 5, e.point.y - 5],
+                        [e.point.x + 5, e.point.y + 5]
+                    ];
+                    const featuresInBuffer = this._map.queryRenderedFeatures(bbox);
+                    if (featuresInBuffer.length) {
+                        features = [featuresInBuffer[0]];
+                    }
+                }
             } catch (error) {
                 // Handle DEM data range errors gracefully
                 if (error.message && error.message.includes('out of range source coordinates for DEM data')) {
@@ -5311,6 +5323,18 @@ export class MapFeatureControl {
         let features = [];
         try {
             features = this._map.queryRenderedFeatures(e.point);
+
+            // If no features found at exact point, query within 3px buffer
+            if (!features.length) {
+                const bbox = [
+                    [e.point.x - 3, e.point.y - 3],
+                    [e.point.x + 3, e.point.y + 3]
+                ];
+                const featuresInBuffer = this._map.queryRenderedFeatures(bbox);
+                if (featuresInBuffer.length) {
+                    features = [featuresInBuffer[0]];
+                }
+            }
         } catch (error) {
             // Handle DEM data range errors gracefully
             if (error.message && error.message.includes('out of range source coordinates for DEM data')) {
