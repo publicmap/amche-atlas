@@ -133,9 +133,14 @@ export class StatePersistence {
             }
 
             // Build restored URL with current origin but saved parameters
+            // Remove terrain parameter to allow lazy loading on each session
+            const savedParams = new URLSearchParams(savedUrl.search);
+            savedParams.delete('terrain');
+
             let restoredUrl = currentUrl.origin + currentUrl.pathname;
-            if (savedUrl.search) {
-                restoredUrl += savedUrl.search;
+            const paramsString = savedParams.toString();
+            if (paramsString) {
+                restoredUrl += '?' + paramsString;
             }
             if (savedUrl.hash) {
                 restoredUrl += savedUrl.hash;

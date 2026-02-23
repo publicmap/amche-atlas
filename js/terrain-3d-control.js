@@ -11,7 +11,7 @@ export class Terrain3DControl {
             ...options
         };
 
-        this._enabled = true; // Default to enabled
+        this._enabled = false; // Default to disabled for lazy loading
         this._exaggeration = this.options.initialExaggeration;
         this._animate = false; // Default to disabled
         this._showWireframe = false; // Default to disabled
@@ -23,6 +23,7 @@ export class Terrain3DControl {
         this._map = null;
         this._terrainSource = 'mapbox'; // Default to Mapbox terrain
         this._initializing = false; // Flag to prevent URL updates during initialization
+        this._pitchListener = null; // Track pitch change listener for cleanup
         
         // Audio visualization properties
         this._audioContext = null;
@@ -117,9 +118,12 @@ export class Terrain3DControl {
     onRemove() {
         // Stop animation if running
         this._stopAnimation();
-        
+
         // Stop audio visualization if running
         this._stopAudioVisualization();
+
+        // Remove pitch listener
+        this.removePitchListener();
 
         if (this._panel) {
             $(this._panel).remove();
@@ -543,6 +547,11 @@ export class Terrain3DControl {
 
     _showPanel() {
         $(this._panel).show();
+
+        // Lazy load: enable terrain when panel is opened for the first time
+        if (!this._enabled) {
+            this.setEnabled(true);
+        }
     }
 
     _hidePanel() {
@@ -1129,10 +1138,6 @@ export class Terrain3DControl {
                     this.setEnabled(true);
                 }
             }
-        } else {
-            // No terrain parameter - use default enabled state
-            this.setEnabled(true);
-            this.setExaggeration(this.options.initialExaggeration);
         }
 
         // Handle animate parameter
@@ -1173,5 +1178,33 @@ export class Terrain3DControl {
 
         // Clear initialization flag to allow normal URL updates
         this._initializing = false;
+    }
+
+    setupPitchListener() {
+        if (!this._map || this._pitchListener) return;
+
+        const setupTime = Date.now();
+        const initialLoadGracePeriod = 6000;
+
+        this._pitchListener = () => {
+            const timeSinceSetup = Date.now() - setupTime;
+            if (timeSinceSetup < initialLoadGracePeriod) {
+                return;
+            }
+
+            const pitch = this._map.getPitch();
+            if (pitch > 0 && !this._enabled) {
+                this.setEnabled(true);
+            }
+        };
+
+        this._map.on('pitch', this._pitchListener);
+    }
+
+    removePitchListener() {
+        if (this._map && this._pitchListener) {
+            this._map.off('pitch', this._pitchListener);
+            this._pitchListener = null;
+        }
     }
 }

@@ -725,6 +725,9 @@ export class MapInitializer {
             // Initialize 3D control from URL parameters after URL manager is ready
             window.terrain3DControl.initializeFromURL();
 
+            // Setup pitch listener for lazy terrain loading (ignores initial animations)
+            window.terrain3DControl.setupPitchListener();
+
             // Initialize state persistence and try to restore saved state
             const statePersistence = new StatePersistence();
             const stateRestored = statePersistence.restoreStateOnLoad();
