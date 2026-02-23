@@ -294,6 +294,47 @@
       }
     },
     {
+      "title": "Road Names",
+      "description": "Road network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
+      "type": "vector",
+      "id": "roads",
+      "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+      "sourceLayer": "street_labels",
+      "maxzoom": 14,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "filter": [
+        "match",
+        [
+          "get",
+          "kind"
+        ],
+        [
+          "pedestrian",
+          "footway",
+          "path",
+          "track",
+          "rail",
+          "narrow_gauge",
+          "light_rail",
+          "subway"
+        ],
+        false,
+        true
+      ],
+      "style": {
+        "line-opacity": 0.2
+      },
+      "inspect": {
+        "id": "name",
+        "title": "Road Name",
+        "label": "name",
+        "fields": [
+          "ref",
+          "kind"
+        ]
+      }
+    },
+    {
       "title": "Motorable Roads",
       "description": "Road network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
