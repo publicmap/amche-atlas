@@ -180,7 +180,12 @@ export const handlers = {
                             container.setAttribute('data-executed', 'true');
                         } catch (error) {
                             console.error('[Bhunaksha] Error:', error);
-                            const errorHTML = \`<span style="color: #f87171;">Error loading details: \${error.message}</span>\`;
+                            const errorHTML = \`
+                                <div style="display: flex; align-items: center; gap: 8px; color: #f87171; margin: 8px 0;">
+                                    <sl-icon name="exclamation-octagon" style="font-size: 16px;"></sl-icon>
+                                    <span>There was an error fetching occupant details. Please check <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Bhunaksha Goa</a></span>
+                                </div>
+                            \`;
                             if (container && document.body.contains(container)) {
                                 container.innerHTML = errorHTML;
                                 // Cache the error result too

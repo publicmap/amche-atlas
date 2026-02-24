@@ -1215,7 +1215,7 @@
       "sourceLayer": "vector",
       "minzoom": 0,
       "maxzoom": 15,
-      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>Final CZMP, Goa Coastal Zone Management Authority</a> - via <a href='https://www.maphub.co/map/884554fa-41f4-45ac-8794-185c5adc49fa'>Maphub</a>",
+      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>CZMP 2011, Goa Coastal Zone Management Authority</a> - via <a href='https://www.maphub.co/map/884554fa-41f4-45ac-8794-185c5adc49fa'>Maphub</a>",
       "initiallyChecked": false,
       "style": {
         "text-field": [
@@ -1258,7 +1258,7 @@
       "sourceLayer": "vector",
       "minzoom": 0,
       "maxzoom": 15,
-      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>Final CZMP, Goa Coastal Zone Management Authority</a> - via <a href='https://www.maphub.co/map/f7c37496-7c7d-484d-8339-bcb0f2e39c4b'>Maphub</a>",
+      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>CZMP 2011, Goa Coastal Zone Management Authority</a> - via <a href='https://www.maphub.co/map/f7c37496-7c7d-484d-8339-bcb0f2e39c4b'>Maphub</a>",
       "initiallyChecked": false,
       "style": {
         "text-field": [
@@ -1339,7 +1339,7 @@
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=c2f4f183-2526-4cbd-bc8b-985928a84222",
       "sourceLayer": "vector",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>Final CZMP, Goa Coastal Zone Management Authority</a> - via <a href='https://www.maphub.co/map/ece88d0e-2c10-4b78-a163-904a4cf16dd4'>Maphub</a>",
+      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>CZMP 2011, Goa Coastal Zone Management Authority</a> - via <a href='https://www.maphub.co/map/ece88d0e-2c10-4b78-a163-904a4cf16dd4'>Maphub</a>",
       "style": {
         "fill-opacity": 0.5,
         "text-halo-color": "#b3ff0f",
@@ -1363,7 +1363,7 @@
       "url": "https://indianopenmaps.com/not-so-open/coastal/regulation-zones/parivesh/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bharatmaps_Parivesh_CRZ_Regulatory_Zones",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>Final CZMP, Goa Coastal Zone Management Authority</a> - via <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
+      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>CZMP 2011, Goa Coastal Zone Management Authority</a> - via <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
       "filter": [
         "==",
         [
@@ -2485,6 +2485,41 @@
       "headerImage": "https://mapwarper.net/uploads/89528/thumb/IMG_4225.png",
       "bbox": "73.8625273,15.5908022,73.8877474,15.6217674",
       "initiallyChecked": false
+    },
+    {
+      "title": "Draft Goa CZMP 2019 (1:4K)",
+      "description": "Draft Goa Coastal Zone Management Plan 2019 prepared by the National Centre for Earth Science Studies at 1:4000 scale. Read the <a href='https://drive.google.com/drive/folders/1PinhVq3BLJl4FOAePXjdBdaC1f-nNAqG'>Draft CZMP Report</a> for more details.",
+      "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href=\"https://datameet.org\" target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
+      "type": "tms",
+      "id": "draft-2019-czmp",
+      "url": "https://indianopenmaps.com/czmp/goa/2019/4k/ncess/{z}/{x}/{y}.webp",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      }
+    },
+    {
+      "title": "Goa CZMP 2011",
+      "description": "Coastal Zone Management Plan 2011",
+      "headerImage": "assets/map-layers/india/map-layer-czmp.png",
+      "legendImage": "assets/map-layers/india/legend-czmp.png",
+      "type": "tms",
+      "id": "2011-czmp",
+      "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/goa/regulation/ncscm/{z}/{x}/{y}.webp",
+      "attribution": "<a href='https://czmp.ncscm.res.in/'>National Center For Sustainable Coastal Management</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
       "tags": [

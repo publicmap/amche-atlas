@@ -3695,7 +3695,7 @@ sl-dialog blockquote {
     font-weight: bold;
 }
 
-.terrain-3d-panel button {
+.terrain-3d-panel .terrain-3d-close-button {
     position: absolute;
     top: 5px;
     right: 10px;
@@ -3710,7 +3710,7 @@ sl-dialog blockquote {
     line-height: 1;
 }
 
-.terrain-3d-panel button:hover {
+.terrain-3d-panel .terrain-3d-close-button:hover {
     color: #666;
     background: none;
     transform: none;

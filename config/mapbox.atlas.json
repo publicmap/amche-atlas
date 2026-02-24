@@ -101,6 +101,10 @@
       "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
       "layers": [
         {
+          "title": "Hillshade",
+          "sourceLayer": "hillshade"
+        },
+        {
           "title": "Places Labels",
           "sourceLayer": "place_label"
         },

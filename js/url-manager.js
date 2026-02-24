@@ -418,6 +418,8 @@ export class URLManager {
         let wireframeParam = null;
         let terrainSourceParam = null;
         let fovParam = null;
+        let bearingParam = null;
+        let pitchParam = null;
         let soundParam = null;
         let selectedParam = null;
 
@@ -494,9 +496,8 @@ export class URLManager {
                     hasChanges = true;
                 }
             } else {
-                // Set to 0 when disabled
-                terrainParam = '0';
-                if (currentTerrainParam !== '0') {
+                // Remove parameter when disabled
+                if (currentTerrainParam !== null) {
                     hasChanges = true;
                 }
             }
@@ -583,6 +584,40 @@ export class URLManager {
             }
         }
 
+        // Handle bearing parameter
+        if (options.bearing !== undefined) {
+            const currentBearingParam = urlParams.get('bearing');
+            // Only set if not default (0 is default)
+            if (options.bearing !== null && Math.abs(options.bearing) > 0.1) {
+                bearingParam = options.bearing.toFixed(0);
+                if (currentBearingParam !== bearingParam) {
+                    hasChanges = true;
+                }
+            } else {
+                // Remove parameter when using default bearing
+                if (currentBearingParam !== null) {
+                    hasChanges = true;
+                }
+            }
+        }
+
+        // Handle pitch parameter
+        if (options.pitch !== undefined) {
+            const currentPitchParam = urlParams.get('pitch');
+            // Only set if not default (0 is default)
+            if (options.pitch !== null && Math.abs(options.pitch) > 0.1) {
+                pitchParam = options.pitch.toFixed(0);
+                if (currentPitchParam !== pitchParam) {
+                    hasChanges = true;
+                }
+            } else {
+                // Remove parameter when using default pitch
+                if (currentPitchParam !== null) {
+                    hasChanges = true;
+                }
+            }
+        }
+
         // Handle sound parameter
         if (options.sound !== undefined) {
             const currentSoundParam = urlParams.get('sound');
@@ -627,6 +662,8 @@ export class URLManager {
             otherParams.delete('wireframe');
             otherParams.delete('terrainSource');
             otherParams.delete('fov');
+            otherParams.delete('bearing');
+            otherParams.delete('pitch');
             otherParams.delete('sound');
             otherParams.delete('selected');
 
@@ -669,7 +706,7 @@ export class URLManager {
 
             // Add terrain parameter (either new or preserved from current URL)
             const currentTerrain = terrainParam || (options.terrain === undefined ? urlParams.get('terrain') : null);
-            if (currentTerrain) {
+            if (currentTerrain && currentTerrain !== '0') {
                 params.push('terrain=' + currentTerrain);
             }
 
@@ -701,6 +738,18 @@ export class URLManager {
             const currentFov = fovParam || (options.fov === undefined ? urlParams.get('fov') : null);
             if (currentFov && Math.abs(parseFloat(currentFov) - 0.643) > 0.001) {
                 params.push('fov=' + currentFov);
+            }
+
+            // Add bearing parameter (either new or preserved from current URL)
+            const currentBearing = bearingParam || (options.bearing === undefined ? urlParams.get('bearing') : null);
+            if (currentBearing && Math.abs(parseFloat(currentBearing)) > 0.1) {
+                params.push('bearing=' + currentBearing);
+            }
+
+            // Add pitch parameter (either new or preserved from current URL)
+            const currentPitch = pitchParam || (options.pitch === undefined ? urlParams.get('pitch') : null);
+            if (currentPitch && Math.abs(parseFloat(currentPitch)) > 0.1) {
+                params.push('pitch=' + currentPitch);
             }
 
             // Add sound parameter (either new or preserved from current URL)
@@ -833,14 +882,11 @@ export class URLManager {
         const wireframeParam = urlParams.get('wireframe');
         const terrainSourceParam = urlParams.get('terrainSource');
         const fovParam = urlParams.get('fov');
+        const bearingParam = urlParams.get('bearing');
+        const pitchParam = urlParams.get('pitch');
         const selectedParam = urlParams.get('selected');
 
-        // Auto-add terrain parameter if not present
-        if (!terrainParam) {
-            this.autoAddTerrainParameter();
-        }
-
-        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !selectedParam) {
+        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam) {
             return false;
         }
 
@@ -933,6 +979,24 @@ export class URLManager {
                 const fov = parseFloat(fovParam);
                 if (!isNaN(fov) && fov >= 0.1 && fov <= 1.5) {
                     window.terrain3DControl.setFov(fov);
+                }
+            }
+
+            // Handle bearing parameter
+            if (bearingParam && window.terrain3DControl) {
+                applied = true;
+                const bearing = parseFloat(bearingParam);
+                if (!isNaN(bearing)) {
+                    window.terrain3DControl.setBearing(bearing);
+                }
+            }
+
+            // Handle pitch parameter
+            if (pitchParam && window.terrain3DControl) {
+                applied = true;
+                const pitch = parseFloat(pitchParam);
+                if (!isNaN(pitch) && pitch >= 0 && pitch <= 85) {
+                    window.terrain3DControl.setPitch(pitch);
                 }
             }
 
@@ -1376,41 +1440,6 @@ export class URLManager {
     }
 
     /**
-     * Auto-add terrain parameter with default exaggeration from style
-     */
-    autoAddTerrainParameter() {
-        if (!this.map) return;
-
-        // Get the default exaggeration from the map style or use 1.5 as fallback
-        let defaultExaggeration = 1.5;
-
-        try {
-            const style = this.map.getStyle();
-            if (style && style.terrain && style.terrain.exaggeration) {
-                const styleExaggeration = style.terrain.exaggeration;
-                // Check if it's a simple number or a complex expression
-                if (typeof styleExaggeration === 'number') {
-                    defaultExaggeration = styleExaggeration;
-                } else {
-                    // If it's a complex expression (like interpolate), use the default
-                    console.debug('Style terrain exaggeration is complex expression, using default:', defaultExaggeration);
-                }
-            }
-        } catch (error) {
-            console.debug('Could not get terrain exaggeration from style, using default:', defaultExaggeration);
-        }
-
-        // Add terrain parameter to URL
-        this.updateURL({ terrain: defaultExaggeration });
-
-        // Also initialize the 3D control if available
-        if (window.terrain3DControl) {
-            window.terrain3DControl.setExaggeration(defaultExaggeration);
-            window.terrain3DControl.setEnabled(true);
-        }
-    }
-
-    /**
      * Update terrain parameter in URL
      */
     updateTerrainParam(exaggeration) {
@@ -1457,6 +1486,20 @@ export class URLManager {
      */
     updateFovParam(fov) {
         this.updateURL({ fov: fov, updateLayers: false });
+    }
+
+    /**
+     * Update bearing parameter in URL
+     */
+    updateBearingParam(bearing) {
+        this.updateURL({ bearing: bearing, updateLayers: false });
+    }
+
+    /**
+     * Update pitch parameter in URL
+     */
+    updatePitchParam(pitch) {
+        this.updateURL({ pitch: pitch, updateLayers: false });
     }
 
     /**

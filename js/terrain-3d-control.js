@@ -18,6 +18,8 @@ export class Terrain3DControl {
         this._enableFog = true; // Default to enabled
         this._visualizeSound = false; // Default to disabled
         this._fov = 0.643; // Default FOV in radians (~36.87°)
+        this._bearing = 0; // Default bearing (rotation) in degrees
+        this._pitch = 0; // Default pitch (tilt) in degrees
         this._animationFrame = null; // For requestAnimationFrame
         this._panel = null;
         this._map = null;
@@ -63,6 +65,10 @@ export class Terrain3DControl {
 
     onAdd(map) {
         this._map = map;
+
+        // Initialize bearing and pitch from current map state
+        this._bearing = this._map.getBearing();
+        this._pitch = this._map.getPitch();
 
         // Create container with jQuery
         this._container = $('<div>', {
@@ -133,22 +139,34 @@ export class Terrain3DControl {
     }
 
     _createPanel() {
-        // Create panel container
+        // Create panel container with scrolling
         this._panel = $('<div>', {
             class: 'terrain-3d-panel',
             css: {
                 position: 'absolute',
                 top: '40px',
                 right: '10px',
-                width: '250px',
+                width: '280px',
+                maxHeight: '600px',
                 backgroundColor: 'white',
                 border: '1px solid #ccc',
                 borderRadius: '4px',
-                padding: '15px',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                 zIndex: '1000',
                 display: 'none',
-                fontSize: '14px'
+                fontSize: '14px',
+                overflow: 'hidden'
+            }
+        });
+
+        // Create scrollable content container
+        const $scrollContent = $('<div>', {
+            css: {
+                maxHeight: '600px',
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                padding: '15px',
+                paddingRight: '10px'
             }
         });
 
@@ -160,6 +178,7 @@ export class Terrain3DControl {
             text: '3D Controls',
             css: {
                 margin: '0 0 15px 0',
+                paddingRight: '30px',
                 fontSize: '16px',
                 fontWeight: 'bold',
                 color: '#333'
@@ -319,80 +338,7 @@ export class Terrain3DControl {
 
         $checkboxContainer.append($checkbox, $checkboxLabel);
 
-        // Exaggeration slider container (only shown when enabled)
-        const $sliderContainer = $('<div>', {
-            css: {
-                marginBottom: '10px',
-                display: this._enabled ? 'block' : 'none'
-            }
-        });
-
-        const $sliderLabel = $('<label>', {
-            text: 'Vertical Terrain Scale',
-            css: {
-                display: 'block',
-                marginBottom: '5px',
-                fontWeight: '500'
-            }
-        });
-
-        const $slider = $('<input>', {
-            type: 'range',
-            min: this.options.minExaggeration,
-            max: this.options.maxExaggeration,
-            step: this.options.step,
-            value: this._exaggeration,
-            css: {
-                width: '100%',
-                marginBottom: '5px'
-            }
-        });
-
-        const $sliderValue = $('<span>', {
-            id: 'terrain-3d-exaggeration-value',
-            text: this._exaggeration.toFixed(1),
-            css: {
-                fontSize: '12px',
-                color: '#666',
-                fontWeight: 'bold'
-            }
-        });
-
-        // FOV slider
-        const $fovLabel = $('<label>', {
-            text: 'Field of View',
-            css: {
-                display: 'block',
-                marginTop: '15px',
-                marginBottom: '5px',
-                fontWeight: '500'
-            }
-        });
-
-        const $fovSlider = $('<input>', {
-            type: 'range',
-            id: 'terrain-3d-fov-slider',
-            min: 0.1,
-            max: 1.5,
-            step: 0.01,
-            value: this._fov,
-            css: {
-                width: '100%',
-                marginBottom: '5px'
-            }
-        });
-
-        const $fovValue = $('<span>', {
-            id: 'terrain-3d-fov-value',
-            text: (this._fov * (180 / Math.PI)).toFixed(1) + '°',
-            css: {
-                fontSize: '12px',
-                color: '#666',
-                fontWeight: 'bold'
-            }
-        });
-
-        // Wireframe checkbox (grouped with exaggeration controls)
+        // Wireframe checkbox
         const $wireframeContainer = $('<div>', {
             css: {
                 marginTop: '15px',
@@ -420,10 +366,290 @@ export class Terrain3DControl {
 
         $wireframeContainer.append($wireframeCheckbox, $wireframeLabel);
 
-        $sliderContainer.append($sliderLabel, $slider, $sliderValue, $fovLabel, $fovSlider, $fovValue, $wireframeContainer, $soundContainer);
+        // Helper function to create slider with icon
+        const createSliderControl = (label, icon, min, max, step, value, valueId, sliderId, formatValue, defaultValue, resetCallback) => {
+            const $container = $('<div>', { css: { marginBottom: '12px' } });
+
+            const $labelRow = $('<div>', {
+                css: {
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '5px'
+                }
+            });
+
+            const $labelWithIcon = $('<div>', {
+                css: { display: 'flex', alignItems: 'center', gap: '6px' }
+            });
+
+            if (icon) {
+                $labelWithIcon.append(`<sl-icon name="${icon}" style="font-size: 14px;"></sl-icon>`);
+            }
+
+            $labelWithIcon.append($('<span>', {
+                text: label,
+                css: { fontWeight: '500', fontSize: '13px' }
+            }));
+
+            const $value = $('<span>', {
+                id: valueId,
+                text: formatValue(value),
+                css: {
+                    fontSize: '12px',
+                    color: '#666',
+                    fontWeight: 'bold',
+                    cursor: 'default'
+                }
+            });
+
+            // Update value style based on whether it differs from default
+            const updateValueStyle = (currentValue) => {
+                const isDifferent = Math.abs(currentValue - defaultValue) > 0.001;
+                $value.css({
+                    cursor: isDifferent ? 'pointer' : 'default',
+                    color: isDifferent ? '#2563eb' : '#666',
+                    textDecoration: isDifferent ? 'underline' : 'none'
+                });
+            };
+
+            updateValueStyle(value);
+
+            // Make value clickable to reset
+            $value.on('click', () => {
+                if (Math.abs(parseFloat($slider.val()) - defaultValue) > 0.001) {
+                    $slider.val(defaultValue).trigger('input');
+                    if (resetCallback) resetCallback();
+                }
+            });
+
+            $labelRow.append($labelWithIcon, $value);
+
+            const $slider = $('<input>', {
+                type: 'range',
+                id: sliderId,
+                min, max, step, value,
+                css: { width: '100%' }
+            });
+
+            $container.append($labelRow, $slider);
+            return { $container, $slider, $value, updateValueStyle };
+        };
+
+        // CAMERA SECTION
+        const $cameraSection = $('<div>', {
+            css: {
+                marginBottom: '20px',
+                paddingBottom: '15px',
+                borderBottom: '1px solid #e5e5e5'
+            }
+        });
+
+        const $cameraHeader = $('<div>', {
+            css: {
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '12px',
+                gap: '10px'
+            }
+        });
+
+        const $cameraHeading = $('<h4>', {
+            text: 'Camera',
+            css: {
+                margin: 0,
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: '#333',
+                flexShrink: 0
+            }
+        });
+
+        const $cameraResetButton = $('<button>', {
+            text: 'Reset',
+            css: {
+                padding: '2px 8px',
+                fontSize: '11px',
+                backgroundColor: '#f8f8f8',
+                border: '1px solid #d0d0d0',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                color: '#333'
+            }
+        });
+
+        // Define camera defaults
+        const cameraDefaults = {
+            bearing: 0,
+            pitch: 0,
+            fov: 0.643
+        };
+
+        // Function to check if camera is at defaults
+        const isCameraAtDefaults = () => {
+            return Math.abs(this._bearing - cameraDefaults.bearing) < 0.1 &&
+                   Math.abs(this._pitch - cameraDefaults.pitch) < 0.1 &&
+                   Math.abs(this._fov - cameraDefaults.fov) < 0.001;
+        };
+
+        // Update camera reset button visibility
+        const updateCameraResetVisibility = () => {
+            $cameraResetButton.css('display', isCameraAtDefaults() ? 'none' : 'block');
+        };
+
+        $cameraHeader.append($cameraHeading, $cameraResetButton);
+
+        // Create sliders for camera controls
+        const bearingControl = createSliderControl('Rotation', 'arrow-counterclockwise', 0, 360, 1, this._bearing, 'terrain-3d-bearing-value', 'terrain-3d-bearing-slider', v => v.toFixed(0) + '°', cameraDefaults.bearing, updateCameraResetVisibility);
+        const pitchControl = createSliderControl('Tilt', 'chevron-bar-expand', 0, 85, 1, this._pitch, 'terrain-3d-pitch-value', 'terrain-3d-pitch-slider', v => v.toFixed(0) + '°', cameraDefaults.pitch, updateCameraResetVisibility);
+        const fovControl = createSliderControl('Perspective', 'arrows-expand-vertical', 0.1, 1.5, 0.01, this._fov, 'terrain-3d-fov-value', 'terrain-3d-fov-slider', v => (v * (180 / Math.PI)).toFixed(1) + '°', cameraDefaults.fov, updateCameraResetVisibility);
+
+        $cameraSection.append($cameraHeader, bearingControl.$container, pitchControl.$container, fovControl.$container);
+
+        // Set initial visibility
+        updateCameraResetVisibility();
+
+        // TERRAIN SECTION
+        const $terrainSection = $('<div>', {
+            css: {
+                marginBottom: '20px',
+                paddingBottom: '15px',
+                borderBottom: '1px solid #e5e5e5'
+            }
+        });
+
+        const $terrainHeader = $('<div>', {
+            css: {
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '12px',
+                gap: '10px'
+            }
+        });
+
+        const $terrainHeading = $('<h4>', {
+            text: 'Terrain',
+            css: {
+                margin: 0,
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: '#333',
+                flexShrink: 0
+            }
+        });
+
+        const $terrainResetButton = $('<button>', {
+            text: 'Reset',
+            css: {
+                padding: '2px 8px',
+                fontSize: '11px',
+                backgroundColor: '#f8f8f8',
+                border: '1px solid #d0d0d0',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                color: '#333'
+            }
+        });
+
+        // Define terrain defaults
+        const terrainDefaults = {
+            source: 'mapbox',
+            exaggeration: this.options.initialExaggeration,
+            wireframe: false
+        };
+
+        // Function to check if terrain is at defaults
+        const isTerrainAtDefaults = () => {
+            return this._terrainSource === terrainDefaults.source &&
+                   Math.abs(this._exaggeration - terrainDefaults.exaggeration) < 0.01 &&
+                   this._showWireframe === terrainDefaults.wireframe;
+        };
+
+        // Update terrain reset button visibility
+        const updateTerrainResetVisibility = () => {
+            $terrainResetButton.css('display', isTerrainAtDefaults() ? 'none' : 'block');
+        };
+
+        $terrainHeader.append($terrainHeading, $terrainResetButton);
+
+        $terrainSection.append($terrainHeader, $checkboxContainer, $terrainSourceContainer);
+
+        // Terrain controls container (shown when enabled)
+        const $terrainControls = $('<div>', {
+            id: 'terrain-3d-controls-container',
+            css: { display: this._enabled ? 'block' : 'none' }
+        });
+
+        const exaggerationControl = createSliderControl('Vertical Scale', 'arrow-bar-up', this.options.minExaggeration, this.options.maxExaggeration, this.options.step, this._exaggeration, 'terrain-3d-exaggeration-value', 'terrain-3d-exaggeration-slider', v => v.toFixed(1), terrainDefaults.exaggeration, updateTerrainResetVisibility);
+
+        $terrainControls.append(exaggerationControl.$container, $wireframeContainer);
+        $terrainSection.append($terrainControls);
+
+        // Set initial visibility
+        updateTerrainResetVisibility();
+
+        // MORE CAMERA OPTIONS (collapsible)
+        const $moreOptionsContainer = $('<div>', {
+            css: { marginTop: '10px' }
+        });
+
+        const $moreOptionsHeader = $('<div>', {
+            css: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                padding: '8px 0',
+                fontSize: '13px',
+                fontWeight: '500',
+                color: '#666',
+                userSelect: 'none'
+            }
+        });
+
+        const $moreOptionsIcon = $('<span>', {
+            text: '▸',
+            css: {
+                fontSize: '10px',
+                transition: 'transform 0.2s ease'
+            }
+        });
+
+        const $moreOptionsLabel = $('<span>', {
+            text: 'More Camera Options'
+        });
+
+        $moreOptionsHeader.append($moreOptionsIcon, $moreOptionsLabel);
+
+        const $moreContent = $('<div>', {
+            css: {
+                display: 'none',
+                paddingTop: '10px'
+            }
+        });
+        $moreContent.append($animateContainer, $fogContainer, $soundContainer);
+
+        $moreOptionsContainer.append($moreOptionsHeader, $moreContent);
+
+        // Toggle handler
+        $moreOptionsHeader.on('click', () => {
+            const isVisible = $moreContent.is(':visible');
+            $moreContent.slideToggle(200);
+            $moreOptionsIcon.css('transform', isVisible ? 'rotate(0deg)' : 'rotate(90deg)');
+        });
+
+        // Assemble all sections into scrollable content
+        $scrollContent.append($title, $cameraSection, $terrainSection, $moreOptionsContainer);
 
         // Close button
         const $closeButton = $('<button>', {
+            class: 'terrain-3d-close-button',
             text: '×',
             css: {
                 position: 'absolute',
@@ -437,36 +663,29 @@ export class Terrain3DControl {
                 padding: '0',
                 width: '20px',
                 height: '20px',
-                lineHeight: '1'
+                lineHeight: '1',
+                zIndex: '10'
             }
         });
 
-        // Reset button (placed at the bottom of the panel)
-        const $resetButton = $('<button>', {
-            text: 'Reset to Defaults',
-            css: {
-                width: '100%',
-                marginTop: '15px',
-                padding: '8px',
-                backgroundColor: '#f0f0f0',
-                border: '1px solid #ccc',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#333'
-            }
-        });
+        this._panel.append($closeButton, $scrollContent);
 
-        // Assemble panel
-        $content.append($title, $terrainSourceContainer, $animateContainer, $fogContainer, $checkboxContainer, $sliderContainer, $resetButton);
-        this._panel.append($closeButton, $content);
+        // Update slider references for event handlers
+        const $bearingSlider = bearingControl.$slider;
+        const $bearingValue = bearingControl.$value;
+        const $pitchSlider = pitchControl.$slider;
+        const $pitchValue = pitchControl.$value;
+        const $fovSlider = fovControl.$slider;
+        const $fovValue = fovControl.$value;
+        const $exaggerationSlider = exaggerationControl.$slider;
+        const $exaggerationValue = exaggerationControl.$value;
 
         // Add event handlers
         $terrainSourceSelect.on('change', (e) => {
             this._terrainSource = e.target.value;
             this._updateTerrain();
             this._updateTerrainSourceURLParameter();
+            updateTerrainResetVisibility();
         });
 
         $animateCheckbox.on('change', (e) => {
@@ -487,18 +706,21 @@ export class Terrain3DControl {
         $wireframeCheckbox.on('change', (e) => {
             this._showWireframe = e.target.checked;
             this._updateWireframe();
+            updateTerrainResetVisibility();
         });
 
         $checkbox.on('change', (e) => {
             this._enabled = e.target.checked;
-            // Show/hide slider container (which includes wireframe checkbox) based on checkbox state
-            $sliderContainer.css('display', this._enabled ? 'block' : 'none');
+            // Show/hide terrain controls based on checkbox state
+            $terrainControls.css('display', this._enabled ? 'block' : 'none');
             this._updateTerrain();
         });
 
-        $slider.on('input', (e) => {
+        $exaggerationSlider.on('input', (e) => {
             this._exaggeration = parseFloat(e.target.value);
-            $sliderValue.text(this._exaggeration.toFixed(1));
+            $exaggerationValue.text(this._exaggeration.toFixed(1));
+            exaggerationControl.updateValueStyle(this._exaggeration);
+            updateTerrainResetVisibility();
             if (this._enabled) {
                 this._updateTerrain();
             }
@@ -507,18 +729,73 @@ export class Terrain3DControl {
         $fovSlider.on('input', (e) => {
             this._fov = parseFloat(e.target.value);
             $fovValue.text((this._fov * (180 / Math.PI)).toFixed(1) + '°');
+            fovControl.updateValueStyle(this._fov);
+            updateCameraResetVisibility();
             this._updateFov();
         });
 
-        $resetButton.on('click', () => {
-            this._resetToDefaults();
+        $bearingSlider.on('input', (e) => {
+            this._bearing = parseFloat(e.target.value);
+            $bearingValue.text(this._bearing.toFixed(0) + '°');
+            bearingControl.updateValueStyle(this._bearing);
+            updateCameraResetVisibility();
+            this._updateBearing();
         });
 
-        $resetButton.on('mouseenter', function() {
+        $pitchSlider.on('input', (e) => {
+            this._pitch = parseFloat(e.target.value);
+            $pitchValue.text(this._pitch.toFixed(0) + '°');
+            pitchControl.updateValueStyle(this._pitch);
+            updateCameraResetVisibility();
+            this._updatePitch();
+        });
+
+        // Camera reset button
+        $cameraResetButton.on('click', () => {
+            this.setBearing(cameraDefaults.bearing);
+            this.setPitch(cameraDefaults.pitch);
+            this.setFov(cameraDefaults.fov);
+            // Update sliders and values
+            $bearingSlider.val(cameraDefaults.bearing);
+            $bearingValue.text(cameraDefaults.bearing.toFixed(0) + '°');
+            bearingControl.updateValueStyle(cameraDefaults.bearing);
+            $pitchSlider.val(cameraDefaults.pitch);
+            $pitchValue.text(cameraDefaults.pitch.toFixed(0) + '°');
+            pitchControl.updateValueStyle(cameraDefaults.pitch);
+            $fovSlider.val(cameraDefaults.fov);
+            $fovValue.text((cameraDefaults.fov * (180 / Math.PI)).toFixed(1) + '°');
+            fovControl.updateValueStyle(cameraDefaults.fov);
+            updateCameraResetVisibility();
+        });
+
+        $cameraResetButton.on('mouseenter', function() {
             $(this).css('backgroundColor', '#e0e0e0');
         });
 
-        $resetButton.on('mouseleave', function() {
+        $cameraResetButton.on('mouseleave', function() {
+            $(this).css('backgroundColor', '#f0f0f0');
+        });
+
+        // Terrain reset button
+        $terrainResetButton.on('click', () => {
+            this.setTerrainSource(terrainDefaults.source);
+            this.setEnabled(true);
+            this.setExaggeration(terrainDefaults.exaggeration);
+            this.setWireframe(terrainDefaults.wireframe);
+            // Update UI
+            $terrainSourceSelect.val(terrainDefaults.source);
+            $exaggerationSlider.val(terrainDefaults.exaggeration);
+            $exaggerationValue.text(terrainDefaults.exaggeration.toFixed(1));
+            exaggerationControl.updateValueStyle(terrainDefaults.exaggeration);
+            $wireframeCheckbox.prop('checked', terrainDefaults.wireframe);
+            updateTerrainResetVisibility();
+        });
+
+        $terrainResetButton.on('mouseenter', function() {
+            $(this).css('backgroundColor', '#e0e0e0');
+        });
+
+        $terrainResetButton.on('mouseleave', function() {
             $(this).css('backgroundColor', '#f0f0f0');
         });
 
@@ -667,7 +944,7 @@ export class Terrain3DControl {
             if (this._enabled) {
                 url.searchParams.set('terrain', this._exaggeration.toString());
             } else {
-                url.searchParams.set('terrain', '0'); // Set to 0 when disabled
+                url.searchParams.delete('terrain');
             }
 
             // Update URL without reloading the page
@@ -773,6 +1050,24 @@ export class Terrain3DControl {
         this._updateFovURLParameter();
     }
 
+    _updateBearing() {
+        if (!this._map) return;
+
+        this._map.setBearing(this._bearing);
+
+        // Update URL parameter
+        this._updateBearingURLParameter();
+    }
+
+    _updatePitch() {
+        if (!this._map) return;
+
+        this._map.setPitch(this._pitch);
+
+        // Update URL parameter
+        this._updatePitchURLParameter();
+    }
+
     _resetToDefaults() {
         // Reset all values to defaults
         this.setTerrainSource('mapbox');
@@ -783,6 +1078,8 @@ export class Terrain3DControl {
         this.setWireframe(false);
         this.setVisualizeSound(false);
         this.setFov(0.643);
+        this.setBearing(0);
+        this.setPitch(0);
     }
 
     _updateWireframeURLParameter() {
@@ -825,6 +1122,54 @@ export class Terrain3DControl {
                 url.searchParams.set('fov', this._fov.toFixed(3));
             } else {
                 url.searchParams.delete('fov');
+            }
+
+            // Update URL without reloading the page
+            window.history.replaceState({}, '', url);
+        }
+    }
+
+    _updateBearingURLParameter() {
+        // Skip URL updates during initialization to prevent encoding issues
+        if (this._initializing) {
+            return;
+        }
+
+        // Use URL API if available, otherwise fall back to direct URL manipulation
+        if (window.urlManager && window.urlManager.updateBearingParam) {
+            window.urlManager.updateBearingParam(this._bearing);
+        } else {
+            // Fallback to direct URL manipulation
+            const url = new URL(window.location);
+            // Only set if not default (0 is default)
+            if (Math.abs(this._bearing) > 0.1) {
+                url.searchParams.set('bearing', this._bearing.toFixed(0));
+            } else {
+                url.searchParams.delete('bearing');
+            }
+
+            // Update URL without reloading the page
+            window.history.replaceState({}, '', url);
+        }
+    }
+
+    _updatePitchURLParameter() {
+        // Skip URL updates during initialization to prevent encoding issues
+        if (this._initializing) {
+            return;
+        }
+
+        // Use URL API if available, otherwise fall back to direct URL manipulation
+        if (window.urlManager && window.urlManager.updatePitchParam) {
+            window.urlManager.updatePitchParam(this._pitch);
+        } else {
+            // Fallback to direct URL manipulation
+            const url = new URL(window.location);
+            // Only set if not default (0 is default)
+            if (Math.abs(this._pitch) > 0.1) {
+                url.searchParams.set('pitch', this._pitch.toFixed(0));
+            } else {
+                url.searchParams.delete('pitch');
             }
 
             // Update URL without reloading the page
@@ -882,15 +1227,15 @@ export class Terrain3DControl {
     setEnabled(enabled) {
         this._enabled = enabled;
         $('#terrain-3d-enabled').prop('checked', enabled);
-        // Show/hide slider container (which includes wireframe checkbox) based on enabled state
-        $('.terrain-3d-panel input[type="range"]').closest('div').css('display', enabled ? 'block' : 'none');
+        // Show/hide terrain controls container based on enabled state
+        $('#terrain-3d-controls-container').css('display', enabled ? 'block' : 'none');
         this._updateTerrain();
     }
 
     setExaggeration(exaggeration) {
         this._exaggeration = Math.max(this.options.minExaggeration,
             Math.min(this.options.maxExaggeration, exaggeration));
-        $('input[type="range"]', this._panel).first().val(this._exaggeration);
+        $('#terrain-3d-exaggeration-slider').val(this._exaggeration);
         $('#terrain-3d-exaggeration-value').text(this._exaggeration.toFixed(1));
         if (this._enabled) {
             this._updateTerrain();
@@ -967,6 +1312,29 @@ export class Terrain3DControl {
 
     getFov() {
         return this._fov;
+    }
+
+    setBearing(bearing) {
+        this._bearing = bearing % 360;
+        if (this._bearing < 0) this._bearing += 360;
+        $('#terrain-3d-bearing-slider').val(this._bearing);
+        $('#terrain-3d-bearing-value').text(this._bearing.toFixed(0) + '°');
+        this._updateBearing();
+    }
+
+    getBearing() {
+        return this._bearing;
+    }
+
+    setPitch(pitch) {
+        this._pitch = Math.max(0, Math.min(85, pitch));
+        $('#terrain-3d-pitch-slider').val(this._pitch);
+        $('#terrain-3d-pitch-value').text(this._pitch.toFixed(0) + '°');
+        this._updatePitch();
+    }
+
+    getPitch() {
+        return this._pitch;
     }
 
     async _updateAudioVisualization() {
@@ -1117,6 +1485,8 @@ export class Terrain3DControl {
         const fogParam = urlParams.get('fog');
         const soundParam = urlParams.get('sound');
         const fovParam = urlParams.get('fov');
+        const bearingParam = urlParams.get('bearing');
+        const pitchParam = urlParams.get('pitch');
 
         // Handle terrain source parameter first
         if (terrainSourceParam && this._terrainSources[terrainSourceParam]) {
@@ -1138,6 +1508,9 @@ export class Terrain3DControl {
                     this.setEnabled(true);
                 }
             }
+        } else {
+            // No terrain parameter in URL - keep terrain disabled
+            this.setEnabled(false);
         }
 
         // Handle animate parameter
@@ -1174,6 +1547,30 @@ export class Terrain3DControl {
             if (!isNaN(fov) && fov >= 0.1 && fov <= 1.5) {
                 this.setFov(fov);
             }
+        }
+
+        // Handle bearing parameter
+        if (bearingParam) {
+            const bearing = parseFloat(bearingParam);
+            if (!isNaN(bearing)) {
+                this.setBearing(bearing);
+            }
+        } else if (this._map) {
+            this._bearing = this._map.getBearing();
+            $('#terrain-3d-bearing-slider').val(this._bearing);
+            $('#terrain-3d-bearing-value').text(this._bearing.toFixed(0) + '°');
+        }
+
+        // Handle pitch parameter
+        if (pitchParam) {
+            const pitch = parseFloat(pitchParam);
+            if (!isNaN(pitch) && pitch >= 0 && pitch <= 85) {
+                this.setPitch(pitch);
+            }
+        } else if (this._map) {
+            this._pitch = this._map.getPitch();
+            $('#terrain-3d-pitch-slider').val(this._pitch);
+            $('#terrain-3d-pitch-value').text(this._pitch.toFixed(0) + '°');
         }
 
         // Clear initialization flag to allow normal URL updates
