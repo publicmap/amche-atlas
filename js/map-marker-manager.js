@@ -4,6 +4,7 @@
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
 import { FeatureDisplayRenderer } from './feature-display-renderer.js';
+import { LayerOrderManager } from './layer-order-manager.js';
 
 export class MapMarkerManager {
     constructor(map, stateManager, mapboxAPI = null) {
@@ -131,6 +132,26 @@ export class MapMarkerManager {
         const $groupControl = $(window.layerControl._sourceControls[groupIndex]);
         const $toggle = $groupControl.find('.toggle-switch input[type="checkbox"]');
         return $toggle.length > 0 && $toggle.prop('checked');
+    }
+
+    /**
+     * Get all active layers in the same order as inspector display
+     */
+    _getAllActiveLayersInInspectorOrder() {
+        if (!window.layerControl?._state?.groups) {
+            return [];
+        }
+
+        const activeLayers = [];
+        window.layerControl._state.groups.forEach((group, index) => {
+            const isActive = this._isLayerActive(index);
+            if (isActive && group.id) {
+                activeLayers.push(group);
+            }
+        });
+
+        const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(activeLayers);
+        return [...overlays, ...basemaps];
     }
 
     _handleSelection(data) {
@@ -614,12 +635,8 @@ export class MapMarkerManager {
             groupedFeatures.get(layerId).push(f);
         });
 
-        // Get active raster layers in current view (same as inspector)
-        const activeLayers = this._getActiveLayersInView();
-        const rasterLayers = activeLayers.filter(layer => {
-            const rasterTypes = ['tms', 'wmts', 'img', 'raster-style-layer'];
-            return rasterTypes.includes(layer.type);
-        });
+        // Get all active layers in inspector display order
+        const allActiveLayers = this._getAllActiveLayersInInspectorOrder();
 
         // Get atlas metadata for badges
         const getAtlasBadge = (layerConfig) => {
@@ -764,9 +781,9 @@ export class MapMarkerManager {
         const showPrevButton = totalMarkers > 1 && markerNumber > 1;
         const showNextButton = totalMarkers > 1 && markerNumber < totalMarkers;
 
-        // Generate layer thumbnails HTML for raster layers in view
+        // Generate layer thumbnails HTML for all active layers
         let layerThumbnailsHTML = '';
-        rasterLayers.forEach(layer => {
+        allActiveLayers.forEach(layer => {
             layerThumbnailsHTML += `
                 <div class="layer-thumbnail-container" data-layer-id="${layer.id}" style="
                     width: 24px;
