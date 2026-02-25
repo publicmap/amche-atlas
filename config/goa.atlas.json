@@ -2488,7 +2488,8 @@
     },
     {
       "title": "Draft Goa CZMP 2019 Coastal Landuse Map (1:25K)",
-      "headerImage": "assets/map-layers/goa/czmp.png",
+      "headerImage": "assets/map-layers/goa/czmp.jpg",
+      "legendImage": "assets/map-layers/goa/2019-czmp-coastal-landuse-legend.png",
       "description": "Draft Goa Coastal Zone Management Plan 2019 showing existing coastal landuse prepared by the National Centre for Earth Science Studies at 1:25000 scale per <a href='https://environmentclearance.nic.in/writereaddata/CRZ_Notifications/CRZ_Notification_2019/0.pdf'>CRZ 2019 Notification</a>. Read the <a href='https://drive.google.com/drive/folders/1PinhVq3BLJl4FOAePXjdBdaC1f-nNAqG'>Draft CZMP Report</a> for more details.",
       "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>Coastal Landuse, CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href=\"https://datameet.org\" target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
       "type": "tms",
@@ -2514,7 +2515,7 @@
     },
     {
       "title": "Draft Goa CZMP 2019 (1:4K)",
-      "headerImage": "assets/map-layers/goa/czmp.png",
+      "headerImage": "assets/map-layers/goa/czmp.jpg",
       "legendImage": "assets/map-layers/goa/2019-czmp-legend.png",
       "description": "Draft Goa Coastal Zone Management Plan 2019 prepared by the National Centre for Earth Science Studies at 1:4000 scale per <a href='https://environmentclearance.nic.in/writereaddata/CRZ_Notifications/CRZ_Notification_2019/0.pdf'>CRZ 2019 Notification</a>. Read the <a href='https://drive.google.com/drive/folders/1PinhVq3BLJl4FOAePXjdBdaC1f-nNAqG'>Draft CZMP Report</a> for more details.",
       "attribution": "<a href='https://drive.google.com/drive/folders/1C62y8vFp7Q9Tb2EvZoIobDUkhoj4-Odb'>CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href=\"https://datameet.org\" target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
@@ -2542,7 +2543,7 @@
     {
       "title": "Goa CZMP 2011",
       "description": "Coastal Zone Management Plan 2011. Plotwise details of structures existing between 1991-2006 within the CRZ is available in <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>this report</a>.",
-      "headerImage": "assets/map-layers/goa/czmp.png",
+      "headerImage": "assets/map-layers/goa/czmp.jpg",
       "legendImage": "assets/map-layers/goa/2011-czmp-legend.png",
       "type": "tms",
       "id": "2011-czmp",
