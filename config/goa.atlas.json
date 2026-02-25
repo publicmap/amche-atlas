@@ -2487,9 +2487,34 @@
       "initiallyChecked": false
     },
     {
+      "title": "Draft Goa CZMP 2019 Coastal Landuse Map (1:25K)",
+      "description": "Draft Goa Coastal Zone Management Plan 2019 showing existing coastal landuse prepared by the National Centre for Earth Science Studies at 1:25000 scale per <a href='https://environmentclearance.nic.in/writereaddata/CRZ_Notifications/CRZ_Notification_2019/0.pdf'>CRZ 2019 Notification</a>. Read the <a href='https://drive.google.com/drive/folders/1PinhVq3BLJl4FOAePXjdBdaC1f-nNAqG'>Draft CZMP Report</a> for more details.",
+      "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>Coastal Landuse, CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href=\"https://datameet.org\" target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
+      "type": "tms",
+      "id": "draft-2019-czmp-landuse",
+      "url": "https://www.indianopenmaps.com/not-so-open/coastal/2019/goa/landuse/regulation/ncess/{z}/{x}/{y}.webp",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      }
+    },
+    {
       "title": "Draft Goa CZMP 2019 (1:4K)",
       "description": "Draft Goa Coastal Zone Management Plan 2019 prepared by the National Centre for Earth Science Studies at 1:4000 scale per <a href='https://environmentclearance.nic.in/writereaddata/CRZ_Notifications/CRZ_Notification_2019/0.pdf'>CRZ 2019 Notification</a>. Read the <a href='https://drive.google.com/drive/folders/1PinhVq3BLJl4FOAePXjdBdaC1f-nNAqG'>Draft CZMP Report</a> for more details.",
-      "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href=\"https://datameet.org\" target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
+      "attribution": "<a href='https://drive.google.com/drive/folders/1C62y8vFp7Q9Tb2EvZoIobDUkhoj4-Odb'>CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href=\"https://datameet.org\" target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
       "type": "tms",
       "id": "draft-2019-czmp",
       "url": "https://indianopenmaps.com/czmp/goa/2019/4k/ncess/{z}/{x}/{y}.webp",
@@ -2513,7 +2538,7 @@
     },
     {
       "title": "Goa CZMP 2011",
-      "description": "Coastal Zone Management Plan 2011",
+      "description": "Coastal Zone Management Plan 2011. Plotwise details of structures existing between 1991-2006 within the CRZ is available in <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>this report</a>.",
       "headerImage": "assets/map-layers/india/map-layer-czmp.png",
       "legendImage": "assets/map-layers/india/legend-czmp.png",
       "type": "tms",

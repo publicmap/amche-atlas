@@ -92,6 +92,13 @@ export class MapFeatureStateManager extends EventTarget {
 
         this._map.on('moveend', () => {
             this._isMapMoving = false;
+
+            // Trigger center hover for touch devices after map movement
+            if (this._isTouchDevice && this._centerHoverEnabled && this._selectedFeatures.size === 0) {
+                setTimeout(() => {
+                    this.triggerCenterHover();
+                }, 100);
+            }
         });
     }
 
