@@ -228,12 +228,12 @@
 
                 <!-- Tabs -->
                 <div class="flex border-b border-gray-300 mb-4">
-                    <button class="tab-button px-4 py-2 font-medium active" data-tab="url">Import from URL</button>
-                    <button class="tab-button px-4 py-2 font-medium" data-tab="upload">Upload File</button>
+                    <button class="tab-button px-4 py-2 font-medium active" data-tab="upload">Upload File</button>
+                    <button class="tab-button px-4 py-2 font-medium" data-tab="url">Import from URL</button>
                 </div>
 
                 <!-- Tab: Import from URL -->
-                <div class="tab-content active" id="tab-url">
+                <div class="tab-content" id="tab-url">
                     <div class="relative mb-2">
                         <input type="text" id="url-input"
                             placeholder="Enter URL to GeoJSON, CSV, KML, Vector tiles, Raster tiles, or MapWarper"
@@ -344,7 +344,7 @@ Click to try JSONKeeper example">
                 </div>
 
                 <!-- Tab: Upload File -->
-                <div class="tab-content" id="tab-upload">
+                <div class="tab-content active" id="tab-upload">
                     <input type="file" id="file-input" accept=".csv,.geojson,.json,.kml,.tif,.tiff,.png,.jpg,.jpeg"
                         class="w-full px-3 py-2 border border-gray-300 rounded mb-2">
 

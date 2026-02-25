@@ -937,6 +937,11 @@ export class MapBrowserControl {
         });
         queryParts.push('layers=' + encodeURIComponent(newLayersDecoded));
 
+        // Add zoom-to parameter if layer has bbox
+        if (config.bbox && Array.isArray(config.bbox) && config.bbox.length === 4) {
+            queryParts.push('zoomTo=' + config.id);
+        }
+
         finalUrl += '?' + queryParts.join('&');
         finalUrl += hash;
 

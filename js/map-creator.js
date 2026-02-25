@@ -1003,15 +1003,17 @@ export class MapCreator {
         const strokeWidth = $('#stroke-width').val();
 
         let dataUrl;
+        let useLocalStorage = false;
         const isExternalUrl = typeof this.currentDataSource === 'string' &&
             (this.currentDataSource.startsWith('http://') || this.currentDataSource.startsWith('https://'));
 
         if (isExternalUrl) {
             dataUrl = this.currentDataSource;
         } else {
-            const geojsonString = JSON.stringify(this.currentData);
-            const base64Data = btoa(unescape(encodeURIComponent(geojsonString)));
-            dataUrl = `data:application/json;base64,${base64Data}`;
+            // Use localStorage for uploaded files to avoid URL length limits
+            LayerConfigGenerator.storeGeoJSONData(layerId, this.currentData);
+            dataUrl = null;
+            useLocalStorage = true;
         }
 
         const style = this.generateMapboxStyle(this.currentGeometryType, fillColor, strokeColor, strokeWidth);
@@ -1031,7 +1033,6 @@ export class MapCreator {
             id: layerId,
             title: title,
             type: layerType,
-            url: dataUrl,
             initiallyChecked: false,
             style: style,
             inspect: {
@@ -1044,6 +1045,12 @@ export class MapCreator {
                 )
             }
         };
+
+        if (useLocalStorage) {
+            config.dataSource = 'localStorage';
+        } else {
+            config.url = dataUrl;
+        }
 
         if (description) {
             config.description = description;
@@ -1081,11 +1088,20 @@ export class MapCreator {
 
         const bbox = this.currentData.geojson ? this.calculateBBox(this.currentData.geojson) : null;
 
+        let useLocalStorage = false;
+        const isExternalUrl = typeof this.currentData.csvUrl === 'string' &&
+            (this.currentData.csvUrl.startsWith('http://') || this.currentData.csvUrl.startsWith('https://'));
+
+        if (!isExternalUrl && this.currentData.geojson) {
+            // Use localStorage for uploaded CSV files
+            LayerConfigGenerator.storeGeoJSONData(layerId, this.currentData.geojson);
+            useLocalStorage = true;
+        }
+
         const config = {
             id: layerId,
             title: title,
-            type: layerType,
-            url: this.currentData.csvUrl,
+            type: 'geojson',
             initiallyChecked: false,
             style: style,
             inspect: {
@@ -1098,6 +1114,13 @@ export class MapCreator {
                 )
             }
         };
+
+        if (useLocalStorage) {
+            config.dataSource = 'localStorage';
+        } else {
+            config.type = layerType;
+            config.url = this.currentData.csvUrl;
+        }
 
         if (description) {
             config.description = description;

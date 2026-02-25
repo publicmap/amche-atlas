@@ -5,6 +5,7 @@
 import { LayerOrderManager } from './layer-order-manager.js';
 import { DataUtils, GeoUtils } from './map-utils.js';
 import { KMLConverter } from './kml-converter.js';
+import { LayerConfigGenerator } from './layer-creator-ui.js';
 
 export class MapboxAPI {
     constructor(map, atlasConfig = {}) {
@@ -1295,6 +1296,15 @@ export class MapboxAPI {
             } else if (config.geojson !== undefined) {
                 // Support geojson property (can be null or a GeoJSON object)
                 dataSource = config.geojson ? this._processGeoJSONData(config.geojson) : { type: 'FeatureCollection', features: [] };
+            } else if (config.dataSource === 'localStorage') {
+                // Retrieve GeoJSON from localStorage
+                const storedData = LayerConfigGenerator.retrieveGeoJSONData(config.id);
+                if (storedData) {
+                    dataSource = this._processGeoJSONData(storedData);
+                } else {
+                    console.error(`GeoJSON data not found in localStorage for ${groupId}`);
+                    return false;
+                }
             } else if (config.url) {
                 if (KMLConverter.isKmlUrl(config.url)) {
                     try {
@@ -1346,6 +1356,16 @@ export class MapboxAPI {
         let geojson;
         if (config.data) {
             geojson = this._processGeoJSONData(config.data);
+        } else if (config.geojson !== undefined) {
+            geojson = config.geojson ? this._processGeoJSONData(config.geojson) : { type: 'FeatureCollection', features: [] };
+        } else if (config.dataSource === 'localStorage') {
+            const storedData = LayerConfigGenerator.retrieveGeoJSONData(config.id);
+            if (storedData) {
+                geojson = this._processGeoJSONData(storedData);
+            } else {
+                console.error(`GeoJSON data not found in localStorage for ${groupId}`);
+                return false;
+            }
         } else if (config.url) {
             try {
                 if (KMLConverter.isKmlUrl(config.url)) {
