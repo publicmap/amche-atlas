@@ -421,6 +421,7 @@ export class URLManager {
         let bearingParam = null;
         let pitchParam = null;
         let soundParam = null;
+        let exportParam = null;
         let selectedParam = null;
 
         // Handle layers parameter
@@ -633,6 +634,21 @@ export class URLManager {
             }
         }
 
+        // Handle export parameter
+        if (options.export !== undefined) {
+            const currentExportParam = urlParams.get('export');
+            if (options.export && typeof options.export === 'object') {
+                exportParam = JSON.stringify(options.export);
+                if (currentExportParam !== exportParam) {
+                    hasChanges = true;
+                }
+            } else if (options.export === null) {
+                if (currentExportParam !== null) {
+                    hasChanges = true;
+                }
+            }
+        }
+
         // Handle selected features parameter
         if (options.updateSelections && this.stateManager) {
             const newSelectedParam = this.serializeSelectionsForURL();
@@ -665,6 +681,7 @@ export class URLManager {
             otherParams.delete('bearing');
             otherParams.delete('pitch');
             otherParams.delete('sound');
+            otherParams.delete('export');
             otherParams.delete('selected');
 
             // Add other parameters first (these will be URL-encoded by URLSearchParams)
@@ -756,6 +773,12 @@ export class URLManager {
             const currentSound = soundParam || (options.sound === undefined ? urlParams.get('sound') : null);
             if (currentSound === 'true') {
                 params.push('sound=true');
+            }
+
+            // Add export parameter (either new or preserved from current URL)
+            const currentExport = exportParam || (options.export === undefined ? urlParams.get('export') : null);
+            if (currentExport && currentExport !== 'null') {
+                params.push('export=' + encodeURIComponent(currentExport));
             }
 
             // Add selected features parameter
@@ -1546,5 +1569,12 @@ export class URLManager {
      */
     updateSoundParam(visualizeSound) {
         this.updateURL({ sound: visualizeSound, updateLayers: false });
+    }
+
+    /**
+     * Update export parameter in URL
+     */
+    updateExportParam(exportSettings) {
+        this.updateURL({ export: exportSettings, updateLayers: false });
     }
 }

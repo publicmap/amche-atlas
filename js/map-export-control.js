@@ -15,6 +15,8 @@ export class MapExportControl {
         this._descriptionCustomized = false;
         this._moveendHandler = null;
         this._footerTemplateCache = null;
+        this._exportSettings = null;
+        this._isPanelOpen = false;
     }
 
     onAdd(map) {
@@ -44,6 +46,13 @@ export class MapExportControl {
             }
         };
         map.on('moveend', this._moveendHandler);
+
+        setTimeout(() => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('export')) {
+                this._show();
+            }
+        }, 500);
 
         return this._container;
     }
@@ -189,6 +198,11 @@ export class MapExportControl {
                     type: 'selected-features',
                     features: featuresWithViewFlag
                 }, '*');
+            } else if (type === 'export-settings-changed') {
+                this._exportSettings = event.data.settings;
+                if (this._isPanelOpen && window.urlManager) {
+                    window.urlManager.updateExportParam(this._exportSettings);
+                }
             }
         });
     }
@@ -307,10 +321,22 @@ export class MapExportControl {
 
     _show() {
         this._iframe.style.display = 'block';
+        this._isPanelOpen = true;
+
+        const urlSettings = this._parseExportURL();
+        if (urlSettings) {
+            this._exportSettings = urlSettings;
+        }
+
+        if (this._exportSettings && window.urlManager) {
+            window.urlManager.updateExportParam(this._exportSettings);
+        }
+
         setTimeout(() => {
             if (this._iframe && this._iframe.contentWindow) {
                 this._iframe.contentWindow.postMessage({
-                    type: 'export-opened'
+                    type: 'export-opened',
+                    initialSettings: this._exportSettings
                 }, '*');
             }
         }, 50);
@@ -319,6 +345,12 @@ export class MapExportControl {
     _hide() {
         this._iframe.style.display = 'none';
         this._frame.hide();
+        this._isPanelOpen = false;
+
+        if (window.urlManager) {
+            window.urlManager.updateExportParam(null);
+        }
+
         if (this._iframe && this._iframe.contentWindow) {
             this._iframe.contentWindow.postMessage({
                 type: 'export-closed'
@@ -2714,6 +2746,23 @@ export class MapExportControl {
 
             default:
                 return false;
+        }
+    }
+
+    _parseExportURL() {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const exportParam = urlParams.get('export');
+
+            if (!exportParam) {
+                return null;
+            }
+
+            const settings = JSON.parse(decodeURIComponent(exportParam));
+            return settings;
+        } catch (e) {
+            console.warn('Failed to parse export URL parameter:', e);
+            return null;
         }
     }
 }

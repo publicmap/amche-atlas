@@ -954,6 +954,9 @@
                         updateButtonProgress(event.data.percent, event.data.message);
                     }
                 } else if (event.data.type === 'export-opened') {
+                    if (event.data.initialSettings) {
+                        applyInitialSettings(event.data.initialSettings);
+                    }
                     updateAdvancedOptions();
                 } else if (event.data.type === 'export-closed') {
                     // Iframe is being hidden
@@ -2001,6 +2004,160 @@
                 }
             }
         }
+
+        function serializeCurrentSettings() {
+            const settings = {
+                format: currentFormat
+            };
+
+            if (currentFormat === 'pdf' || currentFormat === 'geotiff' || currentFormat === 'png' || currentFormat === 'jpeg') {
+                settings.pageSize = $('#page-size').val();
+                settings.orientation = $('input[name="orientation"]:checked').val();
+                settings.dpi = parseInt($('#dpi-select').val());
+
+                if (settings.pageSize === 'Custom') {
+                    settings.customWidth = parseFloat($('#custom-width').val());
+                    settings.customHeight = parseFloat($('#custom-height').val());
+                }
+
+                if (currentFormat === 'pdf') {
+                    settings.includeLegend = $('#include-legend').is(':checked');
+                }
+            }
+
+            if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv' || currentFormat === 'dxf') {
+                settings.exportSelectedOnly = $('#export-selected-only').is(':checked');
+            }
+
+            if (currentFormat === 'csv') {
+                settings.geometryField = $('input[name="csv-geom"]:checked').val();
+            }
+
+            if (currentFormat === 'dxf') {
+                settings.coordSystem = $('input[name="dxf-coords"]:checked').val();
+                settings.includeRaster = $('#dxf-include-raster').is(':checked');
+
+                if (settings.includeRaster) {
+                    settings.pageSize = $('#page-size').val();
+                    settings.orientation = $('input[name="orientation"]:checked').val();
+                    settings.dpi = parseInt($('#dpi-select').val());
+
+                    if (settings.pageSize === 'Custom') {
+                        settings.customWidth = parseFloat($('#custom-width').val());
+                        settings.customHeight = parseFloat($('#custom-height').val());
+                    }
+                }
+            }
+
+            if (currentFormat === 'style') {
+                settings.styleSpec = $('input[name="style-spec"]:checked').val();
+            }
+
+            return settings;
+        }
+
+        function sendSettingsUpdate() {
+            const settings = serializeCurrentSettings();
+            window.parent.postMessage({
+                type: 'export-settings-changed',
+                settings: settings
+            }, '*');
+        }
+
+        function applyInitialSettings(settings) {
+            if (!settings || !settings.format) return;
+
+            currentFormat = settings.format;
+
+            const useForMap = {
+                'link': 'link',
+                'jpeg': 'print',
+                'png': 'print',
+                'pdf': 'print',
+                'html': 'web',
+                'iframe': 'web',
+                'geojson': 'gis',
+                'kml': 'gis',
+                'geotiff': 'gis',
+                'csv': 'gis',
+                'style': 'gis',
+                'dxf': 'cad'
+            };
+
+            const useFor = useForMap[settings.format] || 'link';
+            if (useFor !== currentUseFor) {
+                currentUseFor = useFor;
+                $('#use-for-select').val(useFor);
+                updateFormatOptions();
+            }
+
+            if (settings.format !== 'link') {
+                $(`.format-button[data-format="${settings.format}"]`).click();
+            }
+
+            if (settings.pageSize) {
+                $('#page-size').val(settings.pageSize);
+                if (settings.pageSize === 'Custom' && settings.customWidth && settings.customHeight) {
+                    $('#custom-width').val(settings.customWidth);
+                    $('#custom-height').val(settings.customHeight);
+                    $('#custom-dimensions').show();
+                }
+                $('#page-size').trigger('change');
+            }
+
+            if (settings.orientation) {
+                $(`input[name="orientation"][value="${settings.orientation}"]`).prop('checked', true);
+            }
+
+            if (settings.dpi) {
+                $('#dpi-select').val(settings.dpi);
+            }
+
+            if (settings.includeLegend !== undefined) {
+                $('#include-legend').prop('checked', settings.includeLegend);
+            }
+
+            if (settings.exportSelectedOnly !== undefined) {
+                $('#export-selected-only').prop('checked', settings.exportSelectedOnly);
+            }
+
+            if (settings.geometryField) {
+                $(`input[name="csv-geom"][value="${settings.geometryField}"]`).prop('checked', true);
+            }
+
+            if (settings.coordSystem) {
+                $(`input[name="dxf-coords"][value="${settings.coordSystem}"]`).prop('checked', true);
+            }
+
+            if (settings.includeRaster !== undefined) {
+                $('#dxf-include-raster').prop('checked', settings.includeRaster);
+            }
+
+            if (settings.styleSpec) {
+                $(`input[name="style-spec"][value="${settings.styleSpec}"]`).prop('checked', true);
+            }
+
+            updateAdvancedOptions();
+        }
+
+        $(document).on('change', 'input, select, textarea', function() {
+            const id = $(this).attr('id');
+            const name = $(this).attr('name');
+
+            if (id === 'map-title' || id === 'map-description') {
+                return;
+            }
+
+            if (id === 'share-url-input' || $(this).hasClass('url-param-input') || $(this).hasClass('url-param-checkbox')) {
+                return;
+            }
+
+            sendSettingsUpdate();
+        });
+
+        $(document).on('click', '.format-button', function() {
+            setTimeout(sendSettingsUpdate, 100);
+        });
     </script>
 </body>
 
