@@ -1248,17 +1248,18 @@
     {
       "tags": [
         "3",
-        "regulatory"
+        "regulatory",
+        "coastal zone"
       ],
-      "title": "Notified Khazan Bunds",
-      "description": "Notified and private Khazan Bunds from Goa CZMP. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a>",
+      "title": "Draft Goa CZMP 2019 Khazan Bunds",
+      "description": "Khazan bunds priort to 1991 from Goa WRD. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a>",
       "type": "vector",
-      "id": "notified-bunds",
+      "id": "2019-czmp-bunds",
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=f7c37496-7c7d-484d-8339-bcb0f2e39c4b",
       "sourceLayer": "vector",
       "minzoom": 0,
       "maxzoom": 15,
-      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>CZMP 2011, Goa Coastal Zone Management Authority</a> - via <a href='https://www.maphub.co/map/f7c37496-7c7d-484d-8339-bcb0f2e39c4b'>Maphub</a>",
+      "attribution": "<a href='https://goawrd.gov.in/goakhazan.pdf'>Bund prior to 1991, WRD, Goa</a> - via <a href='https://www.maphub.co/map/f7c37496-7c7d-484d-8339-bcb0f2e39c4b'>Maphub</a>",
       "initiallyChecked": false,
       "style": {
         "text-field": [
@@ -1330,16 +1331,16 @@
       "tags": [
         "3",
         "regulatory",
-        "wetland"
+        "coastal zone"
       ],
-      "id": "notified-khazan",
-      "title": "Notified Khazan Lands",
-      "description": "Notified and protected Khazan Lands from Goa CZMP. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a> <br><small>The ground truthing of the Marginal bunds, sluice gates and the defended Khazan lands was carried out by the Water Resources Department, along with the Members of Bio Diversity, Surveyors of DSLR. Soil Conservation Engineers of the Agriculture department, Forest officials.</p><p>It is further certified that the ground truthing is carried with details enumerated on the Toposheets published by the Survey of India in the year 1964, Cadastral village maps published by the land survey department in the year 1972-76. The Khazan land, bunds sluice gates mapped by the village Panchayat were also used utilised for identification and ground truthing. Thus, the Bunds/Sluice gates and Khazan Lands shown in this map are verified and it is certified that the Bunds and Sluice gates shown in this map exist now and were constructed in the past, prior to the date of notification issued vide S. O. 114(E) dated 19th February 1999.</small>",
+      "id": "2019-czmp-khazan",
+      "title": "Draft Goa CZMP 2019 Khazan Lands",
+      "description": "Khazan lands from Goa WRD. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a> <br><small>The ground truthing of the Marginal bunds, sluice gates and the defended Khazan lands was carried out by the Water Resources Department, along with the Members of Bio Diversity, Surveyors of DSLR. Soil Conservation Engineers of the Agriculture department, Forest officials.</p><p>It is further certified that the ground truthing is carried with details enumerated on the Toposheets published by the Survey of India in the year 1964, Cadastral village maps published by the land survey department in the year 1972-76. The Khazan land, bunds sluice gates mapped by the village Panchayat were also used utilised for identification and ground truthing. Thus, the Bunds/Sluice gates and Khazan Lands shown in this map are verified and it is certified that the Bunds and Sluice gates shown in this map exist now and were constructed in the past, prior to the date of notification issued vide S. O. 114(E) dated 19th February 1999.</small>",
       "type": "vector",
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=c2f4f183-2526-4cbd-bc8b-985928a84222",
       "sourceLayer": "vector",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>CZMP 2011, Goa Coastal Zone Management Authority</a> - via <a href='https://www.maphub.co/map/ece88d0e-2c10-4b78-a163-904a4cf16dd4'>Maphub</a>",
+      "attribution": "<a href='https://goawrd.gov.in/goakhazan.pdf'>Khazan Land, WRD, Goa</a> - via <a href='https://www.maphub.co/map/ece88d0e-2c10-4b78-a163-904a4cf16dd4'>Maphub</a>",
       "style": {
         "fill-opacity": 0.5,
         "text-halo-color": "#b3ff0f",
@@ -1349,119 +1350,6 @@
       },
       "inspect": {
         "id": "fid"
-      }
-    },
-    {
-      "tags": [
-        "3",
-        "regulatory"
-      ],
-      "id": "crz-1a",
-      "title": "CRZ-1A Protected Areas",
-      "description": "Protected coastal features of mangroves, sand dunes, mudflats, salt pans, corals, nesting sites and archaeological sites falling under CRZ-1A zone from Goa CZMP. View <a href='https://drive.google.com/file/d/1uo4bHGPvci1uR3cMhzvke7LzF_onKqLK/view?usp=sharing'>Coastal Sand Dunes of Goa Report by NCSCM</a> - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a> for more information.",
-      "type": "vector",
-      "url": "https://indianopenmaps.com/not-so-open/coastal/regulation-zones/parivesh/{z}/{x}/{y}.pbf",
-      "sourceLayer": "Bharatmaps_Parivesh_CRZ_Regulatory_Zones",
-      "maxzoom": 14,
-      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>CZMP 2011, Goa Coastal Zone Management Authority</a> - via <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
-      "filter": [
-        "==",
-        [
-          "get",
-          "layer"
-        ],
-        "CRZ_I_A"
-      ],
-      "style": {
-        "text-field": [
-          "to-string",
-          [
-            "get",
-            "crz_class"
-          ]
-        ],
-        "line-color": "black",
-        "symbol-sort-key": [
-          "match",
-          [
-            "get",
-            "crz_class"
-          ],
-          "Archaeological and heritage sites - CRZ IA",
-          1,
-          [
-            "Nesting Grounds of Birds - CRZ IA",
-            "Turtle Nesting Grounds - CRZ IA"
-          ],
-          2,
-          [
-            "Corals and coral reefs - CRZ IA",
-            "Salt Marsh - CRZ IA"
-          ],
-          3,
-          "Sand Dunes - CRZ IA",
-          4,
-          "Mudflats - CRZ IA",
-          5,
-          "Mangroves - CRZ IA",
-          6,
-          10
-        ],
-        "text-halo-color": [
-          "match",
-          [
-            "get",
-            "crz_class"
-          ],
-          "Archaeological and heritage sites - CRZ IA",
-          "red",
-          "Mangroves - CRZ IA",
-          "green",
-          "Mudflats - CRZ IA",
-          "brown",
-          "Sand Dunes - CRZ IA",
-          "orange",
-          "Salt Marsh - CRZ IA",
-          "deepskyblue",
-          "Corals and coral reefs - CRZ IA",
-          "magenta",
-          [
-            "Nesting Grounds of Birds - CRZ IA",
-            "Turtle Nesting Grounds - CRZ IA"
-          ],
-          "blue",
-          "black"
-        ],
-        "fill-color": [
-          "match",
-          [
-            "get",
-            "crz_class"
-          ],
-          "Archaeological and heritage sites - CRZ IA",
-          "red",
-          "Mangroves - CRZ IA",
-          "green",
-          "Mudflats - CRZ IA",
-          "brown",
-          "Sand Dunes - CRZ IA",
-          "orange",
-          "Salt Marsh - CRZ IA",
-          "deepskyblue",
-          "Corals and coral reefs - CRZ IA",
-          "magenta",
-          [
-            "Nesting Grounds of Birds - CRZ IA",
-            "Turtle Nesting Grounds - CRZ IA"
-          ],
-          "blue",
-          "black"
-        ]
-      },
-      "inspect": {
-        "id": "st_length(shape)",
-        "title": "crz_class",
-        "label": "Name"
       }
     },
     {
@@ -2487,6 +2375,11 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "3",
+        "regulatory",
+        "coastal zone"
+      ],
       "title": "Draft Goa CZMP 2019 Coastal Landuse Map (1:25K)",
       "headerImage": "assets/map-layers/goa/czmp.jpg",
       "legendImage": "assets/map-layers/goa/2019-czmp-coastal-landuse-legend.png",
@@ -2514,6 +2407,11 @@
       }
     },
     {
+      "tags": [
+        "3",
+        "regulatory",
+        "coastal zone"
+      ],
       "title": "Draft Goa CZMP 2019 (1:4K)",
       "headerImage": "assets/map-layers/goa/czmp.jpg",
       "legendImage": "assets/map-layers/goa/2019-czmp-legend.png",
@@ -2541,6 +2439,11 @@
       }
     },
     {
+      "tags": [
+        "3",
+        "regulatory",
+        "coastal zone"
+      ],
       "title": "Goa CZMP 2011",
       "description": "Coastal Zone Management Plan 2011. Plotwise details of structures existing between 1991-2006 within the CRZ is available in <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>this report</a>.",
       "headerImage": "assets/map-layers/goa/czmp.jpg",
@@ -2551,10 +2454,6 @@
       "attribution": "<a href='https://czmp.ncscm.res.in/'>National Center For Sustainable Coastal Management</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "tags": [
-        "2",
-        "Masterplan"
-      ],
       "title": "Regional Development Plan for Goa 2021",
       "description": "Regional landuse plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
       "headerImage": "https://mapwarper.net/uploads/74193/thumb/siolim-marna.png",

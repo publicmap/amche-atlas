@@ -1276,6 +1276,11 @@
       }
     },
     {
+      "tags": [
+        "3",
+        "regulatory",
+        "coastal zone"
+      ],
       "title": "Coastal Regulation Zone Lines",
       "description": "Regulatory lines for Coastal Regulation Zones",
       "type": "vector",
@@ -1322,6 +1327,11 @@
       }
     },
     {
+      "tags": [
+        "3",
+        "regulatory",
+        "coastal zone"
+      ],
       "title": "Coastal Regulation Zones",
       "description": "Coastal Regulation Zones",
       "type": "vector",
@@ -1393,6 +1403,120 @@
         "fields": [
           "crz_class"
         ]
+      }
+    },
+    {
+      "tags": [
+        "3",
+        "regulatory",
+        "coastal zone"
+      ],
+      "id": "crz-1a",
+      "title": "CZMP 2011 Protected Areas",
+      "description": "CRZ 1A Zone of protected coastal features of mangroves, sand dunes, mudflats, salt pans, corals, nesting sites and archaeological sites falling under CRZ-1A zone from Goa CZMP. View <a href='https://drive.google.com/file/d/1uo4bHGPvci1uR3cMhzvke7LzF_onKqLK/view?usp=sharing'>Coastal Sand Dunes of Goa Report by NCSCM</a> - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a> for more information.",
+      "type": "vector",
+      "url": "https://indianopenmaps.com/not-so-open/coastal/regulation-zones/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "Bharatmaps_Parivesh_CRZ_Regulatory_Zones",
+      "maxzoom": 14,
+      "attribution": "<a href='https://bharatmapsparivesh.parivesh.nic.in/parivesh_bharatmaps/rest/services/parivesh2/CRZ2019/MapServer'>CRZ2019, Bharatmaps/Parivesh</a> - via <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
+      "filter": [
+        "==",
+        [
+          "get",
+          "layer"
+        ],
+        "CRZ_I_A"
+      ],
+      "style": {
+        "text-field": [
+          "to-string",
+          [
+            "get",
+            "crz_class"
+          ]
+        ],
+        "line-color": "black",
+        "symbol-sort-key": [
+          "match",
+          [
+            "get",
+            "crz_class"
+          ],
+          "Archaeological and heritage sites - CRZ IA",
+          1,
+          [
+            "Nesting Grounds of Birds - CRZ IA",
+            "Turtle Nesting Grounds - CRZ IA"
+          ],
+          2,
+          [
+            "Corals and coral reefs - CRZ IA",
+            "Salt Marsh - CRZ IA"
+          ],
+          3,
+          "Sand Dunes - CRZ IA",
+          4,
+          "Mudflats - CRZ IA",
+          5,
+          "Mangroves - CRZ IA",
+          6,
+          10
+        ],
+        "text-halo-color": [
+          "match",
+          [
+            "get",
+            "crz_class"
+          ],
+          "Archaeological and heritage sites - CRZ IA",
+          "red",
+          "Mangroves - CRZ IA",
+          "green",
+          "Mudflats - CRZ IA",
+          "brown",
+          "Sand Dunes - CRZ IA",
+          "orange",
+          "Salt Marsh - CRZ IA",
+          "deepskyblue",
+          "Corals and coral reefs - CRZ IA",
+          "magenta",
+          [
+            "Nesting Grounds of Birds - CRZ IA",
+            "Turtle Nesting Grounds - CRZ IA"
+          ],
+          "blue",
+          "black"
+        ],
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "crz_class"
+          ],
+          "Archaeological and heritage sites - CRZ IA",
+          "red",
+          "Mangroves - CRZ IA",
+          "green",
+          "Mudflats - CRZ IA",
+          "brown",
+          "Sand Dunes - CRZ IA",
+          "orange",
+          "Salt Marsh - CRZ IA",
+          "deepskyblue",
+          "Corals and coral reefs - CRZ IA",
+          "magenta",
+          [
+            "Nesting Grounds of Birds - CRZ IA",
+            "Turtle Nesting Grounds - CRZ IA"
+          ],
+          "blue",
+          "black"
+        ]
+      },
+      "inspect": {
+        "id": "st_length(shape)",
+        "title": "crz_class",
+        "label": "Name"
       }
     },
     {
@@ -1789,16 +1913,6 @@
       "id": "soi-open-2011",
       "url": "https://indianopenmaps.fly.dev/soi/osm/{z}/{x}/{y}.webp",
       "attribution": "<a href='https://surveyofindia.gov.in/pages/copyright-policy'>© Survey of India</a>, <a href='https://onlinemaps.surveyofindia.gov.in/'>Open Series Maps 2011</a> via <a href='https://ramseraph.github.io/opendata/maps/SOI/'>Datameet Community</a>"
-    },
-    {
-      "title": "Coastal Zone Management Plan",
-      "description": "Coastal Zone Management Plan 2019",
-      "headerImage": "assets/map-layers/india/map-layer-czmp.png",
-      "legendImage": "assets/map-layers/india/legend-czmp.png",
-      "type": "tms",
-      "id": "2019-czmp-map",
-      "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/goa/regulation/ncscm/{z}/{x}/{y}.webp",
-      "attribution": "<a href='https://czmp.ncscm.res.in/'>National Center For Sustainable Coastal Management</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
       "tags": [

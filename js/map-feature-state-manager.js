@@ -383,11 +383,20 @@ export class MapFeatureStateManager extends EventTarget {
     /**
      * Handle feature clicks (BATCH PROCESSING for overlapping features)
      * @param {Array} clickedFeatures - Array of {feature, layerId, lngLat} objects
+     * @param {Object} lngLat - Click coordinates (optional, for empty area clicks)
      */
-    handleFeatureClicks(clickedFeatures) {
+    handleFeatureClicks(clickedFeatures, lngLat = null) {
         if (!clickedFeatures || clickedFeatures.length === 0) {
-            // Click on empty area - clear all selections
-            this.clearAllSelections();
+            // Click on empty area - emit event for marker creation with layer info
+            if (lngLat) {
+                this._emitStateChange('empty-map-click', {
+                    lngLat,
+                    timestamp: Date.now()
+                });
+            } else {
+                // No coordinates provided, just clear selections
+                this.clearAllSelections();
+            }
             return;
         }
 

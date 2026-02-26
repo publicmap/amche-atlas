@@ -71,10 +71,10 @@
   "layers": [
     {
       "tags": [
-        "poi"
+        "Points Of Interest"
       ],
       "title": "Selected Points",
-      "description": "GeoJSON of selected points from the map.",
+      "description": "User selected points from the map.",
       "headerImage": null,
       "type": "geojson",
       "id": "selection",

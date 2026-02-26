@@ -1565,7 +1565,8 @@ export class MapFeatureControl {
             if (interactiveFeatures.length > 0) {
                 this._stateManager.handleFeatureClicks(interactiveFeatures);
             } else {
-                this._stateManager.clearAllSelections();
+                // Pass lngLat for empty map clicks to allow marker creation
+                this._stateManager.handleFeatureClicks([], e.lngLat);
             }
         });
 

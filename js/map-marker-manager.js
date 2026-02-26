@@ -40,6 +40,10 @@ export class MapMarkerManager {
                 this._handleSelection(data);
             }
 
+            if (eventType === 'empty-map-click') {
+                this._handleEmptyMapClick(data);
+            }
+
             if (eventType === 'features-batch-hover') {
                 this._handleBatchHover(data);
             }
@@ -178,6 +182,31 @@ export class MapMarkerManager {
         }
 
         this.addMarker(lngLat, features);
+    }
+
+    _handleEmptyMapClick(data) {
+        const { lngLat } = data;
+        if (!lngLat) return;
+
+        // Clear hover marker and marker hover states on selection
+        this._clearHoverMarker();
+        this._clearAllMarkerHoverStates();
+
+        // Check if we're in add mode (either via toggle button OR keyboard Cmd/Ctrl)
+        const isAddMode = this._selectionMode === 'add' || this._stateManager._isCmdCtrlPressed;
+
+        if (!isAddMode) {
+            // Replace mode - clear existing markers
+            this.clearAllMarkers();
+        } else {
+            // Add mode - close all other marker popups when adding new one
+            this._markers.forEach(markerData => {
+                this._closePopup(markerData.id);
+            });
+        }
+
+        // Create marker with empty features array (will show layer info only)
+        this.addMarker(lngLat, []);
     }
 
     _handleBatchHover(data) {
@@ -413,13 +442,13 @@ export class MapMarkerManager {
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
         const markerNumber = this._markers.size + 1;
 
-        // Extract labels from all features
-        const labels = features.map(f => {
+        // Extract labels from all features (or show location if no features)
+        const labels = features.length > 0 ? features.map(f => {
             const layerConfig = this._stateManager.getLayerConfig(f.layerId);
             const inspectConfig = layerConfig?.inspect || {};
             const labelField = inspectConfig.label || inspectConfig.id || 'id';
             return f.feature.properties?.[labelField] || f.featureId;
-        });
+        }) : [`${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`];
         const labelText = labels.join(', ');
         const hasLabels = labelText.trim().length > 0;
 
@@ -638,6 +667,9 @@ export class MapMarkerManager {
         // Get all active layers in inspector display order
         const allActiveLayers = this._getAllActiveLayersInInspectorOrder();
 
+        // If no features, show active layers at this location instead
+        const hasFeatures = features.length > 0;
+
         // Get atlas metadata for badges
         const getAtlasBadge = (layerConfig) => {
             const atlasName = layerConfig?._sourceAtlas;
@@ -663,16 +695,20 @@ export class MapMarkerManager {
             `;
         };
 
-        const featuresList = Array.from(groupedFeatures.entries()).map(([layerId, layerFeatures]) => {
-            const layerConfig = this._stateManager.getLayerConfig(layerId);
-            const thumbnail = LayerThumbnail.generate(layerConfig, 24);
-            const thumbnailHTML = thumbnail ? thumbnail.outerHTML : '';
-            const atlasBadge = getAtlasBadge(layerConfig);
+        let featuresList = '';
 
-            const inspectConfig = layerConfig?.inspect || {};
-            const labelField = inspectConfig.label || inspectConfig.id || 'id';
+        if (hasFeatures) {
+            // Show features grouped by layer
+            featuresList = Array.from(groupedFeatures.entries()).map(([layerId, layerFeatures]) => {
+                const layerConfig = this._stateManager.getLayerConfig(layerId);
+                const thumbnail = LayerThumbnail.generate(layerConfig, 24);
+                const thumbnailHTML = thumbnail ? thumbnail.outerHTML : '';
+                const atlasBadge = getAtlasBadge(layerConfig);
 
-            return layerFeatures.map(f => {
+                const inspectConfig = layerConfig?.inspect || {};
+                const labelField = inspectConfig.label || inspectConfig.id || 'id';
+
+                return layerFeatures.map(f => {
                 const featureId = f.featureId;
                 const featureLabel = f.feature.properties?.[labelField] || featureId;
 
@@ -776,6 +812,50 @@ export class MapMarkerManager {
                 `;
             }).join('');
         }).join('');
+        } else {
+            // Show active layers at this location (no features found)
+            featuresList = allActiveLayers.map(layer => {
+                const thumbnail = LayerThumbnail.generate(layer, 24);
+                const thumbnailHTML = thumbnail ? thumbnail.outerHTML : '';
+                const atlasBadge = getAtlasBadge(layer);
+
+                return `
+                    <div class="feature-item-container" data-layer-id="${layer.id}" style="
+                        background: #334155;
+                        border-radius: 3px;
+                        margin-bottom: 3px;
+                        overflow: hidden;
+                    ">
+                        <div class="feature-item-header" style="
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            padding: 4px 6px;
+                            cursor: pointer;
+                            transition: background 0.2s;
+                        " onmouseenter="this.style.background='#475569'" onmouseleave="this.style.background='#334155'">
+                            ${thumbnailHTML}
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-size: 9px; color: #94a3b8; font-weight: 500; display: flex; align-items: center; gap: 3px;">
+                                    ${atlasBadge}
+                                    <span>${layer.title || layer.id}</span>
+                                </div>
+                                <div style="font-size: 11px; color: #9ca3af; font-style: italic;">No features at this location</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (featuresList === '') {
+                featuresList = `
+                    <div style="padding: 12px; text-align: center; color: #9ca3af;">
+                        <div style="font-size: 12px; margin-bottom: 4px;">No active layers</div>
+                        <div style="font-size: 10px;">Enable layers to see information here</div>
+                    </div>
+                `;
+            }
+        }
 
         // Conditional navigation buttons
         const showPrevButton = totalMarkers > 1 && markerNumber > 1;
@@ -823,7 +903,7 @@ export class MapMarkerManager {
                             transition: color 0.2s;
                         " title="Show location details"><sl-icon name="geo-alt" style="font-size: 14px;"></sl-icon></button>
                         <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">
-                            ${features.length} feature${features.length !== 1 ? 's' : ''} selected
+                            ${hasFeatures ? `${features.length} feature${features.length !== 1 ? 's' : ''} selected` : `${allActiveLayers.length} active layer${allActiveLayers.length !== 1 ? 's' : ''}`}
                         </span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
@@ -918,7 +998,7 @@ export class MapMarkerManager {
                     border-top: 1px solid #334155;
                 ">
                     <div style="display: flex; align-items: center; gap: 6px; flex: 1; overflow-x: auto;">
-                        <button class="open-inspector" style="
+                        <button class="open-browser" style="
                             background: #ffbf00;
                             border: none;
                             color: #000;
@@ -933,8 +1013,24 @@ export class MapMarkerManager {
                             justify-content: center;
                             flex-shrink: 0;
                             transition: all 0.2s;
-                        " title="Open Layer Inspector"><sl-icon name="layers" style="font-size: 12px;"></sl-icon></button>
+                        " title="Browse Map Collections"><sl-icon name="grid" style="font-size: 12px;"></sl-icon></button>
                         ${layerThumbnailsHTML}
+                        <button class="open-inspector" style="
+                            background: #000;
+                            border: none;
+                            color: #ffbf00;
+                            padding: 4px;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            width: 24px;
+                            height: 24px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            flex-shrink: 0;
+                            transition: all 0.2s;
+                        " title="Open Layer Inspector"><sl-icon name="layers" style="font-size: 12px;"></sl-icon></button>
                         ${showPrevButton ? `
                             <button class="nav-prev" style="
                                 background: #334155;
@@ -1069,6 +1165,23 @@ export class MapMarkerManager {
 
         popup.querySelector('.nav-next')?.addEventListener('click', () => {
             this._navigateMarker(1);
+        });
+
+        popup.querySelector('.open-browser')?.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent click from propagating to document
+
+            if (window.browserControl) {
+                const isOpen = window.browserControl._isOpen;
+
+                if (!isOpen) {
+                    window.browserControl.openBrowser();
+                }
+            }
+
+            // Close popup for seamless transition
+            setTimeout(() => {
+                this._closePopup(markerId);
+            }, 100);
         });
 
         popup.querySelector('.open-inspector')?.addEventListener('click', (e) => {
@@ -1406,13 +1519,13 @@ export class MapMarkerManager {
         // Create GeoJSON from current markers
         const features = [];
         this._markers.forEach((markerData, markerId) => {
-            // Extract feature labels for the name property
-            const labels = markerData.features.map(f => {
+            // Extract feature labels for the name property (or use location if no features)
+            const labels = markerData.features.length > 0 ? markerData.features.map(f => {
                 const layerConfig = this._stateManager.getLayerConfig(f.layerId);
                 const inspectConfig = layerConfig?.inspect || {};
                 const labelField = inspectConfig.label || inspectConfig.id || 'id';
                 return f.feature.properties?.[labelField] || f.featureId;
-            });
+            }) : [`${markerData.lngLat.lat.toFixed(4)}, ${markerData.lngLat.lng.toFixed(4)}`];
             const name = labels.join(', ');
 
             // Store feature references for restoration (use raw feature IDs)

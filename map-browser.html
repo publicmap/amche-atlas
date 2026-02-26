@@ -638,7 +638,7 @@
             <!-- Header Text with Close Button -->
             <div class="mb-2 text-sm text-gray-300 flex items-center gap-1 justify-between" style="min-width: 0;">
                 <div class="flex items-center gap-1 flex-wrap" style="min-width: 0; flex: 1;">
-                    <span style="flex-shrink: 0;">Explore</span>
+                    <span style="flex-shrink: 0;">Browse maps from</span>
                     <button id="atlas-filter-btn"
                         style="background: #3b82f6; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 1; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis;">
                         All Map Collections
@@ -1244,16 +1244,16 @@
             }, 100);
         }
 
-        // Select atlas filter
+        // Select atlas (expand it in the list)
         function selectAtlas(atlasId, atlasName, skipURLUpdate = false) {
             window.selectedAtlasId = atlasId;
             const $btn = $('#atlas-filter-btn');
-            $btn.text(atlasName);
 
-            // Update button color based on selected atlas
+            // Update button appearance based on selected atlas
             if (atlasId && atlasMetadata.has(atlasId)) {
                 const metadata = atlasMetadata.get(atlasId);
                 const color = metadata.color || '#3b82f6';
+                $btn.text(atlasName);
                 $btn.css('background', color);
                 $btn.data('atlas-color', color);
 
@@ -1261,11 +1261,12 @@
                 expandedAtlasId = atlasId;
                 userCollapsedAll = false;
             } else {
-                // Reset to default blue for "All Map Collections"
+                // Reset to "All Map Collections"
+                $btn.text('All Map Collections');
                 $btn.css('background', '#3b82f6');
                 $btn.data('atlas-color', '#3b82f6');
 
-                // When "All" is selected, reset collapse state
+                // When "All" is selected, expand first atlas
                 expandedAtlasId = null; // Will be set to first atlas in renderLayerGrid
                 userCollapsedAll = false;
             }
@@ -1299,16 +1300,10 @@
         // Render filtered layers
         function renderLayers() {
             const searchTerm = $('#search-input').val().toLowerCase().trim();
-            const selectedAtlas = window.selectedAtlasId || '';
 
             const filtered = allLayers.filter(layer => {
                 // Search filter
                 if (searchTerm && !matchesSearch(layer, searchTerm)) {
-                    return false;
-                }
-
-                // Atlas filter
-                if (selectedAtlas && layer._sourceAtlas !== selectedAtlas) {
                     return false;
                 }
 
@@ -1530,9 +1525,9 @@
                 expandedAtlasId = orderedAtlasIds[0];
             }
 
-            // If viewing a single selected atlas, ensure it's expanded
-            if (window.selectedAtlasId && orderedAtlasIds.length === 1) {
-                expandedAtlasId = orderedAtlasIds[0];
+            // If a specific atlas is selected, ensure it's expanded
+            if (window.selectedAtlasId && orderedAtlasIds.includes(window.selectedAtlasId)) {
+                expandedAtlasId = window.selectedAtlasId;
             }
 
             // Render in-view atlas groups
@@ -1557,32 +1552,6 @@
                 const atlasLayers = byAtlas[atlasId];
                 renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid, searchTerm, atlasIdsWithResults);
             });
-
-            // Add "Show all collections" link at the bottom if an atlas is currently selected
-            if (window.selectedAtlasId) {
-                const $showAllContainer = $('<div>', {
-                    style: 'padding: 24px 12px; text-align: center;'
-                });
-
-                const $showAllLink = $('<a>', {
-                    href: '#',
-                    style: 'color: #9ca3af; font-size: 13px; text-decoration: none; cursor: pointer; transition: color 0.2s;',
-                    html: '← Show results from all collections',
-                    click: function (e) {
-                        e.preventDefault();
-                        selectAtlas('', 'All Map Collections');
-                    }
-                });
-
-                $showAllLink.on('mouseenter', function () {
-                    $(this).css({ 'color': '#d1d5db', 'text-decoration': 'underline' });
-                }).on('mouseleave', function () {
-                    $(this).css({ 'color': '#9ca3af', 'text-decoration': 'none' });
-                });
-
-                $showAllContainer.append($showAllLink);
-                $grid.append($showAllContainer);
-            }
 
             // Set active atlas based on scroll position
             setTimeout(updateActiveNavLink, 100);
