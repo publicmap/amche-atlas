@@ -625,13 +625,26 @@
             const startupMenu = document.getElementById('startup-menu');
             const loadingOverlay = document.getElementById('loading-overlay');
 
-            const loadStartTime = Date.now();
+            // Set load start time when DOM is ready and overlay is visible
+            // This ensures the timer starts when the user can actually see the loading screen
+            let loadStartTime = Date.now();
             const MIN_VISIBLE_DURATION = 3000;
             let mapLoadedTime = null;
             let fillAnimationTimeout = null;
             let autoProceedCancelled = false;
             let ipLocation = null;
             let userInteracted = false;
+
+            // Reset load start time when page is fully loaded and visible
+            // This prevents the timer from running during CSS/asset loading
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    loadStartTime = Date.now();
+                });
+            } else {
+                // Document already loaded
+                loadStartTime = Date.now();
+            }
 
             window.loadingStartupState = {
                 mode: hasURLParams ? 'url-params' : (hashLocation ? 'hash-location' : 'basepath'),

@@ -418,7 +418,8 @@
     {
       "tags": [
         "3",
-        "regulatory"
+        "regulatory",
+        "slope"
       ],
       "title": "Plots with No Development Slopes",
       "description": "Survey numbers with No Development Slopes (NDS). The output location of plots having atleast 25% of the plot area with NDS or slopes greater than 1:4 (25% slope).<br>Processed using slope computed with NASADEM 30m data and cadastral boundaries from OneMapGoa GIS. See <a href='https://github.com/publicmap/amche-goa/tree/main/data/slope'>processing code</a> for details.",
@@ -1768,6 +1769,7 @@
     },
     {
       "tags": [
+        "RTI",
         "construction"
       ],
       "title": "Bhutani Project Site Plan With Contours",
@@ -1802,6 +1804,7 @@
     },
     {
       "tags": [
+        "RTI",
         "construction"
       ],
       "title": "Bhutani Project Site Plan With Drainage",
@@ -1835,6 +1838,10 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "RTI",
+        "construction"
+      ],
       "title": "GSBB Plan For Colva Lake Ground",
       "description": "Proposed plan for construction of playground at Colva Lake prepared by Goa State Biodiversity Board",
       "type": "tms",
@@ -1864,6 +1871,7 @@
     },
     {
       "tags": [
+        "RTI",
         "construction"
       ],
       "title": "PM Ekta Unity Mall at Chimbel Goa",
@@ -1896,6 +1904,7 @@
     },
     {
       "tags": [
+        "RTI",
         "construction"
       ],
       "title": "Swadesh Darshan - Project Plans",
@@ -1929,6 +1938,7 @@
     },
     {
       "tags": [
+        "RTI",
         "construction"
       ],
       "title": "Swadesh Darshan - Project Drawings",
@@ -2128,8 +2138,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory"
+        "RTI"
       ],
       "title": "Proposed Tiger Reserve for Goa",
       "description": "Proposed Tiger Reserve Plan showing the location of all habitats, all weather roads, large habitations excluded from the proposed tiger reserve and household particulars inside & outside the proposed proposed Tiger Reserve",

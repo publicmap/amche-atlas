@@ -928,16 +928,20 @@ export class MapMarkerManager {
                             <span style="font-size: 9px;">Add</span>
                         </button>
                         <button class="remove-selection" style="
-                            padding: 3px 6px;
-                            background: #dc2626;
-                            color: white;
-                            border: none;
+                            padding: 0;
+                            background: transparent;
+                            color: #ef4444;
+                            border: 1px solid #4b5563;
                             border-radius: 3px;
-                            font-size: 10px;
-                            font-weight: 600;
                             cursor: pointer;
                             transition: all 0.2s;
-                        ">Deselect</button>
+                            width: 24px;
+                            height: 24px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            flex-shrink: 0;
+                        " title="Deselect"><sl-icon name="trash" style="font-size: 14px;"></sl-icon></button>
                         <button class="close-popup" style="
                             background: transparent;
                             border: none;
@@ -977,11 +981,14 @@ export class MapMarkerManager {
                         background: #1e293b;
                         border: none;
                         color: #e2e8f0;
-                        padding: 2px 6px;
+                        padding: 4px 8px;
                         border-radius: 2px;
                         cursor: pointer;
                         font-size: 10px;
-                    ">Open with...</button>
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    "><sl-icon name="geo" style="font-size: 12px;"></sl-icon> Open with...</button>
                 </div>
 
                 <div style="padding: 8px;">
@@ -1220,8 +1227,14 @@ export class MapMarkerManager {
             setTimeout(() => btn.textContent = originalText, 1000);
         });
 
-        popup.querySelector('.open-with')?.addEventListener('click', () => {
+        popup.querySelector('.open-with')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+
             this._openExternalMapLinks(markerData.lngLat);
+
+            setTimeout(() => {
+                this._closePopup(markerId);
+            }, 100);
         });
 
         // Feature header click to expand/collapse
@@ -1422,15 +1435,8 @@ export class MapMarkerManager {
     }
 
     _openExternalMapLinks(lngLat) {
-        if (window.ButtonExternalMapLinks) {
-            const control = new window.ButtonExternalMapLinks();
-            control._map = this._map;
-            control._showModal();
-        } else {
-            window.postMessage({
-                type: 'open-external-map-links',
-                lngLat
-            }, '*');
+        if (window.externalMapLinksControl) {
+            window.externalMapLinksControl._showModal();
         }
     }
 

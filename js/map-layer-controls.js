@@ -108,10 +108,10 @@ export class MapLayerControl {
         // Add drawer focus management to prevent aria-hidden accessibility issues
         this._setupDrawerFocusManagement();
 
-        const initOnce = () => {
+        const initOnce = async () => {
             if (this._initialized) return;
             this._initialized = true;
-            this._initializeControl(container);
+            await this._initializeControl(container);
             this._initializeFilterControls();
         };
 
@@ -201,7 +201,7 @@ export class MapLayerControl {
     /**
      * Update state with new configuration
      */
-    _updateState(newState) {
+    async _updateState(newState) {
         this._state = {
             ...this._state,
             groups: newState.groups.map(newGroup => {
@@ -216,7 +216,7 @@ export class MapLayerControl {
         }
 
         this._cleanupLayers();
-        this._rebuildUI();
+        await this._rebuildUI();
     }
 
     /**
@@ -234,25 +234,25 @@ export class MapLayerControl {
     /**
      * Rebuild the UI
      */
-    _rebuildUI() {
+    async _rebuildUI() {
         if (this._container) {
             this._container.innerHTML = '';
             this._sourceControls = [];
-            this._initializeControl(this._container);
+            await this._initializeControl(this._container);
         }
     }
 
     /**
      * Initialize the main control UI
      */
-    _initializeControl(container) {
+    async _initializeControl(container) {
         // Add current atlas layers
         this._state.groups.forEach((group, groupIndex) => {
             $(container).append(this._createGroupHeader(group, groupIndex));
         });
 
-        // Initialize all layers explicitly after UI is set up
-        this._initializeAllLayers();
+        // Initialize all layers explicitly after UI is set up (async to prevent blocking)
+        await this._initializeAllLayers();
 
         if (!this._initialized) {
             this._initializeWithAnimation();
@@ -264,7 +264,7 @@ export class MapLayerControl {
      * Layers in _state.groups are in visual order (first = top visually)
      * We need to add them to the map in rendering order (reversed, basemaps first)
      */
-    _initializeAllLayers() {
+    async _initializeAllLayers() {
         // Collect initially checked layers with their indices
         const initiallyCheckedLayers = [];
         this._state.groups.forEach((group, groupIndex) => {
@@ -283,13 +283,15 @@ export class MapLayerControl {
             layerIdToIndex.set(item.group.id, item.groupIndex);
         });
 
-        // Add layers in map rendering order (basemaps first, reversed within groups)
-        mapOrderLayers.forEach(layer => {
+        // Add layers progressively with yields to browser
+        for (const layer of mapOrderLayers) {
             const groupIndex = layerIdToIndex.get(layer.id);
             if (groupIndex !== undefined) {
-                this._toggleLayerGroup(groupIndex, true);
+                await this._toggleLayerGroup(groupIndex, true);
+                // Yield to browser between layers to prevent blocking
+                await new Promise(resolve => requestAnimationFrame(resolve));
             }
-        });
+        }
 
         // Handle non-initially-checked layers
         this._state.groups.forEach((group, groupIndex) => {
@@ -1389,7 +1391,7 @@ export class MapLayerControl {
      * Initialize filter controls
      */
     _initializeFilterControls() {
-        setTimeout(() => {
+        requestAnimationFrame(() => {
             const searchInput = document.getElementById('layer-search-input');
             const atlasFilterBtn = document.getElementById('atlas-filter-select');
             const atlasFilterText = document.getElementById('atlas-filter-text');
@@ -1419,8 +1421,15 @@ export class MapLayerControl {
                 // Set initial text to current atlas name
                 this._updateAtlasButtonText();
 
-                // Create and populate atlas dropdown menu
-                this._createAtlasDropdownMenu(atlasFilterBtn);
+                // Defer dropdown creation until first click (lazy loading)
+                atlasFilterBtn.addEventListener('click', () => {
+                    if (!atlasFilterBtn.hasAttribute('data-dropdown-initialized')) {
+                        atlasFilterBtn.setAttribute('data-dropdown-initialized', 'true');
+                        requestAnimationFrame(() => {
+                            this._createAtlasDropdownMenu(atlasFilterBtn);
+                        });
+                    }
+                }, { once: true });
             }
 
             // Initialize View Location button
@@ -1490,7 +1499,7 @@ export class MapLayerControl {
                     this._applyFiltersWhenReady();
                 }
             }
-        }, 100);
+        });
     }
 
     /**
@@ -1683,9 +1692,12 @@ export class MapLayerControl {
         const menu = document.createElement('sl-menu');
         menu.style.minWidth = '200px';
 
+        // Use DocumentFragment for batch DOM operations
+        const fragment = document.createDocumentFragment();
+
         // Add divider
         const divider = document.createElement('sl-divider');
-        menu.appendChild(divider);
+        fragment.appendChild(divider);
 
         // Get all atlases from the registry
         const atlases = Array.from(window.layerRegistry._atlasMetadata.entries());
@@ -1719,8 +1731,11 @@ export class MapLayerControl {
                 dropdown.hide();
             });
 
-            menu.appendChild(option);
+            fragment.appendChild(option);
         });
+
+        // Append all options at once
+        menu.appendChild(fragment);
 
         // Append menu to dropdown
         dropdown.appendChild(menu);

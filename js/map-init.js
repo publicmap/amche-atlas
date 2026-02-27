@@ -715,7 +715,8 @@ export class MapInitializer {
             map.addControl(window.terrain3DControl, 'top-right');
             map.addControl(window.attributionControl, 'bottom-right');
             map.addControl(new MapExportControl(), 'bottom-right');
-            map.addControl(new ButtonExternalMapLinks(), 'bottom-right');
+            window.externalMapLinksControl = new ButtonExternalMapLinks();
+            map.addControl(window.externalMapLinksControl, 'bottom-right');
             map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: true }));
             map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
 
