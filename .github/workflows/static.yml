@@ -44,14 +44,14 @@ jobs:
           mkdir -p temp_main
           git clone --branch main --depth 1 https://github.com/${{ github.repository }} temp_main
 
-      # Install dependencies and Build Webpack for main
+      # Install dependencies and Build with Vite for main
       - name: Build main branch
         run: |
           cd temp_main
           echo "Installing dependencies..."
           npm ci
-          echo "Running Webpack build..."
-          npm run build:webpack
+          echo "Running Vite build..."
+          npm run build
 
       # Copy main branch build to deploy directory
       - name: Copy main branch content to deploy directory
@@ -78,15 +78,15 @@ jobs:
           mkdir -p temp_dev
           git clone --branch dev --depth 1 https://github.com/${{ github.repository }} temp_dev
 
-      # Install dependencies and Build Webpack for dev
+      # Install dependencies and Build with Vite for dev
       - name: Build dev branch
         if: env.dev_exists == 'true'
         run: |
           cd temp_dev
           echo "Installing dependencies..."
           npm ci
-          echo "Running Webpack build..."
-          npm run build:webpack
+          echo "Running Vite build..."
+          npm run build
 
       # Copy dev branch content to /dev/ directory
       - name: Copy dev branch content to /dev/ directory

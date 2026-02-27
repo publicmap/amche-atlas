@@ -60,6 +60,7 @@ module.exports = {
                 { from: 'offline.html', to: 'offline.html' },
                 { from: 'privacy.html', to: 'privacy.html' },
                 { from: 'manifest.json', to: 'manifest.json' },
+                { from: 'service-worker.js', to: 'service-worker.js' },
                 { from: 'bus', to: 'bus' },
                 { from: 'game', to: 'game' },
                 { from: 'warper', to: 'warper' },

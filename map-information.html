@@ -260,9 +260,21 @@
     </div>
 
     <script type="module">
-        import { LayerThumbnail } from './js/layer-thumbnail.js';
-        import { LayerLegend } from './js/layer-legend.js';
-        import { LAYER_SPECIFICATIONS } from './js/config-manager.js';
+        let LayerThumbnail, LayerLegend, LAYER_SPECIFICATIONS;
+
+        try {
+            const modules = await Promise.all([
+                import('./js/layer-thumbnail.js'),
+                import('./js/layer-legend.js'),
+                import('./js/config-manager.js')
+            ]);
+            LayerThumbnail = modules[0].LayerThumbnail;
+            LayerLegend = modules[1].LayerLegend;
+            LAYER_SPECIFICATIONS = modules[2].LAYER_SPECIFICATIONS;
+            console.log('[Layer Info] Modules loaded successfully');
+        } catch (error) {
+            console.error('[Layer Info] Failed to load modules:', error);
+        }
 
         let currentLayer = null;
         let isEditing = false;
@@ -622,6 +634,12 @@
             $('#description-section').show();
 
             const legend = LayerLegend.generate(layer);
+            console.log('[Layer Info] Legend generation result:', {
+                hasLegend: !!legend,
+                hasLegendImage: !!layer.legendImage,
+                hasStyle: !!layer.style,
+                layerType: layer.type
+            });
             if (legend) {
                 $('#legend-content').append(legend);
                 $('#legend-section').show();
