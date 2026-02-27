@@ -1131,7 +1131,7 @@
       ],
       "id": "mapnik",
       "title": "OpenStreetMap Carto",
-      "description": "Map data contributed by the <a href='https://www.openstreetmap.in/'>OpenStreetMap India Community</a> rendered in the deafult <a href='https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto'>OSM Carto style</a>",
+      "description": "Map data contributed by the <a href='https://www.openstreetmap.in/'>OpenStreetMap India Community</a> rendered in the deafult <a href='https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto'>OSM Carto style</a>. See <a href='https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto/Symbols'>legend</a> for details.",
       "headerImage": "assets/map-layers/osm/map-layer-osm.png",
       "type": "tms",
       "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
