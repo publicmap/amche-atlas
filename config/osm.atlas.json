@@ -30,7 +30,7 @@
       "type": "vector",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "place_labels",
-      "maxzoom": 15,
+      "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
       "style": {
         "circle-radius": 10,
@@ -113,7 +113,7 @@
       "type": "vector",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "public_transport",
-      "maxzoom": 15,
+      "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/#features-19'>Shortbread vector tiles</a>",
       "style": {
         "circle-radius": [
@@ -153,7 +153,7 @@
       "type": "vector",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "pois",
-      "maxzoom": 15,
+      "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
       "style": {
         "circle-radius": 4,
@@ -183,7 +183,7 @@
       "id": "railways",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "streets",
-      "maxzoom": 15,
+      "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
       "filter": [
         "match",
@@ -248,7 +248,7 @@
       "id": "paths",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "streets",
-      "maxzoom": 15,
+      "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
       "filter": [
         "match",
@@ -590,7 +590,7 @@
       "type": "vector",
       "url": "https://vtiles.openhistoricalmap.org/maps/ohm_admin/{z}/{x}/{y}.pbf",
       "sourceLayer": "boundaries",
-      "maxzoom": 15,
+      "maxzoom": 14,
       "attribution": "<a href='https://www.openhistoricalmap.org/#map=5/51.97/2.90&layers=O&date=1925-12-23&daterange=1825-01-01,2025-12-31'>OpenHistoricalMap</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
       "style": {
         "fill-color": "rgba(255, 255, 255, 0.001)",
@@ -621,7 +621,7 @@
       "id": "waterbodies",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "water_polygons",
-      "maxzoom": 15,
+      "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
       "style": {
         "line-opacity": 0.9,
@@ -646,7 +646,7 @@
       "id": "waterways",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "water_lines",
-      "maxzoom": 15,
+      "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
       "style": {
         "line-opacity": 0.9,
@@ -701,7 +701,7 @@
       "id": "sites",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "sites",
-      "maxzoom": 15,
+      "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread OSMF vector tiles</a>",
       "style": {
         "text-font": [

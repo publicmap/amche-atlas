@@ -724,6 +724,7 @@
         let expandedLayers = new Set();
         let expandedAtlasId = null; // Track which single atlas is expanded
         let userCollapsedAll = false; // Track if user explicitly collapsed all atlases
+        let userManuallyExpandedAtlas = false; // Track if user manually expanded a different atlas
         let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
         let loadingLayers = new Set(); // Track layers currently loading
@@ -1260,6 +1261,7 @@
                 // Expand the selected atlas
                 expandedAtlasId = atlasId;
                 userCollapsedAll = false;
+                userManuallyExpandedAtlas = false; // Reset manual expansion when selecting via dropdown
             } else {
                 // Reset to "All Map Collections"
                 $btn.text('All Map Collections');
@@ -1269,6 +1271,7 @@
                 // When "All" is selected, expand first atlas
                 expandedAtlasId = null; // Will be set to first atlas in renderLayerGrid
                 userCollapsedAll = false;
+                userManuallyExpandedAtlas = false;
             }
 
             renderLayers();
@@ -1436,14 +1439,66 @@
                 return distA - distB;
             });
 
-            // Combine: in-view first, then out-of-view
-            const orderedAtlasIds = [...inViewAtlasIds, ...outOfViewAtlasIds];
+            // Extract index atlas if present (it should always be first)
+            const indexAtlasInView = inViewAtlasIds.indexOf('index');
+            const indexAtlasOutOfView = outOfViewAtlasIds.indexOf('index');
+
+            let indexAtlasId = null;
+            if (indexAtlasInView !== -1) {
+                indexAtlasId = 'index';
+                inViewAtlasIds.splice(indexAtlasInView, 1);
+            } else if (indexAtlasOutOfView !== -1) {
+                indexAtlasId = 'index';
+                outOfViewAtlasIds.splice(indexAtlasOutOfView, 1);
+            }
+
+            // Combine: index first (if exists), then in-view, then out-of-view
+            const orderedAtlasIds = indexAtlasId
+                ? [indexAtlasId, ...inViewAtlasIds, ...outOfViewAtlasIds]
+                : [...inViewAtlasIds, ...outOfViewAtlasIds];
 
             // Create atlas navigation if there are multiple atlases
             if (orderedAtlasIds.length > 1) {
                 const $atlasNav = $('<div>', {
                     class: 'atlas-nav'
                 });
+
+                // Add index atlas first if it exists
+                if (indexAtlasId && byAtlas[indexAtlasId]) {
+                    const atlasData = atlasMetadata.get(indexAtlasId) || {};
+                    const count = byAtlas[indexAtlasId].length;
+                    const atlasName = atlasData.name || indexAtlasId;
+                    const atlasColor = atlasData.color || '#6b7280';
+
+                    const $indexLink = $('<a>', {
+                        href: `#atlas-${indexAtlasId}`,
+                        class: 'atlas-nav-link',
+                        'data-atlas': indexAtlasId,
+                        style: `background-color: ${atlasColor};`,
+                        html: `${atlasName} <span class="count">(${count})</span>`,
+                        click: function (e) {
+                            e.preventDefault();
+                            expandedAtlasId = indexAtlasId;
+                            userCollapsedAll = false;
+                            userManuallyExpandedAtlas = (window.selectedAtlasId && indexAtlasId !== window.selectedAtlasId);
+                            renderLayers();
+                            setTimeout(() => {
+                                document.getElementById(`atlas-${indexAtlasId}`)?.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'start'
+                                });
+                            }, 100);
+                        }
+                    });
+
+                    $atlasNav.append($indexLink);
+
+                    // Add separator after index atlas
+                    const $separator = $('<div>', {
+                        style: 'width: 2px; height: 20px; background: #374151; margin: 0 4px; flex-shrink: 0;'
+                    });
+                    $atlasNav.append($separator);
+                }
 
                 // Add in-view atlases
                 inViewAtlasIds.forEach(atlasId => {
@@ -1463,6 +1518,7 @@
                             // Expand this atlas
                             expandedAtlasId = atlasId;
                             userCollapsedAll = false;
+                            userManuallyExpandedAtlas = (window.selectedAtlasId && atlasId !== window.selectedAtlasId);
                             renderLayers();
                             // Scroll to atlas after render
                             setTimeout(() => {
@@ -1503,6 +1559,7 @@
                             // Expand this atlas
                             expandedAtlasId = atlasId;
                             userCollapsedAll = false;
+                            userManuallyExpandedAtlas = (window.selectedAtlasId && atlasId !== window.selectedAtlasId);
                             renderLayers();
                             // Scroll to atlas after render
                             setTimeout(() => {
@@ -1525,9 +1582,24 @@
                 expandedAtlasId = orderedAtlasIds[0];
             }
 
-            // If a specific atlas is selected, ensure it's expanded
-            if (window.selectedAtlasId && orderedAtlasIds.includes(window.selectedAtlasId)) {
+            // If a specific atlas is selected, ensure it's expanded (but only if user hasn't manually expanded a different one)
+            if (window.selectedAtlasId && orderedAtlasIds.includes(window.selectedAtlasId) && !userManuallyExpandedAtlas) {
                 expandedAtlasId = window.selectedAtlasId;
+            }
+
+            // Render index atlas first if it exists
+            if (indexAtlasId && byAtlas[indexAtlasId]) {
+                const atlasData = atlasMetadata.get(indexAtlasId) || {};
+                const atlasLayers = byAtlas[indexAtlasId];
+                renderAtlasCollapsed(indexAtlasId, atlasData, atlasLayers, $grid, searchTerm, atlasIdsWithResults);
+
+                // Add separator after index atlas if there are other atlases
+                if (inViewAtlasIds.length > 0 || outOfViewAtlasIds.length > 0) {
+                    const $separator = $('<div>', {
+                        style: 'margin: 8px 0; padding: 4px 12px; background: #111827; border-top: 1px solid #374151; border-bottom: 1px solid #374151;'
+                    });
+                    $grid.append($separator);
+                }
             }
 
             // Render in-view atlas groups
@@ -1580,6 +1652,7 @@
                         $('#search-input').val('').trigger('input');
                         expandedAtlasId = atlasId;
                         userCollapsedAll = false;
+                        userManuallyExpandedAtlas = (window.selectedAtlasId && atlasId !== window.selectedAtlasId);
                         return;
                     }
 
@@ -1588,10 +1661,13 @@
                         // Clicking on expanded atlas collapses it
                         expandedAtlasId = null;
                         userCollapsedAll = true;
+                        userManuallyExpandedAtlas = false;
                     } else {
                         // Clicking on collapsed atlas expands it (and collapses others)
                         expandedAtlasId = atlasId;
                         userCollapsedAll = false;
+                        // Mark as manual expansion if it's different from the selected atlas
+                        userManuallyExpandedAtlas = (window.selectedAtlasId && atlasId !== window.selectedAtlasId);
                     }
                     renderLayers();
                 }
@@ -1627,42 +1703,97 @@
 
             $header.append($titleContainer);
 
-            // Zoom button (if atlas has bbox)
-            if (atlasData.bbox) {
-                const $zoomBtn = $('<button>', {
-                    html: '🔍',
-                    title: 'Zoom to atlas',
-                    style: 'background: #4b5563; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.2s; margin-right: 4px;',
-                    click: function (e) {
-                        e.stopPropagation();
-                        window.parent.postMessage({
-                            type: 'zoom-to-bounds',
-                            bounds: atlasData.bbox
-                        }, '*');
-                    }
-                });
-                $zoomBtn.on('mouseenter', function () {
-                    $(this).css('background', '#6b7280');
-                }).on('mouseleave', function () {
-                    $(this).css('background', '#4b5563');
-                });
-                $header.append($zoomBtn);
-            }
+            // Only show zoom and link buttons when atlas is expanded
+            if (isExpanded) {
+                // Count active layers from this atlas
+                const activeAtlasLayers = atlasLayers.filter(layer => activeLayers.has(layer.id));
+                const activeCount = activeAtlasLayers.length;
 
-            // Config link
-            const configUrl = `https://raw.githubusercontent.com/publicmap/amche-atlas/refs/heads/dev/config/${atlasId}.atlas.json`;
-            const $configLink = $('<a>', {
-                href: configUrl,
-                target: '_blank',
-                rel: 'noopener noreferrer',
-                html: '🔗',
-                title: 'View config file',
-                style: 'text-decoration: none; opacity: 0.6; transition: opacity 0.2s;',
-                click: function (e) { e.stopPropagation(); },
-                mouseenter: function () { $(this).css('opacity', 1); },
-                mouseleave: function () { $(this).css('opacity', 0.6); }
-            });
-            $header.append($configLink);
+                // Remove All button (if 2+ layers are active)
+                if (activeCount >= 2) {
+                    const $removeAllBtn = $('<button>', {
+                        html: '✕ Remove All',
+                        title: `Remove all ${activeCount} layers from this atlas`,
+                        style: 'background: #dc2626; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; transition: background 0.2s; margin-right: 4px; font-weight: 600;',
+                        click: function (e) {
+                            e.stopPropagation();
+                            // Remove all active layers from this atlas
+                            activeAtlasLayers.forEach(layer => {
+                                // Optimistically update local state
+                                activeLayers.delete(layer.id);
+                                loadingLayers.delete(layer.id);
+
+                                // Notify parent
+                                window.parent.postMessage({
+                                    type: 'layer-toggle',
+                                    layerId: layer.id,
+                                    active: false
+                                }, '*');
+                            });
+
+                            // Re-render to hide the button immediately
+                            renderLayers();
+                        }
+                    });
+                    $removeAllBtn.on('mouseenter', function () {
+                        $(this).css('background', '#b91c1c');
+                    }).on('mouseleave', function () {
+                        $(this).css('background', '#dc2626');
+                    });
+                    $header.append($removeAllBtn);
+                }
+
+                // Zoom button (if atlas has bbox)
+                if (atlasData.bbox) {
+                    const $zoomBtn = $('<button>', {
+                        html: '🔍',
+                        title: 'Zoom to atlas and add default layers',
+                        style: 'background: #4b5563; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.2s; margin-right: 4px;',
+                        click: function (e) {
+                            e.stopPropagation();
+
+                            // Add default layers (initiallyChecked: true) from this atlas
+                            const defaultLayers = atlasLayers.filter(layer => layer.initiallyChecked === true);
+                            defaultLayers.forEach(layer => {
+                                if (!activeLayers.has(layer.id)) {
+                                    window.parent.postMessage({
+                                        type: 'layer-toggle',
+                                        layerId: layer.id,
+                                        active: true
+                                    }, '*');
+                                }
+                            });
+
+                            // Zoom to atlas bounds
+                            window.parent.postMessage({
+                                type: 'zoom-to-bounds',
+                                bounds: atlasData.bbox
+                            }, '*');
+                        }
+                    });
+                    $zoomBtn.on('mouseenter', function () {
+                        $(this).css('background', '#6b7280');
+                    }).on('mouseleave', function () {
+                        $(this).css('background', '#4b5563');
+                    });
+                    $header.append($zoomBtn);
+                }
+
+                // Config link
+                const configUrl = `https://raw.githubusercontent.com/publicmap/amche-atlas/refs/heads/dev/config/${atlasId}.atlas.json`;
+                const $configLink = $('<a>', {
+                    href: configUrl,
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                    html: '🔗',
+                    title: 'View config file',
+                    style: 'text-decoration: none; opacity: 0.6; transition: opacity 0.2s;',
+                    click: function (e) { e.stopPropagation(); },
+                    mouseenter: function () { $(this).css('opacity', 1); },
+                    mouseleave: function () { $(this).css('opacity', 0.6); }
+                });
+                $header.append($configLink);
+            }
 
             $collapsed.append($header);
 
