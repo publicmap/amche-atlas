@@ -309,6 +309,43 @@ export class MapInitializer {
             }, config);
         }
 
+        // If loading a non-index atlas without explicit layers parameter,
+        // merge with index atlas layers (common layers across all atlases)
+        if (atlasId !== 'index' && !layersParam && !isImportedAtlas) {
+            try {
+                console.log('[MapInit] Loading non-index atlas without layers param, merging with index atlas');
+
+                // Load index atlas to get common layers
+                const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
+                const indexConfig = await indexResponse.json();
+
+                // Get layers marked as initiallyChecked from both configs
+                const atlasLayers = config.layers?.filter(l => l.initiallyChecked).map(l => l.id) || [];
+                const indexLayers = indexConfig.layers?.filter(l => l.initiallyChecked).map(l => l.id) || [];
+
+                console.log('[MapInit] Atlas layers with initiallyChecked:', atlasLayers);
+                console.log('[MapInit] Index layers with initiallyChecked:', indexLayers);
+
+                // Merge layers: atlas layers first, then index layers (excluding duplicates)
+                const allLayers = [...atlasLayers, ...indexLayers.filter(id => !atlasLayers.includes(id))];
+
+                if (allLayers.length > 0) {
+                    const layersParamValue = allLayers.join(',');
+                    console.log('[MapInit] Merged layers:', layersParamValue);
+
+                    // Set layersParam so it will be processed below
+                    layersParam = layersParamValue;
+
+                    // Update URL to include merged layers parameter
+                    const url = new URL(window.location);
+                    url.searchParams.set('layers', layersParamValue);
+                    window.history.replaceState({}, '', url.toString());
+                }
+            } catch (error) {
+                console.warn('[MapInit] Failed to merge index atlas layers:', error);
+            }
+        }
+
         // Parse layers from URL parameter if provided
         console.log('🔍 Checking layersParam:', layersParam);
         if (layersParam) {

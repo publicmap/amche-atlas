@@ -1168,7 +1168,35 @@
                     atlasPickerHeading.textContent = 'Or explore other atlases:';
                 }
 
-                window.loadingStartupState.proceedNormally = true;
+                // If there's a location hash, proceed normally with the URL
+                // If there's NO location hash, check for device/IP geolocation
+                if (hashInfo) {
+                    window.loadingStartupState.proceedNormally = true;
+                } else {
+                    // No location provided - check for device geolocation first, then fall back to IP
+                    (async () => {
+                        const geolocationSuccess = await checkAndUseGeolocation();
+                        if (geolocationSuccess && window.loadingStartupState.userLocation) {
+                            // Add location hash to URL
+                            const loc = window.loadingStartupState.userLocation;
+                            const hash = `#12/${loc.lat.toFixed(4)}/${loc.lng.toFixed(4)}`;
+                            const url = new URL(window.location);
+                            url.hash = hash;
+                            window.history.replaceState({}, '', url.toString());
+                            requestedMapStatus.textContent = 'Loading map at your location...';
+                        } else {
+                            await handleIPLocationFallback();
+                            if (window.loadingStartupState.userLocation) {
+                                // Add location hash to URL for IP location too
+                                const loc = window.loadingStartupState.userLocation;
+                                const hash = `#12/${loc.lat.toFixed(4)}/${loc.lng.toFixed(4)}`;
+                                const url = new URL(window.location);
+                                url.hash = hash;
+                                window.history.replaceState({}, '', url.toString());
+                            }
+                        }
+                    })();
+                }
             } else if (hashLocation) {
                 // Location hash detected - use coordinates from URL
                 urlInfoContent.style.display = 'none';

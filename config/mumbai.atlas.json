@@ -48,6 +48,9 @@
   },
   "layers": [
     {
+      "tags": [
+        "survey"
+      ],
       "title": "Cadastral Plot Boundaries",
       "description": "Cadastral Boundaries from the <a href='Directorate of Settlement & Land Records'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in' target='_blank' rel='noopener noreferrer'>Goa Online</a>",
       "headerImage": "assets/map-layers/map-layer-survey.png",
@@ -198,6 +201,9 @@
       "headerImage": "https://api-main-432878571563.europe-west4.run.app/maps/03f1d864-8e66-490b-b770-4ef18865901b/thumbnail"
     },
     {
+      [
+        "construction"
+      ],
       "title": "GMLR Project Alignment",
       "description": "Goregaon-Mulund Link Road Project Alignment",
       "headerImage": "assets/map-layers/map-layer-gmlr.png",
@@ -213,6 +219,9 @@
       }
     },
     {
+      "tags": [
+        "construction"
+      ],
       "title": "GMLR Project Drawings",
       "description": "Detailed project plan of Goregaon-Mulund Link Road Project",
       "headerImage": "assets/map-layers/map-layer-gmlr.png",
@@ -239,6 +248,9 @@
       }
     },
     {
+      "tags": [
+        "masterplan"
+      ],
       "title": "BMC T Ward - 2034 DP",
       "description": "Sanctioned Development Plan of BMC T Ward (Mulund) from MCGM DP 2034",
       "headerImage": "assets/map-layers/map-layer-gmlr.png",
@@ -248,6 +260,9 @@
       "attribution": "<a href='https://dpremarks.mcgm.gov.in/srdp1991/'>BMC DP 2034</a> via <a href='https://mapwarper.net/maps/34909'>Map Warper</a>"
     },
     {
+      "tags": [
+        "masterplan"
+      ],
       "title": "BMC T Ward - 1991 SRDP",
       "description": "Sanctioned Development Plan of BMC T Ward (Mulund from MCGM SRDP (1991-2011)",
       "headerImage": "assets/map-layers/map-layer-gmlr.png",
@@ -257,6 +272,9 @@
       "attribution": "<a href='https://dpremarks.mcgm.gov.in/srdp1991/'>BMC SRDP 1991</a> via <a href='https://mapwarper.net/maps/67753'>Map Warper</a>"
     },
     {
+      "tags": [
+        "climate"
+      ],
       "title": "Surface Temperature 2023",
       "description": "Mean land surface temperature for 2023.",
       "headerImage": "assets/map-layers/map-layer-mumbai-lst-2023.png",
@@ -296,6 +314,9 @@
       }
     },
     {
+      "tags": [
+        "climate"
+      ],
       "title": "Mumbai Land Surface Temperature 2023",
       "description": "Median LST for 2023.",
       "headerImage": "",
@@ -305,6 +326,9 @@
       "attribution": "<a href=''>landsat 8</a> via <a href='https://drive.google.com/drive/folders/1aX1YMS_G_l8F0ptI1isHUYzKMVOD01Rg'>OpenCity</a>"
     },
     {
+      "tags": [
+        "climate"
+      ],
       "title": "Mumbai Land Surface Temperature 2015",
       "description": "Median LST for 2015.",
       "headerImage": "",
@@ -314,6 +338,9 @@
       "attribution": "<a href=''>landsat 8</a> via <a href='https://drive.google.com/drive/folders/1aX1YMS_G_l8F0ptI1isHUYzKMVOD01Rg'>OpenCity</a>"
     },
     {
+      "tags": [
+        "transit"
+      ],
       "title": "Mumbai Rapid Transit Map",
       "description": "Sanctioned and proposed network or rapid transit lines in Mumbai.",
       "headerImage": "assets/map-layers/map-layer-mumbai-transit.png",
@@ -321,86 +348,6 @@
       "id": "mumbai-transit",
       "url": "https://warper.wmflabs.org/maps/tile/8742/{z}/{x}/{y}.png",
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Rapid_transit_map_of_Mumbai.jpg'>CC-by-sa-2.0 Rapid transit map of Mumbai, Maximilian Dörrbecker</a> via <a href='https://mapwarper.net/maps/8742'>Wikimaps Warper</a>"
-    },
-    {
-      "title": "Mumbai Districts Mask",
-      "description": "Mask for the district of Mumbai city and suburbs",
-      "headerImage": "assets/map-layers/map-layer-mumbai-mask.png",
-      "type": "vector",
-      "id": "mumbai-mask",
-      "url": "https://indianopenmaps.com/not-so-open/districts/lgd/{z}/{x}/{y}.pbf ",
-      "sourceLayer": "LGD_Districts",
-      "maxzoom": 10,
-      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>LGD/Bharatmaps</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/districts'>Datameet Community:LGD_Districts</a>",
-      "style": {
-        "fill-color": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          10,
-          [
-            "case",
-            [
-              "==",
-              [
-                "get",
-                "dtname"
-              ],
-              "Mumbai Suburban"
-            ],
-            "rgba(0, 0, 0, 0)",
-            [
-              "==",
-              [
-                "get",
-                "dtname"
-              ],
-              "Mumbai"
-            ],
-            "rgba(0, 0, 0, 0)",
-            "rgba(255, 255, 255, 1)"
-          ],
-          12,
-          [
-            "case",
-            [
-              "==",
-              [
-                "get",
-                "dtname"
-              ],
-              "Mumbai Suburban"
-            ],
-            "rgba(0, 0, 0, 0)",
-            [
-              "==",
-              [
-                "get",
-                "dtname"
-              ],
-              "Mumbai"
-            ],
-            "rgba(0, 0, 0, 0)",
-            "rgba(255, 255, 255, 0.1)"
-          ]
-        ],
-        "line-width": 1
-      },
-      "inspect": {
-        "id": "objectid",
-        "title": "District",
-        "label": "dtname",
-        "fields": [
-          "stname"
-        ],
-        "fieldTitles": [
-          "State"
-        ]
-      }
     },
     {
       "title": "Landuse Plan for Bombay Twin Cities (1964)",
