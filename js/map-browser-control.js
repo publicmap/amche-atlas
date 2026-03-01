@@ -393,6 +393,7 @@ export class MapBrowserControl {
                 description: layer.description,
                 attribution: layer.attribution,
                 headerImage: layer.headerImage,
+                legendImage: layer.legendImage,
                 tags: layer.tags || [],
                 _sourceAtlas: layer._sourceAtlas,
                 bbox: this._getLayerBbox(layer)
