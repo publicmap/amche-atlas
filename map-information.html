@@ -261,24 +261,25 @@
 
     <script type="module">
         let LayerThumbnail, LayerLegend, LAYER_SPECIFICATIONS;
-
-        try {
-            const modules = await Promise.all([
-                import('./js/layer-thumbnail.js'),
-                import('./js/layer-legend.js'),
-                import('./js/config-manager.js')
-            ]);
-            LayerThumbnail = modules[0].LayerThumbnail;
-            LayerLegend = modules[1].LayerLegend;
-            LAYER_SPECIFICATIONS = modules[2].LAYER_SPECIFICATIONS;
-            console.log('[Layer Info] Modules loaded successfully');
-        } catch (error) {
-            console.error('[Layer Info] Failed to load modules:', error);
-        }
-
         let currentLayer = null;
         let isEditing = false;
         let hasChanges = false;
+
+        (async function initModules() {
+            try {
+                const modules = await Promise.all([
+                    import('./js/layer-thumbnail.js'),
+                    import('./js/layer-legend.js'),
+                    import('./js/config-manager.js')
+                ]);
+                LayerThumbnail = modules[0].LayerThumbnail;
+                LayerLegend = modules[1].LayerLegend;
+                LAYER_SPECIFICATIONS = modules[2].LAYER_SPECIFICATIONS;
+                console.log('[Layer Info] Modules loaded successfully');
+            } catch (error) {
+                console.error('[Layer Info] Failed to load modules:', error);
+            }
+        })();
 
         $(document).ready(function () {
             const urlParams = new URLSearchParams(window.location.search);

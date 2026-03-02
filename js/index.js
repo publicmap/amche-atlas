@@ -7,6 +7,7 @@ import { MapInitializer } from './map-init.js';
 import { PermalinkManager } from './permalink-manager.js';
 import { IntroContentManager } from './intro-content-manager.js';
 import { initializeKeyboardController } from './keyboard-controller.js';
+import { SplashScreenManager } from './splash-screen-manager.js';
 
 // Make IntroContentManager available globally for inline navigation menu
 window.IntroContentManager = IntroContentManager;
@@ -36,13 +37,20 @@ window.layerRegistry = layerRegistry;
 mapboxgl.accessToken = window.amche.MAPBOXGL_ACCESS_TOKEN;
 
 // Start initialization
-$(window).on('load', function () {
+$(window).on('load', async function () {
     const permalinkHandler = new PermalinkManager();
     permalinkHandler.detectAndRedirect();
 
     loadGoogleAnalytics();
 
     initializeKeyboardController();
+
+    // Initialize splash screen manager (only once)
+    if (!window.splashManager) {
+        const splashManager = new SplashScreenManager();
+        await splashManager.initialize();
+        window.splashManager = splashManager;
+    }
 
     MapInitializer.initializeMap().then(() => {
         MapInitializer.initializeSearch();

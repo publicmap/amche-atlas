@@ -48,131 +48,6 @@
   },
   "layers": [
     {
-      "tags": [
-        "survey"
-      ],
-      "title": "Cadastral Plot Boundaries",
-      "description": "Cadastral Boundaries from the <a href='Directorate of Settlement & Land Records'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in' target='_blank' rel='noopener noreferrer'>Goa Online</a>",
-      "headerImage": "assets/map-layers/map-layer-survey.png",
-      "type": "vector",
-      "id": "maharashtra-cadastral",
-      "url": "https://indianopenmaps.com/not-so-open/cadastrals/maharashtra/coastal/ncscm/{z}/{x}/{y}.pbf",
-      "sourceLayer": "NCSCM_MH_Cadastrals",
-      "maxzoom": 14,
-      "attribution": "<a href='https://github.com/ramSeraph/indian_cadastrals/releases/tag/maharashtra'>OneMapGoa GIS</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
-      "style": {
-        "text-font": [
-          "Open Sans Bold"
-        ],
-        "text-field": [
-          "step",
-          [
-            "zoom"
-          ],
-          "",
-          15,
-          [
-            "to-string",
-            [
-              "get",
-              "plot"
-            ]
-          ]
-        ],
-        "text-color": "black",
-        "text-halo-color": "white",
-        "text-halo-width": 0.5,
-        "text-halo-blur": 1,
-        "text-size": 13,
-        "fill-color": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          15,
-          "rgba(0, 0, 0, 0.05)",
-          18,
-          "rgba(0, 0, 0, 0.1)"
-        ],
-        "line-color": "black",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          15,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            2,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            1,
-            0
-          ],
-          18,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            6,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            5,
-            1
-          ]
-        ]
-      },
-      "inspect": {
-        "id": "OBJECTID",
-        "title": "Survey Number",
-        "label": "Survey_Number",
-        "fields": [
-          "Ward",
-          "Village",
-          "Taluk",
-          "Remarks"
-        ],
-        "fieldTitles": [
-          "Ward",
-          "Village",
-          "Taluk",
-          "Remarks"
-        ]
-      }
-    },
-    {
       "title": "Slum Clusters 2015",
       "description": "Informal settlements in Mumbai as per 2015.",
       "type": "vector",
@@ -183,13 +58,7 @@
       "attribution": "<a href='https://sra.gov.in/details/sub-category/gismis-slum-data'>Slum Clusters 2015, Slum Rehabilitation Authority, Brihanmumbai,</a> via <a href='https://www.maphub.co/map/03f1d864-8e66-490b-b770-4ef18865901b'>Maphub</a> - Collected by <a href='https://data.opencity.in/dataset/mumbai-slum-cluster-map'>OpenCity.in</a>",
       "initiallyChecked": true,
       "inspect": {
-        "id": "id",
-        "fields": [
-          "area_km2"
-        ],
-        "fieldTitles": [
-          "Area (km2)"
-        ]
+        "id": "area_km2"
       },
       "style": {
         "fill-color": "darkred",
@@ -201,7 +70,7 @@
       "headerImage": "https://api-main-432878571563.europe-west4.run.app/maps/03f1d864-8e66-490b-b770-4ef18865901b/thumbnail"
     },
     {
-      [
+      "tags": [
         "construction"
       ],
       "title": "GMLR Project Alignment",
@@ -425,7 +294,7 @@
     {
       "title": "Bombay Native Town Plan (1855)",
       "description": "Map of the native town of Bombay, completed to 1855",
-      "headerImage": "assets/map-layers/map-layer-1855-bombay",
+      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Map_of_the_native_town_of_Bombay%2C_completed_to_1855.png/120px-Map_of_the_native_town_of_Bombay%2C_completed_to_1855.png",
       "type": "tms",
       "id": "1855-plan",
       "url": "https://warper.wmflabs.org/maps/tile/8739/{z}/{x}/{y}.png",
@@ -453,7 +322,7 @@
     {
       "title": "Murphy Map of Island of Bombay and Colaba (1843)",
       "description": "Historical map of the Island of Bombay and Colaba from 1843",
-      "headerImage": "assets/map-layers/map-layer-1843-murphy-map.png",
+      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/1843_Murphy_Map_of_Island_of_Bombay_and_Colaba.png/120px-1843_Murphy_Map_of_Island_of_Bombay_and_Colaba.png",
       "type": "tms",
       "id": "1843-islands-map",
       "url": "https://warper.wmflabs.org/maps/tile/8737/{z}/{x}/{y}.png",
