@@ -1,5 +1,4 @@
 import { defineConfig } from 'vite';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
   // Root directory for the project
@@ -7,28 +6,6 @@ export default defineConfig({
 
   // Public directory for static assets
   publicDir: 'assets',
-
-  // Plugins
-  plugins: [
-    viteStaticCopy({
-      targets: [
-        { src: 'config/**/*', dest: 'config' },
-        { src: 'docs/**/*', dest: 'docs' },
-        { src: 'js/**/*', dest: 'js',
-          globOptions: { ignore: ['**/tests/**', '**/index.js'] } },
-        { src: 'bus/**/*', dest: 'bus' },
-        { src: 'game/**/*', dest: 'game' },
-        { src: 'warper/**/*', dest: 'warper' },
-        { src: 'sound/**/*', dest: 'sound' },
-        { src: 'pages/**/*', dest: 'pages' },
-        { src: 'offline.html', dest: '.' },
-        { src: 'privacy.html', dest: '.' },
-        { src: 'manifest.json', dest: '.' },
-        { src: 'service-worker.js', dest: '.' },
-        { src: '.nojekyll', dest: '.' }
-      ]
-    })
-  ],
   
   // Server configuration
   server: {
