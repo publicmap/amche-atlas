@@ -59,6 +59,8 @@ jobs:
           mkdir -p deploy
           # Copy the contents of dist/ to deploy/
           rsync -av temp_main/dist/ deploy/
+          # Create .nojekyll to disable Jekyll processing on GitHub Pages
+          touch deploy/.nojekyll
 
       # Check if dev branch exists before attempting to fetch
       - name: Check if dev branch exists

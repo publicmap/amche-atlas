@@ -24,7 +24,8 @@ export default defineConfig({
         { src: 'offline.html', dest: '.' },
         { src: 'privacy.html', dest: '.' },
         { src: 'manifest.json', dest: '.' },
-        { src: 'service-worker.js', dest: '.' }
+        { src: 'service-worker.js', dest: '.' },
+        { src: '.nojekyll', dest: '.' }
       ]
     })
   ],

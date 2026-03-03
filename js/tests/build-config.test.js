@@ -8,8 +8,8 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '../..');
 
 describe('Build Configuration', () => {
-  it('should include all root-level HTML files in vite.config.js', async () => {
-    const viteConfig = fs.readFileSync(path.join(rootDir, 'vite.config.js'), 'utf8');
+  it('should include all root-level HTML files in vite.config.mjs', async () => {
+    const viteConfig = fs.readFileSync(path.join(rootDir, 'vite.config.mjs'), 'utf8');
 
     const excludedFiles = [
       'offline.html',
@@ -27,7 +27,7 @@ describe('Build Configuration', () => {
     }
 
     expect(missingFiles,
-      `Missing HTML files in vite.config.js: ${missingFiles.join(', ')}\n` +
+      `Missing HTML files in vite.config.mjs: ${missingFiles.join(', ')}\n` +
       'Add them to build.rollupOptions.input object'
     ).toEqual([]);
   });
@@ -74,12 +74,12 @@ describe('Build Configuration', () => {
   });
 
   it('should have matching HTML files between vite and webpack configs', async () => {
-    const viteConfig = fs.readFileSync(path.join(rootDir, 'vite.config.js'), 'utf8');
+    const viteConfig = fs.readFileSync(path.join(rootDir, 'vite.config.mjs'), 'utf8');
     const webpackConfig = fs.readFileSync(path.join(rootDir, 'webpack.config.js'), 'utf8');
 
     const viteInputMatch = viteConfig.match(/input:\s*{([^}]+)}/s);
     if (!viteInputMatch) {
-      throw new Error('Could not parse vite.config.js input object');
+      throw new Error('Could not parse vite.config.mjs input object');
     }
 
     const viteHtmlFiles = [...viteInputMatch[1].matchAll(/'([^']+\.html)'/g)]
@@ -94,7 +94,7 @@ describe('Build Configuration', () => {
     }
 
     expect(missingInWebpack,
-      `HTML files in vite.config.js but missing in webpack.config.js: ${missingInWebpack.join(', ')}`
+      `HTML files in vite.config.mjs but missing in webpack.config.js: ${missingInWebpack.join(', ')}`
     ).toEqual([]);
   });
 });
