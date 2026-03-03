@@ -2,7 +2,7 @@
   "name": "Amche Atlas",
   "headerImage": "assets/map-layers/mapbox/map-layer-mapbox-streets.png",
   "areaOfInterest": "Goa, India",
-  "description": "Atlas of Goa by the <a href='https://amche.in'>Amche Atlas</a> community",
+  "description": "Map collection by the <a href='https://amche.in'>Amche Atlas</a> community",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/index.atlas.json",
   "color": "#2563eb",

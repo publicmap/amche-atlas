@@ -14,7 +14,9 @@ export class SplashScreenManager {
             locationSource: null,
             locationData: null,
             urlParams: new URLSearchParams(window.location.search),
-            urlHash: window.location.hash
+            urlHash: window.location.hash,
+            manualAtlasSelection: false, // Track if user manually selected an atlas
+            manualLocationSelection: false // Track if user manually selected location source
         };
         this.autoProceed = {
             enabled: true,
@@ -31,6 +33,11 @@ export class SplashScreenManager {
      * Initialize the splash screen
      */
     async initialize() {
+        // Tell map initialization NOT to auto-close the overlay
+        // SplashScreenManager will control it
+        window.loadingStartupState = window.loadingStartupState || {};
+        window.loadingStartupState.manualOverlayControl = true;
+
         // Wait for layer registry to be ready
         await this.waitForLayerRegistry();
 
@@ -38,8 +45,42 @@ export class SplashScreenManager {
         await this.parseURLConfiguration();
         this.populateActivationPanel();
         this.setupEventListeners();
+
+        // Trigger geolocation detection if needed (but don't wait for it)
+        this.triggerLocationDetectionIfNeeded();
+
         this.startAutoProceedTimer();
         this.watchForStyleLoad();
+    }
+
+    /**
+     * Trigger location detection based on locationSource
+     * This runs in the background and doesn't block the UI
+     */
+    triggerLocationDetectionIfNeeded() {
+        // Only trigger auto-detection for geoip and gps
+        // Don't trigger if using URL or atlas location
+        if (this.state.locationSource === 'geoip') {
+            // Trigger IP-based location detection
+            if (window.handleIPLocationFallback) {
+                console.log('[SplashScreen] Triggering GeoIP location detection');
+                window.handleIPLocationFallback().then(success => {
+                    if (success && !this.state.manualLocationSelection) {
+                        console.log('[SplashScreen] GeoIP detection completed');
+                    }
+                });
+            }
+        } else if (this.state.locationSource === 'gps') {
+            // Trigger GPS location detection
+            if (window.handleGeolocation) {
+                console.log('[SplashScreen] Triggering GPS location detection');
+                window.handleGeolocation(false).then(success => {
+                    if (success && !this.state.manualLocationSelection) {
+                        console.log('[SplashScreen] GPS detection completed');
+                    }
+                });
+            }
+        }
     }
 
     /**
@@ -87,26 +128,34 @@ export class SplashScreenManager {
         // Check if user has granted GPS permission before
         const hasGrantedGPS = localStorage.getItem('gps-permission-granted') === 'true';
 
-        // Handle ?geolocate=true - auto-select GPS
-        if (geolocateParam === 'true') {
-            this.state.locationSource = 'gps';
-        } else if (hashLocation) {
-            this.state.locationSource = 'url';
-            this.state.locationData = hashLocation;
-        } else if (hasGrantedGPS) {
-            // Prefer GPS if previously granted
-            this.state.locationSource = 'gps';
-        } else {
-            // Default to GeoIP
-            this.state.locationSource = 'geoip';
-        }
-
-        // Parse atlas and layers
+        // Parse atlas and layers first
         if (atlasParam || layersParam) {
             await this.loadConfigurationFromURL(atlasParam, layersParam);
         } else {
             // No URL params - use auto-detection or index atlas
             await this.loadDefaultConfiguration();
+        }
+
+        // Determine location source AFTER loading atlas
+        // If explicit atlas parameter is provided, treat it as manual selection
+        if (atlasParam) {
+            // User explicitly requested an atlas - don't override with location detection
+            this.state.locationSource = 'atlas';
+            this.state.manualAtlasSelection = true;
+            console.log('[SplashScreen] Explicit atlas parameter detected - treating as manual selection');
+        } else if (geolocateParam === 'true') {
+            // Handle ?geolocate=true - auto-select GPS
+            this.state.locationSource = 'gps';
+        } else if (hashLocation) {
+            // Hash location in URL takes precedence
+            this.state.locationSource = 'url';
+            this.state.locationData = hashLocation;
+        } else if (hasGrantedGPS) {
+            // Prefer GPS if previously granted (only when no explicit atlas)
+            this.state.locationSource = 'gps';
+        } else {
+            // Default to GeoIP
+            this.state.locationSource = 'geoip';
         }
     }
 
@@ -412,6 +461,7 @@ export class SplashScreenManager {
         this.elements.locationRadios.forEach(radio => {
             radio.addEventListener('change', () => {
                 this.state.locationSource = radio.value;
+                this.state.manualLocationSelection = true; // Mark as manual selection
                 this.updateLocationPreview();
                 this.cancelAutoProceed();
             });
@@ -424,16 +474,29 @@ export class SplashScreenManager {
                 if (atlasId) {
                     this.cancelAutoProceed();
                     await this.loadAtlasById(atlasId);
+                    this.state.manualAtlasSelection = true;
                     this.populateActivationPanel();
                 }
             });
         });
 
-        // Open Map button - clicking proceeds immediately
+        // Open Map button - first click cancels auto-proceed, second click proceeds
         if (this.elements.openMapButton) {
-            this.elements.openMapButton.addEventListener('click', () => {
-                this.autoProceed.cancelled = true;
-                this.proceedToMap();
+            this.elements.openMapButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                console.log('[SplashScreen] Button clicked, cancelled:', this.autoProceed.cancelled);
+
+                if (!this.autoProceed.cancelled) {
+                    // First click: cancel auto-proceed
+                    console.log('[SplashScreen] Cancelling auto-proceed');
+                    this.cancelAutoProceed();
+                } else {
+                    // Second click (or after cancellation): proceed to map
+                    console.log('[SplashScreen] Proceeding to map');
+                    this.proceedToMap();
+                }
             });
         }
     }
@@ -485,15 +548,18 @@ export class SplashScreenManager {
         const startTime = Date.now();
 
         const updateCountdown = () => {
-            if (this.autoProceed.cancelled) return;
+            if (this.autoProceed.cancelled) {
+                console.log('[SplashScreen] Auto-proceed countdown stopped');
+                return;
+            }
 
             const elapsed = Date.now() - startTime;
             const remaining = Math.max(0, this.autoProceed.minDelay - elapsed);
             const seconds = Math.ceil(remaining / 1000);
 
-            // Update countdown display
+            // Update countdown display with cancel instruction
             if (this.elements.openMapButton && seconds > 0) {
-                this.elements.openMapButton.textContent = `Opening in ${seconds}s...`;
+                this.elements.openMapButton.textContent = `Click to cancel (${seconds}s)`;
             } else if (this.elements.openMapButton) {
                 this.elements.openMapButton.textContent = 'Loading map...';
             }
@@ -539,11 +605,22 @@ export class SplashScreenManager {
      * Check if both conditions are met and proceed
      */
     checkAutoProceedReady() {
-        if (this.autoProceed.cancelled) return;
+        if (this.autoProceed.cancelled) {
+            console.log('[SplashScreen] Auto-proceed cancelled, not checking conditions');
+            return;
+        }
+
+        console.log('[SplashScreen] Checking auto-proceed conditions:', {
+            delayElapsed: this.autoProceed.delayElapsed,
+            styleLoaded: this.autoProceed.styleLoaded,
+            cancelled: this.autoProceed.cancelled
+        });
 
         if (this.autoProceed.delayElapsed && this.autoProceed.styleLoaded) {
             console.log('[SplashScreen] Auto-proceed conditions met, proceeding to map');
             this.proceedToMap();
+        } else {
+            console.log('[SplashScreen] Waiting for conditions to be met');
         }
     }
 
@@ -552,10 +629,19 @@ export class SplashScreenManager {
      */
     cancelAutoProceed() {
         this.autoProceed.cancelled = true;
+        this.autoProceed.delayElapsed = false;
+        this.autoProceed.styleLoaded = false;
+
+        // Also notify the inline JavaScript to cancel its auto-proceed
+        if (window.cancelAutoProceed && typeof window.cancelAutoProceed === 'function') {
+            window.cancelAutoProceed();
+        }
+
         if (this.elements.openMapButton) {
             this.elements.openMapButton.textContent = 'Open Map';
+            this.elements.openMapButton.disabled = false;
         }
-        console.log('[SplashScreen] Auto-proceed cancelled');
+        console.log('[SplashScreen] Auto-proceed cancelled - click "Open Map" to continue');
     }
 
     /**
@@ -581,10 +667,30 @@ export class SplashScreenManager {
             selectedAtlas: this.state.atlas,
             selectedLayers: this.state.layers,
             locationSource: this.state.locationSource,
-            locationData: this.state.locationData
+            locationData: this.state.locationData,
+            manualAtlasSelection: this.state.manualAtlasSelection,
+            manualLocationSelection: this.state.manualLocationSelection
         };
 
         // Trigger map load
         console.log('[SplashScreen] Proceeding to map with configuration:', this.state);
+
+        // Close the loading overlay
+        this.closeLoadingOverlay();
+    }
+
+    /**
+     * Close the loading overlay with animation
+     */
+    closeLoadingOverlay() {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            console.log('[SplashScreen] Closing loading overlay');
+            loadingOverlay.style.opacity = '0';
+            loadingOverlay.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+            }, 300);
+        }
     }
 }

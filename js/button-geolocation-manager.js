@@ -242,34 +242,34 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                     <sl-icon name="exclamation-triangle" style="font-size: 24px; color: #ef4444; flex-shrink: 0; margin-top: 2px;"></sl-icon>
                     <div>
                         <div style="font-weight: 600; margin-bottom: 8px;">${errorMessage}</div>
-                        <div style="color: #6b7280; font-size: 14px;">
+                        <div style="font-size: 14px;">
                             ${troubleshooting.description}
                         </div>
                     </div>
                 </div>
 
-                <div style="background: #f3f4f6; border-radius: 8px; padding: 16px;">
+                <div style="background: #1f2937; border-radius: 8px; padding: 16px; border: 1px solid #4b5563;">
                     <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Troubleshooting Steps:</div>
-                    <ol style="margin: 0; padding-left: 20px; color: #374151; font-size: 14px; line-height: 1.6;">
+                    <ol style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6;">
                         ${troubleshooting.steps.map(step => `<li style="margin-bottom: 4px;">${step}</li>`).join('')}
                     </ol>
                 </div>
 
-                <div style="background: #eff6ff; border-radius: 8px; padding: 16px; border: 1px solid #bfdbfe;">
-                    <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px; color: #1e40af;">Need More Help?</div>
+                <div style="background: #1e3a5f; border-radius: 8px; padding: 16px; border: 1px solid #3b82f6;">
+                    <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px; color: #60a5fa;">Need More Help?</div>
                     <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px;">
                         <a href="https://support.google.com/chrome/answer/142065" target="_blank" rel="noopener"
-                           style="color: #2563eb; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+                           style="color: #60a5fa; text-decoration: none; display: flex; align-items: center; gap: 6px;">
                             <sl-icon name="box-arrow-up-right" style="font-size: 12px;"></sl-icon>
                             <span>Chrome: Enable location services</span>
                         </a>
                         <a href="https://support.apple.com/en-us/HT207092" target="_blank" rel="noopener"
-                           style="color: #2563eb; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+                           style="color: #60a5fa; text-decoration: none; display: flex; align-items: center; gap: 6px;">
                             <sl-icon name="box-arrow-up-right" style="font-size: 12px;"></sl-icon>
                             <span>iOS: Location services settings</span>
                         </a>
                         <a href="https://support.google.com/accounts/answer/3467281" target="_blank" rel="noopener"
-                           style="color: #2563eb; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+                           style="color: #60a5fa; text-decoration: none; display: flex; align-items: center; gap: 6px;">
                             <sl-icon name="box-arrow-up-right" style="font-size: 12px;"></sl-icon>
                             <span>Android: Location permissions</span>
                         </a>

@@ -197,7 +197,18 @@ export class MapInitializer {
 
         const choice = await this.waitForStartupChoice();
 
-        if (choice === 'location' && window.loadingStartupState?.userLocation) {
+        // Skip location-based atlas detection if:
+        // 1. User manually selected an atlas
+        // 2. Location source is 'atlas' (using atlas default location)
+        // 3. Manual location selection was made
+        const shouldSkipLocationDetection =
+            window.loadingStartupState?.manualAtlasSelection ||
+            window.loadingStartupState?.locationSource === 'atlas' ||
+            window.loadingStartupState?.manualLocationSelection;
+
+        if (choice === 'location' &&
+            window.loadingStartupState?.userLocation &&
+            !shouldSkipLocationDetection) {
             const loc = window.loadingStartupState.userLocation;
             const bestAtlas = await this.findBestAtlasForLocation(loc.lat, loc.lng);
 
@@ -226,6 +237,12 @@ export class MapInitializer {
 
                 window.loadingStartupState.bestAtlas = bestAtlas;
             }
+        } else if (shouldSkipLocationDetection) {
+            console.log('[MapInit] Skipping location-based atlas detection - reason:', {
+                manualAtlasSelection: window.loadingStartupState?.manualAtlasSelection,
+                locationSource: window.loadingStartupState?.locationSource,
+                manualLocationSelection: window.loadingStartupState?.manualLocationSelection
+            });
         }
 
         // Check if a specific config is requested via URL parameter

@@ -1085,9 +1085,19 @@
             // Expose functions globally
             window.openLoadingScreen = openLoadingScreen;
             window.closeLoadingScreen = closeLoadingScreen;
+            window.handleGeolocation = handleGeolocation;
+            window.handleIPLocationFallback = handleIPLocationFallback;
+            window.cancelAutoProceed = cancelAutoProceed;
 
 
             async function handleGeolocation(showStatusMessages = true) {
+                // Don't override if user has made manual selections
+                if (window.loadingStartupState?.manualAtlasSelection ||
+                    window.loadingStartupState?.manualLocationSelection) {
+                    console.log('[LoadingOverlay] Skipping geolocation - user made manual selection');
+                    return false;
+                }
+
                 if (showStatusMessages && requestedMapStatus) {
                     requestedMapStatus.textContent = 'Waiting for device location...';
                 }
@@ -1100,6 +1110,13 @@
                             maximumAge: 0
                         });
                     });
+
+                    // Check again before setting - user might have made selection while waiting
+                    if (window.loadingStartupState?.manualAtlasSelection ||
+                        window.loadingStartupState?.manualLocationSelection) {
+                        console.log('[LoadingOverlay] Skipping geolocation result - user made manual selection');
+                        return false;
+                    }
 
                     window.loadingStartupState.userLocation = {
                         lat: position.coords.latitude,
@@ -1125,6 +1142,13 @@
             }
 
             async function handleIPLocationFallback() {
+                // Don't override if user has made manual selections
+                if (window.loadingStartupState?.manualAtlasSelection ||
+                    window.loadingStartupState?.manualLocationSelection) {
+                    console.log('[LoadingOverlay] Skipping IP location - user made manual selection');
+                    return false;
+                }
+
                 if (requestedMapStatus) {
                     requestedMapStatus.innerHTML = 'Detecting user location from <a href="https://ipapi.co/json/" target="_blank" style="color: #60a5fa; text-decoration: underline;">IP</a>';
                 }
@@ -1157,18 +1181,24 @@
                     }, 100);
 
                     // Automatically proceed with IP location after a short delay
+                    // But only if user hasn't made manual selections
                     setTimeout(() => {
-                        window.loadingStartupState.userLocation = ipLocation;
-                        if (requestedMapStatus) {
-                            requestedMapStatus.textContent = 'Loading map...';
+                        if (!window.loadingStartupState?.manualAtlasSelection &&
+                            !window.loadingStartupState?.manualLocationSelection) {
+                            window.loadingStartupState.userLocation = ipLocation;
+                            if (requestedMapStatus) {
+                                requestedMapStatus.textContent = 'Loading map...';
+                            }
                         }
                     }, 2000);
 
+                    return true;
                 } catch (ipError) {
                     console.warn('IP location failed:', ipError);
                     if (requestedMapStatus) {
                         requestedMapStatus.textContent = 'Could not determine location';
                     }
+                    return false;
                 }
             }
 
@@ -1295,33 +1325,13 @@
                 }
 
                 // If there's a location hash, proceed normally with the URL
-                // If there's NO location hash, check for device/IP geolocation
+                // If there's NO location hash, let SplashScreenManager handle location detection
                 if (hashInfo) {
                     window.loadingStartupState.proceedNormally = true;
                 } else {
-                    // No location provided - check for device geolocation first, then fall back to IP
-                    (async () => {
-                        const geolocationSuccess = await checkAndUseGeolocation();
-                        if (geolocationSuccess && window.loadingStartupState.userLocation) {
-                            // Add location hash to URL
-                            const loc = window.loadingStartupState.userLocation;
-                            const hash = `#12/${loc.lat.toFixed(4)}/${loc.lng.toFixed(4)}`;
-                            const url = new URL(window.location);
-                            url.hash = hash;
-                            window.history.replaceState({}, '', url.toString());
-                            requestedMapStatus.textContent = 'Loading map at your location...';
-                        } else {
-                            await handleIPLocationFallback();
-                            if (window.loadingStartupState.userLocation) {
-                                // Add location hash to URL for IP location too
-                                const loc = window.loadingStartupState.userLocation;
-                                const hash = `#12/${loc.lat.toFixed(4)}/${loc.lng.toFixed(4)}`;
-                                const url = new URL(window.location);
-                                url.hash = hash;
-                                window.history.replaceState({}, '', url.toString());
-                            }
-                        }
-                    })();
+                    // No location provided - SplashScreenManager will handle this
+                    // Don't automatically trigger geolocation here
+                    console.log('[LoadingOverlay] No location hash - letting SplashScreenManager control startup');
                 }
             } else if (hashLocation) {
                 // Location hash detected - use coordinates from URL
@@ -1352,13 +1362,8 @@
                     cancelAutoProceedBtn.style.display = 'none';
                 }
 
-                // Check for device geolocation first, then fall back to IP
-                (async () => {
-                    const geolocationSuccess = await checkAndUseGeolocation();
-                    if (!geolocationSuccess) {
-                        await handleIPLocationFallback();
-                    }
-                })();
+                // Let SplashScreenManager handle location detection
+                console.log('[LoadingOverlay] No URL params or hash - SplashScreenManager will control startup');
             }
         })();
     </script>
