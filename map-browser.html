@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Map Browser</title>
+    <title>Add Map</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
@@ -170,7 +170,7 @@
             }
 
             #add-new-map-link::after {
-                content: 'Add';
+                content: 'Import New Map';
             }
         }
 
@@ -628,6 +628,80 @@
             opacity: 0.6;
             pointer-events: none;
         }
+
+        .tree-node {
+            margin-left: 0;
+        }
+
+        .tree-node-header {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-radius: 4px;
+            margin-bottom: 2px;
+        }
+
+        .tree-node-header:hover {
+            background: #374151;
+        }
+
+        .tree-expand-icon {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            line-height: 14px;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 10px;
+            flex-shrink: 0;
+            margin-right: 6px;
+            transition: transform 0.2s;
+        }
+
+        .tree-node.expanded > .tree-node-header .tree-expand-icon {
+            transform: rotate(90deg);
+        }
+
+        .tree-node-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #d1d5db;
+            text-transform: capitalize;
+            flex: 1;
+        }
+
+        .tree-node-count {
+            font-size: 10px;
+            color: #9ca3af;
+            margin-left: 4px;
+        }
+
+        .tree-node-children {
+            margin-left: 16px;
+            display: none;
+        }
+
+        .tree-node.expanded > .tree-node-children {
+            display: block;
+        }
+
+        .tree-leaf-items {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 4px;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
@@ -647,7 +721,7 @@
                     <button id="add-new-map-link"
                         style="background: transparent; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
                         <sl-icon name="plus-circle" style="font-size: 12px;"></sl-icon>
-                        <span>Add Map</span>
+                        <span>Import New Map</span>
                     </button>
                 </div>
                 <button id="close-browser-btn" class="text-white"
@@ -728,6 +802,7 @@
         let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
         let loadingLayers = new Set(); // Track layers currently loading
+        let expandedTreeNodes = new Map(); // Track expanded tree nodes per atlas
 
         // Make LayerThumbnail available globally for use in functions
         window.LayerThumbnail = LayerThumbnail;
@@ -1371,6 +1446,292 @@
             ).join('/');
         }
 
+        // Build tree structure from flat tag strings
+        function buildTagTree(layers) {
+            const tree = {
+                children: {},
+                layers: []
+            };
+
+            layers.forEach(layer => {
+                const tagString = getLayerTagString(layer);
+                const parts = tagString.split('/');
+
+                let currentNode = tree;
+                parts.forEach((part, index) => {
+                    if (!currentNode.children[part]) {
+                        currentNode.children[part] = {
+                            name: part,
+                            children: {},
+                            layers: []
+                        };
+                    }
+                    currentNode = currentNode.children[part];
+
+                    // Add layer to leaf node
+                    if (index === parts.length - 1) {
+                        currentNode.layers.push(layer);
+                    }
+                });
+            });
+
+            return tree;
+        }
+
+        // Get tree node path for storing expand state
+        function getTreeNodePath(atlasId, pathParts) {
+            return `${atlasId}:${pathParts.join('/')}`;
+        }
+
+        // Check if tree node is expanded
+        function isTreeNodeExpanded(atlasId, pathParts) {
+            const nodePath = getTreeNodePath(atlasId, pathParts);
+            const atlasExpanded = expandedTreeNodes.get(atlasId) || new Set();
+            return atlasExpanded.has(nodePath);
+        }
+
+        // Toggle tree node expansion
+        function toggleTreeNode(atlasId, pathParts) {
+            if (!expandedTreeNodes.has(atlasId)) {
+                expandedTreeNodes.set(atlasId, new Set());
+            }
+            const atlasExpanded = expandedTreeNodes.get(atlasId);
+            const nodePath = getTreeNodePath(atlasId, pathParts);
+
+            if (atlasExpanded.has(nodePath)) {
+                atlasExpanded.delete(nodePath);
+            } else {
+                atlasExpanded.add(nodePath);
+            }
+
+            renderLayers();
+        }
+
+        // Render tree node recursively
+        function renderTreeNode(atlasId, atlasData, node, pathParts = [], parentElement) {
+            const nodePath = getTreeNodePath(atlasId, pathParts);
+            const isExpanded = isTreeNodeExpanded(atlasId, pathParts);
+
+            // Count total layers in this node and its children
+            function countLayers(n) {
+                let count = n.layers.length;
+                Object.values(n.children).forEach(child => {
+                    count += countLayers(child);
+                });
+                return count;
+            }
+            const totalLayers = countLayers(node);
+
+            const $treeNode = $('<div>', {
+                class: 'tree-node' + (isExpanded ? ' expanded' : '')
+            });
+
+            // Node header
+            const $header = $('<div>', {
+                class: 'tree-node-header',
+                click: function(e) {
+                    e.stopPropagation();
+                    toggleTreeNode(atlasId, pathParts);
+                }
+            });
+
+            // Expand icon (only if has children or layers)
+            const hasContent = Object.keys(node.children).length > 0 || node.layers.length > 0;
+            if (hasContent) {
+                const $expandIcon = $('<span>', {
+                    class: 'tree-expand-icon',
+                    text: '▶'
+                });
+                $header.append($expandIcon);
+            } else {
+                $header.append($('<span>', {
+                    style: 'width: 14px; margin-right: 6px;'
+                }));
+            }
+
+            // Node label
+            const $label = $('<span>', {
+                class: 'tree-node-label',
+                text: node.name
+            });
+            $header.append($label);
+
+            // Layer count
+            const $count = $('<span>', {
+                class: 'tree-node-count',
+                text: `(${totalLayers})`
+            });
+            $header.append($count);
+
+            $treeNode.append($header);
+
+            // Children container
+            const $children = $('<div>', {
+                class: 'tree-node-children'
+            });
+
+            // Render child nodes (sorted alphabetically)
+            const childNames = Object.keys(node.children).sort();
+            childNames.forEach(childName => {
+                const childNode = node.children[childName];
+                const childPath = [...pathParts, childName];
+                renderTreeNode(atlasId, atlasData, childNode, childPath, $children);
+            });
+
+            // Render layers at this level
+            if (node.layers.length > 0) {
+                const $leafItems = $('<div>', {
+                    class: 'tree-leaf-items'
+                });
+
+                // Sort layers alphabetically
+                const sortedLayers = [...node.layers].sort((a, b) => {
+                    const aName = (a.name || a.title || a.id || '').toLowerCase();
+                    const bName = (b.name || b.title || b.id || '').toLowerCase();
+                    return aName.localeCompare(bName);
+                });
+
+                sortedLayers.forEach(layer => {
+                    const isExpanded = expandedLayers.has(layer.id);
+
+                    if (isExpanded) {
+                        // Render expanded card view
+                        const $expandedContainer = $('<div>', {
+                            class: 'atlas-collapsed-layer-expanded'
+                        });
+
+                        const $card = createLayerCard(layer, true);
+                        $expandedContainer.append($card);
+
+                        // Update click handler to collapse instead
+                        $card.off('click').on('click', function (e) {
+                            if (!$(e.target).closest('button').length) {
+                                // Trigger collapse animation
+                                $expandedContainer.addClass('collapsing');
+
+                                // Wait for animation to complete, then re-render
+                                setTimeout(() => {
+                                    expandedLayers.delete(layer.id);
+                                    renderLayers();
+                                }, 100);
+                            }
+                        });
+
+                        $leafItems.append($expandedContainer);
+                    } else {
+                        // Render compact preview
+                        const isActive = activeLayers.has(layer.id);
+                        const $layerPreview = $('<div>', {
+                            class: 'atlas-collapsed-layer' + (isActive ? ' active' : ''),
+                            'data-layer-id': layer.id
+                        });
+
+                        const thumbnail = window.LayerThumbnail.generate(layer, 40, {
+                            isInView: isInView(layer)
+                        });
+                        $layerPreview.append(thumbnail);
+
+                        const $content = $('<div>', {
+                            class: 'atlas-collapsed-layer-content',
+                            click: function (e) {
+                                // If there are other expanded layers, collapse them first with animation
+                                if (expandedLayers.size > 0 && !expandedLayers.has(layer.id)) {
+                                    // Trigger collapse animation for all expanded layers
+                                    $('.atlas-collapsed-layer-expanded').addClass('collapsing');
+
+                                    // Wait for collapse animation, then expand the new layer
+                                    setTimeout(() => {
+                                        expandedLayers.clear();
+                                        expandedLayers.add(layer.id);
+                                        renderLayers();
+                                    }, 100);
+                                } else {
+                                    // No other layers expanded, expand immediately
+                                    expandedLayers.clear();
+                                    expandedLayers.add(layer.id);
+                                    renderLayers();
+                                }
+                            }
+                        });
+
+                        $content.append($('<div>', {
+                            class: 'atlas-collapsed-layer-title',
+                            text: layer.title || layer.id
+                        }));
+
+                        // Strip all HTML including links for collapsed view
+                        const cleanDesc = layer.description ? stripHTML(layer.description) : '';
+                        const cleanAttr = layer.attribution ? stripHTML(layer.attribution.split('\n')[0]) : '';
+
+                        const $meta = $('<div>', {
+                            class: 'atlas-collapsed-layer-meta'
+                        });
+
+                        // Set initial content (prefer description, all as plain text)
+                        if (cleanDesc) {
+                            $meta.text(cleanDesc);
+                        } else if (cleanAttr) {
+                            $meta.text(cleanAttr);
+                        }
+
+                        $content.append($meta);
+                        $layerPreview.append($content);
+
+                        const $actions = $('<div>', {
+                            class: 'atlas-collapsed-layer-actions'
+                        });
+
+                        const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
+                        const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
+
+                        // Only show zoom button for active layers
+                        if (isActive && hasBbox && !isGlobalLayer) {
+                            const $zoomBtn = $('<button>', {
+                                class: 'atlas-collapsed-layer-btn zoom',
+                                html: '🔍',
+                                title: 'Zoom to layer',
+                                click: function (e) {
+                                    e.stopPropagation();
+                                    zoomToLayer(layer);
+                                }
+                            });
+                            $actions.append($zoomBtn);
+                        }
+
+                        const $toggleBtn = $('<button>', {
+                            class: 'atlas-collapsed-layer-btn toggle' + (isActive ? '' : ' inactive'),
+                            html: isActive ? '<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Added</span>' : '<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Add</span>',
+                            title: isActive ? 'Remove from map' : 'Add to map',
+                            click: function (e) {
+                                e.stopPropagation();
+                                toggleLayer(layer.id);
+                            }
+                        });
+                        addToggleButtonHover($toggleBtn, isActive, true);
+                        $actions.append($toggleBtn);
+
+                        $layerPreview.append($actions);
+
+                        // On hover, switch to attribution (plain text only)
+                        if (cleanDesc && cleanAttr) {
+                            $layerPreview.on('mouseenter', function () {
+                                $meta.text(cleanAttr);
+                            }).on('mouseleave', function () {
+                                $meta.text(cleanDesc);
+                            });
+                        }
+
+                        $leafItems.append($layerPreview);
+                    }
+                });
+
+                $children.append($leafItems);
+            }
+
+            $treeNode.append($children);
+            parentElement.append($treeNode);
+        }
+
         // Render layer grid
         function renderLayerGrid(layers, searchTerm = '') {
             const $grid = $('#layer-grid');
@@ -1803,7 +2164,7 @@
                     src: atlasData.headerImage,
                     alt: atlasData.name || atlasId,
                     class: 'atlas-header-image',
-                    error: function() {
+                    error: function () {
                         // Hide image if it fails to load
                         $(this).hide();
                     }
@@ -1815,177 +2176,14 @@
                 class: 'atlas-collapsed-layers'
             });
 
-            // Group all layers by tags (including out-of-view layers)
-            const byTag = {};
-            atlasLayers.forEach(layer => {
-                const tagString = getLayerTagString(layer);
-                if (!byTag[tagString]) {
-                    byTag[tagString] = [];
-                }
-                byTag[tagString].push(layer);
-            });
+            // Build tree structure from layers
+            const tagTree = buildTagTree(atlasLayers);
 
-            // Sort tag groups alphabetically
-            const tagStrings = Object.keys(byTag).sort();
-
-            // Render each tag group
-            tagStrings.forEach(tagString => {
-                const tagLayers = byTag[tagString];
-
-                // Sort layers alphabetically within tag
-                tagLayers.sort((a, b) => {
-                    const aName = (a.name || a.title || a.id || '').toLowerCase();
-                    const bName = (b.name || b.title || b.id || '').toLowerCase();
-                    return aName.localeCompare(bName);
-                });
-
-                const $tagGroup = $('<div>', {
-                    class: 'atlas-collapsed-tag-group'
-                });
-
-                // Tag label
-                const $tagLabel = $('<div>', {
-                    class: 'atlas-collapsed-tag-label',
-                    text: tagString
-                });
-                $tagGroup.append($tagLabel);
-
-                // Layers under this tag
-                tagLayers.forEach(layer => {
-                    const isExpanded = expandedLayers.has(layer.id);
-
-                    if (isExpanded) {
-                        // Render expanded card view
-                        const $expandedContainer = $('<div>', {
-                            class: 'atlas-collapsed-layer-expanded'
-                        });
-
-                        const $card = createLayerCard(layer, true);
-                        $expandedContainer.append($card);
-
-                        // Update click handler to collapse instead
-                        $card.off('click').on('click', function (e) {
-                            if (!$(e.target).closest('button').length) {
-                                // Trigger collapse animation
-                                $expandedContainer.addClass('collapsing');
-
-                                // Wait for animation to complete, then re-render
-                                setTimeout(() => {
-                                    expandedLayers.delete(layer.id);
-                                    renderLayers();
-                                }, 100);
-                            }
-                        });
-
-                        $tagGroup.append($expandedContainer);
-                    } else {
-                        // Render compact preview
-                        const isActive = activeLayers.has(layer.id);
-                        const $layerPreview = $('<div>', {
-                            class: 'atlas-collapsed-layer' + (isActive ? ' active' : ''),
-                            'data-layer-id': layer.id
-                        });
-
-                        const thumbnail = window.LayerThumbnail.generate(layer, 40, {
-                            isInView: isInView(layer)
-                        });
-                        $layerPreview.append(thumbnail);
-
-                        const $content = $('<div>', {
-                            class: 'atlas-collapsed-layer-content',
-                            click: function (e) {
-                                // If there are other expanded layers, collapse them first with animation
-                                if (expandedLayers.size > 0 && !expandedLayers.has(layer.id)) {
-                                    // Trigger collapse animation for all expanded layers
-                                    $('.atlas-collapsed-layer-expanded').addClass('collapsing');
-
-                                    // Wait for collapse animation, then expand the new layer
-                                    setTimeout(() => {
-                                        expandedLayers.clear();
-                                        expandedLayers.add(layer.id);
-                                        renderLayers();
-                                    }, 100);
-                                } else {
-                                    // No other layers expanded, expand immediately
-                                    expandedLayers.clear();
-                                    expandedLayers.add(layer.id);
-                                    renderLayers();
-                                }
-                            }
-                        });
-
-                        $content.append($('<div>', {
-                            class: 'atlas-collapsed-layer-title',
-                            text: layer.title || layer.id
-                        }));
-
-                        // Strip all HTML including links for collapsed view
-                        const cleanDesc = layer.description ? stripHTML(layer.description) : '';
-                        const cleanAttr = layer.attribution ? stripHTML(layer.attribution.split('\n')[0]) : '';
-
-                        const $meta = $('<div>', {
-                            class: 'atlas-collapsed-layer-meta'
-                        });
-
-                        // Set initial content (prefer description, all as plain text)
-                        if (cleanDesc) {
-                            $meta.text(cleanDesc);
-                        } else if (cleanAttr) {
-                            $meta.text(cleanAttr);
-                        }
-
-                        $content.append($meta);
-                        $layerPreview.append($content);
-
-                        const $actions = $('<div>', {
-                            class: 'atlas-collapsed-layer-actions'
-                        });
-
-                        const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
-                        const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
-
-                        // Only show zoom button for active layers
-                        if (isActive && hasBbox && !isGlobalLayer) {
-                            const $zoomBtn = $('<button>', {
-                                class: 'atlas-collapsed-layer-btn zoom',
-                                html: '🔍',
-                                title: 'Zoom to layer',
-                                click: function (e) {
-                                    e.stopPropagation();
-                                    zoomToLayer(layer);
-                                }
-                            });
-                            $actions.append($zoomBtn);
-                        }
-
-                        const $toggleBtn = $('<button>', {
-                            class: 'atlas-collapsed-layer-btn toggle' + (isActive ? '' : ' inactive'),
-                            html: isActive ? '<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Added</span>' : '<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Add</span>',
-                            title: isActive ? 'Remove from map' : 'Add to map',
-                            click: function (e) {
-                                e.stopPropagation();
-                                toggleLayer(layer.id);
-                            }
-                        });
-                        addToggleButtonHover($toggleBtn, isActive, true);
-                        $actions.append($toggleBtn);
-
-                        $layerPreview.append($actions);
-
-                        // On hover, switch to attribution (plain text only)
-                        if (cleanDesc && cleanAttr) {
-                            $layerPreview.on('mouseenter', function () {
-                                $meta.text(cleanAttr);
-                            }).on('mouseleave', function () {
-                                $meta.text(cleanDesc);
-                            });
-                        }
-
-                        $tagGroup.append($layerPreview);
-                    }
-                });
-
-                $layersContainer.append($tagGroup);
+            // Render root level children (sorted alphabetically)
+            const rootChildNames = Object.keys(tagTree.children).sort();
+            rootChildNames.forEach(childName => {
+                const childNode = tagTree.children[childName];
+                renderTreeNode(atlasId, atlasData, childNode, [childName], $layersContainer);
             });
 
             // Only show layers if expanded

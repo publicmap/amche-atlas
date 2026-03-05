@@ -273,7 +273,7 @@
     },
     {
       "tags": [
-        "survey"
+        "4.Government Publications"
       ],
       "title": "Water Body Atlas 2025",
       "description": "Springs, lakes and other minor water bodies surveyed by the Department of Water Resources, Government of Goa.",
@@ -312,8 +312,7 @@
     },
     {
       "tags": [
-        "1",
-        "Boundaries"
+        "1.Boundaries"
       ],
       "initiallyChecked": true,
       "title": "Local Body Boundaries",
@@ -610,16 +609,15 @@
     },
     {
       "tags": [
-        "1",
-        "Boundaries"
+        "1.Boundaries"
       ],
-      "title": "Survey Plot Boundaries",
+      "title": "Survey Plot Boundaries (March 2026)",
       "description": "Survey and plot subdivision boundaries from the <a href='Directorate of Settlement & Land Records'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online</a> and <a href='https://dslr.goa.gov.in/f114new.aspx'>Directorate of Settlement & Land Records (Form 1 & 14)</a>. Ownership history can be checked in the <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online Property Register</a>",
       "headerImage": "assets/map-layers/goa/map-layer-survey.png",
       "type": "vector",
       "id": "plots",
-      "url": "https://indianopenmaps.com/not-so-open/cadastrals/goa/onemapgoagis/{z}/{x}/{y}.pbf",
-      "sourceLayer": "Onemapgoa_GA_Cadastrals",
+      "url": "https://indianopenmaps.com/not-so-open/cadastrals/goa/mar2026/onemapgoagis/{z}/{x}/{y}.pbf",
+      "sourceLayer": "Onemapgoa_GA_Cadastrals_Mar2026",
       "maxzoom": 15,
       "minzoom": 13,
       "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>, <a href='https://onemapgoagis.goa.gov.in/map/'>OneMapGoa GIS</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
@@ -2171,7 +2169,7 @@
     },
     {
       "tags": [
-        "survey"
+        "4.Government Publications"
       ],
       "title": "Forest Map Of Goa 2007",
       "description": "Forest Survey Map Of Goa 2007 by Forest Department of Goa. Map shows administrative jurisdiction limits and divisions of the forest of Goa. Map also includes details of revenue village divisions (outlined red) and major roads (yellow). See <a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a>",
@@ -2265,7 +2263,7 @@
     },
     {
       "tags": [
-        "survey"
+        "4.Government Publications"
       ],
       "title": "Forest Type Map of Goa",
       "description": "Based on digital interpretation of IRS P6 LISS-III remote sensing data.",
@@ -2296,7 +2294,7 @@
     },
     {
       "tags": [
-        "survey"
+        "4.Government Publications"
       ],
       "title": "Forest Cover Map of Goa",
       "description": "Based on digital interpretation of IRS P6 LISS-III remote sensing data.",
@@ -2327,8 +2325,7 @@
     },
     {
       "tags": [
-        "2",
-        "Masterplan"
+        "2.Development Plans"
       ],
       "title": "Tillari Command Area Development Scheme",
       "description": "Notified Command Area Development Scheme for the Tillari Irrigation Project covering talukas of Bicholim, Pernem and Bardez in North Goa.",
@@ -2463,6 +2460,9 @@
       "attribution": "<a href='https://czmp.ncscm.res.in/'>National Center For Sustainable Coastal Management</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
+      "tags": [
+        "2.Development Plans"
+      ],
       "title": "Regional Development Plan for Goa 2021",
       "description": "Regional landuse plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
       "headerImage": "https://mapwarper.net/uploads/74193/thumb/siolim-marna.png",
@@ -2494,8 +2494,7 @@
     },
     {
       "tags": [
-        "2",
-        "Masterplan"
+        "2.Development Plans"
       ],
       "title": "Outline Development Plan 2011",
       "description": "Outline Development Plan 2011 prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a>",
@@ -2508,8 +2507,7 @@
     },
     {
       "tags": [
-        "2",
-        "Masterplan"
+        "2.Development Plans"
       ],
       "title": "Taluka Land Use Plans 2021",
       "description": "Taluka level regional plans",
