@@ -235,8 +235,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
+        "3.Regulatory",
         "slope"
       ],
       "id": "slope",
@@ -416,8 +415,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
+        "3.Regulatory",
         "slope"
       ],
       "title": "Plots with No Development Slopes",
@@ -612,7 +610,7 @@
         "1.Boundaries"
       ],
       "title": "Survey Plot Boundaries (March 2026)",
-      "description": "Survey and plot subdivision boundaries from the <a href='Directorate of Settlement & Land Records'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online</a> and <a href='https://dslr.goa.gov.in/f114new.aspx'>Directorate of Settlement & Land Records (Form 1 & 14)</a>. Ownership history can be checked in the <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online Property Register</a>",
+      "description": "Survey and plot subdivision boundaries from the <a href='https://dslr.goa.gov.in/'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online</a> and <a href='https://dslr.goa.gov.in/f114new.aspx'>Directorate of Settlement & Land Records (Form 1 & 14)</a>. Ownership history can be checked in the <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online Property Register</a>",
       "headerImage": "assets/map-layers/goa/map-layer-survey.png",
       "type": "vector",
       "id": "plots",
@@ -870,8 +868,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory"
+        "3.Regulatory"
       ],
       "id": "bhunaksha-communidade",
       "title": "Communidade Lands (Bhunaksha)",
@@ -914,8 +911,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory"
+        "3.Regulatory"
       ],
       "id": "bhunaksha-government",
       "title": "Government Lands (Bhunaksha)",
@@ -939,8 +935,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory"
+        "3.Regulatory"
       ],
       "id": "bhunaksha-tenanted",
       "title": "Tenanted Lands (Bhunaksha)",
@@ -964,8 +959,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory"
+        "3.Regulatory"
       ],
       "id": "communidade-plots",
       "title": "Communidade Land",
@@ -987,8 +981,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory"
+        "3.Regulatory"
       ],
       "title": "Notified Private Forests",
       "description": "Private forests identified by Thomas and Arujao expert committees",
@@ -1016,8 +1009,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
+        "3.Regulatory",
         "wetland"
       ],
       "title": "Notified Wetlands",
@@ -1030,8 +1022,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
+        "3.Regulatory",
         "wetland"
       ],
       "id": "notified-wetland-plots",
@@ -1202,8 +1193,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
+        "3.Regulatory",
         "wetland"
       ],
       "title": "Bund Sluice Gates",
@@ -1246,8 +1236,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
+        "3.Regulatory",
         "coastal zone"
       ],
       "title": "Draft Goa CZMP 2019 Khazan Bunds",
@@ -1328,8 +1317,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
+        "3.Regulatory",
         "coastal zone"
       ],
       "id": "2019-czmp-khazan",
@@ -1969,8 +1957,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory"
+        "3.Regulatory"
       ],
       "title": "Goa Mining Leases Map",
       "description": "Carta das concessos mineira do distrito do Goa showing all the Portuguese era mining leases in Goa.<br> Obtained via Goa Foundation",
@@ -2382,8 +2369,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
+        "3.Regulatory",
         "coastal zone"
       ],
       "title": "Draft Goa CZMP 2019 Coastal Landuse Map (1:25K)",
@@ -2414,8 +2400,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
+        "3.Regulatory",
         "coastal zone"
       ],
       "title": "Draft Goa CZMP 2019 (1:4K)",
@@ -2446,8 +2431,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
+        "3.Regulatory",
         "coastal zone"
       ],
       "title": "Goa CZMP 2011",

@@ -445,7 +445,7 @@ export class LayerRegistry {
     }
 
     /**
-     * Resolve a layer (merge atlas-level tags and headerImage into layer)
+     * Resolve a layer (cascade atlas headerImage to layer, but NOT tags)
      */
     _resolveLayer(layer, atlasId) {
         const atlasMetadata = this._atlasMetadata.get(atlasId);
@@ -456,18 +456,13 @@ export class LayerRegistry {
 
         const resolvedLayer = { ...layer };
 
-        // Only cascade atlas tags if this is a complete layer definition (has type or title)
-        // References to layers from other atlases (no type/title) should not get atlas tags
+        // Only cascade atlas properties if this is a complete layer definition (has type or title)
+        // References to layers from other atlases (no type/title) should not get atlas properties
         const isCompleteDefinition = resolvedLayer.type || resolvedLayer.title;
 
-        if (isCompleteDefinition && atlasMetadata.tags && Array.isArray(atlasMetadata.tags)) {
-            if (!resolvedLayer.tags) {
-                resolvedLayer.tags = [...atlasMetadata.tags];
-            } else if (Array.isArray(resolvedLayer.tags)) {
-                const mergedTags = [...new Set([...atlasMetadata.tags, ...resolvedLayer.tags])];
-                resolvedLayer.tags = mergedTags;
-            }
-        }
+        // Note: Atlas-level tags are NOT cascaded to layers
+        // They are displayed as badges in the atlas header only
+        // Layers only use explicitly defined tags
 
         // Cascade atlas headerImage to layers if they don't have one
         if (isCompleteDefinition && atlasMetadata.headerImage && !resolvedLayer.headerImage) {

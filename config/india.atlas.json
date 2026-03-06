@@ -1277,6 +1277,37 @@
     },
     {
       "tags": [
+        "5.Notified Maps",
+        "MoEFCC"
+      ],
+      "title": "Shravati WLS Eco-Sensitive Zone",
+      "type": "tms",
+      "id": "shravati-wls-esz",
+      "url": "https://allmaps.xyz/images/4bb4d3fbc63f6393/{z}/{x}/{y}@2x.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "bbox": "74.558,13.862,74.988,14.251",
+      "initiallyChecked": true,
+      "description": "Map of Eco-Sensitive Zone of Shravati Wildlife Sanctuary along with latitude and longitude and prominent locations from <a href='https://archive.org/details/in.gazette.central.e.2019-08-05.210456/page/n37/mode/2up'>Gazette of India - Extraordinary, 2019-08-05, Part II-Section 3-Sub-Section(ii)</a>",
+      "attribution": "<a href='https://archive.org/details/in.gazette.central.e.2019-08-05.210456/page/n37/mode/2up'>2019-08-05 MoEFCC Notification</a> via <a href='https://editor.allmaps.org/mask?url=https%3A%2F%2Fiiif.archive.org%2Fiiif%2Fin.gazette.central.e.2019-08-05.210456%2Fmanifest.json&image=https%3A%2F%2Fiiif.archive.org%2Fimage%2Fiiif%2F3%2Fin.gazette.central.e.2019-08-05.210456%252F210456_jp2.zip%252F210456_jp2%252F210456_0016.jp2'>Allmaps</a>"
+    },
+    {
+      "tags": [
         "3",
         "regulatory",
         "coastal zone"

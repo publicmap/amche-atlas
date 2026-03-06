@@ -1,0 +1,460 @@
+{
+  "name": "Delhi NCR",
+  "areaOfInterest": "Delhi NCR, India",
+  "version": "0.1.0",
+  "url": "https://github.com/publicmap/amche-goa/blob/main/config/gurugram.atlas.json",
+  "color": "orange",
+  "map": {
+    "center": [
+      77.01,
+      28.46
+    ],
+    "zoom": 11.8
+  },
+  "geojson": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+          "coordinates": [
+            [
+              [
+                77.84303213061293,
+                29.088015493531714
+              ],
+              [
+                76.49598150467705,
+                29.088015493531714
+              ],
+              [
+                76.49598150467705,
+                28.080410324470648
+              ],
+              [
+                77.84303213061293,
+                28.080410324470648
+              ],
+              [
+                77.84303213061293,
+                29.088015493531714
+              ]
+            ]
+          ],
+          "type": "Polygon"
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "tags": [
+        "1.Boundaries"
+      ],
+      "title": "GSDL Cadastrals/Khasras (July 2019)",
+      "description": "Survey and plot subdivision boundaries from the <a href='https://gsdl.org.in/revenue/#'>Geospatial Delhi Limited</a>. The map is provided for information purpose only. Ownership information can be checked in <a href='https://dlrc.delhi.gov.in/index.aspx'>Delhi Land Records</a>",
+      "headerImage": "assets/map-layers/goa/map-layer-survey.png",
+      "type": "vector",
+      "id": "delhi-plots",
+      "url": "https://indianopenmaps.com/not-so-open/cadastrals/delhi/urban/gsdl/{z}/{x}/{y}.pbf",
+      "sourceLayer": "GSDL_Cadastrals",
+      "maxzoom": 13,
+      "minzoom": 13,
+      "attribution": "<a href='https://gsdl.org.in/revenue/#'>GSDL, Delhi</a> - Collected by <a href='https://github.com/ramSeraph/indian_cadastrals/releases/tag/delhi'>Datameet Community</a>",
+      "style": {
+        "text-padding": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          30,
+          17,
+          2
+        ],
+        "text-font": [
+          "Courier New",
+          "Open Sans SemiBold"
+        ],
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          13,
+          [
+            "format",
+            [
+              "get",
+              "SUBDIV_NM"
+            ],
+            {
+              "text-color": "white",
+              "font-scale": 1.4
+            },
+            "\n",
+            {},
+            [
+              "get",
+              "VILL_NM"
+            ],
+            {
+              "text-color": "white",
+              "font-scale": 1.2
+            }
+          ],
+          15,
+          [
+            "format",
+            [
+              "get",
+              "VILL_NM"
+            ],
+            {
+              "text-color": "white",
+              "font-scale": 1.2
+            },
+            "\n",
+            {},
+            [
+              "get",
+              "M_KHASRA_R"
+            ],
+            {
+              "text-color": "#eee",
+              "font-scale": 1.0
+            },
+            " / ",
+            {},
+            [
+              "get",
+              "M_KHASRA_N"
+            ],
+            {
+              "text-color": "#eee",
+              "font-scale": 1.0
+            }
+          ]
+        ],
+        "text-color": "white",
+        "text-halo-color": "black",
+        "text-halo-width": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          2,
+          1
+        ],
+        "text-opacity": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          1,
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          1,
+          0.6
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          6,
+          16,
+          10,
+          18,
+          14
+        ],
+        "fill-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          15,
+          "rgba(0, 0, 0, 0.05)",
+          18,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            "rgba(0, 0, 0, 0)",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            "rgba(0, 0, 0, 0.3)",
+            "rgba(0, 0, 0, 0.4)"
+          ]
+        ],
+        "line-opacity": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          1,
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          1,
+          0.4
+        ],
+        "line-color": "#eee",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            2,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            1,
+            0
+          ],
+          18,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            2,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            1.2,
+            1
+          ]
+        ]
+      },
+      "initiallyChecked": true,
+      "inspect": {
+        "id": "FID",
+        "title": "Khasra Number",
+        "label": "M_KHASRA_N",
+        "fields": [
+          "villagenam",
+          "talname",
+          "shape_area"
+        ],
+        "fieldTitles": [
+          "Village",
+          "Taluk",
+          "Shape Area (sqm)"
+        ],
+        "onClick": "getBhunakshaInfo"
+      }
+    },
+    {
+      "title": "Cadastral Plot Boundaries",
+      "description": "Cadastral boundaries for Haryana. The map is provided for information purpose only. An official copy can be obtained from <a href='https://hsac.org.in/eodb/#' target='_blank' rel='noopener noreferrer'>Digital Land Record, Haryana</a>",
+      "headerImage": "assets/map-layers/map-layer-survey.png",
+      "type": "vector",
+      "id": "haryana-plot-cadastral",
+      "url": "https://indianopenmaps.fly.dev/not-so-open/cadastrals/haryana/hrsac/{z}/{x}/{y}.pbf",
+      "sourceLayer": "HRSAC_HR_Cadastrals",
+      "maxzoom": 14,
+      "attribution": "<a href='https://hsac.org.in/eodb/'>Haryana Space Applications Center</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "style": {
+        "text-font": [
+          "Open Sans Bold"
+        ],
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          15,
+          [
+            "to-string",
+            [
+              "get",
+              "plot"
+            ]
+          ]
+        ],
+        "text-color": "black",
+        "text-halo-color": "white",
+        "text-halo-width": 0.5,
+        "text-halo-blur": 1,
+        "text-size": 13,
+        "fill-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          15,
+          "rgba(0, 0, 0, 0.05)",
+          18,
+          "rgba(0, 0, 0, 0.1)"
+        ],
+        "line-color": "black",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          15,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            2,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            1,
+            0
+          ],
+          18,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            6,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            5,
+            1
+          ]
+        ]
+      },
+      "inspect": {
+        "id": "OBJECTID",
+        "title": "Survey/Khasra Number",
+        "label": "n_khas_no",
+        "fields": [
+          "n_murr_no",
+          "n_v_name",
+          "n_t_name",
+          "n_d_name"
+        ],
+        "fieldTitles": [
+          "Murr No.",
+          "Village",
+          "Taluk",
+          "District"
+        ]
+      }
+    },
+    {
+      "title": "Gurgaon Master Plan 2031",
+      "description": "Gurgaon Master Plan 2031 from TCP Haryana",
+      "headerImage": "assets/map-layers/gurugram/map-layer-gurugram-plan-2034.png",
+      "legendImage": "assets/map-layers/gurugram/map-layer-gurugram-plan-2034-legend.png",
+      "type": "tms",
+      "id": "gurugram-plan-2034",
+      "url": "https://mapwarper.net/maps/tile/58486/{z}/{x}/{y}.png",
+      "attribution": "<a href='https://tcpharyana.gov.in/Development_Plan/ColouredCopy/GMUC_DDP_2031.pdf'>https://tcpharyana.gov.in/Development_Plan/ColouredCopy/GMUC_DDP_2031.pdf</a> via <a href='https://mapwarper.net/maps/58486'>Map Warper</a>"
+    }
+  ]
+}
