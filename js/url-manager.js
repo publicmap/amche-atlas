@@ -425,7 +425,7 @@ export class URLManager {
         let selectedParam = null;
 
         // Handle layers parameter
-        if (options.updateLayers !== false) {
+        if (options.updateLayers === true) {
             const activeLayers = this.getCurrentActiveLayers();
             const newLayersParam = this.serializeLayersForURL(activeLayers);
             const currentLayersParam = urlParams.get('layers');
@@ -701,8 +701,8 @@ export class URLManager {
             if (layersParam) {
                 // Don't URL-encode the layers parameter to keep it readable
                 params.push('layers=' + layersParam);
-            } else if (options.updateLayers === false) {
-                // If we're not updating layers, preserve the current layers parameter as-is
+            } else if (options.updateLayers !== true) {
+                // If we're not explicitly updating layers, preserve the current layers parameter as-is
                 const currentLayersParam = urlParams.get('layers');
                 if (currentLayersParam) {
                     params.push('layers=' + currentLayersParam);

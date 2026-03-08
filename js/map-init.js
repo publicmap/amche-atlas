@@ -307,6 +307,23 @@ export class MapInitializer {
             config = await configResponse.json();
         }
 
+        // For non-index atlases, ensure they inherit the map style from index.atlas.json if not specified
+        if (atlasId !== 'index' && (!config.map || !config.map.style)) {
+            try {
+                const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
+                const indexConfig = await indexResponse.json();
+                if (indexConfig.map && indexConfig.map.style) {
+                    if (!config.map) {
+                        config.map = {};
+                    }
+                    config.map.style = indexConfig.map.style;
+                    console.log(`[MapInit] Atlas ${atlasId} inheriting map style from index:`, indexConfig.map.style);
+                }
+            } catch (error) {
+                console.warn('[MapInit] Failed to load index atlas for style inheritance:', error);
+            }
+        }
+
         // Set current atlas in registry
         layerRegistry.setCurrentAtlas(atlasId);
 

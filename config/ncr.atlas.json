@@ -447,6 +447,15 @@
       }
     },
     {
+      "initiallyChecked": true,
+      "title": "Draft Delhi Master Plan MPD 2041",
+      "description": "Draft Master Plan MPD 2041 from DDA",
+      "type": "tms",
+      "id": "draft-2041-mpd-delhi",
+      "url": "https://allmaps.xyz/images/8d6198c82284323b/{z}/{x}/{y}@2x.png",
+      "attribution": "<a href='https://dda.gov.in/master-plan-delhi-2041-draft'>MPD 2041 (Draft), DDA</a> via <a href='https://editor.allmaps.org/mask?url=https%3A%2F%2Fiiif.archive.org%2Fiiif%2Fdelhi-mpd-2041%2Fmanifest.json&image=https%3A%2F%2Fiiif.archive.org%2Fimage%2Fiiif%2F3%2Fdelhi-mpd-2041%252FDraft%2520Landuse%2520Plan%2520For%2520Delhi%25202014_jp2.zip%252FDraft%2520Landuse%2520Plan%2520For%2520Delhi%25202014_jp2%252FDraft%2520Landuse%2520Plan%2520For%2520Delhi%25202014_0000.jp2>Allmaps</a>"
+    },
+    {
       "title": "Gurgaon Master Plan 2031",
       "description": "Gurgaon Master Plan 2031 from TCP Haryana",
       "headerImage": "assets/map-layers/gurugram/map-layer-gurugram-plan-2034.png",
