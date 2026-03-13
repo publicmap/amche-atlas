@@ -100,8 +100,8 @@
         .section-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 10px;
-            padding: 0 12px 12px 12px;
+            gap: 8px;
+            padding: 0 8px 8px 8px;
         }
 
         .search-input {
@@ -380,7 +380,7 @@
             margin: 0;
             border-bottom: 1px solid black;
             transition: background 0.2s;
-            padding: 0 8px;
+            padding: 0;
         }
 
         .atlas-collapsed-header {
@@ -388,6 +388,7 @@
             align-items: center;
             gap: 8px;
             transition: background 0.2s;
+            padding: 6px 8px;
         }
 
         .atlas-header-image {
@@ -395,8 +396,8 @@
             height: auto;
             max-height: 120px;
             object-fit: cover;
-            border-radius: 4px;
-            margin: 8px 0;
+            border-radius: 0;
+            margin: 0;
             display: block;
         }
 
@@ -407,27 +408,29 @@
 
         .atlas-expand-icon {
             display: inline-block;
-            width: 16px;
-            height: 16px;
-            line-height: 16px;
+            width: 14px;
+            height: 14px;
+            line-height: 14px;
             text-align: center;
             color: #9ca3af;
             font-weight: bold;
             flex-shrink: 0;
+            font-size: 11px;
         }
 
         .atlas-collapsed-layers {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 4px;
             padding-left: 0;
-            margin-top: 8px;
+            margin-top: 4px;
+            margin-bottom: 4px;
         }
 
         .atlas-collapsed-tag-group {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 2px;
         }
 
         .atlas-collapsed-tag-label {
@@ -448,7 +451,7 @@
             color: #d1d5db;
             cursor: pointer;
             transition: background 0.2s;
-            padding: 4px 8px;
+            padding: 3px 8px;
             border-radius: 4px;
         }
 
@@ -631,18 +634,19 @@
 
         .tree-node {
             margin-left: 0;
+            margin-bottom: 2px;
         }
 
         .tree-node-header {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 6px 8px;
+            padding: 4px 8px;
             cursor: pointer;
             transition: background 0.2s;
             border-radius: 4px;
-            margin-bottom: 2px;
-            min-height: 32px;
+            margin-bottom: 1px;
+            min-height: 24px;
         }
 
         .tree-node-header:hover {
@@ -668,14 +672,14 @@
 
         .tree-expand-icon {
             display: inline-block;
-            width: 14px;
-            height: 14px;
-            line-height: 14px;
+            width: 12px;
+            height: 12px;
+            line-height: 12px;
             text-align: center;
             color: #9ca3af;
-            font-size: 10px;
+            font-size: 9px;
             flex-shrink: 0;
-            margin-right: 6px;
+            margin-right: 4px;
             transition: transform 0.2s;
         }
 
@@ -690,22 +694,25 @@
             text-transform: capitalize;
             white-space: nowrap;
             flex-shrink: 0;
+            line-height: 1.2;
         }
 
         .tree-node-count {
-            font-size: 10px;
+            font-size: 9px;
             color: #9ca3af;
             white-space: nowrap;
             flex-shrink: 0;
-            padding: 2px 6px;
+            padding: 2px 5px;
             background: #374151;
             border-radius: 3px;
             font-weight: 600;
+            line-height: 1.2;
         }
 
         .tree-node-children {
             margin-left: 16px;
             display: none;
+            margin-top: 2px;
         }
 
         .tree-node.expanded > .tree-node-children {
@@ -715,8 +722,8 @@
         .tree-leaf-items {
             display: flex;
             flex-direction: column;
-            gap: 4px;
-            margin-top: 4px;
+            gap: 3px;
+            margin-top: 2px;
         }
 
         .tree-node-preview {
@@ -919,10 +926,12 @@
         let expandedAtlasId = null; // Track which single atlas is expanded
         let userCollapsedAll = false; // Track if user explicitly collapsed all atlases
         let userManuallyExpandedAtlas = false; // Track if user manually expanded a different atlas
+        let userHasInteractedWithAtlas = false; // Track if user has clicked any atlas header
         let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
         let loadingLayers = new Set(); // Track layers currently loading
         let expandedTreeNodes = new Map(); // Track expanded tree nodes per atlas
+        let showMoreNodes = new Map(); // Track which nodes should show hidden non-matching layers
 
         // Make LayerThumbnail available globally for use in functions
         window.LayerThumbnail = LayerThumbnail;
@@ -1182,7 +1191,11 @@
                     $('#clear-search-btn').show();
                 } else {
                     $('#clear-search-btn').hide();
+                    // Clear show more state when search is cleared
+                    showMoreNodes.clear();
                 }
+                // Clear show more state on search change
+                showMoreNodes.clear();
                 debounce(renderLayers, 300)();
             });
 
@@ -1617,6 +1630,27 @@
             return false;
         }
 
+        // Check if a node or its descendants have layers matching search
+        function nodeContainsSearchMatch(node, searchTerm) {
+            if (!searchTerm) return false;
+
+            // Check layers at this node
+            if (node.layers && node.layers.some(layer => matchesSearch(layer, searchTerm))) {
+                return true;
+            }
+
+            // Check child nodes recursively
+            if (node.children) {
+                for (const childName in node.children) {
+                    if (nodeContainsSearchMatch(node.children[childName], searchTerm)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         // Auto-expand tree to show active layers
         function autoExpandToActiveLayers(atlasId) {
             if (!expandedTreeNodes.has(atlasId)) {
@@ -1766,10 +1800,15 @@
         }
 
         // Render tree node recursively
-        function renderTreeNode(atlasId, atlasData, node, pathParts = [], parentElement) {
+        function renderTreeNode(atlasId, atlasData, node, pathParts = [], parentElement, searchTerm = '') {
             const nodePath = getTreeNodePath(atlasId, pathParts);
-            const isExpanded = isTreeNodeExpanded(atlasId, pathParts);
+            let isExpanded = isTreeNodeExpanded(atlasId, pathParts);
             const hasActive = hasActiveDescendants(node);
+
+            // Auto-expand if searching and node contains matching layers
+            if (searchTerm && nodeContainsSearchMatch(node, searchTerm)) {
+                isExpanded = true;
+            }
 
             const totalLayers = countLayers(node);
 
@@ -1796,7 +1835,7 @@
                 $header.append($expandIcon);
             } else {
                 $header.append($('<span>', {
-                    style: 'width: 14px; margin-right: 6px;'
+                    style: 'width: 12px; margin-right: 4px;'
                 }));
             }
 
@@ -1844,7 +1883,7 @@
             childNames.forEach(childName => {
                 const childNode = node.children[childName];
                 const childPath = [...pathParts, childName];
-                renderTreeNode(atlasId, atlasData, childNode, childPath, $children);
+                renderTreeNode(atlasId, atlasData, childNode, childPath, $children, searchTerm);
             });
 
             // Render layers at this level
@@ -1853,14 +1892,38 @@
                     class: 'tree-leaf-items'
                 });
 
-                // Sort layers alphabetically
-                const sortedLayers = [...node.layers].sort((a, b) => {
+                // If searching, separate matching and non-matching layers
+                let matchingLayers = [];
+                let nonMatchingLayers = [];
+
+                if (searchTerm) {
+                    node.layers.forEach(layer => {
+                        if (matchesSearch(layer, searchTerm)) {
+                            matchingLayers.push(layer);
+                        } else {
+                            nonMatchingLayers.push(layer);
+                        }
+                    });
+                } else {
+                    matchingLayers = [...node.layers];
+                }
+
+                // Sort matching layers alphabetically
+                matchingLayers.sort((a, b) => {
                     const aName = (a.name || a.title || a.id || '').toLowerCase();
                     const bName = (b.name || b.title || b.id || '').toLowerCase();
                     return aName.localeCompare(bName);
                 });
 
-                sortedLayers.forEach(layer => {
+                // Sort non-matching layers alphabetically
+                nonMatchingLayers.sort((a, b) => {
+                    const aName = (a.name || a.title || a.id || '').toLowerCase();
+                    const bName = (b.name || b.title || b.id || '').toLowerCase();
+                    return aName.localeCompare(bName);
+                });
+
+                // Render matching layers first
+                matchingLayers.forEach(layer => {
                     const isExpanded = expandedLayers.has(layer.id);
 
                     if (isExpanded) {
@@ -1994,6 +2057,153 @@
                     }
                 });
 
+                // Add "[X more...]" section for non-matching layers if searching
+                if (searchTerm && nonMatchingLayers.length > 0) {
+                    const showMoreKey = `${nodePath}:showMore`;
+                    const isShowingMore = showMoreNodes.get(showMoreKey) || false;
+
+                    if (!isShowingMore) {
+                        // Show collapsed "[X more...]" section
+                        const $moreSection = $('<div>', {
+                            class: 'atlas-collapsed-more',
+                            style: 'cursor: pointer; padding: 8px; margin-top: 8px; background: #374151; border-radius: 4px; text-align: center; transition: background 0.2s;',
+                            text: `[${nonMatchingLayers.length} more...]`,
+                            click: function(e) {
+                                e.stopPropagation();
+                                showMoreNodes.set(showMoreKey, true);
+                                renderLayers();
+                            }
+                        });
+                        $moreSection.on('mouseenter', function() {
+                            $(this).css('background', '#4b5563');
+                        }).on('mouseleave', function() {
+                            $(this).css('background', '#374151');
+                        });
+                        $leafItems.append($moreSection);
+                    } else {
+                        // Show all non-matching layers
+                        nonMatchingLayers.forEach(layer => {
+                            const isExpanded = expandedLayers.has(layer.id);
+
+                            if (isExpanded) {
+                                const $expandedContainer = $('<div>', {
+                                    class: 'atlas-collapsed-layer-expanded'
+                                });
+
+                                const $card = createLayerCard(layer, true);
+                                $expandedContainer.append($card);
+
+                                $card.off('click').on('click', function (e) {
+                                    if (!$(e.target).closest('button').length) {
+                                        $expandedContainer.addClass('collapsing');
+                                        setTimeout(() => {
+                                            expandedLayers.delete(layer.id);
+                                            renderLayers();
+                                        }, 100);
+                                    }
+                                });
+
+                                $leafItems.append($expandedContainer);
+                            } else {
+                                const isActive = activeLayers.has(layer.id);
+                                const $layerPreview = $('<div>', {
+                                    class: 'atlas-collapsed-layer' + (isActive ? ' active' : ''),
+                                    'data-layer-id': layer.id,
+                                    style: 'opacity: 0.6;'
+                                });
+
+                                const thumbnail = window.LayerThumbnail.generate(layer, 40, {
+                                    isInView: isInView(layer)
+                                });
+                                $layerPreview.append(thumbnail);
+
+                                const $content = $('<div>', {
+                                    class: 'atlas-collapsed-layer-content',
+                                    click: function (e) {
+                                        if (expandedLayers.size > 0 && !expandedLayers.has(layer.id)) {
+                                            $('.atlas-collapsed-layer-expanded').addClass('collapsing');
+                                            setTimeout(() => {
+                                                expandedLayers.clear();
+                                                expandedLayers.add(layer.id);
+                                                renderLayers();
+                                            }, 100);
+                                        } else {
+                                            expandedLayers.clear();
+                                            expandedLayers.add(layer.id);
+                                            renderLayers();
+                                        }
+                                    }
+                                });
+
+                                $content.append($('<div>', {
+                                    class: 'atlas-collapsed-layer-title',
+                                    text: layer.title || layer.id
+                                }));
+
+                                const cleanDesc = layer.description ? stripHTML(layer.description) : '';
+                                const cleanAttr = layer.attribution ? stripHTML(layer.attribution.split('\n')[0]) : '';
+
+                                const $meta = $('<div>', {
+                                    class: 'atlas-collapsed-layer-meta'
+                                });
+
+                                if (cleanDesc) {
+                                    $meta.text(cleanDesc);
+                                } else if (cleanAttr) {
+                                    $meta.text(cleanAttr);
+                                }
+
+                                $content.append($meta);
+                                $layerPreview.append($content);
+
+                                const $actions = $('<div>', {
+                                    class: 'atlas-collapsed-layer-actions'
+                                });
+
+                                const hasBbox = layer.bbox || (atlasData && atlasData.bbox);
+                                const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
+
+                                if (isActive && hasBbox && !isGlobalLayer) {
+                                    const $zoomBtn = $('<button>', {
+                                        class: 'atlas-collapsed-layer-btn zoom',
+                                        html: '🔍',
+                                        title: 'Zoom to layer',
+                                        click: function (e) {
+                                            e.stopPropagation();
+                                            zoomToLayer(layer);
+                                        }
+                                    });
+                                    $actions.append($zoomBtn);
+                                }
+
+                                const $toggleBtn = $('<button>', {
+                                    class: 'atlas-collapsed-layer-btn toggle' + (isActive ? '' : ' inactive'),
+                                    html: isActive ? '<sl-icon name="check-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Added</span>' : '<sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon><span style="font-size: 11px;">Add</span>',
+                                    title: isActive ? 'Remove from map' : 'Add to map',
+                                    click: function (e) {
+                                        e.stopPropagation();
+                                        toggleLayer(layer.id);
+                                    }
+                                });
+                                addToggleButtonHover($toggleBtn, isActive, true);
+                                $actions.append($toggleBtn);
+
+                                $layerPreview.append($actions);
+
+                                if (cleanDesc && cleanAttr) {
+                                    $layerPreview.on('mouseenter', function () {
+                                        $meta.text(cleanAttr);
+                                    }).on('mouseleave', function () {
+                                        $meta.text(cleanDesc);
+                                    });
+                                }
+
+                                $leafItems.append($layerPreview);
+                            }
+                        });
+                    }
+                }
+
                 $children.append($leafItems);
             }
 
@@ -2108,6 +2318,7 @@
                         html: `${atlasName} <span class="count">(${count})</span>`,
                         click: function (e) {
                             e.preventDefault();
+                            userHasInteractedWithAtlas = true;
                             expandedAtlasId = indexAtlasId;
                             userCollapsedAll = false;
                             userManuallyExpandedAtlas = (window.selectedAtlasId && indexAtlasId !== window.selectedAtlasId);
@@ -2145,6 +2356,7 @@
                         html: `${atlasName} <span class="count">(${count})</span>`,
                         click: function (e) {
                             e.preventDefault();
+                            userHasInteractedWithAtlas = true;
                             // Expand this atlas
                             expandedAtlasId = atlasId;
                             userCollapsedAll = false;
@@ -2186,6 +2398,7 @@
                         html: `${atlasName} <span class="count">(${count})</span>`,
                         click: function (e) {
                             e.preventDefault();
+                            userHasInteractedWithAtlas = true;
                             // Expand this atlas
                             expandedAtlasId = atlasId;
                             userCollapsedAll = false;
@@ -2207,13 +2420,15 @@
                 $grid.append($atlasNav);
             }
 
-            // Always expand first atlas on initial render if none is expanded (unless user explicitly collapsed)
-            if (!expandedAtlasId && orderedAtlasIds.length > 0 && !userCollapsedAll) {
+            // Only expand first atlas on very first render (not set by user action)
+            // Check if this is initial page load by seeing if expandedAtlasId was never set
+            if (expandedAtlasId === null && orderedAtlasIds.length > 0 && !userCollapsedAll && typeof window.hasInitiallyExpanded === 'undefined') {
                 expandedAtlasId = orderedAtlasIds[0];
+                window.hasInitiallyExpanded = true;
             }
 
-            // If a specific atlas is selected, ensure it's expanded (but only if user hasn't manually expanded a different one)
-            if (window.selectedAtlasId && orderedAtlasIds.includes(window.selectedAtlasId) && !userManuallyExpandedAtlas) {
+            // If a specific atlas is selected, ensure it's expanded ONLY on initial load (before user interaction)
+            if (window.selectedAtlasId && orderedAtlasIds.includes(window.selectedAtlasId) && !userManuallyExpandedAtlas && !userHasInteractedWithAtlas) {
                 expandedAtlasId = window.selectedAtlasId;
             }
 
@@ -2265,9 +2480,14 @@
             // Otherwise, use the single-expand behavior
             const isExpanded = searchTerm ? atlasIdsWithResults.has(atlasId) : expandedAtlasId === atlasId;
 
-            // Auto-expand tree to show active layers when atlas is expanded
-            if (isExpanded && !searchTerm) {
+            // Auto-expand tree to show active layers only on initial atlas expansion
+            // Check if this atlas has been auto-expanded before
+            if (isExpanded && !searchTerm && typeof window.atlasesAutoExpanded === 'undefined') {
+                window.atlasesAutoExpanded = new Set();
+            }
+            if (isExpanded && !searchTerm && !window.atlasesAutoExpanded.has(atlasId)) {
                 autoExpandToActiveLayers(atlasId);
+                window.atlasesAutoExpanded.add(atlasId);
             }
 
             // Check if atlas has active layers
@@ -2280,10 +2500,13 @@
 
             const $header = $('<div>', {
                 class: 'atlas-collapsed-header' + (hasActiveChildren ? ' has-active-children' : ''),
-                style: 'cursor: pointer; padding: 8px 0;',
+                style: 'cursor: pointer;',
                 click: function (e) {
                     // Don't toggle if clicking on links or buttons
                     if ($(e.target).closest('a, button').length) return;
+
+                    // Mark that user has interacted with atlas
+                    userHasInteractedWithAtlas = true;
 
                     // If currently searching, clear search and set this atlas as the only expanded one
                     if (searchTerm) {
@@ -2471,7 +2694,7 @@
             const rootChildNames = Object.keys(tagTree.children).sort();
             rootChildNames.forEach(childName => {
                 const childNode = tagTree.children[childName];
-                renderTreeNode(atlasId, atlasData, childNode, [childName], $layersContainer);
+                renderTreeNode(atlasId, atlasData, childNode, [childName], $layersContainer, searchTerm);
             });
 
             // Only show layers if expanded

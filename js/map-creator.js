@@ -14,6 +14,37 @@ export class MapCreator {
         this.setupTabNavigation();
         this.setupEventListeners();
         this.setupColorPickers();
+        this.setupMessageListener();
+        window.parent.postMessage({ type: 'creator-ready' }, '*');
+    }
+
+    setupMessageListener() {
+        window.addEventListener('message', async (event) => {
+            if (event.data.type === 'load-file-data') {
+                const { fileName, content } = event.data;
+                const ext = fileName.split('.').pop().toLowerCase();
+                this.switchTab('upload');
+                try {
+                    let geojson;
+                    if (ext === 'kml') {
+                        geojson = await KMLConverter.kmlToGeoJson(content);
+                    } else if (ext === 'csv') {
+                        const rows = DataUtils.parseCSV(content);
+                        if (!rows || rows.length === 0) throw new Error('CSV file is empty');
+                        geojson = GeoUtils.rowsToGeoJSON(rows);
+                        if (!geojson) throw new Error('Could not find lat/lng columns in CSV');
+                    } else {
+                        geojson = JSON.parse(content);
+                        if (!geojson.type || (geojson.type !== 'FeatureCollection' && geojson.type !== 'Feature')) {
+                            throw new Error('Invalid GeoJSON format');
+                        }
+                    }
+                    this.processGeoJSON(geojson, fileName);
+                } catch (error) {
+                    alert('Parse error: ' + error.message);
+                }
+            }
+        });
     }
 
     setupTabNavigation() {

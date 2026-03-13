@@ -14,6 +14,7 @@ export class MapBrowserControl {
         this._browserContainer = null;
         this._iframe = null;
         this._isOpen = false;
+        this._pendingFileData = null;
         this._setupMessageListener();
     }
 
@@ -176,17 +177,7 @@ export class MapBrowserControl {
     }
 
     _preloadBrowser() {
-        // Preload the browser iframe in the background
-        // Wait a bit to ensure inspector is fully settled
-        setTimeout(() => {
-            this._ensureIframe();
-            // Send initial data once iframe is ready to receive it
-            setTimeout(() => {
-                if (this._iframe) {
-                    this._sendLayerData();
-                }
-            }, 500);
-        }, 1000);
+        this._ensureIframe();
     }
 
     _setupMessageListener() {
@@ -217,6 +208,17 @@ export class MapBrowserControl {
 
             if (event.data.type === 'open-creator') {
                 this._switchToCreator();
+            }
+
+            if (event.data.type === 'creator-ready') {
+                if (this._pendingFileData && this._iframe && this._iframe.contentWindow) {
+                    this._iframe.contentWindow.postMessage({
+                        type: 'load-file-data',
+                        fileName: this._pendingFileData.fileName,
+                        content: this._pendingFileData.content
+                    }, '*');
+                    this._pendingFileData = null;
+                }
             }
 
             if (event.data.type === 'return-to-browser') {
@@ -671,6 +673,9 @@ export class MapBrowserControl {
     _switchToCreator() {
         this._ensureIframe();
         this._iframe.src = 'map-creator.html';
+        if (this._loadingOverlay) {
+            this._loadingOverlay.style.display = 'none';
+        }
     }
 
     _switchToBrowser() {
@@ -679,6 +684,18 @@ export class MapBrowserControl {
         setTimeout(() => {
             this._sendLayerData();
         }, 100);
+    }
+
+    openCreatorWithFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this._pendingFileData = { fileName: file.name, content: e.target.result };
+            if (!this._isOpen) {
+                this.openBrowser();
+            }
+            this._switchToCreator();
+        };
+        reader.readAsText(file);
     }
 
     _handleZoomToBounds(bounds) {

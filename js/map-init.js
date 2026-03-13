@@ -774,6 +774,38 @@ export class MapInitializer {
                 browserControlContainer.appendChild(controlElement);
             }
 
+            const supportedExts = ['geojson', 'json', 'kml', 'csv'];
+            const dropOverlay = document.createElement('div');
+            dropOverlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(30,64,175,0.55);display:none;align-items:center;justify-content:center;pointer-events:none;';
+            dropOverlay.innerHTML = '<div style="background:#1e3a8a;color:#fff;border-radius:1rem;padding:2rem 3rem;font-size:1.5rem;font-weight:600;border:3px dashed #93c5fd;">Drop file to add layer</div>';
+            document.body.appendChild(dropOverlay);
+
+            let dragCounter = 0;
+            document.addEventListener('dragenter', (e) => {
+                const items = e.dataTransfer?.items;
+                if (!items) return;
+                const hasFile = Array.from(items).some(i => i.kind === 'file');
+                if (!hasFile) return;
+                dragCounter++;
+                dropOverlay.style.display = 'flex';
+            });
+            document.addEventListener('dragleave', () => {
+                dragCounter--;
+                if (dragCounter <= 0) { dragCounter = 0; dropOverlay.style.display = 'none'; }
+            });
+            document.addEventListener('dragover', (e) => e.preventDefault());
+            document.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dragCounter = 0;
+                dropOverlay.style.display = 'none';
+                const file = e.dataTransfer?.files?.[0];
+                if (!file) return;
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (supportedExts.includes(ext)) {
+                    window.browserControl.openCreatorWithFile(file);
+                }
+            });
+
             // Add geolocation control to header instead of map
             window.geolocationControl = new ButtonGeolocationManager();
             const geolocationControlContainer = document.getElementById('geolocation-control-container');

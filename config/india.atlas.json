@@ -96,16 +96,26 @@
       }
     },
     {
-      "title": "Open Building Footprints 2023 ",
-      "description": "Open data of AI generated building footprints from satellite imagery upto 2023. For technical details see <a href='https://arxiv.org/abs/2107.12283'>Continental-Scale Building Detection from High Resolution Satellite Imagery</a>.",
+      "title": "Google Open Building Footprints 2023",
+      "description": "Open data of AI generated building footprints from satellite imagery upto 2023. For technical details see <a href='https://arxiv.org/abs/2107.12283'>Continental-Scale Building Detection from High Resolution Satellite Imagery</a>. The 2023 temporal rasters from 2.5D dataset were merged with original google building vector dataset using code inspired by <a href='https://spatialthoughts.com/2025/03/29/building_height_gee/#'>this article</a>",
       "type": "vector",
       "id": "2023-open-buildings",
       "url": "https://indianopenmaps.fly.dev/google-buildings/{z}/{x}/{y}.pbf",
-      "sourceLayer": "google_buildings",
+      "sourceLayer": "google-open-buildings-india-2023",
       "minzoom": 12,
       "maxzoom": 14,
-      "attribution": "CC-BY <a href='https://sites.research.google/open-buildings/'>Google Open Buildings</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "CC-BY <a href='https://sites.research.google/open-buildings/'>Google Open Buildings</a> - Collected by <a href='https://indianopenmaps.com/viewer#source=/google-buildings/&map='>Datameet Community</a>",
       "style": {
+        "fill-extrude-height": [
+          "get",
+          "height"
+        ],
+        "fill-extrude-base": [
+          "get",
+          "base"
+        ],
+        "fill-extrude-color": "#ccc",
+        "fill-extrude-opacity": 0.5,
         "line-opacity": 0,
         "line-join": "round",
         "line-width": 0,
