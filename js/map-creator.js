@@ -912,18 +912,20 @@ export class MapCreator {
     generateMapboxStyle(geometryType, fillColor, strokeColor, strokeWidth) {
         const style = {};
 
+        // Use per-feature fill-color / stroke-color when present,
+        // falling back to the user-selected colors from the UI.
         if (geometryType === 'Polygon') {
-            style['fill-color'] = fillColor;
+            style['fill-color'] = ['coalesce', ['get', 'fill-color'], ['get', 'color'], fillColor];
             style['fill-opacity'] = 0.6;
-            style['line-color'] = strokeColor;
+            style['line-color'] = ['coalesce', ['get', 'stroke-color'], ['get', 'color'], strokeColor];
             style['line-width'] = parseFloat(strokeWidth);
         } else if (geometryType === 'LineString') {
-            style['line-color'] = strokeColor;
+            style['line-color'] = ['coalesce', ['get', 'stroke-color'], ['get', 'color'], strokeColor];
             style['line-width'] = parseFloat(strokeWidth);
         } else if (geometryType === 'Point') {
-            style['circle-color'] = fillColor;
+            style['circle-color'] = ['coalesce', ['get', 'fill-color'], ['get', 'color'], fillColor];
             style['circle-radius'] = parseFloat(strokeWidth) * 2;
-            style['circle-stroke-color'] = strokeColor;
+            style['circle-stroke-color'] = ['coalesce', ['get', 'stroke-color'], ['get', 'color'], strokeColor];
             style['circle-stroke-width'] = 2;
         }
 
