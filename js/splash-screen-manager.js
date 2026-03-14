@@ -15,8 +15,8 @@ export class SplashScreenManager {
             locationData: null,
             urlParams: new URLSearchParams(window.location.search),
             urlHash: window.location.hash,
-            manualAtlasSelection: false, // Track if user manually selected an atlas
-            manualLocationSelection: false // Track if user manually selected location source
+            manualAtlasSelection: false,
+            manualLocationSelection: false
         };
         this.autoProceed = {
             enabled: true,
@@ -58,27 +58,20 @@ export class SplashScreenManager {
      * This runs in the background and doesn't block the UI
      */
     triggerLocationDetectionIfNeeded() {
-        // Only trigger auto-detection for geoip and gps
-        // Don't trigger if using URL or atlas location
         if (this.state.locationSource === 'geoip') {
-            // Trigger IP-based location detection
             if (window.handleIPLocationFallback) {
                 console.log('[SplashScreen] Triggering GeoIP location detection');
                 window.handleIPLocationFallback().then(success => {
                     if (success && !this.state.manualLocationSelection) {
                         console.log('[SplashScreen] GeoIP detection completed');
+                        this.updateLocationText();
                     }
                 });
             }
         } else if (this.state.locationSource === 'gps') {
-            // Trigger GPS location detection
             if (window.handleGeolocation) {
                 console.log('[SplashScreen] Triggering GPS location detection');
-                window.handleGeolocation(false).then(success => {
-                    if (success && !this.state.manualLocationSelection) {
-                        console.log('[SplashScreen] GPS detection completed');
-                    }
-                });
+                window.handleGeolocation(false);
             }
         }
     }
@@ -105,12 +98,13 @@ export class SplashScreenManager {
     cacheElements() {
         this.elements = {
             activationPanel: document.getElementById('map-activation-panel'),
-            atlasInfo: document.getElementById('activation-atlas-info'),
+            headerImage: document.getElementById('activation-header-image'),
             atlasName: document.getElementById('activation-atlas-name'),
             atlasDescription: document.getElementById('activation-atlas-description'),
             layersList: document.getElementById('activation-layers-list'),
-            locationRadios: document.querySelectorAll('input[name="location-source"]'),
-            locationPreview: document.getElementById('activation-location-preview'),
+            locationBtn: document.getElementById('activation-location-btn'),
+            locationText: document.getElementById('activation-location-text'),
+            locationDropdown: document.getElementById('activation-location-dropdown'),
             openMapButton: document.getElementById('activation-open-map'),
             atlasCards: document.querySelectorAll('.atlas-card')
         };
@@ -219,6 +213,7 @@ export class SplashScreenManager {
                 name: atlasConfig.name || 'Map',
                 description: atlasConfig.description || '',
                 color: atlasConfig.color || '#3b82f6',
+                headerImage: atlasConfig.headerImage || null,
                 center: atlasConfig.map?.center,
                 zoom: atlasConfig.map?.zoom,
                 bbox: atlasConfig.bbox
@@ -273,6 +268,7 @@ export class SplashScreenManager {
                 name: config.name || 'Map',
                 description: config.description || '',
                 color: config.color || '#3b82f6',
+                headerImage: config.headerImage || null,
                 center: config.map?.center,
                 zoom: config.map?.zoom,
                 bbox: config.bbox
@@ -298,6 +294,7 @@ export class SplashScreenManager {
                 name: 'Goa Map (Fallback)',
                 description: 'Default map view',
                 color: '#3b82f6',
+                headerImage: null,
                 center: config.map?.center || [73.8274, 15.4406],
                 zoom: config.map?.zoom || 9
             };
@@ -314,157 +311,166 @@ export class SplashScreenManager {
     populateActivationPanel() {
         if (!this.elements.activationPanel) return;
 
-        // Show the panel
         this.elements.activationPanel.style.display = 'block';
 
-        // Populate atlas info
         if (this.state.atlas) {
+            // Header thumbnail
+            if (this.elements.headerImage && this.state.atlas.headerImage) {
+                this.elements.headerImage.src = this.state.atlas.headerImage;
+                this.elements.headerImage.style.display = 'block';
+            } else if (this.elements.headerImage) {
+                this.elements.headerImage.style.display = 'none';
+            }
+
             if (this.elements.atlasName) {
                 this.elements.atlasName.textContent = this.state.atlas.name;
                 this.elements.atlasName.style.color = this.state.atlas.color;
             }
 
             if (this.elements.atlasDescription && this.state.atlas.description) {
-                this.elements.atlasDescription.textContent = this.state.atlas.description;
+                this.elements.atlasDescription.innerHTML = this.state.atlas.description;
                 this.elements.atlasDescription.style.display = 'block';
             }
         }
 
-        // Populate layers list with thumbnails
-        if (this.elements.layersList && this.state.layers.length > 0) {
+        // Compact layer chips
+        if (this.elements.layersList) {
             this.elements.layersList.innerHTML = '';
 
-            this.state.layers.forEach(layer => {
-                const layerItem = document.createElement('div');
-                layerItem.style.cssText = `
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    padding: 6px;
-                    background: rgba(255, 255, 255, 0.05);
-                    border-radius: 4px;
-                `;
+            if (this.state.layers.length > 0) {
+                this.state.layers.forEach(layer => {
+                    let fullLayer = layer;
 
-                // Try to get full layer metadata
-                let fullLayer = layer;
-                let hasMetadata = false;
-
-                if (layer.id && window.layerRegistry) {
-                    try {
-                        // Suppress console warnings for layer lookup
-                        const originalWarn = console.warn;
-                        console.warn = () => {};
-                        const registryLayer = window.layerRegistry.getLayer(layer.id);
-                        console.warn = originalWarn;
-
-                        if (registryLayer) {
-                            fullLayer = { ...registryLayer, ...layer };
-                            hasMetadata = true;
-                        }
-                    } catch (e) {
-                        // Layer not in registry, use as-is
+                    if (layer.id && window.layerRegistry) {
+                        try {
+                            const originalWarn = console.warn;
+                            console.warn = () => {};
+                            const registryLayer = window.layerRegistry.getLayer(layer.id);
+                            console.warn = originalWarn;
+                            if (registryLayer) fullLayer = { ...registryLayer, ...layer };
+                        } catch (e) {}
                     }
-                }
 
-                // Add thumbnail (if layer has enough info)
-                if (hasMetadata || fullLayer.type) {
-                    try {
-                        const thumbnail = LayerThumbnail.generate(fullLayer, 32, { isInView: true });
-                        layerItem.appendChild(thumbnail);
-                    } catch (e) {
-                        console.debug('[SplashScreen] Could not generate thumbnail for:', layer.id);
+                    const chip = document.createElement('div');
+                    chip.style.cssText = 'display:flex;align-items:center;gap:5px;padding:3px 8px 3px 4px;background:rgba(255,255,255,0.07);border-radius:12px;border:1px solid rgba(255,255,255,0.12);';
+
+                    if (fullLayer.type) {
+                        try {
+                            const thumb = LayerThumbnail.generate(fullLayer, 18, { isInView: true });
+                            thumb.style.borderRadius = '50%';
+                            chip.appendChild(thumb);
+                        } catch (e) {}
                     }
-                }
 
-                // Add layer name
-                const layerName = document.createElement('div');
-                layerName.textContent = fullLayer.title || fullLayer.id || 'Layer';
-                layerName.style.cssText = `
-                    color: #e5e7eb;
-                    font-size: 0.875rem;
-                    flex: 1;
-                `;
-                layerItem.appendChild(layerName);
-
-                this.elements.layersList.appendChild(layerItem);
-            });
-        } else if (this.elements.layersList) {
-            // Show message if no layers
-            this.elements.layersList.innerHTML = '<div style="color: #9ca3af; font-size: 0.875rem; padding: 8px;">No layers selected</div>';
+                    const name = document.createElement('span');
+                    name.textContent = fullLayer.title || fullLayer.id || 'Layer';
+                    name.style.cssText = 'color:#e5e7eb;font-size:0.75rem;white-space:nowrap;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;';
+                    chip.appendChild(name);
+                    this.elements.layersList.appendChild(chip);
+                });
+            }
         }
 
-        // Set location source radio
-        this.updateLocationRadio();
+        // Show URL option only if there's a hash location
+        const urlOption = document.getElementById('location-option-url');
+        if (urlOption) {
+            urlOption.style.display = this.parseHashLocation() ? 'block' : 'none';
+        }
 
-        // Update location preview
-        this.updateLocationPreview();
+        this.updateLocationText();
     }
 
     /**
-     * Update location source radio selection
+     * Update the location button text based on current locationSource
      */
-    updateLocationRadio() {
-        const urlHashLocation = this.parseHashLocation();
-
-        this.elements.locationRadios.forEach(radio => {
-            if (radio.value === this.state.locationSource) {
-                radio.checked = true;
-            }
-
-            // Disable "URL" option if no hash in URL
-            if (radio.value === 'url' && !urlHashLocation) {
-                radio.disabled = true;
-                radio.parentElement.style.opacity = '0.5';
-            }
-        });
-    }
-
-    /**
-     * Update location preview text
-     */
-    updateLocationPreview() {
-        if (!this.elements.locationPreview) return;
-
-        let previewText = '';
+    updateLocationText() {
+        if (!this.elements.locationText) return;
 
         switch (this.state.locationSource) {
-            case 'url':
-                if (this.state.locationData) {
-                    previewText = `📍 ${this.state.locationData.lat.toFixed(4)}, ${this.state.locationData.lng.toFixed(4)} (zoom ${this.state.locationData.zoom})`;
-                }
-                break;
             case 'geoip':
-                previewText = '🌐 Detecting location from IP address...';
+                if (window.ipLocationData?.city) {
+                    this.elements.locationText.textContent = window.ipLocationData.city;
+                } else {
+                    this.elements.locationText.textContent = 'Detecting...';
+                }
                 break;
             case 'gps':
-                previewText = '📡 GPS location will be requested';
+                this.elements.locationText.textContent = 'GPS';
                 break;
             case 'atlas':
-                if (this.state.atlas) {
-                    if (this.state.atlas.center && this.state.atlas.zoom) {
-                        previewText = `🗺️ ${this.state.atlas.name} default view`;
-                    } else {
-                        previewText = `🗺️ ${this.state.atlas.name}`;
-                    }
+                this.elements.locationText.textContent = this.state.atlas?.name || 'Atlas default';
+                break;
+            case 'url':
+                if (this.state.locationData) {
+                    this.elements.locationText.textContent = `${this.state.locationData.lat.toFixed(2)}, ${this.state.locationData.lng.toFixed(2)}`;
+                } else {
+                    this.elements.locationText.textContent = 'From URL';
                 }
                 break;
+            default:
+                this.elements.locationText.textContent = 'Auto';
         }
+    }
 
-        this.elements.locationPreview.textContent = previewText;
+    /**
+     * Apply current locationSource to the map camera (for post-load interactions)
+     */
+    _applyLocationToMap() {
+        const source = this.state.locationSource;
+        const doFly = (map) => {
+            if (source === 'atlas' && this.state.atlas?.center) {
+                map.flyTo({ center: this.state.atlas.center, zoom: this.state.atlas.zoom || 10, essential: true });
+            } else if (source === 'geoip' && window.ipLocationData) {
+                map.flyTo({ center: [window.ipLocationData.lng, window.ipLocationData.lat], zoom: 12, essential: true });
+            } else if (source === 'gps') {
+                if (window.handleGeolocation) window.handleGeolocation(false);
+            } else if (source === 'url' && this.state.locationData) {
+                map.flyTo({ center: [this.state.locationData.lng, this.state.locationData.lat], zoom: this.state.locationData.zoom, essential: true });
+            }
+        };
+
+        if (window.map) {
+            if (window.map.loaded()) {
+                doFly(window.map);
+            } else {
+                window.map.once('load', () => doFly(window.map));
+            }
+        }
     }
 
     /**
      * Setup event listeners
      */
     setupEventListeners() {
-        // Location source radio change
-        this.elements.locationRadios.forEach(radio => {
-            radio.addEventListener('change', () => {
-                this.state.locationSource = radio.value;
-                this.state.manualLocationSelection = true; // Mark as manual selection
-                this.updateLocationPreview();
-                this.cancelAutoProceed();
+        // Location dropdown toggle
+        if (this.elements.locationBtn) {
+            this.elements.locationBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const dd = this.elements.locationDropdown;
+                if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
             });
+        }
+
+        // Location option selection
+        if (this.elements.locationDropdown) {
+            this.elements.locationDropdown.querySelectorAll('.location-option').forEach(opt => {
+                opt.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.state.locationSource = opt.dataset.value;
+                    this.state.manualLocationSelection = true;
+                    this.elements.locationDropdown.style.display = 'none';
+                    this.updateLocationText();
+                    this.cancelAutoProceed();
+                    this._applyLocationToMap();
+                });
+            });
+        }
+
+        // Close dropdown on outside click
+        document.addEventListener('click', () => {
+            if (this.elements.locationDropdown) {
+                this.elements.locationDropdown.style.display = 'none';
+            }
         });
 
         // Atlas card selection
@@ -486,15 +492,9 @@ export class SplashScreenManager {
                 e.preventDefault();
                 e.stopPropagation();
 
-                console.log('[SplashScreen] Button clicked, cancelled:', this.autoProceed.cancelled);
-
                 if (!this.autoProceed.cancelled) {
-                    // First click: cancel auto-proceed
-                    console.log('[SplashScreen] Cancelling auto-proceed');
                     this.cancelAutoProceed();
                 } else {
-                    // Second click (or after cancellation): proceed to map
-                    console.log('[SplashScreen] Proceeding to map');
                     this.proceedToMap();
                 }
             });
@@ -514,6 +514,7 @@ export class SplashScreenManager {
                 name: config.name || 'Map',
                 description: config.description || '',
                 color: config.color || '#3b82f6',
+                headerImage: config.headerImage || null,
                 center: config.map?.center,
                 zoom: config.map?.zoom,
                 bbox: config.bbox
@@ -560,8 +561,8 @@ export class SplashScreenManager {
             // Update countdown display with cancel instruction
             if (this.elements.openMapButton && seconds > 0) {
                 this.elements.openMapButton.textContent = `Click to cancel (${seconds}s)`;
-            } else if (this.elements.openMapButton) {
-                this.elements.openMapButton.textContent = 'Loading map...';
+            } else if (this.elements.openMapButton && !this.autoProceed.styleLoaded) {
+                this.elements.openMapButton.textContent = 'Map loading...';
             }
 
             if (remaining > 0) {
@@ -576,29 +577,33 @@ export class SplashScreenManager {
     }
 
     /**
-     * Watch for map style to load
+     * Watch for map to be ready for display (style loaded + initial move initiated)
      */
     watchForStyleLoad() {
-        // Listen for map ready event
-        const checkMapReady = () => {
+        const onReady = () => {
             if (this.autoProceed.cancelled) return;
-
-            // Wait for map object to exist and have loaded() method
-            if (window.map && typeof window.map.loaded === 'function') {
-                if (window.map.loaded()) {
-                    this.autoProceed.styleLoaded = true;
-                    this.checkAutoProceedReady();
-                } else {
-                    setTimeout(checkMapReady, 100);
-                }
-            } else {
-                // Map not created yet, keep checking
-                setTimeout(checkMapReady, 200);
-            }
+            this.autoProceed.styleLoaded = true;
+            this.checkAutoProceedReady();
         };
 
-        // Start checking after a short delay
-        setTimeout(checkMapReady, 1000);
+        // Already fired before we set up listener
+        if (window.mapDisplayReady) {
+            onReady();
+            return;
+        }
+
+        window.addEventListener('mapDisplayReady', onReady, { once: true });
+
+        // Fallback: if mapDisplayReady event never fires, use map.idle
+        const fallback = () => {
+            if (this.autoProceed.cancelled || this.autoProceed.styleLoaded) return;
+            if (window.map) {
+                window.map.once('idle', onReady);
+            } else {
+                setTimeout(fallback, 500);
+            }
+        };
+        setTimeout(fallback, 5000);
     }
 
     /**
@@ -672,10 +677,13 @@ export class SplashScreenManager {
             manualLocationSelection: this.state.manualLocationSelection
         };
 
-        // Trigger map load
         console.log('[SplashScreen] Proceeding to map with configuration:', this.state);
 
-        // Close the loading overlay
+        // Apply location to already-loaded map (if user changed location after map started loading)
+        if (this.state.manualLocationSelection) {
+            this._applyLocationToMap();
+        }
+
         this.closeLoadingOverlay();
     }
 

@@ -26,6 +26,10 @@ export class Terrain3DControl {
         this._terrainSource = 'mapbox'; // Default to Mapbox terrain
         this._initializing = false; // Flag to prevent URL updates during initialization
         this._pitchListener = null; // Track pitch change listener for cleanup
+        this._autoPitchAnimationFrame = null;
+        this._autoPitchAnimating = false;
+        this._autoPitchUserOverrode = false;
+        this._pitchBeforePanel = null;
         
         // Audio visualization properties
         this._audioContext = null;
@@ -743,6 +747,15 @@ export class Terrain3DControl {
         });
 
         $pitchSlider.on('input', (e) => {
+            // Cancel auto-animation if user manually moves slider
+            if (this._autoPitchAnimating) {
+                this._autoPitchUserOverrode = true;
+                this._autoPitchAnimating = false;
+                if (this._autoPitchAnimationFrame) {
+                    cancelAnimationFrame(this._autoPitchAnimationFrame);
+                    this._autoPitchAnimationFrame = null;
+                }
+            }
             this._pitch = parseFloat(e.target.value);
             $pitchValue.text(this._pitch.toFixed(0) + '°');
             pitchControl.updateValueStyle(this._pitch);
@@ -829,10 +842,62 @@ export class Terrain3DControl {
         if (!this._enabled) {
             this.setEnabled(true);
         }
+
+        // Auto-animate pitch to 50° if pitch is at default (0)
+        if (Math.abs(this._pitch) < 0.5) {
+            this._pitchBeforePanel = this._pitch;
+            this._autoPitchUserOverrode = false;
+            this._animatePitch(this._pitch, 50, 2000);
+        } else {
+            this._pitchBeforePanel = null;
+        }
     }
 
     _hidePanel() {
+        // Cancel any in-progress auto-pitch animation
+        if (this._autoPitchAnimationFrame) {
+            cancelAnimationFrame(this._autoPitchAnimationFrame);
+            this._autoPitchAnimationFrame = null;
+            this._autoPitchAnimating = false;
+        }
+
+        // Reverse-animate pitch back if user didn't manually override
+        if (this._pitchBeforePanel !== null && !this._autoPitchUserOverrode) {
+            this._animatePitch(this._pitch, this._pitchBeforePanel, 2000);
+        }
+        this._pitchBeforePanel = null;
+
         $(this._panel).hide();
+    }
+
+    _animatePitch(from, to, duration) {
+        if (this._autoPitchAnimationFrame) {
+            cancelAnimationFrame(this._autoPitchAnimationFrame);
+            this._autoPitchAnimationFrame = null;
+        }
+
+        const start = performance.now();
+        const easeOut = t => 1 - Math.pow(1 - t, 3);
+
+        const animate = (now) => {
+            const t = Math.min((now - start) / duration, 1);
+            const pitch = from + (to - from) * easeOut(t);
+
+            this._pitch = pitch;
+            $('#terrain-3d-pitch-slider').val(pitch);
+            $('#terrain-3d-pitch-value').text(pitch.toFixed(0) + '°');
+            this._updatePitch();
+
+            if (t < 1) {
+                this._autoPitchAnimationFrame = requestAnimationFrame(animate);
+            } else {
+                this._autoPitchAnimationFrame = null;
+                this._autoPitchAnimating = false;
+            }
+        };
+
+        this._autoPitchAnimating = true;
+        this._autoPitchAnimationFrame = requestAnimationFrame(animate);
     }
 
     _updateTerrain() {

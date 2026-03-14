@@ -48,7 +48,7 @@ $(window).on('load', async function () {
     // Initialize splash screen manager (only once)
     if (!window.splashManager) {
         const splashManager = new SplashScreenManager();
-        await splashManager.initialize();
+        splashManager.initialize();
         window.splashManager = splashManager;
     }
 

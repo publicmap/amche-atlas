@@ -422,177 +422,45 @@
 
             <!-- Map Activation Panel -->
             <div id="map-activation-panel" style="display: none; margin-top: 12px; width: 100%; max-width: 900px;">
-                <div style="padding: 16px; background: rgba(59, 130, 246, 0.15); backdrop-filter: blur(10px); border-radius: 8px; border: 2px solid rgba(96, 165, 250, 0.5);">
+                <div style="background: rgba(15, 25, 45, 0.97); backdrop-filter: blur(10px); border-radius: 8px; border: 1px solid rgba(96, 165, 250, 0.35); overflow: hidden;">
 
-                    <!-- Atlas Information -->
-                    <div id="activation-atlas-info" style="margin-bottom: 12px;">
-                        <div id="activation-atlas-name" style="
-                            font-size: 1.125rem;
-                            font-weight: 700;
-                            color: #3b82f6;
-                            margin-bottom: 2px;
-                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                        ">Loading...</div>
-                        <div id="activation-atlas-description" style="
-                            font-size: 0.8125rem;
-                            color: #d1d5db;
-                            display: none;
-                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                        "></div>
-                    </div>
+                    <!-- Content -->
+                    <div style="padding: 12px 16px 14px;">
 
-                    <!-- Grid Layout for Content -->
-                    <div class="activation-grid" style="
-                        display: grid;
-                        grid-template-columns: 1fr 1fr;
-                        gap: 16px;
-                        margin-bottom: 12px;
-                    ">
-                        <!-- Layers Section -->
-                        <div>
-                            <div style="
-                                font-size: 0.6875rem;
-                                font-weight: 600;
-                                color: #9ca3af;
-                                text-transform: uppercase;
-                                letter-spacing: 0.05em;
-                                margin-bottom: 8px;
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                            ">Layers to Load</div>
-                            <div id="activation-layers-list" style="
-                                display: flex;
-                                flex-direction: column;
-                                gap: 4px;
-                                max-height: 160px;
-                                overflow-y: auto;
-                            "></div>
+                        <!-- Atlas thumbnail + name + description -->
+                        <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px;">
+                            <img id="activation-header-image" style="width: 44px; height: 44px; object-fit: cover; border-radius: 5px; flex-shrink: 0; display: none; border: 1px solid rgba(255,255,255,0.12);">
+                            <div style="flex: 1; min-width: 0;">
+                                <div id="activation-atlas-name" style="font-size: 1.0625rem; font-weight: 700; color: #3b82f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Loading...</div>
+                                <div id="activation-atlas-description" style="font-size: 0.8rem; color: #9ca3af; display: none; margin-top: 3px; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;"></div>
+                            </div>
                         </div>
 
-                        <!-- Location Source Selection -->
-                        <div>
-                            <div style="
-                                font-size: 0.6875rem;
-                                font-weight: 600;
-                                color: #9ca3af;
-                                text-transform: uppercase;
-                                letter-spacing: 0.05em;
-                                margin-bottom: 8px;
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                            ">Initial View Location</div>
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
-                            <label style="
-                                display: flex;
-                                align-items: center;
-                                gap: 6px;
-                                padding: 6px 10px;
-                                background: rgba(255, 255, 255, 0.05);
-                                border-radius: 4px;
-                                cursor: pointer;
-                                transition: background 0.2s;
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                            " onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
-                               onmouseout="if(!this.querySelector('input').checked) this.style.background='rgba(255, 255, 255, 0.05)'">
-                                <input type="radio" name="location-source" value="url" style="
-                                    accent-color: #3b82f6;
-                                    width: 14px;
-                                    height: 14px;
-                                    cursor: pointer;
-                                ">
-                                <span style="color: #e5e7eb; font-size: 0.8125rem;">From URL</span>
-                            </label>
-                            <label style="
-                                display: flex;
-                                align-items: center;
-                                gap: 6px;
-                                padding: 6px 10px;
-                                background: rgba(255, 255, 255, 0.05);
-                                border-radius: 4px;
-                                cursor: pointer;
-                                transition: background 0.2s;
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                            " onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
-                               onmouseout="if(!this.querySelector('input').checked) this.style.background='rgba(255, 255, 255, 0.05)'">
-                                <input type="radio" name="location-source" value="geoip" checked style="
-                                    accent-color: #3b82f6;
-                                    width: 14px;
-                                    height: 14px;
-                                    cursor: pointer;
-                                ">
-                                <span style="color: #e5e7eb; font-size: 0.8125rem;">GeoIP</span>
-                            </label>
-                            <label style="
-                                display: flex;
-                                align-items: center;
-                                gap: 6px;
-                                padding: 6px 10px;
-                                background: rgba(255, 255, 255, 0.05);
-                                border-radius: 4px;
-                                cursor: pointer;
-                                transition: background 0.2s;
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                            " onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
-                               onmouseout="if(!this.querySelector('input').checked) this.style.background='rgba(255, 255, 255, 0.05)'">
-                                <input type="radio" name="location-source" value="gps" style="
-                                    accent-color: #3b82f6;
-                                    width: 14px;
-                                    height: 14px;
-                                    cursor: pointer;
-                                ">
-                                <span style="color: #e5e7eb; font-size: 0.8125rem;">GPS</span>
-                            </label>
-                            <label style="
-                                display: flex;
-                                align-items: center;
-                                gap: 6px;
-                                padding: 6px 10px;
-                                background: rgba(255, 255, 255, 0.05);
-                                border-radius: 4px;
-                                cursor: pointer;
-                                transition: background 0.2s;
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                            " onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
-                               onmouseout="if(!this.querySelector('input').checked) this.style.background='rgba(255, 255, 255, 0.05)'">
-                                <input type="radio" name="location-source" value="atlas" style="
-                                    accent-color: #3b82f6;
-                                    width: 14px;
-                                    height: 14px;
-                                    cursor: pointer;
-                                ">
-                                <span style="color: #e5e7eb; font-size: 0.8125rem;">Atlas Default</span>
-                            </label>
-                        </div>
+                        <!-- Layer chips -->
+                        <div id="activation-layers-list" style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; min-height: 24px;"></div>
+
+                        <!-- Bottom row: location dropdown + open map button -->
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+
+                            <!-- Location dropdown -->
+                            <div style="position: relative; flex: 1; min-width: 160px;">
+                                <button id="activation-location-btn" style="display: flex; align-items: center; gap: 5px; width: 100%; padding: 7px 10px; background: rgba(255,255,255,0.07); color: #d1d5db; border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; font-size: 0.8125rem; cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                                    <svg style="width:12px;height:12px;flex-shrink:0;opacity:0.7;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+                                    Map location:&nbsp;<span id="activation-location-text" style="color:#93c5fd;flex:1;text-align:left;">Detecting...</span>
+                                    <svg style="width:10px;height:10px;flex-shrink:0;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                                </button>
+                                <div id="activation-location-dropdown" style="display: none; position: absolute; bottom: calc(100% + 4px); left: 0; min-width: 200px; background: rgba(15,25,50,0.99); border: 1px solid rgba(96,165,250,0.3); border-radius: 5px; overflow: hidden; z-index: 100;">
+                                    <div class="location-option" data-value="geoip" style="padding:8px 12px;color:#e5e7eb;font-size:0.8125rem;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background=''">🌐 Auto-detect (GeoIP)</div>
+                                    <div class="location-option" data-value="gps" style="padding:8px 12px;color:#e5e7eb;font-size:0.8125rem;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background=''">📡 Use GPS</div>
+                                    <div class="location-option" data-value="atlas" style="padding:8px 12px;color:#e5e7eb;font-size:0.8125rem;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background=''">🗺️ Atlas default</div>
+                                    <div class="location-option" data-value="url" id="location-option-url" style="display:none;padding:8px 12px;color:#e5e7eb;font-size:0.8125rem;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background=''">🔗 From URL</div>
+                                </div>
+                            </div>
+
+                            <!-- Open Map button -->
+                            <button id="activation-open-map" style="padding: 7px 20px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 5px; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; box-shadow: 0 2px 8px rgba(59,130,246,0.4); white-space: nowrap; flex-shrink: 0;">Opening in 5s...</button>
                         </div>
                     </div>
-
-                    <!-- Location Preview -->
-                    <div id="activation-location-preview" style="
-                        padding: 8px 10px;
-                        background: rgba(0, 0, 0, 0.2);
-                        border-radius: 4px;
-                        color: #d1d5db;
-                        font-size: 0.6875rem;
-                        font-family: monospace;
-                        margin-bottom: 12px;
-                    "></div>
-
-                    <!-- Open Map Button -->
-                    <button id="activation-open-map" style="
-                        width: 100%;
-                        padding: 10px;
-                        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        font-size: 0.9375rem;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
-                    " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.5)'"
-                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(59, 130, 246, 0.4)'">
-                        Opening in 5s...
-                    </button>
                 </div>
             </div>
 
@@ -1165,6 +1033,9 @@
                         country: data.country_name
                     };
 
+                    // Expose immediately for splash screen UI
+                    window.ipLocationData = ipLocation;
+
                     if (requestedMapStatus) {
                         requestedMapStatus.innerHTML = `Detected IP location: <a href="https://ipapi.co/json/" target="_blank" style="color: #60a5fa; text-decoration: underline;">${ipLocation.city}, ${ipLocation.region}, ${ipLocation.country}</a>. <a href="#" id="use-device-location-link" style="color: #60a5fa; text-decoration: underline;">Use Device Location</a> for better accuracy`;
                     }
@@ -1190,7 +1061,7 @@
                                 requestedMapStatus.textContent = 'Loading map...';
                             }
                         }
-                    }, 2000);
+                    }, 300);
 
                     return true;
                 } catch (ipError) {

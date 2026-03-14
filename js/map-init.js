@@ -195,7 +195,18 @@ export class MapInitializer {
             }
         }
 
-        const choice = await this.waitForStartupChoice();
+        const choice = await Promise.race([
+            new Promise(resolve => {
+                const check = setInterval(() => {
+                    if (window.loadingStartupState?.proceedNormally) {
+                        clearInterval(check); resolve('proceed');
+                    } else if (window.loadingStartupState?.userLocation) {
+                        clearInterval(check); resolve('location');
+                    }
+                }, 50);
+            }),
+            new Promise(resolve => setTimeout(() => resolve('proceed'), 2500))
+        ]);
 
         // Skip location-based atlas detection if:
         // 1. User manually selected an atlas
@@ -897,6 +908,11 @@ export class MapInitializer {
             updateAttributionLocation();
 
             // Set camera position: prioritize hash layer view, then URL hash, then config defaults
+            const signalMapReady = () => {
+                window.mapDisplayReady = true;
+                window.dispatchEvent(new CustomEvent('mapDisplayReady'));
+            };
+
             if (window.hashLayerView) {
                 // Hash layer view was calculated from layer/atlas bbox
                 console.log('[MapInit] Applying hashLayerView:', window.hashLayerView);
@@ -927,6 +943,7 @@ export class MapInitializer {
                         map.flyTo(flyToOptions);
                     }
                     delete window.hashLayerView; // Clean up
+                    signalMapReady();
                 }, 2000);
             } else if (!window.location.hash) {
                 // No hash in URL, use config defaults
@@ -942,7 +959,11 @@ export class MapInitializer {
                         speed: 0.6
                     };
                     map.flyTo(flyToOptions);
+                    signalMapReady();
                 }, 2000);
+            } else {
+                // Has a hash (position) — map is ready, signal immediately
+                map.once('idle', signalMapReady);
             }
 
             // Add global keyboard shortcuts

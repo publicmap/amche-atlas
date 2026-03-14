@@ -1989,13 +1989,13 @@
       "initiallyChecked": false
     },
     {
-      "title": "Zonation Map of Madei Wildlife Sanctuary",
-      "description": "From the Management Plan, Madei WLS",
+      "title": "Zonation Map of Protected Areas ",
+      "description": "WLS zonation plans from respective management plans sourced from Goa Forest Department.",
       "source": "https://forest.goa.gov.in/sites/default/files/2025-09/Management-Plan-of-Madei-Widllife-Sanctuary.pdf",
       "dateDepicted": "",
       "type": "tms",
-      "id": "mhadei-wls-zonation-map",
-      "url": "https://mapwarper.net/maps/tile/97500/{z}/{x}/{y}.png",
+      "id": "wildlife-zonation-map",
+      "url": "https://mapwarper.net/mosaics/tile/2337/{z}/{x}/{y}.png",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -2013,7 +2013,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/97500#Rectify_tab'>MapWarper</a>",
+      "attribution": "<a href='https://forest.goa.gov.in/wild-life-management'>Goa Forest Department</a> via <a href='https://mapwarper.net/layers/2337#Show_tab'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/97500/thumb/Screenshot_2025-09-30_at_3.06.41%E2%80%AFPM.png",
       "bbox": "74.0563668,15.3793377,74.3106547,15.7209933",
       "initiallyChecked": false
@@ -2447,7 +2447,7 @@
       "tags": [
         "2.Development Plans"
       ],
-      "title": "Regional Development Plan for Goa 2021",
+      "title": "1.Regional Development Plan for Goa 2021",
       "description": "Regional landuse plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
       "headerImage": "https://mapwarper.net/uploads/74193/thumb/siolim-marna.png",
       "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
@@ -2480,7 +2480,7 @@
       "tags": [
         "2.Development Plans"
       ],
-      "title": "Outline Development Plan 2011",
+      "title": "3.Outline Development Plan 2011",
       "description": "Outline Development Plan 2011 prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a>",
       "headerImage": "https://mapwarper.net/uploads/91643/thumb/2008_Final_Panaji_ODP-2011.png",
       "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
@@ -2493,7 +2493,7 @@
       "tags": [
         "2.Development Plans"
       ],
-      "title": "Taluka Land Use Plans 2021",
+      "title": "2.Taluka Land Use Plans 2021",
       "description": "Taluka level regional plans",
       "date": "",
       "type": "tms",
