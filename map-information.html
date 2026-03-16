@@ -276,6 +276,9 @@
                 LayerLegend = modules[1].LayerLegend;
                 LAYER_SPECIFICATIONS = modules[2].LAYER_SPECIFICATIONS;
                 console.log('[Layer Info] Modules loaded successfully');
+                if (currentLayer) {
+                    renderLayerInfo(currentLayer);
+                }
             } catch (error) {
                 console.error('[Layer Info] Failed to load modules:', error);
             }
@@ -288,7 +291,9 @@
             if (layerJson) {
                 try {
                     currentLayer = JSON.parse(decodeURIComponent(layerJson));
-                    renderLayerInfo(currentLayer);
+                    if (LayerThumbnail) {
+                        renderLayerInfo(currentLayer);
+                    }
                 } catch (error) {
                     console.error('Error parsing layer data:', error);
                     $('#layer-title').text('Error loading layer information');
