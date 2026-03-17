@@ -11,9 +11,7 @@ export class MapSearchControl {
         this.map = map;
         this.options = {
             accessToken: window.amche.MAPBOXGL_ACCESS_TOKEN,
-            proximity: '73.87916,15.26032', // Default to Goa center
             language: 'en',
-            types: 'place,locality,postcode,region,district,street,address,poi',
             ...options
         };
 
@@ -51,8 +49,8 @@ export class MapSearchControl {
         this.searchBox.mapboxgl = mapboxgl;
         this.searchBox.marker = false; // Disable default marker, we'll handle it ourselves
         this.searchBox.setAttribute('access-token', this.options.accessToken);
-        this.searchBox.setAttribute('proximity', this.options.proximity);
-        this.searchBox.setAttribute('country', this.options.country);
+        this.searchBox.setAttribute('proximity', this._getMapProximity());
+        this.searchBox.setAttribute('types', this._getSearchTypes());
         this.searchBox.setAttribute('language', this.options.language);
         this.searchBox.setAttribute('types', this.options.types);
         this.searchBox.setAttribute('placeholder', 'Search place name or location..');
@@ -603,9 +601,31 @@ export class MapSearchControl {
     }
 
     /**
+     * Get current map center as a proximity string for Mapbox search
+     * @returns {string} "lng,lat"
+     */
+    _getMapProximity() {
+        const center = this.map.getCenter();
+        return `${center.lng},${center.lat}`;
+    }
+
+    /**
+     * Get search types based on current zoom level
+     * @returns {string} Comma-separated Mapbox search types
+     */
+    _getSearchTypes() {
+        const base = 'place,locality,postcode,region,district';
+        return this.map.getZoom() >= 11
+            ? `${base},street,address,poi`
+            : base;
+    }
+
+    /**
      * Handle map moveend events to refresh search results for current viewport
      */
     handleMapMoveEnd() {
+        this.searchBox.setAttribute('proximity', this._getMapProximity());
+        this.searchBox.setAttribute('types', this._getSearchTypes());
         // Only refresh if we have an active search query that's not a coordinate
         if (this.hasActiveSearch && this.currentQuery && !this.isCoordinateInput && this.currentQuery.length > 0) {
 

@@ -14,7 +14,7 @@
     <style>
         html,
         body {
-            height: 100%;
+            height: auto;
             margin: 0;
             padding: 0;
             overflow: hidden;
@@ -33,7 +33,7 @@
             border-left: 2px solid transparent;
             position: relative;
             overflow: hidden;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
 
         .layer-card:hover {
@@ -71,14 +71,14 @@
         .layer-card-compact {
             display: flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px;
-            min-height: 44px;
+            gap: 4px;
+            padding: 4px;
+            min-height: 36px;
         }
 
         .layer-card-expanded {
             display: none;
-            padding: 8px;
+            padding: 6px;
             background: #1f2937;
         }
 
@@ -134,9 +134,9 @@
 
         .action-buttons {
             display: flex;
-            gap: 6px;
-            margin-top: 8px;
-            padding-top: 8px;
+            gap: 4px;
+            margin-top: 5px;
+            padding-top: 5px;
             border-top: 1px solid #374151;
         }
 
@@ -176,7 +176,7 @@
 
         .feature-custom-info {
             background: transparent;
-            margin: 6px 0;
+            margin: 4px 0;
             font-size: 10px;
             color: #d1d5db;
             line-height: 1.4;
@@ -334,6 +334,7 @@
                 width: 100% !important;
                 max-width: 100% !important;
             }
+
         }
     </style>
 </head>
@@ -341,7 +342,7 @@
 <body class="bg-gray-900 text-white" style="display: flex; flex-direction: column;">
     <!-- Header -->
     <div class="header"
-        style="flex-shrink: 0; background: #1f2937; padding: 6px 8px; border-bottom: 1px solid #374151;">
+        style="flex-shrink: 0; background: #1f2937; padding: 4px 6px; border-bottom: 1px solid #374151;">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-1">
                 <div id="drag-handle" class="flex items-center gap-1"
@@ -349,7 +350,7 @@
                     <sl-icon name="layers" style="font-size: 13px;"></sl-icon>
                     <span>Map Layers</span>
                 </div>
-                <sl-dropdown distance="3" placement="bottom-start" id="options-dropdown">
+                <sl-dropdown distance="3" placement="bottom-start" id="options-dropdown" style="display: flex; align-items: center;">
                     <button slot="trigger"
                         style="background: transparent; border: none; color: rgba(235, 235, 235, 0.7); cursor: pointer; padding: 2px 6px; font-size: 10px;">
                         Options
@@ -359,10 +360,6 @@
                             <sl-switch size="small" checked style="pointer-events: none;"
                                 id="isolate-switch"></sl-switch>
                             <span style="margin-left: 8px;">Isolate layers on click</span>
-                        </sl-menu-item>
-                        <sl-menu-item id="popups-menu-item">
-                            <sl-switch size="small" style="pointer-events: none;" id="popups-switch"></sl-switch>
-                            <span style="margin-left: 8px;">Show feature popups</span>
                         </sl-menu-item>
                     </sl-menu>
                 </sl-dropdown>
@@ -374,12 +371,12 @@
     </div>
 
     <!-- Main Content (Layer List) -->
-    <div id="layer-container" style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
+    <div id="layer-container" style="flex: 0 0 auto; display: flex; flex-direction: column; overflow: hidden;">
 
         <!-- Overlay Maps Section -->
-        <div style="flex-shrink: 0; background: #111827; padding: 4px 4px 0 4px;">
+        <div style="flex-shrink: 0; background: #111827; padding: 3px 3px 0 3px;">
             <div class="section-header" id="overlay-header"
-                style="padding: 4px 8px; background: #374151; border-radius: 3px; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                style="padding: 3px 6px; background: #374151; border-radius: 3px; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; min-height: 28px;">
                 <span class="flex items-center gap-1" style="font-size: 10px; font-weight: 600; color: #d1d5db;">
                     <sl-icon name="layers-half" style="font-size: 11px;"></sl-icon>
                     OVERLAY MAPS <span id="overlay-count" class="text-gray-400">(0)</span>
@@ -393,12 +390,12 @@
 
         <!-- Overlay List (Scrollable) -->
         <div id="overlay-list" class="scrollbar-thin"
-            style="display: none; flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 3px;"></div>
+            style="display: none; overflow-y: auto; padding: 2px; max-height: 2000px;"></div>
 
         <!-- Base Maps Section -->
-        <div style="flex-shrink: 0; background: #111827; padding: 0 4px 4px 4px; margin-top:4px">
+        <div style="flex-shrink: 0; background: #111827; padding: 0 3px 3px 3px; margin-top:3px">
             <div class="section-header" id="basemap-header"
-                style="padding: 4px 8px; background: #374151; border-radius: 3px; cursor: pointer; user-select: none; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                style="padding: 3px 6px; background: #374151; border-radius: 3px; cursor: pointer; user-select: none; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; min-height: 28px;">
                 <span class="flex items-center gap-1" style="font-size: 10px; font-weight: 600; color: #d1d5db;">
                     <sl-icon name="stack" style="font-size: 11px;"></sl-icon>
                     BASE MAPS <span id="basemap-count" class="text-gray-400">(0)</span>
@@ -408,14 +405,14 @@
                 </div>
                 <span class="toggle-icon" style="font-size: 10px; transition: transform 0.2s; display: none;">▼</span>
             </div>
-            <div id="basemap-list" class="scrollbar-thin" style="display: none; overflow-y: auto; padding: 0 4px;">
+            <div id="basemap-list" class="scrollbar-thin" style="display: none; overflow-y: auto; padding: 0 2px; max-height: 2000px;">
             </div>
         </div>
     </div>
 
     <!-- Footer (Status Bar) -->
     <div id="status-bar"
-        style="display: none; flex-shrink: 0; height: 34px; background: #111827; border-top: 1px solid #374151; padding: 0 8px; align-items: center; justify-content: space-between;">
+        style="display: none; flex-shrink: 0; height: 28px; background: #111827; border-top: 1px solid #374151; padding: 0 6px; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 6px;">
             <sl-icon name="check-circle-fill" style="color: #10b981; font-size: 12px;"></sl-icon>
             <span id="status-text" style="font-size: 10px; color: #d1d5db;"></span>
@@ -424,18 +421,18 @@
             <button id="add-selection-toggle"
                 data-active="false"
                 title="Toggle add to selection mode"
-                style="padding: 4px 8px; background: transparent; border: 1px solid #4b5563; border-radius: 3px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 4px; color: #9ca3af;">
+                style="padding: 2px 6px; background: transparent; border: 1px solid #4b5563; border-radius: 3px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 3px; color: #9ca3af;">
                 <sl-icon name="plus-circle-dotted" style="font-size: 14px;"></sl-icon>
                 <span style="font-size: 9px;">Add</span>
             </button>
             <button id="zoom-to-selection-btn"
-                style="padding: 4px 10px; background: #ffbf00; color: #000; border: none; border-radius: 3px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
+                style="padding: 2px 8px; background: #ffbf00; color: #000; border: none; border-radius: 3px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
                 onmouseover="this.style.background='#ffd700'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.4)';"
                 onmouseout="this.style.background='#ffbf00'; this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.3)';">
                 Zoom
             </button>
             <button id="clear-selection-btn"
-                style="padding: 4px 10px; background: #3b82f6; color: white; border: none; border-radius: 3px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
+                style="padding: 2px 8px; background: #3b82f6; color: white; border: none; border-radius: 3px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);"
                 onmouseover="this.style.background='#2563eb'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.4)';"
                 onmouseout="this.style.background='#3b82f6'; this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.3)';">
                 Clear
@@ -454,7 +451,6 @@
         let layerRegistry = null;
         let expandedLayerId = null;
         let isolateEnabled = true;
-        let showPopups = false;
         let highlightedLayerIds = new Set();
         let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
@@ -487,23 +483,11 @@
 
         // Notify parent about height changes
         function notifyHeightChange() {
-            const overlayOpen = $('#overlay-list').is(':visible');
-            const basemapOpen = $('#basemap-list').is(':visible');
-            const overlayCount = $('#overlay-list').children('.layer-card').length;
-            const basemapCount = $('#basemap-list').children('.layer-card').length;
-
-            const overlayHeight = overlayOpen ? $('#overlay-list')[0].scrollHeight : 0;
-            const basemapHeight = basemapOpen ? $('#basemap-list')[0].scrollHeight : 0;
             const statusBarVisible = $('#status-bar').is(':visible');
 
             window.parent.postMessage({
                 type: 'inspector-height-change',
-                overlayOpen: overlayOpen,
-                basemapOpen: basemapOpen,
-                overlayCount: overlayCount,
-                basemapCount: basemapCount,
-                overlayHeight: overlayHeight,
-                basemapHeight: basemapHeight,
+                height: document.body.scrollHeight,
                 statusBarVisible: statusBarVisible
             }, '*');
         }
@@ -723,19 +707,6 @@
                 }
             });
 
-            $('#popups-menu-item').on('click', function (e) {
-                e.stopPropagation();
-                const $switch = $('#popups-switch');
-                showPopups = !showPopups;
-                $switch.prop('checked', showPopups);
-
-                // Notify parent about popup preference change
-                window.parent.postMessage({
-                    type: 'toggle-popups',
-                    enabled: showPopups
-                }, '*');
-            });
-
             // Close button
             $('#close-button').on('click', function () {
                 window.parent.postMessage({
@@ -762,6 +733,7 @@
 
                 // If basemap list is currently hidden, show it and hide overlay list
                 if (!$basemapList.is(':visible')) {
+                    $('#basemap-thumbnails').empty().css('display', 'none');
                     $overlayList.slideUp(200);
                     $overlayIcon.hide();
                     $overlayHeader.css('background', '#374151');
@@ -773,6 +745,7 @@
                     $basemapList.slideToggle(200);
                     const willBeVisible = !$basemapList.is(':visible');
                     if (willBeVisible) {
+                        $('#basemap-thumbnails').empty().css('display', 'none');
                         $basemapIcon.show().css('transform', 'rotate(0deg)');
                         $(this).css('background', 'transparent');
                     } else {
@@ -843,6 +816,7 @@
 
                 // If overlay list is currently hidden, show it and hide basemap list
                 if (!$overlayList.is(':visible')) {
+                    $('#overlay-thumbnails').empty().css('display', 'none');
                     $basemapList.slideUp(200);
                     $basemapIcon.hide();
                     $basemapHeader.css('background', '#374151');
@@ -854,6 +828,7 @@
                     $overlayList.slideToggle(200);
                     const willBeVisible = !$overlayList.is(':visible');
                     if (willBeVisible) {
+                        $('#overlay-thumbnails').empty().css('display', 'none');
                         $overlayIcon.show().css('transform', 'rotate(0deg)');
                         $(this).css('background', 'transparent');
                     } else {
@@ -1309,8 +1284,8 @@
                 css: {
                     display: 'flex',
                     flexWrap: 'wrap',
-                    gap: '4px',
-                    marginTop: '6px'
+                    gap: '3px',
+                    marginTop: '3px'
                 }
             });
 
@@ -1361,11 +1336,11 @@
                     css: {
                         display: 'inline-flex',
                         alignItems: 'center',
-                        padding: '3px 8px',
+                        padding: '2px 6px',
                         background: isHovered ? '#fbbf24' : '#3b82f6',
                         color: isHovered ? '#000' : 'white',
                         borderRadius: '10px',
-                        fontSize: '11px',
+                        fontSize: '10px',
                         fontWeight: '600',
                         whiteSpace: 'nowrap',
                         maxWidth: '150px',
@@ -1464,12 +1439,12 @@
                         id: `feature-${featureId}`,
                         'data-feature-id': featureId,
                         css: {
-                            padding: '8px',
-                            marginBottom: '8px',
+                            padding: '5px',
+                            marginBottom: '4px',
                             borderBottom: '1px solid #374151',
                             background: isHovered ? 'rgba(251, 191, 36, 0.1)' : 'transparent',
                             borderLeft: isHovered ? '3px solid #fbbf24' : isSelected ? '3px solid #3b82f6' : 'none',
-                            paddingLeft: isHovered || isSelected ? '5px' : '8px'
+                            paddingLeft: isHovered || isSelected ? '4px' : '5px'
                         }
                     });
 
@@ -1487,14 +1462,14 @@
                     }
 
                     const $title = $('<div>', {
-                        class: 'font-semibold mb-2',
+                        class: 'font-semibold mb-1',
                         css: {
-                            fontSize: '14px',
+                            fontSize: '13px',
                             color: isHovered ? '#fbbf24' : '#e5e7eb',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px',
-                            padding: '6px'
+                            gap: '4px',
+                            padding: '3px'
                         }
                     });
 
@@ -1502,7 +1477,7 @@
                         css: {
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px',
+                            gap: '4px',
                             flex: '1'
                         }
                     });
@@ -1571,7 +1546,7 @@
                     }
 
                     // Show metadata table (inspect fields with titles)
-                    const $propsContainer = $('<div>', { css: { marginTop: '8px', padding: '0 6px' } });
+                    const $propsContainer = $('<div>', { css: { marginTop: '4px', padding: '0 3px' } });
 
                     if (inspectConfig.fields && inspectConfig.fields.length > 0) {
                         const $props = $('<div>', { class: 'properties-table' });
@@ -1597,7 +1572,7 @@
                     if (totalPropsCount > shownPropsCount) {
                         const $allPropsContainer = $('<div>', {
                             class: 'all-properties-container',
-                            css: { display: 'none', marginTop: '8px' }
+                            css: { display: 'none', marginTop: '4px' }
                         });
 
                         Object.entries(allProperties).forEach(([key, value]) => {
@@ -1613,8 +1588,8 @@
                             class: 'show-all-props-btn',
                             text: `Show all ${totalPropsCount} properties`,
                             css: {
-                                marginTop: '8px',
-                                padding: '6px 12px',
+                                marginTop: '4px',
+                                padding: '4px 8px',
                                 background: '#374151',
                                 color: '#d1d5db',
                                 border: '1px solid #4b5563',
@@ -1678,8 +1653,8 @@
 
                 // Action bar (appears AFTER features)
                 const $actionBar = $('<div>', {
-                    class: 'flex gap-1 mb-2 pb-2 border-b border-gray-700',
-                    css: { padding: '0', marginTop: '8px' }
+                    class: 'flex gap-1 mb-1 pb-1 border-b border-gray-700',
+                    css: { padding: '0', marginTop: '4px' }
                 });
 
                 // Opacity button
@@ -1775,8 +1750,8 @@
                     css: {
                         display: 'none',
                         width: '100%',
-                        padding: '8px 0',
-                        marginBottom: '8px',
+                        padding: '4px 0',
+                        marginBottom: '4px',
                         borderBottom: '1px solid #374151'
                     }
                 });
@@ -1887,10 +1862,10 @@
             if (!isExpanded && (hasSelection || hasHover)) {
                 const $badgesSection = $('<div>', {
                     css: {
-                        marginTop: '4px',
+                        marginTop: '2px',
                         display: 'flex',
                         flexWrap: 'wrap',
-                        gap: '4px'
+                        gap: '3px'
                     }
                 });
 
@@ -1940,7 +1915,7 @@
                         css: {
                             display: 'inline-flex',
                             alignItems: 'center',
-                            padding: '3px 8px',
+                            padding: '2px 6px',
                             background: isHovered ? '#fbbf24' : '#3b82f6',
                             color: isHovered ? '#000' : 'white',
                             borderRadius: '10px',
@@ -2030,8 +2005,8 @@
                         const $featureContainer = $('<div>', {
                             class: 'feature-container',
                             css: {
-                                padding: '8px',
-                                marginBottom: '8px',
+                                padding: '5px',
+                                marginBottom: '4px',
                                 borderBottom: '1px solid #374151'
                             }
                         });
@@ -2050,14 +2025,14 @@
                         }
 
                         const $title = $('<div>', {
-                            class: 'font-semibold mb-2',
+                            class: 'font-semibold mb-1',
                             css: {
-                                fontSize: '14px',
+                                fontSize: '13px',
                                 color: '#e5e7eb',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '6px',
-                                padding: '6px'
+                                gap: '4px',
+                                padding: '3px'
                             }
                         });
 
@@ -2065,7 +2040,7 @@
                             css: {
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '6px',
+                                gap: '4px',
                                 flex: '1'
                             }
                         });
@@ -2130,7 +2105,7 @@
                         }
 
                         // Show metadata table (inspect fields with titles)
-                        const $propsContainer = $('<div>', { css: { marginTop: '8px', padding: '0 6px' } });
+                        const $propsContainer = $('<div>', { css: { marginTop: '4px', padding: '0 3px' } });
 
                         if (inspectConfig.fields && inspectConfig.fields.length > 0) {
                             const $props = $('<div>', { class: 'properties-table' });
@@ -2156,7 +2131,7 @@
                         if (totalPropsCount > shownPropsCount) {
                             const $allPropsContainer = $('<div>', {
                                 class: 'all-properties-container',
-                                css: { display: 'none', marginTop: '8px' }
+                                css: { display: 'none', marginTop: '4px' }
                             });
 
                             Object.entries(allProperties).forEach(([key, value]) => {
@@ -2172,8 +2147,8 @@
                                 class: 'show-all-props-btn',
                                 text: `Show all ${totalPropsCount} properties`,
                                 css: {
-                                    marginTop: '8px',
-                                    padding: '6px 12px',
+                                    marginTop: '4px',
+                                    padding: '4px 8px',
                                     background: '#374151',
                                     color: '#d1d5db',
                                     border: '1px solid #4b5563',
@@ -2230,8 +2205,8 @@
 
                 // Action bar (appears AFTER features/description)
                 const $actionBar = $('<div>', {
-                    class: 'flex gap-1 mb-2 pb-2 border-b border-gray-700',
-                    css: { padding: '0', marginTop: '8px' }
+                    class: 'flex gap-1 mb-1 pb-1 border-b border-gray-700',
+                    css: { padding: '0', marginTop: '4px' }
                 });
 
                 // Opacity button
@@ -2309,8 +2284,8 @@
                     css: {
                         display: 'none',
                         width: '100%',
-                        padding: '8px 0',
-                        marginBottom: '8px',
+                        padding: '4px 0',
+                        marginBottom: '4px',
                         borderBottom: '1px solid #374151'
                     }
                 });

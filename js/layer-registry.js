@@ -677,6 +677,14 @@ export class LayerRegistry {
     }
 
     /**
+     * Get the current GeoIP data (populated from Cloudflare trace + ipapi.co at startup)
+     * @returns {object|null} GeoIP data with { ip, countryCode, colo, lat, lng, city, region, country }
+     */
+    getGeoip() {
+        return window.amche?.geoip || null;
+    }
+
+    /**
      * Get atlas metadata (color, name, etc.) by atlas ID
      * @param {string} atlasId - The atlas ID
      * @returns {object|null} The atlas metadata or null if not found

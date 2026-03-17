@@ -31,10 +31,6 @@ export class MapFeatureControl {
         this._inspectorInitialized = false;
         this._lastMouseMoveTime = 0;
 
-        // Click popup state
-        this._clickPopup = null;
-        this._showClickPopups = false;
-
         // Set up resize listener
         this._resizeListener = this._handleResize.bind(this);
         window.addEventListener('resize', this._resizeListener);
@@ -423,12 +419,6 @@ export class MapFeatureControl {
                 this._adjustPanelHeight(event.data);
             } else if (event.data.type === 'close-panel') {
                 this._hidePanel();
-            } else if (event.data.type === 'toggle-popups') {
-                this._showClickPopups = event.data.enabled;
-                if (!this._showClickPopups && this._clickPopup) {
-                    this._clickPopup.remove();
-                    this._clickPopup = null;
-                }
             } else if (event.data.type === 'clear-all-selections') {
                 if (this._stateManager) {
                     this._stateManager.clearAllSelections();
@@ -759,11 +749,6 @@ export class MapFeatureControl {
                 }
 
                 this._sendFeatureSelectionToIframe(data.layerId, data.feature, data.featureId);
-
-                // Show click popup if enabled
-                if (this._showClickPopups) {
-                    this._showClickPopupForFeature(data);
-                }
                 break;
             case 'feature-click-multiple':
                 // Clear previously selected features if any
@@ -777,30 +762,12 @@ export class MapFeatureControl {
                 data.selectedFeatures.forEach(selection => {
                     this._sendFeatureSelectionToIframe(selection.layerId, selection.feature, selection.featureId);
                 });
-
-                // Show click popup for the first selected feature if enabled
-                if (this._showClickPopups && data.selectedFeatures.length > 0) {
-                    const firstFeature = data.selectedFeatures[0];
-                    this._showClickPopupForFeature(firstFeature);
-                }
                 break;
             case 'feature-inspection-data':
                 this._sendInspectionDataToIframe(data);
-
-                // Update popup if it's showing and matches this feature
-                if (this._clickPopup && this._clickPopup._layerId === data.layerId &&
-                    this._clickPopup._featureId === data.featureId && data.customHTML) {
-                    this._updateClickPopupCustomHTML(data.layerId, data.featureId, data.customHTML);
-                }
                 break;
             case 'selections-cleared':
                 this._sendAllSelectionsClearedToIframe(data.clearedFeatures || []);
-
-                // Remove popup when selections are cleared
-                if (this._clickPopup) {
-                    this._clickPopup.remove();
-                    this._clickPopup = null;
-                }
                 break;
             case 'feature-deselected':
                 this._sendFeatureDeselectedToIframe(data.layerId, data.featureId);
@@ -1878,188 +1845,13 @@ export class MapFeatureControl {
     _adjustPanelHeight(data) {
         if (!this._panel) return;
 
-        const { overlayOpen, basemapOpen, overlayHeight, basemapHeight, statusBarVisible } = data;
-        const headerHeight = 48;
-        const sectionHeaderHeight = 40;
-        const padding = 24;
-        const statusBarHeight = statusBarVisible ? 44 : 0;
-
-        let contentHeight = headerHeight + padding + statusBarHeight;
-
-        contentHeight += sectionHeaderHeight;
-
-        if (overlayOpen && overlayHeight) {
-            contentHeight += overlayHeight + 8;
-        }
-
-        contentHeight += sectionHeaderHeight;
-
-        if (basemapOpen && basemapHeight) {
-            contentHeight += basemapHeight + 8;
-        }
+        const { height } = data;
+        if (!height) return;
 
         const isMobile = window.innerWidth <= 768;
         const maxHeight = isMobile ? window.innerHeight * 0.4 : window.innerHeight * 0.85;
 
-        const minHeight = isMobile ? 200 : 400;
-
-        const finalHeight = Math.min(Math.max(contentHeight, minHeight), maxHeight);
-
-        this._panel.style.height = `${finalHeight}px`;
-    }
-
-    /**
-     * Toggle popup display for hovered/selected features
-     */
-    _togglePopups(enabled) {
-        // Store the preference
-        this._showPopups = enabled;
-
-        // If disabling, remove any existing popups
-        if (!enabled) {
-            this._removeAllPopups();
-        }
-
-        // Update the state manager or map to show/hide popups
-        // This would integrate with the map's popup system
-        if (window.mapFeatureControl) {
-            window.mapFeatureControl.options.showHoverPopups = enabled;
-        }
-    }
-
-    /**
-     * Remove all popups from the map
-     */
-    _removeAllPopups() {
-        // Get all popups and remove them
-        const popups = document.querySelectorAll('.mapboxgl-popup');
-        popups.forEach(popup => {
-            const popupInstance = popup._popup;
-            if (popupInstance) {
-                popupInstance.remove();
-            }
-        });
-    }
-
-    /**
-     * Show click popup for a feature
-     */
-    _showClickPopupForFeature(data) {
-        if (!this._map) return;
-
-        const { layerId, feature, featureId, lngLat } = data;
-
-        // Remove existing popup
-        if (this._clickPopup) {
-            this._clickPopup.remove();
-        }
-
-        // Get layer config
-        const activeLayers = this._getActiveLayersFromConfig();
-        const layerData = activeLayers.get(layerId);
-        if (!layerData) return;
-
-        const layerConfig = layerData.config;
-
-        // Create popup content
-        const content = this._createClickPopupContent(layerId, feature, featureId, layerConfig);
-
-        // Create and show popup
-        this._clickPopup = new mapboxgl.Popup({
-            closeButton: true,
-            closeOnClick: false,
-            maxWidth: '350px',
-            className: 'click-popup'
-        })
-            .setLngLat(lngLat)
-            .setDOMContent(content)
-            .addTo(this._map);
-
-        // Store metadata for updates
-        this._clickPopup._layerId = layerId;
-        this._clickPopup._featureId = featureId;
-
-        // Remove popup reference when closed
-        this._clickPopup.on('close', () => {
-            this._clickPopup = null;
-        });
-    }
-
-    /**
-     * Create popup content with standardized layout
-     */
-    _createClickPopupContent(layerId, feature, featureId, layerConfig) {
-        const container = document.createElement('div');
-        container.style.cssText = 'padding: 8px;';
-
-        const properties = feature.properties || {};
-        const inspect = layerConfig.inspect || {};
-
-        // 1. Feature Heading
-        const heading = document.createElement('div');
-        heading.style.cssText = 'font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #f3f4f6; border-bottom: 1px solid #374151; padding-bottom: 8px;';
-
-        let headerLabel = 'Feature ID';
-        let headerValue = featureId;
-
-        if (inspect.title && inspect.label) {
-            headerLabel = inspect.title;
-            headerValue = properties[inspect.label] || featureId;
-        }
-
-        heading.innerHTML = `<div style="color: #9ca3af; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${headerLabel}</div><div>${headerValue}</div>`;
-        container.appendChild(heading);
-
-        // 2. Custom HTML placeholder
-        const customHTMLDiv = document.createElement('div');
-        customHTMLDiv.id = `popup-custom-${layerId}-${featureId}`;
-        customHTMLDiv.style.cssText = 'margin-bottom: 8px;';
-        container.appendChild(customHTMLDiv);
-
-        // 3. Metadata table
-        if (inspect.fields && inspect.fields.length > 0) {
-            const table = document.createElement('div');
-            table.style.cssText = 'font-size: 12px;';
-
-            inspect.fields.forEach((fieldName, index) => {
-                const value = properties[fieldName];
-                if (value !== null && value !== undefined && value !== '') {
-                    const fieldTitle = inspect.fieldTitles?.[index] || fieldName;
-
-                    const row = document.createElement('div');
-                    row.style.cssText = 'display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid #374151;';
-
-                    const key = document.createElement('div');
-                    key.style.cssText = 'color: #9ca3af; min-width: 80px; flex-shrink: 0;';
-                    key.textContent = fieldTitle;
-
-                    const val = document.createElement('div');
-                    val.style.cssText = 'color: #f3f4f6; flex: 1; word-break: break-word;';
-                    val.textContent = String(value);
-
-                    row.appendChild(key);
-                    row.appendChild(val);
-                    table.appendChild(row);
-                }
-            });
-
-            container.appendChild(table);
-        }
-
-        return container;
-    }
-
-    /**
-     * Update popup with custom HTML from inspection handler
-     */
-    _updateClickPopupCustomHTML(layerId, featureId, customHTML) {
-        if (!this._clickPopup) return;
-
-        const customHTMLDiv = this._clickPopup._content.querySelector(`#popup-custom-${layerId}-${featureId}`);
-        if (customHTMLDiv && customHTML) {
-            customHTMLDiv.innerHTML = customHTML;
-            customHTMLDiv.style.display = 'block';
-        }
+        this._panel.style.height = `${Math.min(height, maxHeight)}px`;
     }
 
     /**

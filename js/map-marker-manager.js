@@ -463,8 +463,8 @@ export class MapMarkerManager {
                     display: flex;
                     align-items: center;
                     background: #3b82f6;
-                    padding: 4px 8px;
-                    border-radius: 12px;
+                    padding: 3px 6px;
+                    border-radius: 10px;
                     border: 2px solid white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
                     cursor: pointer;
@@ -509,15 +509,15 @@ export class MapMarkerManager {
                     align-items: center;
                     justify-content: center;
                     background: #3b82f6;
-                    padding: 6px;
-                    border-radius: 12px;
+                    padding: 4px;
+                    border-radius: 10px;
                     border: 2px solid white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
                     cursor: pointer;
                     transition: all 0.2s ease;
                 ">
                     <sl-icon name="geo-alt" style="
-                        font-size: 14px;
+                        font-size: 12px;
                         color: white;
                     "></sl-icon>
                 </div>
@@ -719,7 +719,7 @@ export class MapMarkerManager {
 
                 let propertiesHTML = '';
                 if (fields.length > 0) {
-                    propertiesHTML = '<div class="properties-table" style="margin-top: 6px; font-size: 10px;">';
+                    propertiesHTML = '<div class="properties-table" style="margin-top: 4px; font-size: 10px;">';
                     fields.forEach((fieldName, index) => {
                         const value = properties[fieldName];
                         if (value !== null && value !== undefined && value !== '') {
@@ -742,7 +742,7 @@ export class MapMarkerManager {
                 // Build all properties table (hidden by default)
                 let allPropertiesHTML = '';
                 if (totalPropsCount > shownPropsCount) {
-                    allPropertiesHTML = '<div class="all-properties-container" style="display: none; margin-top: 6px; font-size: 10px;">';
+                    allPropertiesHTML = '<div class="all-properties-container" style="display: none; margin-top: 4px; font-size: 10px;">';
                     Object.entries(properties).forEach(([key, value]) => {
                         if (value !== null && value !== undefined && value !== '') {
                             allPropertiesHTML += `
@@ -758,8 +758,8 @@ export class MapMarkerManager {
 
                 const showMoreButton = totalPropsCount > shownPropsCount ? `
                     <button class="show-all-props-btn" style="
-                        margin-top: 6px;
-                        padding: 4px 10px;
+                        margin-top: 4px;
+                        padding: 3px 8px;
                         background: #374151;
                         color: #d1d5db;
                         border: 1px solid #4b5563;
@@ -776,14 +776,14 @@ export class MapMarkerManager {
                     <div class="feature-item-container" data-layer-id="${layerId}" data-feature-id="${featureId}" style="
                         background: #334155;
                         border-radius: 3px;
-                        margin-bottom: 3px;
+                        margin-bottom: 2px;
                         overflow: hidden;
                     ">
                         <div class="feature-item-header" style="
                             display: flex;
                             align-items: center;
-                            gap: 6px;
-                            padding: 4px 6px;
+                            gap: 5px;
+                            padding: 3px 5px;
                             cursor: pointer;
                             transition: background 0.2s;
                         " onmouseenter="this.style.background='#475569'" onmouseleave="this.style.background='#334155'">
@@ -793,13 +793,13 @@ export class MapMarkerManager {
                                     ${atlasBadge}
                                     <span>${layerConfig?.title || layerId}</span>
                                 </div>
-                                <div style="font-size: 12px; color: #e2e8f0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${featureLabel}</div>
+                                <div style="font-size: 11px; color: #e2e8f0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${featureLabel}</div>
                             </div>
                             <div class="expand-icon" style="color: #94a3b8; font-size: 9px;">▼</div>
                         </div>
                         <div class="feature-item-details" style="
                             display: none;
-                            padding: 6px;
+                            padding: 4px;
                             background: #1e293b;
                             border-top: 1px solid #0f172a;
                         " data-needs-handler="${layerConfig?._sourceAtlas && inspectConfig.onClick ? 'true' : 'false'}" data-atlas="${layerConfig?._sourceAtlas || ''}" data-handler="${inspectConfig.onClick || ''}" data-feature-data="${encodeURIComponent(JSON.stringify(f.feature))}">
@@ -823,14 +823,14 @@ export class MapMarkerManager {
                     <div class="feature-item-container" data-layer-id="${layer.id}" style="
                         background: #334155;
                         border-radius: 3px;
-                        margin-bottom: 3px;
+                        margin-bottom: 2px;
                         overflow: hidden;
                     ">
                         <div class="feature-item-header" style="
                             display: flex;
                             align-items: center;
-                            gap: 6px;
-                            padding: 4px 6px;
+                            gap: 5px;
+                            padding: 3px 5px;
                             cursor: pointer;
                             transition: background 0.2s;
                         " onmouseenter="this.style.background='#475569'" onmouseleave="this.style.background='#334155'">
@@ -849,8 +849,8 @@ export class MapMarkerManager {
 
             if (featuresList === '') {
                 featuresList = `
-                    <div style="padding: 12px; text-align: center; color: #9ca3af;">
-                        <div style="font-size: 12px; margin-bottom: 4px;">No active layers</div>
+                    <div style="padding: 8px; text-align: center; color: #9ca3af;">
+                        <div style="font-size: 12px; margin-bottom: 3px;">No active layers</div>
                         <div style="font-size: 10px;">Enable layers to see information here</div>
                     </div>
                 `;
@@ -887,11 +887,11 @@ export class MapMarkerManager {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    padding: 8px;
+                    padding: 5px 6px;
                     border-bottom: 1px solid #334155;
                     background: #111827;
                 ">
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
                         <button class="toggle-location" style="
                             background: transparent;
                             border: none;
@@ -959,11 +959,11 @@ export class MapMarkerManager {
 
                 <div class="location-details" style="
                     display: none;
-                    padding: 8px;
+                    padding: 4px 6px;
                     background: #111827;
                     border-bottom: 1px solid #334155;
                     align-items: center;
-                    gap: 6px;
+                    gap: 5px;
                     font-size: 11px;
                     color: #94a3b8;
                 ">
@@ -991,8 +991,8 @@ export class MapMarkerManager {
                     "><sl-icon name="geo" style="font-size: 12px;"></sl-icon> Open with...</button>
                 </div>
 
-                <div style="padding: 8px;">
-                    <div class="features-list-container" style="max-height: 250px; overflow-y: auto;">
+                <div style="padding: 5px;">
+                    <div class="features-list-container" style="max-height: 240px; overflow-y: auto;">
                         ${featuresList}
                     </div>
                 </div>
@@ -1001,7 +1001,7 @@ export class MapMarkerManager {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    padding: 8px;
+                    padding: 4px 5px;
                     border-top: 1px solid #334155;
                 ">
                     <div style="display: flex; align-items: center; gap: 6px; flex: 1; overflow-x: auto;">

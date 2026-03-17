@@ -17,6 +17,21 @@
         window.amche.MAPBOX_MAP_OPTIONS = {
             container: 'map'
         };
+        window.amche.geoip = null;
+        (async function () {
+            try {
+                const res = await fetch('https://cloudflare.com/cdn-cgi/trace');
+                const text = await res.text();
+                const data = {};
+                text.trim().split('\n').forEach(line => {
+                    const eq = line.indexOf('=');
+                    if (eq > 0) data[line.slice(0, eq)] = line.slice(eq + 1);
+                });
+                window.amche.geoip = { ip: data.ip || null, countryCode: data.loc || null, colo: data.colo || null };
+            } catch (e) {
+                window.amche.geoip = {};
+            }
+        })();
     </script>
 
     <title>amche.in - Interactive 3D Atlas</title>
@@ -1035,6 +1050,17 @@
 
                     // Expose immediately for splash screen UI
                     window.ipLocationData = ipLocation;
+
+                    // Enrich geoip with coordinates and place info from ipapi
+                    window.amche.geoip = {
+                        ...(window.amche.geoip || {}),
+                        lat: data.latitude,
+                        lng: data.longitude,
+                        city: data.city,
+                        region: data.region,
+                        country: data.country_name,
+                        countryCode: data.country_code || window.amche.geoip?.countryCode || null
+                    };
 
                     if (requestedMapStatus) {
                         requestedMapStatus.innerHTML = `Detected IP location: <a href="https://ipapi.co/json/" target="_blank" style="color: #60a5fa; text-decoration: underline;">${ipLocation.city}, ${ipLocation.region}, ${ipLocation.country}</a>. <a href="#" id="use-device-location-link" style="color: #60a5fa; text-decoration: underline;">Use Device Location</a> for better accuracy`;

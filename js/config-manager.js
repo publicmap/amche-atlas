@@ -637,6 +637,10 @@ export class ConfigManager {
         };
     }
 
+    static getGeoip() {
+        return window.amche?.geoip || null;
+    }
+
     static generateLayerTemplate(type) {
         const spec = this.getLayerSpec(type);
         if (!spec) return null;
