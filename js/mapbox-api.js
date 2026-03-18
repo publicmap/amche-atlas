@@ -296,7 +296,7 @@ export class MapboxAPI {
             },
             paint: {
                 fill: ['fill-color', 'fill-opacity', 'fill-outline-color', 'fill-translate'],
-                line: ['line-color', 'line-width', 'line-opacity', 'line-dasharray', 'line-translate'],
+                line: ['line-color', 'line-width', 'line-opacity', 'line-dasharray', 'line-translate', 'line-offset'],
                 symbol: ['icon-color', 'icon-opacity', 'text-color', 'text-halo-color', 'text-halo-width', 'text-opacity'],
                 circle: ['circle-radius', 'circle-color', 'circle-opacity', 'circle-stroke-width', 'circle-stroke-color'],
                 raster: ['raster-opacity', 'raster-contrast', 'raster-saturation', 'raster-brightness-min', 'raster-brightness-max'],
@@ -615,6 +615,15 @@ export class MapboxAPI {
         if (hasLineStyles) {
             // Filter style to only include line-related properties
             const lineStyle = this._filterStyleForLayerType(config.style, 'line');
+
+            // Use feature-state for line-offset so hover/selection effects are instant
+            if (!lineStyle['line-offset']) {
+                lineStyle['line-offset'] = ['case',
+                    ['boolean', ['feature-state', 'selected'], false], -2,
+                    ['boolean', ['feature-state', 'hover'], false], -1,
+                    0
+                ];
+            }
 
             const layerConfig = this._createLayerConfig({
                 id: `vector-layer-${groupId}-outline`,
@@ -2901,18 +2910,10 @@ export class MapboxAPI {
                     2
                 ];
 
-                const offsetExpression = [
-                    'case',
-                    ['in', ['id'], ['literal', selectedIds]], -2,
-                    ['in', ['id'], ['literal', hoveredIds]], -1,
-                    0
-                ];
-
                 try {
                     this._map.setLayoutProperty(layer.id, 'line-sort-key', sortKeyExpression);
-                    this._map.setPaintProperty(layer.id, 'line-offset', offsetExpression);
                 } catch (error) {
-                    console.warn(`Failed to update sort key/offset for ${layer.id}:`, error);
+                    console.warn(`Failed to update sort key for ${layer.id}:`, error);
                 }
             }
         });

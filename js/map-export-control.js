@@ -41,7 +41,7 @@ export class MapExportControl {
         this._createIframe();
 
         this._moveendHandler = () => {
-            if (!this._isExporting && !this._titleCustomized) {
+            if (this._isPanelOpen && !this._isExporting && !this._titleCustomized) {
                 this._updateTitleFromLocation();
             }
         };
@@ -149,7 +149,7 @@ export class MapExportControl {
             if (event.source !== this._iframe.contentWindow) return;
 
             if (type === 'export-ready') {
-                this._updateTitleFromLocation();
+                if (this._isPanelOpen) this._updateTitleFromLocation();
             } else if (type === 'export-close') {
                 this._hide();
             } else if (type === 'export-start') {
