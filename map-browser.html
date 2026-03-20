@@ -1528,10 +1528,25 @@
 
         // Check if layer matches search
         function matchesSearch(layer, term) {
+            const descText = layer.description ? stripHTML(layer.description).toLowerCase() : '';
             return (layer.id && layer.id.toLowerCase().includes(term)) ||
                 (layer.title && layer.title.toLowerCase().includes(term)) ||
-                (layer.description && layer.description.toLowerCase().includes(term)) ||
+                descText.includes(term) ||
                 (layer.tags && layer.tags.some(tag => tag.toLowerCase().includes(term)));
+        }
+
+        // Get search relevance score for a layer (higher = better match)
+        function getSearchScore(layer, term) {
+            const title = (layer.title || layer.id || '').toLowerCase();
+            const descText = layer.description ? stripHTML(layer.description).toLowerCase() : '';
+            let score = 0;
+            if (title === term) score += 100;
+            else if (title.startsWith(term)) score += 80;
+            else if (title.includes(term)) score += 60;
+            if (descText.includes(term)) score += 40;
+            if (layer.tags && layer.tags.some(tag => tag.toLowerCase().includes(term))) score += 20;
+            if (layer.id && layer.id.toLowerCase().includes(term)) score += 10;
+            return score;
         }
 
         // Check if layer is in current view
@@ -1908,8 +1923,12 @@
                     matchingLayers = [...node.layers];
                 }
 
-                // Sort matching layers alphabetically
+                // Sort matching layers by relevance score (desc), then alphabetically
                 matchingLayers.sort((a, b) => {
+                    if (searchTerm) {
+                        const scoreDiff = getSearchScore(b, searchTerm) - getSearchScore(a, searchTerm);
+                        if (scoreDiff !== 0) return scoreDiff;
+                    }
                     const aName = (a.name || a.title || a.id || '').toLowerCase();
                     const bName = (b.name || b.title || b.id || '').toLowerCase();
                     return aName.localeCompare(bName);
