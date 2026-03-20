@@ -296,6 +296,7 @@ export class MapboxAPI {
             },
             paint: {
                 fill: ['fill-color', 'fill-opacity', 'fill-outline-color', 'fill-translate'],
+                'fill-extrusion': ['fill-extrusion-opacity', 'fill-extrusion-color', 'fill-extrusion-translate', 'fill-extrusion-height', 'fill-extrusion-base', 'fill-extrusion-vertical-gradient'],
                 line: ['line-color', 'line-width', 'line-opacity', 'line-dasharray', 'line-translate', 'line-offset'],
                 symbol: ['icon-color', 'icon-opacity', 'text-color', 'text-halo-color', 'text-halo-width', 'text-opacity'],
                 circle: ['circle-radius', 'circle-color', 'circle-opacity', 'circle-stroke-width', 'circle-stroke-color'],
@@ -572,14 +573,19 @@ export class MapboxAPI {
         const userHasLineStyles = config.style && (config.style['line-color'] || config.style['line-width']);
         const userHasTextStyles = config.style && config.style['text-field'];
         const userHasCircleStyles = config.style && (config.style['circle-radius'] || config.style['circle-color']);
+        const userHasFillExtrusionStyles = config.style && (
+            config.style['fill-extrusion-height'] !== undefined ||
+            config.style['fill-extrusion-color'] !== undefined ||
+            config.style['fill-extrusion-opacity'] !== undefined
+        );
 
         // If user has only line styles defined (with or without text), treat this as a linestring layer and don't apply fill styles
         const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles && !userHasCircleStyles;
 
         // Check if fill layer should be created
-        // If user only has line styles, don't create fill layer even if defaults exist
-        const hasFillStyles = userHasFillStyles ||
-            (!userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity']));
+        // If user only has line styles or fill-extrusion styles, don't create fill layer even if defaults exist
+        const hasFillStyles = !userHasFillExtrusionStyles && (userHasFillStyles ||
+            (!userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity'])));
 
         // Check if line layer should be created (user styles or defaults)
         const hasLineStyles = userHasLineStyles ||
@@ -591,6 +597,24 @@ export class MapboxAPI {
 
         // Check if circle layer should be created (only if user explicitly defines circle properties)
         const hasCircleStyles = userHasCircleStyles;
+
+        // Add fill-extrusion layer if extrusion properties are defined
+        if (userHasFillExtrusionStyles) {
+            const extrusionStyle = this._filterStyleForLayerType(config.style, 'fill-extrusion');
+
+            const layerConfig = this._createLayerConfig({
+                id: `vector-layer-${groupId}`,
+                groupId: groupId,
+                type: 'fill-extrusion',
+                source: sourceId,
+                'source-layer': config.sourceLayer || 'default',
+                style: extrusionStyle,
+                filter: config.filter,
+                visible
+            }, 'fill-extrusion');
+
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
+        }
 
         // Add fill layer
         if (hasFillStyles) {
@@ -737,7 +761,9 @@ export class MapboxAPI {
             : opacity;
 
         if (this._map.getLayer(`vector-layer-${groupId}`)) {
-            this._map.setPaintProperty(`vector-layer-${groupId}`, 'fill-opacity', finalOpacity);
+            const fillLayer = this._map.getLayer(`vector-layer-${groupId}`);
+            const fillOpacityProp = fillLayer.type === 'fill-extrusion' ? 'fill-extrusion-opacity' : 'fill-opacity';
+            this._map.setPaintProperty(`vector-layer-${groupId}`, fillOpacityProp, finalOpacity);
         }
         if (this._map.getLayer(`vector-layer-${groupId}-outline`)) {
             this._map.setPaintProperty(`vector-layer-${groupId}-outline`, 'line-opacity', finalOpacity);
@@ -1488,14 +1514,19 @@ export class MapboxAPI {
         const userHasTextStyles = config.style && config.style['text-field'];
         const userHasCircleStyles = config.style && (config.style['circle-radius'] || config.style['circle-color']);
         const userHasIconStyles = config.style && config.style['icon-image'];
+        const userHasFillExtrusionStyles = config.style && (
+            config.style['fill-extrusion-height'] !== undefined ||
+            config.style['fill-extrusion-color'] !== undefined ||
+            config.style['fill-extrusion-opacity'] !== undefined
+        );
 
         // If user has only line styles defined (with or without text), treat this as a linestring layer and don't apply fill styles
         const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles && !userHasCircleStyles && !userHasIconStyles;
 
         // Check if fill layer should be created (user styles or defaults)
-        // If user only has line styles, don't create fill layer even if defaults exist
-        const hasFillStyles = userHasFillStyles ||
-            (!userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity']));
+        // If user only has line styles or fill-extrusion styles, don't create fill layer even if defaults exist
+        const hasFillStyles = !userHasFillExtrusionStyles && (userHasFillStyles ||
+            (!userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity'])));
 
         // Check if line layer should be created (user styles or defaults)
         const hasLineStyles = userHasLineStyles ||
@@ -1510,6 +1541,23 @@ export class MapboxAPI {
 
         // Common filter for non-clustered points if clustering is enabled
         const unclusteredFilter = config.clustered ? ['!', ['has', 'point_count']] : null;
+
+        // Add fill-extrusion layer if extrusion properties are defined
+        if (userHasFillExtrusionStyles) {
+            const extrusionStyle = this._filterStyleForLayerType(config.style, 'fill-extrusion');
+
+            const extrusionLayerConfig = this._createLayerConfig({
+                id: `${sourceId}-fill${idSuffix}`,
+                groupId: groupId,
+                type: 'fill-extrusion',
+                source: sourceId,
+                style: extrusionStyle,
+                visible,
+                ...(unclusteredFilter && { filter: unclusteredFilter })
+            }, 'fill-extrusion');
+
+            this._addLayerWithSlot(extrusionLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
+        }
 
         // Add fill layer
         if (hasFillStyles) {
@@ -1780,7 +1828,12 @@ export class MapboxAPI {
         const sourceId = `geojson-${groupId}`;
 
         if (this._map.getLayer(`${sourceId}-fill`)) {
-            this._map.setPaintProperty(`${sourceId}-fill`, 'fill-opacity', finalOpacity * 0.5);
+            const fillLayer = this._map.getLayer(`${sourceId}-fill`);
+            if (fillLayer.type === 'fill-extrusion') {
+                this._map.setPaintProperty(`${sourceId}-fill`, 'fill-extrusion-opacity', finalOpacity);
+            } else {
+                this._map.setPaintProperty(`${sourceId}-fill`, 'fill-opacity', finalOpacity * 0.5);
+            }
         }
         if (this._map.getLayer(`${sourceId}-line`)) {
             this._map.setPaintProperty(`${sourceId}-line`, 'line-opacity', finalOpacity);
@@ -2615,6 +2668,15 @@ export class MapboxAPI {
                 /^circle-/       // circle-radius, circle-color, etc.
             ],
             fill: [
+                /^fill-extrusion-/, // fill-extrusion-height, fill-extrusion-color, etc.
+                /^line-/,        // line-color, line-width, etc.
+                /^icon-/,        // icon-image, icon-color, etc.
+                /^circle-/,      // circle-radius, circle-color, etc.
+                /^text-/,        // text-field, text-color, etc.
+                /^symbol-/       // symbol-sort-key, etc.
+            ],
+            'fill-extrusion': [
+                /^fill-(?!extrusion)/, // fill-color, fill-opacity, etc. but not fill-extrusion-*
                 /^line-/,        // line-color, line-width, etc.
                 /^icon-/,        // icon-image, icon-color, etc.
                 /^circle-/,      // circle-radius, circle-color, etc.
@@ -2755,6 +2817,7 @@ export class MapboxAPI {
         // Map layer types to default style categories
         const styleMap = {
             'fill': this._defaultStyles.vector.fill || {},
+            'fill-extrusion': this._defaultStyles.vector['fill-extrusion'] || {},
             'line': this._defaultStyles.vector.line || {},
             'symbol': this._defaultStyles.vector.text || {},
             'circle': this._defaultStyles.vector.circle || {},

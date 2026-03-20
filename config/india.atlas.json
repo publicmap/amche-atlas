@@ -106,16 +106,16 @@
       "maxzoom": 14,
       "attribution": "CC-BY <a href='https://sites.research.google/open-buildings/'>Google Open Buildings</a> - Collected by <a href='https://indianopenmaps.com/viewer#source=/google-buildings/&map='>Datameet Community</a>",
       "style": {
-        "fill-extrude-height": [
+        "fill-extrusion-height": [
           "get",
           "height"
         ],
-        "fill-extrude-base": [
+        "fill-extrusion-base": [
           "get",
           "base"
         ],
-        "fill-extrude-color": "#ccc",
-        "fill-extrude-opacity": 0.5,
+        "fill-extrusion-color": "#333",
+        "fill-extrusion-opacity": 0.7,
         "line-opacity": 0,
         "line-join": "round",
         "line-width": 0,

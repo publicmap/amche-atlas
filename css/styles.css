@@ -570,14 +570,8 @@ main {
 /* Active/tracking state */
 .geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active,
 .geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active:hover {
-    background: #3b82f6 !important;
-    border-color: #2563eb !important;
-}
-
-/* Tracking state icon color */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active svg,
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-background svg {
-    fill: rgb(30, 161, 243) !important;
+    background: #202020 !important;
+    border-color: #404040 !important;
 }
 
 /* Active background tracking state */
@@ -590,8 +584,13 @@ main {
 /* Background tracking state */
 .geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-background,
 .geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-background:hover {
-    background: #3b82f6 !important;
-    border-color: #2563eb !important;
+    background: #202020 !important;
+    border-color: #404040 !important;
+}
+
+/* Suppress Mapbox's spin animation on waiting state */
+.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-waiting .mapboxgl-ctrl-icon {
+    animation: none !important;
 }
 
 /* Icon styling - override Mapbox's background-image */
@@ -607,14 +606,6 @@ main {
     padding: 0 !important;
 }
 
-/* SVG icon color */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate svg {
-    color: white !important;
-    fill: white !important;
-    display: block !important;
-    width: 18px !important;
-    height: 18px !important;
-}
 
 /* Text color */
 .geolocation-btn-header.mapboxgl-ctrl-geolocate .geolocation-text {
