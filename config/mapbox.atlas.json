@@ -13,11 +13,7 @@
     90
   ],
   "map": {
-    "center": [
-      73.8,
-      15.47
-    ],
-    "zoom": 11.4
+    "style": "mapbox://styles/mapbox/standard"
   },
   "layers": [
     {

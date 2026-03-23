@@ -911,6 +911,7 @@ export class MapInitializer {
             const signalMapReady = () => {
                 window.mapDisplayReady = true;
                 window.dispatchEvent(new CustomEvent('mapDisplayReady'));
+                window.dispatchEvent(new CustomEvent('mapReady', { detail: { map } }));
             };
 
             if (window.hashLayerView) {
@@ -943,7 +944,7 @@ export class MapInitializer {
                         map.flyTo(flyToOptions);
                     }
                     delete window.hashLayerView; // Clean up
-                    signalMapReady();
+                    map.once('moveend', signalMapReady);
                 }, 2000);
             } else if (!window.location.hash) {
                 // No hash in URL, use config defaults
@@ -959,7 +960,7 @@ export class MapInitializer {
                         speed: 0.6
                     };
                     map.flyTo(flyToOptions);
-                    signalMapReady();
+                    map.once('moveend', signalMapReady);
                 }, 2000);
             } else {
                 // Has a hash (position) — map is ready, signal immediately
@@ -1058,12 +1059,6 @@ export class MapInitializer {
                     }
                 }
             });
-
-            // Emit mapReady event for plugins
-            const mapReadyEvent = new CustomEvent('mapReady', {
-                detail: { map: map }
-            });
-            window.dispatchEvent(mapReadyEvent);
 
             // Hide loading overlay after initialization is complete (only if startup choice was made)
             // Skip auto-close if manualOverlayControl is enabled (startup handler will close it)

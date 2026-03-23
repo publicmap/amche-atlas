@@ -170,7 +170,7 @@
             }
 
             #add-new-map-link::after {
-                content: 'Import New Map';
+                content: 'New Map';
             }
         }
 
@@ -839,16 +839,17 @@
             <!-- Header Text with Close Button -->
             <div class="mb-2 text-sm text-gray-300 flex items-center gap-1 justify-between" style="min-width: 0;">
                 <div class="flex items-center gap-1 flex-wrap" style="min-width: 0; flex: 1;">
-                    <span style="flex-shrink: 0;">Browse maps from</span>
+                    <span style="flex-shrink: 0;">Choose</span>
                     <button id="atlas-filter-btn"
-                        style="background: #3b82f6; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 1; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis;">
-                        All Map Collections
+                        style="background: transparent; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 1; min-width: 0; max-width: 160px; overflow: hidden; text-overflow: ellipsis;">
+                        <sl-icon name="map" style="font-size: 12px;"></sl-icon>
+                        <span id="atlas-filter-label">Map Atlas</span>
                     </button>
-                    <span style="flex-shrink: 0;">or</span>
+                    <span style="flex-shrink: 0;">or Import</span>
                     <button id="add-new-map-link"
                         style="background: transparent; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
                         <sl-icon name="plus-circle" style="font-size: 12px;"></sl-icon>
-                        <span>Import New Map</span>
+                        <span>New Map</span>
                     </button>
                 </div>
                 <button id="close-browser-btn" class="text-white"
@@ -979,7 +980,7 @@
                         for (const [atlasId, metadata] of atlasMetadata.entries()) {
                             if (metadata.isImported) {
                                 window.selectedAtlasId = atlasId;
-                                $('#atlas-filter-btn').text(metadata.name || atlasId);
+                                // label stays as 'Map Atlas'
                                 break;
                             }
                         }
@@ -1205,21 +1206,14 @@
 
 
             $('#atlas-filter-btn').on('click', function () {
-                // Toggle menu - close if already open
-                if ($('.atlas-filter-menu').length > 0) {
-                    $('.atlas-filter-menu').remove();
-                } else {
-                    showAtlasFilterMenu();
-                }
+                window.parent.postMessage({ type: 'open-splash' }, '*');
             });
 
             // Atlas filter button hover effects
             $('#atlas-filter-btn').on('mouseenter', function () {
-                const baseColor = $(this).data('atlas-color') || '#3b82f6';
-                // Darken the color slightly on hover
-                $(this).css('opacity', '0.85');
+                $(this).css('background', '#16a34a');
             }).on('mouseleave', function () {
-                $(this).css('opacity', '1');
+                $(this).css('background', 'transparent');
             });
 
             $('#add-new-map-link').on('click', function () {
@@ -1456,28 +1450,17 @@
         // Select atlas (expand it in the list)
         function selectAtlas(atlasId, atlasName, skipURLUpdate = false) {
             window.selectedAtlasId = atlasId;
-            const $btn = $('#atlas-filter-btn');
 
-            // Update button appearance based on selected atlas
+            // Update label text based on selected atlas
             if (atlasId && atlasMetadata.has(atlasId)) {
-                const metadata = atlasMetadata.get(atlasId);
-                const color = metadata.color || '#3b82f6';
-                $btn.text(atlasName);
-                $btn.css('background', color);
-                $btn.data('atlas-color', color);
-
                 // Expand the selected atlas
                 expandedAtlasId = atlasId;
                 userCollapsedAll = false;
-                userManuallyExpandedAtlas = false; // Reset manual expansion when selecting via dropdown
+                userManuallyExpandedAtlas = false;
             } else {
-                // Reset to "All Map Collections"
-                $btn.text('All Map Collections');
-                $btn.css('background', '#3b82f6');
-                $btn.data('atlas-color', '#3b82f6');
 
                 // When "All" is selected, expand first atlas
-                expandedAtlasId = null; // Will be set to first atlas in renderLayerGrid
+                expandedAtlasId = null;
                 userCollapsedAll = false;
                 userManuallyExpandedAtlas = false;
             }

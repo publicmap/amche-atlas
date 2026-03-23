@@ -652,26 +652,10 @@
             const startupMenu = document.getElementById('startup-menu');
             const loadingOverlay = document.getElementById('loading-overlay');
 
-            // Set load start time when DOM is ready and overlay is visible
-            // This ensures the timer starts when the user can actually see the loading screen
-            let loadStartTime = Date.now();
-            const MIN_VISIBLE_DURATION = 3000;
-            let mapLoadedTime = null;
             let fillAnimationTimeout = null;
             let autoProceedCancelled = false;
             let ipLocation = null;
             let userInteracted = false;
-
-            // Reset load start time when page is fully loaded and visible
-            // This prevents the timer from running during CSS/asset loading
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => {
-                    loadStartTime = Date.now();
-                });
-            } else {
-                // Document already loaded
-                loadStartTime = Date.now();
-            }
 
             window.loadingStartupState = {
                 mode: hasURLParams ? 'url-params' : (hashLocation ? 'hash-location' : 'basepath'),
@@ -873,10 +857,6 @@
             }
 
             function onMapReady() {
-                mapLoadedTime = Date.now();
-                const elapsedTime = mapLoadedTime - loadStartTime;
-                const remainingTime = Math.max(0, MIN_VISIBLE_DURATION - elapsedTime);
-
                 if (requestedMapSpinner) {
                     requestedMapSpinner.style.display = 'none';
                 }
@@ -894,41 +874,14 @@
                     return;
                 }
 
-                if (requestedMapStatus) {
-                    requestedMapStatus.textContent = 'Map loaded - click anywhere to continue';
-                }
-
-                if (autoProceedCancelled) {
+                if (autoProceedCancelled || userInteracted) {
                     if (requestedMapStatus) {
                         requestedMapStatus.textContent = 'Click on an atlas to explore';
                     }
                     return;
                 }
 
-                // If user has interacted (clicked), don't auto-close
-                if (userInteracted) {
-                    if (requestedMapStatus) {
-                        requestedMapStatus.textContent = 'Click on an atlas to explore';
-                    }
-                    return;
-                }
-
-                if (remainingTime > 0 && sectionFillAnimation) {
-                    sectionFillAnimation.style.transition = `width ${remainingTime}ms linear`;
-                    requestAnimationFrame(() => {
-                        sectionFillAnimation.style.width = '100%';
-                    });
-
-                    fillAnimationTimeout = setTimeout(() => {
-                        if (!autoProceedCancelled && !userInteracted && loadingOverlay) {
-                            loadingOverlay.style.opacity = '0';
-                            loadingOverlay.style.transition = 'opacity 0.3s ease';
-                            setTimeout(() => {
-                                loadingOverlay.style.display = 'none';
-                            }, 300);
-                        }
-                    }, remainingTime);
-                } else if (!autoProceedCancelled && !userInteracted && loadingOverlay) {
+                if (loadingOverlay) {
                     loadingOverlay.style.opacity = '0';
                     loadingOverlay.style.transition = 'opacity 0.3s ease';
                     setTimeout(() => {

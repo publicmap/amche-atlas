@@ -210,6 +210,17 @@ export class MapBrowserControl {
                 this._switchToCreator();
             }
 
+            if (event.data.type === 'open-splash') {
+                this.closeBrowser();
+                if (window.splashManager) {
+                    const overlay = document.getElementById('loading-overlay');
+                    if (overlay) {
+                        overlay.style.display = 'flex';
+                        overlay.style.opacity = '1';
+                    }
+                }
+            }
+
             if (event.data.type === 'creator-ready') {
                 if (this._pendingFileData && this._iframe && this._iframe.contentWindow) {
                     this._iframe.contentWindow.postMessage({

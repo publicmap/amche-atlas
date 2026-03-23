@@ -174,14 +174,9 @@ export class MapMarkerManager {
         if (!isAddMode) {
             // Replace mode - clear existing markers
             this.clearAllMarkers();
-        } else {
-            // Add mode - close all other marker popups when adding new one
-            this._markers.forEach(markerData => {
-                this._closePopup(markerData.id);
-            });
         }
 
-        this.addMarker(lngLat, features);
+        this.addMarker(lngLat, features, { showPopup: !isAddMode });
     }
 
     _handleEmptyMapClick(data) {
@@ -198,15 +193,10 @@ export class MapMarkerManager {
         if (!isAddMode) {
             // Replace mode - clear existing markers
             this.clearAllMarkers();
-        } else {
-            // Add mode - close all other marker popups when adding new one
-            this._markers.forEach(markerData => {
-                this._closePopup(markerData.id);
-            });
         }
 
         // Create marker with empty features array (will show layer info only)
-        this.addMarker(lngLat, []);
+        this.addMarker(lngLat, [], { showPopup: !isAddMode });
     }
 
     _handleBatchHover(data) {
