@@ -547,11 +547,15 @@ export class MapExportControl {
 
         this._sendProgress(10, 'Generating QR code');
         let qrDataUrl = null;
-        try {
-            qrDataUrl = await this._getQRCodeDataUrl(shareUrl);
-            this._sendProgress(20, 'QR code generated');
-        } catch (e) {
-            console.warn('Failed to generate QR for PDF', e);
+        if (config.includeQRCode !== false) {
+            try {
+                qrDataUrl = await this._getQRCodeDataUrl(shareUrl);
+                this._sendProgress(20, 'QR code generated');
+            } catch (e) {
+                console.warn('Failed to generate QR for PDF', e);
+                this._sendProgress(20, 'Skipping QR code');
+            }
+        } else {
             this._sendProgress(20, 'Skipping QR code');
         }
 
@@ -1196,7 +1200,7 @@ export class MapExportControl {
                     const actualPixelHeight = canvas.height;
 
                     this._sendProgress(60, 'Adding attribution');
-                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi);
+                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config);
 
                     const blob = await fetch(dataUrl).then(r => r.blob());
 
@@ -1284,7 +1288,7 @@ export class MapExportControl {
                     const actualPixelHeight = canvas.height;
 
                     this._sendProgress(60, 'Adding attribution');
-                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi);
+                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config);
 
                     this._sendProgress(70, 'Converting to JPEG');
                     const tempImg = new Image();
@@ -2121,7 +2125,7 @@ export class MapExportControl {
         }
     }
 
-    async _addFooterToRaster(mapImageDataUrl, width, height, center, bearing, dpi = 96) {
+    async _addFooterToRaster(mapImageDataUrl, width, height, center, bearing, dpi = 96, config = {}) {
         try {
             const html2canvas = (await import('html2canvas')).default;
 
@@ -2158,7 +2162,9 @@ export class MapExportControl {
             const attrFontSize = Math.round(footerHeight * 0.15);
             const urlFontSize = Math.round(footerHeight * 0.13);
 
-            const qrDataUrl = await this._getQRCodeDataUrl(shareUrl, qrGenerationSize);
+            const qrDataUrl = config.includeQRCode !== false
+                ? await this._getQRCodeDataUrl(shareUrl, qrGenerationSize)
+                : null;
 
             let attributionText = '';
             const attribCtrl = this._map._controls.find(c => c._container && c._container.classList.contains('mapboxgl-ctrl-attrib'));
@@ -2215,6 +2221,19 @@ export class MapExportControl {
                 qrImg.style.height = '100%';
                 qrImg.style.display = 'block';
                 qrEl.appendChild(qrImg);
+            }
+
+            if (config.includeQRCode === false && qrEl) {
+                qrEl.closest('.qr-box')?.remove();
+            }
+
+            const legendBox = footerBox.querySelector('.legend-box');
+            if (config.includeLegend === false && legendBox) {
+                legendBox.remove();
+            }
+
+            if (config.includeQRCode === false && config.includeLegend === false) {
+                footerBox.querySelector('.metadata-right')?.remove();
             }
 
             const titleEl = footerBox.querySelector('[data-export-title]');
@@ -2280,7 +2299,7 @@ export class MapExportControl {
             }
 
             const layerThumbnailsEl = footerBox.querySelector('[data-export-layer-thumbnails]');
-            if (layerThumbnailsEl && window.stateManager) {
+            if (layerThumbnailsEl && window.stateManager && config.includeLegend !== false) {
                 try {
                     console.log('[Export] Generating layer thumbnails...');
 

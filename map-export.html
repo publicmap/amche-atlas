@@ -643,13 +643,20 @@
                     </div>
                 </div>
 
-                <!-- Legend Settings (PDF only) -->
-                <div id="legend-settings" style="display: none;">
+                <!-- Print Overlay Settings (PDF, PNG, JPEG) -->
+                <div id="print-overlay-settings" style="display: none;">
                     <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="include-legend">
-                            <span>Include legend in PDF</span>
-                        </label>
+                        <label class="form-label">Include in export</label>
+                        <div style="display: flex; gap: 16px;">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="include-qr" checked>
+                                <span>QR Code</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="include-legend" checked>
+                                <span>Legend</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -1109,12 +1116,12 @@
             const $styleJsonSettings = $('#style-json-settings');
             const $iframeSettings = $('#iframe-settings');
             const $linkSettings = $('#link-settings');
-            const $legendSettings = $('#legend-settings');
+            const $printOverlaySettings = $('#print-overlay-settings');
 
             // Hide all by default
             $pageSettings.hide();
             $metadataSettings.hide();
-            $legendSettings.hide();
+            $printOverlaySettings.hide();
             $vectorSettings.hide();
             $dxfSettings.hide();
             $csvSettings.hide();
@@ -1130,9 +1137,8 @@
                 $metadataSettings.show();
                 showAdvanced = true;
 
-                // Show legend settings only for PDF
-                if (currentFormat === 'pdf') {
-                    $legendSettings.show();
+                if (currentFormat === 'pdf' || currentFormat === 'png' || currentFormat === 'jpeg') {
+                    $printOverlaySettings.show();
                 }
             }
 
@@ -1331,6 +1337,7 @@
                 exportConfig.dpi = parseInt($('#dpi-select').val());
                 exportConfig.title = $('#map-title').val();
                 exportConfig.description = $('#map-description').val();
+                exportConfig.includeQRCode = $('#include-qr').is(':checked');
                 exportConfig.includeLegend = $('#include-legend').is(':checked');
                 exportConfig.margin = '10mm';
             }
@@ -1363,6 +1370,8 @@
                 exportConfig.dpi = parseInt($('#dpi-select').val());
                 exportConfig.title = $('#map-title').val();
                 exportConfig.description = $('#map-description').val();
+                exportConfig.includeQRCode = $('#include-qr').is(':checked');
+                exportConfig.includeLegend = $('#include-legend').is(':checked');
             }
 
             if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv' || currentFormat === 'dxf') {
