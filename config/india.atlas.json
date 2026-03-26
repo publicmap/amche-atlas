@@ -103,7 +103,7 @@
       "url": "https://indianopenmaps.fly.dev/google-buildings/{z}/{x}/{y}.pbf",
       "sourceLayer": "google-open-buildings-india-2023",
       "minzoom": 12,
-      "maxzoom": 14,
+      "maxzoom": 15,
       "attribution": "CC-BY <a href='https://sites.research.google/open-buildings/'>Google Open Buildings</a> - Collected by <a href='https://indianopenmaps.com/viewer#source=/google-buildings/&map='>Datameet Community</a>",
       "style": {
         "fill-extrusion-height": [
