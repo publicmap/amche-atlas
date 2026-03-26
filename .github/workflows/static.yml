@@ -1,6 +1,7 @@
 # When code is pushed to either main or dev branch:
 # - main branch content gets deployed to the root (amche.in/)
 # - dev branch content gets deployed to /dev/ (amche.in/dev/)
+# - amche-atlas-v1 main branch is deployed to /v1/ (amche.in/v1/)
 # Every push triggers deployment of BOTH branches, regardless of which branch received the push.
 # this ensures both environments stay in sync with each deployment.
 name: Deploy main and dev content to amche.in via GitHub Pages
@@ -96,6 +97,23 @@ jobs:
         run: |
           mkdir -p deploy/dev
           rsync -av temp_dev/dist/ deploy/dev/
+
+      # Fetch and build amche-atlas-v1 for /v1/
+      - name: Fetch amche-atlas-v1 content
+        run: |
+          echo "Fetching amche-atlas-v1 main branch..."
+          git clone --branch main --depth 1 https://github.com/publicmap/amche-atlas-v1 temp_v1
+
+      - name: Build amche-atlas-v1
+        run: |
+          cd temp_v1
+          npm ci
+          npm run build:webpack
+
+      - name: Copy amche-atlas-v1 content to /v1/ directory
+        run: |
+          mkdir -p deploy/v1
+          rsync -av temp_v1/dist/ deploy/v1/
 
       - name: Verify Content Structure
         run: |
