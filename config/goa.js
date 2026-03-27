@@ -134,23 +134,27 @@ export const handlers = {
                             console.log('[Bhunaksha] Fetching from API...');
                             const response = await fetch(apiUrl);
                             console.log('[Bhunaksha] Response status:', response.status);
-                            const data = await response.json();
+                            const text = await response.text();
+                            const data = text.trim() ? JSON.parse(text) : { has_data: 'N', _empty_response: true };
                             console.log('[Bhunaksha] Data received:', data);
 
                             let contentHTML;
-                            if (data.info && data.has_data === 'Y') {
+                            const plotData = (data.plots && data.plots[0]) ? data.plots[0] : data;
+                            if (plotData.info && data.has_data === 'Y') {
                                 let infoText;
-                                const isHTML = /<[^>]*>/g.test(data.info);
+                                const isHTML = /<[^>]*>/g.test(plotData.info);
 
                                 if (isHTML) {
-                                    infoText = data.info
+                                    infoText = plotData.info
                                         .replace(/<\\/?html>/gi, '')
                                         .replace(/<font[^>]*>/gi, '<span>')
                                         .replace(/<\\/font>/gi, '</span>')
                                         .trim();
                                 } else {
-                                    const rawText = data.info.split('\\n').slice(3).join('\\n').replace(/-{10,}/g, '');
-                                    const formattedText = rawText.replace(/^([^:\\n]+:)/gm, '<strong>$1</strong><br>');
+                                    const rawText = plotData.info.split('\\n').slice(3).join('\\n').replace(/-{10,}/g, '');
+                                    const withBreaks = rawText.replace(/ (\\d+)\\)/g, '<br>$1)');
+                                    const withSectionBreaks = withBreaks.replace(/^(Occupants Names|Total Area)/gm, '<br>$1');
+                                    const formattedText = withSectionBreaks.replace(/^([^:\\n]+:)/gm, '<strong>$1</strong>');
                                     infoText = formattedText.replace(/\\n/g, '<br>');
                                 }
 
