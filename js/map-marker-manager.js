@@ -709,15 +709,15 @@ export class MapMarkerManager {
 
                 let propertiesHTML = '';
                 if (fields.length > 0) {
-                    propertiesHTML = '<div class="properties-table" style="margin-top: 4px; font-size: 10px;">';
+                    propertiesHTML = '<div class="properties-table" style="margin-top: 4px;">';
                     fields.forEach((fieldName, index) => {
                         const value = properties[fieldName];
                         if (value !== null && value !== undefined && value !== '') {
                             const fieldTitle = fieldTitles[index] || fieldName;
                             propertiesHTML += `
-                                <div style="display: flex; padding: 2px 0; border-bottom: 1px solid #0f172a;">
-                                    <div style="color: #9ca3af; min-width: 70px; font-weight: 500;">${fieldTitle}</div>
-                                    <div style="color: #e5e7eb; flex: 1; word-break: break-word;">${value}</div>
+                                <div style="display: flex; font-size: 10px; padding: 2px 8px; border-bottom: 1px solid #374151;">
+                                    <div style="color: #9ca3af; min-width: 100px; font-weight: 500; flex-shrink: 0;">${fieldTitle}</div>
+                                    <div style="color: #e5e7eb; flex: 1; word-break: break-word; white-space: pre-line;">${value}</div>
                                 </div>
                             `;
                         }
@@ -732,13 +732,13 @@ export class MapMarkerManager {
                 // Build all properties table (hidden by default)
                 let allPropertiesHTML = '';
                 if (totalPropsCount > shownPropsCount) {
-                    allPropertiesHTML = '<div class="all-properties-container" style="display: none; margin-top: 4px; font-size: 10px;">';
+                    allPropertiesHTML = '<div class="all-properties-container" style="display: none; margin-top: 4px;">';
                     Object.entries(properties).forEach(([key, value]) => {
                         if (value !== null && value !== undefined && value !== '') {
                             allPropertiesHTML += `
-                                <div style="display: flex; padding: 2px 0; border-bottom: 1px solid #0f172a;">
-                                    <div style="color: #9ca3af; min-width: 70px; font-weight: 500;">${key}</div>
-                                    <div style="color: #e5e7eb; flex: 1; word-break: break-word;">${value}</div>
+                                <div style="display: flex; font-size: 10px; padding: 2px 8px; border-bottom: 1px solid #374151;">
+                                    <div style="color: #9ca3af; min-width: 100px; font-weight: 500; flex-shrink: 0;">${key}</div>
+                                    <div style="color: #e5e7eb; flex: 1; word-break: break-word; white-space: pre-line;">${value}</div>
                                 </div>
                             `;
                         }
@@ -1265,12 +1265,6 @@ export class MapMarkerManager {
 
                     details.style.display = 'block';
                     icon.textContent = '▲';
-
-                    // Scroll to show the feature header at the top
-                    header.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
 
                     // Zoom to feature
                     const feature = markerData.features.find(f => f.layerId === layerId && f.featureId === featureId);

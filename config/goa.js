@@ -61,10 +61,14 @@ export const handlers = {
 
         // Return loading placeholder with inline script that will execute in iframe context
         return `
-            <div style="border: 1px solid #374151; border-radius: 4px; margin: 8px 0; overflow: hidden;">
-                <div style="padding: 4px 8px; background: #1f2937; font-size: 10px; font-weight: 600; color: #9ca3af; letter-spacing: 0.06em; border-bottom: 1px solid #374151; display: flex; align-items: center; gap: 5px;">
+            <div style="border: 1px solid #374151; border-radius: 4px; margin: 8px 0; overflow: hidden; background: #111827;">
+                <div style="padding: 4px 8px; font-size: 10px; font-weight: 600; color: #9ca3af; letter-spacing: 0.06em; border-bottom: 1px solid #374151; display: flex; align-items: center; gap: 5px;">
                     <sl-icon name="person-vcard" style="font-size: 12px;"></sl-icon>
-                    LAND RECORD
+                    <a href="https://bhunaksha.goa.gov.in/" target="_blank" style="color: #9ca3af; text-decoration: none;" onmouseover="this.style.color='#e5e7eb'" onmouseout="this.style.color='#9ca3af'">Goa Land Record</a>
+                    <span style="color: #4b5563;">|</span>
+                    <a href="https://dslr.goa.gov.in/f114new.aspx" target="_blank" style="color: #9ca3af; text-decoration: none;" onmouseover="this.style.color='#e5e7eb'" onmouseout="this.style.color='#9ca3af'">Form I &amp; XIV</a>
+                    <span style="color: #4b5563;">|</span>
+                    <a href="https://goaonline.gov.in/Appln/Uil/propertyregister?_Key=&amp;_Mode=&amp;_cscKey=&amp;__cscKey=" target="_blank" style="color: #9ca3af; text-decoration: none;" onmouseover="this.style.color='#e5e7eb'" onmouseout="this.style.color='#9ca3af'">Property Register</a>
                 </div>
                 <div id="${requestId}" data-executed="false">
                     <div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; color: #9ca3af; font-size: 10px;">
@@ -193,7 +197,7 @@ export const handlers = {
                         const finalHTML = \`
                             \${contentHTML}
                             <div style="padding:4px 8px;font-style:italic;font-size:10px;color:#6b7280;border-top:1px solid #374151;">
-                                Retrieved from <a href="\${apiUrl}" target="_blank" style="color:#60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
+                                Retrieved live from <a href="\${apiUrl}" target="_blank" style="color:#60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
                             </div>
                         \`;
                         container.innerHTML = finalHTML;
