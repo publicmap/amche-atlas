@@ -1050,7 +1050,8 @@ export class MapCreator {
         const style = this.generateMapboxStyle(this.currentGeometryType, fillColor, strokeColor, strokeWidth);
 
         const idField = $('#feature-id-field').val() || 'id';
-        const nameField = $('#feature-name-field').val() || 'name';
+        const nameField = $('#feature-name-field').val();
+        const nameFieldOrDefault = nameField || 'name';
         const selectedFields = [];
         $('#inspect-fields-list input:checked').each(function() {
             selectedFields.push($(this).val());
@@ -1069,9 +1070,9 @@ export class MapCreator {
             inspect: {
                 id: idField,
                 title: 'Name',
-                label: nameField,
-                fields: selectedFields.length > 0 ? selectedFields : [idField, nameField],
-                fieldTitles: (selectedFields.length > 0 ? selectedFields : [idField, nameField]).map(f =>
+                label: nameFieldOrDefault,
+                fields: selectedFields.length > 0 ? selectedFields : [idField, nameFieldOrDefault],
+                fieldTitles: (selectedFields.length > 0 ? selectedFields : [idField, nameFieldOrDefault]).map(f =>
                     f.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
                 )
             }
@@ -1092,7 +1093,7 @@ export class MapCreator {
         }
 
         if (nameField) {
-            config['text-field'] = nameField;
+            config.style['text-field'] = ['to-string', ['get', nameField]];
         }
 
         return config;
@@ -1109,7 +1110,8 @@ export class MapCreator {
         const style = this.generateMapboxStyle(this.currentGeometryType, fillColor, strokeColor, strokeWidth);
 
         const idField = $('#feature-id-field').val() || 'id';
-        const nameField = $('#feature-name-field').val() || 'name';
+        const nameField = $('#feature-name-field').val();
+        const nameFieldOrDefault = nameField || 'name';
         const selectedFields = [];
         $('#inspect-fields-list input:checked').each(function() {
             selectedFields.push($(this).val());
@@ -1138,9 +1140,9 @@ export class MapCreator {
             inspect: {
                 id: idField,
                 title: 'Name',
-                label: nameField,
-                fields: selectedFields.length > 0 ? selectedFields : [idField, nameField],
-                fieldTitles: (selectedFields.length > 0 ? selectedFields : [idField, nameField]).map(f =>
+                label: nameFieldOrDefault,
+                fields: selectedFields.length > 0 ? selectedFields : [idField, nameFieldOrDefault],
+                fieldTitles: (selectedFields.length > 0 ? selectedFields : [idField, nameFieldOrDefault]).map(f =>
                     f.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
                 )
             }
@@ -1162,7 +1164,7 @@ export class MapCreator {
         }
 
         if (nameField) {
-            config['text-field'] = nameField;
+            config.style['text-field'] = ['to-string', ['get', nameField]];
         }
 
         return config;

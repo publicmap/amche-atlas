@@ -1194,7 +1194,7 @@
     {
       "tags": [
         "3.Regulatory",
-        "wetland"
+        "Coastal Zone"
       ],
       "title": "Bund Sluice Gates",
       "description": "Sluice gates for notified bunds existing before 1991 from Goa CZMP. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a>",
@@ -1333,11 +1333,30 @@
         "text-halo-color": "#b3ff0f",
         "fill-color": "#b3ff0f",
         "line-width": 1,
-        "line-color": "grey"
+        "line-color": "grey",
+        "text-color": "darkgreen",
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          12,
+          [
+            "to-string",
+            [
+              "get",
+              "Class"
+            ]
+          ]
+        ]
       },
       "inspect": {
-        "id": "fid"
-      }
+        "id": "fid",
+        "title": "Name",
+        "label": "Class"
+      },
+      "initiallyChecked": true
     },
     {
       "tags": [

@@ -49,7 +49,7 @@ export const handlers = {
         const urlParams = new URLSearchParams(window.location.search);
         const layersParam = urlParams.get('layers') || '';
         const hasEszLayer = layersParam.includes('india-esz');
-        const delay = hasEszLayer ? 0 : 5000;
+        const delay = hasEszLayer ? 0 : 3000;
 
         // Generate deterministic ID based on feature properties for caching
         const requestId = `bhunaksha-${giscode}-${plot.replace(/\//g, '-')}`;
@@ -61,146 +61,164 @@ export const handlers = {
 
         // Return loading placeholder with inline script that will execute in iframe context
         return `
-            <div style="font-size: 11px; color: #d1d5db; margin: 8px 0;">
-                <div style="margin-bottom: 8px; font-weight: 600; color: #e5e7eb;">
-                    Additional Information from <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>
+            <div style="border: 1px solid #374151; border-radius: 4px; margin: 8px 0; overflow: hidden;">
+                <div style="padding: 4px 8px; background: #1f2937; font-size: 10px; font-weight: 600; color: #9ca3af; letter-spacing: 0.06em; border-bottom: 1px solid #374151; display: flex; align-items: center; gap: 5px;">
+                    <sl-icon name="person-vcard" style="font-size: 12px;"></sl-icon>
+                    LAND RECORD
                 </div>
-                <div id="${requestId}" data-executed="false" style="color: #9ca3af;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <svg style="width: 14px; height: 14px; animation: spin 1s linear infinite;" fill="none" viewBox="0 0 24 24">
+                <div id="${requestId}" data-executed="false">
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; color: #9ca3af; font-size: 10px;">
+                        <svg style="width: 12px; height: 12px; animation: spin 1s linear infinite; flex-shrink: 0;" fill="none" viewBox="0 0 24 24">
                             <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span>Loading occupant details${delay > 0 ? ' (please wait)' : ''}...</span>
+                        <span>${delay > 0 ? 'Please wait... requesting details from <a href="https://bhunaksha.goa.gov.in/" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>.' : 'Loading...'}</span>
                     </div>
                 </div>
-                <style>
-                    @keyframes spin {
-                        from { transform: rotate(0deg); }
-                        to { transform: rotate(360deg); }
-                    }
-                </style>
-                <script>
-                    (function() {
-                        // Initialize global cache if not exists
-                        if (!window.__bhunakshaCache) {
-                            window.__bhunakshaCache = new Map();
-                        }
-
-                        const requestId = '${requestId}';
-                        const apiUrl = '${apiUrl.replace(/'/g, "\\'")}';
-                        const delay = ${delay};
-
-                        const container = document.getElementById(requestId);
-                        if (!container) {
-                            console.error('[Bhunaksha] Container not found:', requestId);
-                            return;
-                        }
-
-                        // Check global cache first
-                        if (window.__bhunakshaCache.has(requestId)) {
-                            console.log('[Bhunaksha] Using cached result for:', requestId);
-                            const cachedHTML = window.__bhunakshaCache.get(requestId);
-                            container.innerHTML = cachedHTML;
-                            container.setAttribute('data-executed', 'true');
-                            return;
-                        }
-
-                        // Check if this script has already been executed for this container
-                        if (container.getAttribute('data-executed') === 'true') {
-                            console.log('[Bhunaksha] Script already executed for:', requestId);
-                            return;
-                        }
-
-                        // Mark as executed to prevent re-execution
-                        container.setAttribute('data-executed', 'true');
-
-                        console.log('[Bhunaksha] Script executing for:', requestId);
-
-                        setTimeout(async function() {
-
-                        try {
-                            // Wait for delay
-                            if (delay > 0) {
-                                console.log('[Bhunaksha] Waiting', delay, 'ms before fetching...');
-                                await new Promise(resolve => setTimeout(resolve, delay));
-                            }
-
-                            if (!document.body.contains(container)) {
-                                console.warn('[Bhunaksha] Container removed from DOM during delay, skipping update');
-                                return;
-                            }
-
-                            console.log('[Bhunaksha] Fetching from API...');
-                            const response = await fetch(apiUrl);
-                            console.log('[Bhunaksha] Response status:', response.status);
-                            const text = await response.text();
-                            const data = text.trim() ? JSON.parse(text) : { has_data: 'N', _empty_response: true };
-                            console.log('[Bhunaksha] Data received:', data);
-
-                            let contentHTML;
-                            const plotData = (data.plots && data.plots[0]) ? data.plots[0] : data;
-                            if (plotData.info && data.has_data === 'Y') {
-                                let infoText;
-                                const isHTML = /<[^>]*>/g.test(plotData.info);
-
-                                if (isHTML) {
-                                    infoText = plotData.info
-                                        .replace(/<\\/?html>/gi, '')
-                                        .replace(/<font[^>]*>/gi, '<span>')
-                                        .replace(/<\\/font>/gi, '</span>')
-                                        .trim();
-                                } else {
-                                    const rawText = plotData.info.split('\\n').slice(3).join('\\n').replace(/-{10,}/g, '');
-                                    const withBreaks = rawText.replace(/ (\\d+)\\)/g, '<br>$1)');
-                                    const withSectionBreaks = withBreaks.replace(/^(Occupants Names|Total Area)/gm, '<br>$1');
-                                    const formattedText = withSectionBreaks.replace(/^([^:\\n]+:)/gm, '<strong>$1</strong>');
-                                    infoText = formattedText.replace(/\\n/g, '<br>');
-                                }
-
-                                contentHTML = \`<div style="margin-bottom: 8px; line-height: 1.5; color: #d1d5db;">\${infoText}</div>\`;
-                            } else {
-                                contentHTML = '<span style="color: #9ca3af;">No occupant data available</span>';
-                            }
-
-                            if (!document.body.contains(container)) {
-                                console.warn('[Bhunaksha] Container removed from DOM during fetch, skipping update');
-                                return;
-                            }
-
-                            const finalHTML = \`
-                                \${contentHTML}
-                                <div style="font-style: italic; font-size: 10px; color: #9ca3af; margin-top: 8px;">
-                                    <svg style="display: inline; width: 12px; height: 12px; margin-right: 4px;" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    Retrieved from <a href="\${apiUrl}" target="_blank" style="color: #60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
-                                </div>
-                            \`;
-                            container.innerHTML = finalHTML;
-                            // Cache the final result
-                            window.__bhunakshaCache.set(requestId, finalHTML);
-                            // Keep the executed flag
-                            container.setAttribute('data-executed', 'true');
-                        } catch (error) {
-                            console.error('[Bhunaksha] Error:', error);
-                            const errorHTML = \`
-                                <div style="display: flex; align-items: center; gap: 8px; color: #f87171; margin: 8px 0;">
-                                    <sl-icon name="exclamation-octagon" style="font-size: 16px;"></sl-icon>
-                                    <span>There was an error fetching occupant details. Please check <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color: #60a5fa;">Bhunaksha Goa</a></span>
-                                </div>
-                            \`;
-                            if (container && document.body.contains(container)) {
-                                container.innerHTML = errorHTML;
-                                // Cache the error result too
-                                window.__bhunakshaCache.set(requestId, errorHTML);
-                                container.setAttribute('data-executed', 'true');
-                            }
-                        }
-                        }, 0);
-                    })();
-                </script>
             </div>
+            <style>
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            </style>
+            <script>
+                (function() {
+                    // Initialize global cache if not exists
+                    if (!window.__bhunakshaCache) {
+                        window.__bhunakshaCache = new Map();
+                    }
+
+                    const requestId = '${requestId}';
+                    const apiUrl = '${apiUrl.replace(/'/g, "\\'")}';
+                    const delay = ${delay};
+
+                    const container = document.getElementById(requestId);
+                    if (!container) {
+                        console.error('[Bhunaksha] Container not found:', requestId);
+                        return;
+                    }
+
+                    // Check global cache first
+                    if (window.__bhunakshaCache.has(requestId)) {
+                        console.log('[Bhunaksha] Using cached result for:', requestId);
+                        const cachedHTML = window.__bhunakshaCache.get(requestId);
+                        container.innerHTML = cachedHTML;
+                        container.setAttribute('data-executed', 'true');
+                        return;
+                    }
+
+                    // Check if this script has already been executed for this container
+                    if (container.getAttribute('data-executed') === 'true') {
+                        console.log('[Bhunaksha] Script already executed for:', requestId);
+                        return;
+                    }
+
+                    // Mark as executed to prevent re-execution
+                    container.setAttribute('data-executed', 'true');
+
+                    console.log('[Bhunaksha] Script executing for:', requestId);
+
+                    setTimeout(async function() {
+
+                    try {
+                        // Wait for delay
+                        if (delay > 0) {
+                            console.log('[Bhunaksha] Waiting', delay, 'ms before fetching...');
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                        }
+
+                        if (!document.body.contains(container)) {
+                            console.warn('[Bhunaksha] Container removed from DOM during delay, skipping update');
+                            return;
+                        }
+
+                        console.log('[Bhunaksha] Fetching from API...');
+                        const response = await fetch(apiUrl);
+                        console.log('[Bhunaksha] Response status:', response.status);
+                        const text = await response.text();
+                        const data = text.trim() ? JSON.parse(text) : { has_data: 'N', _empty_response: true };
+                        console.log('[Bhunaksha] Data received:', data);
+
+                        let contentHTML;
+                        const plotData = (data.plots && data.plots[0]) ? data.plots[0] : data;
+                        if (plotData.info && data.has_data === 'Y') {
+                            const isHTML = /<[^>]*>/g.test(plotData.info);
+
+                            if (isHTML) {
+                                const cleaned = plotData.info
+                                    .replace(/<\\/?html>/gi, '')
+                                    .replace(/<font[^>]*>/gi, '<span>')
+                                    .replace(/<\\/font>/gi, '</span>')
+                                    .trim();
+                                contentHTML = \`<div style="padding:4px 8px;font-size:10px;color:#d1d5db;line-height:1.5;">\${cleaned}</div>\`;
+                            } else {
+                                const lines = plotData.info.split('\\n').slice(3).filter(l => !/-{10,}/.test(l));
+                                const rows = [];
+                                let currentKey = null;
+                                let currentValues = [];
+                                for (const line of lines) {
+                                    const trimmed = line.trim();
+                                    if (!trimmed) continue;
+                                    if (!trimmed.match(/^\\d+\\)/) && trimmed.includes(':')) {
+                                        if (currentKey !== null) rows.push([currentKey, currentValues.join('\\n')]);
+                                        const colonIdx = trimmed.indexOf(':');
+                                        currentKey = trimmed.substring(0, colonIdx).trim();
+                                        const afterColon = trimmed.substring(colonIdx + 1).trim();
+                                        currentValues = afterColon ? [afterColon] : [];
+                                    } else if (currentKey !== null) {
+                                        const nameMatch = trimmed.match(/^\\d+\\)\\.?\\s*(.+)/);
+                                        currentValues.push(nameMatch ? nameMatch[1] : trimmed);
+                                    }
+                                }
+                                if (currentKey !== null) rows.push([currentKey, currentValues.join('\\n')]);
+
+                                contentHTML = rows.map(([key, value]) =>
+                                    \`<div style="display:flex;font-size:10px;padding:2px 8px;border-bottom:1px solid #374151;">
+                                        <div style="color:#9ca3af;min-width:100px;font-weight:500;flex-shrink:0;">\${key}</div>
+                                        <div style="color:#e5e7eb;flex:1;word-break:break-word;white-space:pre-line;">\${value}</div>
+                                    </div>\`
+                                ).join('');
+                                if (!contentHTML) contentHTML = '<div style="padding:4px 8px;color:#9ca3af;font-size:10px;">No occupant data available</div>';
+                            }
+                        } else {
+                            contentHTML = '<div style="padding:4px 8px;color:#9ca3af;font-size:10px;">No occupant data available</div>';
+                        }
+
+                        if (!document.body.contains(container)) {
+                            console.warn('[Bhunaksha] Container removed from DOM during fetch, skipping update');
+                            return;
+                        }
+
+                        const finalHTML = \`
+                            \${contentHTML}
+                            <div style="padding:4px 8px;font-style:italic;font-size:10px;color:#6b7280;border-top:1px solid #374151;">
+                                Retrieved from <a href="\${apiUrl}" target="_blank" style="color:#60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
+                            </div>
+                        \`;
+                        container.innerHTML = finalHTML;
+                        // Cache the final result
+                        window.__bhunakshaCache.set(requestId, finalHTML);
+                        // Keep the executed flag
+                        container.setAttribute('data-executed', 'true');
+                    } catch (error) {
+                        console.error('[Bhunaksha] Error:', error);
+                        const errorHTML = \`
+                            <div style="display:flex;align-items:center;gap:8px;color:#f87171;padding:6px 8px;font-size:10px;">
+                                <sl-icon name="exclamation-octagon" style="font-size:14px;flex-shrink:0;"></sl-icon>
+                                <span>Error fetching land record. Check <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color:#60a5fa;">Bhunaksha Goa</a></span>
+                            </div>
+                        \`;
+                        if (container && document.body.contains(container)) {
+                            container.innerHTML = errorHTML;
+                            // Cache the error result too
+                            window.__bhunakshaCache.set(requestId, errorHTML);
+                            container.setAttribute('data-executed', 'true');
+                        }
+                    }
+                    }, 0);
+                })();
+            </script>
         `;
     },
 
