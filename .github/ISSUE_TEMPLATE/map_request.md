@@ -18,7 +18,7 @@ A clear and concise description of why this map is valuable.
 - **Attribution:** Single attribution text for the map
 - **URL:** Link to access the map data source
 
-**Technichal  Documentation**
+**Technical  Documentation**
 
 Add information about how the map was made or links that describe the data or legend to understand the map
  

@@ -293,12 +293,11 @@ export class MapLayerControl {
             }
         }
 
-        // Handle non-initially-checked layers
+        // Hide non-initially-checked style layers (they exist in the Mapbox style by default
+        // and must be explicitly hidden; other layer types are never added so no action needed)
         this._state.groups.forEach((group, groupIndex) => {
-            if (!group.initiallyChecked) {
-                const shouldDelay = group.type === 'style' && !this._map.getStyle();
-
-                if (shouldDelay) {
+            if (!group.initiallyChecked && group.type === 'style') {
+                if (!this._map.getStyle()) {
                     this._map.once('style.load', () => {
                         this._toggleLayerGroup(groupIndex, false);
                     });
@@ -307,6 +306,9 @@ export class MapLayerControl {
                 }
             }
         });
+
+        window.layersInitialized = true;
+        window.dispatchEvent(new CustomEvent('layersInitialized'));
     }
 
     /**

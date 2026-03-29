@@ -857,15 +857,18 @@ export class MapInitializer {
             // Connect URL manager with state manager for feature selection URL sync
             urlManager.setStateManager(stateManager);
 
-            // Apply URL parameters (including geolocate parameter)
-            // Skip URL parameter application if state was restored from localStorage
-            if (!stateRestored) {
-                urlManager.applyURLParameters();
-            } else {
-                // If state was restored, still need to apply URL parameters for restored URL
-                setTimeout(() => {
+            // Apply URL parameters after layers are initialized so sources exist for feature selection
+            const applyParams = () => {
+                if (!stateRestored) {
                     urlManager.applyURLParameters();
-                }, 100);
+                } else {
+                    setTimeout(() => urlManager.applyURLParameters(), 100);
+                }
+            };
+            if (window.layersInitialized) {
+                applyParams();
+            } else {
+                window.addEventListener('layersInitialized', applyParams, { once: true });
             }
 
             // Initialize state persistence event listeners after URL manager is ready
@@ -944,7 +947,7 @@ export class MapInitializer {
                         map.flyTo(flyToOptions);
                     }
                     delete window.hashLayerView; // Clean up
-                    map.once('moveend', signalMapReady);
+                    map.once('moveend', () => map.once('idle', signalMapReady));
                 }, 2000);
             } else if (!window.location.hash) {
                 // No hash in URL, use config defaults
@@ -960,7 +963,7 @@ export class MapInitializer {
                         speed: 0.6
                     };
                     map.flyTo(flyToOptions);
-                    map.once('moveend', signalMapReady);
+                    map.once('moveend', () => map.once('idle', signalMapReady));
                 }, 2000);
             } else {
                 // Has a hash (position) — map is ready, signal immediately

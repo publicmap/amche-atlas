@@ -20,7 +20,7 @@ export class SplashScreenManager {
         };
         this.autoProceed = {
             enabled: true,
-            minDelay: 5000, // 5 seconds minimum
+            minDelay: 0,
             timer: null,
             delayElapsed: false,
             styleLoaded: false,
