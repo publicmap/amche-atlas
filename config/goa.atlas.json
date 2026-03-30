@@ -390,7 +390,7 @@
             "Open Sans Regular"
           ]
         ],
-        "fill-color": "rgba(255, 255, 255, 0.6)",
+        "fill-color": "rgba(255, 255, 255, 0.2)",
         "line-color": "purple"
       },
       "inspect": {
@@ -643,7 +643,7 @@
             "zoom"
           ],
           "",
-          13,
+          14.5,
           [
             "format",
             "Sy.No.\n",
@@ -1320,6 +1320,109 @@
         "3.Regulatory",
         "coastal zone"
       ],
+      "legendImage": "https://private-user-images.githubusercontent.com/126868/571010780-8ae02286-867c-4f0c-b252-cb5e5ad53ccf.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzQ4MDcxNjIsIm5iZiI6MTc3NDgwNjg2MiwicGF0aCI6Ii8xMjY4NjgvNTcxMDEwNzgwLThhZTAyMjg2LTg2N2MtNGYwYy1iMjUyLWNiNWU1YWQ1M2NjZi5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwMzI5JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDMyOVQxNzU0MjJaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT05YWU3ODNhZDkwMTM1ZDcwMGFhY2ZmOTZiNTdkM2IwMmU2NGJkOTVkZTczYmUxNWIzNTQ0MDcxYWZkZTA3MTNlJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.EiGTq1eLvWWRSnZzci3bB_M92yhqWAz5SHdR-DI6WaI",
+      "title": "Tidal hazard Lines",
+      "description": "Coastal lines demarcating the high tide line (HTL), low tide line (LTL) and composite hazard line. The primary purpose of the composite hazard line is to identify hazard zones along the coastline that reflects a potential danger and risk to people and their property. The hazard line is part of <a href='https://en.wikipedia.org/wiki/Integrated_coastal_zone_management'>Integrated coastal zone management</a> and is required per <a href='https://mczma.gov.in/sites/default/files/MoEF%20CZMP%20Guidelines%20OM%2026-6-2019.pdf'>required for CZMP 2019 maps</a>. This hazard line been prepared for the coastlines of India by <a href='https://surveyofindia.gov.in/documents/integrated-coastal-hazard-zone-mapping.pdf'>Survey of India</a> as a 0.5 meter contour line extending upto 7km inland at 1:10k scale to be used in CZMP 2019 maps. The line is an estimation of the highest tide level forecasted over the next 100 years. See <a href='https://moef.gov.in/uploads/2019/10/Climate-Change-and-the-Vulnerable-Indian-Coast_compressed.pdf'>Hazard line for the coast of India and its implications in coastal management (pg.29), MoEFCC</a> for the methods of delianation of the hazard line. This includes collection and presentation of data, identifying flood lines over the last 40 years (which includes sea level rise impacts), and a prediction of erosion to take place over the next 100 years and digital photogrammetric processing of high resolution Aerial photography data.",
+      "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>Tidal and Hazard Lines, CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href='https://indianopenmaps.com/viewer#source=/not-so-open/coastal/regulation-lines/goa/&map=' target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
+      "type": "vector",
+      "id": "2019-czmp-tidal-hazard-line",
+      "sourceLayer": "CZMP_2019_Goa_Hazard_Lines",
+      "minzoom": 0,
+      "maxzoom": 14,
+      "url": "https://www.indianopenmaps.com/not-so-open/coastal/regulation-lines/goa/{z}/{x}/{y}.pbf",
+      "style": {
+        "symbol-placement": "line",
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          14,
+          [
+            "to-string",
+            [
+              "get",
+              "Class"
+            ]
+          ]
+        ],
+        "line-color": [
+          "match",
+          [
+            "get",
+            "Class"
+          ],
+          "High Tide Line",
+          "blue",
+          "Low Tide Line",
+          "blue",
+          "red"
+        ],
+        "text-halo-color": [
+          "match",
+          [
+            "get",
+            "Class"
+          ],
+          "High Tide Line",
+          "blue",
+          "Low Tide Line",
+          "blue",
+          "red"
+        ],
+        "line-width": [
+          "match",
+          [
+            "get",
+            "Class"
+          ],
+          "High Tide Line",
+          2,
+          "Low Tide Line",
+          1,
+          2
+        ],
+        "line-offset": [
+          "match",
+          [
+            "get",
+            "Class"
+          ],
+          "High Tide Line",
+          1,
+          "Low Tide Line",
+          1,
+          1.5
+        ],
+        "line-cap": "round",
+        "line-join": "round",
+        "line-sort-key": [
+          "match",
+          [
+            "get",
+            "Class"
+          ],
+          "High Tide Line",
+          3,
+          "Low Tide Line",
+          2,
+          1
+        ],
+        "line-blend-mode": "multiply"
+      },
+      "inspect": {
+        "id": "Class",
+        "title": "Name",
+        "label": "Class"
+      },
+      "initiallyChecked": true
+    },
+    {
+      "tags": [
+        "3.Regulatory",
+        "coastal zone"
+      ],
       "id": "2019-czmp-khazan",
       "title": "Draft Goa CZMP 2019 Khazan Lands",
       "description": "Khazan lands from Goa WRD. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a> <br><small>The ground truthing of the Marginal bunds, sluice gates and the defended Khazan lands was carried out by the Water Resources Department, along with the Members of Bio Diversity, Surveyors of DSLR. Soil Conservation Engineers of the Agriculture department, Forest officials.</p><p>It is further certified that the ground truthing is carried with details enumerated on the Toposheets published by the Survey of India in the year 1964, Cadastral village maps published by the land survey department in the year 1972-76. The Khazan land, bunds sluice gates mapped by the village Panchayat were also used utilised for identification and ground truthing. Thus, the Bunds/Sluice gates and Khazan Lands shown in this map are verified and it is certified that the Bunds and Sluice gates shown in this map exist now and were constructed in the past, prior to the date of notification issued vide S. O. 114(E) dated 19th February 1999.</small>",
@@ -1341,7 +1444,7 @@
             "zoom"
           ],
           "",
-          12,
+          16,
           [
             "to-string",
             [
@@ -2385,76 +2488,6 @@
       "headerImage": "https://mapwarper.net/uploads/89528/thumb/IMG_4225.png",
       "bbox": "73.8625273,15.5908022,73.8877474,15.6217674",
       "initiallyChecked": false
-    },
-    {
-      "tags": [
-        "3.Regulatory",
-        "coastal zone"
-      ],
-      "legendImage": "https://private-user-images.githubusercontent.com/126868/571010780-8ae02286-867c-4f0c-b252-cb5e5ad53ccf.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzQ4MDcxNjIsIm5iZiI6MTc3NDgwNjg2MiwicGF0aCI6Ii8xMjY4NjgvNTcxMDEwNzgwLThhZTAyMjg2LTg2N2MtNGYwYy1iMjUyLWNiNWU1YWQ1M2NjZi5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwMzI5JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDMyOVQxNzU0MjJaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT05YWU3ODNhZDkwMTM1ZDcwMGFhY2ZmOTZiNTdkM2IwMmU2NGJkOTVkZTczYmUxNWIzNTQ0MDcxYWZkZTA3MTNlJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.EiGTq1eLvWWRSnZzci3bB_M92yhqWAz5SHdR-DI6WaI",
-      "title": "Tidal hazard Lines",
-      "description": "The primary purpose of the hazard line is to identify hazard zones along the coastline that reflects a potential danger and risk to people and their property. The hazard line is part of <a href='https://en.wikipedia.org/wiki/Integrated_coastal_zone_management'>Integrated coastal zone management</a> and is required per <a href='https://mczma.gov.in/sites/default/files/MoEF%20CZMP%20Guidelines%20OM%2026-6-2019.pdf'>required for CZMP 2019 maps</a>. This hazard line been prepared for the coastlines of India by <a href='https://surveyofindia.gov.in/documents/integrated-coastal-hazard-zone-mapping.pdf'>Survey of India</a> as a 0.5 meter contour line extending upto 7km inland at 1:10k scale to be used in CZMP 2019 maps. The line is an estimation of the highest tide level forecasted over the next 100 years. See <a href='https://moef.gov.in/uploads/2019/10/Climate-Change-and-the-Vulnerable-Indian-Coast_compressed.pdf'>Hazard line for the coast of India and its implications in coastal management (pg.29), MoEFCC</a> for the methods of delianation of the hazard line. This includes collection and presentation of data, identifying flood lines over the last 40 years (which includes sea level rise impacts), and a prediction of erosion to take place over the next 100 years and digital photogrammetric processing of high resolution Aerial photography data.",
-      "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>Tidal and Hazard Lines, CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href='https://indianopenmaps.com/viewer#source=/not-so-open/coastal/regulation-lines/goa/&map=' target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
-      "type": "vector",
-      "id": "2019-czmp-tidal-hazard-line",
-      "sourceLayer": "CZMP_2019_Goa_Hazard_Lines",
-      "minzoom": 0,
-      "maxzoom": 14,
-      "url": "https://www.indianopenmaps.com/not-so-open/coastal/regulation-lines/goa/{z}/{x}/{y}.pbf",
-      "style": {
-        "line-color": [
-          "match",
-          [
-            "get",
-            "Class"
-          ],
-          "High Tide Line",
-          "blue",
-          "Low Tide Line",
-          "darkblue",
-          "red"
-        ],
-        "line-width": [
-          "match",
-          [
-            "get",
-            "Class"
-          ],
-          "High Tide Line",
-          5,
-          "Low Tide Line",
-          2,
-          10
-        ],
-        "line-offset": [
-          "match",
-          [
-            "get",
-            "Class"
-          ],
-          "High Tide Line",
-          2,
-          "Low Tide Line",
-          -10,
-          3
-        ],
-        "line-cap": "round",
-        "line-join": "round",
-        "line-sort-key": [
-          "match",
-          [
-            "get",
-            "Class"
-          ],
-          "High Tide Line",
-          3,
-          "Low Tide Line",
-          2,
-          1
-        ]
-      },
-      "line-blend-mode": "multiply",
-      "initiallyChecked": true
     },
     {
       "tags": [

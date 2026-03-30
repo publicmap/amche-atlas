@@ -261,7 +261,7 @@ export class MapMarkerManager {
                 <div class="marker-content" style="
                     display: flex;
                     align-items: center;
-                    background: #fbbf24;
+                    background: #000;
                     padding: 3px 6px;
                     border-radius: 10px;
                     border: 2px solid white;
@@ -272,7 +272,7 @@ export class MapMarkerManager {
                     <span style="
                         font-size: 10px;
                         font-weight: 700;
-                        color: #000;
+                        color: white;
                         line-height: 1;
                         white-space: nowrap;
                         overflow: hidden;
@@ -297,7 +297,7 @@ export class MapMarkerManager {
                         height: 0;
                         border-left: 3px solid transparent;
                         border-right: 3px solid transparent;
-                        border-top: 4px solid #fbbf24;
+                        border-top: 4px solid #000;
                     "></div>
                 </div>
             `;
@@ -307,7 +307,7 @@ export class MapMarkerManager {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background: #fbbf24;
+                    background: #000;
                     padding: 4px;
                     border-radius: 10px;
                     border: 2px solid white;
@@ -317,7 +317,7 @@ export class MapMarkerManager {
                 ">
                     <sl-icon name="geo-alt" style="
                         font-size: 12px;
-                        color: #000;
+                        color: white;
                     "></sl-icon>
                 </div>
                 <div style="
@@ -337,7 +337,7 @@ export class MapMarkerManager {
                         height: 0;
                         border-left: 3px solid transparent;
                         border-right: 3px solid transparent;
-                        border-top: 4px solid #fbbf24;
+                        border-top: 4px solid #000;
                     "></div>
                 </div>
             `;
@@ -452,7 +452,7 @@ export class MapMarkerManager {
                 <div class="marker-content" style="
                     display: flex;
                     align-items: center;
-                    background: #3b82f6;
+                    background: #000;
                     padding: 3px 6px;
                     border-radius: 10px;
                     border: 2px solid white;
@@ -488,7 +488,7 @@ export class MapMarkerManager {
                         height: 0;
                         border-left: 4px solid transparent;
                         border-right: 4px solid transparent;
-                        border-top: 6px solid #3b82f6;
+                        border-top: 6px solid #000;
                     "></div>
                 </div>
             `;
@@ -498,7 +498,7 @@ export class MapMarkerManager {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background: #3b82f6;
+                    background: #000;
                     padding: 4px;
                     border-radius: 10px;
                     border: 2px solid white;
@@ -528,7 +528,7 @@ export class MapMarkerManager {
                         height: 0;
                         border-left: 4px solid transparent;
                         border-right: 4px solid transparent;
-                        border-top: 6px solid #3b82f6;
+                        border-top: 6px solid #000;
                     "></div>
                 </div>
             `;

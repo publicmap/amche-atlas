@@ -643,8 +643,8 @@ export class MapboxAPI {
             // Use feature-state for line-offset so hover/selection effects are instant
             if (!lineStyle['line-offset']) {
                 lineStyle['line-offset'] = ['case',
-                    ['boolean', ['feature-state', 'selected'], false], -2,
-                    ['boolean', ['feature-state', 'hover'], false], -1,
+                    ['boolean', ['feature-state', 'selected'], false], -1,
+                    ['boolean', ['feature-state', 'hover'], false], 1,
                     0
                 ];
             }
@@ -2323,10 +2323,10 @@ export class MapboxAPI {
             if (typeof expr === 'string') {
                 // Load if it looks like an icon path (has file extension or common path prefix)
                 const looksLikeIcon = expr.includes('.png') || expr.includes('.jpg') ||
-                                     expr.includes('.svg') || expr.includes('.jpeg') ||
-                                     expr.includes('.gif') || expr.startsWith('http://') ||
-                                     expr.startsWith('https://') || expr.startsWith('assets/') ||
-                                     expr.startsWith('data/') || expr.startsWith('images/');
+                    expr.includes('.svg') || expr.includes('.jpeg') ||
+                    expr.includes('.gif') || expr.startsWith('http://') ||
+                    expr.startsWith('https://') || expr.startsWith('assets/') ||
+                    expr.startsWith('data/') || expr.startsWith('images/');
 
                 if (looksLikeIcon) {
                     await this._loadAndRegisterIconImage(expr);

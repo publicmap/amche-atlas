@@ -103,21 +103,21 @@
               "boolean",
               [
                 "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            "yellow",
-            [
-              "boolean",
-              [
-                "feature-state",
                 "selected"
               ],
               false
             ],
-            "red",
-            "black"
+            "black",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            "black",
+            "grey"
           ],
           "line-width": [
             "interpolate",
@@ -147,7 +147,7 @@
                 ],
                 false
               ],
-              2,
+              4,
               0.5
             ],
             18,
@@ -161,7 +161,7 @@
                 ],
                 false
               ],
-              4,
+              6,
               [
                 "boolean",
                 [
@@ -170,32 +170,12 @@
                 ],
                 false
               ],
-              4,
+              8,
               1
             ]
           ],
-          "line-opacity": 1
-        },
-        "text": {
-          "text-font": [
-            "Open Sans Bold"
-          ],
-          "text-field": [
-            "get",
-            "name"
-          ],
-          "text-size": 12,
-          "text-color": [
+          "line-opacity": [
             "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            "black",
             [
               "boolean",
               [
@@ -204,7 +184,71 @@
               ],
               false
             ],
-            "black",
+            0.9,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            1,
+            0.8
+          ]
+        },
+        "text": {
+          "text-font": [
+            "Open Sans Bold"
+          ],
+          "text-field": [
+            "step",
+            [
+              "zoom"
+            ],
+            "",
+            7,
+            [
+              "to-string",
+              [
+                "get",
+                "name"
+              ]
+            ]
+          ],
+          "text-size": [
+            "step",
+            [
+              "zoom"
+            ],
+            8,
+            7,
+            8,
+            12,
+            12,
+            19,
+            24
+          ],
+          "text-color": [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            "white",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            "white",
             "white"
           ],
           "text-halo-color": [
@@ -217,7 +261,7 @@
               ],
               false
             ],
-            "yellow",
+            "black",
             [
               "boolean",
               [
@@ -226,7 +270,7 @@
               ],
               false
             ],
-            "red",
+            "black",
             "grey"
           ],
           "text-halo-width": 2,
