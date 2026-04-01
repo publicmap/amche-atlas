@@ -157,6 +157,15 @@ export class KeyboardController {
         if (e.key === 'Tab' && this.activeModal) {
             this.handleModalTabbing(e);
         }
+
+        if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !this.isInputActive()) {
+            e.preventDefault();
+            const direction = e.key === 'ArrowLeft' ? -1 : 1;
+            const markerManager = window.featureControl?._markerManager;
+            if (markerManager) {
+                markerManager._navigateMarker(direction);
+            }
+        }
     }
 
     handleEscape(e) {

@@ -13,6 +13,9 @@ export class ButtonExternalMapLinks {
         this._clearSearchButton = null;
         this._expandedCards = new Set();
 
+        this._pinnedLat = null;
+        this._pinnedLng = null;
+
         this._handleButtonClick = this._handleButtonClick.bind(this);
         this._handleCloseClick = this._handleCloseClick.bind(this);
     }
@@ -305,6 +308,7 @@ export class ButtonExternalMapLinks {
                                 onmouseout="this.style.color='#9ca3af'">✕</button>
                     </div>
                 </div>
+                <div class="map-links-coords-bar" style="display:flex;align-items:center;gap:8px;padding:4px 0 12px 0;"></div>
                 <div class="map-links-container"></div>
                 <sl-button slot="footer" variant="neutral" id="${this.modalId}-close" class="map-links-btn">Close</sl-button>
             </sl-dialog>
@@ -347,6 +351,8 @@ export class ButtonExternalMapLinks {
         if (this._modal) {
             this._modal.hide();
         }
+        this._pinnedLat = null;
+        this._pinnedLng = null;
     }
 
     _handleSearchInput() {
@@ -361,6 +367,12 @@ export class ButtonExternalMapLinks {
         this._showModal();
     }
 
+    showAtCoordinates(lat, lng) {
+        this._pinnedLat = lat;
+        this._pinnedLng = lng;
+        this._showModal();
+    }
+
     _showModal() {
         if (!this._modal || !this._map) return;
 
@@ -368,8 +380,27 @@ export class ButtonExternalMapLinks {
 
         const center = this._map.getCenter();
         const zoom = Math.round(this._map.getZoom());
-        const lat = center.lat;
-        const lng = center.lng;
+        const lat = this._pinnedLat ?? center.lat;
+        const lng = this._pinnedLng ?? center.lng;
+
+        const coordsBar = this._modal.querySelector('.map-links-coords-bar');
+        if (coordsBar) {
+            coordsBar.innerHTML = `
+                <span style="font-size:12px;color:#94a3b8;">
+                    ${lat.toFixed(6)}, ${lng.toFixed(6)}
+                </span>
+                <button class="coords-copy-btn" style="
+                    background:#1e293b;border:1px solid #334155;color:#e2e8f0;
+                    padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px;
+                ">Copy</button>
+            `;
+            coordsBar.querySelector('.coords-copy-btn')?.addEventListener('click', () => {
+                const btn = coordsBar.querySelector('.coords-copy-btn');
+                navigator.clipboard.writeText(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = 'Copy'; }, 1200);
+            });
+        }
 
         const links = this._generateNavigationLinks(lat, lng, zoom);
         const searchTerm = this._searchInput ? this._searchInput.value.toLowerCase().trim() : '';

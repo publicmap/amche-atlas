@@ -20,6 +20,7 @@ export class MapMarkerManager {
         this._isMapMoving = false;
         this._isProgrammaticZoom = false; // Track programmatic zooms
         this._selectionLayerId = 'selection'; // Layer ID for selection markers
+        this._starredMarkers = new Set(); // Marker IDs that are starred (persist on new selection)
 
         this._setupEventListeners();
         this._setupMapMovementTracking();
@@ -672,17 +673,7 @@ export class MapMarkerManager {
             const atlasMetadata = layerRegistry._atlasMetadata?.get(atlasName);
             if (!atlasMetadata) return '';
 
-            return `
-                <span class="atlas-badge" style="
-                    font-size: 8px;
-                    padding: 1px 4px;
-                    border-radius: 2px;
-                    font-weight: 600;
-                    color: white;
-                    background-color: ${atlasMetadata.color || '#2563eb'};
-                    margin-right: 4px;
-                ">${atlasMetadata.name}</span>
-            `;
+            return `<span style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;color:white;background-color:${atlasMetadata.color || '#2563eb'};flex-shrink:0;">${atlasMetadata.name}</span>`;
         };
 
         let featuresList = '';
@@ -691,7 +682,14 @@ export class MapMarkerManager {
             // Show features grouped by layer
             featuresList = Array.from(groupedFeatures.entries()).map(([layerId, layerFeatures]) => {
                 const layerConfig = this._stateManager.getLayerConfig(layerId);
-                const thumbnail = LayerThumbnail.generate(layerConfig, 24);
+                const atlasMetadata = window.layerRegistry?._atlasMetadata?.get(layerConfig?._sourceAtlas);
+                const headerImage = layerConfig?.headerImage || atlasMetadata?.headerImage || null;
+                const layerConfigWithHeader = headerImage ? { ...layerConfig, headerImage } : layerConfig;
+                const thumbnail = LayerThumbnail.generate(layerConfigWithHeader, 32);
+                if (thumbnail) {
+                    thumbnail.style.borderRadius = '3px';
+                    thumbnail.style.margin = '0';
+                }
                 const thumbnailHTML = thumbnail ? thumbnail.outerHTML : '';
                 const atlasBadge = getAtlasBadge(layerConfig);
 
@@ -707,92 +705,111 @@ export class MapMarkerManager {
                 const fields = inspectConfig.fields || [];
                 const fieldTitles = inspectConfig.fieldTitles || [];
 
+                const buildRow = (label, value) =>
+                    `<div style="display:flex;font-size:10px;padding:3px 6px;border-bottom:1px solid #1a1a1a;">` +
+                    `<div style="color:#6b7280;min-width:90px;font-weight:500;flex-shrink:0;">${label}</div>` +
+                    `<div style="color:#e5e7eb;flex:1;word-break:break-word;white-space:pre-line;">${value}</div>` +
+                    `</div>`;
+
                 let propertiesHTML = '';
+                let allPropertiesHTML = '';
+                let showMoreButton = '';
+
+                const validEntries = Object.entries(properties).filter(([, v]) => v !== null && v !== undefined && v !== '');
+
+                const btnStyle = `padding:4px 6px;background:#0a0a0a;color:#6b7280;border:none;border-top:1px solid #1a1a1a;font-size:10px;font-weight:500;cursor:pointer;width:100%;text-align:left;`;
+
                 if (fields.length > 0) {
-                    propertiesHTML = '<div class="properties-table" style="margin-top: 4px;">';
-                    fields.forEach((fieldName, index) => {
+                    const shownRows = fields.map((fieldName, index) => {
                         const value = properties[fieldName];
                         if (value !== null && value !== undefined && value !== '') {
-                            const fieldTitle = fieldTitles[index] || fieldName;
-                            propertiesHTML += `
-                                <div style="display: flex; font-size: 10px; padding: 2px 8px; border-bottom: 1px solid #374151;">
-                                    <div style="color: #9ca3af; min-width: 100px; font-weight: 500; flex-shrink: 0;">${fieldTitle}</div>
-                                    <div style="color: #e5e7eb; flex: 1; word-break: break-word; white-space: pre-line;">${value}</div>
-                                </div>
-                            `;
+                            return buildRow(fieldTitles[index] || fieldName, value);
                         }
-                    });
-                    propertiesHTML += '</div>';
+                        return '';
+                    }).filter(Boolean);
+
+                    if (shownRows.length > 0) {
+                        propertiesHTML = `<div class="properties-table">${shownRows.join('')}</div>`;
+                    }
+
+                    // Show button only if there are valid properties beyond what's already shown
+                    if (validEntries.length > shownRows.length) {
+                        const allRows = validEntries.map(([key, value]) => buildRow(key, value));
+                        allPropertiesHTML = `<div class="all-properties-container" style="display:none;">${allRows.join('')}</div>`;
+                        showMoreButton = `<button class="show-all-props-btn" data-total="${validEntries.length}" style="${btnStyle}">Show all ${validEntries.length} properties</button>`;
+                    }
+                } else {
+                    // No configured fields — show first 4, rest behind Show all
+                    const shownEntries = validEntries.slice(0, 4);
+                    const hiddenEntries = validEntries.slice(4);
+
+                    if (shownEntries.length > 0) {
+                        propertiesHTML = `<div class="properties-table">${shownEntries.map(([k, v]) => buildRow(k, v)).join('')}</div>`;
+                    }
+                    if (hiddenEntries.length > 0) {
+                        const allRows = validEntries.map(([k, v]) => buildRow(k, v));
+                        allPropertiesHTML = `<div class="all-properties-container" style="display:none;">${allRows.join('')}</div>`;
+                        showMoreButton = `<button class="show-all-props-btn" data-total="${validEntries.length}" style="${btnStyle}">Show all ${validEntries.length} properties</button>`;
+                    }
                 }
-
-                // Count all properties
-                const totalPropsCount = Object.keys(properties).length;
-                const shownPropsCount = fields.length;
-
-                // Build all properties table (hidden by default)
-                let allPropertiesHTML = '';
-                if (totalPropsCount > shownPropsCount) {
-                    allPropertiesHTML = '<div class="all-properties-container" style="display: none; margin-top: 4px;">';
-                    Object.entries(properties).forEach(([key, value]) => {
-                        if (value !== null && value !== undefined && value !== '') {
-                            allPropertiesHTML += `
-                                <div style="display: flex; font-size: 10px; padding: 2px 8px; border-bottom: 1px solid #374151;">
-                                    <div style="color: #9ca3af; min-width: 100px; font-weight: 500; flex-shrink: 0;">${key}</div>
-                                    <div style="color: #e5e7eb; flex: 1; word-break: break-word; white-space: pre-line;">${value}</div>
-                                </div>
-                            `;
-                        }
-                    });
-                    allPropertiesHTML += '</div>';
-                }
-
-                const showMoreButton = totalPropsCount > shownPropsCount ? `
-                    <button class="show-all-props-btn" style="
-                        margin-top: 4px;
-                        padding: 3px 8px;
-                        background: #374151;
-                        color: #d1d5db;
-                        border: 1px solid #4b5563;
-                        border-radius: 3px;
-                        font-size: 10px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        width: 100%;
-                        transition: all 0.2s;
-                    ">Show all ${totalPropsCount} properties</button>
-                ` : '';
 
                 return `
                     <div class="feature-item-container" data-layer-id="${layerId}" data-feature-id="${featureId}" style="
-                        background: #334155;
+                        background: #000;
                         border-radius: 3px;
                         margin-bottom: 2px;
                         overflow: hidden;
+                        position: relative;
+                        transition: opacity 0.2s, border-color 0.15s;
+                        border: 1px solid #000;
                     ">
+                        ${headerImage ? `<div style="position:absolute;top:0;left:0;right:0;bottom:0;opacity:0.15;background-image:url('${headerImage}');background-size:cover;background-position:center;pointer-events:none;"></div>` : ''}
                         <div class="feature-item-header" style="
                             display: flex;
                             align-items: center;
-                            gap: 5px;
-                            padding: 3px 5px;
-                            cursor: pointer;
+                            gap: 4px;
+                            padding: 4px;
+                            min-height: 36px;
+                            position: relative;
+                            z-index: 1;
+                            background: #000;
                             transition: background 0.2s;
-                        " onmouseenter="this.style.background='#475569'" onmouseleave="this.style.background='#334155'">
-                            ${thumbnailHTML}
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="font-size: 9px; color: #94a3b8; font-weight: 500; display: flex; align-items: center; gap: 3px;">
-                                    ${atlasBadge}
-                                    <span>${layerConfig?.title || layerId}</span>
-                                </div>
-                                <div style="font-size: 11px; color: #e2e8f0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${featureLabel}</div>
+                            cursor: pointer;
+                        ">
+                            <div class="feature-header-thumbnail" data-layer-id="${layerId}" style="
+                                flex-shrink: 0;
+                                cursor: pointer;
+                                border-radius: 3px;
+                                overflow: hidden;
+                            ">
+                                ${thumbnailHTML}
                             </div>
-                            <div class="expand-icon" style="color: #94a3b8; font-size: 9px;">▼</div>
+                            <div style="flex: 1; min-width: 0;">
+                                ${inspectConfig.title ? `<span style="font-size: 9px; color: #6b7280; display: block; line-height: 1.2;">${inspectConfig.title}</span>` : ''}
+                                <span style="font-size: 11px; font-weight: 500; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;" title="${featureLabel}">${featureLabel}</span>
+                            </div>
+                            <button class="expand-icon" style="background:#111;border:1px solid #333;color:#94a3b8;font-size:10px;flex-shrink:0;cursor:pointer;padding:1px 5px;border-radius:3px;line-height:1;">...</button>
                         </div>
                         <div class="feature-item-details" style="
                             display: none;
-                            padding: 4px;
-                            background: #1e293b;
-                            border-top: 1px solid #0f172a;
+                            background: #111;
+                            border-top: 1px solid #000;
+                            position: relative;
+                            z-index: 1;
                         " data-needs-handler="${layerConfig?._sourceAtlas && inspectConfig.onClick ? 'true' : 'false'}" data-atlas="${layerConfig?._sourceAtlas || ''}" data-handler="${inspectConfig.onClick || ''}" data-feature-data="${encodeURIComponent(JSON.stringify(f.feature))}">
+                            <div class="expanded-layer-header" style="display:flex;align-items:center;gap:4px;padding:4px 6px;border-bottom:1px solid #1a1a1a;">
+                                ${atlasBadge}
+                                <span style="font-size:10px;color:#94a3b8;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${layerConfig?.title || layerId}</span>
+                                <button class="layer-info-toggle" data-layer-id="${layerId}" style="background:#1a1a1a;border:1px solid #222;color:#6b7280;font-size:10px;padding:1px 5px;border-radius:3px;cursor:pointer;line-height:1;flex-shrink:0;">...</button>
+                            </div>
+                            <div class="layer-info-panel" style="display:none;padding:6px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;">
+                                ${layerConfig?.description ? `<div style="font-size:10px;color:#6b7280;padding-bottom:6px;line-height:1.4;">${layerConfig.description}</div>` : ''}
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <input type="range" class="layer-opacity-slider" data-layer-id="${layerId}" min="0" max="100" value="100" style="flex:1;height:3px;accent-color:#3b82f6;cursor:pointer;">
+                                    <span class="layer-opacity-value" style="font-size:10px;color:#6b7280;min-width:28px;text-align:right;">100%</span>
+                                    <button class="remove-layer-btn" data-layer-id="${layerId}" style="background:#7f1d1d;border:none;color:#fca5a5;padding:2px 6px;border-radius:3px;font-size:10px;cursor:pointer;flex-shrink:0;">Remove</button>
+                                </div>
+                            </div>
                             <div class="custom-html-container"></div>
                             ${propertiesHTML}
                             ${allPropertiesHTML}
@@ -847,22 +864,12 @@ export class MapMarkerManager {
             }
         }
 
-        // Conditional navigation buttons
-        const showPrevButton = totalMarkers > 1 && markerNumber > 1;
-        const showNextButton = totalMarkers > 1 && markerNumber < totalMarkers;
+        // Count extra layers not shown in features list
+        const extraLayers = allActiveLayers.filter(layer => !(hasFeatures && groupedFeatures.has(layer.id)));
+        const extraLayerCount = extraLayers.length;
 
-        // Generate layer thumbnails HTML for all active layers
-        let layerThumbnailsHTML = '';
-        allActiveLayers.forEach(layer => {
-            layerThumbnailsHTML += `
-                <div class="layer-thumbnail-container" data-layer-id="${layer.id}" style="
-                    width: 24px;
-                    height: 24px;
-                    flex-shrink: 0;
-                    cursor: pointer;
-                "></div>
-            `;
-        });
+        const isStarred = this._starredMarkers.has(markerData.id);
+        const featureCount = hasFeatures ? features.length : allActiveLayers.length;
 
         return `
             <div style="
@@ -874,64 +881,48 @@ export class MapMarkerManager {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             ">
                 <div style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
                     padding: 5px 6px;
                     border-bottom: 1px solid #334155;
                     background: #111827;
                 ">
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <button class="toggle-location" style="
+                        <button class="star-toggle" title="${isStarred ? 'Unstar' : 'Star'} this point" style="
                             background: transparent;
                             border: none;
-                            color: #94a3b8;
+                            color: ${isStarred ? '#fbbf24' : '#94a3b8'};
                             cursor: pointer;
                             padding: 0;
                             display: flex;
                             align-items: center;
-                            transition: color 0.2s;
-                        " title="Show location details"><sl-icon name="geo-alt" style="font-size: 14px;"></sl-icon></button>
-                        <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">
-                            ${hasFeatures ? `${features.length} feature${features.length !== 1 ? 's' : ''} selected` : `${allActiveLayers.length} active layer${allActiveLayers.length !== 1 ? 's' : ''}`}
+                            flex-shrink: 0;
+                        "><sl-icon name="${isStarred ? 'star-fill' : 'star'}" style="font-size: 14px;"></sl-icon></button>
+                        <span style="font-size: 11px; color: #e2e8f0; font-weight: 600; flex: 1;">
+                            ${totalMarkers > 1 ? `Selected Point ${markerNumber} of ${totalMarkers}` : 'Selected Point'}
                         </span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <button class="add-selection-toggle"
-                            data-active="${this._selectionMode === 'add' ? 'true' : 'false'}"
-                            title="Toggle add to selection mode"
-                            style="
-                                padding: 3px 6px;
-                                background: ${this._selectionMode === 'add' ? '#3b82f6' : 'transparent'};
-                                border: 1px solid ${this._selectionMode === 'add' ? '#3b82f6' : '#4b5563'};
-                                border-radius: 3px;
-                                font-size: 10px;
-                                font-weight: 600;
-                                cursor: pointer;
-                                transition: all 0.2s;
-                                display: flex;
-                                align-items: center;
-                                gap: 3px;
-                                color: ${this._selectionMode === 'add' ? 'white' : '#9ca3af'};
-                            ">
-                            <sl-icon name="${this._selectionMode === 'add' ? 'plus-circle-fill' : 'plus-circle-dotted'}" style="font-size: 12px;"></sl-icon>
-                            <span style="font-size: 9px;">Add</span>
-                        </button>
-                        <button class="remove-selection" style="
-                            padding: 0;
-                            background: transparent;
-                            color: #ef4444;
-                            border: 1px solid #4b5563;
+                        ${totalMarkers > 1 ? `
+                        <button class="nav-prev" style="
+                            background: #334155;
+                            border: none;
+                            color: #e2e8f0;
+                            padding: 1px 6px;
                             border-radius: 3px;
                             cursor: pointer;
-                            transition: all 0.2s;
-                            width: 24px;
-                            height: 24px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
+                            font-size: 12px;
                             flex-shrink: 0;
-                        " title="Deselect"><sl-icon name="trash" style="font-size: 14px;"></sl-icon></button>
+                            ${markerNumber <= 1 ? 'opacity: 0.4; pointer-events: none;' : ''}
+                        ">&lt;</button>
+                        <button class="nav-next" style="
+                            background: #334155;
+                            border: none;
+                            color: #e2e8f0;
+                            padding: 1px 6px;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 12px;
+                            flex-shrink: 0;
+                            ${markerNumber >= totalMarkers ? 'opacity: 0.4; pointer-events: none;' : ''}
+                        ">&gt;</button>
+                        ` : ''}
                         <button class="close-popup" style="
                             background: transparent;
                             border: none;
@@ -945,40 +936,22 @@ export class MapMarkerManager {
                             flex-shrink: 0;
                         ">&times;</button>
                     </div>
-                </div>
-
-                <div class="location-details" style="
-                    display: none;
-                    padding: 4px 6px;
-                    background: #111827;
-                    border-bottom: 1px solid #334155;
-                    align-items: center;
-                    gap: 5px;
-                    font-size: 11px;
-                    color: #94a3b8;
-                ">
-                    <span>${lngLat.lat.toFixed(6)}, ${lngLat.lng.toFixed(6)}</span>
-                    <button class="copy-coords" style="
-                        background: #1e293b;
-                        border: none;
-                        color: #e2e8f0;
-                        padding: 2px 6px;
-                        border-radius: 2px;
-                        cursor: pointer;
-                        font-size: 10px;
-                    ">Copy</button>
-                    <button class="open-with" style="
-                        background: #1e293b;
-                        border: none;
-                        color: #e2e8f0;
-                        padding: 4px 8px;
-                        border-radius: 2px;
-                        cursor: pointer;
-                        font-size: 10px;
-                        display: flex;
-                        align-items: center;
-                        gap: 4px;
-                    "><sl-icon name="geo" style="font-size: 12px;"></sl-icon> Open with...</button>
+                    <div style="display: flex; align-items: center; gap: 5px; margin-top: 3px;">
+                        <span style="font-size: 10px; color: #94a3b8;">
+                            ${featureCount} feature${featureCount !== 1 ? 's' : ''} at
+                        </span>
+                        <button class="coords-btn" style="
+                            background: transparent;
+                            border: none;
+                            color: #60a5fa;
+                            cursor: pointer;
+                            padding: 0;
+                            font-size: 10px;
+                            display: flex;
+                            align-items: center;
+                            gap: 3px;
+                        "><sl-icon name="joystick" style="font-size: 12px;"></sl-icon>${lngLat.lat.toFixed(5)}, ${lngLat.lng.toFixed(5)}</button>
+                    </div>
                 </div>
 
                 <div style="padding: 5px;">
@@ -1011,7 +984,19 @@ export class MapMarkerManager {
                             flex-shrink: 0;
                             transition: all 0.2s;
                         " title="Browse Map Collections"><sl-icon name="grid" style="font-size: 12px;"></sl-icon></button>
-                        ${layerThumbnailsHTML}
+                        ${extraLayerCount > 0 ? `
+                        <button class="show-more-layers" style="
+                            background: #1e293b;
+                            border: 1px solid #334155;
+                            color: #94a3b8;
+                            padding: 2px 6px;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 10px;
+                            flex-shrink: 0;
+                        ">Show ${extraLayerCount} more layer${extraLayerCount !== 1 ? 's' : ''}</button>
+                        ` : ''}
+                        <div class="extra-layers-container" style="display:none;flex-wrap:wrap;gap:4px;"></div>
                         <button class="open-inspector" style="
                             background: #000;
                             border: none;
@@ -1028,32 +1013,6 @@ export class MapMarkerManager {
                             flex-shrink: 0;
                             transition: all 0.2s;
                         " title="Open Layer Inspector"><sl-icon name="layers" style="font-size: 12px;"></sl-icon></button>
-                        ${showPrevButton ? `
-                            <button class="nav-prev" style="
-                                background: #334155;
-                                border: none;
-                                color: #e2e8f0;
-                                padding: 3px 7px;
-                                border-radius: 3px;
-                                cursor: pointer;
-                                font-size: 12px;
-                                flex-shrink: 0;
-                                margin-left: auto;
-                            ">&lt;</button>
-                        ` : ''}
-                        ${showNextButton ? `
-                            <button class="nav-next" style="
-                                background: #334155;
-                                border: none;
-                                color: #e2e8f0;
-                                padding: 3px 7px;
-                                border-radius: 3px;
-                                cursor: pointer;
-                                font-size: 12px;
-                                flex-shrink: 0;
-                                ${!showPrevButton ? 'margin-left: auto;' : ''}
-                            ">&gt;</button>
-                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -1067,93 +1026,29 @@ export class MapMarkerManager {
         const popup = markerData.popup.getElement();
         if (!popup) return;
 
-        // Inject layer thumbnails into containers
-        const thumbnailContainers = popup.querySelectorAll('.layer-thumbnail-container');
-        thumbnailContainers.forEach(container => {
-            const layerId = container.dataset.layerId;
-            const layerConfig = this._stateManager.getLayerConfig(layerId);
-            if (layerConfig) {
-                const currentBounds = this._map.getBounds();
-                const bounds = [
-                    currentBounds.getWest(),
-                    currentBounds.getSouth(),
-                    currentBounds.getEast(),
-                    currentBounds.getNorth()
-                ];
-
-                let isInView = true;
-                if (window.MapUtils && layerConfig.bbox) {
-                    isInView = window.MapUtils.isLayerInView(layerConfig, bounds);
-                }
-
-                const thumbnail = LayerThumbnail.generate(layerConfig, 24, { isInView });
-                thumbnail.style.borderRadius = '3px';
-                thumbnail.style.cursor = 'pointer';
-                thumbnail.style.margin = '0';
-                container.appendChild(thumbnail);
-
-                // Handle thumbnail clicks directly (stop propagation to prevent feature expand)
-                thumbnail.addEventListener('click', (e) => {
-                    e.stopPropagation();
-
-                    if (!isInView) {
-                        // Zoom to layer if out of view
-                        if (window.layerControl) {
-                            window.layerControl._zoomToLayer(layerId);
-                        }
-                    } else {
-                        // Open layer info if in view
-                        window.postMessage({
-                            type: 'open-layer-info',
-                            layer: layerConfig
-                        }, '*');
-                    }
-                });
-            }
-        });
-
         popup.querySelector('.close-popup')?.addEventListener('click', () => {
             this._closePopup(markerId);
         });
 
-        popup.querySelector('.add-selection-toggle')?.addEventListener('click', (e) => {
+        popup.querySelector('.star-toggle')?.addEventListener('click', (e) => {
             const btn = e.currentTarget;
-            const isActive = btn.getAttribute('data-active') === 'true';
-            const newActive = !isActive;
-
-            // Update button state
-            btn.setAttribute('data-active', newActive);
-
-            if (newActive) {
-                // Enable add mode
-                btn.style.background = '#3b82f6';
-                btn.style.borderColor = '#3b82f6';
-                btn.style.color = 'white';
-                btn.querySelector('sl-icon').setAttribute('name', 'plus-circle-fill');
-
-                this.setSelectionMode('add');
-
-                // Close popup when enabling add mode
-                this._closePopup(markerId);
+            const isStarred = this._starredMarkers.has(markerId);
+            if (isStarred) {
+                this._starredMarkers.delete(markerId);
+                btn.style.color = '#94a3b8';
+                btn.querySelector('sl-icon').setAttribute('name', 'star');
+                btn.title = 'Star this point';
             } else {
-                // Disable add mode
-                btn.style.background = 'transparent';
-                btn.style.borderColor = '#4b5563';
-                btn.style.color = '#9ca3af';
-                btn.querySelector('sl-icon').setAttribute('name', 'plus-circle-dotted');
-
-                this.setSelectionMode('replace');
+                this._starredMarkers.add(markerId);
+                btn.style.color = '#fbbf24';
+                btn.querySelector('sl-icon').setAttribute('name', 'star-fill');
+                btn.title = 'Unstar this point';
             }
         });
 
-        popup.querySelector('.remove-selection')?.addEventListener('click', () => {
-            // Deselect only the features in this marker
-            markerData.features.forEach(({ layerId, featureId }) => {
-                this._stateManager._deselectFeature(featureId, layerId);
-            });
-
-            // Remove the marker
-            this.removeMarker(markerId);
+        popup.querySelector('.coords-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._openExternalMapLinks(markerData.lngLat);
         });
 
         popup.querySelector('.nav-prev')?.addEventListener('click', () => {
@@ -1165,66 +1060,147 @@ export class MapMarkerManager {
         });
 
         popup.querySelector('.open-browser')?.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent click from propagating to document
+            e.stopPropagation();
 
             if (window.browserControl) {
                 const isOpen = window.browserControl._isOpen;
-
                 if (!isOpen) {
                     window.browserControl.openBrowser();
                 }
             }
 
-            // Close popup for seamless transition
             setTimeout(() => {
                 this._closePopup(markerId);
             }, 100);
         });
 
         popup.querySelector('.open-inspector')?.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent click from propagating to document
+            e.stopPropagation();
 
             if (window.featureControl) {
                 const isVisible = window.featureControl._panel?.style.display !== 'none';
-
                 if (!isVisible) {
                     window.featureControl._showPanel();
                 }
             }
 
-            // Close popup for seamless transition
             setTimeout(() => {
                 this._closePopup(markerId);
             }, 100);
         });
 
-        popup.querySelector('.toggle-location')?.addEventListener('click', (e) => {
-            const locationDetails = popup.querySelector('.location-details');
-            const button = e.currentTarget;
-            if (locationDetails) {
-                const isVisible = locationDetails.style.display === 'flex';
-                locationDetails.style.display = isVisible ? 'none' : 'flex';
-                button.style.color = isVisible ? '#94a3b8' : '#fbbf24';
+        popup.querySelector('.show-more-layers')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const btn = e.currentTarget;
+            const container = popup.querySelector('.extra-layers-container');
+            if (!container) return;
+
+            if (container.style.display === 'none') {
+                container.style.display = 'flex';
+                btn.style.display = 'none';
+
+                const currentBounds = this._map.getBounds();
+                const bounds = [
+                    currentBounds.getWest(), currentBounds.getSouth(),
+                    currentBounds.getEast(), currentBounds.getNorth()
+                ];
+
+                const allActiveLayers = this._getAllActiveLayersInInspectorOrder();
+                const markerFeatureLayerIds = new Set(markerData.features.map(f => f.layerId));
+                const extraLayers = allActiveLayers.filter(layer => !markerFeatureLayerIds.has(layer.id));
+
+                extraLayers.forEach(layer => {
+                    let isInView = true;
+                    if (window.MapUtils && layer.bbox) {
+                        isInView = window.MapUtils.isLayerInView(layer, bounds);
+                    }
+                    const thumbnail = LayerThumbnail.generate(layer, 24, { isInView });
+                    if (thumbnail) {
+                        thumbnail.style.borderRadius = '3px';
+                        thumbnail.style.cursor = 'pointer';
+                        thumbnail.style.margin = '0';
+                        thumbnail.addEventListener('click', (ev) => {
+                            ev.stopPropagation();
+                            if (!isInView && window.layerControl) {
+                                window.layerControl._zoomToLayer(layer.id);
+                            } else {
+                                window.postMessage({ type: 'open-layer-info', layer }, '*');
+                            }
+                        });
+                        container.appendChild(thumbnail);
+                    }
+                });
             }
         });
 
-        popup.querySelector('.copy-coords')?.addEventListener('click', () => {
-            const coords = `${markerData.lngLat.lat.toFixed(6)}, ${markerData.lngLat.lng.toFixed(6)}`;
-            navigator.clipboard.writeText(coords);
-            const btn = popup.querySelector('.copy-coords');
-            const originalText = btn.textContent;
-            btn.textContent = 'Copied!';
-            setTimeout(() => btn.textContent = originalText, 1000);
+        // Layer info toggle [...] in expanded header
+        popup.querySelectorAll('.layer-info-toggle').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const panel = btn.closest('.feature-item-details').querySelector('.layer-info-panel');
+                if (!panel) return;
+                const isOpen = panel.style.display !== 'none';
+                panel.style.display = isOpen ? 'none' : 'block';
+                btn.style.background = isOpen ? '#1a1a1a' : '#334155';
+                btn.style.color = isOpen ? '#94a3b8' : '#e2e8f0';
+            });
         });
 
-        popup.querySelector('.open-with')?.addEventListener('click', (e) => {
-            e.stopPropagation();
+        // Opacity slider
+        popup.querySelectorAll('.layer-opacity-slider').forEach(slider => {
+            slider.addEventListener('input', (e) => {
+                e.stopPropagation();
+                const layerId = slider.dataset.layerId;
+                const value = parseInt(slider.value);
+                const valueDisplay = slider.parentElement.querySelector('.layer-opacity-value');
+                if (valueDisplay) valueDisplay.textContent = `${value}%`;
+                window.postMessage({ type: 'update-layer-opacity', layerId, opacity: value / 100 }, '*');
+            });
+        });
 
-            this._openExternalMapLinks(markerData.lngLat);
+        // Remove layer button
+        popup.querySelectorAll('.remove-layer-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const layerId = btn.dataset.layerId;
+                if (confirm(`Remove layer "${layerId}"?`)) {
+                    window.postMessage({ type: 'remove-layer', layerId }, '*');
+                    const container = btn.closest('.feature-item-container');
+                    if (container) container.remove();
+                }
+            });
+        });
 
-            setTimeout(() => {
-                this._closePopup(markerId);
-            }, 100);
+        // Thumbnail click in feature header - open layer info, don't expand
+        popup.querySelectorAll('.feature-header-thumbnail').forEach(thumbnailEl => {
+            thumbnailEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const layerId = thumbnailEl.dataset.layerId;
+                const layerConfig = this._stateManager.getLayerConfig(layerId);
+                if (layerConfig) {
+                    window.postMessage({ type: 'open-layer-info', layer: layerConfig }, '*');
+                }
+            });
+        });
+
+        // Feature header hover — respects expanded state
+        popup.querySelectorAll('.feature-item-header').forEach(header => {
+            header.addEventListener('mouseenter', () => {
+                const container = header.closest('.feature-item-container');
+                const details = container.querySelector('.feature-item-details');
+                const isExpanded = details && details.style.display !== 'none';
+                if (!isExpanded) header.style.background = '#111';
+                container.style.borderColor = '#fff';
+            });
+            header.addEventListener('mouseleave', () => {
+                const container = header.closest('.feature-item-container');
+                const details = container.querySelector('.feature-item-details');
+                const isExpanded = details && details.style.display !== 'none';
+                if (!isExpanded) {
+                    header.style.background = '#000';
+                    container.style.borderColor = '#000';
+                }
+            });
         });
 
         // Feature header click to expand/collapse
@@ -1240,15 +1216,25 @@ export class MapMarkerManager {
                 const isExpanding = details.style.display === 'none';
 
                 if (isExpanding) {
-                    // Collapse all other features in this popup
+                    // Reset all containers first so the clicked one is fully visible
+                    popup.querySelectorAll('.feature-item-container').forEach(c => {
+                        c.style.opacity = '1';
+                        c.style.borderColor = '#000';
+                    });
+
+                    // Collapse any open features and dim non-target containers
                     popup.querySelectorAll('.feature-item-container').forEach(otherContainer => {
                         if (otherContainer !== container) {
                             const otherDetails = otherContainer.querySelector('.feature-item-details');
                             const otherIcon = otherContainer.querySelector('.expand-icon');
-                            if (otherDetails.style.display !== 'none') {
+                            if (otherDetails && otherDetails.style.display !== 'none') {
                                 otherDetails.style.display = 'none';
-                                otherIcon.textContent = '▼';
+                                otherIcon.style.background = '#111';
+                                otherIcon.style.color = '#94a3b8';
+                                const otherHeader = otherContainer.querySelector('.feature-item-header');
+                                if (otherHeader) otherHeader.style.background = '#000';
                             }
+                            otherContainer.style.opacity = '0.4';
                         }
                     });
 
@@ -1264,7 +1250,16 @@ export class MapMarkerManager {
                     this._expandedFeatures.set(markerId, featureId);
 
                     details.style.display = 'block';
-                    icon.textContent = '▲';
+                    icon.style.background = '#222';
+                    icon.style.color = '#cbd5e1';
+                    header.style.background = '#111';
+                    container.style.borderColor = '#fff';
+
+                    // Reset any prior isolation, then isolate this layer
+                    window.postMessage({ type: 'clear-layer-isolation' }, '*');
+                    const layerConfig = this._stateManager.getLayerConfig(layerId);
+                    const isBasemap = Array.isArray(layerConfig?.tags) && layerConfig.tags.includes('basemap');
+                    window.postMessage({ type: 'isolate-layer', layerId, isBasemap }, '*');
 
                     // Zoom to feature
                     const feature = markerData.features.find(f => f.layerId === layerId && f.featureId === featureId);
@@ -1345,7 +1340,19 @@ export class MapMarkerManager {
 
                     this._expandedFeatures.delete(markerId);
                     details.style.display = 'none';
-                    icon.textContent = '▼';
+                    icon.style.background = '#111';
+                    icon.style.color = '#94a3b8';
+                    header.style.background = '#000';
+                    container.style.borderColor = '#000';
+
+                    // Clear layer isolation
+                    window.postMessage({ type: 'clear-layer-isolation' }, '*');
+
+                    // Restore all containers
+                    popup.querySelectorAll('.feature-item-container').forEach(c => {
+                        c.style.opacity = '1';
+                        c.style.borderColor = '#000';
+                    });
                 }
             });
         });
@@ -1357,6 +1364,7 @@ export class MapMarkerManager {
                 const details = button.closest('.feature-item-details');
                 const regularProps = details.querySelector('.properties-table');
                 const allProps = details.querySelector('.all-properties-container');
+                const total = button.dataset.total;
 
                 if (allProps.style.display === 'none') {
                     allProps.style.display = 'block';
@@ -1365,8 +1373,7 @@ export class MapMarkerManager {
                 } else {
                     allProps.style.display = 'none';
                     if (regularProps) regularProps.style.display = 'block';
-                    const totalCount = allProps.querySelectorAll('[style*="display: flex"]').length;
-                    button.textContent = `Show all ${totalCount} properties`;
+                    button.textContent = `Show all ${total} properties`;
                 }
             });
         });
@@ -1376,6 +1383,10 @@ export class MapMarkerManager {
     _closePopup(markerId) {
         const markerData = this._markers.get(markerId);
         if (markerData?.popup) {
+            if (this._expandedFeatures.has(markerId)) {
+                window.postMessage({ type: 'clear-layer-isolation' }, '*');
+                this._expandedFeatures.delete(markerId);
+            }
             markerData.popup.remove();
             markerData.popup = null;
         }
@@ -1420,7 +1431,11 @@ export class MapMarkerManager {
 
     _openExternalMapLinks(lngLat) {
         if (window.externalMapLinksControl) {
-            window.externalMapLinksControl._showModal();
+            if (lngLat && window.externalMapLinksControl.showAtCoordinates) {
+                window.externalMapLinksControl.showAtCoordinates(lngLat.lat, lngLat.lng);
+            } else {
+                window.externalMapLinksControl._showModal();
+            }
         }
     }
 
@@ -1479,13 +1494,14 @@ export class MapMarkerManager {
     }
 
     clearAllMarkers() {
-        this._markers.forEach(markerData => {
+        this._markers.forEach((markerData, id) => {
+            if (this._starredMarkers.has(id)) return;
             if (markerData.popup) {
                 markerData.popup.remove();
             }
             markerData.marker.remove();
+            this._markers.delete(id);
         });
-        this._markers.clear();
         this._currentMarkerIndex = 0;
 
         // Update selection layer
