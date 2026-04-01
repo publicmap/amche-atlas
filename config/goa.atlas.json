@@ -1356,7 +1356,7 @@
           "High Tide Line",
           "blue",
           "Low Tide Line",
-          "blue",
+          "lightblue",
           "red"
         ],
         "text-halo-color": [
@@ -1368,7 +1368,7 @@
           "High Tide Line",
           "blue",
           "Low Tide Line",
-          "blue",
+          "lightblue",
           "red"
         ],
         "line-width": [
@@ -1380,7 +1380,7 @@
           "High Tide Line",
           2,
           "Low Tide Line",
-          1,
+          2,
           2
         ],
         "line-offset": [
@@ -1404,10 +1404,10 @@
             "Class"
           ],
           "High Tide Line",
-          3,
-          "Low Tide Line",
           2,
-          1
+          "Low Tide Line",
+          1,
+          3
         ],
         "line-blend-mode": "multiply"
       },
@@ -1436,7 +1436,7 @@
         "text-halo-color": "#b3ff0f",
         "fill-color": "#b3ff0f",
         "line-width": 1,
-        "line-color": "grey",
+        "line-color": "#b3ff0f",
         "text-color": "darkgreen",
         "text-field": [
           "step",
@@ -2078,11 +2078,39 @@
       "initiallyChecked": false
     },
     {
+      "title": "Geological And Mineral Map Of Goa 1996",
+      "description": "The geological map of Goa under review is a compilation of geological mapping carried out over a period extending <a href='https://www.geosocindia.org/index.php/jgsi/article/download/68586/53890/111487'>for nearly 20 years between 1962 to 1989.</a>",
+      "type": "tms",
+      "id": "gsi-1996",
+      "url": "https://mapwarper.net/maps/tile/104836/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "Goa Foundation via RTI via <a href='https://mapwarper.net/maps/104836' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/104836/thumb/Scan_20260401_091357.png",
+      "bbox": "73.3759215,14.6852803,74.4085958,15.9776146",
+      "initiallyChecked": false
+    },
+    {
       "tags": [
         "3.Regulatory"
       ],
-      "title": "Goa Mining Leases Map",
-      "description": "Carta das concessos mineira do distrito do Goa showing all the Portuguese era mining leases in Goa.<br> Obtained via Goa Foundation",
+      "title": "Portuguese Goa Map of Mining Concessions",
+      "description": "Carta das concessos mineira do distrito do Goa showing all the Portuguese era mining leases in Goa.<br> Obtained via RTI by Goa Foundation. See <a href='https://www.scribd.com/document/64058213/maps-goa'>Goa Foundation</a> for more details.",
       "source": "",
       "date": "",
       "type": "tms",
