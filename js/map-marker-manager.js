@@ -637,6 +637,7 @@ export class MapMarkerManager {
 
             popupElement.addEventListener('mouseleave', () => {
                 this._setMarkerFeaturesHoverState(markerId, false);
+                this._closePopup(markerId);
             });
         }
 

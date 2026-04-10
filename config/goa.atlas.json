@@ -735,40 +735,7 @@
           18,
           14
         ],
-        "fill-color": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          15,
-          "rgba(0, 0, 0, 0.05)",
-          18,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            "rgba(0, 0, 0, 0)",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            "rgba(0, 0, 0, 0.3)",
-            "rgba(0, 0, 0, 0.4)"
-          ]
-        ],
+        "fill-color": "rgba(255, 255, 255, 0.2)",
         "line-opacity": [
           "case",
           [
@@ -791,62 +758,8 @@
           1,
           0.4
         ],
-        "line-color": "#eee",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          14,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            2,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            1,
-            0
-          ],
-          18,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            2,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            1.2,
-            1
-          ]
-        ]
+        "line-color": "#888",
+        "line-width": 1
       },
       "initiallyChecked": true,
       "inspect": {
@@ -1338,7 +1251,7 @@
             "zoom"
           ],
           "",
-          14,
+          12,
           [
             "to-string",
             [
@@ -1438,13 +1351,14 @@
         "line-width": 1,
         "line-color": "#b3ff0f",
         "text-color": "darkgreen",
+        "text-padding": 20,
         "text-field": [
           "step",
           [
             "zoom"
           ],
           "",
-          16,
+          12,
           [
             "to-string",
             [
