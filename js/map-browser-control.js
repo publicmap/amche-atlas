@@ -454,7 +454,8 @@ export class MapBrowserControl {
             atlasMetadata: atlasMetadata,
             bounds: bounds,
             mapboxToken: window.amche?.MAPBOXGL_ACCESS_TOKEN || mapboxgl.accessToken,
-            selectedAtlasId: atlasParam
+            selectedAtlasId: atlasParam,
+            layerDefaults: window.layerControl?._defaultStyles || {}
         }, '*');
     }
 

@@ -130,7 +130,8 @@
         },
         {
           "title": "Roads & Railways",
-          "sourceLayer": "road"
+          "sourceLayer": "road",
+          "initiallyChecked": false
         },
         {
           "title": "Runways",

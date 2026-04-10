@@ -919,6 +919,7 @@
         let activeLayers = new Set();
         let atlasMetadata = new Map();
         let currentBounds = null;
+        let layerDefaults = {};
         let previewMap = null;
         let previewLayer = null;
         let bboxLayers = [];
@@ -970,6 +971,7 @@
                     atlasMetadata = new Map(Object.entries(event.data.atlasMetadata || {}));
                     currentBounds = event.data.bounds;
                     mapboxAccessToken = event.data.mapboxToken;
+                    layerDefaults = event.data.layerDefaults || {};
 
                     // Check for atlas selection from URL parameter first
                     if (event.data.selectedAtlasId && atlasMetadata.has(event.data.selectedAtlasId)) {
@@ -1735,7 +1737,8 @@
                 sortedLayers.forEach(layer => {
                     const isActive = activeLayers.has(layer.id);
                     const thumbnail = window.LayerThumbnail.generate(layer, 24, {
-                        isInView: isInView(layer)
+                        isInView: isInView(layer),
+                        layerDefaults
                     });
 
                     const $layerThumb = $('<div>', {
@@ -1961,7 +1964,8 @@
                         });
 
                         const thumbnail = window.LayerThumbnail.generate(layer, 40, {
-                            isInView: isInView(layer)
+                            isInView: isInView(layer),
+                            layerDefaults
                         });
                         $layerPreview.append(thumbnail);
 
@@ -2748,7 +2752,8 @@
 
                 // Column 1: Thumbnail
                 const thumbnail = window.LayerThumbnail.generate(layer, 80, {
-                    isInView: isInView(layer)
+                    isInView: isInView(layer),
+                    layerDefaults
                 });
                 thumbnail.style.margin = '0';
                 thumbnail.style.borderRadius = '0.5rem 0 0 0.5rem';
@@ -2858,7 +2863,8 @@
                 const $container = $('<div>', { class: 'flex items-stretch' });
 
                 const thumbnail = window.LayerThumbnail.generate(layer, 80, {
-                    isInView: isInView(layer)
+                    isInView: isInView(layer),
+                    layerDefaults
                 });
                 thumbnail.style.margin = '0';
                 thumbnail.style.borderRadius = '0.5rem 0 0 0.5rem';

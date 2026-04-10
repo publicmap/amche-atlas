@@ -13,7 +13,7 @@ export class LayerThumbnail {
      * @returns {HTMLElement} Thumbnail element
      */
     static generate(layer, size = 80, options = {}) {
-        const { isInView = true } = options;
+        const { isInView = true, layerDefaults = {} } = options;
         const container = document.createElement('div');
         container.className = 'layer-thumbnail';
         container.style.cssText = `
@@ -45,7 +45,7 @@ export class LayerThumbnail {
         // Overlay symbology on top
         // Check for style object OR top-level style properties
         if (layer.style || layer['icon-image'] || layer['circle-radius'] || layer['line-color'] || layer['fill-color']) {
-            const overlay = this._generateSymbologyOverlay(layer, size);
+            const overlay = this._generateSymbologyOverlay(layer, size, layerDefaults);
             if (overlay) {
                 container.appendChild(overlay);
             }
@@ -184,9 +184,11 @@ export class LayerThumbnail {
      * @param {number} size - Thumbnail size
      * @returns {SVGElement|null} SVG overlay element
      */
-    static _generateSymbologyOverlay(layer, size) {
+    static _generateSymbologyOverlay(layer, size, layerDefaults = {}) {
         // Style properties can be in layer.style OR at the top level
         const style = layer.style || layer;
+        // Vector line/fill/circle defaults from _defaults.json for filling in missing properties
+        const vectorDefaults = layerDefaults.vector || {};
 
         // Check for icon-image first (try both locations)
         const iconImage = style['icon-image'] || layer['icon-image'];
@@ -419,12 +421,13 @@ export class LayerThumbnail {
             }
         }
         // Line symbology
-        else if (style['line-color']) {
-            const width = getValue(style['line-width'], 2);
-            const opacity = getValue(style['line-opacity'], 1);
+        else if (style['line-color'] || style['line-width'] || vectorDefaults.line?.['line-color'] || vectorDefaults.line?.['line-width']) {
+            const effectiveLineColor = style['line-color'] || vectorDefaults.line?.['line-color'];
+            const width = getValue(style['line-width'] ?? vectorDefaults.line?.['line-width'], 2);
+            const opacity = getValue(style['line-opacity'] ?? vectorDefaults.line?.['line-opacity'], 1);
 
             // Check if line-color is a case expression with multiple values
-            const caseValues = getCaseValues(style['line-color']);
+            const caseValues = getCaseValues(effectiveLineColor);
 
             if (caseValues && caseValues.length > 1) {
                 // Render multiple lines, one for each case value
@@ -450,9 +453,9 @@ export class LayerThumbnail {
                 }
             } else {
                 // Single line for non-case expressions
-                const color = getValue(style['line-color'], '#3b82f6');
+                const color = getValue(effectiveLineColor, 'grey');
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                const d = `M ${size * 0.2},${size * 0.5} L ${size * 0.5},${size * 0.3} L ${size * 0.8},${size * 0.5} L ${size * 0.5},${size * 0.7} Z`;
+                const d = `M ${size * 0.1},${size * 0.6} L ${size * 0.35},${size * 0.35} L ${size * 0.6},${size * 0.6} L ${size * 0.85},${size * 0.35}`;
                 path.setAttribute('d', d);
                 path.setAttribute('stroke', color);
                 path.setAttribute('stroke-width', Math.min(Math.max(width * 2, 2), 4));
