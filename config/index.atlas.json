@@ -82,10 +82,11 @@
       "geojson": null,
       "attribution": "<a href='https://amche.in'>Amche.in Atlas</a>",
       "style": {
-        "circle-radius": 2,
-        "circle-color": "blue",
+        "circle-radius": 5,
+        "circle-color": "black",
         "circle-stroke-width": 2,
-        "circle-stroke-color": "blue",
+        "circle-stroke-color": "white",
+        "text-size": 22,
         "text-font": [
           "Open Sans Regular"
         ],

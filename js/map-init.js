@@ -597,6 +597,14 @@ export class MapInitializer {
 
             config.layers = validLayers;
 
+            // Ensure the selection layer (system layer for map markers) is always present
+            if (!config.layers.find(l => l.id === 'selection')) {
+                const selectionLayer = layerRegistry.getLayer('selection', 'index');
+                if (selectionLayer) {
+                    config.layers.unshift({ ...selectionLayer, id: 'selection', initiallyChecked: true });
+                }
+            }
+
             // If we found invalid layers from URL, update the URL to remove them
             if (invalidLayers.length > 0 && layersParam) {
                 console.warn(`Removing invalid layer IDs from URL: ${invalidLayers.join(', ')}`);

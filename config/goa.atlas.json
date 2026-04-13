@@ -683,83 +683,9 @@
             }
           ]
         ],
-        "text-color": "white",
-        "text-halo-color": "black",
-        "text-halo-width": [
-          "case",
-          [
-            "boolean",
-            [
-              "feature-state",
-              "selected"
-            ],
-            false
-          ],
-          2,
-          1
-        ],
-        "text-opacity": [
-          "case",
-          [
-            "boolean",
-            [
-              "feature-state",
-              "selected"
-            ],
-            false
-          ],
-          1,
-          [
-            "boolean",
-            [
-              "feature-state",
-              "hover"
-            ],
-            false
-          ],
-          1,
-          0.6
-        ],
-        "text-size": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          13,
-          6,
-          16,
-          10,
-          18,
-          14
-        ],
         "fill-color": "rgba(255, 255, 255, 0.2)",
-        "line-opacity": [
-          "case",
-          [
-            "boolean",
-            [
-              "feature-state",
-              "selected"
-            ],
-            false
-          ],
-          1,
-          [
-            "boolean",
-            [
-              "feature-state",
-              "hover"
-            ],
-            false
-          ],
-          1,
-          0.4
-        ],
-        "line-color": "#888",
-        "line-width": 1
+        "line-color": "#333",
+        "line-width": 0.5
       },
       "initiallyChecked": true,
       "inspect": {

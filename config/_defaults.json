@@ -28,7 +28,7 @@
               ],
               false
             ],
-            "rgba(255, 255, 255, 0.3)",
+            "rgba(255, 255, 0, 0.3)",
             [
               "boolean",
               [
@@ -82,7 +82,7 @@
                 ],
                 false
               ],
-              0,
+              0.2,
               [
                 "boolean",
                 [
@@ -91,8 +91,8 @@
                 ],
                 false
               ],
-              0.1,
-              0.4
+              0.5,
+              0.1
             ]
           ]
         },
@@ -107,7 +107,7 @@
               ],
               false
             ],
-            "black",
+            "rgba(255, 255, 0, 1)",
             [
               "boolean",
               [
@@ -116,7 +116,7 @@
               ],
               false
             ],
-            "black",
+            "rgba(255, 255, 0, 0.8)",
             "grey"
           ],
           "line-width": [
@@ -148,7 +148,7 @@
                 false
               ],
               4,
-              0.5
+              1
             ],
             18,
             [
@@ -239,7 +239,7 @@
               ],
               false
             ],
-            "white",
+            "black",
             [
               "boolean",
               [
@@ -248,8 +248,8 @@
               ],
               false
             ],
-            "white",
-            "white"
+            "black",
+            "black"
           ],
           "text-halo-color": [
             "case",
@@ -261,7 +261,7 @@
               ],
               false
             ],
-            "black",
+            "rgba(255, 255, 0, 1)",
             [
               "boolean",
               [
@@ -270,10 +270,10 @@
               ],
               false
             ],
-            "black",
-            "grey"
+            "rgba(255, 255, 0, 1)",
+            "white"
           ],
-          "text-halo-width": 2,
+          "text-halo-width": 1,
           "text-halo-blur": 0,
           "text-opacity": [
             "case",

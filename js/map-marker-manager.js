@@ -620,7 +620,8 @@ export class MapMarkerManager {
             closeButton: false,
             closeOnClick: false,
             maxWidth: '400px',
-            className: 'selection-popup'
+            className: 'selection-popup',
+            anchor: 'bottom'
         })
             .setLngLat([markerData.lngLat.lng, markerData.lngLat.lat])
             .setHTML(popupContent)
@@ -808,6 +809,7 @@ export class MapMarkerManager {
                                 <div style="display:flex;align-items:center;gap:6px;">
                                     <input type="range" class="layer-opacity-slider" data-layer-id="${layerId}" min="0" max="100" value="100" style="flex:1;height:3px;accent-color:#3b82f6;cursor:pointer;">
                                     <span class="layer-opacity-value" style="font-size:10px;color:#6b7280;min-width:28px;text-align:right;">100%</span>
+                                    <button class="zoom-feature-btn" style="background:#1e3a5f;border:none;color:#93c5fd;padding:2px 6px;border-radius:3px;font-size:10px;cursor:pointer;flex-shrink:0;">Zoom</button>
                                     <button class="remove-layer-btn" data-layer-id="${layerId}" style="background:#7f1d1d;border:none;color:#fca5a5;padding:2px 6px;border-radius:3px;font-size:10px;cursor:pointer;flex-shrink:0;">Remove</button>
                                 </div>
                             </div>
@@ -1159,6 +1161,23 @@ export class MapMarkerManager {
             });
         });
 
+        // Zoom to feature button
+        popup.querySelectorAll('.zoom-feature-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const details = btn.closest('.feature-item-details');
+                if (!details) return;
+                try {
+                    const feature = JSON.parse(decodeURIComponent(details.dataset.featureData));
+                    this._isProgrammaticZoom = true;
+                    this._zoomToFeature(feature);
+                    setTimeout(() => { this._isProgrammaticZoom = false; }, 1500);
+                } catch (err) {
+                    console.error('[MapMarkerManager] Error parsing feature data for zoom:', err);
+                }
+            });
+        });
+
         // Remove layer button
         popup.querySelectorAll('.remove-layer-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -1261,17 +1280,6 @@ export class MapMarkerManager {
                     const layerConfig = this._stateManager.getLayerConfig(layerId);
                     const isBasemap = Array.isArray(layerConfig?.tags) && layerConfig.tags.includes('basemap');
                     window.postMessage({ type: 'isolate-layer', layerId, isBasemap }, '*');
-
-                    // Zoom to feature
-                    const feature = markerData.features.find(f => f.layerId === layerId && f.featureId === featureId);
-                    if (feature) {
-                        this._isProgrammaticZoom = true;
-                        this._zoomToFeature(feature.feature);
-                        // Reset flag after zoom completes
-                        setTimeout(() => {
-                            this._isProgrammaticZoom = false;
-                        }, 1500);
-                    }
 
                     // Load inspection handler if needed
                     const needsHandler = details.dataset.needsHandler === 'true';
