@@ -136,10 +136,10 @@ export class LayerOrderManager {
         }
 
         if (['vector', 'geojson', 'csv'].includes(type)) {
-            return 'middle';
+            return null;
         }
 
-        return 'middle';
+        return null;
     }
 
     /**
