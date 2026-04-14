@@ -805,8 +805,6 @@
                     return;
                 }
 
-                console.log('[Atlas Picker] Loading featured atlases...');
-
                 try {
                     // Load index config to get atlas order
                     const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
@@ -817,9 +815,6 @@
 
                     const indexConfig = await indexResponse.json();
                     const atlasOrder = indexConfig.atlases || [];
-                    console.log(`[Atlas Picker] Found ${atlasOrder.length} atlases to load`);
-
-                    let loadedCount = 0;
 
                     // Load each atlas config and create cards
                     for (const atlasId of atlasOrder) {
@@ -842,15 +837,11 @@
 
                                 const card = createAtlasCard(atlasId, metadata);
                                 atlasPickerContainer.appendChild(card);
-                                loadedCount++;
-                                console.log(`[Atlas Picker] Loaded card for ${atlasId} (${loadedCount}/${atlasOrder.length})`);
                             }
                         } catch (error) {
                             console.warn(`Failed to load atlas ${atlasId}:`, error);
                         }
                     }
-
-                    console.log(`[Atlas Picker] Successfully loaded ${loadedCount} atlas cards`);
                 } catch (error) {
                     console.error('Failed to load featured atlases:', error);
                 }

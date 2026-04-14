@@ -2320,21 +2320,21 @@ export class MapboxAPI {
 
     async _loadIconsFromExpression(expression) {
         const traverse = async (expr) => {
-            if (typeof expr === 'string') {
-                // Load if it looks like an icon path (has file extension or common path prefix)
-                const looksLikeIcon = expr.includes('.png') || expr.includes('.jpg') ||
-                    expr.includes('.svg') || expr.includes('.jpeg') ||
-                    expr.includes('.gif') || expr.startsWith('http://') ||
-                    expr.startsWith('https://') || expr.startsWith('assets/') ||
-                    expr.startsWith('data/') || expr.startsWith('images/');
-
-                if (looksLikeIcon) {
-                    await this._loadAndRegisterIconImage(expr);
-                }
-            } else if (Array.isArray(expr)) {
-                // Traverse nested arrays
+            if (Array.isArray(expr)) {
                 for (let i = 1; i < expr.length; i++) {
-                    await traverse(expr[i]);
+                    if (typeof expr[i] === 'string') {
+                        const looksLikeIcon = expr[i].includes('.png') || expr[i].includes('.jpg') ||
+                            expr[i].includes('.svg') || expr[i].includes('.jpeg') ||
+                            expr[i].includes('.gif') || expr[i].startsWith('http://') ||
+                            expr[i].startsWith('https://') || expr[i].startsWith('assets/') ||
+                            expr[i].startsWith('data/') || expr[i].startsWith('images/');
+
+                        if (looksLikeIcon) {
+                            expr[i] = await this._loadAndRegisterIconImage(expr[i]);
+                        }
+                    } else if (Array.isArray(expr[i])) {
+                        await traverse(expr[i]);
+                    }
                 }
             }
         };

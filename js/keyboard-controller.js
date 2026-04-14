@@ -1,11 +1,9 @@
 export class KeyboardController {
     constructor() {
-        console.log('[KeyboardController] Initializing keyboard controller');
         this.activeModal = null;
         this.modalStack = [];
         this.setupEventListeners();
         this.autoFocusSearch();
-        console.log('[KeyboardController] Keyboard controller initialized');
     }
 
     setupEventListeners() {
@@ -25,22 +23,17 @@ export class KeyboardController {
     }
 
     async autoFocusSearch() {
-        console.log('[KeyboardController] Waiting for page to be ready');
-
         try {
             const waitForLoadingOverlayRemoval = () => {
                 return new Promise((resolve) => {
                     const overlay = document.getElementById('loading-overlay');
                     if (!overlay || overlay.style.display === 'none') {
-                        console.log('[KeyboardController] Loading overlay already removed');
                         resolve();
                         return;
                     }
 
-                    console.log('[KeyboardController] Waiting for loading overlay to be removed');
                     const observer = new MutationObserver(() => {
                         if (overlay.style.display === 'none' || !document.body.contains(overlay)) {
-                            console.log('[KeyboardController] Loading overlay removed');
                             observer.disconnect();
                             resolve();
                         }
@@ -65,13 +58,9 @@ export class KeyboardController {
 
             await waitForLoadingOverlayRemoval();
             await customElements.whenDefined('mapbox-search-box');
-            console.log('[KeyboardController] mapbox-search-box custom element is defined');
 
             const searchBox = document.querySelector('mapbox-search-box');
-            if (!searchBox) {
-                console.warn('[KeyboardController] Search box element not found in DOM');
-                return;
-            }
+            if (!searchBox) return;
 
             const tryFocus = (attempt = 1) => {
                 if (typeof searchBox.focus === 'function') {
@@ -80,31 +69,15 @@ export class KeyboardController {
                     setTimeout(() => {
                         const activeEl = document.activeElement;
 
-                        // Check if focus is on searchBox or its internal elements
                         const isFocused = activeEl === searchBox ||
                                         activeEl?.closest?.(searchBox.tagName.toLowerCase()) === searchBox ||
                                         searchBox.contains(activeEl) ||
                                         (searchBox.shadowRoot && searchBox.shadowRoot.activeElement);
 
-                        if (isFocused) {
-                            console.log(`[KeyboardController] Successfully focused search box (attempt ${attempt})`);
-                        } else {
-                            console.log(`[KeyboardController] Focus on different element:`, {
-                                tagName: activeEl?.tagName,
-                                id: activeEl?.id,
-                                className: activeEl?.className
-                            });
-
-                            if (attempt < 3) {
-                                console.log(`[KeyboardController] Retrying (attempt ${attempt + 1})`);
-                                setTimeout(() => tryFocus(attempt + 1), 300);
-                            } else {
-                                console.warn('[KeyboardController] Could not focus search after 3 attempts');
-                            }
+                        if (!isFocused && attempt < 3) {
+                            setTimeout(() => tryFocus(attempt + 1), 300);
                         }
                     }, 100);
-                } else {
-                    console.warn('[KeyboardController] Search box focus method not available');
                 }
             };
 
@@ -117,18 +90,15 @@ export class KeyboardController {
 
     handleGlobalKeydown(e) {
         if (e.key === 'Escape') {
-            console.log('[KeyboardController] Escape pressed');
             this.handleEscape(e);
         }
 
         if (e.key === '/' && !this.isInputActive()) {
-            console.log('[KeyboardController] / pressed, focusing search');
             e.preventDefault();
             this.focusSearch();
         }
 
         if (e.key === '?' && !this.isInputActive()) {
-            console.log('[KeyboardController] ? pressed, opening welcome screen');
             e.preventDefault();
             this.openWelcomeScreen();
         }
@@ -149,7 +119,6 @@ export class KeyboardController {
         }
 
         if (e.key === 'x' && !this.isInputActive()) {
-            console.log('[KeyboardController] x pressed, opening export panel');
             e.preventDefault();
             this.toggleExportPanel();
         }
@@ -229,8 +198,6 @@ export class KeyboardController {
     }
 
     focusSearch() {
-        console.log('[KeyboardController] Manual focus search triggered');
-
         const searchBox = document.querySelector('mapbox-search-box');
 
         if (searchBox) {
@@ -238,14 +205,12 @@ export class KeyboardController {
                 const input = searchBox.shadowRoot.querySelector('input');
                 if (input) {
                     input.focus();
-                    console.log('[KeyboardController] Focused mapbox-search-box input');
                     return true;
                 }
             }
 
             if (typeof searchBox.focus === 'function') {
                 searchBox.focus();
-                console.log('[KeyboardController] Focused mapbox-search-box element');
                 return true;
             }
         }
@@ -253,38 +218,31 @@ export class KeyboardController {
         const geocoderInput = document.querySelector('.mapboxgl-ctrl-geocoder--input');
         if (geocoderInput) {
             geocoderInput.focus();
-            console.log('[KeyboardController] Focused geocoder input');
             return true;
         }
 
         const anyInput = document.querySelector('#mapbox-search-box input, [id*="search"] input');
         if (anyInput) {
             anyInput.focus();
-            console.log('[KeyboardController] Focused fallback input');
             return true;
         }
 
-        console.warn('[KeyboardController] Could not find any search input to focus');
         return false;
     }
 
     focusMap() {
-        console.log('[KeyboardController] Focusing map canvas');
         const mapCanvas = document.querySelector('.mapboxgl-canvas');
         if (mapCanvas) {
             mapCanvas.focus();
-            console.log('[KeyboardController] Map canvas focused');
             return true;
         }
 
         const mapContainer = document.getElementById('map');
         if (mapContainer) {
             mapContainer.focus();
-            console.log('[KeyboardController] Map container focused');
             return true;
         }
 
-        console.warn('[KeyboardController] Could not find map to focus');
         return false;
     }
 
@@ -320,8 +278,6 @@ export class KeyboardController {
     openWelcomeScreen() {
         if (window.IntroContentManager) {
             new window.IntroContentManager({ enableAutoClose: false });
-        } else {
-            console.warn('[KeyboardController] IntroContentManager not available');
         }
     }
 
@@ -446,12 +402,8 @@ export class KeyboardController {
 }
 
 export function initializeKeyboardController() {
-    console.log('[KeyboardController] initializeKeyboardController called');
     const controller = new KeyboardController();
     controller.enhanceAccessibility();
-
     window.keyboardController = controller;
-    console.log('[KeyboardController] Controller available as window.keyboardController');
-
     return controller;
 }
