@@ -533,9 +533,13 @@ export class MapInitializer {
                     // This handles both current atlas layers and cross-atlas references
                     let resolvedLayer = layerRegistry.getLayer(layerConfig.id, atlasId);
 
-                    // If not found in primary registry, try cross-config loading
+                    // If not found in primary registry, try index atlas as fallback (for system layers like 'selection')
+                    if (!resolvedLayer && atlasId !== 'index') {
+                        resolvedLayer = layerRegistry.getLayer(layerConfig.id, 'index');
+                    }
+
+                    // If still not found, try cross-config loading
                     if (!resolvedLayer) {
-                        // Using the new method on layerRegistry
                         resolvedLayer = await layerRegistry.tryLoadCrossConfigLayer(layerConfig.id, layerConfig);
                     }
 

@@ -1305,11 +1305,13 @@ export class URLManager {
                     this.stateManager._selectedFeatures.add(compositeKey);
                     this.stateManager._setMapboxFeatureState(featureId, layerId, { selected: true });
 
+                    const lngLat = this._lngLatFromGeometry(matchingFeature.geometry);
+
                     return {
                         featureId,
                         layerId,
                         feature: matchingFeature,
-                        lngLat: null
+                        lngLat
                     };
                 }
 
@@ -1325,6 +1327,26 @@ export class URLManager {
         }
 
         console.warn(`[URL API] Feature ${rawFeatureId} not found in layer ${layerId} after ${retries + 1} attempts`);
+        return null;
+    }
+
+    _lngLatFromGeometry(geometry) {
+        if (!geometry) return null;
+        const { type, coordinates } = geometry;
+        if (type === 'Point') {
+            return { lng: coordinates[0], lat: coordinates[1] };
+        }
+        if (type === 'LineString' && coordinates.length > 0) {
+            const mid = coordinates[Math.floor(coordinates.length / 2)];
+            return { lng: mid[0], lat: mid[1] };
+        }
+        if ((type === 'Polygon' || type === 'MultiPolygon') && coordinates.length > 0) {
+            const ring = type === 'Polygon' ? coordinates[0] : coordinates[0][0];
+            if (!ring || ring.length === 0) return null;
+            const lng = ring.reduce((s, c) => s + c[0], 0) / ring.length;
+            const lat = ring.reduce((s, c) => s + c[1], 0) / ring.length;
+            return { lng, lat };
+        }
         return null;
     }
 
