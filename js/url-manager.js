@@ -34,9 +34,11 @@ export class URLManager {
                     eventType === 'selection-cleared' ||
                     eventType === 'feature-deselected') {
                     if (!this.isUpdatingFromURL && !data?.fromURL) {
-                        // Check if selection layer has features - if so, update layers too
-                        let updateLayers = false;
-                        if (this.mapLayerControl) {
+                        // Always update layers when clearing selections (to remove selection GeoJSON from URL)
+                        // or when selection layer has features (to add/update it in URL)
+                        const isClearing = eventType === 'selections-cleared' || eventType === 'selection-cleared';
+                        let updateLayers = isClearing;
+                        if (!updateLayers && this.mapLayerControl) {
                             const selectionLayer = this.mapLayerControl._state.groups.find(g => g.id === 'selection');
                             if (selectionLayer?.geojson?.features?.length > 0) {
                                 updateLayers = true;

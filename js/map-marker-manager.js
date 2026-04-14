@@ -57,6 +57,15 @@ export class MapMarkerManager {
             if (eventType === 'selections-cleared') {
                 this.clearAllMarkers();
             }
+
+            if (eventType === 'selection-cleared') {
+                const clearedLayerId = data.layerId;
+                this._markers.forEach((markerData, id) => {
+                    if (this._starredMarkers.has(id)) return;
+                    markerData.features = markerData.features.filter(f => f.layerId !== clearedLayerId);
+                });
+                this._updateSelectionLayer();
+            }
         });
 
         this._map.on('movestart', () => {
