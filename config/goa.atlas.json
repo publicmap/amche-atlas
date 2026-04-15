@@ -1304,6 +1304,33 @@
     },
     {
       "tags": [
+        "3.Regulatory",
+        "mining"
+      ],
+      "title": "Mining lease auction blocks",
+      "description": "Mining lease auction blocks in Goa.",
+      "type": "geojson",
+      "id": "mining-lease-blocks",
+      "url": "https://gist.githubusercontent.com/planemad/0c1f34b223972881bd71f67dbdcf0be2/raw/701815ecba13b261f00e8adc81ed9bc4469d44a4/goa-mining-lease-auction-blocks.geojson",
+      "attribution": "RTI via <a href='https://gist.github.com/planemad/0c1f34b223972881bd71f67dbdcf0be2'>Goa Foundation</a>",
+      "initiallyChecked": false,
+      "style": {
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "fill-color": "brown",
+        "line-color": "brown",
+        "line-width": 2
+      },
+      "inspect": {
+        "id": "name",
+        "title": "Name",
+        "label": "Name"
+      }
+    },
+    {
+      "tags": [
         "landuse"
       ],
       "title": "Current Landuse Map (Panjim)",
