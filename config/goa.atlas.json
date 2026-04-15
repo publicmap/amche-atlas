@@ -355,8 +355,9 @@
           4
         ],
         "text-color": "white",
-        "text-padding": 5,
         "text-halo-color": "purple",
+        "text-halo-width": 2,
+        "text-padding": 5,
         "text-transform": "uppercase",
         "text-size": [
           "match",
@@ -391,7 +392,8 @@
           ]
         ],
         "fill-color": "rgba(255, 255, 255, 0.2)",
-        "line-color": "purple"
+        "line-color": "purple",
+        "line-width": 0.5
       },
       "inspect": {
         "title": "Local Body Name",
@@ -629,7 +631,7 @@
             "zoom"
           ],
           13,
-          30,
+          200,
           17,
           2
         ],
@@ -643,13 +645,13 @@
             "zoom"
           ],
           "",
-          14.5,
+          15,
           [
             "format",
             "Sy.No.\n",
             {
               "text-color": "white",
-              "font-scale": 1
+              "font-scale": 0.8
             },
             [
               "get",
@@ -657,10 +659,10 @@
             ],
             {
               "text-color": "white",
-              "font-scale": 1.25
+              "font-scale": 1
             }
           ],
-          15,
+          16.5,
           [
             "format",
             [
@@ -684,7 +686,7 @@
           ]
         ],
         "fill-color": "rgba(255, 255, 255, 0.2)",
-        "line-color": "#333",
+        "line-color": "#777",
         "line-width": 0.5
       },
       "initiallyChecked": true,
@@ -1166,7 +1168,7 @@
       "type": "vector",
       "id": "2019-czmp-tidal-hazard-line",
       "sourceLayer": "CZMP_2019_Goa_Hazard_Lines",
-      "minzoom": 0,
+      "minzoom": 12,
       "maxzoom": 14,
       "url": "https://www.indianopenmaps.com/not-so-open/coastal/regulation-lines/goa/{z}/{x}/{y}.pbf",
       "style": {
@@ -1177,7 +1179,7 @@
             "zoom"
           ],
           "",
-          12,
+          14,
           [
             "to-string",
             [
@@ -1217,10 +1219,10 @@
             "Class"
           ],
           "High Tide Line",
-          2,
+          1,
           "Low Tide Line",
-          2,
-          2
+          1,
+          0.5
         ],
         "line-offset": [
           "match",
@@ -1247,8 +1249,7 @@
           "Low Tide Line",
           1,
           3
-        ],
-        "line-blend-mode": "multiply"
+        ]
       },
       "inspect": {
         "id": "Class",
@@ -1277,14 +1278,14 @@
         "line-width": 1,
         "line-color": "#b3ff0f",
         "text-color": "darkgreen",
-        "text-padding": 20,
+        "text-padding": 50,
         "text-field": [
           "step",
           [
             "zoom"
           ],
           "",
-          12,
+          14,
           [
             "to-string",
             [
@@ -1943,6 +1944,39 @@
       "attribution": "Goa Foundation via RTI via <a href='https://mapwarper.net/maps/104836' target='_blank'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/104836/thumb/Scan_20260401_091357.png",
       "bbox": "73.3759215,14.6852803,74.4085958,15.9776146",
+      "initiallyChecked": false
+    },
+    {
+      "tags": [
+        "3.Regulatory"
+      ],
+      "title": "Portuguese Goa Map of Mining Concessions",
+      "description": "Carta das concessos mineira do distrito do Goa showing all the Portuguese era mining leases in Goa.<br> Obtained via RTI by Goa Foundation. See <a href='https://www.scribd.com/document/64058213/maps-goa'>Goa Foundation</a> for more details.",
+      "source": "",
+      "date": "",
+      "type": "tms",
+      "id": "mining-leases-map",
+      "url": "https://mapwarper.net/maps/tile/98680/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://mapwarper.net/maps/98680'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/98680/thumb/carta_mining.png",
+      "bbox": "73.6444309,14.9127963,74.3573385,15.8364441",
       "initiallyChecked": false
     },
     {

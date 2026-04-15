@@ -651,8 +651,7 @@
     },
     {
       "tags": [
-        "boundaries",
-        "basemap"
+        "boundaries"
       ],
       "title": "State Boundaries",
       "description": "LGD_States",
@@ -671,8 +670,7 @@
         ],
         "text-color": "black",
         "text-size": 15,
-        "line-color": "black",
-        "fill-color": "white"
+        "line-color": "black"
       },
       "inspect": {
         "id": "OBJECTID",

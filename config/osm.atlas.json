@@ -297,7 +297,7 @@
       "title": "Road Names",
       "description": "Road network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
-      "id": "roads",
+      "id": "road-names",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "street_labels",
       "maxzoom": 14,
@@ -322,7 +322,12 @@
         true
       ],
       "style": {
-        "line-opacity": 0.2
+        "line-opacity": 0.2,
+        "line-width": 2,
+        "text-field": [
+          "get",
+          "name"
+        ]
       },
       "inspect": {
         "id": "name",

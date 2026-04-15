@@ -237,7 +237,21 @@ export class SplashScreenManager {
      */
     async parseLayersParam(layersParam) {
         const layers = [];
-        const items = layersParam.split(',');
+        const items = [];
+        let depth = 0;
+        let current = '';
+
+        for (const char of layersParam) {
+            if (char === '{') depth++;
+            else if (char === '}') depth--;
+            if (char === ',' && depth === 0) {
+                items.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        if (current.trim()) items.push(current.trim());
 
         for (const item of items) {
             const trimmed = item.trim();
@@ -337,8 +351,9 @@ export class SplashScreenManager {
         if (this.elements.layersList) {
             this.elements.layersList.innerHTML = '';
 
-            if (this.state.layers.length > 0) {
-                this.state.layers.forEach(layer => {
+            const displayLayers = this.state.layers.filter(l => l.id !== 'selection');
+            if (displayLayers.length > 0) {
+                displayLayers.forEach(layer => {
                     let fullLayer = layer;
 
                     if (layer.id && window.layerRegistry) {

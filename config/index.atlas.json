@@ -93,6 +93,11 @@
         "text-field": [
           "get",
           "name"
+        ],
+        "text-anchor": "top",
+        "text-offset": [
+          0,
+          0.3
         ]
       },
       "inspect": {
