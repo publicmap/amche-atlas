@@ -212,10 +212,13 @@ export class MapInitializer {
         // 1. User manually selected an atlas
         // 2. Location source is 'atlas' (using atlas default location)
         // 3. Manual location selection was made
+        // 4. Atlas is explicitly specified in URL (avoids race condition where
+        //    window.loadingStartupState.manualAtlasSelection may not be set yet)
         const shouldSkipLocationDetection =
             window.loadingStartupState?.manualAtlasSelection ||
             window.loadingStartupState?.locationSource === 'atlas' ||
-            window.loadingStartupState?.manualLocationSelection;
+            window.loadingStartupState?.manualLocationSelection ||
+            !!URLUtils.getUrlParameter('atlas');
 
         if (choice === 'location' &&
             window.loadingStartupState?.userLocation &&

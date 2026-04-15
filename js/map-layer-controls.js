@@ -74,6 +74,7 @@ export class MapLayerControl {
         this._filterActiveMaps = false;
         this._filterMapsInView = false;
         this._mapMoveListenerAdded = false;
+        this._initializingLayers = false;
 
         // Load default styles asynchronously
         this._loadDefaultStyles();
@@ -265,6 +266,7 @@ export class MapLayerControl {
      * We need to add them to the map in rendering order (reversed, basemaps first)
      */
     async _initializeAllLayers() {
+        this._initializingLayers = true;
         // Collect initially checked layers with their indices
         const initiallyCheckedLayers = [];
         this._state.groups.forEach((group, groupIndex) => {
@@ -307,6 +309,7 @@ export class MapLayerControl {
             }
         });
 
+        this._initializingLayers = false;
         window.layersInitialized = true;
         window.dispatchEvent(new CustomEvent('layersInitialized'));
     }

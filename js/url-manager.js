@@ -890,6 +890,7 @@ export class URLManager {
      * Update URL when layers change
      */
     onLayersChanged() {
+        if (this.mapLayerControl?._initializingLayers) return;
         this.updateURL({ updateLayers: true });
     }
 
