@@ -52,7 +52,6 @@ export class MapSearchControl {
         this.searchBox.setAttribute('proximity', this._getMapProximity());
         this.searchBox.setAttribute('types', this._getSearchTypes());
         this.searchBox.setAttribute('language', this.options.language);
-        this.searchBox.setAttribute('types', this.options.types);
         this.searchBox.setAttribute('placeholder', 'Search place name or location..');
         this.searchBox.addEventListener('suggest', this.handleSuggest.bind(this));
         this.searchBox.addEventListener('retrieve', this.handleRetrieve.bind(this));
@@ -624,10 +623,10 @@ export class MapSearchControl {
      * Handle map moveend events to refresh search results for current viewport
      */
     handleMapMoveEnd() {
-        this.searchBox.setAttribute('proximity', this._getMapProximity());
-        this.searchBox.setAttribute('types', this._getSearchTypes());
         // Only refresh if we have an active search query that's not a coordinate
         if (this.hasActiveSearch && this.currentQuery && !this.isCoordinateInput && this.currentQuery.length > 0) {
+            this.searchBox.setAttribute('proximity', this._getMapProximity());
+            this.searchBox.setAttribute('types', this._getSearchTypes());
 
             // Re-query local suggestions with the new viewport
             const newLocalSuggestions = this.queryLocalCadastralSuggestions(this.currentQuery);
