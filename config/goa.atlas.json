@@ -391,9 +391,63 @@
             "Open Sans Regular"
           ]
         ],
-        "fill-color": "rgba(255, 255, 255, 0.2)",
+        "fill-color": "rgba(0, 0, 0, 0.1)",
         "line-color": "purple",
-        "line-width": 0.5
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "boolean",
+                [
+                  "feature-state",
+                  "hover"
+                ],
+                false
+              ],
+              2,
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            4,
+            1
+          ],
+          18,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            6,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            8,
+            2
+          ]
+        ]
       },
       "inspect": {
         "title": "Local Body Name",
@@ -1222,7 +1276,7 @@
           1,
           "Low Tide Line",
           1,
-          0.5
+          2
         ],
         "line-offset": [
           "match",
