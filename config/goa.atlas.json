@@ -752,7 +752,61 @@
         ],
         "fill-color": "rgba(255, 255, 255, 0.2)",
         "line-color": "#777",
-        "line-width": 0.5
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "boolean",
+                [
+                  "feature-state",
+                  "hover"
+                ],
+                false
+              ],
+              2,
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            2,
+            0.5
+          ],
+          18,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            4,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            4,
+            1
+          ]
+        ]
       },
       "initiallyChecked": true,
       "inspect": {
@@ -760,11 +814,13 @@
         "title": "Survey Number",
         "label": "plot",
         "fields": [
+          "occupant_name",
           "villagenam",
           "talname",
           "shape_area"
         ],
         "fieldTitles": [
+          "Occupant",
           "Village",
           "Taluk",
           "Shape Area (sqm)"
