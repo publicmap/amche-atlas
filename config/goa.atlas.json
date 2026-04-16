@@ -674,17 +674,15 @@
     },
     {
       "tags": [
-        "1",
-        "Boundaries",
-        "Survey"
+        "1.Boundaries"
       ],
-      "title": "Survey Plot Boundaries",
-      "description": "Survey and plot subdivision boundaries from the <a href='Directorate of Settlement & Land Records'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online</a> and <a href='https://dslr.goa.gov.in/f114new.aspx'>Directorate of Settlement & Land Records (Form 1 & 14)</a>. Ownership history can be checked in the <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online Property Register</a>",
+      "title": "Survey Plot Boundaries (March 2026)",
+      "description": "Survey and plot subdivision boundaries from the <a href='https://dslr.goa.gov.in/'>Department of Land Records</a>. The map is provided for information purpose only. An official copy can be obtained from <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online</a> and <a href='https://dslr.goa.gov.in/f114new.aspx'>Directorate of Settlement & Land Records (Form 1 & 14)</a>. Ownership history can be checked in the <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31'>Goa Online Property Register</a>",
       "headerImage": "assets/map-layers/goa/map-layer-survey.png",
       "type": "vector",
       "id": "plots",
-      "url": "https://indianopenmaps.com/not-so-open/cadastrals/goa/onemapgoagis/{z}/{x}/{y}.pbf",
-      "sourceLayer": "Onemapgoa_GA_Cadastrals",
+      "url": "https://indianopenmaps.com/not-so-open/cadastrals/goa/mar2026/onemapgoagis/{z}/{x}/{y}.pbf",
+      "sourceLayer": "Onemapgoa_GA_Cadastrals_Mar2026",
       "maxzoom": 15,
       "minzoom": 13,
       "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>, <a href='https://onemapgoagis.goa.gov.in/map/'>OneMapGoa GIS</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
@@ -698,7 +696,7 @@
             "zoom"
           ],
           13,
-          30,
+          200,
           17,
           2
         ],
@@ -712,13 +710,13 @@
             "zoom"
           ],
           "",
-          13,
+          15,
           [
             "format",
             "Sy.No.\n",
             {
               "text-color": "white",
-              "font-scale": 1
+              "font-scale": 0.8
             },
             [
               "get",
@@ -726,10 +724,10 @@
             ],
             {
               "text-color": "white",
-              "font-scale": 1.25
+              "font-scale": 1
             }
           ],
-          15,
+          16.5,
           [
             "format",
             [
@@ -752,170 +750,9 @@
             }
           ]
         ],
-        "text-color": "white",
-        "text-halo-color": "black",
-        "text-halo-width": [
-          "case",
-          [
-            "boolean",
-            [
-              "feature-state",
-              "selected"
-            ],
-            false
-          ],
-          2,
-          1
-        ],
-        "text-opacity": [
-          "case",
-          [
-            "boolean",
-            [
-              "feature-state",
-              "selected"
-            ],
-            false
-          ],
-          1,
-          [
-            "boolean",
-            [
-              "feature-state",
-              "hover"
-            ],
-            false
-          ],
-          1,
-          0.6
-        ],
-        "text-size": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          13,
-          6,
-          16,
-          10,
-          18,
-          14
-        ],
-        "fill-color": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          15,
-          "rgba(0, 0, 0, 0.05)",
-          18,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            "rgba(0, 0, 0, 0)",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            "rgba(0, 0, 0, 0.3)",
-            "rgba(0, 0, 0, 0.4)"
-          ]
-        ],
-        "line-opacity": [
-          "case",
-          [
-            "boolean",
-            [
-              "feature-state",
-              "selected"
-            ],
-            false
-          ],
-          1,
-          [
-            "boolean",
-            [
-              "feature-state",
-              "hover"
-            ],
-            false
-          ],
-          1,
-          0.4
-        ],
-        "line-color": "#eee",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          14,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            2,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            1,
-            0
-          ],
-          18,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            2,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            1.2,
-            1
-          ]
-        ]
+        "fill-color": "rgba(255, 255, 255, 0.2)",
+        "line-color": "#777",
+        "line-width": 0.5
       },
       "initiallyChecked": true,
       "inspect": {
