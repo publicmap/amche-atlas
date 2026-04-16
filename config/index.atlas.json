@@ -112,7 +112,7 @@
     },
     {
       "id": "india-state",
-      "initiallyChecked": true
+      "initiallyChecked": false
     },
     {
       "id": "india-2023-open-buildings"
