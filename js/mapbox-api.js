@@ -1379,11 +1379,41 @@ export class MapboxAPI {
 
             this._map.addSource(sourceId, sourceConfig);
             await this._addGeoJSONLayers(groupId, config, sourceId, visible);
+
+            if (config.refresh && config.url) {
+                this._setupGeoJSONRefresh(groupId, config);
+            }
         } else {
             this._updateGeoJSONLayerVisibility(groupId, config, visible);
         }
 
         return true;
+    }
+
+    _setupGeoJSONRefresh(groupId, config) {
+        if (this._refreshTimers.has(groupId)) {
+            clearInterval(this._refreshTimers.get(groupId));
+        }
+
+        const timer = setInterval(async () => {
+            const sourceId = `geojson-${groupId}`;
+            if (!this._map.getSource(sourceId)) {
+                clearInterval(timer);
+                this._refreshTimers.delete(groupId);
+                return;
+            }
+
+            try {
+                const response = await fetch(config.url);
+                const data = await response.json();
+                const geojson = this._processGeoJSONData(data);
+                this._map.getSource(sourceId).setData(geojson);
+            } catch (error) {
+                console.error(`Error refreshing GeoJSON layer ${groupId}:`, error);
+            }
+        }, config.refresh);
+
+        this._refreshTimers.set(groupId, timer);
     }
 
     async _createSegregatedGeoJSONLayer(groupId, config, visible) {
@@ -1736,11 +1766,23 @@ export class MapboxAPI {
             }
         });
 
+        if (visible && config.refresh && config.url && !this._refreshTimers.has(groupId)) {
+            this._setupGeoJSONRefresh(groupId, config);
+        } else if (!visible && this._refreshTimers.has(groupId)) {
+            clearInterval(this._refreshTimers.get(groupId));
+            this._refreshTimers.delete(groupId);
+        }
+
         return true;
     }
 
     _removeGeoJSONLayer(groupId, config) {
         this._stopBlinking(groupId, config);
+
+        if (this._refreshTimers.has(groupId)) {
+            clearInterval(this._refreshTimers.get(groupId));
+            this._refreshTimers.delete(groupId);
+        }
 
         if (config.clusterSeparateBy) {
             const cache = this._layerCache.get(groupId);
@@ -1879,6 +1921,29 @@ export class MapboxAPI {
         source.setData(processedData);
 
         return true;
+    }
+
+    async refreshLayerNow(groupId, config) {
+        if (!config?.url) return false;
+        try {
+            if (config.type === 'geojson') {
+                const sourceId = `geojson-${groupId}`;
+                if (!this._map.getSource(sourceId)) return false;
+                const response = await fetch(config.url);
+                const data = await response.json();
+                this._map.getSource(sourceId).setData(this._processGeoJSONData(data));
+            } else if (config.type === 'csv') {
+                const sourceId = `csv-${groupId}`;
+                if (!this._map.getSource(sourceId)) return false;
+                const response = await fetch(config.url);
+                const csvText = await response.text();
+                this._map.getSource(sourceId).setData(this._processCSVData(csvText, config.csvParser));
+            }
+            return true;
+        } catch (error) {
+            console.error(`Error refreshing layer ${groupId}:`, error);
+            return false;
+        }
     }
 
     // CSV layer methods

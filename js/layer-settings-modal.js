@@ -8,6 +8,7 @@ export class LayerSettingsModal {
         this.mapLayerControl = mapLayerControl;
         this._initialized = false;
         this._originalConfig = null;
+        this._currentGroup = null;
 
         this._initializeModal();
     }
@@ -16,6 +17,12 @@ export class LayerSettingsModal {
      * Initialize the modal HTML and event listeners
      */
     _initializeModal() {
+        if (!document.getElementById('layer-live-pulse-style')) {
+            const style = document.createElement('style');
+            style.id = 'layer-live-pulse-style';
+            style.textContent = `@keyframes layer-live-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }`;
+            document.head.appendChild(style);
+        }
         if (!document.getElementById('layer-settings-modal')) {
             const modalHTML = `
                 <sl-dialog id="layer-settings-modal" label="" class="layer-settings-dialog">
@@ -29,6 +36,7 @@ export class LayerSettingsModal {
                             <div class="col-1">
                                 <div class="description mb-4"></div>
                                 <div class="attribution mb-4"></div>
+                                <div class="live-section mb-4"></div>
                                 <div class="data-source mb-4">
                                     <h3 class="text-sm font-bold mb-2">Data Source</h3>
                                     <div class="source-details"></div>
@@ -107,6 +115,8 @@ export class LayerSettingsModal {
             descriptionEl.style.display = 'none';
         }
 
+        this._currentGroup = group;
+
         // Update attribution
         const attributionEl = content.querySelector('.attribution');
         if (group.attribution) {
@@ -117,6 +127,35 @@ export class LayerSettingsModal {
             attributionEl.style.display = '';
         } else {
             attributionEl.style.display = 'none';
+        }
+
+        // Update live section
+        const liveSection = content.querySelector('.live-section');
+        if (group.refresh) {
+            const ms = group.refresh;
+            const intervalText = ms >= 60000 ? `${Math.round(ms / 60000)} min` : `${Math.round(ms / 1000)} sec`;
+            liveSection.innerHTML = `
+                <h3 class="text-sm font-bold mb-2 flex items-center gap-2">
+                    <span style="
+                        display: inline-block;
+                        width: 8px; height: 8px;
+                        background: #22c55e;
+                        border-radius: 50%;
+                        animation: layer-live-pulse 1.5s ease-in-out infinite;
+                        box-shadow: 0 0 4px #22c55e;
+                    "></span>
+                    Live Data
+                </h3>
+                <div class="text-sm text-gray-600 mb-2">Auto-refreshes every ${intervalText}</div>
+                <sl-button size="small" class="refresh-now-btn" variant="success">
+                    <sl-icon slot="prefix" name="arrow-clockwise"></sl-icon>
+                    Refresh Now
+                </sl-button>
+            `;
+            liveSection.style.display = '';
+            liveSection.querySelector('.refresh-now-btn').addEventListener('click', () => this._refreshLayerNow());
+        } else {
+            liveSection.style.display = 'none';
         }
 
         // Update data source section and TileJSON
@@ -440,6 +479,18 @@ export class LayerSettingsModal {
             </div>`;
 
         return styleHtml;
+    }
+
+    async _refreshLayerNow() {
+        const group = this._currentGroup;
+        if (!group?.url) return;
+        const btn = document.querySelector('#layer-settings-modal .refresh-now-btn');
+        if (btn) { btn.disabled = true; btn.loading = true; }
+        try {
+            await this.mapLayerControl._mapboxAPI?.refreshLayerNow(group.id, group);
+        } finally {
+            if (btn) { btn.disabled = false; btn.loading = false; }
+        }
     }
 
     /**
