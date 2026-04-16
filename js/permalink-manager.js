@@ -29,12 +29,15 @@ export class PermalinkManager {
         const permalinkUrl = data.permalinks[permalinkId].url;
         const originalHash = window.location.hash;
 
-        if (originalHash) {
-            const url = new URL(permalinkUrl);
-            const newUrl = `${url.origin}${url.pathname}${url.search}${originalHash}`;
-            window.location.replace(newUrl);
-        } else {
-            window.location.replace(permalinkUrl);
+        const extraParams = new URLSearchParams(urlParams);
+        extraParams.delete('permalink');
+        extraParams.delete('p');
+
+        const resolvedUrl = new URL(permalinkUrl);
+        for (const [key, value] of extraParams) {
+            resolvedUrl.searchParams.set(key, value);
         }
+
+        window.location.replace(`${resolvedUrl.origin}${resolvedUrl.pathname}${resolvedUrl.search}${originalHash}`);
     }
 }
