@@ -347,7 +347,7 @@ export const LAYER_SPECIFICATIONS = {
         description: 'Vector features in GeoJSON format',
         required: ['id', 'type'],
         requiredOneOf: ['url', 'data'],
-        optional: ['title', 'description', 'headerImage', 'attribution', 'initiallyChecked', 'style', 'filter', 'inspect', 'opacity', 'clustered', 'clusterMaxZoom', 'clusterRadius', 'clusterSeparateBy', 'clusterStyles'],
+        optional: ['title', 'description', 'headerImage', 'attribution', 'initiallyChecked', 'style', 'filter', 'inspect', 'opacity', 'clustered', 'clusterMaxZoom', 'clusterRadius', 'clusterSeparateBy', 'clusterStyles', 'refresh'],
         properties: {
             id: { type: 'string', description: 'Unique layer identifier' },
             type: { type: 'string', value: 'geojson', description: 'Layer type identifier' },
@@ -366,6 +366,7 @@ export const LAYER_SPECIFICATIONS = {
             clusterRadius: { type: 'number', default: 50, description: 'Cluster radius in pixels' },
             clusterSeparateBy: { type: 'string', description: 'Property name to create separate clusters by category' },
             clusterStyles: { type: 'object', description: 'Color mapping for clustered categories' },
+            refresh: { type: 'number', description: 'Auto-refresh interval in milliseconds' },
             inspect: {
                 type: 'object',
                 description: 'Feature inspection configuration',

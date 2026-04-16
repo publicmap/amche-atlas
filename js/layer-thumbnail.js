@@ -136,11 +136,53 @@ export class LayerThumbnail {
         }
         container.appendChild(actionIcon);
 
+        let liveStrobe = null;
+        let liveBadge = null;
+        if (layer.refresh) {
+            LayerThumbnail._ensureLiveStyles();
+
+            liveStrobe = document.createElement('div');
+            liveStrobe.style.cssText = `
+                position: absolute;
+                bottom: 4px;
+                left: 4px;
+                width: 8px;
+                height: 8px;
+                background: #22c55e;
+                border-radius: 50%;
+                box-shadow: 0 0 4px #22c55e;
+                animation: layer-live-pulse 1.5s ease-in-out infinite;
+                transition: opacity 0.15s ease;
+                pointer-events: none;
+            `;
+            container.appendChild(liveStrobe);
+
+            liveBadge = document.createElement('div');
+            liveBadge.style.cssText = `
+                position: absolute;
+                bottom: 4px;
+                left: 4px;
+                padding: 1px 5px;
+                border-radius: 3px;
+                font-size: 7px;
+                font-weight: 700;
+                letter-spacing: 0.5px;
+                color: white;
+                background: #16a34a;
+                opacity: 0;
+                transition: opacity 0.15s ease;
+                pointer-events: none;
+            `;
+            liveBadge.textContent = 'LIVE';
+            container.appendChild(liveBadge);
+        }
+
         container.style.cursor = 'pointer';
 
         container.addEventListener('mouseenter', () => {
             typeLabel.style.opacity = '0.9';
             actionIcon.style.opacity = '0.9';
+            if (liveStrobe) { liveStrobe.style.opacity = '0'; liveBadge.style.opacity = '0.95'; }
             if (!isInView) {
                 container.style.opacity = '0.8';
                 container.style.transform = 'scale(1.05)';
@@ -149,6 +191,7 @@ export class LayerThumbnail {
         container.addEventListener('mouseleave', () => {
             typeLabel.style.opacity = '0';
             actionIcon.style.opacity = '0';
+            if (liveStrobe) { liveStrobe.style.opacity = '1'; liveBadge.style.opacity = '0'; }
             if (!isInView) {
                 container.style.opacity = '0.5';
                 container.style.transform = 'scale(1)';
@@ -709,6 +752,14 @@ export class LayerThumbnail {
             'style': '🎨'
         };
         return icons[type] || '🗺️';
+    }
+
+    static _ensureLiveStyles() {
+        if (document.getElementById('layer-thumbnail-live-style')) return;
+        const style = document.createElement('style');
+        style.id = 'layer-thumbnail-live-style';
+        style.textContent = `@keyframes layer-live-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.75)} }`;
+        document.head.appendChild(style);
     }
 
     /**
