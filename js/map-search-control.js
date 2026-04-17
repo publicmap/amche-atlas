@@ -950,13 +950,13 @@ export class MapSearchControl {
 
                     this.featureStateManager.selectedFeatureId = feature.properties._featureId;
                     this.featureStateManager.selectedSourceId = 'vector-goa-plots';
-                    this.featureStateManager.selectedSourceLayer = 'Onemapgoa_GA_Cadastrals';
+                    this.featureStateManager.selectedSourceLayer = 'Onemapgoa_GA_Cadastrals_Mar2026';
 
                     try {
                         this.map.setFeatureState(
                             {
                                 source: 'vector-goa-plots',
-                                sourceLayer: 'Onemapgoa_GA_Cadastrals',
+                                sourceLayer: 'Onemapgoa_GA_Cadastrals_Mar2026',
                                 id: feature.properties._featureId
                             },
                             { selected: true }
@@ -1009,7 +1009,7 @@ export class MapSearchControl {
             const bounds = this.map.getBounds();
 
             const features = this.map.querySourceFeatures('vector-goa-plots', {
-                sourceLayer: 'Onemapgoa_GA_Cadastrals',
+                sourceLayer: 'Onemapgoa_GA_Cadastrals_Mar2026',
                 filter: ['has', 'plot']
             });
 
