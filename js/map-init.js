@@ -318,7 +318,15 @@ export class MapInitializer {
         // Load the configuration file (only if we didn't parse JSON directly)
         if (!config) {
             const configResponse = await fetch(configPath);
-            config = await configResponse.json();
+            if (!configResponse.ok) {
+                console.warn(`[MapInit] Atlas not found: ${configPath} (${configResponse.status}), falling back to index`);
+                configPath = window.amche.DEFAULT_ATLAS;
+                atlasId = 'index';
+                const fallbackResponse = await fetch(configPath);
+                config = await fallbackResponse.json();
+            } else {
+                config = await configResponse.json();
+            }
         }
 
         // For non-index atlases, ensure they inherit the map style from index.atlas.json if not specified

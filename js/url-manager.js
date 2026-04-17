@@ -911,9 +911,10 @@ export class URLManager {
         const bearingParam = urlParams.get('bearing');
         const pitchParam = urlParams.get('pitch');
         const selectedParam = urlParams.get('selected');
+        const hasLocationClick = urlParams.has('selected') && selectedParam === '';
         const zoomToParam = urlParams.get('zoomTo');
 
-        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !zoomToParam) {
+        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !hasLocationClick && !zoomToParam) {
             return false;
         }
 
@@ -1028,7 +1029,10 @@ export class URLManager {
             }
 
             // Handle selected features parameter
-            if (selectedParam && this.stateManager) {
+            if (hasLocationClick && window.location.hash) {
+                applied = true;
+                await this.applyLocationClickFromURL();
+            } else if (selectedParam && this.stateManager) {
                 applied = true;
 
                 // First, try to restore markers from selection layer GeoJSON if available
@@ -1179,6 +1183,23 @@ export class URLManager {
                 fromURL: true
             });
         }
+    }
+
+    async applyLocationClickFromURL() {
+        const hash = window.location.hash;
+        if (!hash) return;
+
+        const parts = hash.replace('#', '').split('/');
+        if (parts.length < 3) return;
+
+        const lat = parseFloat(parts[1]);
+        const lng = parseFloat(parts[2]);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        await this.waitForMapIdle(8000);
+
+        const point = this.map.project([lng, lat]);
+        this.map.fire('click', { lngLat: { lng, lat }, point });
     }
 
     async waitForMapIdle(timeout = 3000) {
