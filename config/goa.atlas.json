@@ -780,8 +780,16 @@
       },
       "inspect": {
         "id": "Owners",
-        "title": "Owners",
-        "label": "Owners"
+        "title": "Section 39A Applicant",
+        "label": "Name of Applicant",
+        "fields": [
+          "Old Zone (Primary)",
+          "Old Zone -2 (eco zone)",
+          "New Zone",
+          "TCP Comments",
+          "Notes from Online Inspection",
+          "Notes from TCP File Inspection"
+        ]
       }
     },
     {
