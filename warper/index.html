@@ -419,10 +419,24 @@
         
         // Image transformation for converting pixel coords to geographic coords
         let imageTransform = null;
+
+        // Current warp map info, used by transformRequest
+        let warpMapId = null;
+        let warpBaseUrl = null;
+
+        // Convert Mapbox tile z/x/y to geographic bbox (WGS84 degrees)
+        function tileToGeoBbox(z, x, y) {
+            const n = Math.pow(2, z);
+            const west = x / n * 360 - 180;
+            const east = (x + 1) / n * 360 - 180;
+            const north = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
+            const south = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y + 1) / n))) * 180 / Math.PI;
+            return { west, east, north, south };
+        }
         
         // Initialize maps
         function initializeMaps() {
-            // Initialize source map (displays unwarped image via Mapbox GL image source)
+            // Initialize source map (displays unwarped image via tiled WMS)
             sourceMap = new mapboxgl.Map({
                 container: 'source-map',
                 style: {
@@ -432,7 +446,37 @@
                     glyphs: 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf'
                 },
                 center: [0, 0],
-                zoom: 1
+                zoom: 1,
+                transformRequest: (url) => {
+                    // Intercept warp-tile proxy URLs and redirect to WMS with pixel bbox
+                    const match = url.match(/\/warp-tile\/(\d+)\/(\d+)\/(\d+)/);
+                    if (match && warpMapId && warpBaseUrl && imageTransform) {
+                        const [, z, x, y] = match.map(Number);
+                        const geo = tileToGeoBbox(z, x, y);
+                        const { pixelToFakeGeo: s, width: w, height: h } = imageTransform;
+                        const px0 = geo.west / s;
+                        const py0 = h - geo.north / s;   // pixel row: top edge of tile
+                        const px1 = geo.east / s;
+                        const py1 = h - geo.south / s;   // pixel row: bottom edge of tile
+                        // Transparent PNG for tiles completely outside image bounds
+                        if (px1 <= 0 || px0 >= w || py1 <= 0 || py0 >= h) {
+                            console.log(`[warp] SKIP ${z}/${x}/${y} px(${px0.toFixed(0)},${py0.toFixed(0)},${px1.toFixed(0)},${py1.toFixed(0)})`);
+                            return { url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==' };
+                        }
+                        // WMS BBOX uses mapwarper's Y-up image coordinate system.
+                        // imageY = lat/s (not h - lat/s). WMS places maxY at the top of the
+                        // returned image, so maxY must be the north (top) image coordinate.
+                        const bx0 = px0.toFixed(3);
+                        const by0 = (geo.south / s).toFixed(3);  // minY = south image coord
+                        const bx1 = px1.toFixed(3);
+                        const by1 = (geo.north / s).toFixed(3);  // maxY = north image coord
+                        const edge = (px0 < 0 || py0 < 0 || px1 > w || py1 > h) ? ' EDGE' : '';
+                        console.log(`[warp]${edge} ${z}/${x}/${y} geo(W${geo.west.toFixed(3)},S${geo.south.toFixed(3)},E${geo.east.toFixed(3)},N${geo.north.toFixed(3)}) px(${px0.toFixed(0)},${py0.toFixed(0)},${px1.toFixed(0)},${py1.toFixed(0)}) bbox(${bx0},${by0},${bx1},${by1})`);
+                        const wmsUrl = `${warpBaseUrl}/maps/wms/${warpMapId}?FORMAT=image/png&STATUS=unwarped&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=&SRS=EPSG:4326&BBOX=${bx0},${by0},${bx1},${by1}&WIDTH=256&HEIGHT=256`;
+                        return { url: wmsUrl };
+                    }
+                    return { url };
+                }
             });
             
             // Initialize reference map
@@ -1056,13 +1100,6 @@
 
                 console.log(`Image dimensions: ${width}x${height}`);
 
-                // Request full image via WMS using pixel coordinates, capped at 2048px
-                const maxPx = 2048;
-                const scale = Math.min(1, maxPx / Math.max(width, height));
-                const wmsW = Math.round(width * scale);
-                const wmsH = Math.round(height * scale);
-                const imageUrl = `${baseUrl}/maps/wms/${mapId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image/png&STATUS=unwarped&SRS=EPSG:4326&BBOX=0,0,${width},${height}&WIDTH=${wmsW}&HEIGHT=${wmsH}`;
-                console.log('Image URL:', imageUrl);
 
                 sourceMap.setStyle({
                     version: 8,
@@ -1097,16 +1134,19 @@
                 };
                 console.log('Image transform stored:', imageTransform);
 
-                // Use Mapbox GL image source — single image, no WMS tiling needed
+                // Set globals for transformRequest to build WMS URLs from z/x/y tiles
+                warpMapId = mapId;
+                warpBaseUrl = baseUrl;
+
+                // Use proxy tile URL — transformRequest converts z/x/y → pixel bbox → WMS
+                // minzoom=8: z<8 tiles are too large and cause cross-zoom rendering artifacts
                 sourceMap.addSource('image-source', {
-                    type: 'image',
-                    url: imageUrl,
-                    coordinates: [
-                        [imageTransform.bounds.west, imageTransform.bounds.north],
-                        [imageTransform.bounds.east, imageTransform.bounds.north],
-                        [imageTransform.bounds.east, imageTransform.bounds.south],
-                        [imageTransform.bounds.west, imageTransform.bounds.south]
-                    ]
+                    type: 'raster',
+                    tiles: ['https://localhost/warp-tile/{z}/{x}/{y}'],
+                    tileSize: 256,
+                    minzoom: 8,
+                    maxzoom: 14,
+                    bounds: [imageTransform.bounds.west, imageTransform.bounds.south, imageTransform.bounds.east, imageTransform.bounds.north]
                 });
 
                 sourceMap.addLayer({
