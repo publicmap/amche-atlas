@@ -397,13 +397,18 @@ export class URLManager {
             return; // Prevent circular updates
         }
 
-        // Debounce URL updates to avoid too many history entries
+        // Merge with any pending options so explicit nulls (e.g. export: null) aren't
+        // lost when an unrelated update (e.g. updateLayers: true) arrives before the timer fires
+        this._pendingURLOptions = { ...this._pendingURLOptions, ...options };
+
         if (this.pendingURLUpdate) {
             clearTimeout(this.pendingURLUpdate);
         }
 
+        const mergedOptions = this._pendingURLOptions;
         this.pendingURLUpdate = setTimeout(() => {
-            this._performURLUpdate(options);
+            this._pendingURLOptions = {};
+            this._performURLUpdate(mergedOptions);
         }, 300);
     }
 
