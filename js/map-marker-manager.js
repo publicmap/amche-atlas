@@ -1298,6 +1298,11 @@ export class MapMarkerManager {
                         const atlasName = details.dataset.atlas;
                         const handlerName = details.dataset.handler;
                         const layerConfig = this._stateManager.getLayerConfig(layerId);
+                        let feature;
+                        try {
+                            const parsedFeature = JSON.parse(decodeURIComponent(details.dataset.featureData));
+                            feature = { feature: parsedFeature };
+                        } catch (e) {}
 
                         if (feature && atlasName && handlerName) {
                             customContainer.innerHTML = '<div style="color: #94a3b8; font-size: 10px; padding: 4px;">Loading...</div>';
