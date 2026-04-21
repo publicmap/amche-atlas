@@ -1594,37 +1594,8 @@
 
                     const srcEl = marker.getElement();
 
-                    srcEl.addEventListener('mousedown', (e) => {
-                        e.stopPropagation();
-                        activeLongPressTriggered = false;
-                        clearTimeout(activeLongPressTimer);
-                        activeLongPressTimer = setTimeout(() => {
-                            activeLongPressTriggered = true;
-                            if (index !== selectedPointIndex) {
-                                selectedPointIndex = index;
-                                switchToMoveMode();
-                            }
-                            saveCameraPositionsAndPanToMarker(index);
-                            updateMarkers();
-                        }, 2000);
-                    });
-
-                    srcEl.addEventListener('mouseup', () => {
-                        clearTimeout(activeLongPressTimer);
-                        activeLongPressTimer = null;
-                    });
-
-                    srcEl.addEventListener('mouseleave', () => {
-                        clearTimeout(activeLongPressTimer);
-                        activeLongPressTimer = null;
-                    });
-
                     srcEl.onclick = (e) => {
                         e.stopPropagation();
-                        if (activeLongPressTriggered) {
-                            activeLongPressTriggered = false;
-                            return;
-                        }
                         if (index === selectedPointIndex) {
                             deselectMarkerAndSwitchToPan();
                         } else {
@@ -1634,12 +1605,19 @@
                         updateMarkers();
                     };
 
+                    srcEl.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        if (savedCameraPositions.sourceMap) {
+                            restoreSavedCameraPositions();
+                        } else {
+                            saveCameraPositionsAndPanToMarker(index);
+                        }
+                    });
+
                     // Add drag event handlers for selected markers
                     if (index === selectedPointIndex) {
                         marker.on('dragstart', () => {
                             saveMarkerPositionToHistory(index);
-                            clearTimeout(activeLongPressTimer);
-                            activeLongPressTimer = null;
                         });
 
                         marker.on('dragend', () => {
@@ -1673,37 +1651,8 @@
 
                     const refEl = marker.getElement();
 
-                    refEl.addEventListener('mousedown', (e) => {
-                        e.stopPropagation();
-                        activeLongPressTriggered = false;
-                        clearTimeout(activeLongPressTimer);
-                        activeLongPressTimer = setTimeout(() => {
-                            activeLongPressTriggered = true;
-                            if (index !== selectedPointIndex) {
-                                selectedPointIndex = index;
-                                switchToMoveMode();
-                            }
-                            saveCameraPositionsAndPanToMarker(index);
-                            updateMarkers();
-                        }, 2000);
-                    });
-
-                    refEl.addEventListener('mouseup', () => {
-                        clearTimeout(activeLongPressTimer);
-                        activeLongPressTimer = null;
-                    });
-
-                    refEl.addEventListener('mouseleave', () => {
-                        clearTimeout(activeLongPressTimer);
-                        activeLongPressTimer = null;
-                    });
-
                     refEl.onclick = (e) => {
                         e.stopPropagation();
-                        if (activeLongPressTriggered) {
-                            activeLongPressTriggered = false;
-                            return;
-                        }
                         if (index === selectedPointIndex) {
                             deselectMarkerAndSwitchToPan();
                         } else {
@@ -1713,12 +1662,19 @@
                         updateMarkers();
                     };
 
+                    refEl.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        if (savedCameraPositions.referenceMap) {
+                            restoreSavedCameraPositions();
+                        } else {
+                            saveCameraPositionsAndPanToMarker(index);
+                        }
+                    });
+
                     // Add drag event handlers for selected markers
                     if (index === selectedPointIndex) {
                         marker.on('dragstart', () => {
                             saveMarkerPositionToHistory(index);
-                            clearTimeout(activeLongPressTimer);
-                            activeLongPressTimer = null;
                         });
 
                         marker.on('dragend', () => {
