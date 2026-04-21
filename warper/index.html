@@ -1,67 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapbox GL Georeferencer</title>
-    
+
     <!-- Mapbox GL JS -->
     <script src='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js'></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css' rel='stylesheet' />
-    
+
     <!-- Mapbox Geocoder -->
-    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
-    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
-    
+    <script
+        src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+    <link rel="stylesheet"
+        href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css"
+        type="text/css">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- DataTables -->
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/searchbuilder/1.6.0/css/searchBuilder.dataTables.min.css">
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/colreorder/1.7.0/css/colReorder.dataTables.min.css">
-    
+    <link rel="stylesheet" type="text/css"
+        href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <link rel="stylesheet" type="text/css"
+        href="https://cdn.datatables.net/searchbuilder/1.6.0/css/searchBuilder.dataTables.min.css">
+    <link rel="stylesheet" type="text/css"
+        href="https://cdn.datatables.net/colreorder/1.7.0/css/colReorder.dataTables.min.css">
+
     <!-- jQuery (required for DataTables) -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    
+
     <!-- DataTables JS -->
     <script type="text/javascript" src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
     <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"></script>
-    <script type="text/javascript" src="https://cdn.datatables.net/searchbuilder/1.6.0/js/dataTables.searchBuilder.min.js"></script>
-    <script type="text/javascript" src="https://cdn.datatables.net/colreorder/1.7.0/js/dataTables.colReorder.min.js"></script>
-    
+    <script type="text/javascript"
+        src="https://cdn.datatables.net/searchbuilder/1.6.0/js/dataTables.searchBuilder.min.js"></script>
+    <script type="text/javascript"
+        src="https://cdn.datatables.net/colreorder/1.7.0/js/dataTables.colReorder.min.js"></script>
+
     <!-- Custom DataTable Plugin -->
     <script src="dataTable.js"></script>
-    
+
     <!-- Navbar Component -->
     <script src="./navbar.js"></script>
-    
+
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: Arial, sans-serif;
             height: 100vh;
             display: flex;
             flex-direction: column;
         }
-        
+
         /* Ensure DataTable modal is above everything */
         #warper-datatable-modal {
             z-index: 99999 !important;
         }
-        
+
         /* Style for DataTable */
         .dataTables_wrapper {
             font-size: 14px;
         }
-        
+
         .dataTables_filter input {
             border: 1px solid #ddd;
             border-radius: 4px;
@@ -69,40 +78,42 @@
             font-size: 14px;
             width: 300px;
         }
-        
+
         .dataTables_filter label {
             font-weight: bold;
             margin-right: 10px;
         }
-        
+
         /* Action button styles */
-        .load-map-btn, .view-map-btn {
+        .load-map-btn,
+        .view-map-btn {
             transition: all 0.2s;
         }
-        
-        .load-map-btn:hover, .view-map-btn:hover {
+
+        .load-map-btn:hover,
+        .view-map-btn:hover {
             transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
-        
+
         .control-mode {
             background-color: #e5e7eb;
             color: #374151;
         }
-        
+
         .control-mode:hover {
             background-color: #d1d5db;
         }
-        
+
         .control-mode.active {
             background-color: #2563eb !important;
             color: white !important;
         }
-        
+
         .control-mode.active:hover {
             background-color: #1d4ed8 !important;
         }
-        
+
         .output-section {
             background: #f8f9fa;
             padding: 15px;
@@ -111,14 +122,14 @@
             display: flex;
             flex-direction: column;
         }
-        
+
         .output-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 10px;
         }
-        
+
         .csv-container {
             flex: 1;
             display: flex;
@@ -126,7 +137,7 @@
             border: 1px solid #ddd;
             border-radius: 3px;
         }
-        
+
         .row-numbers {
             width: 40px;
             background: #f8f9fa;
@@ -137,7 +148,7 @@
             line-height: 16px;
             overflow: hidden;
         }
-        
+
         .row-number {
             height: 16px;
             cursor: pointer;
@@ -146,21 +157,21 @@
             border-radius: 2px;
             margin-bottom: 1px;
         }
-        
+
         .row-number:hover {
             background: #e9ecef;
         }
-        
+
         .row-number.delete-btn {
             background: #dc3545;
             color: white;
             font-size: 10px;
         }
-        
+
         .row-number.delete-btn:hover {
             background: #c82333;
         }
-        
+
         .output-textarea {
             flex: 1;
             font-family: monospace;
@@ -171,9 +182,9 @@
             line-height: 16px;
             outline: none;
         }
-        
 
-        
+
+
         .modal {
             display: none;
             position: fixed;
@@ -184,7 +195,7 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: 10000;
         }
-        
+
         .modal-content {
             position: absolute;
             top: 50%;
@@ -195,16 +206,16 @@
             border-radius: 5px;
             width: 400px;
         }
-        
+
         .modal-header {
             margin-bottom: 15px;
             font-weight: bold;
             border-bottom: 1px solid #eee;
             padding-bottom: 10px;
         }
-        
 
-        
+
+
         /* Geocoder styling */
         .mapboxgl-ctrl-geocoder {
             min-width: 100% !important;
@@ -213,22 +224,27 @@
         }
     </style>
 </head>
+
 <body>
     <!-- First row: Map load controls -->
     <div class="bg-gray-100 p-4 border-b border-gray-300">
         <div class="flex items-center gap-4">
-            <button class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700" id="map-list-btn">Map List</button>
+            <button class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700" id="map-list-btn">Map
+                List</button>
             or
-            <input type="text" id="mapwarper-url" value="https://warper.wmflabs.org/maps/8933" 
-                   placeholder="Enter MapWarper URL (e.g., https://mapwarper.net/maps/12345 or https://warper.wmflabs.org/maps/8933)"
-                   class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="text" id="mapwarper-url" value="https://warper.wmflabs.org/maps/8933"
+                placeholder="Enter MapWarper URL (e.g., https://mapwarper.net/maps/12345 or https://warper.wmflabs.org/maps/8933)"
+                class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        
+
         <!-- Helper text for mapwarper URL input -->
         <div class="mt-2">
-            <p class="text-sm text-gray-600">Paste a map link from <a href="https://mapwarper.net" target="_blank" class="text-blue-600 hover:text-blue-800">https://mapwarper.net</a> or <a href="https://warper.wmflabs.org" target="_blank" class="text-blue-600 hover:text-blue-800">https://warper.wmflabs.org/</a></p>
+            <p class="text-sm text-gray-600">Paste a map link from <a href="https://mapwarper.net" target="_blank"
+                    class="text-blue-600 hover:text-blue-800">https://mapwarper.net</a> or <a
+                    href="https://warper.wmflabs.org" target="_blank"
+                    class="text-blue-600 hover:text-blue-800">https://warper.wmflabs.org/</a></p>
         </div>
-        
+
         <!-- Map Metadata Display -->
         <div id="map-metadata" class="hidden mt-3 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
             <div class="flex items-start gap-4">
@@ -242,15 +258,20 @@
                         <span id="map-updated"></span>
                     </div>
                     <div class="mt-3 flex gap-2">
-                        <a id="map-source-link" href="#" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm">View Source</a>
+                        <a id="map-source-link" href="#" target="_blank"
+                            class="text-blue-600 hover:text-blue-800 text-sm">View Source</a>
                         <span class="text-gray-400">•</span>
-                        <a id="mapwarper-link" href="#" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm">Open in MapWarper</a>
+                        <a id="mapwarper-link" href="#" target="_blank"
+                            class="text-blue-600 hover:text-blue-800 text-sm">Open in MapWarper</a>
+                        <span class="text-gray-400">•</span>
+                        <a id="allmaps-link" href="#" target="_blank"
+                            class="text-blue-600 hover:text-blue-800 text-sm">Open in Allmaps</a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <!-- Second row: Maps and Controls -->
     <div class="flex h-[calc(100vh-140px)]">
         <!-- Source Map - 40% -->
@@ -260,7 +281,7 @@
             </div>
             <div id="source-map" class="w-full h-full"></div>
         </div>
-        
+
         <!-- Reference Map - 40% -->
         <div class="w-2/5 relative border-r-2 border-gray-300">
             <div class="absolute top-2 left-2 bg-white/90 px-3 py-1 rounded text-sm font-semibold z-10">
@@ -268,7 +289,7 @@
             </div>
             <div id="reference-map" class="w-full h-full"></div>
         </div>
-        
+
         <!-- Controls Panel - 20% -->
         <div class="w-1/5 bg-gray-50 p-4 overflow-y-auto">
             <div class="space-y-6">
@@ -276,30 +297,35 @@
                 <div>
                     <div id="geocoder"></div>
                 </div>
-                
+
                 <!-- Map Control Modes -->
                 <div>
                     <h3 class="text-sm font-semibold mb-3 text-gray-700">Control Mode</h3>
                     <div class="space-y-2">
-                        <div class="control-mode px-3 py-2 rounded cursor-pointer transition-colors text-sm" data-mode="add" data-key="1">
+                        <div class="control-mode px-3 py-2 rounded cursor-pointer transition-colors text-sm"
+                            data-mode="add" data-key="1">
                             1 - Add Control Point
                         </div>
-                        <div class="control-mode px-3 py-2 rounded cursor-pointer transition-colors text-sm" data-mode="move" data-key="2">
+                        <div class="control-mode px-3 py-2 rounded cursor-pointer transition-colors text-sm"
+                            data-mode="move" data-key="2">
                             2 - Move Control Point
                         </div>
-                        <div class="control-mode active px-3 py-2 rounded cursor-pointer transition-colors text-sm" data-mode="pan" data-key="3">
+                        <div class="control-mode active px-3 py-2 rounded cursor-pointer transition-colors text-sm"
+                            data-mode="pan" data-key="3">
                             3 - Pan Map
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Overlay Layers -->
                 <div>
                     <h3 class="text-sm font-semibold mb-3 text-gray-700">Overlay Layers</h3>
-                    <button class="w-full mb-3 px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm" onclick="showAddLayerModal()">Add Layer</button>
+                    <button class="w-full mb-3 px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+                        onclick="showAddLayerModal()">Add Layer</button>
                     <div class="space-y-2">
                         <label class="flex items-center text-xs text-gray-600">
-                            <input type="checkbox" id="local-body-toggle" checked onchange="toggleLocalBodyLayer()" class="mr-2">
+                            <input type="checkbox" id="local-body-toggle" checked onchange="toggleLocalBodyLayer()"
+                                class="mr-2">
                             Local Body Boundaries (Goa)
                         </label>
                         <label class="flex items-center text-xs text-gray-600">
@@ -307,20 +333,23 @@
                             Village Boundaries
                         </label>
                         <label class="flex items-center text-xs text-gray-600">
-                            <input type="checkbox" id="cadastral-toggle" checked onchange="toggleCadastralLayer()" class="mr-2">
+                            <input type="checkbox" id="cadastral-toggle" checked onchange="toggleCadastralLayer()"
+                                class="mr-2">
                             Cadastral Plot Boundaries
                         </label>
                         <label class="flex items-center text-xs text-gray-600">
-                            <input type="checkbox" id="warped-map-toggle" checked onchange="toggleWarpedMap()" class="mr-2">
+                            <input type="checkbox" id="warped-map-toggle" checked onchange="toggleWarpedMap()"
+                                class="mr-2">
                             Warped Map
                         </label>
                     </div>
                 </div>
-                
+
                 <!-- Instructions -->
                 <div class="space-y-3">
                     <p class="text-xs text-gray-600 leading-relaxed">
-                        Add at least 3 matching pairs of control points that are spaced as far apart from each other for best results.
+                        Add at least 3 matching pairs of control points that are spaced as far apart from each other for
+                        best results.
                     </p>
                     <p class="text-xs text-gray-600 leading-relaxed">
                         Use keyboard shortcuts 1, 2, 3 to change the control mode.
@@ -329,30 +358,48 @@
             </div>
         </div>
     </div>
-    
+
     <div class="output-section">
         <div class="output-header">
-            <h3>Control Points (CSV Format)</h3>
+            <h3>Control Points</h3>
             <div>
+                <button id="edit-toggle-btn" class="btn secondary" onclick="toggleEditMode()">Edit</button>
                 <button class="btn secondary" onclick="clearControlPoints()">Clear All</button>
                 <button class="btn" onclick="saveCSV()">Save CSV</button>
             </div>
         </div>
-        <div class="csv-container">
+        <div id="cp-table-view" class="csv-container" style="overflow-y:auto;">
+            <table id="cp-table" style="width:100%; border-collapse:collapse; font-family:monospace; font-size:12px;">
+                <thead>
+                    <tr style="background:#f8f9fa; border-bottom:2px solid #ddd; position:sticky; top:0; z-index:1;">
+                        <th style="padding:4px 8px; text-align:center; width:28px; color:#666; font-weight:600;">#</th>
+                        <th style="padding:4px 8px; text-align:right; color:#666; font-weight:600;">x</th>
+                        <th style="padding:4px 8px; text-align:right; color:#666; font-weight:600;">y</th>
+                        <th style="padding:4px 8px; text-align:right; color:#666; font-weight:600;">lon</th>
+                        <th style="padding:4px 8px; text-align:right; color:#666; font-weight:600;">lat</th>
+                        <th style="width:24px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="cp-tbody"></tbody>
+            </table>
+        </div>
+        <div id="cp-textarea-view" class="csv-container" style="display:none;">
             <div class="row-numbers" id="row-numbers">
                 <div class="row-number" style="font-weight: bold;">#</div>
             </div>
             <textarea class="output-textarea" id="csv-output" placeholder="x,y,lon,lat">x,y,lon,lat</textarea>
         </div>
     </div>
-    
+
     <!-- Add Layer Modal -->
     <div id="add-layer-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">Add Vector Layer</div>
             <div class="input-group">
                 <label>URL:</label>
-                <input type="text" id="layer-url" value="https://indianopenmaps.fly.dev/not-so-open/cadastrals/goa/onemapgoagis/{z}/{x}/{y}.pbf" style="width: 100%;">
+                <input type="text" id="layer-url"
+                    value="https://indianopenmaps.fly.dev/not-so-open/cadastrals/goa/onemapgoagis/{z}/{x}/{y}.pbf"
+                    style="width: 100%;">
             </div>
             <div class="input-group">
                 <label>Source Layer:</label>
@@ -396,7 +443,7 @@
         // Configuration
         const MAPBOX_TOKEN = 'pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2x2MzZwbGRyMGdheDJtbXVwdDA4aDNyaCJ9.nbvz6aNGQo68xa4NtWH26A';
         mapboxgl.accessToken = MAPBOX_TOKEN;
-        
+
         // Global variables
         let sourceMap, referenceMap;
         let currentMode = 'pan';
@@ -407,16 +454,20 @@
         let sourceMarkers = new Map();
         let referenceMarkers = new Map();
         let deletedRowNumbers = new Set();
-        
+
         // Camera position save/restore for marker selection
         let savedCameraPositions = {
             sourceMap: null,
             referenceMap: null
         };
-        
+
         // Undo functionality for marker positions
         let markerPositionHistory = [];
-        
+
+        let activeLongPressTimer = null;
+        let activeLongPressTriggered = false;
+        let isEditMode = false;
+
         // Image transformation for converting pixel coords to geographic coords
         let imageTransform = null;
 
@@ -433,7 +484,7 @@
             const south = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y + 1) / n))) * 180 / Math.PI;
             return { west, east, north, south };
         }
-        
+
         // Initialize maps
         function initializeMaps() {
             // Initialize source map (displays unwarped image via tiled WMS)
@@ -471,14 +522,13 @@
                         const bx1 = px1.toFixed(3);
                         const by1 = (geo.north / s).toFixed(3);  // maxY = north image coord
                         const edge = (px0 < 0 || py0 < 0 || px1 > w || py1 > h) ? ' EDGE' : '';
-                        console.log(`[warp]${edge} ${z}/${x}/${y} geo(W${geo.west.toFixed(3)},S${geo.south.toFixed(3)},E${geo.east.toFixed(3)},N${geo.north.toFixed(3)}) px(${px0.toFixed(0)},${py0.toFixed(0)},${px1.toFixed(0)},${py1.toFixed(0)}) bbox(${bx0},${by0},${bx1},${by1})`);
                         const wmsUrl = `${warpBaseUrl}/maps/wms/${warpMapId}?FORMAT=image/png&STATUS=unwarped&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=&SRS=EPSG:4326&BBOX=${bx0},${by0},${bx1},${by1}&WIDTH=256&HEIGHT=256`;
                         return { url: wmsUrl };
                     }
                     return { url };
                 }
             });
-            
+
             // Initialize reference map
             referenceMap = new mapboxgl.Map({
                 container: 'reference-map',
@@ -487,16 +537,16 @@
                 zoom: 10,
                 hash: true
             });
-            
+
             // Add geocoder to reference map
             const geocoder = new MapboxGeocoder({
                 accessToken: mapboxgl.accessToken,
                 mapboxgl: mapboxgl,
                 marker: false
             });
-            
+
             document.getElementById('geocoder').appendChild(geocoder.onAdd(referenceMap));
-            
+
             // Add village, cadastral and local body layers to reference map when it loads
             referenceMap.on('load', () => {
                 // Add village source
@@ -505,7 +555,7 @@
                     tiles: ['https://indianopenmaps.fly.dev/not-so-open/villages/lgd/{z}/{x}/{y}.pbf'],
                     maxzoom: 10
                 });
-                
+
                 // Add village fill layer
                 referenceMap.addLayer({
                     id: 'village-fill',
@@ -525,7 +575,7 @@
                         ]
                     }
                 });
-                
+
                 // Add village boundary lines
                 referenceMap.addLayer({
                     id: 'village-lines',
@@ -546,7 +596,7 @@
                         ]
                     }
                 });
-                
+
                 // Add village labels
                 referenceMap.addLayer({
                     id: 'village-labels',
@@ -565,14 +615,14 @@
                         'text-halo-width': 5
                     }
                 });
-                
+
                 // Add cadastral source
                 referenceMap.addSource('cadastral-source', {
                     type: 'vector',
                     tiles: ['https://indianopenmaps.fly.dev/not-so-open/cadastrals/goa/onemapgoagis/{z}/{x}/{y}.pbf'],
                     maxzoom: 15
                 });
-                
+
                 // Add cadastral layer
                 referenceMap.addLayer({
                     id: 'cadastral-layer',
@@ -585,7 +635,7 @@
                         'line-opacity': 0.7
                     }
                 });
-                
+
                 // Add cadastral labels
                 referenceMap.addLayer({
                     id: 'cadastral-labels',
@@ -604,14 +654,14 @@
                         'text-halo-width': 1
                     }
                 });
-                
+
                 // Add local body source
                 referenceMap.addSource('local-body-source', {
                     type: 'vector',
                     url: 'mapbox://planemad.2bqa1pq1',
                     maxzoom: 10
                 });
-                
+
                 // Add local body boundary lines
                 referenceMap.addLayer({
                     id: 'local-body-lines',
@@ -629,7 +679,7 @@
                         ]
                     }
                 });
-                
+
                 // Add local body labels
                 referenceMap.addLayer({
                     id: 'local-body-labels',
@@ -650,24 +700,24 @@
                     }
                 });
             });
-            
+
             // Set up event listeners for both maps
             setupMapEventListeners(sourceMap, 'source');
             setupMapEventListeners(referenceMap, 'reference');
-            
+
             // Load default map
             loadMapWarperMap();
-            
+
             // Initialize row numbers display
             updateRowNumbers();
-            
+
             // Set up URL input auto-loading
             setupURLInputHandlers();
         }
-        
+
         function setupURLInputHandlers() {
             const urlInput = document.getElementById('mapwarper-url');
-            
+
             // Auto-load on paste
             urlInput.addEventListener('paste', (e) => {
                 setTimeout(() => {
@@ -677,7 +727,7 @@
                     }
                 }, 100); // Small delay to let paste complete
             });
-            
+
             // Auto-load on input change (when URL is typed or modified)
             let inputTimeout;
             urlInput.addEventListener('input', (e) => {
@@ -690,10 +740,10 @@
                 }, 1000); // 1 second delay to avoid too many requests while typing
             });
         }
-        
+
         function convertUrlsToLinks(text) {
             if (!text) return text;
-            
+
             // Escape HTML to prevent XSS attacks
             const escapeHtml = (unsafe) => {
                 return unsafe
@@ -703,53 +753,52 @@
                     .replace(/"/g, "&quot;")
                     .replace(/'/g, "&#039;");
             };
-            
+
             // Escape the text first
             const escapedText = escapeHtml(text);
-            
+
             // Regular expression to match URLs (http and https)
             const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
-            
+
             // Replace URLs with clickable links
             return escapedText.replace(urlRegex, (url) => {
                 // Clean up common punctuation at the end of URLs
                 const cleanedUrl = url.replace(/[.,;:!?)]+$/, '');
                 const punctuation = url.substring(cleanedUrl.length);
-                
+
                 return `<a href="${cleanedUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">${cleanedUrl}</a>${punctuation}`;
             });
         }
-        
+
         function displayMapMetadata(mapData, mapId, baseUrl) {
             const metadata = mapData.data.attributes;
             const metadataDiv = document.getElementById('map-metadata');
-            
+
             // Populate metadata fields
             document.getElementById('map-title').textContent = metadata.title || 'Untitled Map';
-            
+
             // Convert URLs in description to clickable links
             const description = metadata.description || 'No description available';
             document.getElementById('map-description').innerHTML = convertUrlsToLinks(description);
-            
+
             // Status with appropriate styling
             const statusElement = document.getElementById('map-status');
             statusElement.textContent = metadata.status.toUpperCase();
-            statusElement.className = `px-2 py-1 rounded text-xs ${
-                metadata.status === 'warped' ? 'bg-green-100 text-green-800' :
-                metadata.status === 'available' ? 'bg-blue-100 text-blue-800' :
-                metadata.status === 'warping' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-gray-100 text-gray-800'
-            }`;
-            
+            statusElement.className = `px-2 py-1 rounded text-xs ${metadata.status === 'warped' ? 'bg-green-100 text-green-800' :
+                    metadata.status === 'available' ? 'bg-blue-100 text-blue-800' :
+                        metadata.status === 'warping' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                }`;
+
             // Dimensions
-            document.getElementById('map-dimensions').textContent = 
+            document.getElementById('map-dimensions').textContent =
                 metadata.width && metadata.height ? `${metadata.width} × ${metadata.height}px` : '';
-            
+
             // Last updated
             const updatedDate = new Date(metadata.updated_at);
-            document.getElementById('map-updated').textContent = 
+            document.getElementById('map-updated').textContent =
                 `Updated: ${updatedDate.toLocaleDateString()}`;
-            
+
             // Thumbnail
             const thumbnailDiv = document.getElementById('map-thumbnail');
             if (metadata.thumb_url) {
@@ -757,7 +806,7 @@
             } else {
                 thumbnailDiv.innerHTML = '';
             }
-            
+
             // Links
             if (metadata.source_uri) {
                 const sourceLink = document.getElementById('map-source-link');
@@ -766,38 +815,41 @@
             } else {
                 document.getElementById('map-source-link').style.display = 'none';
             }
-            
+
             const mapwarperLink = document.getElementById('mapwarper-link');
             mapwarperLink.href = `${baseUrl}/maps/${mapId}`;
-            
+
+            const allmapsLink = document.getElementById('allmaps-link');
+            allmapsLink.href = `https://mapwarper-allmaps-bridge.ramseraph.workers.dev/sync/editor.html?map=${mapId}&mode=allmaps`;
+
             // Show the metadata div
             metadataDiv.classList.remove('hidden');
         }
-        
+
         function hideMapMetadata() {
             document.getElementById('map-metadata').classList.add('hidden');
         }
-        
+
         function fitMapToControlPoints() {
             if (controlPoints.length === 0) {
                 return;
             }
-            
+
             // Calculate bounds for reference map (real geographic coordinates)
             let refBounds = new mapboxgl.LngLatBounds();
             let hasRefPoints = false;
-            
+
             // Calculate bounds for source map (may use fake geographic coordinates)
             let sourceBounds = new mapboxgl.LngLatBounds();
             let hasSourcePoints = false;
-            
+
             controlPoints.forEach(point => {
                 // Add reference coordinates to reference bounds
                 if (point.referenceCoords) {
                     refBounds.extend(point.referenceCoords);
                     hasRefPoints = true;
                 }
-                
+
                 // Add source coordinates to source bounds
                 if (point.sourceCoords) {
                     sourceBounds.extend(point.sourceCoords);
@@ -811,7 +863,7 @@
                     }
                 }
             });
-            
+
             // Fit reference map with standard padding
             if (hasRefPoints) {
                 referenceMap.fitBounds(refBounds, {
@@ -821,7 +873,7 @@
                 });
                 console.log(`Fitted reference map to bounds of ${controlPoints.length} control points`);
             }
-            
+
             // Fit source map with 20% padding
             if (hasSourcePoints) {
                 // Calculate 20% padding based on bounds dimensions
@@ -829,61 +881,63 @@
                 const sw = sourceBounds.getSouthWest();
                 const width = ne.lng - sw.lng;
                 const height = ne.lat - sw.lat;
-                
+
                 const paddingX = width * 0.2;
                 const paddingY = height * 0.2;
-                
+
                 // Expand bounds by 20%
                 const paddedBounds = new mapboxgl.LngLatBounds(
                     [sw.lng - paddingX, sw.lat - paddingY],
                     [ne.lng + paddingX, ne.lat + paddingY]
                 );
-                
+
                 sourceMap.fitBounds(paddedBounds, {
                     duration: 1000
                 });
                 console.log(`Fitted source map to bounds of ${controlPoints.length} control points with 20% padding`);
             }
         }
-        
+
         function setupMapEventListeners(map, mapType) {
             // Map focus tracking
             map.getContainer().addEventListener('mouseenter', () => {
                 focusedMap = mapType;
             });
-            
+
             // Double click handler
             map.on('dblclick', (e) => {
                 e.preventDefault();
                 addControlPoint(e, mapType);
             });
-            
+
             // Single click handler for move mode
             map.on('click', (e) => {
                 // Only handle map clicks, not marker clicks
-                if (e.originalEvent && e.originalEvent.target && 
-                    (e.originalEvent.target.closest('.mapboxgl-marker') || 
-                     e.originalEvent.target.classList.contains('mapboxgl-marker'))) {
+                if (e.originalEvent && e.originalEvent.target &&
+                    (e.originalEvent.target.closest('.mapboxgl-marker') ||
+                        e.originalEvent.target.classList.contains('mapboxgl-marker'))) {
                     return; // Ignore clicks on markers
                 }
-                
-                if (currentMode === 'move' && selectedPointIndex >= 0) {
-                    // If we have an active marker, move it to the clicked location
-                    moveControlPoint(e, mapType, selectedPointIndex);
-                } else if (currentMode === 'move') {
-                    // If no active marker, try to select one near the click
+
+                if (currentMode === 'move') {
                     selectControlPoint(e, mapType);
                 }
             });
-            
+
             // Disable default double-click zoom
             map.doubleClickZoom.disable();
         }
-        
+
+        function syncMapUrlParam(url) {
+            const params = new URLSearchParams(window.location.search);
+            params.set('map', url);
+            history.replaceState(null, '', '?' + params.toString() + window.location.hash);
+        }
+
         async function loadMapWarperMap() {
             const url = document.getElementById('mapwarper-url').value;
             const urlData = parseMapwarperUrl(url);
-            
+
             if (!urlData) {
                 // Only show alert if user explicitly clicked the load button
                 // Don't show alert for auto-loading attempts
@@ -894,9 +948,10 @@
                 hideMapMetadata();
                 return;
             }
-            
+
             const { baseUrl, mapId } = urlData;
-            
+            syncMapUrlParam(url.trim());
+
             // Fetch and display map metadata
             try {
                 const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}.json`);
@@ -911,7 +966,7 @@
                 console.warn('Error fetching map metadata:', error);
                 hideMapMetadata();
             }
-            
+
             // Remove existing layers if any
             if (sourceMap.getLayer('image-layer')) {
                 sourceMap.removeLayer('image-layer');
@@ -921,7 +976,7 @@
                 referenceMap.removeLayer('warped-layer');
                 referenceMap.removeSource('warped-source');
             }
-            
+
             // Load unwarped map first so imageTransform is ready before control points are placed
             await loadUnwarpedMap(mapId, baseUrl);
 
@@ -933,11 +988,11 @@
                 ],
                 tileSize: 256
             });
-            
+
             // Add warped layer before overlay layers so overlays remain visible on top
             // Insert before the first overlay layer (village-fill) if it exists, otherwise add normally
             const beforeLayerId = referenceMap.getLayer('village-fill') ? 'village-fill' : undefined;
-            
+
             referenceMap.addLayer({
                 id: 'warped-layer',
                 type: 'raster',
@@ -946,31 +1001,31 @@
                     'raster-opacity': 0.5
                 }
             }, beforeLayerId);
-            
+
             // Only center reference map (source map will be centered when image loads)
             const center = getMapCenter(mapId);
             referenceMap.setCenter(center.coords);
             referenceMap.setZoom(center.zoom);
-            
+
             // imageTransform is now set; load control points immediately
             clearControlPoints();
             fetchExistingControlPoints(mapId, baseUrl);
-            
+
             // Enable warped map toggle
             document.getElementById('warped-map-toggle').checked = true;
         }
-        
+
         function extractMapId(url) {
             const match = url.match(/\/maps\/(\d+)/);
             return match ? match[1] : null;
         }
-        
+
         // New function to parse mapwarper URLs from different servers
         function parseMapwarperUrl(url) {
             // Support different mapwarper servers
             const mapwarperPattern = /^(https?:\/\/[^\/]+)\/maps\/(\d+)/;
             const match = url.match(mapwarperPattern);
-            
+
             if (match) {
                 return {
                     baseUrl: match[1],
@@ -979,7 +1034,7 @@
             }
             return null;
         }
-        
+
         function getMapCenter(mapId) {
             // Known map centers - add more as needed
             const mapCenters = {
@@ -987,99 +1042,99 @@
                 '95531': { coords: [73.8, 15.6], zoom: 14 },   // Siolim Sodiem Landuse
                 // Add more known maps here
             };
-            
+
             // Return specific center if known, otherwise default to Goa
-            return mapCenters[mapId] || { 
+            return mapCenters[mapId] || {
                 coords: [74.0, 15.3], // Central Goa
-                zoom: 12 
+                zoom: 12
             };
         }
-        
+
         async function fetchExistingControlPoints(mapId, baseUrl) {
             try {
                 console.log(`Fetching existing control points for map ${mapId}...`);
-                
+
                 // Show loading indicator
                 const csvOutput = document.getElementById('csv-output');
                 const originalPlaceholder = csvOutput.placeholder;
                 csvOutput.placeholder = 'Loading existing control points...';
-                
+
                 const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}/gcps`);
-                
+
                 if (!response.ok) {
                     console.warn(`No existing control points found for map ${mapId}. Status: ${response.status}`);
                     csvOutput.placeholder = originalPlaceholder;
                     return;
                 }
-                
+
                 const data = await response.json();
-                
+
                 if (data.data && data.data.length > 0) {
                     console.log(`Found ${data.data.length} existing control points`);
-                    
+
                     // Wait for the warped layer to be loaded before converting coordinates
                     await convertMapWarperGCPs(data.data, mapId);
-                    
+
                     // Update the UI
                     updateMarkers();
                     updateCSVFromPoints();
                     updateRowNumbers();
-                    
+
                     console.log(`Successfully loaded ${controlPoints.length} control points`);
-                    
+
                     // Auto-fit map to include all control points
                     fitMapToControlPoints();
                 } else {
                     console.log('No control points found in the response');
                 }
-                
+
                 // Restore original placeholder
                 csvOutput.placeholder = originalPlaceholder;
             } catch (error) {
                 console.error('Error fetching control points:', error);
-                
+
                 // Only show alert for network errors or other serious issues
                 if (error.message && !error.message.includes('404')) {
                     alert(`Error loading control points: ${error.message}`);
                 }
-                
+
                 // Restore original placeholder on error
                 const csvOutput = document.getElementById('csv-output');
                 csvOutput.placeholder = 'x,y,lon,lat';
             }
         }
-        
+
         let isLoadingUnwarpedMap = false;
-        
+
         async function loadUnwarpedMap(mapId, baseUrl) {
             if (isLoadingUnwarpedMap) {
                 console.log('loadUnwarpedMap already in progress, skipping...');
                 return;
             }
-            
+
             isLoadingUnwarpedMap = true;
             try {
                 console.log(`Loading unwarped map for ${mapId}...`);
-                
+
                 // Remove existing layer if any
                 if (sourceMap.getLayer('image-layer')) {
                     sourceMap.removeLayer('image-layer');
                     sourceMap.removeSource('image-source');
                 }
-                
+
                 // For unwarped maps, the best approach is to load the image directly
                 // This allows us to properly handle pixel coordinate transforms
                 await loadMapImageDirectly(mapId, baseUrl);
-                
+
                 console.log(`Successfully loaded unwarped map ${mapId}`);
-                
+
             } catch (error) {
                 console.error('Error loading unwarped map:', error);
             } finally {
                 isLoadingUnwarpedMap = false;
             }
         }
-        
+
         async function loadMapImageDirectly(mapId, baseUrl) {
             try {
                 console.log(`Loading unwarped map ${mapId}...`);
@@ -1180,18 +1235,18 @@
                 console.warn('No image transform available for pixel to geographic conversion');
                 return null;
             }
-            
+
             const { width, height, bounds } = imageTransform;
-            
+
             // Calculate the position as a fraction of the image dimensions
             const xFraction = pixelX / width;
             const yFraction = pixelY / height;
-            
+
             // Convert to geographic coordinates
             // Note: Y coordinates are inverted (0 at top in pixels, but north is positive in geo)
             const lng = bounds.west + (xFraction * (bounds.east - bounds.west));
             const lat = bounds.north - (yFraction * (bounds.north - bounds.south));
-            
+
             return [lng, lat];
         }
 
@@ -1199,14 +1254,14 @@
             // For each GCP from MapWarper, preserve the original pixel coordinates
             gcpData.forEach((gcp) => {
                 const attrs = gcp.attributes;
-                
+
                 // The reference coordinates are straightforward - they're already geographic
                 const referenceCoords = [parseFloat(attrs.lon), parseFloat(attrs.lat)];
-                
+
                 // IMPORTANT: Preserve the original pixel coordinates from MapWarper
                 // These are in the original image pixel space, not screen coordinates
                 const sourcePixelCoords = [parseFloat(attrs.x), parseFloat(attrs.y)];
-                
+
                 // Create control point with preserved pixel coordinates
                 const point = {
                     id: nextPointId,
@@ -1214,25 +1269,25 @@
                     sourcePixelCoords: sourcePixelCoords, // Store original pixel coordinates
                     referenceCoords: referenceCoords
                 };
-                
+
                 controlPoints.push(point);
                 nextPointId++;
             });
-            
+
             console.log(`Successfully converted and loaded ${controlPoints.length} control points with original pixel coordinates preserved`);
         }
 
-        
+
         function addControlPoint(e, mapType) {
             // Find existing incomplete point or create new one
-            let pointIndex = controlPoints.findIndex(p => 
-                (mapType === 'source' && !p.sourceCoords) || 
+            let pointIndex = controlPoints.findIndex(p =>
+                (mapType === 'source' && !p.sourceCoords) ||
                 (mapType === 'reference' && !p.referenceCoords)
             );
-            
+
             let point;
             let isNewPoint = pointIndex === -1;
-            
+
             if (isNewPoint) {
                 point = {
                     id: nextPointId,
@@ -1246,19 +1301,19 @@
             } else {
                 point = controlPoints[pointIndex];
             }
-            
+
             // Update coordinates
             if (mapType === 'source') {
                 point.sourceCoords = [e.lngLat.lng, e.lngLat.lat];
             } else {
                 point.referenceCoords = [e.lngLat.lng, e.lngLat.lat];
             }
-            
+
             updateMarkers();
             updateCSVFromPoints();
             updateRowNumbers();
         }
-        
+
         function getNextRowNumber() {
             let rowNum = 1;
             while (deletedRowNumbers.has(rowNum) || controlPoints.some(p => p.rowNumber === rowNum)) {
@@ -1266,14 +1321,14 @@
             }
             return rowNum;
         }
-        
+
         function moveControlPoint(e, mapType, pointIndex) {
             if (pointIndex >= 0 && pointIndex < controlPoints.length) {
                 // Save position to history before making changes
                 saveMarkerPositionToHistory(pointIndex);
-                
+
                 const point = controlPoints[pointIndex];
-                
+
                 if (mapType === 'source') {
                     // For source map, always store as geographic coordinates
                     // This will override any existing pixel coordinates
@@ -1285,19 +1340,19 @@
                 } else {
                     point.referenceCoords = [e.lngLat.lng, e.lngLat.lat];
                 }
-                
+
                 updateMarkers();
                 updateCSVFromPoints();
                 // Keep marker selected after moving - don't reset selectedPointIndex
             }
         }
-        
+
         function selectControlPoint(e, mapType) {
             // Find closest control point by checking marker positions
             const clickPoint = e.lngLat;
             let closestIndex = -1;
             let closestDistance = Infinity;
-            
+
             controlPoints.forEach((point, index) => {
                 let pointCoords;
                 if (mapType === 'source') {
@@ -1313,22 +1368,22 @@
                 } else {
                     return;
                 }
-                
+
                 const distance = Math.sqrt(
-                    Math.pow(clickPoint.lng - pointCoords[0], 2) + 
+                    Math.pow(clickPoint.lng - pointCoords[0], 2) +
                     Math.pow(clickPoint.lat - pointCoords[1], 2)
                 );
-                
+
                 if (distance < 0.001 && distance < closestDistance) { // Adjust threshold as needed
                     closestDistance = distance;
                     closestIndex = index;
                 }
             });
-            
+
             selectedPointIndex = closestIndex;
             updateMarkers();
         }
-        
+
         function saveMarkerPositionToHistory(pointIndex) {
             // Save the current position of the specified marker to history
             if (pointIndex >= 0 && pointIndex < controlPoints.length) {
@@ -1340,59 +1395,59 @@
                     sourcePixelCoords: point.sourcePixelCoords ? [...point.sourcePixelCoords] : null
                 };
                 markerPositionHistory.push(historyEntry);
-                
+
                 // Keep only the last 10 history entries to prevent memory issues
                 if (markerPositionHistory.length > 10) {
                     markerPositionHistory.shift();
                 }
             }
         }
-        
+
         function undoLastMarkerPositionChange() {
             if (markerPositionHistory.length === 0) return false;
-            
+
             const lastChange = markerPositionHistory.pop();
             if (lastChange.pointIndex >= 0 && lastChange.pointIndex < controlPoints.length) {
                 const point = controlPoints[lastChange.pointIndex];
-                
+
                 // Restore the previous position
                 if (lastChange.sourceCoords) {
                     point.sourceCoords = [...lastChange.sourceCoords];
                 } else if (point.sourceCoords) {
                     delete point.sourceCoords;
                 }
-                
+
                 if (lastChange.referenceCoords) {
                     point.referenceCoords = [...lastChange.referenceCoords];
                 } else if (point.referenceCoords) {
                     delete point.referenceCoords;
                 }
-                
+
                 if (lastChange.sourcePixelCoords) {
                     point.sourcePixelCoords = [...lastChange.sourcePixelCoords];
                 } else if (point.sourcePixelCoords) {
                     delete point.sourcePixelCoords;
                 }
-                
+
                 // Deselect the marker and switch to pan mode
                 deselectMarkerAndSwitchToPan();
-                
+
                 // Update the CSV and markers
                 updateCSVFromPoints();
                 updateMarkers();
-                
+
                 return true;
             }
             return false;
         }
-        
+
         function deselectMarkerAndSwitchToPan() {
             // Restore saved camera positions before deselecting
             restoreSavedCameraPositions();
-            
+
             selectedPointIndex = -1;
             currentMode = 'pan';
-            
+
             // Update active state for all control buttons
             document.querySelectorAll('.control-mode').forEach(btn => {
                 btn.classList.remove('active');
@@ -1400,14 +1455,14 @@
             document.querySelectorAll('[data-mode="pan"]').forEach(btn => {
                 btn.classList.add('active');
             });
-            
+
             // Update cursor style
             updateMapCursor();
         }
-        
+
         function switchToMoveMode() {
             currentMode = 'move';
-            
+
             // Update active state for all control buttons
             document.querySelectorAll('.control-mode').forEach(btn => {
                 btn.classList.remove('active');
@@ -1415,15 +1470,15 @@
             document.querySelectorAll('[data-mode="move"]').forEach(btn => {
                 btn.classList.add('active');
             });
-            
+
             // Update cursor style
             updateMapCursor();
         }
-        
+
         function saveCameraPositionsAndPanToMarker(markerIndex) {
             const point = controlPoints[markerIndex];
             if (!point) return;
-            
+
             // Save current camera positions
             savedCameraPositions.sourceMap = {
                 center: sourceMap.getCenter(),
@@ -1431,17 +1486,17 @@
                 bearing: sourceMap.getBearing(),
                 pitch: sourceMap.getPitch()
             };
-            
+
             savedCameraPositions.referenceMap = {
                 center: referenceMap.getCenter(),
                 zoom: referenceMap.getZoom(),
                 bearing: referenceMap.getBearing(),
                 pitch: referenceMap.getPitch()
             };
-            
+
             // Pan and zoom to marker on both maps (zoom to z17)
             const targetZoom = 17;
-            
+
             // Fly to source map if the point has coordinates (either geographic or pixel)
             let sourceCoords = null;
             if (point.sourceCoords) {
@@ -1449,7 +1504,7 @@
             } else if (point.sourcePixelCoords && imageTransform) {
                 sourceCoords = pixelToGeographic(point.sourcePixelCoords[0], point.sourcePixelCoords[1]);
             }
-            
+
             if (sourceCoords) {
                 sourceMap.flyTo({
                     center: sourceCoords,
@@ -1457,7 +1512,7 @@
                     duration: 1000
                 });
             }
-            
+
             if (point.referenceCoords) {
                 const refCoords = point.referenceCoords;
                 referenceMap.flyTo({
@@ -1467,7 +1522,7 @@
                 });
             }
         }
-        
+
         function restoreSavedCameraPositions() {
             if (savedCameraPositions.sourceMap) {
                 sourceMap.flyTo({
@@ -1478,7 +1533,7 @@
                     duration: 1000
                 });
             }
-            
+
             if (savedCameraPositions.referenceMap) {
                 referenceMap.flyTo({
                     center: savedCameraPositions.referenceMap.center,
@@ -1488,19 +1543,19 @@
                     duration: 1000
                 });
             }
-            
+
             // Clear saved positions
             savedCameraPositions.sourceMap = null;
             savedCameraPositions.referenceMap = null;
         }
-        
+
         function updateMapCursor() {
             const shouldShowCrosshair = currentMode === 'move' && selectedPointIndex >= 0;
-            
+
             // Update cursor for both map containers
             const sourceContainer = sourceMap.getContainer();
             const referenceContainer = referenceMap.getContainer();
-            
+
             if (shouldShowCrosshair) {
                 sourceContainer.style.cursor = 'crosshair';
                 referenceContainer.style.cursor = 'crosshair';
@@ -1509,18 +1564,18 @@
                 referenceContainer.style.cursor = '';
             }
         }
-        
+
         function updateMarkers() {
             // Clear existing markers
             sourceMarkers.forEach(marker => marker.remove());
             referenceMarkers.forEach(marker => marker.remove());
             sourceMarkers.clear();
             referenceMarkers.clear();
-            
+
             controlPoints.forEach((point, index) => {
                 // Add marker to source map
                 let sourceMapCoords = null;
-                
+
                 if (point.sourceCoords) {
                     // Use geographic coordinates directly for manually added points
                     sourceMapCoords = point.sourceCoords;
@@ -1528,38 +1583,65 @@
                     // Convert pixel coordinates to geographic coordinates using image transform
                     sourceMapCoords = pixelToGeographic(point.sourcePixelCoords[0], point.sourcePixelCoords[1]);
                 }
-                
+
                 if (sourceMapCoords) {
                     const marker = createNumberedMarker(
-                        sourceMapCoords, 
-                        point.rowNumber, 
+                        sourceMapCoords,
+                        point.rowNumber,
                         index === selectedPointIndex,
                         sourceMap
                     );
-                    
-                    marker.getElement().onclick = (e) => {
-                        // Prevent map click event from firing when clicking marker
+
+                    const srcEl = marker.getElement();
+
+                    srcEl.addEventListener('mousedown', (e) => {
                         e.stopPropagation();
-                        
+                        activeLongPressTriggered = false;
+                        clearTimeout(activeLongPressTimer);
+                        activeLongPressTimer = setTimeout(() => {
+                            activeLongPressTriggered = true;
+                            if (index !== selectedPointIndex) {
+                                selectedPointIndex = index;
+                                switchToMoveMode();
+                            }
+                            saveCameraPositionsAndPanToMarker(index);
+                            updateMarkers();
+                        }, 2000);
+                    });
+
+                    srcEl.addEventListener('mouseup', () => {
+                        clearTimeout(activeLongPressTimer);
+                        activeLongPressTimer = null;
+                    });
+
+                    srcEl.addEventListener('mouseleave', () => {
+                        clearTimeout(activeLongPressTimer);
+                        activeLongPressTimer = null;
+                    });
+
+                    srcEl.onclick = (e) => {
+                        e.stopPropagation();
+                        if (activeLongPressTriggered) {
+                            activeLongPressTriggered = false;
+                            return;
+                        }
                         if (index === selectedPointIndex) {
-                            // Deselect and switch to pan mode
                             deselectMarkerAndSwitchToPan();
                         } else {
-                            // Select marker and switch to move mode
-                            saveCameraPositionsAndPanToMarker(index);
                             selectedPointIndex = index;
                             switchToMoveMode();
                         }
                         updateMarkers();
                     };
-                    
+
                     // Add drag event handlers for selected markers
                     if (index === selectedPointIndex) {
-                        // Save position before drag starts
                         marker.on('dragstart', () => {
                             saveMarkerPositionToHistory(index);
+                            clearTimeout(activeLongPressTimer);
+                            activeLongPressTimer = null;
                         });
-                        
+
                         marker.on('dragend', () => {
                             const lngLat = marker.getLngLat();
                             // Update the control point coordinates
@@ -1576,42 +1658,69 @@
                             updateCSVFromPoints();
                         });
                     }
-                    
+
                     sourceMarkers.set(point.id, marker);
                 }
-                
+
                 // Add marker to reference map
                 if (point.referenceCoords) {
                     const marker = createNumberedMarker(
-                        point.referenceCoords, 
-                        point.rowNumber, 
+                        point.referenceCoords,
+                        point.rowNumber,
                         index === selectedPointIndex,
                         referenceMap
                     );
-                    
-                    marker.getElement().onclick = (e) => {
-                        // Prevent map click event from firing when clicking marker
+
+                    const refEl = marker.getElement();
+
+                    refEl.addEventListener('mousedown', (e) => {
                         e.stopPropagation();
-                        
+                        activeLongPressTriggered = false;
+                        clearTimeout(activeLongPressTimer);
+                        activeLongPressTimer = setTimeout(() => {
+                            activeLongPressTriggered = true;
+                            if (index !== selectedPointIndex) {
+                                selectedPointIndex = index;
+                                switchToMoveMode();
+                            }
+                            saveCameraPositionsAndPanToMarker(index);
+                            updateMarkers();
+                        }, 2000);
+                    });
+
+                    refEl.addEventListener('mouseup', () => {
+                        clearTimeout(activeLongPressTimer);
+                        activeLongPressTimer = null;
+                    });
+
+                    refEl.addEventListener('mouseleave', () => {
+                        clearTimeout(activeLongPressTimer);
+                        activeLongPressTimer = null;
+                    });
+
+                    refEl.onclick = (e) => {
+                        e.stopPropagation();
+                        if (activeLongPressTriggered) {
+                            activeLongPressTriggered = false;
+                            return;
+                        }
                         if (index === selectedPointIndex) {
-                            // Deselect and switch to pan mode
                             deselectMarkerAndSwitchToPan();
                         } else {
-                            // Select marker and switch to move mode
-                            saveCameraPositionsAndPanToMarker(index);
                             selectedPointIndex = index;
                             switchToMoveMode();
                         }
                         updateMarkers();
                     };
-                    
+
                     // Add drag event handlers for selected markers
                     if (index === selectedPointIndex) {
-                        // Save position before drag starts
                         marker.on('dragstart', () => {
                             saveMarkerPositionToHistory(index);
+                            clearTimeout(activeLongPressTimer);
+                            activeLongPressTimer = null;
                         });
-                        
+
                         marker.on('dragend', () => {
                             const lngLat = marker.getLngLat();
                             // Update the control point coordinates
@@ -1619,25 +1728,25 @@
                             updateCSVFromPoints();
                         });
                     }
-                    
+
                     referenceMarkers.set(point.id, marker);
                 }
             });
-            
+
             // Update cursor style after markers are updated
             updateMapCursor();
         }
-        
+
         function createNumberedMarker(lngLat, number, isSelected, map) {
             // Create the main marker using Mapbox's default marker
             const marker = new mapboxgl.Marker({
                 color: isSelected ? '#00ff00' : '#ff0000',
                 draggable: isSelected // Make selected markers draggable
             }).setLngLat(lngLat);
-            
+
             // Add the marker to the map first
             marker.addTo(map);
-            
+
             // Create number overlay and add it to the marker element
             const markerElement = marker.getElement();
             const numberEl = document.createElement('div');
@@ -1659,18 +1768,18 @@
             numberEl.style.zIndex = '1000';
             numberEl.style.pointerEvents = 'none'; // Allow clicks to pass through to marker
             numberEl.textContent = number;
-            
+
             markerElement.appendChild(numberEl);
-            
+
             return marker;
         }
-        
+
         function updateCSVFromPoints() {
             const lines = ['x,y,lon,lat'];
-            
+
             // Sort points by row number for consistent output
             const sortedPoints = [...controlPoints].sort((a, b) => a.rowNumber - b.rowNumber);
-            
+
             sortedPoints.forEach(point => {
                 if (point.sourcePixelCoords && point.referenceCoords) {
                     // Use original pixel coordinates from MapWarper (preserved exactly)
@@ -1694,20 +1803,21 @@
                     lines.push(`${sourceX || ''},${sourceY || ''},${refCoords[0] || ''},${refCoords[1] || ''}`);
                 }
             });
-            
+
             document.getElementById('csv-output').value = lines.join('\n');
+            if (!isEditMode) updateTableFromPoints();
         }
-        
+
         function updatePointsFromCSV() {
             const csvText = document.getElementById('csv-output').value;
             const lines = csvText.split('\n').filter(line => line.trim());
-            
+
             if (lines.length === 0 || !lines[0].includes('x,y,lon,lat')) return;
-            
+
             // Clear existing points and markers
             controlPoints = [];
             updateMarkers();
-            
+
             // Parse CSV lines (skip header)
             for (let i = 1; i < lines.length; i++) {
                 const parts = lines[i].split(',').map(p => p.trim());
@@ -1716,42 +1826,42 @@
                     const y = parseFloat(parts[1]);
                     const lon = parseFloat(parts[2]);
                     const lat = parseFloat(parts[3]);
-                    
+
                     if (!isNaN(x) && !isNaN(y) && !isNaN(lon) && !isNaN(lat)) {
                         // Convert pixel coordinates back to geographic coordinates for source map
                         const sourceCoords = sourceMap.unproject([x, y]);
-                        
+
                         const point = {
                             id: nextPointId++,
                             rowNumber: i, // Use line number as row number
                             sourceCoords: [sourceCoords.lng, sourceCoords.lat],
                             referenceCoords: [lon, lat]
                         };
-                        
+
                         controlPoints.push(point);
                     }
                 }
             }
-            
+
             updateMarkers();
             updateRowNumbers();
         }
-        
+
         function updateRowNumbers() {
             const rowNumbersDiv = document.getElementById('row-numbers');
             rowNumbersDiv.innerHTML = '<div class="row-number" style="font-weight: bold;">#</div>';
-            
+
             // Sort points by row number for consistent display
             const sortedPoints = [...controlPoints].sort((a, b) => a.rowNumber - b.rowNumber);
-            
+
             sortedPoints.forEach(point => {
                 const rowDiv = document.createElement('div');
                 rowDiv.className = 'row-number';
                 rowDiv.textContent = point.rowNumber;
                 rowDiv.dataset.pointId = point.id;
-                
+
                 let deleteMode = false;
-                
+
                 rowDiv.onclick = () => {
                     if (deleteMode) {
                         deleteControlPoint(point.id);
@@ -1759,7 +1869,7 @@
                         deleteMode = true;
                         rowDiv.textContent = 'DEL';
                         rowDiv.classList.add('delete-btn');
-                        
+
                         // Reset after 3 seconds
                         setTimeout(() => {
                             if (controlPoints.find(p => p.id === point.id)) {
@@ -1770,22 +1880,22 @@
                         }, 3000);
                     }
                 };
-                
+
                 rowNumbersDiv.appendChild(rowDiv);
             });
         }
-        
+
         function deleteControlPoint(pointId) {
             const pointIndex = controlPoints.findIndex(p => p.id === pointId);
             if (pointIndex >= 0) {
                 const point = controlPoints[pointIndex];
                 deletedRowNumbers.add(point.rowNumber);
                 controlPoints.splice(pointIndex, 1);
-                
+
                 updateMarkers();
                 updateCSVFromPoints();
                 updateRowNumbers();
-                
+
                 if (selectedPointIndex === pointIndex) {
                     selectedPointIndex = -1;
                 } else if (selectedPointIndex > pointIndex) {
@@ -1793,7 +1903,7 @@
                 }
             }
         }
-        
+
         function clearControlPoints() {
             controlPoints = [];
             selectedPointIndex = -1;
@@ -1803,12 +1913,12 @@
             updateCSVFromPoints();
             updateRowNumbers();
         }
-        
+
         function saveCSV() {
             const csv = document.getElementById('csv-output').value;
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
-            
+
             const a = document.createElement('a');
             a.href = url;
             a.download = 'control_points.csv';
@@ -1817,125 +1927,125 @@
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
         }
-        
+
         function showAddLayerModal() {
             document.getElementById('add-layer-modal').style.display = 'block';
         }
-        
+
         function hideAddLayerModal() {
             document.getElementById('add-layer-modal').style.display = 'none';
         }
-        
+
         function toggleWarpedMap() {
             const checkbox = document.getElementById('warped-map-toggle');
             const isVisible = checkbox.checked;
-            
+
             if (referenceMap.getLayer('warped-layer')) {
                 referenceMap.setLayoutProperty('warped-layer', 'visibility', isVisible ? 'visible' : 'none');
             }
         }
-        
+
         function toggleCadastralLayer() {
             const checkbox = document.getElementById('cadastral-toggle');
             const isVisible = checkbox.checked;
-            
+
             if (referenceMap.getLayer('cadastral-layer')) {
                 referenceMap.setLayoutProperty('cadastral-layer', 'visibility', isVisible ? 'visible' : 'none');
             }
-            
+
             if (referenceMap.getLayer('cadastral-labels')) {
                 referenceMap.setLayoutProperty('cadastral-labels', 'visibility', isVisible ? 'visible' : 'none');
             }
         }
-        
+
         function toggleVillageLayer() {
             const checkbox = document.getElementById('village-toggle');
             const isVisible = checkbox.checked;
-            
+
             if (referenceMap.getLayer('village-fill')) {
                 referenceMap.setLayoutProperty('village-fill', 'visibility', isVisible ? 'visible' : 'none');
             }
-            
+
             if (referenceMap.getLayer('village-lines')) {
                 referenceMap.setLayoutProperty('village-lines', 'visibility', isVisible ? 'visible' : 'none');
             }
-            
+
             if (referenceMap.getLayer('village-labels')) {
                 referenceMap.setLayoutProperty('village-labels', 'visibility', isVisible ? 'visible' : 'none');
             }
         }
-        
+
         function toggleLocalBodyLayer() {
             const checkbox = document.getElementById('local-body-toggle');
             const isVisible = checkbox.checked;
-            
+
             if (referenceMap.getLayer('local-body-fill')) {
                 referenceMap.setLayoutProperty('local-body-fill', 'visibility', isVisible ? 'visible' : 'none');
             }
-            
+
             if (referenceMap.getLayer('local-body-lines')) {
                 referenceMap.setLayoutProperty('local-body-lines', 'visibility', isVisible ? 'visible' : 'none');
             }
-            
+
             if (referenceMap.getLayer('local-body-labels')) {
                 referenceMap.setLayoutProperty('local-body-labels', 'visibility', isVisible ? 'visible' : 'none');
             }
         }
-        
+
         function showCenterModal() {
             // Pre-fill current center
             const center = sourceMap.getCenter();
             const zoom = sourceMap.getZoom();
-            
+
             document.getElementById('center-lng').value = center.lng.toFixed(6);
             document.getElementById('center-lat').value = center.lat.toFixed(6);
             document.getElementById('center-zoom').value = Math.round(zoom);
-            
+
             document.getElementById('center-modal').style.display = 'block';
         }
-        
+
         function hideCenterModal() {
             document.getElementById('center-modal').style.display = 'none';
         }
-        
+
         function setCenterFromModal() {
             const lng = parseFloat(document.getElementById('center-lng').value);
             const lat = parseFloat(document.getElementById('center-lat').value);
             const zoom = parseInt(document.getElementById('center-zoom').value);
-            
+
             if (isNaN(lng) || isNaN(lat) || isNaN(zoom)) {
                 alert('Please enter valid coordinates and zoom level');
                 return;
             }
-            
+
             // Set center for both maps
             sourceMap.setCenter([lng, lat]);
             referenceMap.setCenter([lng, lat]);
             sourceMap.setZoom(zoom);
             referenceMap.setZoom(zoom);
-            
+
             hideCenterModal();
         }
-        
+
         function addVectorLayer() {
             const url = document.getElementById('layer-url').value;
             const sourceLayer = document.getElementById('source-layer').value;
             const maxZoom = parseInt(document.getElementById('max-zoom').value);
-            
+
             const layerId = 'vector-layer-' + Date.now();
-            
+
             // Remove existing vector layer if any
             if (referenceMap.getLayer('vector-layer')) {
                 referenceMap.removeLayer('vector-layer');
                 referenceMap.removeSource('vector-source');
             }
-            
+
             referenceMap.addSource('vector-source', {
                 type: 'vector',
                 tiles: [url],
                 maxzoom: maxZoom
             });
-            
+
             // Add fill layer
             referenceMap.addLayer({
                 id: 'vector-layer-fill',
@@ -1947,7 +2057,7 @@
                     'fill-opacity': 0.3
                 }
             });
-            
+
             // Add line layer
             referenceMap.addLayer({
                 id: 'vector-layer-line',
@@ -1959,16 +2069,115 @@
                     'line-width': 2
                 }
             });
-            
+
             hideAddLayerModal();
         }
-        
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const tableView = document.getElementById('cp-table-view');
+            const textareaView = document.getElementById('cp-textarea-view');
+            const btn = document.getElementById('edit-toggle-btn');
+            if (isEditMode) {
+                tableView.style.display = 'none';
+                textareaView.style.display = 'flex';
+                btn.textContent = 'Table';
+            } else {
+                updatePointsFromCSV();
+                tableView.style.display = '';
+                textareaView.style.display = 'none';
+                btn.textContent = 'Edit';
+                updateTableFromPoints();
+            }
+        }
+
+        function copyToClipboard(el, text) {
+            const flash = () => {
+                const prev = el.style.background;
+                el.style.background = '#d4edda';
+                setTimeout(() => { el.style.background = prev; }, 400);
+            };
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(flash);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                flash();
+            }
+        }
+
+        function updateTableFromPoints() {
+            const tbody = document.getElementById('cp-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const sorted = [...controlPoints].sort((a, b) => a.rowNumber - b.rowNumber);
+            sorted.forEach(point => {
+                let x = '', y = '', lon = '', lat = '';
+                if (point.sourcePixelCoords) {
+                    x = point.sourcePixelCoords[0].toFixed(1);
+                    y = point.sourcePixelCoords[1].toFixed(1);
+                } else if (point.sourceCoords) {
+                    const px = sourceMap.project(point.sourceCoords);
+                    x = px.x.toFixed(1);
+                    y = px.y.toFixed(1);
+                }
+                if (point.referenceCoords) {
+                    lon = point.referenceCoords[0].toFixed(7);
+                    lat = point.referenceCoords[1].toFixed(7);
+                }
+
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #f0f0f0';
+
+                const numTd = document.createElement('td');
+                numTd.style.cssText = 'padding:3px 8px; text-align:center; color:#999; font-size:11px;';
+                numTd.textContent = point.rowNumber;
+                tr.appendChild(numTd);
+
+                [x, y, lon, lat].forEach(val => {
+                    const td = document.createElement('td');
+                    td.style.cssText = 'padding:3px 8px; text-align:right;';
+                    if (val) {
+                        td.textContent = val;
+                        td.title = 'Click to copy';
+                        td.style.cursor = 'pointer';
+                        td.addEventListener('mouseenter', () => td.style.background = '#f0f7ff');
+                        td.addEventListener('mouseleave', () => td.style.background = '');
+                        td.addEventListener('click', () => copyToClipboard(td, val));
+                    } else {
+                        td.textContent = '—';
+                        td.style.color = '#ccc';
+                    }
+                    tr.appendChild(td);
+                });
+
+                const delTd = document.createElement('td');
+                delTd.style.cssText = 'padding:3px 4px; text-align:center;';
+                const delBtn = document.createElement('button');
+                delBtn.textContent = '×';
+                delBtn.style.cssText = 'color:#ccc; font-size:14px; line-height:1; padding:0 3px; cursor:pointer; background:none; border:none;';
+                delBtn.title = 'Delete';
+                delBtn.addEventListener('mouseenter', () => delBtn.style.color = '#dc3545');
+                delBtn.addEventListener('mouseleave', () => delBtn.style.color = '#ccc');
+                delBtn.addEventListener('click', () => deleteControlPoint(point.id));
+                delTd.appendChild(delBtn);
+                tr.appendChild(delTd);
+
+                tbody.appendChild(tr);
+            });
+        }
+
         // Control mode handlers
         document.querySelectorAll('.control-mode').forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', function () {
                 const mode = this.dataset.mode;
                 currentMode = mode;
-                
+
                 // Update active state for all control buttons
                 document.querySelectorAll('.control-mode').forEach(btn => {
                     btn.classList.remove('active');
@@ -1976,14 +2185,14 @@
                 document.querySelectorAll(`[data-mode="${mode}"]`).forEach(btn => {
                     btn.classList.add('active');
                 });
-                
+
                 // Reset selection when changing modes
                 selectedPointIndex = -1;
                 updateMarkers();
                 updateMapCursor();
             });
         });
-        
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             // Mode selection (1-3 keys)
@@ -1992,7 +2201,7 @@
                 const modes = ['add', 'move', 'pan'];
                 const mode = modes[parseInt(e.key) - 1];
                 currentMode = mode;
-                
+
                 // Update active state
                 document.querySelectorAll('.control-mode').forEach(btn => {
                     btn.classList.remove('active');
@@ -2000,25 +2209,25 @@
                 document.querySelectorAll(`[data-mode="${mode}"]`).forEach(btn => {
                     btn.classList.add('active');
                 });
-                
+
                 selectedPointIndex = -1;
                 updateMarkers();
                 updateMapCursor();
             }
-            
+
             // Undo marker position change (Ctrl+Z / Cmd+Z)
             if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
                 e.preventDefault();
                 undoLastMarkerPositionChange();
             }
-            
+
             // Deselect active marker (Escape)
             if (e.key === 'Escape' && selectedPointIndex >= 0) {
                 e.preventDefault();
                 deselectMarkerAndSwitchToPan();
                 updateMarkers();
             }
-            
+
             // Delete selected point
             if (e.key === 'Delete' && selectedPointIndex >= 0) {
                 controlPoints.splice(selectedPointIndex, 1);
@@ -2027,39 +2236,44 @@
                 updateCSVFromPoints();
             }
         });
-        
+
         // Initialize DataTable plugin
         let warperDataTable = null;
-        
+
         function initializeDataTable() {
             warperDataTable = new WarperDataTable({
                 url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTChLW_Qr9M9huy7LZIlR3-1_JW_8hmospOHSZmbL0-VRbjyHtTfv2tzh3VVlO-g0LP2GXcyfX8P6Te/pub?output=csv',
                 title: 'Goa Reference Map Index',
-                name: ['Name', 'Taluka', 'District','Collection','Year','Level'],
+                name: ['Name', 'Taluka', 'District', 'Collection', 'Year', 'Level'],
                 type: 'Level',
                 click: 'Mapwarper'
             });
         }
-        
+
         async function showMapList() {
             if (warperDataTable) {
                 await warperDataTable.show();
             }
         }
-        
+
         // Initialize when page loads
         window.addEventListener('load', () => {
+            const mapParam = new URLSearchParams(window.location.search).get('map');
+            if (mapParam) {
+                document.getElementById('mapwarper-url').value = mapParam;
+            }
+
             initializeMaps();
-            
+
             // Initialize DataTable plugin
             initializeDataTable();
-            
+
             // Set up Map List button
             const mapListBtn = document.getElementById('map-list-btn');
             if (mapListBtn) {
                 mapListBtn.addEventListener('click', showMapList);
             }
-            
+
             // Listen for loadMapwarperUrl event from DataTable
             document.addEventListener('loadMapwarperUrl', (event) => {
                 const url = event.detail.url;
@@ -2073,13 +2287,13 @@
                     }
                 }
             });
-            
+
             // Set up CSV textarea event listener for live sync
             const csvTextarea = document.getElementById('csv-output');
             csvTextarea.addEventListener('input', () => {
                 updatePointsFromCSV();
             });
-            
+
             // Close modals when clicking outside
             window.addEventListener('click', (e) => {
                 if (e.target.classList.contains('modal')) {
@@ -2089,4 +2303,5 @@
         });
     </script>
 </body>
+
 </html>
