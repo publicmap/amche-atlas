@@ -182,12 +182,8 @@
       "style": {
         "symbol-placement": "line",
         "text-field": [
-          "concat",
-          [
-            "get",
-            "ele"
-          ],
-          "m"
+          "get",
+          "ele"
         ],
         "line-color": "red",
         "text-halo-color": "red",

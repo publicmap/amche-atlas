@@ -912,35 +912,39 @@ export class MapUtils {
                 return;
             }
 
-            // Find the water layer to insert slots after it
-            const waterLayerIndex = style.layers.findIndex(layer => layer.id === 'water');
+            const layers = style.layers;
 
-            if (waterLayerIndex === -1) {
-                console.warn('[MapInit] Water layer not found, inserting slots at the beginning');
+            // bottom slot: first layer in the style, or second if the first is type 'background'
+            // Reference: https://docs.mapbox.com/style-spec/reference/slots/
+            if (!map.getLayer('bottom')) {
+                const insertIndex = layers[0]?.type === 'background' ? 1 : 0;
+                const beforeId = insertIndex < layers.length ? layers[insertIndex].id : undefined;
+                try {
+                    map.addLayer({ id: 'bottom', type: 'slot' }, beforeId);
+                } catch (error) {
+                    console.error('[MapInit] Failed to add bottom slot:', error);
+                }
             }
 
-            // Determine the layer to insert before (the layer after water)
-            const beforeLayerId = waterLayerIndex >= 0 && waterLayerIndex < style.layers.length - 1
-                ? style.layers[waterLayerIndex + 1].id
-                : null;
-
-            // Add three slot layers: bottom (for rasters), middle (for vectors), top (for overlays)
-            // Reference: https://docs.mapbox.com/style-spec/reference/layers/#layer-properties
-            const slots = ['bottom', 'middle', 'top'];
-
-            slots.forEach(slotName => {
-                // Check if slot already exists
-                if (!map.getLayer(slotName)) {
-                    try {
-                        map.addLayer({
-                            id: slotName,
-                            type: 'slot'
-                        }, beforeLayerId);
-                    } catch (error) {
-                        console.error(`[MapInit] Failed to add slot layer ${slotName}:`, error);
-                    }
+            // middle slot: before the first label/symbol layer
+            if (!map.getLayer('middle')) {
+                const firstLabelLayer = map.getStyle().layers.find(l => l.type === 'symbol');
+                const beforeId = firstLabelLayer ? firstLabelLayer.id : undefined;
+                try {
+                    map.addLayer({ id: 'middle', type: 'slot' }, beforeId);
+                } catch (error) {
+                    console.error('[MapInit] Failed to add middle slot:', error);
                 }
-            });
+            }
+
+            // top slot: appended after all existing layers
+            if (!map.getLayer('top')) {
+                try {
+                    map.addLayer({ id: 'top', type: 'slot' });
+                } catch (error) {
+                    console.error('[MapInit] Failed to add top slot:', error);
+                }
+            }
         } catch (error) {
             console.error('[MapInit] Error initializing slot layers:', error);
         }
