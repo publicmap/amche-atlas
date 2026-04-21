@@ -256,7 +256,7 @@
         <!-- Source Map - 40% -->
         <div class="w-2/5 relative border-r-2 border-gray-300">
             <div class="absolute top-2 left-2 bg-white/90 px-3 py-1 rounded text-sm font-semibold z-10">
-                Source Map (WMS)
+                Source Map
             </div>
             <div id="source-map" class="w-full h-full"></div>
         </div>
@@ -422,7 +422,7 @@
         
         // Initialize maps
         function initializeMaps() {
-            // Initialize source map (will display unwarped image without basemap)
+            // Initialize source map (displays unwarped image via Mapbox GL image source)
             sourceMap = new mapboxgl.Map({
                 container: 'source-map',
                 style: {
@@ -432,53 +432,7 @@
                     glyphs: 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf'
                 },
                 center: [0, 0],
-                zoom: 1,
-                transformRequest: (url, resourceType) => {
-                    if (url.includes('/maps/') || url.includes('/api/v1/maps/')) {
-                        if (url.includes('{bbox-epsg-4326}') || url.includes('{bbox}') || url.includes('{z}') || url.includes('{x}') || url.includes('{y}')) {
-                            console.warn('❌ Unsubstituted placeholders found:', url);
-                        }
-
-                        if (url.includes('STATUS=unwarped') && url.includes('BBOX=')) {
-                            try {
-                                const urlObj = new URL(url);
-                                const bbox = urlObj.searchParams.get('BBOX');
-                                const width = urlObj.searchParams.get('_w');
-                                const height = urlObj.searchParams.get('_h');
-                                const scale = urlObj.searchParams.get('_s');
-
-                                if (bbox && !bbox.includes('{') && width && height && scale) {
-                                    const [minLng, minLat, maxLng, maxLat] = bbox.split(',').map(Number);
-                                    const w = parseFloat(width);
-                                    const h = parseFloat(height);
-                                    const s = parseFloat(scale);
-
-                                    const minX = minLng / s;
-                                    const minY = h - (maxLat / s);
-                                    const maxX = maxLng / s;
-                                    const maxY = h - (minLat / s);
-
-                                    urlObj.searchParams.set('BBOX', `${Math.round(minX)},${Math.round(minY)},${Math.round(maxX)},${Math.round(maxY)}`);
-                                    urlObj.searchParams.delete('_w');
-                                    urlObj.searchParams.delete('_h');
-                                    urlObj.searchParams.delete('_s');
-                                    url = urlObj.toString();
-                                    console.log('Transformed WMS URL:', url);
-                                }
-                            } catch (e) {
-                                console.error('Error transforming WMS URL:', e);
-                            }
-                        }
-
-                        return {
-                            url: url,
-                            headers: {
-                                'Accept': url.includes('/wms/') ? 'image/png,image/*;q=0.8,*/*;q=0.5' : 'image/*'
-                            }
-                        };
-                    }
-                    return { url: url };
-                }
+                zoom: 1
             });
             
             // Initialize reference map
@@ -915,18 +869,18 @@
             }
             
             // Remove existing layers if any
-            if (sourceMap.getLayer('wms-layer')) {
-                sourceMap.removeLayer('wms-layer');
-                sourceMap.removeSource('wms-source');
+            if (sourceMap.getLayer('image-layer')) {
+                sourceMap.removeLayer('image-layer');
+                sourceMap.removeSource('image-source');
             }
             if (referenceMap.getLayer('warped-layer')) {
                 referenceMap.removeLayer('warped-layer');
                 referenceMap.removeSource('warped-source');
             }
             
-            // Load unwarped map via WMS to source map
-            loadUnwarpedMap(mapId, baseUrl);
-            
+            // Load unwarped map first so imageTransform is ready before control points are placed
+            await loadUnwarpedMap(mapId, baseUrl);
+
             // Add warped map to reference map
             referenceMap.addSource('warped-source', {
                 type: 'raster',
@@ -954,14 +908,9 @@
             referenceMap.setCenter(center.coords);
             referenceMap.setZoom(center.zoom);
             
-            // Wait a moment for maps to settle before loading control points
-            setTimeout(() => {
-                // Don't clear imageTransform when clearing control points
-                const savedTransform = imageTransform;
-                clearControlPoints();
-                imageTransform = savedTransform;
-                fetchExistingControlPoints(mapId, baseUrl);
-            }, 1000);
+            // imageTransform is now set; load control points immediately
+            clearControlPoints();
+            fetchExistingControlPoints(mapId, baseUrl);
             
             // Enable warped map toggle
             document.getElementById('warped-map-toggle').checked = true;
@@ -1068,15 +1017,7 @@
             try {
                 console.log(`Loading unwarped map for ${mapId}...`);
                 
-                // Remove existing layers if any
-                if (sourceMap.getLayer('wms-layer')) {
-                    sourceMap.removeLayer('wms-layer');
-                    sourceMap.removeSource('wms-source');
-                }
-                if (sourceMap.getLayer('wms-fallback-layer')) {
-                    sourceMap.removeLayer('wms-fallback-layer');
-                    sourceMap.removeSource('wms-fallback-source');
-                }
+                // Remove existing layer if any
                 if (sourceMap.getLayer('image-layer')) {
                     sourceMap.removeLayer('image-layer');
                     sourceMap.removeSource('image-source');
@@ -1097,7 +1038,7 @@
         
         async function loadMapImageDirectly(mapId, baseUrl) {
             try {
-                console.log(`Attempting to load map ${mapId} using WMS tiles...`);
+                console.log(`Loading unwarped map ${mapId}...`);
 
                 const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}.json`);
                 if (!response.ok) {
@@ -1105,14 +1046,23 @@
                 }
 
                 const mapData = await response.json();
-                const width = mapData.data.attributes.width;
-                const height = mapData.data.attributes.height;
+                const attrs = mapData.data.attributes;
+                const width = attrs.width;
+                const height = attrs.height;
 
                 if (!width || !height) {
                     throw new Error('Missing image dimensions in map metadata');
                 }
 
                 console.log(`Image dimensions: ${width}x${height}`);
+
+                // Request full image via WMS using pixel coordinates, capped at 2048px
+                const maxPx = 2048;
+                const scale = Math.min(1, maxPx / Math.max(width, height));
+                const wmsW = Math.round(width * scale);
+                const wmsH = Math.round(height * scale);
+                const imageUrl = `${baseUrl}/maps/wms/${mapId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image/png&STATUS=unwarped&SRS=EPSG:4326&BBOX=0,0,${width},${height}&WIDTH=${wmsW}&HEIGHT=${wmsH}`;
+                console.log('Image URL:', imageUrl);
 
                 sourceMap.setStyle({
                     version: 8,
@@ -1123,71 +1073,59 @@
 
                 await new Promise(resolve => {
                     const checkStyle = () => {
-                        if (sourceMap.isStyleLoaded()) {
-                            resolve();
-                        } else {
-                            setTimeout(checkStyle, 50);
-                        }
+                        if (sourceMap.isStyleLoaded()) resolve();
+                        else setTimeout(checkStyle, 50);
                     };
                     checkStyle();
                 });
 
                 const maxDimension = Math.max(width, height);
-                const maxCoordinate = 85;
-                const pixelToFakeGeo = maxCoordinate / maxDimension;
-
-                const scaledWidth = width * pixelToFakeGeo;
-                const scaledHeight = height * pixelToFakeGeo;
+                // Use small coordinates near the equator (≤5°) where Mercator distortion is <0.4%
+                const pixelToFakeGeo = 5 / maxDimension;
 
                 imageTransform = {
-                    width: width,
-                    height: height,
+                    width,
+                    height,
                     bounds: {
                         west: 0,
                         south: 0,
-                        east: scaledWidth,
-                        north: scaledHeight
+                        east: width * pixelToFakeGeo,
+                        north: height * pixelToFakeGeo
                     },
-                    pixelToFakeGeo: pixelToFakeGeo,
+                    pixelToFakeGeo,
                     isFakeGeo: true
                 };
                 console.log('Image transform stored:', imageTransform);
 
-                sourceMap.addSource('wms-source', {
-                    type: 'raster',
-                    tiles: [
-                        `${baseUrl}/maps/wms/${mapId}?FORMAT=image/png&STATUS=unwarped&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=&SRS=EPSG:4326&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-4326}&_w=${width}&_h=${height}&_s=${imageTransform.pixelToFakeGeo}`
-                    ],
-                    tileSize: 256,
-                    scheme: 'xyz'
+                // Use Mapbox GL image source — single image, no WMS tiling needed
+                sourceMap.addSource('image-source', {
+                    type: 'image',
+                    url: imageUrl,
+                    coordinates: [
+                        [imageTransform.bounds.west, imageTransform.bounds.north],
+                        [imageTransform.bounds.east, imageTransform.bounds.north],
+                        [imageTransform.bounds.east, imageTransform.bounds.south],
+                        [imageTransform.bounds.west, imageTransform.bounds.south]
+                    ]
                 });
 
                 sourceMap.addLayer({
-                    id: 'wms-layer',
+                    id: 'image-layer',
                     type: 'raster',
-                    source: 'wms-source',
-                    paint: {
-                        'raster-fade-duration': 0
-                    }
+                    source: 'image-source',
+                    paint: { 'raster-fade-duration': 0 }
                 });
 
-                console.log('WMS layer added to source map');
+                console.log('Image layer added to source map');
 
-                const bounds = new mapboxgl.LngLatBounds(
+                const imageBounds = new mapboxgl.LngLatBounds(
                     [imageTransform.bounds.west, imageTransform.bounds.south],
                     [imageTransform.bounds.east, imageTransform.bounds.north]
                 );
+                sourceMap.setMaxBounds(imageBounds);
+                sourceMap.fitBounds(imageBounds, { padding: 10, duration: 0 });
 
-                sourceMap.setMaxBounds(bounds);
-
-                const center = [
-                    (imageTransform.bounds.west + imageTransform.bounds.east) / 2,
-                    (imageTransform.bounds.south + imageTransform.bounds.north) / 2
-                ];
-                sourceMap.setCenter(center);
-                sourceMap.setZoom(1);
-
-                console.log('Successfully loaded unwarped map using WMS tiles');
+                console.log('Successfully loaded unwarped map');
 
             } catch (error) {
                 console.error('Error loading unwarped map:', error);
