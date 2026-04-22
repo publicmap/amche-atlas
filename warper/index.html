@@ -44,6 +44,9 @@
     <!-- Custom DataTable Plugin -->
     <script src="dataTable.js"></script>
 
+    <!-- MapWarper API -->
+    <script src="./mapwarper-api.js"></script>
+
     <!-- Navbar Component -->
     <script src="./navbar.js"></script>
 
@@ -229,6 +232,8 @@
     <!-- First row: Map load controls -->
     <div class="bg-gray-100 p-4 border-b border-gray-300">
         <div class="flex items-center gap-4">
+            <button class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" id="mapwarper-login-btn"
+                onclick="showAuthModal()">Mapwarper Login</button>
             <button class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700" id="map-list-btn">Map
                 List</button>
             or
@@ -345,6 +350,15 @@
                     </div>
                 </div>
 
+                <!-- MapWarper Account -->
+                <div>
+                    <h3 class="text-sm font-semibold mb-3 text-gray-700">MapWarper</h3>
+                    <button id="push-gcp-btn"
+                        class="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm hidden"
+                        onclick="pushGCPsToMapWarper()">Push GCP</button>
+                    <p id="auth-status" class="text-xs text-gray-500 mt-1 hidden"></p>
+                </div>
+
                 <!-- Instructions -->
                 <div class="space-y-3">
                     <p class="text-xs text-gray-600 leading-relaxed">
@@ -412,6 +426,121 @@
             <div style="text-align: right; margin-top: 20px;">
                 <button class="btn secondary" onclick="hideAddLayerModal()">Cancel</button>
                 <button class="btn" onclick="addVectorLayer()">Add Layer to Map</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MapWarper Auth Modal -->
+    <div id="auth-modal" class="modal">
+        <div class="modal-content" style="width:460px;">
+
+            <!-- Modal header (always visible) -->
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+                <img src="https://mapwarper.net/assets/header_logo-677c75a8ec329563f72a4fc36a0ae333.png"
+                    style="height:30px;" onerror="this.style.display='none'" alt="MapWarper">
+                <span style="font-size:17px; font-weight:600; color:#111827;">Login to Mapwarper</span>
+            </div>
+
+            <!-- Login form view -->
+            <div id="auth-login-view">
+
+                <!-- Server selection -->
+                <div style="padding-bottom:16px; margin-bottom:16px; border-bottom:1px solid #e5e7eb;">
+                    <div id="auth-server-radios" style="display:flex; flex-direction:column; gap:10px;"></div>
+                </div>
+
+                <!-- Sign in buttons (OAuth + Email) -->
+                <p
+                    style="font-size:12px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px;">
+                    Choose Login Option</p>
+                <div id="auth-signin-buttons" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
+
+                <!-- Email sign-in form (hidden until Email button clicked) -->
+                <div id="auth-email-form"
+                    style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid #e5e7eb;">
+                    <p style="font-size:13px; color:#6b7280; margin-bottom:14px;">
+                        Sign in with your registered email or
+                        <a id="auth-register-link" href="#" target="_blank" style="color:#2563eb;">click here</a>
+                        to register a new account.
+                    </p>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Email</label>
+                        <input type="email" id="auth-email" autocomplete="off" placeholder="email@example.com"
+                            style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:13px; box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label
+                            style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Password</label>
+                        <input type="password" id="auth-password" autocomplete="off"
+                            style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:13px; box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label
+                            style="display:flex; align-items:center; gap:8px; font-size:13px; color:#4b5563; cursor:pointer;">
+                            <input type="checkbox" id="auth-remember"> Remember me
+                        </label>
+                    </div>
+                    <p id="auth-error" style="display:none; font-size:13px; color:#dc2626; margin-bottom:8px;"></p>
+                    <p id="auth-signup-hint" style="display:none; font-size:12px; color:#6b7280; margin-bottom:8px;">
+                        Visit <a id="auth-signup-link" href="#" target="_blank" style="color:#2563eb;">the server</a> to
+                        sign up or reset your password.
+                    </p>
+                    <div style="text-align:right;">
+                        <button id="auth-login-btn" onclick="loginToMapWarper()"
+                            style="padding:8px 20px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:500;">
+                            Sign In
+                        </button>
+                    </div>
+                </div>
+
+                <!-- OAuth in-progress state -->
+                <div id="auth-oauth-progress" style="display:none; margin-top:16px; padding:16px; background:#f0f9ff; border-radius:8px; border:1px solid #bae6fd; text-align:center;">
+                    <p style="font-size:13px; color:#0369a1; margin-bottom:12px;">Login in the popup window, then click Done.</p>
+                    <button onclick="oauthDone()" style="padding:8px 20px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:500;">Done — I've logged in</button>
+                </div>
+
+                <!-- Manual token entry fallback -->
+                <div id="auth-manual-form" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid #e5e7eb;">
+                    <p style="font-size:13px; color:#374151; margin-bottom:4px; font-weight:500;">Enter your API credentials</p>
+                    <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">Find these on your <a id="auth-profile-link" href="#" target="_blank" style="color:#2563eb;">profile page</a> under Authentication Token.</p>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Authentication Token</label>
+                        <input type="text" id="auth-manual-token" placeholder="authentication_token"
+                            style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; box-sizing:border-box; font-family:monospace;">
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">User ID</label>
+                        <input type="text" id="auth-manual-userid" placeholder="numeric user ID"
+                            style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; box-sizing:border-box; font-family:monospace;">
+                    </div>
+                    <p id="auth-manual-error" style="display:none; font-size:13px; color:#dc2626; margin-bottom:8px;"></p>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <button onclick="cancelManualAuth()" style="padding:6px 14px; background:white; color:#6b7280; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; font-size:13px;">← Back</button>
+                        <button onclick="submitManualAuth()" id="auth-manual-btn" style="padding:8px 20px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:500;">Connect</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User details view (shown after login) -->
+            <div id="auth-user-view" style="display:none;">
+                <div
+                    style="display:flex; align-items:center; gap:14px; padding:16px; background:#f8fafc; border-radius:8px; margin-bottom:18px; border:1px solid #e5e7eb;">
+                    <div id="auth-avatar"
+                        style="width:52px; height:52px; border-radius:50%; background:#2563eb; color:white; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:600; flex-shrink:0;">
+                    </div>
+                    <div>
+                        <p id="auth-user-name"
+                            style="font-weight:600; font-size:15px; color:#111827; margin-bottom:3px;"></p>
+                        <p id="auth-user-since" style="font-size:12px; color:#6b7280; margin-bottom:2px;"></p>
+                        <p id="auth-user-server" style="font-size:11px; color:#9ca3af;"></p>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <button onclick="hideAuthModal()"
+                        style="padding:7px 14px; border:1px solid #d1d5db; border-radius:4px; background:white; cursor:pointer; margin-right:8px; font-size:13px;">Close</button>
+                    <button onclick="logoutFromMapWarper()"
+                        style="padding:7px 14px; background:#dc2626; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;">Logout</button>
+                </div>
             </div>
         </div>
     </div>
@@ -785,9 +914,9 @@
             const statusElement = document.getElementById('map-status');
             statusElement.textContent = metadata.status.toUpperCase();
             statusElement.className = `px-2 py-1 rounded text-xs ${metadata.status === 'warped' ? 'bg-green-100 text-green-800' :
-                    metadata.status === 'available' ? 'bg-blue-100 text-blue-800' :
-                        metadata.status === 'warping' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
+                metadata.status === 'available' ? 'bg-blue-100 text-blue-800' :
+                    metadata.status === 'warping' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
                 }`;
 
             // Dimensions
@@ -954,16 +1083,10 @@
 
             // Fetch and display map metadata
             try {
-                const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}.json`);
-                if (response.ok) {
-                    const mapData = await response.json();
-                    displayMapMetadata(mapData, mapId, baseUrl);
-                } else {
-                    console.warn('Failed to fetch map metadata:', response.status);
-                    hideMapMetadata();
-                }
+                const mapData = await mapwarperAPI.getMap(baseUrl, mapId);
+                displayMapMetadata(mapData, mapId, baseUrl);
             } catch (error) {
-                console.warn('Error fetching map metadata:', error);
+                console.warn('Failed to fetch map metadata:', error);
                 hideMapMetadata();
             }
 
@@ -1059,15 +1182,14 @@
                 const originalPlaceholder = csvOutput.placeholder;
                 csvOutput.placeholder = 'Loading existing control points...';
 
-                const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}/gcps`);
-
-                if (!response.ok) {
-                    console.warn(`No existing control points found for map ${mapId}. Status: ${response.status}`);
+                let data;
+                try {
+                    data = await mapwarperAPI.getGCPs(baseUrl, mapId);
+                } catch (error) {
+                    console.warn(`No existing control points found for map ${mapId}:`, error.message);
                     csvOutput.placeholder = originalPlaceholder;
                     return;
                 }
-
-                const data = await response.json();
 
                 if (data.data && data.data.length > 0) {
                     console.log(`Found ${data.data.length} existing control points`);
@@ -1139,12 +1261,7 @@
             try {
                 console.log(`Loading unwarped map ${mapId}...`);
 
-                const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}.json`);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch map metadata: ${response.status}`);
-                }
-
-                const mapData = await response.json();
+                const mapData = await mapwarperAPI.getMap(baseUrl, mapId);
                 const attrs = mapData.data.attributes;
                 const width = attrs.width;
                 const height = attrs.height;
@@ -2128,6 +2245,335 @@
             });
         }
 
+        const PROVIDER_CONFIG = {
+            osm: {
+                name: 'OpenStreetMap',
+                color: '#7EBC6F',
+                icon: `<img src="https://www.openstreetmap.org/assets/osm_logo-cc7d94392992162133be3baa21a37eb84f19f9b91178f704005378fbeecabb4e.svg" width="32" height="32" alt="OSM">`
+            },
+            osm_oauth2: {
+                name: 'OpenStreetMap',
+                color: '#7EBC6F',
+                icon: `<img src="https://www.openstreetmap.org/assets/osm_logo-cc7d94392992162133be3baa21a37eb84f19f9b91178f704005378fbeecabb4e.svg" width="32" height="32" alt="OSM">`
+            },
+            facebook: {
+                name: 'Facebook',
+                color: '#1877F2',
+                icon: `<svg viewBox="0 0 24 24" width="30" height="30" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`
+            },
+            github: {
+                name: 'GitHub',
+                color: '#24292e',
+                icon: `<svg viewBox="0 0 98 96" width="30" height="30" fill="#24292e"><path d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"/></svg>`
+            },
+            mediawiki: {
+                name: 'Wikipedia',
+                color: '#3569A3',
+                icon: `<img src="https://upload.wikimedia.org/wikipedia/en/8/80/Wikipedia-logo-v2.svg" width="32" height="32" alt="Wikipedia">`
+            },
+            twitter: {
+                name: 'X',
+                color: '#000000',
+                icon: `<svg viewBox="0 0 24 24" width="30" height="30" fill="#000000"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`
+            },
+            email: {
+                name: 'Email',
+                color: '#6b7280',
+                icon: `<svg viewBox="0 0 24 24" width="30" height="30" fill="#6b7280"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>`
+            }
+        };
+
+        function _getSelectedServer() {
+            const select = document.getElementById('auth-server-select');
+            return select ? select.value : (warpBaseUrl || MAPWARPER_SERVERS[0].url);
+        }
+
+        function _populateAuthModal() {
+            const activeUrl = warpBaseUrl || mapwarperAPI.auth.baseUrl || MAPWARPER_SERVERS[0].url;
+            const container = document.getElementById('auth-server-radios');
+            container.innerHTML = '';
+
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; align-items:center; gap:10px;';
+
+            const select = document.createElement('select');
+            select.id = 'auth-server-select';
+            select.style.cssText = 'padding:6px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:13px; cursor:pointer;';
+            MAPWARPER_SERVERS.forEach(server => {
+                const opt = document.createElement('option');
+                opt.value = server.url;
+                opt.textContent = server.name;
+                if (server.url === activeUrl) opt.selected = true;
+                select.appendChild(opt);
+            });
+            row.appendChild(select);
+
+            const link = document.createElement('a');
+            link.id = 'auth-server-link';
+            link.target = '_blank';
+            const updateLink = () => {
+                const s = MAPWARPER_SERVERS.find(s => s.url === select.value);
+                link.href = select.value;
+                link.textContent = select.value;
+            };
+            updateLink();
+            row.appendChild(link);
+
+            select.addEventListener('change', () => { updateLink(); _buildSigninButtons(); });
+            container.appendChild(row);
+
+            _buildSigninButtons();
+        }
+
+        function _buildSigninButtons() {
+            const selectedUrl = _getSelectedServer();
+            const server = MAPWARPER_SERVERS.find(s => s.url === selectedUrl);
+            const container = document.getElementById('auth-signin-buttons');
+            container.innerHTML = '';
+            document.getElementById('auth-email-form').style.display = 'none';
+
+            const providers = server ? [...server.oauthProviders, 'email'] : ['email'];
+            providers.forEach(provider => {
+                const cfg = PROVIDER_CONFIG[provider] || { name: provider, color: '#6b7280', icon: '' };
+                const btn = document.createElement('button');
+                btn.style.cssText = `display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:18px 10px; border-radius:8px; border:2px solid #e5e7eb; cursor:pointer; background:white; color:${cfg.color}; font-size:13px; font-weight:600; transition:all .15s;`;
+                btn.innerHTML = `${cfg.icon}<span>${cfg.name}</span>`;
+                btn.onmouseenter = () => { btn.style.borderColor = cfg.color; btn.style.background = '#f8fafc'; };
+                btn.onmouseleave = () => { btn.style.borderColor = '#e5e7eb'; btn.style.background = 'white'; };
+                if (provider === 'email') {
+                    btn.onclick = toggleEmailForm;
+                } else {
+                    btn.onclick = () => loginWithOAuth(provider);
+                }
+                container.appendChild(btn);
+            });
+        }
+
+        function toggleEmailForm() {
+            const form = document.getElementById('auth-email-form');
+            const isHidden = form.style.display === 'none';
+            form.style.display = isHidden ? '' : 'none';
+            if (isHidden) {
+                const baseUrl = _getSelectedServer();
+                const server = MAPWARPER_SERVERS.find(s => s.url === baseUrl);
+                const signupUrl = baseUrl + (server && server.signupPath ? server.signupPath : '/u/sign_up');
+                document.getElementById('auth-register-link').href = signupUrl;
+                document.getElementById('auth-error').style.display = 'none';
+                document.getElementById('auth-signup-hint').style.display = 'none';
+                setTimeout(() => document.getElementById('auth-email').focus(), 50);
+            }
+        }
+
+        function showAuthModal() {
+            _populateAuthModal();
+            if (mapwarperAPI.isAuthenticated) {
+                _showUserView();
+            } else {
+                document.getElementById('auth-login-view').style.display = '';
+                document.getElementById('auth-user-view').style.display = 'none';
+            }
+            document.getElementById('auth-modal').style.display = 'block';
+        }
+
+        function hideAuthModal() {
+            document.getElementById('auth-modal').style.display = 'none';
+        }
+
+        function _showUserView() {
+            const auth = mapwarperAPI.auth;
+            document.getElementById('auth-login-view').style.display = 'none';
+            document.getElementById('auth-user-view').style.display = '';
+
+            const name = auth.login || '';
+            document.getElementById('auth-avatar').textContent = name.charAt(0).toUpperCase() || '?';
+            document.getElementById('auth-user-name').textContent = name;
+
+            const userData = auth.userData;
+            if (userData && userData.attributes && userData.attributes.created_at) {
+                const year = new Date(userData.attributes.created_at).getFullYear();
+                document.getElementById('auth-user-since').textContent = `Member since ${year}`;
+            } else {
+                document.getElementById('auth-user-since').textContent = '';
+            }
+
+            try {
+                document.getElementById('auth-user-server').textContent = auth.baseUrl ? new URL(auth.baseUrl).hostname : '';
+            } catch (e) {
+                document.getElementById('auth-user-server').textContent = auth.baseUrl || '';
+            }
+        }
+
+        async function loginToMapWarper() {
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const errorEl = document.getElementById('auth-error');
+            const hintEl = document.getElementById('auth-signup-hint');
+
+            errorEl.style.display = 'none';
+            hintEl.style.display = 'none';
+
+            if (!email || !password) {
+                errorEl.textContent = 'Please enter email and password';
+                errorEl.style.display = '';
+                return;
+            }
+
+            const baseUrl = _getSelectedServer();
+            const loginBtn = document.getElementById('auth-login-btn');
+            loginBtn.textContent = 'Logging in...';
+            loginBtn.disabled = true;
+
+            try {
+                await mapwarperAPI.login(baseUrl, email, password);
+                if (document.getElementById('auth-remember').checked) mapwarperAPI.saveAuth();
+                updateAuthUI();
+                _showUserView();
+            } catch (error) {
+                errorEl.textContent = error.message || 'Login failed';
+                errorEl.style.display = '';
+                const signupLink = document.getElementById('auth-signup-link');
+                try { signupLink.textContent = new URL(baseUrl).hostname; } catch (e) { signupLink.textContent = baseUrl; }
+                signupLink.href = baseUrl;
+                hintEl.style.display = '';
+            } finally {
+                loginBtn.textContent = 'Login';
+                loginBtn.disabled = false;
+            }
+        }
+
+        async function loginWithOAuth(provider) {
+            const baseUrl = _getSelectedServer();
+            document.getElementById('auth-signin-buttons').style.display = 'none';
+            document.getElementById('auth-email-form').style.display = 'none';
+            document.getElementById('auth-oauth-progress').style.display = '';
+            document.getElementById('auth-manual-form').style.display = 'none';
+            document.getElementById('auth-error').style.display = 'none';
+            try {
+                await mapwarperAPI.loginWithOAuth(baseUrl, provider);
+                document.getElementById('auth-oauth-progress').style.display = 'none';
+                document.getElementById('auth-signin-buttons').style.display = '';
+                if (document.getElementById('auth-remember').checked) mapwarperAPI.saveAuth();
+                updateAuthUI();
+                _showUserView();
+            } catch (error) {
+                document.getElementById('auth-oauth-progress').style.display = 'none';
+                document.getElementById('auth-signin-buttons').style.display = '';
+                if (error.message === 'oauth-popup-closed') {
+                    _showManualTokenForm(baseUrl);
+                } else {
+                    const errorEl = document.getElementById('auth-error');
+                    errorEl.textContent = error.message;
+                    errorEl.style.display = '';
+                }
+            }
+        }
+
+        function oauthDone() {
+            mapwarperAPI.dismissOAuth();
+        }
+
+        function _showManualTokenForm(baseUrl) {
+            document.getElementById('auth-profile-link').href = baseUrl + '/u/edit';
+            document.getElementById('auth-manual-form').style.display = '';
+            document.getElementById('auth-manual-error').style.display = 'none';
+            document.getElementById('auth-manual-token').value = '';
+            document.getElementById('auth-manual-userid').value = '';
+            setTimeout(() => document.getElementById('auth-manual-token').focus(), 50);
+        }
+
+        function cancelManualAuth() {
+            document.getElementById('auth-manual-form').style.display = 'none';
+            _buildSigninButtons();
+        }
+
+        async function submitManualAuth() {
+            const token = document.getElementById('auth-manual-token').value.trim();
+            const userId = document.getElementById('auth-manual-userid').value.trim();
+            const errorEl = document.getElementById('auth-manual-error');
+            errorEl.style.display = 'none';
+            if (!token || !userId) {
+                errorEl.textContent = 'Please enter both token and user ID.';
+                errorEl.style.display = '';
+                return;
+            }
+            const baseUrl = _getSelectedServer();
+            mapwarperAPI.auth = {
+                token, userId, baseUrl,
+                login: `User ${userId}`,
+                userData: { id: userId, attributes: { login: `User ${userId}` } }
+            };
+            mapwarperAPI.saveAuth();
+            updateAuthUI();
+            document.getElementById('auth-manual-form').style.display = 'none';
+            _showUserView();
+        }
+
+        function logoutFromMapWarper() {
+            mapwarperAPI.clearAuth();
+            updateAuthUI();
+            document.getElementById('auth-user-view').style.display = 'none';
+            document.getElementById('auth-login-view').style.display = '';
+            _buildSigninButtons();
+        }
+
+        function updateAuthUI() {
+            const pushGcpBtn = document.getElementById('push-gcp-btn');
+            const authStatus = document.getElementById('auth-status');
+            const loginBtn = document.getElementById('mapwarper-login-btn');
+
+            if (mapwarperAPI.isAuthenticated) {
+                if (pushGcpBtn) pushGcpBtn.classList.remove('hidden');
+                if (authStatus) { authStatus.textContent = mapwarperAPI.auth.login; authStatus.classList.remove('hidden'); }
+                if (loginBtn) loginBtn.textContent = mapwarperAPI.auth.login || 'Account';
+            } else {
+                if (pushGcpBtn) pushGcpBtn.classList.add('hidden');
+                if (authStatus) authStatus.classList.add('hidden');
+                if (loginBtn) loginBtn.textContent = 'Mapwarper Login';
+            }
+        }
+
+        async function pushGCPsToMapWarper() {
+            if (!mapwarperAPI.isAuthenticated) { showAuthModal(); return; }
+            if (!warpMapId || !warpBaseUrl) { alert('No map loaded'); return; }
+
+            const gcps = controlPoints
+                .filter(p => (p.sourcePixelCoords || p.sourceCoords) && p.referenceCoords)
+                .map(p => {
+                    let x, y;
+                    if (p.sourcePixelCoords) {
+                        x = p.sourcePixelCoords[0];
+                        y = p.sourcePixelCoords[1];
+                    } else if (p.sourceCoords && imageTransform) {
+                        const { width, height, bounds } = imageTransform;
+                        x = (p.sourceCoords[0] - bounds.west) / (bounds.east - bounds.west) * width;
+                        y = (bounds.north - p.sourceCoords[1]) / (bounds.north - bounds.south) * height;
+                    }
+                    return {
+                        mapid: parseInt(warpMapId),
+                        x: parseFloat(x.toFixed(1)),
+                        y: parseFloat(y.toFixed(1)),
+                        lat: p.referenceCoords[1].toFixed(7),
+                        lon: p.referenceCoords[0].toFixed(7)
+                    };
+                });
+
+            if (gcps.length === 0) { alert('No complete control points to push'); return; }
+
+            const pushBtn = document.getElementById('push-gcp-btn');
+            pushBtn.textContent = 'Pushing...';
+            pushBtn.disabled = true;
+
+            try {
+                await mapwarperAPI.replaceGCPs(warpBaseUrl, warpMapId, gcps);
+                alert(`Pushed ${gcps.length} GCPs to MapWarper`);
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                pushBtn.textContent = 'Push GCP';
+                pushBtn.disabled = false;
+            }
+        }
+
         // Control mode handlers
         document.querySelectorAll('.control-mode').forEach(button => {
             button.addEventListener('click', function () {
@@ -2220,6 +2666,7 @@
             }
 
             initializeMaps();
+            updateAuthUI();
 
             // Initialize DataTable plugin
             initializeDataTable();
