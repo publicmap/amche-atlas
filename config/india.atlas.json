@@ -348,21 +348,8 @@
           "get",
           "vilnam_soi"
         ],
-        "text-color": "white",
-        "text-size": 13,
-        "fill-color": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          8,
-          "rgba(0, 0, 0, 0)",
-          12,
-          "rgba(0, 0, 0, 0.1)"
-        ],
+        "text-color": "black",
+        "fill-color": "rgba(0, 0, 0, 0.1)",
         "line-color": "black",
         "line-width": [
           "interpolate",
