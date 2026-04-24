@@ -112,6 +112,99 @@ app.get('/proxy', async (req, res) => {
     }
 });
 
+const mahaSession = { cookies: null, expires: 0 };
+
+function extractSetCookies(headers) {
+    return typeof headers.getSetCookie === 'function'
+        ? headers.getSetCookie()
+        : (() => { const out = []; headers.forEach((v, k) => { if (k === 'set-cookie') out.push(v); }); return out; })();
+}
+
+async function getMahaSession() {
+    if (mahaSession.cookies && Date.now() < mahaSession.expires) {
+        return mahaSession.cookies;
+    }
+    console.log('[MahaBhunaksha] Acquiring new session...');
+    const cookieMap = new Map();
+    let url = 'https://mahabhunakasha.mahabhumi.gov.in/27/index.html';
+
+    for (let i = 0; i < 8; i++) {
+        const cookieStr = [...cookieMap.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
+        const res = await fetch(url, {
+            redirect: 'manual',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                ...(cookieStr ? { 'Cookie': cookieStr } : {})
+            }
+        });
+        for (const c of extractSetCookies(res.headers)) {
+            const [kv] = c.split(';');
+            const eq = kv.indexOf('=');
+            if (eq > 0) cookieMap.set(kv.substring(0, eq).trim(), kv.substring(eq + 1).trim());
+        }
+        console.log(`[MahaBhunaksha] Step ${i} status=${res.status} cookies=${[...cookieMap.keys()].join(',')}`);
+        if (res.status < 300 || res.status >= 400) break;
+        const loc = res.headers.get('location');
+        if (!loc) break;
+        url = loc.startsWith('http') ? loc : new URL(loc, url).href;
+    }
+
+    mahaSession.cookies = [...cookieMap.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
+    mahaSession.expires = Date.now() + 25 * 60 * 1000;
+    console.log('[MahaBhunaksha] Session acquired:', mahaSession.cookies);
+    return mahaSession.cookies;
+}
+
+app.get('/maha-bhunaksha', async (req, res) => {
+    const { giscode, plotno } = req.query;
+    if (!giscode || !plotno) {
+        return res.status(400).json({ error: 'Missing giscode or plotno' });
+    }
+
+    const apiUrl = 'https://mahabhunakasha.mahabhumi.gov.in/rest/MapInfo/getPlotInfo';
+    const body = `state=27&giscode=${encodeURIComponent(giscode)}&plotno=${encodeURIComponent(plotno)}&srs=4326`;
+
+    try {
+        const cookies = await getMahaSession();
+        console.log('[MahaBhunaksha] POST', giscode, plotno);
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Referer': 'https://mahabhunakasha.mahabhumi.gov.in/27/index.html',
+                'Origin': 'https://mahabhunakasha.mahabhumi.gov.in',
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+                'Cookie': cookies
+            },
+            body
+        });
+
+        const text = await response.text();
+        console.log('[MahaBhunaksha] Response', response.status, text.substring(0, 200));
+
+        if (response.status === 204 || !text.trim()) {
+            return res.json({});
+        }
+
+        if (!response.ok) {
+            mahaSession.cookies = null;
+            return res.status(response.status).json({ error: `API returned ${response.status}`, body: text.substring(0, 500) });
+        }
+
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        res.send(text);
+    } catch (error) {
+        console.error('[MahaBhunaksha] Error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
