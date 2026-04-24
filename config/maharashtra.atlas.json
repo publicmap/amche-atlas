@@ -80,19 +80,6 @@
         ],
         "text-color": "black",
         "text-size": 12,
-        "fill-color": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          15,
-          "rgba(0, 0, 0, 0.05)",
-          18,
-          "rgba(0, 0, 0, 0.1)"
-        ],
         "line-color": "#333",
         "line-width": [
           "interpolate",
@@ -148,49 +135,22 @@
             5,
             1
           ]
-        ],
-        "circle-color": "black",
-        "circle-stroke-color": "black",
-        "circle-radius": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          15,
-          0,
-          18,
-          1
-        ],
-        "circle-stroke-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          15,
-          0,
-          18,
-          1
         ]
       },
       "initiallyChecked": true,
       "inspect": {
         "id": "OBJECTID",
-        "title": "Survey Number",
+        "title": "Plot Number",
         "label": "PIN",
         "fields": [
-          "villagenam",
-          "talname"
+          "VIL_NAME",
+          "THENAME"
         ],
         "fieldTitles": [
           "Village",
           "Taluk"
-        ]
+        ],
+        "onClick": "getMahaBhunakshaInfo"
       }
     },
     {

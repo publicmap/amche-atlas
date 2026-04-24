@@ -132,6 +132,7 @@ async function getMahaSession() {
         const cookieStr = [...cookieMap.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
         const res = await fetch(url, {
             redirect: 'manual',
+            signal: AbortSignal.timeout(10000),
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -171,6 +172,7 @@ app.get('/maha-bhunaksha', async (req, res) => {
         console.log('[MahaBhunaksha] POST', giscode, plotno);
         const response = await fetch(apiUrl, {
             method: 'POST',
+            signal: AbortSignal.timeout(15000),
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                 'X-Requested-With': 'XMLHttpRequest',
