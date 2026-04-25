@@ -449,34 +449,20 @@
                     <div id="auth-server-radios" style="display:flex; flex-direction:column; gap:10px;"></div>
                 </div>
 
-                <!-- Sign in buttons (OAuth + Email) -->
-                <p
-                    style="font-size:12px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px;">
-                    Choose Login Option</p>
-                <div id="auth-signin-buttons" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
-
-                <!-- Email sign-in form (hidden until Email button clicked) -->
-                <div id="auth-email-form"
-                    style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid #e5e7eb;">
-                    <p style="font-size:13px; color:#6b7280; margin-bottom:14px;">
-                        Sign in with your registered email or
-                        <a id="auth-register-link" href="#" target="_blank" style="color:#2563eb;">click here</a>
-                        to register a new account.
-                    </p>
+                <!-- Email sign-in form -->
+                <div id="auth-email-form">
                     <div style="margin-bottom:12px;">
                         <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Email</label>
                         <input type="email" id="auth-email" autocomplete="off" placeholder="email@example.com"
                             style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:13px; box-sizing:border-box;">
                     </div>
                     <div style="margin-bottom:12px;">
-                        <label
-                            style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Password</label>
+                        <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Password</label>
                         <input type="password" id="auth-password" autocomplete="off"
                             style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:13px; box-sizing:border-box;">
                     </div>
                     <div style="margin-bottom:14px;">
-                        <label
-                            style="display:flex; align-items:center; gap:8px; font-size:13px; color:#4b5563; cursor:pointer;">
+                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#4b5563; cursor:pointer;">
                             <input type="checkbox" id="auth-remember"> Remember me
                         </label>
                     </div>
@@ -485,7 +471,8 @@
                         Visit <a id="auth-signup-link" href="#" target="_blank" style="color:#2563eb;">the server</a> to
                         sign up or reset your password.
                     </p>
-                    <div style="text-align:right;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div id="auth-signin-buttons" style="display:flex; gap:6px;"></div>
                         <button id="auth-login-btn" onclick="loginToMapWarper()"
                             style="padding:8px 20px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:500;">
                             Sign In
@@ -502,7 +489,7 @@
                 <!-- Manual token entry fallback -->
                 <div id="auth-manual-form" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid #e5e7eb;">
                     <p style="font-size:13px; color:#374151; margin-bottom:4px; font-weight:500;">Enter your API credentials</p>
-                    <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">Find these on your <a id="auth-profile-link" href="#" target="_blank" style="color:#2563eb;">profile page</a> under Authentication Token.</p>
+                    <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">After signing in, find your token at <a id="auth-profile-link" href="https://mapwarper.net/u/edit" target="_blank" style="color:#2563eb;">your profile page</a> under API Token.</p>
                     <div style="margin-bottom:10px;">
                         <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Authentication Token</label>
                         <input type="text" id="auth-manual-token" placeholder="authentication_token"
@@ -535,6 +522,25 @@
                         <p id="auth-user-server" style="font-size:11px; color:#9ca3af;"></p>
                     </div>
                 </div>
+                <!-- User Maps and Mosaics -->
+                <div id="auth-user-content" style="margin-bottom:16px;">
+                    <div id="auth-content-loading" style="text-align:center; padding:10px; color:#6b7280; font-size:12px;">Loading your maps…</div>
+                    <input id="auth-list-filter" type="text" placeholder="Filter…" oninput="_filterUserLists()"
+                        style="display:none; width:100%; padding:5px 8px; margin-bottom:8px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; box-sizing:border-box;">
+                    <div id="auth-maps-section" style="display:none; margin-bottom:10px;">
+                        <div style="font-size:11px; font-weight:600; color:#374151; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em;">Maps <span id="auth-maps-count" style="color:#9ca3af; font-weight:normal;"></span></div>
+                        <div id="auth-maps-list" style="max-height:140px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px; background:#fafafa;"></div>
+                    </div>
+                    <div id="auth-mosaics-section" style="display:none;">
+                        <div style="font-size:11px; font-weight:600; color:#374151; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em;">Mosaics <span id="auth-mosaics-count" style="color:#9ca3af; font-weight:normal;"></span></div>
+                        <div id="auth-mosaics-list" style="max-height:100px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px; background:#fafafa;"></div>
+                    </div>
+                    <div id="auth-load-more-wrap" style="display:none; text-align:center; margin-top:8px;">
+                        <button id="auth-load-more-btn" onclick="_loadMoreActivity()"
+                            style="padding:4px 14px; background:white; color:#374151; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; font-size:12px;">Load More</button>
+                    </div>
+                </div>
+
                 <div style="text-align:right;">
                     <button onclick="hideAuthModal()"
                         style="padding:7px 14px; border:1px solid #d1d5db; border-radius:4px; background:white; cursor:pointer; margin-right:8px; font-size:13px;">Close</button>
@@ -1367,6 +1373,14 @@
             return [lng, lat];
         }
 
+        function geographicToPixel(lng, lat) {
+            if (!imageTransform) return null;
+            const { width, height, bounds } = imageTransform;
+            const pixelX = (lng - bounds.west) / (bounds.east - bounds.west) * width;
+            const pixelY = (bounds.north - lat) / (bounds.north - bounds.south) * height;
+            return [pixelX, pixelY];
+        }
+
         async function convertMapWarperGCPs(gcpData, mapId) {
             // For each GCP from MapWarper, preserve the original pixel coordinates
             gcpData.forEach((gcp) => {
@@ -1447,11 +1461,11 @@
                 const point = controlPoints[pointIndex];
 
                 if (mapType === 'source') {
-                    // For source map, always store as geographic coordinates
-                    // This will override any existing pixel coordinates
                     point.sourceCoords = [e.lngLat.lng, e.lngLat.lat];
-                    // Clear pixel coordinates if they exist since we're now using geographic
-                    if (point.sourcePixelCoords) {
+                    const px = geographicToPixel(e.lngLat.lng, e.lngLat.lat);
+                    if (px) {
+                        point.sourcePixelCoords = px;
+                    } else {
                         delete point.sourcePixelCoords;
                     }
                 } else {
@@ -1739,16 +1753,12 @@
 
                         marker.on('dragend', () => {
                             const lngLat = marker.getLngLat();
-                            // Update the control point coordinates
-                            if (point.sourceCoords) {
-                                point.sourceCoords = [lngLat.lng, lngLat.lat];
+                            point.sourceCoords = [lngLat.lng, lngLat.lat];
+                            const px = geographicToPixel(lngLat.lng, lngLat.lat);
+                            if (px) {
+                                point.sourcePixelCoords = px;
                             } else {
-                                // Create sourceCoords if only pixel coords existed
-                                point.sourceCoords = [lngLat.lng, lngLat.lat];
-                                // Clear pixel coordinates since we're now using geographic
-                                if (point.sourcePixelCoords) {
-                                    delete point.sourcePixelCoords;
-                                }
+                                delete point.sourcePixelCoords;
                             }
                             updateCSVFromPoints();
                         });
@@ -1859,8 +1869,9 @@
                     lines.push(`${point.sourcePixelCoords[0].toFixed(1)},${point.sourcePixelCoords[1].toFixed(1)},${point.referenceCoords[0].toFixed(7)},${point.referenceCoords[1].toFixed(7)}`);
                 } else if (point.sourceCoords && point.referenceCoords) {
                     // For manually added points, convert geographic coordinates to pixel coordinates
-                    const sourcePixel = sourceMap.project(point.sourceCoords);
-                    lines.push(`${sourcePixel.x.toFixed(1)},${sourcePixel.y.toFixed(1)},${point.referenceCoords[0].toFixed(7)},${point.referenceCoords[1].toFixed(7)}`);
+                    const sourcePixel = geographicToPixel(...point.sourceCoords) || sourceMap.project(point.sourceCoords);
+                    const px = Array.isArray(sourcePixel) ? { x: sourcePixel[0], y: sourcePixel[1] } : sourcePixel;
+                    lines.push(`${px.x.toFixed(1)},${px.y.toFixed(1)},${point.referenceCoords[0].toFixed(7)},${point.referenceCoords[1].toFixed(7)}`);
                 } else if (point.sourcePixelCoords || point.sourceCoords || point.referenceCoords) {
                     // Partial point - add placeholder
                     let sourceX = '', sourceY = '';
@@ -1868,9 +1879,9 @@
                         sourceX = point.sourcePixelCoords[0];
                         sourceY = point.sourcePixelCoords[1];
                     } else if (point.sourceCoords) {
-                        const sourcePixel = sourceMap.project(point.sourceCoords);
-                        sourceX = sourcePixel.x;
-                        sourceY = sourcePixel.y;
+                        const sourcePixel = geographicToPixel(...point.sourceCoords) || sourceMap.project(point.sourceCoords);
+                        sourceX = Array.isArray(sourcePixel) ? sourcePixel[0] : sourcePixel.x;
+                        sourceY = Array.isArray(sourcePixel) ? sourcePixel[1] : sourcePixel.y;
                     }
                     const refCoords = point.referenceCoords || ['', ''];
                     lines.push(`${sourceX || ''},${sourceY || ''},${refCoords[0] || ''},${refCoords[1] || ''}`);
@@ -2277,7 +2288,7 @@
                 icon: `<svg viewBox="0 0 24 24" width="30" height="30" fill="#000000"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`
             },
             email: {
-                name: 'Email',
+                name: 'Registered Email',
                 color: '#6b7280',
                 icon: `<svg viewBox="0 0 24 24" width="30" height="30" fill="#6b7280"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>`
             }
@@ -2330,38 +2341,19 @@
             const server = MAPWARPER_SERVERS.find(s => s.url === selectedUrl);
             const container = document.getElementById('auth-signin-buttons');
             container.innerHTML = '';
-            document.getElementById('auth-email-form').style.display = 'none';
 
-            const providers = server ? [...server.oauthProviders, 'email'] : ['email'];
+            const providers = server ? server.oauthProviders : [];
             providers.forEach(provider => {
                 const cfg = PROVIDER_CONFIG[provider] || { name: provider, color: '#6b7280', icon: '' };
                 const btn = document.createElement('button');
-                btn.style.cssText = `display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:18px 10px; border-radius:8px; border:2px solid #e5e7eb; cursor:pointer; background:white; color:${cfg.color}; font-size:13px; font-weight:600; transition:all .15s;`;
-                btn.innerHTML = `${cfg.icon}<span>${cfg.name}</span>`;
+                btn.title = `Sign in with ${cfg.name}`;
+                btn.style.cssText = `display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:6px; border:1px solid #e5e7eb; cursor:pointer; background:white; transition:all .15s;`;
+                btn.innerHTML = cfg.icon;
                 btn.onmouseenter = () => { btn.style.borderColor = cfg.color; btn.style.background = '#f8fafc'; };
                 btn.onmouseleave = () => { btn.style.borderColor = '#e5e7eb'; btn.style.background = 'white'; };
-                if (provider === 'email') {
-                    btn.onclick = toggleEmailForm;
-                } else {
-                    btn.onclick = () => loginWithOAuth(provider);
-                }
+                btn.onclick = () => loginWithOAuth(provider);
                 container.appendChild(btn);
             });
-        }
-
-        function toggleEmailForm() {
-            const form = document.getElementById('auth-email-form');
-            const isHidden = form.style.display === 'none';
-            form.style.display = isHidden ? '' : 'none';
-            if (isHidden) {
-                const baseUrl = _getSelectedServer();
-                const server = MAPWARPER_SERVERS.find(s => s.url === baseUrl);
-                const signupUrl = baseUrl + (server && server.signupPath ? server.signupPath : '/u/sign_up');
-                document.getElementById('auth-register-link').href = signupUrl;
-                document.getElementById('auth-error').style.display = 'none';
-                document.getElementById('auth-signup-hint').style.display = 'none';
-                setTimeout(() => document.getElementById('auth-email').focus(), 50);
-            }
         }
 
         function showAuthModal() {
@@ -2371,6 +2363,9 @@
             } else {
                 document.getElementById('auth-login-view').style.display = '';
                 document.getElementById('auth-user-view').style.display = 'none';
+                document.getElementById('auth-error').style.display = 'none';
+                document.getElementById('auth-signup-hint').style.display = 'none';
+                setTimeout(() => document.getElementById('auth-email').focus(), 50);
             }
             document.getElementById('auth-modal').style.display = 'block';
         }
@@ -2401,6 +2396,134 @@
             } catch (e) {
                 document.getElementById('auth-user-server').textContent = auth.baseUrl || '';
             }
+
+            _loadUserContent();
+        }
+
+        let _activityState = null;
+
+        async function _loadUserContent() {
+            _activityState = { nextPage: 1, totalPages: null, seenMapIds: new Set(), seenLayerIds: new Set() };
+            document.getElementById('auth-maps-list').innerHTML = '';
+            document.getElementById('auth-mosaics-list').innerHTML = '';
+            document.getElementById('auth-maps-section').style.display = 'none';
+            document.getElementById('auth-mosaics-section').style.display = 'none';
+            document.getElementById('auth-load-more-wrap').style.display = 'none';
+            document.getElementById('auth-list-filter').style.display = 'none';
+            document.getElementById('auth-list-filter').value = '';
+            document.getElementById('auth-content-loading').textContent = 'Loading your maps…';
+            document.getElementById('auth-content-loading').style.display = '';
+            await _fetchActivityPages(4);
+        }
+
+        async function _loadMoreActivity() {
+            const btn = document.getElementById('auth-load-more-btn');
+            btn.textContent = 'Loading…';
+            btn.disabled = true;
+            await _fetchActivityPages(10);
+            btn.textContent = 'Load More';
+            btn.disabled = false;
+        }
+
+        async function _fetchActivityPages(count) {
+            const auth = mapwarperAPI.auth;
+            const state = _activityState;
+            const start = state.nextPage;
+            if (state.totalPages !== null && start > state.totalPages) {
+                _updateLoadMoreBtn();
+                return;
+            }
+            const pageNums = Array.from({ length: count }, (_, i) => start + i);
+            const results = await Promise.all(
+                pageNums.map(p => mapwarperAPI.getUserActivity(auth.baseUrl, auth.userId, p).catch(() => ({ data: [], meta: null })))
+            );
+            if (state.totalPages === null) {
+                const meta = results.find(r => r.meta)?.meta;
+                state.totalPages = (meta && meta.total_pages) || 1;
+            }
+            state.nextPage = start + count;
+
+            const records = results.flatMap(r => r.data || []);
+            const newMapIds = [...new Set(
+                records.filter(r => r.auditable_type === 'Map' && r.action === 'create')
+                       .map(r => r.auditable_id).filter(id => !state.seenMapIds.has(id))
+            )];
+            const newLayerIds = [...new Set(
+                records.filter(r => r.auditable_type === 'Layer' && r.action === 'create')
+                       .map(r => r.auditable_id).filter(id => !state.seenLayerIds.has(id))
+            )];
+            newMapIds.forEach(id => state.seenMapIds.add(id));
+            newLayerIds.forEach(id => state.seenLayerIds.add(id));
+
+            const [maps, layers] = await Promise.all([
+                Promise.all(newMapIds.map(id => mapwarperAPI.getMap(auth.baseUrl, id).catch(() => null))),
+                Promise.all(newLayerIds.map(id => mapwarperAPI.getLayer(auth.baseUrl, id).catch(() => null)))
+            ]);
+
+            const validMaps = maps.filter(Boolean).map(m => m.data).filter(Boolean);
+            const validLayers = layers.filter(Boolean).map(l => l.data).filter(Boolean);
+
+            if (validMaps.length > 0) {
+                document.getElementById('auth-maps-list').insertAdjacentHTML('beforeend',
+                    validMaps.map(m => _mapListItem(m, auth.baseUrl, 'map')).join(''));
+                document.getElementById('auth-maps-count').textContent = `(${state.seenMapIds.size})`;
+                document.getElementById('auth-maps-section').style.display = '';
+            }
+            if (validLayers.length > 0) {
+                document.getElementById('auth-mosaics-list').insertAdjacentHTML('beforeend',
+                    validLayers.map(l => _mapListItem(l, auth.baseUrl, 'mosaic')).join(''));
+                document.getElementById('auth-mosaics-count').textContent = `(${state.seenLayerIds.size})`;
+                document.getElementById('auth-mosaics-section').style.display = '';
+            }
+
+            document.getElementById('auth-content-loading').style.display = 'none';
+            if (state.seenMapIds.size === 0 && state.seenLayerIds.size === 0) {
+                document.getElementById('auth-content-loading').textContent = 'No uploads found.';
+                document.getElementById('auth-content-loading').style.display = '';
+            } else {
+                document.getElementById('auth-list-filter').style.display = '';
+            }
+            _filterUserLists();
+            _updateLoadMoreBtn();
+        }
+
+        function _updateLoadMoreBtn() {
+            const state = _activityState;
+            const visible = state && state.totalPages !== null && state.nextPage <= state.totalPages;
+            document.getElementById('auth-load-more-wrap').style.display = visible ? '' : 'none';
+        }
+
+        function _filterUserLists() {
+            const q = (document.getElementById('auth-list-filter').value || '').toLowerCase();
+            ['auth-maps-list', 'auth-mosaics-list'].forEach(listId => {
+                document.getElementById(listId).querySelectorAll('div[data-title]').forEach(row => {
+                    row.style.display = (!q || row.dataset.title.toLowerCase().includes(q)) ? '' : 'none';
+                });
+            });
+        }
+
+        function _mapListItem(item, baseUrl, type) {
+            const attrs = item.attributes || {};
+            const title = attrs.title || `${type === 'mosaic' ? 'Mosaic' : 'Map'} #${item.id}`;
+            const status = attrs.status || '';
+            const statusColor = status === 'warped' ? '#16a34a' : status === 'available' ? '#2563eb' : '#9ca3af';
+            const url = `${baseUrl}/${type === 'mosaic' ? 'layers' : 'maps'}/${item.id}`;
+            const loadBtn = type === 'map'
+                ? `<button onclick="loadMapFromUserList('${url}')" style="padding:2px 8px; background:#2563eb; color:white; border:none; border-radius:3px; cursor:pointer; font-size:11px; flex-shrink:0;">Load</button>`
+                : `<a href="${url}" target="_blank" style="padding:2px 8px; background:#6b7280; color:white; border:none; border-radius:3px; cursor:pointer; font-size:11px; flex-shrink:0; text-decoration:none;">View</a>`;
+            return `<div data-title="${title.replace(/"/g, '&quot;')}" style="display:flex; align-items:center; padding:5px 8px; border-bottom:1px solid #f3f4f6; gap:8px;">
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:12px; font-weight:500; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${title}</div>
+                    ${status ? `<div style="font-size:10px; color:${statusColor};">${status}</div>` : ''}
+                </div>
+                ${loadBtn}
+            </div>`;
+        }
+
+        function loadMapFromUserList(url) {
+            document.getElementById('mapwarper-url').value = url;
+            hideAuthModal();
+            loadMapWarperMap();
         }
 
         async function loginToMapWarper() {
@@ -2443,26 +2566,28 @@
 
         async function loginWithOAuth(provider) {
             const baseUrl = _getSelectedServer();
-            document.getElementById('auth-signin-buttons').style.display = 'none';
             document.getElementById('auth-email-form').style.display = 'none';
             document.getElementById('auth-oauth-progress').style.display = '';
             document.getElementById('auth-manual-form').style.display = 'none';
-            document.getElementById('auth-error').style.display = 'none';
+            document.getElementById('auth-oauth-progress').querySelector('p').textContent = 'Login in the popup window, then click Done.';
             try {
                 await mapwarperAPI.loginWithOAuth(baseUrl, provider);
                 document.getElementById('auth-oauth-progress').style.display = 'none';
-                document.getElementById('auth-signin-buttons').style.display = '';
+                document.getElementById('auth-email-form').style.display = '';
                 if (document.getElementById('auth-remember').checked) mapwarperAPI.saveAuth();
                 updateAuthUI();
                 _showUserView();
             } catch (error) {
+                if (error.message === 'oauth-via-signin') {
+                    document.getElementById('auth-oauth-progress').querySelector('p').textContent =
+                        'Sign in on the mapwarper page. Then get your API token from your profile (/u/edit) and click Done.';
+                    return;
+                }
                 document.getElementById('auth-oauth-progress').style.display = 'none';
-                document.getElementById('auth-signin-buttons').style.display = '';
-                if (error.message === 'oauth-popup-closed') {
-                    _showManualTokenForm(baseUrl);
-                } else {
+                document.getElementById('auth-email-form').style.display = '';
+                if (error.message !== 'oauth-popup-closed') {
                     const errorEl = document.getElementById('auth-error');
-                    errorEl.textContent = error.message;
+                    errorEl.textContent = `OAuth login failed: ${error.message}`;
                     errorEl.style.display = '';
                 }
             }
@@ -2470,10 +2595,13 @@
 
         function oauthDone() {
             mapwarperAPI.dismissOAuth();
+            document.getElementById('auth-oauth-progress').style.display = 'none';
+            _showManualTokenForm(_getSelectedServer());
         }
 
         function _showManualTokenForm(baseUrl) {
-            document.getElementById('auth-profile-link').href = baseUrl + '/u/edit';
+            const profileLink = document.getElementById('auth-profile-link');
+            if (profileLink) profileLink.href = (baseUrl || _getSelectedServer()) + '/u/edit';
             document.getElementById('auth-manual-form').style.display = '';
             document.getElementById('auth-manual-error').style.display = 'none';
             document.getElementById('auth-manual-token').value = '';
@@ -2483,7 +2611,7 @@
 
         function cancelManualAuth() {
             document.getElementById('auth-manual-form').style.display = 'none';
-            _buildSigninButtons();
+            document.getElementById('auth-email-form').style.display = '';
         }
 
         async function submitManualAuth() {

@@ -10,9 +10,9 @@ export default defineConfig({
   // Server configuration
   server: {
     port: 4035,
-    host: true, // Allow external connections
-    open: true, // Open browser automatically
-    cors: true, // Enable CORS for development
+    host: true,
+    open: true,
+    cors: true,
   },
   
   // Build configuration

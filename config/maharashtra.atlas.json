@@ -71,16 +71,24 @@
           "",
           14,
           [
-            "to-string",
+            "format",
+            "Plot.No.\n",
+            {
+              "text-color": "white",
+              "font-scale": 0.8
+            },
             [
               "get",
               "PIN"
-            ]
+            ],
+            {
+              "text-color": "white",
+              "font-scale": 1
+            }
           ]
         ],
-        "text-color": "black",
-        "text-size": 12,
-        "line-color": "#333",
+        "fill-color": "rgba(255, 255, 255, 0.2)",
+        "line-color": "#444",
         "line-width": [
           "interpolate",
           [
@@ -89,11 +97,20 @@
           [
             "zoom"
           ],
-          13,
+          10,
           [
             "case",
             [
               "boolean",
+              [
+                "boolean",
+                [
+                  "feature-state",
+                  "hover"
+                ],
+                false
+              ],
+              2,
               [
                 "feature-state",
                 "selected"
@@ -101,16 +118,7 @@
               false
             ],
             2,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            1,
-            0
+            0.5
           ],
           18,
           [
@@ -119,20 +127,20 @@
               "boolean",
               [
                 "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            6,
-            [
-              "boolean",
-              [
-                "feature-state",
                 "hover"
               ],
               false
             ],
-            5,
+            4,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            4,
             1
           ]
         ]

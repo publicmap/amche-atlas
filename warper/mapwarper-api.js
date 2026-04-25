@@ -4,7 +4,7 @@ const MAPWARPER_SERVERS = [
         name: 'Default',
         url: 'https://mapwarper.net',
         signupPath: '/u/sign_up',
-        oauthProviders: ['osm_oauth2', 'github', 'facebook']
+        oauthProviders: []
     },
     {
         id: 'wmflabs',
@@ -52,8 +52,9 @@ class MapwarperAPI {
 
     async loginWithOAuth(baseUrl, provider) {
         return new Promise((resolve, reject) => {
+            const server = MAPWARPER_SERVERS.find(s => s.url === baseUrl);
             const popup = window.open(
-                `${baseUrl}/u/auth/${provider}`,
+                '',
                 'mapwarper-oauth',
                 'width=600,height=700,menubar=no,toolbar=no,location=no,status=no'
             );
@@ -62,6 +63,21 @@ class MapwarperAPI {
                 reject(new Error('Popup blocked — please allow popups for this site.'));
                 return;
             }
+
+            if (server && server.oauthViaSignIn) {
+                popup.location.href = `${baseUrl}/u/sign_in`;
+                this._oauthPopup = popup;
+                this._oauthReject = reject;
+                reject(new Error('oauth-via-signin'));
+                return;
+            }
+
+            const action = `${baseUrl}/u/auth/${provider}?omniauth_window_type=newWindow`;
+            popup.document.write(
+                '<html><body><form id="f" method="post" action="' + action + '"></form>' +
+                '<script>document.getElementById("f").submit();<\/script></body></html>'
+            );
+            popup.document.close();
 
             this._oauthPopup = popup;
             this._oauthReject = reject;
@@ -172,6 +188,21 @@ class MapwarperAPI {
             await Promise.all(existingData.data.map(gcp => this.deleteGCP(baseUrl, gcp.id)));
         }
         return this.addManyGCPs(baseUrl, gcps);
+    }
+
+    async getUserActivity(baseUrl, userId, page = 1) {
+        const response = await fetch(`${baseUrl}/api/v1/activity/users/${userId}?per_page=100&page=${page}`, {
+            headers: this._authHeaders()
+        });
+        if (!response.ok) throw new Error(`Failed to fetch user activity: ${response.status}`);
+        return response.json();
+    }
+
+
+    async getLayer(baseUrl, layerId) {
+        const response = await fetch(`${baseUrl}/api/v1/layers/${layerId}.json`);
+        if (!response.ok) throw new Error(`Failed to fetch layer: ${response.status}`);
+        return response.json();
     }
 }
 

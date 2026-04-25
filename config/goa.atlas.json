@@ -740,7 +740,7 @@
           ]
         ],
         "fill-color": "rgba(255, 255, 255, 0.2)",
-        "line-color": "#777",
+        "line-color": "#444",
         "line-width": [
           "interpolate",
           [
