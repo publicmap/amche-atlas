@@ -823,7 +823,7 @@
       "title": "Section 39A Land Conversion",
       "description": "Land parcels approved for landuse zone conversion under Section 39A of the Goa TCP Act.",
       "type": "geojson",
-      "url": "https://gist.githubusercontent.com/planemad/8c1b220d77d7b804356a76bb6f0b2c58/raw/363c103a721c6ee9bbe2a02c27a4c577bae1d1d9/39A.geojson",
+      "url": "https://gist.githubusercontent.com/planemad/8c1b220d77d7b804356a76bb6f0b2c58/raw/c80bc1da3216fe6ffbe135561db96a17c3aacfea/39A.geojson",
       "sourceLayer": "vector",
       "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
       "style": {
