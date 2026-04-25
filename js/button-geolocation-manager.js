@@ -148,7 +148,7 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
                     iconSpan.innerHTML = `
                         <sl-icon name="crosshair" class="geolocation-icon" style="font-size: 18px; color: white; flex-shrink: 0;"></sl-icon>
-                        <span class="geolocation-text" style="margin-left: 6px; font-size: 0.875rem; white-space: nowrap; color: white;">Locate Me</span>
+                        <span class="geolocation-text" style="margin-left: 6px; font-size: 0.875rem; white-space: nowrap; color: white;">GPS Off</span>
                     `;
 
                     // Update button colors and text based on state
@@ -160,22 +160,26 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                             button.style.borderColor = '#404040 !important';
                             if (icon) { icon.name = 'crosshair'; icon.style.color = '#3b82f6'; }
                             if (textSpan) { textSpan.textContent = 'Waiting..'; textSpan.style.color = 'white'; }
-                        } else if (button.classList.contains('mapboxgl-ctrl-geolocate-active') ||
-                            button.classList.contains('mapboxgl-ctrl-geolocate-background')) {
+                        } else if (button.classList.contains('mapboxgl-ctrl-geolocate-active')) {
                             button.style.background = '#202020 !important';
                             button.style.borderColor = '#404040 !important';
                             if (icon) { icon.name = 'crosshair2'; icon.style.color = '#3b82f6'; }
-                            if (textSpan) { textSpan.textContent = 'Location Live'; textSpan.style.color = 'white'; }
+                            if (textSpan) { textSpan.textContent = 'GPS Locked'; textSpan.style.color = 'white'; }
+                        } else if (button.classList.contains('mapboxgl-ctrl-geolocate-background')) {
+                            button.style.background = '#202020 !important';
+                            button.style.borderColor = '#404040 !important';
+                            if (icon) { icon.name = 'crosshair2'; icon.style.color = '#3b82f6'; }
+                            if (textSpan) { textSpan.textContent = 'GPS Unlocked'; textSpan.style.color = 'white'; }
                         } else if (button.classList.contains('mapboxgl-ctrl-geolocate-active-error')) {
                             button.style.background = '#ef4444 !important';
                             button.style.borderColor = '#dc2626 !important';
                             if (icon) { icon.name = 'crosshair'; icon.style.color = 'white'; }
-                            if (textSpan) { textSpan.textContent = 'Locate Me'; textSpan.style.color = 'white'; }
+                            if (textSpan) { textSpan.textContent = 'GPS Off'; textSpan.style.color = 'white'; }
                         } else {
                             button.style.background = '#202020 !important';
                             button.style.borderColor = '#404040 !important';
                             if (icon) { icon.name = 'crosshair'; icon.style.color = 'white'; }
-                            if (textSpan) { textSpan.textContent = 'Locate Me'; textSpan.style.color = 'white'; }
+                            if (textSpan) { textSpan.textContent = 'GPS Off'; textSpan.style.color = 'white'; }
                         }
                     };
 
