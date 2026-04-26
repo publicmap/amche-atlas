@@ -663,6 +663,56 @@
     },
     {
       "tags": [
+        "regulatory"
+      ],
+      "id": "39a-land-conversion",
+      "title": "Section 39A Land Conversion",
+      "description": "Land parcels approved for landuse zone conversion under Section 39A of the Goa TCP Act.",
+      "type": "geojson",
+      "url": "https://gist.githubusercontent.com/planemad/8c1b220d77d7b804356a76bb6f0b2c58/raw/c80bc1da3216fe6ffbe135561db96a17c3aacfea/39A.geojson",
+      "sourceLayer": "vector",
+      "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
+      "style": {
+        "text-field": [
+          "get",
+          "Name of Applicant"
+        ],
+        "symbol-sort-key": [
+          "/",
+          1,
+          [
+            "get",
+            "plot_area_sqm"
+          ]
+        ],
+        "fill-color": "red",
+        "line-color": "red",
+        "line-width": 3,
+        "fill-opacity": 0.4,
+        "circle-color": "white",
+        "circle-radius": 0.5,
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "red"
+      },
+      "inspect": {
+        "id": "Name of Applicant",
+        "title": "Section 39A Applicant",
+        "label": "Name of Applicant",
+        "fields": [
+          "survey",
+          "subdivision",
+          "has_match",
+          "Old Zone (Primary)",
+          "Old Zone -2 (eco zone)",
+          "New Zone",
+          "TCP Comments",
+          "Notes from Online Inspection",
+          "Notes from TCP File Inspection"
+        ]
+      }
+    },
+    {
+      "tags": [
         "1.Boundaries"
       ],
       "title": "Survey Plot Boundaries (March 2026)",
@@ -813,37 +863,6 @@
           "Shape Area (sqm)"
         ],
         "onClick": "getBhunakshaInfo"
-      }
-    },
-    {
-      "tags": [
-        "regulatory"
-      ],
-      "id": "39a-land-conversion",
-      "title": "Section 39A Land Conversion",
-      "description": "Land parcels approved for landuse zone conversion under Section 39A of the Goa TCP Act.",
-      "type": "geojson",
-      "url": "https://gist.githubusercontent.com/planemad/8c1b220d77d7b804356a76bb6f0b2c58/raw/c80bc1da3216fe6ffbe135561db96a17c3aacfea/39A.geojson",
-      "sourceLayer": "vector",
-      "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
-      "style": {
-        "fill-color": "red",
-        "line-color": "red",
-        "line-width": 3,
-        "fill-opacity": 0.4
-      },
-      "inspect": {
-        "id": "Owners",
-        "title": "Section 39A Applicant",
-        "label": "Name of Applicant",
-        "fields": [
-          "Old Zone (Primary)",
-          "Old Zone -2 (eco zone)",
-          "New Zone",
-          "TCP Comments",
-          "Notes from Online Inspection",
-          "Notes from TCP File Inspection"
-        ]
       }
     },
     {
