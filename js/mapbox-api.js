@@ -579,8 +579,8 @@ export class MapboxAPI {
             config.style['fill-extrusion-opacity'] !== undefined
         );
 
-        // If user has only line styles defined (with or without text), treat this as a linestring layer and don't apply fill styles
-        const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles && !userHasCircleStyles;
+        // If user has line styles but no fill, don't apply default fill (circle properties are decorative, not indicative of fill intent)
+        const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles;
 
         // Check if fill layer should be created
         // If user only has line styles or fill-extrusion styles, don't create fill layer even if defaults exist
@@ -1550,8 +1550,8 @@ export class MapboxAPI {
             config.style['fill-extrusion-opacity'] !== undefined
         );
 
-        // If user has only line styles defined (with or without text), treat this as a linestring layer and don't apply fill styles
-        const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles && !userHasCircleStyles && !userHasIconStyles;
+        // If user has line styles but no fill, don't apply default fill (circle/icon properties are decorative, not indicative of fill intent)
+        const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles;
 
         // Check if fill layer should be created (user styles or defaults)
         // If user only has line styles or fill-extrusion styles, don't create fill layer even if defaults exist

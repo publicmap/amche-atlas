@@ -113,19 +113,18 @@ export class LayerLegend {
     static _parseStyleToLegendItems(style) {
         const items = [];
 
-        if (style['circle-radius'] || style['circle-color']) {
-            const variants = this._extractVariants(style, 'circle');
+        if (style['fill-color']) {
+            const variants = this._extractVariants(style, 'fill');
             if (variants.length > 0) {
                 items.push(...variants);
             } else {
                 items.push({
-                    type: 'circle',
-                    label: 'Point Features',
-                    color: this._getValue(style['circle-color'], '#3b82f6'),
-                    radius: this._getValue(style['circle-radius'], 6),
-                    strokeColor: this._getValue(style['circle-stroke-color'], '#ffffff'),
-                    strokeWidth: this._getValue(style['circle-stroke-width'], 1),
-                    opacity: this._getValue(style['circle-opacity'], 0.9)
+                    type: 'fill',
+                    label: 'Polygon Features',
+                    fillColor: this._getValue(style['fill-color'], '#3b82f6'),
+                    fillOpacity: this._getValue(style['fill-opacity'], 0.5),
+                    strokeColor: this._getValue(style['line-color'], '#1e40af'),
+                    strokeWidth: this._getValue(style['line-width'], 2)
                 });
             }
         } else if (style['line-color']) {
@@ -142,18 +141,19 @@ export class LayerLegend {
                     dasharray: this._getValue(style['line-dasharray'], null)
                 });
             }
-        } else if (style['fill-color']) {
-            const variants = this._extractVariants(style, 'fill');
+        } else if (style['circle-radius'] || style['circle-color']) {
+            const variants = this._extractVariants(style, 'circle');
             if (variants.length > 0) {
                 items.push(...variants);
             } else {
                 items.push({
-                    type: 'fill',
-                    label: 'Polygon Features',
-                    fillColor: this._getValue(style['fill-color'], '#3b82f6'),
-                    fillOpacity: this._getValue(style['fill-opacity'], 0.5),
-                    strokeColor: this._getValue(style['line-color'], '#1e40af'),
-                    strokeWidth: this._getValue(style['line-width'], 2)
+                    type: 'circle',
+                    label: 'Point Features',
+                    color: this._getValue(style['circle-color'], '#3b82f6'),
+                    radius: this._getValue(style['circle-radius'], 6),
+                    strokeColor: this._getValue(style['circle-stroke-color'], '#ffffff'),
+                    strokeWidth: this._getValue(style['circle-stroke-width'], 1),
+                    opacity: this._getValue(style['circle-opacity'], 0.9)
                 });
             }
         }

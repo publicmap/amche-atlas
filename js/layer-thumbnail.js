@@ -360,51 +360,8 @@ export class LayerThumbnail {
             return defaultValue;
         };
 
-        // Circle symbology
-        if (style['circle-radius'] || style['circle-color']) {
-            const radius = getValue(style['circle-radius'], 6);
-            const strokeColor = getValue(style['circle-stroke-color'], '#ffffff');
-            const strokeWidth = getValue(style['circle-stroke-width'], 1);
-            const opacity = getValue(style['circle-opacity'], 0.9);
-
-            // Check if circle-color is a case expression with multiple values
-            const caseValues = getCaseValues(style['circle-color']);
-
-            if (caseValues && caseValues.length > 1) {
-                // Render multiple circles, one for each case value
-                const numCircles = Math.min(caseValues.length, 4); // Limit to 4 for visibility
-                const offsetStep = size * 0.12; // 12% offset between each circle
-
-                for (let i = 0; i < numCircles; i++) {
-                    const color = caseValues[i];
-                    const offset = i * offsetStep;
-
-                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    circle.setAttribute('cx', size * 0.35 + offset);
-                    circle.setAttribute('cy', size * 0.35 + offset);
-                    circle.setAttribute('r', Math.min(radius * 2.5, size / 4));
-                    circle.setAttribute('fill', color);
-                    circle.setAttribute('opacity', opacity);
-                    circle.setAttribute('stroke', strokeColor);
-                    circle.setAttribute('stroke-width', Math.max(strokeWidth * 1.5, 0.5));
-                    svg.appendChild(circle);
-                }
-            } else {
-                // Single circle for non-case expressions
-                const color = getValue(style['circle-color'], '#3b82f6');
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', size / 2);
-                circle.setAttribute('cy', size / 2);
-                circle.setAttribute('r', Math.min(radius * 3, size / 3));
-                circle.setAttribute('fill', color);
-                circle.setAttribute('opacity', opacity);
-                circle.setAttribute('stroke', strokeColor);
-                circle.setAttribute('stroke-width', Math.max(strokeWidth * 1.5, 0.5));
-                svg.appendChild(circle);
-            }
-        }
         // Fill symbology (with optional line)
-        else if (style['fill-color']) {
+        if (style['fill-color']) {
             const fillOpacity = getValue(style['fill-opacity'], 0.5);
             const lineColor = getValue(style['line-color'], '#1e40af');
             const lineWidth = getValue(style['line-width'], 1);
@@ -505,6 +462,46 @@ export class LayerThumbnail {
                 path.setAttribute('opacity', opacity);
                 path.setAttribute('fill', 'none');
                 svg.appendChild(path);
+            }
+        }
+        // Circle symbology
+        else if (style['circle-radius'] || style['circle-color']) {
+            const radius = getValue(style['circle-radius'], 6);
+            const strokeColor = getValue(style['circle-stroke-color'], '#ffffff');
+            const strokeWidth = getValue(style['circle-stroke-width'], 1);
+            const opacity = getValue(style['circle-opacity'], 0.9);
+
+            const caseValues = getCaseValues(style['circle-color']);
+
+            if (caseValues && caseValues.length > 1) {
+                const numCircles = Math.min(caseValues.length, 4);
+                const offsetStep = size * 0.12;
+
+                for (let i = 0; i < numCircles; i++) {
+                    const color = caseValues[i];
+                    const offset = i * offsetStep;
+
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', size * 0.35 + offset);
+                    circle.setAttribute('cy', size * 0.35 + offset);
+                    circle.setAttribute('r', Math.min(radius * 2.5, size / 4));
+                    circle.setAttribute('fill', color);
+                    circle.setAttribute('opacity', opacity);
+                    circle.setAttribute('stroke', strokeColor);
+                    circle.setAttribute('stroke-width', Math.max(strokeWidth * 1.5, 0.5));
+                    svg.appendChild(circle);
+                }
+            } else {
+                const color = getValue(style['circle-color'], '#3b82f6');
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', size / 2);
+                circle.setAttribute('cy', size / 2);
+                circle.setAttribute('r', Math.min(radius * 3, size / 3));
+                circle.setAttribute('fill', color);
+                circle.setAttribute('opacity', opacity);
+                circle.setAttribute('stroke', strokeColor);
+                circle.setAttribute('stroke-width', Math.max(strokeWidth * 1.5, 0.5));
+                svg.appendChild(circle);
             }
         }
 

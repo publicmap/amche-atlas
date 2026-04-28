@@ -677,6 +677,7 @@
           "get",
           "Name of Applicant"
         ],
+        "text-color": "red",
         "symbol-sort-key": [
           "/",
           1,
@@ -701,6 +702,7 @@
         "fields": [
           "survey",
           "subdivision",
+          "village",
           "has_match",
           "Old Zone (Primary)",
           "Old Zone -2 (eco zone)",
@@ -799,7 +801,7 @@
           [
             "zoom"
           ],
-          10,
+          14,
           [
             "case",
             [
@@ -820,7 +822,7 @@
               false
             ],
             2,
-            0.5
+            0.1
           ],
           18,
           [
@@ -1346,6 +1348,20 @@
             ]
           ]
         ],
+        "circle-color": [
+          "match",
+          [
+            "get",
+            "Class"
+          ],
+          "High Tide Line",
+          "blue",
+          "Low Tide Line",
+          "blue",
+          "red"
+        ],
+        "circle-radius": 1,
+        "circle-stroke-width": 0,
         "line-color": [
           "match",
           [
@@ -1356,7 +1372,7 @@
           "blue",
           "Low Tide Line",
           "lightblue",
-          "red"
+          "blue"
         ],
         "text-halo-color": [
           "match",
@@ -1365,23 +1381,12 @@
             "Class"
           ],
           "High Tide Line",
-          "blue",
+          "white",
           "Low Tide Line",
           "lightblue",
           "red"
         ],
-        "line-width": [
-          "match",
-          [
-            "get",
-            "Class"
-          ],
-          "High Tide Line",
-          1,
-          "Low Tide Line",
-          1,
-          2
-        ],
+        "line-width": 1,
         "line-offset": [
           "match",
           [
@@ -1389,9 +1394,9 @@
             "Class"
           ],
           "High Tide Line",
-          1,
+          -1,
           "Low Tide Line",
-          1,
+          -1,
           1.5
         ],
         "line-cap": "round",
