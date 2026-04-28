@@ -334,6 +334,35 @@
             }
 
         }
+
+        .drag-handle {
+            cursor: grab;
+            color: #4b5563;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            padding: 0 2px;
+            font-size: 14px;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .drag-handle:hover {
+            color: #9ca3af;
+        }
+
+        .layer-card.dragging {
+            opacity: 0.4;
+            transform: none !important;
+        }
+
+        .layer-card.drag-over-top {
+            border-top: 2px solid #3b82f6 !important;
+        }
+
+        .layer-card.drag-over-bottom {
+            border-bottom: 2px solid #3b82f6 !important;
+        }
     </style>
 </head>
 
@@ -968,6 +997,76 @@
             }
         }
 
+        // Drag-and-drop state
+        let _draggedCard = null;
+        let _draggedListId = null;
+
+        function setupCardDrag($card, listId) {
+            const $handle = $('<div>', {
+                class: 'drag-handle',
+                html: '&#8942;&#8942;',
+                title: 'Drag to reorder'
+            });
+
+            $card.find('.layer-card-compact').prepend($handle);
+
+            $handle.on('mousedown', () => {
+                $card[0].draggable = true;
+            });
+
+            $card[0].addEventListener('dragstart', (e) => {
+                _draggedCard = $card[0];
+                _draggedListId = listId;
+                $card.addClass('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', $card.attr('data-layer-id'));
+            });
+
+            $card[0].addEventListener('dragend', () => {
+                $card[0].draggable = false;
+                $card.removeClass('dragging drag-over-top drag-over-bottom');
+                _draggedCard = null;
+
+                const overlayOrder = [];
+                const basemapOrder = [];
+                $('#overlay-list .layer-card').each(function () {
+                    overlayOrder.push($(this).attr('data-layer-id'));
+                });
+                $('#basemap-list .layer-card').each(function () {
+                    basemapOrder.push($(this).attr('data-layer-id'));
+                });
+
+                window.parent.postMessage({ type: 'reorder-layers', overlayOrder, basemapOrder }, '*');
+            });
+
+            $card[0].addEventListener('dragover', (e) => {
+                if (!_draggedCard || _draggedCard === $card[0] || _draggedListId !== listId) return;
+                e.preventDefault();
+                const rect = $card[0].getBoundingClientRect();
+                if (e.clientY < rect.top + rect.height / 2) {
+                    $card.addClass('drag-over-top').removeClass('drag-over-bottom');
+                } else {
+                    $card.addClass('drag-over-bottom').removeClass('drag-over-top');
+                }
+            });
+
+            $card[0].addEventListener('dragleave', () => {
+                $card.removeClass('drag-over-top drag-over-bottom');
+            });
+
+            $card[0].addEventListener('drop', (e) => {
+                if (!_draggedCard || _draggedCard === $card[0] || _draggedListId !== listId) return;
+                e.preventDefault();
+                const rect = $card[0].getBoundingClientRect();
+                if (e.clientY < rect.top + rect.height / 2) {
+                    $card[0].parentNode.insertBefore(_draggedCard, $card[0]);
+                } else {
+                    $card[0].parentNode.insertBefore(_draggedCard, $card[0].nextSibling);
+                }
+                $card.removeClass('drag-over-top drag-over-bottom');
+            });
+        }
+
         // Render all active layers
         function renderLayers() {
             // console.group('🔍 Inspector Layer Order Debug');
@@ -1091,6 +1190,7 @@
                 overlayMaps.forEach(layerConfig => {
                     const hasSelection = selectedFeatures.has(layerConfig.id);
                     const $card = hasSelection ? createSelectedFeatureCard(layerConfig) : createLayerCard(layerConfig);
+                    setupCardDrag($card, 'overlay-list');
                     $overlayList.append($card);
                 });
             }
@@ -1101,6 +1201,7 @@
                 baseMaps.forEach(layerConfig => {
                     const hasSelection = selectedFeatures.has(layerConfig.id);
                     const $card = hasSelection ? createSelectedFeatureCard(layerConfig) : createLayerCard(layerConfig);
+                    setupCardDrag($card, 'basemap-list');
                     $basemapList.append($card);
                 });
             }

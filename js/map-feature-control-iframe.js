@@ -446,8 +446,78 @@ export class MapFeatureControl {
                 this._zoomToFeature(event.data.layerId, event.data.featureId, event.data.feature);
             } else if (event.data.type === 'request-map-layer-stack') {
                 this._sendMapLayerStack();
+            } else if (event.data.type === 'reorder-layers') {
+                this._reorderLayers(event.data.overlayOrder || [], event.data.basemapOrder || []);
             }
         });
+    }
+
+    /**
+     * Reorder layers in the map and URL to match new visual order from inspector drag.
+     * overlayOrder / basemapOrder: layer IDs first=top visually.
+     */
+    _reorderLayers(overlayOrder, basemapOrder) {
+        if (!this._map || !window.layerControl) return;
+
+        const newVisualOrder = [...overlayOrder, ...basemapOrder];
+        if (newVisualOrder.length === 0) return;
+
+        // Reorder _state.groups and _sourceControls so URL serialization picks up the new order.
+        // Active group positions are replaced in-place with the sorted groups; inactive groups stay.
+        const groups = window.layerControl._state.groups;
+        const controls = window.layerControl._sourceControls;
+
+        const activePositions = [];
+        const activeGroups = [];
+        groups.forEach((g, i) => {
+            if (newVisualOrder.includes(g.id) || newVisualOrder.includes(g._prefixedId)) {
+                activePositions.push(i);
+                activeGroups.push(g);
+            }
+        });
+
+        const sortedGroups = [...activeGroups].sort((a, b) => {
+            const aId = a.id || a._prefixedId;
+            const bId = b.id || b._prefixedId;
+            return newVisualOrder.indexOf(aId) - newVisualOrder.indexOf(bId);
+        });
+
+        // Capture original indices before any mutation
+        const originalIndices = sortedGroups.map(g => groups.indexOf(g));
+        const originalControls = controls ? originalIndices.map(i => controls[i]) : null;
+
+        activePositions.forEach((pos, i) => {
+            groups[pos] = sortedGroups[i];
+            if (controls && originalControls) controls[pos] = originalControls[i];
+        });
+
+        // Reorder actual Mapbox layers.
+        // Render order (bottom→top) = reversed basemaps then reversed overlays.
+        const renderOrder = [
+            ...[...basemapOrder].reverse(),
+            ...[...overlayOrder].reverse()
+        ];
+
+        const styleLayers = this._map.getStyle()?.layers || [];
+
+        for (const groupId of renderOrder) {
+            const subLayerIds = styleLayers
+                .filter(l => l.metadata?.groupId === groupId)
+                .map(l => l.id);
+
+            for (const subLayerId of subLayerIds) {
+                try {
+                    this._map.moveLayer(subLayerId);
+                } catch (e) {
+                    // layer may not exist yet
+                }
+            }
+        }
+
+        // Sync URL
+        if (window.urlManager) {
+            window.urlManager.updateURL({ updateLayers: true });
+        }
     }
 
     /**
