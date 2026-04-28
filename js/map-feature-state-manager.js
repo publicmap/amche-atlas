@@ -757,6 +757,27 @@ export class MapFeatureStateManager extends EventTarget {
      * Get features at the center of the map canvas
      * @returns {Array} Array of {feature, layerId} objects
      */
+    getFeaturesAtPoint(point, lngLat) {
+        const features = [];
+        this._registeredLayers.forEach((layerConfig) => {
+            if (this._isRasterLayer(layerConfig)) return;
+            const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
+            matchingLayerIds.forEach(actualLayerId => {
+                try {
+                    const layerFeatures = this._map.queryRenderedFeatures(point, { layers: [actualLayerId] });
+                    layerFeatures.forEach(feature => {
+                        features.push({ feature, layerId: layerConfig.id, lngLat });
+                    });
+                } catch (error) {
+                    if (!(error instanceof RangeError)) {
+                        console.warn(`[StateManager] Error querying features for ${actualLayerId}:`, error);
+                    }
+                }
+            });
+        });
+        return features;
+    }
+
     getFeaturesAtCenter() {
         const center = this._map.getCenter();
         const centerPixel = this._map.project(center);
@@ -785,7 +806,9 @@ export class MapFeatureStateManager extends EventTarget {
                         });
                     });
                 } catch (error) {
-                    console.warn(`[StateManager] Error querying center features for ${actualLayerId}:`, error);
+                    if (!(error instanceof RangeError)) {
+                        console.warn(`[StateManager] Error querying center features for ${actualLayerId}:`, error);
+                    }
                 }
             });
         });

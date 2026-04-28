@@ -1561,11 +1561,10 @@ export class MapFeatureControl {
 
         // Click handler
         this._map.on('click', (e) => {
-            let features = [];
+            let interactiveFeatures = [];
             try {
-                features = this._map.queryRenderedFeatures(e.point);
+                let features = this._map.queryRenderedFeatures(e.point);
 
-                // If no features found at exact point, query within 5px buffer and find closest
                 if (!features.length) {
                     const bufferSize = 5;
                     const bbox = [
@@ -1577,27 +1576,22 @@ export class MapFeatureControl {
                         features = [this._findClosestFeature(featuresInBuffer, e.point)];
                     }
                 }
+
+                features.forEach(feature => {
+                    const layerId = this._findLayerIdForFeature(feature);
+                    if (layerId && this._stateManager.isLayerInteractive(layerId)) {
+                        interactiveFeatures.push({ feature, layerId, lngLat: e.lngLat });
+                    }
+                });
             } catch (error) {
-                if (error.message && error.message.includes('out of range source coordinates for DEM data')) {
-                    this._stateManager.clearAllSelections();
-                    return;
+                if (error instanceof RangeError) {
+                    interactiveFeatures = this._stateManager.getFeaturesAtPoint(e.point, e.lngLat)
+                        .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
                 } else {
                     console.error('[MapFeatureControl] Error querying rendered features on click:', error);
                     throw error;
                 }
             }
-
-            const interactiveFeatures = [];
-            features.forEach(feature => {
-                const layerId = this._findLayerIdForFeature(feature);
-                if (layerId && this._stateManager.isLayerInteractive(layerId)) {
-                    interactiveFeatures.push({
-                        feature,
-                        layerId,
-                        lngLat: e.lngLat
-                    });
-                }
-            });
 
             if (interactiveFeatures.length > 0) {
                 this._stateManager.handleFeatureClicks(interactiveFeatures);
@@ -1669,12 +1663,12 @@ export class MapFeatureControl {
      * Handle mouse move events
      */
     _handleMouseMove(e) {
-        let features = [];
+        let rawFeatures = [];
+        let usedFallback = false;
         try {
-            features = this._map.queryRenderedFeatures(e.point);
+            rawFeatures = this._map.queryRenderedFeatures(e.point);
 
-            // If no features found at exact point, query within 5px buffer and find closest
-            if (!features.length) {
+            if (!rawFeatures.length) {
                 const bufferSize = 5;
                 const bbox = [
                     [e.point.x - bufferSize, e.point.y - bufferSize],
@@ -1682,14 +1676,12 @@ export class MapFeatureControl {
                 ];
                 const featuresInBuffer = this._map.queryRenderedFeatures(bbox);
                 if (featuresInBuffer.length) {
-                    features = [this._findClosestFeature(featuresInBuffer, e.point)];
+                    rawFeatures = [this._findClosestFeature(featuresInBuffer, e.point)];
                 }
             }
         } catch (error) {
-            if (error.message && error.message.includes('out of range source coordinates for DEM data')) {
-                this._stateManager.handleMapMouseLeave();
-                this._updateCursor(false);
-                return;
+            if (error instanceof RangeError) {
+                usedFallback = true;
             } else {
                 console.error('[MapFeatureControl] Error querying rendered features:', error);
                 throw error;
@@ -1697,25 +1689,36 @@ export class MapFeatureControl {
         }
 
         const layerGroups = new Map();
-        features.forEach(feature => {
-            const layerId = this._findLayerIdForFeature(feature);
 
-            if (layerId && this._stateManager.isLayerInteractive(layerId)) {
-                if (!layerGroups.has(layerId)) {
-                    layerGroups.set(layerId, []);
+        if (usedFallback) {
+            this._stateManager.getFeaturesAtPoint(e.point, e.lngLat).forEach(({ feature, layerId }) => {
+                if (this._stateManager.isLayerInteractive(layerId)) {
+                    if (!layerGroups.has(layerId)) layerGroups.set(layerId, []);
+                    const mapLayer = this._map.getLayer(feature.layer.id);
+                    layerGroups.get(layerId).push({ feature, layerId, layerType: mapLayer?.type, lngLat: e.lngLat });
                 }
+            });
+        } else {
+            rawFeatures.forEach(feature => {
+                const layerId = this._findLayerIdForFeature(feature);
 
-                const mapLayer = this._map.getLayer(feature.layer.id);
-                const layerType = mapLayer?.type;
+                if (layerId && this._stateManager.isLayerInteractive(layerId)) {
+                    if (!layerGroups.has(layerId)) {
+                        layerGroups.set(layerId, []);
+                    }
 
-                layerGroups.get(layerId).push({
-                    feature,
-                    layerId,
-                    layerType,
-                    lngLat: e.lngLat
-                });
-            }
-        });
+                    const mapLayer = this._map.getLayer(feature.layer.id);
+                    const layerType = mapLayer?.type;
+
+                    layerGroups.get(layerId).push({
+                        feature,
+                        layerId,
+                        layerType,
+                        lngLat: e.lngLat
+                    });
+                }
+            });
+        }
 
         const interactiveFeatures = [];
         layerGroups.forEach((featuresInLayer, layerId) => {
