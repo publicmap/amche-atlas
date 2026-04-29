@@ -20,7 +20,6 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
     onAdd(map) {
         this.map = map;
-        this.searchBox = document.getElementById('mapbox-search-box');
 
         // Track when tracking starts/stops
         this.on('trackuserlocationstart', () => {
@@ -33,10 +32,6 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
             this.isTracking = false;
             $(window).off('deviceorientationabsolute', this.handleOrientation);
             $(document).trigger('update_url', { geolocate: false });
-            // Reset search placeholder
-            if (this.searchBox) {
-                this.searchBox.placeholder = 'Search places';
-            }
             // Reset map orientation
             map.easeTo({
                 bearing: 0,
@@ -50,52 +45,15 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
             this.locationErrorCount++;
             console.warn('Geolocation error:', error);
 
-            if (this.searchBox) {
-                this.searchBox.placeholder = 'Location unavailable' + (this.locationErrorCount > 1 ? ' - Try moving to an open area' : '');
-            }
-
             this._showErrorDialog(error);
 
-            // Reset the error count after some time
             setTimeout(() => {
                 this.locationErrorCount = 0;
-                if (this.searchBox) {
-                    this.searchBox.placeholder = 'Search places';
-                }
             }, 60000);
         });
 
-        // Let the GeolocateControl handle positioning and centering automatically
-        // when tracking is active. Only handle bearing updates separately via handleOrientation.
-        // This prevents our manual map movements from interfering with the tracking behavior.
-        this.on('geolocate', async (event) => {
+        this.on('geolocate', () => {
             this.locationErrorCount = 0;
-
-            try {
-                const parts = [];
-                const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${event.coords.longitude},${event.coords.latitude}.json?access_token=${window.amche.MAPBOXGL_ACCESS_TOKEN}&types=poi,address,neighborhood,locality,place&limit=1`);
-                const data = await response.json();
-                const feature = data.features[0];
-                if (feature) {
-                    if (feature.properties?.name) {
-                        parts.push(feature.properties.name);
-                    }
-                    if (feature.context) {
-                        feature.context
-                            .filter(ctx => ['neighborhood', 'locality', 'place'].includes(ctx.id.split('.')[0]))
-                            .forEach(ctx => parts.push(ctx.text));
-                    }
-                }
-
-                // Update search box placeholder with location
-                if (this.searchBox) {
-                    const locationText = parts.length > 0 ? parts.join(', ') : 'Unknown location';
-                    this.searchBox.placeholder = locationText;
-                }
-
-            } catch (error) {
-                console.error('Error reverse geocoding:', error);
-            }
         });
 
         const container = super.onAdd(map);
