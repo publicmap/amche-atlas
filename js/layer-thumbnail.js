@@ -33,6 +33,16 @@ export class LayerThumbnail {
             container.style.backgroundSize = 'cover';
             container.style.backgroundPosition = 'center';
             container.style.backgroundColor = '#f3f4f6';
+        } else if (layer.type === 'tms') {
+            const tileUrl = LayerThumbnail._getSampleTileUrl(layer);
+            if (tileUrl) {
+                container.style.backgroundImage = `url('${tileUrl}')`;
+                container.style.backgroundSize = 'cover';
+                container.style.backgroundPosition = 'center';
+                container.style.backgroundColor = '#e5e7eb';
+            } else {
+                container.style.backgroundColor = '#f9fafb';
+            }
         } else {
             container.style.backgroundColor = '#f9fafb';
         }
@@ -763,6 +773,26 @@ export class LayerThumbnail {
         style.id = 'layer-thumbnail-live-style';
         style.textContent = `@keyframes layer-live-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.75)} }`;
         document.head.appendChild(style);
+    }
+
+    static _getSampleTileUrl(layer) {
+        const template = layer.url;
+        if (!template || !template.includes('{z}')) return null;
+
+        let lng = 74.12, lat = 15.3;
+        if (layer.map?.center) {
+            [lng, lat] = layer.map.center;
+        } else if (layer.bounds) {
+            lng = (layer.bounds[0] + layer.bounds[2]) / 2;
+            lat = (layer.bounds[1] + layer.bounds[3]) / 2;
+        }
+
+        const z = 10;
+        const x = Math.floor((lng + 180) / 360 * Math.pow(2, z));
+        const latRad = lat * Math.PI / 180;
+        const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * Math.pow(2, z));
+
+        return template.replace('{z}', z).replace('{x}', x).replace('{y}', y);
     }
 
     static getTypeBadge(type) {

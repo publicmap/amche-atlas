@@ -47,209 +47,235 @@
       "style": {
         "line-color": "purple",
         "line-width": [
-          "match",
+          "interpolate",
           [
-            "get",
-            "admin_level"
+            "linear"
           ],
-          0,
-          4,
-          1,
+          [
+            "zoom"
+          ],
           3,
-          2,
-          1.5,
-          1
-        ],
-        "line-opacity": 0.5
-      },
-      "inspect": {
-        "id": "iso_3166_1",
-        "title": "Name",
-        "label": "name_en"
-      },
-      "initiallyChecked": true
-    },
-    {
-      "id": "countries",
-      "tags": [
-        "boundaries",
-        "basemap"
-      ],
-      "title": "Mapbox Country Boundaries",
-      "description": "Admin-0 level boundaries from Mapbox. See <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-countries-v1/' target='_blank'>Mapbox Countries v1 Docs</a> for details.",
-      "type": "vector",
-      "attribution": "<a href='https://www.mapbox.com/boundaries'>© Mapbox Boundaries</a>",
-      "url": "mapbox://mapbox.country-boundaries-v1",
-      "sourceLayer": "country_boundaries",
-      "filter": [
-        "all",
-        [
-          "==",
           [
-            "get",
-            "disputed"
-          ],
-          "false"
-        ],
-        [
-          "any",
-          [
-            "==",
-            "all",
+            "match",
             [
               "get",
-              "worldview"
-            ]
+              "admin_level"
+            ],
+            2,
+            2.5,
+            4,
+            1,
+            5,
+            0.8,
+            0.2
           ],
+          14,
           [
-            "in",
-            "IN",
+            "match",
             [
               "get",
-              "worldview"
-            ]
+              "admin_level"
+            ],
+            2,
+            12,
+            4,
+            8,
+            5,
+            6,
+            4
           ]
         ]
-      ],
-      "style": {
-        "fill-color": "white"
       },
-      "inspect": {
-        "id": "iso_3166_1",
-        "title": "Name",
-        "label": "name_en"
-      },
-      "initiallyChecked": true
+      "line-opacity": 0.5
     },
-    {
-      "initiallyChecked": true,
-      "id": "streets",
-      "tags": [
-        "streets"
-      ],
-      "title": "Mapbox Street Map",
-      "description": "Detailed street level map data layers sourced from <a href='https://www.openstreetmap.org/#map=11/15.4054/73.9280' target='_blank'>OpenStreetMap contributors</a> and other data sources via <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-streets-v8/' target='_blank'>Mapbox Streets</a> vector tiles.",
-      "type": "style",
-      "headerImage": "assets/map-layers/mapbox/map-layer-mapbox-streets.png",
-      "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
-      "layers": [
-        {
-          "title": "Hillshade",
-          "sourceLayer": "hillshade"
-        },
-        {
-          "title": "Places Labels",
-          "sourceLayer": "place_label"
-        },
-        {
-          "title": "Natural Labels",
-          "sourceLayer": "natural_label"
-        },
-        {
-          "title": "Airport Labels",
-          "sourceLayer": "airport_label"
-        },
-        {
-          "title": "Transit Labels",
-          "sourceLayer": "transit_stop_label"
-        },
-        {
-          "title": "Landmark Labels",
-          "sourceLayer": "poi_label"
-        },
-        {
-          "title": "Buildings",
-          "sourceLayer": "building"
-        },
-        {
-          "title": "Structures",
-          "sourceLayer": "structure"
-        },
-        {
-          "title": "Roads & Railways",
-          "sourceLayer": "road",
-          "initiallyChecked": false
-        },
-        {
-          "title": "Runways",
-          "sourceLayer": "aeroway"
-        },
-        {
-          "title": "Hillshading",
-          "sourceLayer": "hillshade"
-        },
-        {
-          "title": "Landcover",
-          "sourceLayer": "landcover"
-        },
-        {
-          "title": "Landuse",
-          "sourceLayer": "landuse"
-        },
-        {
-          "title": "Wetlands & National Parks",
-          "sourceLayer": "landuse_overlay"
-        },
-        {
-          "title": "Waterways",
-          "sourceLayer": "waterway"
-        },
-        {
-          "title": "Waterbodies",
-          "sourceLayer": "water"
-        },
-        {
-          "title": "Boundaries",
-          "sourceLayer": "admin"
-        }
-      ]
+    "inspect": {
+      "id": "iso_3166_1",
+      "title": "Name",
+      "label": "name_en"
     },
-    {
-      "initiallyChecked": true,
-      "id": "terrain-v2",
-      "tags": [
-        "terrain"
-      ],
-      "type": "vector",
-      "title": "Mapbox Terrain Contours",
-      "sourceLayer": "contour",
-      "description": "Mapbox Terrain Contours. See <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-v2/'>Mapbox Terrain And Contours</a> for details.",
-      "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
-      "url": "mapbox://mapbox.mapbox-terrain-v2",
-      "style": {
-        "symbol-placement": "line",
-        "text-field": [
+    "initiallyChecked": true
+  },
+  {
+    "id": "countries",
+    "tags": [
+      "boundaries",
+      "basemap"
+    ],
+    "title": "Mapbox Country Boundaries",
+    "description": "Admin-0 level boundaries from Mapbox. See <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-countries-v1/' target='_blank'>Mapbox Countries v1 Docs</a> for details.",
+    "type": "vector",
+    "attribution": "<a href='https://www.mapbox.com/boundaries'>© Mapbox Boundaries</a>",
+    "url": "mapbox://mapbox.country-boundaries-v1",
+    "sourceLayer": "country_boundaries",
+    "filter": [
+      "all",
+      [
+        "==",
+        [
           "get",
-          "ele"
+          "disputed"
         ],
-        "line-color": "red",
-        "text-halo-color": "red",
-        "text-halo-width": 1,
-        "text-size": 8
-      },
-      "inspect": {
-        "id": "ele",
-        "title": "Elevation",
-        "label": "ele"
-      }
-    },
-    {
-      "initiallyChecked": true,
-      "id": "satellite",
-      "tags": [
-        "basemap",
-        "satellite"
+        "false"
       ],
-      "type": "tms",
-      "title": "Satellite Imagery",
-      "description": "Satellite imagery from Mapbox. See <a href='https://docs.mapbox.com/help/dive-deeper/imagery/'>Mapbox Satellite Imagery</a> for details.",
-      "headerImage": "assets/map-layers/mapbox/map-layer-satellite.png",
-      "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
-      "url": "mapbox://mapbox.satellite",
-      "maxzoom": 22,
-      "style": {
-        "raster-opacity": 1
+      [
+        "any",
+        [
+          "==",
+          "all",
+          [
+            "get",
+            "worldview"
+          ]
+        ],
+        [
+          "in",
+          "IN",
+          [
+            "get",
+            "worldview"
+          ]
+        ]
+      ]
+    ],
+    "style": {
+      "fill-color": "white"
+    },
+    "inspect": {
+      "id": "iso_3166_1",
+      "title": "Name",
+      "label": "name_en"
+    },
+    "initiallyChecked": true
+  },
+  {
+    "initiallyChecked": true,
+    "id": "streets",
+    "tags": [
+      "streets"
+    ],
+    "title": "Mapbox Street Map",
+    "description": "Detailed street level map data layers sourced from <a href='https://www.openstreetmap.org/#map=11/15.4054/73.9280' target='_blank'>OpenStreetMap contributors</a> and other data sources via <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-streets-v8/' target='_blank'>Mapbox Streets</a> vector tiles.",
+    "type": "style",
+    "headerImage": "assets/map-layers/mapbox/map-layer-mapbox-streets.png",
+    "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+    "layers": [
+      {
+        "title": "Hillshade",
+        "sourceLayer": "hillshade"
+      },
+      {
+        "title": "Places Labels",
+        "sourceLayer": "place_label"
+      },
+      {
+        "title": "Natural Labels",
+        "sourceLayer": "natural_label"
+      },
+      {
+        "title": "Airport Labels",
+        "sourceLayer": "airport_label"
+      },
+      {
+        "title": "Transit Labels",
+        "sourceLayer": "transit_stop_label"
+      },
+      {
+        "title": "Landmark Labels",
+        "sourceLayer": "poi_label"
+      },
+      {
+        "title": "Buildings",
+        "sourceLayer": "building"
+      },
+      {
+        "title": "Structures",
+        "sourceLayer": "structure"
+      },
+      {
+        "title": "Roads & Railways",
+        "sourceLayer": "road",
+        "initiallyChecked": false
+      },
+      {
+        "title": "Runways",
+        "sourceLayer": "aeroway"
+      },
+      {
+        "title": "Hillshading",
+        "sourceLayer": "hillshade"
+      },
+      {
+        "title": "Landcover",
+        "sourceLayer": "landcover"
+      },
+      {
+        "title": "Landuse",
+        "sourceLayer": "landuse"
+      },
+      {
+        "title": "Wetlands & National Parks",
+        "sourceLayer": "landuse_overlay"
+      },
+      {
+        "title": "Waterways",
+        "sourceLayer": "waterway"
+      },
+      {
+        "title": "Waterbodies",
+        "sourceLayer": "water"
+      },
+      {
+        "title": "Boundaries",
+        "sourceLayer": "admin"
       }
+    ]
+  },
+  {
+    "initiallyChecked": true,
+    "id": "terrain-v2",
+    "tags": [
+      "terrain"
+    ],
+    "type": "vector",
+    "title": "Mapbox Terrain Contours",
+    "sourceLayer": "contour",
+    "description": "Mapbox Terrain Contours. See <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-v2/'>Mapbox Terrain And Contours</a> for details.",
+    "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
+    "url": "mapbox://mapbox.mapbox-terrain-v2",
+    "style": {
+      "symbol-placement": "line",
+      "text-field": [
+        "get",
+        "ele"
+      ],
+      "line-color": "red",
+      "text-halo-color": "red",
+      "text-halo-width": 1,
+      "text-size": 8
+    },
+    "inspect": {
+      "id": "ele",
+      "title": "Elevation",
+      "label": "ele"
     }
-  ]
+  },
+  {
+    "initiallyChecked": true,
+    "id": "satellite",
+    "tags": [
+      "basemap",
+      "satellite"
+    ],
+    "type": "tms",
+    "title": "Satellite Imagery",
+    "description": "Satellite imagery from Mapbox. See <a href='https://docs.mapbox.com/help/dive-deeper/imagery/'>Mapbox Satellite Imagery</a> for details.",
+    "headerImage": "assets/map-layers/mapbox/map-layer-satellite.png",
+    "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
+    "url": "mapbox://mapbox.satellite",
+    "maxzoom": 22,
+    "style": {
+      "raster-opacity": 1
+    }
+  }
+]
 }
