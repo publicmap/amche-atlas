@@ -195,7 +195,9 @@
             ],
             1,
             0.8
-          ]
+          ],
+          "line-join": "round",
+          "line-cap": "round"
         },
         "text": {
           "text-font": [

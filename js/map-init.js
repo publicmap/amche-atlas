@@ -808,7 +808,7 @@ export class MapInitializer {
                 browserControlContainer.appendChild(controlElement);
             }
 
-            const supportedExts = ['geojson', 'json', 'kml', 'csv'];
+            const supportedExts = ['geojson', 'json', 'kml', 'csv', 'geojsonl', 'ndjson', 'jsonl', 'gpkg', 'zip'];
             const dropOverlay = document.createElement('div');
             dropOverlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(30,64,175,0.55);display:none;align-items:center;justify-content:center;pointer-events:none;';
             dropOverlay.innerHTML = '<div style="background:#1e3a8a;color:#fff;border-radius:1rem;padding:2rem 3rem;font-size:1.5rem;font-weight:600;border:3px dashed #93c5fd;">Drop file to add layer</div>';

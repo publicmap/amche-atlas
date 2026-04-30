@@ -1320,7 +1320,6 @@
         "3.Regulatory",
         "coastal zone"
       ],
-      "legendImage": "https://private-user-images.githubusercontent.com/126868/571010780-8ae02286-867c-4f0c-b252-cb5e5ad53ccf.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzQ4MDcxNjIsIm5iZiI6MTc3NDgwNjg2MiwicGF0aCI6Ii8xMjY4NjgvNTcxMDEwNzgwLThhZTAyMjg2LTg2N2MtNGYwYy1iMjUyLWNiNWU1YWQ1M2NjZi5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwMzI5JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDMyOVQxNzU0MjJaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT05YWU3ODNhZDkwMTM1ZDcwMGFhY2ZmOTZiNTdkM2IwMmU2NGJkOTVkZTczYmUxNWIzNTQ0MDcxYWZkZTA3MTNlJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.EiGTq1eLvWWRSnZzci3bB_M92yhqWAz5SHdR-DI6WaI",
       "title": "Tidal hazard Lines",
       "description": "Coastal lines demarcating the high tide line (HTL), low tide line (LTL) and composite hazard line. The primary purpose of the composite hazard line is to identify hazard zones along the coastline that reflects a potential danger and risk to people and their property. The hazard line is part of <a href='https://en.wikipedia.org/wiki/Integrated_coastal_zone_management'>Integrated coastal zone management</a> and is required per <a href='https://mczma.gov.in/sites/default/files/MoEF%20CZMP%20Guidelines%20OM%2026-6-2019.pdf'>required for CZMP 2019 maps</a>. This hazard line been prepared for the coastlines of India by <a href='https://surveyofindia.gov.in/documents/integrated-coastal-hazard-zone-mapping.pdf'>Survey of India</a> as a 0.5 meter contour line extending upto 7km inland at 1:10k scale to be used in CZMP 2019 maps. The line is an estimation of the highest tide level forecasted over the next 100 years. See <a href='https://moef.gov.in/uploads/2019/10/Climate-Change-and-the-Vulnerable-Indian-Coast_compressed.pdf'>Hazard line for the coast of India and its implications in coastal management (pg.29), MoEFCC</a> for the methods of delianation of the hazard line. This includes collection and presentation of data, identifying flood lines over the last 40 years (which includes sea level rise impacts), and a prediction of erosion to take place over the next 100 years and digital photogrammetric processing of high resolution Aerial photography data.",
       "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>Tidal and Hazard Lines, CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href='https://indianopenmaps.com/viewer#source=/not-so-open/coastal/regulation-lines/goa/&map=' target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
@@ -1353,11 +1352,13 @@
             "get",
             "Class"
           ],
+          "Hazard Line",
+          "red",
           "High Tide Line",
           "blue",
           "Low Tide Line",
           "blue",
-          "red"
+          "grey"
         ],
         "circle-radius": 1,
         "circle-stroke-width": 0,
@@ -1367,11 +1368,13 @@
             "get",
             "Class"
           ],
+          "Hazard Line",
+          "red",
           "High Tide Line",
           "blue",
           "Low Tide Line",
-          "lightblue",
-          "red"
+          "blue",
+          "grey"
         ],
         "text-halo-color": [
           "match",
@@ -1379,11 +1382,13 @@
             "get",
             "Class"
           ],
+          "Hazard Line",
+          "red",
           "High Tide Line",
-          "white",
+          "blue",
           "Low Tide Line",
-          "lightblue",
-          "red"
+          "blue",
+          "grey"
         ],
         "line-width": 1,
         "line-offset": [
@@ -1392,11 +1397,13 @@
             "get",
             "Class"
           ],
+          "Hazard Line",
+          1.5,
           "High Tide Line",
           -1,
           "Low Tide Line",
           -1,
-          1.5
+          -1
         ],
         "line-cap": "round",
         "line-join": "round",

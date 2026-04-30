@@ -28,30 +28,25 @@ export class LayerLegend {
     static _generateRasterLegend(layer) {
         const container = document.createElement('div');
         container.className = 'legend-raster';
+        container.style.cssText = `
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 8px 10px;
+        `;
 
         const images = Array.isArray(layer.legendImage) ? layer.legendImage : [layer.legendImage];
 
         images.forEach(imageUrl => {
-            const wrapper = document.createElement('div');
-            wrapper.style.cssText = `
-                margin-bottom: 16px;
-                background: #334155;
-                border-radius: 8px;
-                padding: 12px;
-                border: 1px solid #475569;
-            `;
-
             const img = document.createElement('img');
             img.src = imageUrl;
             img.alt = 'Legend';
             img.style.cssText = `
                 max-width: 100%;
                 height: auto;
-                border-radius: 4px;
                 display: block;
             `;
-            wrapper.appendChild(img);
-            container.appendChild(wrapper);
+            container.appendChild(img);
         });
 
         return container;
@@ -62,8 +57,6 @@ export class LayerLegend {
      */
     static _generateVectorLegend(layer) {
         const style = layer.style || {};
-        const container = document.createElement('div');
-        container.className = 'legend-vector';
 
         const items = this._parseStyleToLegendItems(style);
 
@@ -71,31 +64,33 @@ export class LayerLegend {
             return null;
         }
 
+        const container = document.createElement('div');
+        container.className = 'legend-vector';
+        container.style.cssText = `
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 6px 10px;
+        `;
+
         items.forEach(item => {
             const legendItem = document.createElement('div');
             legendItem.style.cssText = `
                 display: flex;
                 align-items: center;
-                gap: 12px;
-                padding: 10px;
-                background: #334155;
-                border-radius: 6px;
-                margin-bottom: 8px;
-                border: 1px solid #475569;
-                transition: background 0.2s;
+                gap: 6px;
+                padding: 3px 0;
             `;
-            legendItem.onmouseenter = () => legendItem.style.background = '#475569';
-            legendItem.onmouseleave = () => legendItem.style.background = '#334155';
 
             const symbol = this._createSymbol(item);
             symbol.style.flexShrink = '0';
 
-            const label = document.createElement('div');
+            const labelSize = item.labelSize ? Math.max(10, Math.min(16, item.labelSize)) : 12;
+            const label = document.createElement('span');
             label.style.cssText = `
-                flex: 1;
-                font-size: 14px;
-                color: #e2e8f0;
-                font-weight: 500;
+                font-size: ${labelSize}px;
+                color: #111827;
+                line-height: 1.3;
             `;
             label.textContent = item.label;
 
@@ -112,8 +107,11 @@ export class LayerLegend {
      */
     static _parseStyleToLegendItems(style) {
         const items = [];
+        const hasLine = !!style['line-color'];
+        const hasCircle = !!(style['circle-radius'] || style['circle-color']);
+        const hasFill = !!style['fill-color'];
 
-        if (style['fill-color']) {
+        if (hasFill) {
             const variants = this._extractVariants(style, 'fill');
             if (variants.length > 0) {
                 items.push(...variants);
@@ -127,21 +125,30 @@ export class LayerLegend {
                     strokeWidth: this._getValue(style['line-width'], 2)
                 });
             }
-        } else if (style['line-color']) {
-            const variants = this._extractVariants(style, 'line');
+        } else if (hasLine) {
+            const type = hasCircle ? 'line-circle' : 'line';
+            const variants = this._extractVariants(style, type);
             if (variants.length > 0) {
                 items.push(...variants);
             } else {
                 items.push({
-                    type: 'line',
+                    type,
                     label: 'Line Features',
                     color: this._getValue(style['line-color'], '#3b82f6'),
                     width: this._getValue(style['line-width'], 2),
                     opacity: this._getValue(style['line-opacity'], 1),
-                    dasharray: this._getValue(style['line-dasharray'], null)
+                    dasharray: this._getValue(style['line-dasharray'], null),
+                    offset: this._getValue(style['line-offset'], 0),
+                    ...(hasCircle && {
+                        circleRadius: this._getValue(style['circle-radius'], 3),
+                        circleColor: this._getValue(style['circle-color'], null),
+                        circleOpacity: this._getValue(style['circle-opacity'], 0.9),
+                        circleStrokeColor: this._getValue(style['circle-stroke-color'], null),
+                        circleStrokeWidth: this._getValue(style['circle-stroke-width'], 0)
+                    })
                 });
             }
-        } else if (style['circle-radius'] || style['circle-color']) {
+        } else if (hasCircle) {
             const variants = this._extractVariants(style, 'circle');
             if (variants.length > 0) {
                 items.push(...variants);
@@ -151,11 +158,16 @@ export class LayerLegend {
                     label: 'Point Features',
                     color: this._getValue(style['circle-color'], '#3b82f6'),
                     radius: this._getValue(style['circle-radius'], 6),
-                    strokeColor: this._getValue(style['circle-stroke-color'], '#ffffff'),
+                    strokeColor: this._getValue(style['circle-stroke-color'], 'rgba(0,0,0,0.2)'),
                     strokeWidth: this._getValue(style['circle-stroke-width'], 1),
                     opacity: this._getValue(style['circle-opacity'], 0.9)
                 });
             }
+        }
+
+        const textSize = this._getValue(style['text-size'], null);
+        if (typeof textSize === 'number') {
+            items.forEach(item => { item.labelSize = textSize; });
         }
 
         return items;
@@ -166,55 +178,91 @@ export class LayerLegend {
      */
     static _extractVariants(style, type) {
         const variants = [];
-        const colorProp = type === 'circle' ? 'circle-color' : type === 'line' ? 'line-color' : 'fill-color';
+        const isLineCircle = type === 'line-circle';
+        const colorProp = type === 'circle' ? 'circle-color' : type === 'fill' ? 'fill-color' : 'line-color';
         const colorValue = style[colorProp];
 
-        if (Array.isArray(colorValue) && colorValue[0] === 'match') {
-            const property = colorValue[1];
-            const propertyName = Array.isArray(property) && property[0] === 'get' ? property[1] : 'value';
+        if (!Array.isArray(colorValue) || colorValue[0] !== 'match') return variants;
 
-            for (let i = 2; i < colorValue.length - 1; i += 2) {
-                const value = colorValue[i];
-                const color = colorValue[i + 1];
+        const buildItem = (key, color, isDefault) => {
+            const item = {
+                type,
+                label: isDefault ? 'Other' : this._formatLabel(key),
+                color
+            };
 
-                if (typeof color === 'string') {
-                    variants.push({
-                        type: type,
-                        label: this._formatLabel(value),
-                        color: color,
-                        radius: type === 'circle' ? this._getValue(style['circle-radius'], 6) : undefined,
-                        strokeColor: type === 'circle' ? this._getValue(style['circle-stroke-color'], '#ffffff') : undefined,
-                        strokeWidth: type === 'circle' ? this._getValue(style['circle-stroke-width'], 1) :
-                                     type === 'fill' ? this._getValue(style['line-width'], 2) : undefined,
-                        opacity: type === 'circle' ? this._getValue(style['circle-opacity'], 0.9) :
-                                 type === 'line' ? this._getValue(style['line-opacity'], 1) : undefined,
-                        width: type === 'line' ? this._getValue(style['line-width'], 2) : undefined,
-                        fillColor: type === 'fill' ? color : undefined,
-                        fillOpacity: type === 'fill' ? this._getValue(style['fill-opacity'], 0.5) : undefined
-                    });
-                }
+            if (type === 'line' || isLineCircle) {
+                item.width = this._getValue(style['line-width'], 2);
+                item.opacity = this._getValue(style['line-opacity'], 1);
+                item.dasharray = this._getValue(style['line-dasharray'], null);
+                item.offset = isDefault
+                    ? this._getMatchDefault(style['line-offset'], 0)
+                    : (this._getMatchValue(style['line-offset'], key) ?? 0);
             }
 
-            const defaultColor = colorValue[colorValue.length - 1];
-            if (typeof defaultColor === 'string') {
-                variants.push({
-                    type: type,
-                    label: 'Other',
-                    color: defaultColor,
-                    radius: type === 'circle' ? this._getValue(style['circle-radius'], 6) : undefined,
-                    strokeColor: type === 'circle' ? this._getValue(style['circle-stroke-color'], '#ffffff') : undefined,
-                    strokeWidth: type === 'circle' ? this._getValue(style['circle-stroke-width'], 1) :
-                                 type === 'fill' ? this._getValue(style['line-width'], 2) : undefined,
-                    opacity: type === 'circle' ? this._getValue(style['circle-opacity'], 0.9) :
-                             type === 'line' ? this._getValue(style['line-opacity'], 1) : undefined,
-                    width: type === 'line' ? this._getValue(style['line-width'], 2) : undefined,
-                    fillColor: type === 'fill' ? defaultColor : undefined,
-                    fillOpacity: type === 'fill' ? this._getValue(style['fill-opacity'], 0.5) : undefined
-                });
+            if (isLineCircle) {
+                const cColor = isDefault
+                    ? this._getMatchDefault(style['circle-color'], color)
+                    : this._getMatchValue(style['circle-color'], key);
+                item.circleRadius = this._getValue(style['circle-radius'], 3);
+                item.circleColor = (typeof cColor === 'string' ? cColor : null) || color;
+                item.circleOpacity = this._getValue(style['circle-opacity'], 0.9);
+                item.circleStrokeColor = this._getValue(style['circle-stroke-color'], null);
+                item.circleStrokeWidth = this._getValue(style['circle-stroke-width'], 0);
+            }
+
+            if (type === 'circle') {
+                item.radius = this._getValue(style['circle-radius'], 6);
+                item.strokeColor = this._getValue(style['circle-stroke-color'], 'rgba(0,0,0,0.2)');
+                item.strokeWidth = this._getValue(style['circle-stroke-width'], 1);
+                item.opacity = this._getValue(style['circle-opacity'], 0.9);
+            }
+
+            if (type === 'fill') {
+                item.fillColor = color;
+                item.fillOpacity = this._getValue(style['fill-opacity'], 0.5);
+                item.strokeColor = this._getValue(style['line-color'], '#1e40af');
+                item.strokeWidth = this._getValue(style['line-width'], 2);
+            }
+
+            return item;
+        };
+
+        for (let i = 2; i < colorValue.length - 1; i += 2) {
+            const key = colorValue[i];
+            const color = colorValue[i + 1];
+            if (typeof color === 'string') {
+                variants.push(buildItem(key, color, false));
             }
         }
 
+        const defaultColor = colorValue[colorValue.length - 1];
+        if (typeof defaultColor === 'string') {
+            variants.push(buildItem(null, defaultColor, true));
+        }
+
         return variants;
+    }
+
+    /**
+     * Get value for a specific key from a match expression, returning the expression default if not found
+     */
+    static _getMatchValue(expr, key) {
+        if (!Array.isArray(expr) || expr[0] !== 'match') return this._getValue(expr, null);
+        for (let i = 2; i < expr.length - 1; i += 2) {
+            if (expr[i] === key) return expr[i + 1];
+        }
+        return expr[expr.length - 1];
+    }
+
+    /**
+     * Get the default/fallback value from a match expression
+     */
+    static _getMatchDefault(expr, fallback = null) {
+        if (expr === null || expr === undefined) return fallback;
+        if (!Array.isArray(expr) || expr[0] !== 'match') return this._getValue(expr, fallback);
+        const def = expr[expr.length - 1];
+        return def !== undefined ? def : fallback;
     }
 
     /**
@@ -233,15 +281,18 @@ export class LayerLegend {
             circle.setAttribute('r', Math.min(item.radius || 6, 12));
             circle.setAttribute('fill', item.color);
             circle.setAttribute('opacity', item.opacity || 0.9);
-            circle.setAttribute('stroke', item.strokeColor || '#ffffff');
+            circle.setAttribute('stroke', item.strokeColor || 'rgba(0,0,0,0.2)');
             circle.setAttribute('stroke-width', item.strokeWidth || 1);
             svg.appendChild(circle);
-        } else if (item.type === 'line') {
+        } else if (item.type === 'line' || item.type === 'line-circle') {
+            const scaledOffset = Math.max(-8, Math.min(8, (item.offset || 0) * 2));
+            const lineY = 20 - scaledOffset;
+
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             line.setAttribute('x1', '5');
-            line.setAttribute('y1', '20');
+            line.setAttribute('y1', lineY);
             line.setAttribute('x2', '35');
-            line.setAttribute('y2', '20');
+            line.setAttribute('y2', lineY);
             line.setAttribute('stroke', item.color);
             line.setAttribute('stroke-width', Math.min(item.width || 2, 4));
             line.setAttribute('opacity', item.opacity || 1);
@@ -249,6 +300,21 @@ export class LayerLegend {
                 line.setAttribute('stroke-dasharray', item.dasharray);
             }
             svg.appendChild(line);
+
+            if (item.type === 'line-circle' && item.circleRadius > 0) {
+                const r = Math.min(Math.max(item.circleRadius, 3), 8);
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', '20');
+                circle.setAttribute('cy', lineY);
+                circle.setAttribute('r', r);
+                circle.setAttribute('fill', item.circleColor || item.color);
+                circle.setAttribute('opacity', item.circleOpacity || 0.9);
+                if (item.circleStrokeColor && item.circleStrokeWidth > 0) {
+                    circle.setAttribute('stroke', item.circleStrokeColor);
+                    circle.setAttribute('stroke-width', item.circleStrokeWidth);
+                }
+                svg.appendChild(circle);
+            }
         } else if (item.type === 'fill') {
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
             rect.setAttribute('x', '8');

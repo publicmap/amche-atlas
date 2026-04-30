@@ -278,22 +278,33 @@ export class LayerThumbnail {
             left: 0;
         `;
 
-        // Helper to extract all values from case expressions for multi-symbol rendering
-        const getCaseValues = (value) => {
-            if (!Array.isArray(value) || value[0] !== 'case') return null;
+        // Helper to extract all output values from case/match expressions for multi-symbol rendering
+        const getMultiValues = (value) => {
+            if (!Array.isArray(value)) return null;
 
-            const values = [];
-            // Case expression format: ["case", condition1, value1, condition2, value2, ..., defaultValue]
-            // Extract all non-condition values (odd indices after the "case" operator)
-            for (let i = 2; i < value.length; i += 2) {
-                values.push(value[i]);
-            }
-            // Add the default value (last item)
-            if (value.length % 2 === 0) {
-                values.push(value[value.length - 1]);
+            if (value[0] === 'case') {
+                const values = [];
+                for (let i = 2; i < value.length; i += 2) {
+                    values.push(value[i]);
+                }
+                if (value.length % 2 === 0) {
+                    values.push(value[value.length - 1]);
+                }
+                return values.length > 1 ? values : null;
             }
 
-            return values.length > 1 ? values : null;
+            if (value[0] === 'match') {
+                // match format: ["match", input, key1, output1, key2, output2, ..., default]
+                const values = [];
+                for (let i = 3; i < value.length - 1; i += 2) {
+                    if (typeof value[i] === 'string') values.push(value[i]);
+                }
+                const lastVal = value[value.length - 1];
+                if (typeof lastVal === 'string') values.push(lastVal);
+                return values.length > 1 ? values : null;
+            }
+
+            return null;
         };
 
         // Helper to extract representative value from Mapbox expressions
@@ -355,6 +366,12 @@ export class LayerThumbnail {
                 return Array.isArray(selectedVal) ? getValue(selectedVal, defaultValue) : selectedVal;
             }
 
+            // Handle match expressions: ["match", input, key1, output1, ..., default]
+            if (expr === 'match' && value.length >= 4) {
+                const firstOutput = value[3];
+                return Array.isArray(firstOutput) ? getValue(firstOutput, defaultValue) : firstOutput;
+            }
+
             // For other expressions, try to find first concrete value
             for (let i = 1; i < value.length; i++) {
                 const item = value[i];
@@ -377,7 +394,7 @@ export class LayerThumbnail {
             const lineWidth = getValue(style['line-width'], 1);
 
             // Check if fill-color is a case expression with multiple values
-            const caseValues = getCaseValues(style['fill-color']);
+            const caseValues = getMultiValues(style['fill-color']);
 
             if (caseValues && caseValues.length > 1) {
                 // Render multiple polygons, one for each case value
@@ -435,43 +452,43 @@ export class LayerThumbnail {
             const effectiveLineColor = style['line-color'] || vectorDefaults.line?.['line-color'];
             const width = getValue(style['line-width'] ?? vectorDefaults.line?.['line-width'], 2);
             const opacity = getValue(style['line-opacity'] ?? vectorDefaults.line?.['line-opacity'], 1);
+            const hasCircle = !!(style['circle-radius'] || style['circle-color']);
+            const circleColors = hasCircle ? getMultiValues(style['circle-color']) : null;
+            const circleR = hasCircle ? Math.min(Math.max(getValue(style['circle-radius'], 3), 2), size * 0.08) : 0;
 
-            // Check if line-color is a case expression with multiple values
-            const caseValues = getCaseValues(effectiveLineColor);
+            const drawLine = (color, lineY, circleColor) => {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', size * 0.1);
+                line.setAttribute('y1', lineY);
+                line.setAttribute('x2', size * 0.9);
+                line.setAttribute('y2', lineY);
+                line.setAttribute('stroke', color);
+                line.setAttribute('stroke-width', Math.min(Math.max(width * 2, 2), 4));
+                line.setAttribute('opacity', opacity);
+                svg.appendChild(line);
+
+                if (hasCircle && circleR > 0) {
+                    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    dot.setAttribute('cx', size / 2);
+                    dot.setAttribute('cy', lineY);
+                    dot.setAttribute('r', circleR);
+                    dot.setAttribute('fill', typeof circleColor === 'string' ? circleColor : color);
+                    dot.setAttribute('opacity', opacity);
+                    svg.appendChild(dot);
+                }
+            };
+
+            const caseValues = getMultiValues(effectiveLineColor);
 
             if (caseValues && caseValues.length > 1) {
-                // Render multiple lines, one for each case value
-                const numLines = Math.min(caseValues.length, 4); // Limit to 4 for visibility
-                const offsetStep = size * 0.08; // 8% offset between each line
-
+                const numLines = Math.min(caseValues.length, 5);
+                const step = Math.min(size * 0.14, 11);
+                const startY = size / 2 - ((numLines - 1) * step) / 2;
                 for (let i = 0; i < numLines; i++) {
-                    const color = caseValues[i];
-                    const offset = i * offsetStep;
-
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    // Create offset zigzag lines
-                    const y1 = size * 0.3 + offset;
-                    const y2 = size * 0.5 + offset;
-                    const d = `M ${size * 0.15},${y1} L ${size * 0.35},${y2} L ${size * 0.5},${y1} L ${size * 0.65},${y2} L ${size * 0.85},${y1}`;
-
-                    path.setAttribute('d', d);
-                    path.setAttribute('stroke', color);
-                    path.setAttribute('stroke-width', Math.min(Math.max(width * 2, 2), 4));
-                    path.setAttribute('opacity', opacity);
-                    path.setAttribute('fill', 'none');
-                    svg.appendChild(path);
+                    drawLine(caseValues[i], startY + i * step, circleColors?.[i]);
                 }
             } else {
-                // Single line for non-case expressions
-                const color = getValue(effectiveLineColor, 'grey');
-                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                const d = `M ${size * 0.1},${size * 0.6} L ${size * 0.35},${size * 0.35} L ${size * 0.6},${size * 0.6} L ${size * 0.85},${size * 0.35}`;
-                path.setAttribute('d', d);
-                path.setAttribute('stroke', color);
-                path.setAttribute('stroke-width', Math.min(Math.max(width * 2, 2), 4));
-                path.setAttribute('opacity', opacity);
-                path.setAttribute('fill', 'none');
-                svg.appendChild(path);
+                drawLine(getValue(effectiveLineColor, 'grey'), size / 2, getValue(style['circle-color'], null));
             }
         }
         // Circle symbology
@@ -481,7 +498,7 @@ export class LayerThumbnail {
             const strokeWidth = getValue(style['circle-stroke-width'], 1);
             const opacity = getValue(style['circle-opacity'], 0.9);
 
-            const caseValues = getCaseValues(style['circle-color']);
+            const caseValues = getMultiValues(style['circle-color']);
 
             if (caseValues && caseValues.length > 1) {
                 const numCircles = Math.min(caseValues.length, 4);

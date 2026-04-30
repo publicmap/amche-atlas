@@ -223,11 +223,14 @@ export class MapBrowserControl {
 
             if (event.data.type === 'creator-ready') {
                 if (this._pendingFileData && this._iframe && this._iframe.contentWindow) {
-                    this._iframe.contentWindow.postMessage({
+                    const msg = {
                         type: 'load-file-data',
                         fileName: this._pendingFileData.fileName,
-                        content: this._pendingFileData.content
-                    }, '*');
+                        content: this._pendingFileData.content,
+                        arrayBuffer: this._pendingFileData.arrayBuffer
+                    };
+                    const transfer = this._pendingFileData.arrayBuffer ? [this._pendingFileData.arrayBuffer] : [];
+                    this._iframe.contentWindow.postMessage(msg, '*', transfer);
                     this._pendingFileData = null;
                 }
             }
@@ -699,15 +702,25 @@ export class MapBrowserControl {
     }
 
     openCreatorWithFile(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const isBinary = ext === 'gpkg' || ext === 'zip';
         const reader = new FileReader();
         reader.onload = (e) => {
-            this._pendingFileData = { fileName: file.name, content: e.target.result };
+            this._pendingFileData = {
+                fileName: file.name,
+                content: isBinary ? null : e.target.result,
+                arrayBuffer: isBinary ? e.target.result : null
+            };
             if (!this._isOpen) {
                 this.openBrowser();
             }
             this._switchToCreator();
         };
-        reader.readAsText(file);
+        if (isBinary) {
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.readAsText(file);
+        }
     }
 
     _handleZoomToBounds(bounds) {

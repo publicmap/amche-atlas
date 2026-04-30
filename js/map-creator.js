@@ -1,6 +1,7 @@
 import { DataUtils, GeoUtils } from './map-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
+import { StreamingGPKGReader } from './streaming-gpkg-reader.js';
 
 export class MapCreator {
     constructor() {
@@ -21,18 +22,24 @@ export class MapCreator {
     setupMessageListener() {
         window.addEventListener('message', async (event) => {
             if (event.data.type === 'load-file-data') {
-                const { fileName, content } = event.data;
+                const { fileName, content, arrayBuffer } = event.data;
                 const ext = fileName.split('.').pop().toLowerCase();
                 this.switchTab('upload');
                 try {
                     let geojson;
-                    if (ext === 'kml') {
+                    if (ext === 'gpkg') {
+                        geojson = await this.parseGPKG(arrayBuffer);
+                    } else if (ext === 'zip') {
+                        geojson = await this.parseShapefile(arrayBuffer);
+                    } else if (ext === 'kml') {
                         geojson = await KMLConverter.kmlToGeoJson(content);
                     } else if (ext === 'csv') {
                         const rows = DataUtils.parseCSV(content);
                         if (!rows || rows.length === 0) throw new Error('CSV file is empty');
                         geojson = GeoUtils.rowsToGeoJSON(rows);
                         if (!geojson) throw new Error('Could not find lat/lng columns in CSV');
+                    } else if (ext === 'geojsonl' || ext === 'ndjson' || ext === 'jsonl') {
+                        geojson = this.parseGeoJSONL(content);
                     } else {
                         geojson = JSON.parse(content);
                         if (!geojson.type || (geojson.type !== 'FeatureCollection' && geojson.type !== 'Feature')) {
@@ -122,6 +129,10 @@ export class MapCreator {
             this.handleFileUpload(e);
         });
 
+        if (window.showOpenFilePicker) {
+            $('#open-large-file-btn').removeClass('hidden');
+            $('#open-large-file-btn').on('click', () => this.handleLargeFileOpen());
+        }
 
         $('#preview-geojson-io-btn').on('click', () => this.previewOnGeojsonIO());
         $('#download-geojson-btn').on('click', () => this.downloadGeoJSON());
@@ -262,6 +273,15 @@ export class MapCreator {
         if (urlLower.endsWith('.kml')) {
             return 'KML';
         }
+        if (urlLower.endsWith('.geojsonl') || urlLower.endsWith('.ndjson') || urlLower.endsWith('.jsonl')) {
+            return 'GeoJSONL';
+        }
+        if (urlLower.endsWith('.gpkg')) {
+            return 'GeoPackage';
+        }
+        if (urlLower.endsWith('.zip')) {
+            return 'Shapefile';
+        }
         if (urlLower.includes('{z}') && (urlLower.includes('.pbf') || urlLower.includes('.mvt'))) {
             return 'Vector Tiles';
         }
@@ -400,6 +420,9 @@ export class MapCreator {
         if (urlLower.endsWith('.geojson')) return true;
         if (urlLower.endsWith('.json')) return true;
         if (urlLower.endsWith('.kml')) return true;
+        if (urlLower.endsWith('.geojsonl') || urlLower.endsWith('.ndjson') || urlLower.endsWith('.jsonl')) return true;
+        if (urlLower.endsWith('.gpkg')) return true;
+        if (urlLower.endsWith('.zip')) return true;
         if (urlLower.includes('{z}') && (urlLower.includes('.pbf') || urlLower.includes('.mvt'))) return true;
         if (urlLower.includes('{z}') && (urlLower.includes('.png') || urlLower.includes('.jpg'))) return true;
         if (/\/\d+\/\d+\/\d+(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i.test(url)) return true;
@@ -459,6 +482,30 @@ export class MapCreator {
                 this.currentData = config;
                 this.currentDataSource = url;
                 this.showTileLayerSuccess(config);
+                return;
+            }
+
+            if (url.toLowerCase().endsWith('.gpkg')) {
+                const response = await fetch(url);
+                const buffer = await response.arrayBuffer();
+                const geojson = await this.parseGPKG(buffer);
+                this.processGeoJSON(geojson, url);
+                return;
+            }
+
+            if (url.toLowerCase().endsWith('.zip')) {
+                const response = await fetch(url);
+                const buffer = await response.arrayBuffer();
+                const geojson = await this.parseShapefile(buffer);
+                this.processGeoJSON(geojson, url);
+                return;
+            }
+
+            if (url.toLowerCase().endsWith('.geojsonl') || url.toLowerCase().endsWith('.ndjson') || url.toLowerCase().endsWith('.jsonl')) {
+                const response = await fetch(url);
+                const text = await response.text();
+                const geojson = this.parseGeoJSONL(text);
+                this.processGeoJSON(geojson, url);
                 return;
             }
 
@@ -663,9 +710,69 @@ export class MapCreator {
         }
     }
 
+    async handleLargeFileOpen() {
+        let fileHandle;
+        try {
+            [fileHandle] = await window.showOpenFilePicker({
+                types: [{ description: 'GeoPackage', accept: { 'application/geopackage+sqlite3': ['.gpkg'] } }]
+            });
+        } catch (err) {
+            if (err.name !== 'AbortError') alert('File picker error: ' + err.message);
+            return;
+        }
+        const file = await fileHandle.getFile();
+        this.setLoadingState('loading');
+        try {
+            const geojson = await this.parseGPKGStreaming(file, (count) => {
+                const spin = '<svg class="animate-spin h-4 w-4 inline" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+                $('#load-data-btn').html(`<span class="inline-flex items-center gap-2">${spin} Reading… ${count.toLocaleString()} features</span>`);
+            });
+            this.processGeoJSON(geojson, file.name);
+        } catch (error) {
+            alert('GeoPackage error: ' + error.message);
+            console.error(error);
+            this.setLoadingState('error');
+        }
+    }
+
     async handleFileUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
+
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        if (ext === 'gpkg') {
+            this.setLoadingState('loading');
+            try {
+                const geojson = await this.parseGPKGStreaming(file, (count) => {
+                    const spin = '<svg class="animate-spin h-4 w-4 inline" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+                    $('#load-data-btn').html(`<span class="inline-flex items-center gap-2">${spin} Reading… ${count.toLocaleString()} features</span>`);
+                });
+                this.processGeoJSON(geojson, file.name);
+            } catch (error) {
+                alert('GeoPackage error: ' + error.message);
+                console.error(error);
+                this.setLoadingState('error');
+            }
+            return;
+        }
+
+        if (ext === 'zip') {
+            this.setLoadingState('loading');
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const geojson = await this.parseShapefile(e.target.result);
+                    this.processGeoJSON(geojson, file.name);
+                } catch (error) {
+                    alert('Shapefile error: ' + error.message);
+                    console.error(error);
+                    this.setLoadingState('error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            return;
+        }
 
         if (file.size > 5 * 1024 * 1024) {
             alert('Warning: Large file may cause performance issues');
@@ -675,7 +782,6 @@ export class MapCreator {
         reader.onload = async (e) => {
             try {
                 const content = e.target.result;
-                const ext = file.name.split('.').pop().toLowerCase();
 
                 let geojson;
                 if (ext === 'kml') {
@@ -689,6 +795,8 @@ export class MapCreator {
                     if (!geojson) {
                         throw new Error('Could not find lat/lng columns in CSV');
                     }
+                } else if (ext === 'geojsonl' || ext === 'ndjson' || ext === 'jsonl') {
+                    geojson = this.parseGeoJSONL(content);
                 } else {
                     geojson = JSON.parse(content);
                     if (!geojson.type || (geojson.type !== 'FeatureCollection' && geojson.type !== 'Feature')) {
@@ -935,7 +1043,7 @@ export class MapCreator {
     generateDefaultTitle() {
         if (typeof this.currentDataSource === 'string') {
             const filename = this.currentDataSource.split('/').pop().split('?')[0];
-            return filename.replace(/\.(geojson|json|csv|kml)$/i, '').replace(/[-_]/g, ' ');
+            return filename.replace(/\.(geojson|json|csv|kml|gpkg|geojsonl|ndjson|jsonl|zip)$/i, '').replace(/[-_]/g, ' ');
         }
         return 'Custom Layer';
     }
@@ -1033,19 +1141,8 @@ export class MapCreator {
         const strokeColor = $('#stroke-color').val();
         const strokeWidth = $('#stroke-width').val();
 
-        let dataUrl;
-        let useLocalStorage = false;
         const isExternalUrl = typeof this.currentDataSource === 'string' &&
             (this.currentDataSource.startsWith('http://') || this.currentDataSource.startsWith('https://'));
-
-        if (isExternalUrl) {
-            dataUrl = this.currentDataSource;
-        } else {
-            // Use localStorage for uploaded files to avoid URL length limits
-            LayerConfigGenerator.storeGeoJSONData(layerId, this.currentData);
-            dataUrl = null;
-            useLocalStorage = true;
-        }
 
         const style = this.generateMapboxStyle(this.currentGeometryType, fillColor, strokeColor, strokeWidth);
 
@@ -1078,10 +1175,10 @@ export class MapCreator {
             }
         };
 
-        if (useLocalStorage) {
-            config.dataSource = 'localStorage';
+        if (isExternalUrl) {
+            config.url = this.currentDataSource;
         } else {
-            config.url = dataUrl;
+            config.dataSource = 'localStorage';
         }
 
         if (description) {
@@ -1121,15 +1218,8 @@ export class MapCreator {
 
         const bbox = this.currentData.geojson ? this.calculateBBox(this.currentData.geojson) : null;
 
-        let useLocalStorage = false;
         const isExternalUrl = typeof this.currentData.csvUrl === 'string' &&
             (this.currentData.csvUrl.startsWith('http://') || this.currentData.csvUrl.startsWith('https://'));
-
-        if (!isExternalUrl && this.currentData.geojson) {
-            // Use localStorage for uploaded CSV files
-            LayerConfigGenerator.storeGeoJSONData(layerId, this.currentData.geojson);
-            useLocalStorage = true;
-        }
 
         const config = {
             id: layerId,
@@ -1148,11 +1238,11 @@ export class MapCreator {
             }
         };
 
-        if (useLocalStorage) {
-            config.dataSource = 'localStorage';
-        } else {
+        if (isExternalUrl) {
             config.type = layerType;
             config.url = this.currentData.csvUrl;
+        } else {
+            config.dataSource = 'localStorage';
         }
 
         if (description) {
@@ -1413,6 +1503,18 @@ export class MapCreator {
             return;
         }
 
+        if (config.dataSource === 'localStorage') {
+            const geojsonData = this.currentLayerType === 'csv'
+                ? this.currentData.geojson
+                : this.currentData;
+            try {
+                LayerConfigGenerator.storeGeoJSONData(config.id, geojsonData);
+            } catch (e) {
+                delete config.dataSource;
+                config.geojson = geojsonData;
+            }
+        }
+
         console.log('[MapCreator] Sending add-custom-layer message to parent');
         window.parent.postMessage({
             type: 'add-custom-layer',
@@ -1430,5 +1532,197 @@ export class MapCreator {
         window.parent.postMessage({
             type: 'close-browser'
         }, '*');
+    }
+
+    parseGeoJSONL(content) {
+        const features = content.split('\n')
+            .filter(line => line.trim())
+            .map(line => {
+                try {
+                    const obj = JSON.parse(line);
+                    if (obj.type === 'Feature') return obj;
+                    if (obj.coordinates) return { type: 'Feature', geometry: obj, properties: {} };
+                    return null;
+                } catch {
+                    return null;
+                }
+            })
+            .filter(Boolean);
+        return { type: 'FeatureCollection', features };
+    }
+
+    async loadSqlJs() {
+        if (window._sqlJs) return window._sqlJs;
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('Failed to load sql.js'));
+            document.head.appendChild(script);
+        });
+        window._sqlJs = await window.initSqlJs({
+            locateFile: f => `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${f}`
+        });
+        return window._sqlJs;
+    }
+
+    _parseGPKGHeader(data) {
+        if (data[0] !== 0x47 || data[1] !== 0x50) {
+            // No GP header — treat as plain WKB directly
+            return { isEmpty: false, wkbOffset: 0 };
+        }
+        const flags = data[3];
+        // bit 0: byte order for SRS/envelope (0=big-endian, 1=little-endian)
+        // bits 1-3: envelope type (0=none, 1=2D, 2=3DZ, 3=3DM, 4=3DZM)
+        // bit 5: is_empty flag
+        const envBytes = [0, 32, 48, 48, 64];
+        return {
+            isEmpty: (flags & 0x20) !== 0,
+            wkbOffset: 8 + (envBytes[(flags >> 1) & 0x07] || 0)
+        };
+    }
+
+    _wkbRead(data, state) {
+        const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+        const le = data[state.pos++] === 1;
+        const rawType = view.getUint32(state.pos, le);
+        state.pos += 4;
+
+        const isoBase = rawType & 0xFFFF;
+        const baseType = isoBase > 3000 ? isoBase - 3000 :
+                         isoBase > 2000 ? isoBase - 2000 :
+                         isoBase > 1000 ? isoBase - 1000 : isoBase;
+        const hasZ = (rawType & 0x80000000) !== 0 || (isoBase > 1000 && isoBase <= 1007) || isoBase > 3000;
+        const hasM = (rawType & 0x40000000) !== 0 || (isoBase > 2000 && isoBase <= 2007) || isoBase > 3000;
+
+        const readF64 = () => { const v = view.getFloat64(state.pos, le); state.pos += 8; return v; };
+        const readU32 = () => { const v = view.getUint32(state.pos, le); state.pos += 4; return v; };
+        const readPt = () => { const x = readF64(), y = readF64(); if (hasZ) readF64(); if (hasM) readF64(); return [x, y]; };
+        const readRing = () => { const n = readU32(); return Array.from({ length: n }, readPt); };
+
+        switch (baseType) {
+            case 1: return { type: 'Point', coordinates: readPt() };
+            case 2: return { type: 'LineString', coordinates: readRing() };
+            case 3: { const n = readU32(); return { type: 'Polygon', coordinates: Array.from({ length: n }, readRing) }; }
+            case 4: case 5: case 6: {
+                const types = ['MultiPoint', 'MultiLineString', 'MultiPolygon'];
+                const n = readU32();
+                const coords = [];
+                for (let i = 0; i < n; i++) { const g = this._wkbRead(data, state); if (g) coords.push(g.coordinates); }
+                return { type: types[baseType - 4], coordinates: coords };
+            }
+            default: return null;
+        }
+    }
+
+    async loadShpJs() {
+        if (window.shp) return window.shp;
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/shpjs@4.0.4/dist/shp.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('Failed to load shpjs'));
+            document.head.appendChild(script);
+        });
+        if (!window.shp) throw new Error('shpjs did not initialise');
+        return window.shp;
+    }
+
+    async parseShapefile(arrayBuffer) {
+        const shpFn = await this.loadShpJs();
+        const result = await shpFn(arrayBuffer);
+        if (Array.isArray(result)) {
+            const features = result.flatMap(fc => fc.features || []);
+            return { type: 'FeatureCollection', features };
+        }
+        return result;
+    }
+
+    async parseGPKGStreaming(file, onProgress) {
+        const reader = new StreamingGPKGReader(file);
+        await reader.open();
+        const tables = await reader.getGeometryTables();
+        if (!tables.length) throw new Error('No geometry tables found in this GeoPackage');
+        const features = [];
+        const multiTable = tables.length > 1;
+        for (const { tableName, geomColumn, tableInfo } of tables) {
+            for await (const feature of reader.streamFeatures(tableName, geomColumn, tableInfo)) {
+                if (multiTable) feature.properties._layer = tableName;
+                features.push(feature);
+                if (features.length % 500 === 0) onProgress?.(features.length);
+            }
+        }
+        onProgress?.(features.length);
+        return { type: 'FeatureCollection', features };
+    }
+
+    async parseGPKG(arrayBuffer) {
+        const SQL = await this.loadSqlJs();
+        const db = new SQL.Database(new Uint8Array(arrayBuffer));
+
+        const tableResult = db.exec('SELECT table_name, column_name FROM gpkg_geometry_columns');
+        if (!tableResult.length || !tableResult[0].values.length) {
+            db.close();
+            throw new Error('No geometry tables found in this GeoPackage');
+        }
+
+        const tables = tableResult[0].values.map(r => ({
+            tableName: String(r[0]).trim(),
+            geomColumn: String(r[1]).trim()
+        }));
+        console.log('[GPKG] geometry tables:', tables.map(t => t.tableName));
+
+        const allRows = [];
+        for (const { tableName, geomColumn } of tables) {
+            const result = db.exec(`SELECT * FROM "${tableName}"`);
+            if (!result.length) continue;
+
+            const { columns, values } = result[0];
+            const geomIdx = columns.findIndex(c => c.toLowerCase() === geomColumn.toLowerCase());
+            if (geomIdx === -1) {
+                console.warn('[GPKG] geom column not found in', tableName, columns);
+                continue;
+            }
+
+            console.log('[GPKG] table:', tableName, 'columns:', columns, 'rows:', values.length);
+
+            for (const row of values) {
+                const geom = row[geomIdx];
+                allRows.push({
+                    geom: geom instanceof Uint8Array ? new Uint8Array(geom) : geom,
+                    props: row,
+                    columns,
+                    geomIdx,
+                    layer: tables.length > 1 ? tableName : null
+                });
+            }
+        }
+
+        db.close();
+
+        if (allRows.length > 0) {
+            const g = allRows[0].geom;
+            console.log('[GPKG] row[0] geom:', g instanceof Uint8Array ? `len=${g.length} bytes[0..3]=[${Array.from(g.slice(0, 4))}]` : g);
+        }
+
+        const features = allRows.map(({ geom: geomData, props: row, columns, geomIdx, layer }, i) => {
+            if (!geomData) return null;
+            try {
+                const { isEmpty, wkbOffset } = this._parseGPKGHeader(geomData);
+                if (isEmpty) return null;
+                const geometry = this._wkbRead(geomData, { pos: wkbOffset });
+                if (!geometry) return null;
+                const properties = {};
+                columns.forEach((col, j) => { if (j !== geomIdx) properties[col] = row[j]; });
+                if (layer) properties._layer = layer;
+                return { type: 'Feature', geometry, properties };
+            } catch (err) {
+                if (i === 0) console.warn('[GPKG] Row 0 parse error:', err.message);
+                return null;
+            }
+        }).filter(Boolean);
+
+        console.log('[GPKG] parsed features:', features.length);
+        return { type: 'FeatureCollection', features };
     }
 }
