@@ -144,4 +144,14 @@ npm -v
 - [Google Fonts](https://fonts.gstatic.com)
 
 
+## Project Partners
 
+- [OpenStreetMap India](https://openstreetmap.in)
+- [DataMeet](https://datameet.org/)
+- [Goa Foundation](https://goafoundation.org/)
+- [Vivekanand Environment Awareness Brigade (VEAB)](https://veabgoa.com)
+
+**Donors**
+
+- INR 25,000 - [Nagarathna Memorial Grant 2026](https://thejeshgn.com/2026/04/22/nagarathna-memorial-grant-2026-results/#additional-notes) / [
+Shweta Taneja](https://shwetawrites.com) / Ashwani Sharma
