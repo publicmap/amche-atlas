@@ -129,11 +129,6 @@ export class MapCreator {
             this.handleFileUpload(e);
         });
 
-        if (window.showOpenFilePicker) {
-            $('#open-large-file-btn').removeClass('hidden');
-            $('#open-large-file-btn').on('click', () => this.handleLargeFileOpen());
-        }
-
         $('#preview-geojson-io-btn').on('click', () => this.previewOnGeojsonIO());
         $('#download-geojson-btn').on('click', () => this.downloadGeoJSON());
 
@@ -707,31 +702,6 @@ export class MapCreator {
                     .removeClass('bg-blue-400 bg-green-600 hover:bg-green-700')
                     .addClass('bg-blue-600 hover:bg-blue-700')
                     .text('Load Data');
-        }
-    }
-
-    async handleLargeFileOpen() {
-        let fileHandle;
-        try {
-            [fileHandle] = await window.showOpenFilePicker({
-                types: [{ description: 'GeoPackage', accept: { 'application/geopackage+sqlite3': ['.gpkg'] } }]
-            });
-        } catch (err) {
-            if (err.name !== 'AbortError') alert('File picker error: ' + err.message);
-            return;
-        }
-        const file = await fileHandle.getFile();
-        this.setLoadingState('loading');
-        try {
-            const geojson = await this.parseGPKGStreaming(file, (count) => {
-                const spin = '<svg class="animate-spin h-4 w-4 inline" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
-                $('#load-data-btn').html(`<span class="inline-flex items-center gap-2">${spin} Reading… ${count.toLocaleString()} features</span>`);
-            });
-            this.processGeoJSON(geojson, file.name);
-        } catch (error) {
-            alert('GeoPackage error: ' + error.message);
-            console.error(error);
-            this.setLoadingState('error');
         }
     }
 

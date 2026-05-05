@@ -10,35 +10,35 @@
 function createNavbar(options = {}) {
     // Default configuration
     const config = {
-        titleHtml: 'amche warper : align your mapwarper control points easily',
-        href: window.location.href,
+        titleHtml: 'amche warper : georeference your maps',
+        href: '#',
         onClick: () => window.location.reload(),
         ...options
     };
-    
+
     // Create navbar container
     const navbar = document.createElement('div');
     navbar.className = 'w-full h-8 bg-gray-800 flex items-center px-4 border-b border-gray-700';
     navbar.style.height = '30px'; // Ensure exactly 30px height
-    
+
     // Create clickable title link
     const titleLink = document.createElement('a');
     titleLink.href = config.href;
     titleLink.innerHTML = config.titleHtml; // Use innerHTML to support HTML content
     titleLink.className = 'text-white text-sm hover:text-blue-300 transition-colors duration-200 no-underline cursor-pointer';
-    
+
     // Add click event to refresh page or handle navigation
-    titleLink.addEventListener('click', function(e) {
+    titleLink.addEventListener('click', function (e) {
         e.preventDefault();
         // Use configurable onClick handler
         if (typeof config.onClick === 'function') {
             config.onClick(e);
         }
     });
-    
+
     // Append link to navbar
     navbar.appendChild(titleLink);
-    
+
     return navbar;
 }
 
@@ -53,21 +53,21 @@ function createNavbar(options = {}) {
  */
 function renderNavbar(targetElement = document.body, options = {}) {
     const navbar = createNavbar(options);
-    
+
     // Insert navbar at the beginning of the target element
     if (targetElement.firstChild) {
         targetElement.insertBefore(navbar, targetElement.firstChild);
     } else {
         targetElement.appendChild(navbar);
     }
-    
+
     return navbar;
 }
 
 /**
  * Auto-initialize navbar when DOM is loaded
  */
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Only auto-render if this script is included and no navbar exists
     if (!document.querySelector('[data-navbar="mapwarper"]')) {
         const navbar = renderNavbar();

@@ -225,6 +225,56 @@
             max-width: 100% !important;
             width: 100% !important;
         }
+
+        /* Layer viewer mode */
+        body.layer-mode #source-map-panel { display: none; }
+        body.layer-mode #reference-map-panel { flex: 1; }
+        body.layer-mode #controls-panel { display: none; }
+        body.layer-mode #maps-container { flex: 1; height: auto; min-height: 0; }
+        body.layer-mode #output-section { display: none; }
+        body.layer-mode #control-mode-section { display: none; }
+
+        /* Layer panel */
+        #layer-panel {
+            display: none;
+            width: 260px;
+            flex-direction: column;
+            border-left: 1px solid #e5e7eb;
+            background: white;
+            flex-shrink: 0;
+        }
+        body.layer-mode #layer-panel { display: flex; }
+
+        .map-list-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 7px 12px;
+            border-bottom: 1px solid #f9fafb;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #374151;
+            transition: background 0.1s;
+        }
+        .map-list-item:hover { background: #f0f9ff; }
+        .map-list-item.map-hovered { background: #dbeafe; }
+        .map-list-item.map-selected { background: #bfdbfe; }
+        .map-list-dot {
+            width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 3px;
+        }
+        .map-list-title { overflow: hidden; text-overflow: ellipsis; }
+
+        .mapboxgl-popup-content { padding: 12px; min-width: 220px; }
+        .mapboxgl-popup-close-button {
+            font-size: 20px;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            color: #6b7280;
+            padding: 0;
+        }
+        .mapboxgl-popup-close-button:hover { color: #111827; background: #f3f4f6; border-radius: 4px; }
     </style>
 </head>
 
@@ -237,9 +287,10 @@
             <button class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700" id="map-list-btn">Map
                 List</button>
             or
-            <input type="text" id="mapwarper-url" value="https://warper.wmflabs.org/maps/8933"
-                placeholder="Enter MapWarper URL (e.g., https://mapwarper.net/maps/12345 or https://warper.wmflabs.org/maps/8933)"
+            <input type="text" id="mapwarper-url" value="https://mapwarper.net/layers/2054"
+                placeholder="Enter MapWarper URL (e.g., https://mapwarper.net/maps/12345 or https://mapwarper.net/layers/2054)"
                 class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="loadMapWarperMap()">Load</button>
         </div>
 
         <!-- Helper text for mapwarper URL input -->
@@ -278,9 +329,9 @@
     </div>
 
     <!-- Second row: Maps and Controls -->
-    <div class="flex h-[calc(100vh-140px)]">
+    <div id="maps-container" class="flex h-[calc(100vh-140px)]">
         <!-- Source Map - 40% -->
-        <div class="w-2/5 relative border-r-2 border-gray-300">
+        <div id="source-map-panel" class="w-2/5 relative border-r-2 border-gray-300">
             <div class="absolute top-2 left-2 bg-white/90 px-3 py-1 rounded text-sm font-semibold z-10">
                 Source Map
             </div>
@@ -288,7 +339,7 @@
         </div>
 
         <!-- Reference Map - 40% -->
-        <div class="w-2/5 relative border-r-2 border-gray-300">
+        <div id="reference-map-panel" class="w-2/5 relative border-r-2 border-gray-300">
             <div class="absolute top-2 left-2 bg-white/90 px-3 py-1 rounded text-sm font-semibold z-10">
                 Reference Map (Mapbox)
             </div>
@@ -296,7 +347,7 @@
         </div>
 
         <!-- Controls Panel - 20% -->
-        <div class="w-1/5 bg-gray-50 p-4 overflow-y-auto">
+        <div id="controls-panel" class="w-1/5 bg-gray-50 p-4 overflow-y-auto">
             <div class="space-y-6">
                 <!-- Geocoder -->
                 <div>
@@ -304,7 +355,7 @@
                 </div>
 
                 <!-- Map Control Modes -->
-                <div>
+                <div id="control-mode-section">
                     <h3 class="text-sm font-semibold mb-3 text-gray-700">Control Mode</h3>
                     <div class="space-y-2">
                         <div class="control-mode px-3 py-2 rounded cursor-pointer transition-colors text-sm"
@@ -371,9 +422,20 @@
                 </div>
             </div>
         </div>
+
+        <!-- Layer Panel (mosaic viewer mode) -->
+        <div id="layer-panel">
+            <div style="padding:12px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+                <input type="text" id="layer-map-filter" placeholder="Search maps…"
+                       oninput="filterLayerMaps(this.value)"
+                       style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;outline:none;">
+                <div id="layer-map-count" style="font-size:11px;color:#9ca3af;margin-top:6px;"></div>
+            </div>
+            <div id="layer-map-list" style="flex:1;overflow-y:auto;min-height:0;"></div>
+        </div>
     </div>
 
-    <div class="output-section">
+    <div id="output-section" class="output-section">
         <div class="output-header">
             <h3>Control Points</h3>
             <div>
@@ -602,6 +664,12 @@
         let activeLongPressTimer = null;
         let activeLongPressTriggered = false;
         let isEditMode = false;
+        let currentViewMode = 'map'; // 'map' or 'layer'
+        let currentLayerPopup = null;
+        let warpLayerId = null;
+        let layerMapsData = [];
+        let layerHoveredMapIds = new Set();
+        let layerSelectedMapIds = new Set();
 
         // Image transformation for converting pixel coords to geographic coords
         let imageTransform = null;
@@ -834,6 +902,12 @@
                         'text-opacity': 0.7
                     }
                 });
+
+                if (currentViewMode === 'layer') {
+                    ['cadastral-layer', 'cadastral-labels', 'local-body-lines', 'local-body-labels'].forEach(id => {
+                        referenceMap.setLayoutProperty(id, 'visibility', 'none');
+                    });
+                }
             });
 
             // Set up event listeners for both maps
@@ -956,6 +1030,7 @@
 
             const allmapsLink = document.getElementById('allmaps-link');
             allmapsLink.href = `https://mapwarper-allmaps-bridge.ramseraph.workers.dev/sync/editor.html?map=${mapId}&mode=allmaps`;
+            allmapsLink.style.display = '';
 
             // Show the metadata div
             metadataDiv.classList.remove('hidden');
@@ -1074,20 +1149,26 @@
             const urlData = parseMapwarperUrl(url);
 
             if (!urlData) {
-                // Only show alert if user explicitly clicked the load button
-                // Don't show alert for auto-loading attempts
                 const wasTriggeredByUser = event && event.type === 'click';
                 if (wasTriggeredByUser) {
-                    alert('Invalid MapWarper URL. Please use format: https://[mapwarper-server]/maps/[ID]');
+                    alert('Invalid MapWarper URL. Please use format: https://[server]/maps/[ID] or https://[server]/layers/[ID]');
                 }
                 hideMapMetadata();
                 return;
             }
 
-            const { baseUrl, mapId } = urlData;
             syncMapUrlParam(url.trim());
 
-            // Fetch and display map metadata
+            if (urlData.type === 'layer') {
+                setLayerViewMode(true);
+                await loadMapWarperLayer(urlData.layerId, urlData.baseUrl);
+            } else {
+                setLayerViewMode(false);
+                await loadMapWarperMapContent(urlData.mapId, urlData.baseUrl);
+            }
+        }
+
+        async function loadMapWarperMapContent(mapId, baseUrl) {
             try {
                 const mapData = await mapwarperAPI.getMap(baseUrl, mapId);
                 displayMapMetadata(mapData, mapId, baseUrl);
@@ -1096,7 +1177,6 @@
                 hideMapMetadata();
             }
 
-            // Remove existing layers if any
             if (sourceMap.getLayer('image-layer')) {
                 sourceMap.removeLayer('image-layer');
                 sourceMap.removeSource('image-source');
@@ -1106,61 +1186,444 @@
                 referenceMap.removeSource('warped-source');
             }
 
-            // Load unwarped map first so imageTransform is ready before control points are placed
             await loadUnwarpedMap(mapId, baseUrl);
 
-            // Add warped map to reference map
             referenceMap.addSource('warped-source', {
                 type: 'raster',
-                tiles: [
-                    `${baseUrl}/maps/tile/${mapId}/{z}/{x}/{y}`
-                ],
+                tiles: [`${baseUrl}/maps/tile/${mapId}/{z}/{x}/{y}`],
                 tileSize: 256
             });
 
-            // Add warped layer before overlay layers so overlays remain visible on top
-            // Insert before the first overlay layer (village-fill) if it exists, otherwise add normally
             const beforeLayerId = referenceMap.getLayer('village-fill') ? 'village-fill' : undefined;
-
             referenceMap.addLayer({
                 id: 'warped-layer',
                 type: 'raster',
                 source: 'warped-source',
-                paint: {
-                    'raster-opacity': 0.5
-                }
+                paint: { 'raster-opacity': 0.5 }
             }, beforeLayerId);
 
-            // Only center reference map (source map will be centered when image loads)
             const center = getMapCenter(mapId);
             referenceMap.setCenter(center.coords);
             referenceMap.setZoom(center.zoom);
 
-            // imageTransform is now set; load control points immediately
             clearControlPoints();
             fetchExistingControlPoints(mapId, baseUrl);
 
-            // Enable warped map toggle
             document.getElementById('warped-map-toggle').checked = true;
         }
 
-        function extractMapId(url) {
-            const match = url.match(/\/maps\/(\d+)/);
-            return match ? match[1] : null;
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
-        // New function to parse mapwarper URLs from different servers
-        function parseMapwarperUrl(url) {
-            // Support different mapwarper servers
-            const mapwarperPattern = /^(https?:\/\/[^\/]+)\/maps\/(\d+)/;
-            const match = url.match(mapwarperPattern);
+        function setLayerViewMode(isLayer) {
+            const entering = isLayer && currentViewMode !== 'layer';
+            const exiting = !isLayer && currentViewMode === 'layer';
+            if (!entering && !exiting) return;
 
-            if (match) {
-                return {
-                    baseUrl: match[1],
-                    mapId: match[2]
-                };
+            currentViewMode = isLayer ? 'layer' : 'map';
+            document.body.classList.toggle('layer-mode', isLayer);
+
+            if (entering) {
+                clearControlPoints();
+                [
+                    'village-fill', 'village-lines', 'village-labels',
+                    'cadastral-layer', 'cadastral-labels',
+                    'local-body-lines', 'local-body-labels'
+                ].forEach(id => {
+                    if (referenceMap.getLayer(id)) referenceMap.setLayoutProperty(id, 'visibility', 'none');
+                });
             }
+
+            if (exiting) {
+                if (currentLayerPopup) { currentLayerPopup.remove(); currentLayerPopup = null; }
+                ['layer-bboxes-labels', 'layer-bboxes-fill', 'layer-bboxes-line'].forEach(id => {
+                    if (referenceMap.getLayer(id)) referenceMap.removeLayer(id);
+                });
+                if (referenceMap.getSource('layer-bboxes')) referenceMap.removeSource('layer-bboxes');
+                layerMapsData = [];
+                layerHoveredMapIds.clear();
+                layerSelectedMapIds.clear();
+
+                const vis = (id) => document.getElementById(id).checked ? 'visible' : 'none';
+                ['village-fill', 'village-lines', 'village-labels'].forEach(id => {
+                    if (referenceMap.getLayer(id)) referenceMap.setLayoutProperty(id, 'visibility', vis('village-toggle'));
+                });
+                ['cadastral-layer', 'cadastral-labels'].forEach(id => {
+                    if (referenceMap.getLayer(id)) referenceMap.setLayoutProperty(id, 'visibility', vis('cadastral-toggle'));
+                });
+                ['local-body-lines', 'local-body-labels'].forEach(id => {
+                    if (referenceMap.getLayer(id)) referenceMap.setLayoutProperty(id, 'visibility', vis('local-body-toggle'));
+                });
+            }
+
+            setTimeout(() => {
+                referenceMap.resize();
+                if (sourceMap) sourceMap.resize();
+            }, 150);
+        }
+
+        async function loadMapWarperLayer(layerId, baseUrl) {
+            warpBaseUrl = baseUrl;
+            warpLayerId = layerId;
+
+            try {
+                const layerData = await mapwarperAPI.getLayer(baseUrl, layerId);
+                displayLayerMetadata(layerData, layerId, baseUrl);
+            } catch (e) {
+                console.warn('Failed to fetch layer metadata:', e);
+                hideMapMetadata();
+            }
+
+            if (referenceMap.getLayer('warped-layer')) {
+                referenceMap.removeLayer('warped-layer');
+                referenceMap.removeSource('warped-source');
+            }
+
+            referenceMap.addSource('warped-source', {
+                type: 'raster',
+                tiles: [`${baseUrl}/layers/tile/${layerId}/{z}/{x}/{y}.png`],
+                tileSize: 256
+            });
+
+            const beforeLayerId = referenceMap.getLayer('village-fill') ? 'village-fill' : undefined;
+            referenceMap.addLayer({
+                id: 'warped-layer',
+                type: 'raster',
+                source: 'warped-source',
+                paint: { 'raster-opacity': 0.7 }
+            }, beforeLayerId);
+
+            document.getElementById('warped-map-toggle').checked = true;
+
+            loadLayerMapBboxes(layerId, baseUrl);
+        }
+
+        function displayLayerMetadata(layerData, layerId, baseUrl) {
+            const attrs = layerData.data.attributes;
+            const metadataDiv = document.getElementById('map-metadata');
+
+            document.getElementById('map-title').textContent = attrs.name || 'Untitled Layer';
+            document.getElementById('map-description').innerHTML = convertUrlsToLinks(attrs.description || '');
+
+            const pct = attrs.rectified_percent || 0;
+            const statusEl = document.getElementById('map-status');
+            statusEl.textContent = `${pct}% WARPED`;
+            statusEl.className = `px-2 py-1 rounded text-xs ${
+                pct === 100 ? 'bg-green-100 text-green-800' :
+                pct > 0 ? 'bg-yellow-100 text-yellow-800' :
+                'bg-gray-100 text-gray-800'}`;
+
+            document.getElementById('map-dimensions').textContent = `${attrs.maps_count || 0} maps`;
+            document.getElementById('map-updated').textContent =
+                `Updated: ${new Date(attrs.updated_at).toLocaleDateString()}`;
+            document.getElementById('map-thumbnail').innerHTML = '';
+
+            if (attrs.source_uri) {
+                const src = document.getElementById('map-source-link');
+                src.href = attrs.source_uri;
+                src.style.display = 'inline';
+            } else {
+                document.getElementById('map-source-link').style.display = 'none';
+            }
+
+            document.getElementById('mapwarper-link').href = `${baseUrl}/layers/${layerId}`;
+            document.getElementById('mapwarper-link').textContent = 'Open in MapWarper';
+            document.getElementById('allmaps-link').style.display = 'none';
+
+            metadataDiv.classList.remove('hidden');
+        }
+
+        async function fetchAllLayerMaps(baseUrl, layerId) {
+            const first = await mapwarperAPI.getLayerMaps(baseUrl, layerId, 1, 50);
+            const totalPages = (first.meta && first.meta.total_pages) || 1;
+            let allMaps = first.data || [];
+
+            if (totalPages > 1) {
+                const pages = Array.from({length: totalPages - 1}, (_, i) => i + 2);
+                const results = await Promise.all(
+                    pages.map(p => mapwarperAPI.getLayerMaps(baseUrl, layerId, p, 50).catch(() => ({data:[]})))
+                );
+                results.forEach(r => { allMaps = allMaps.concat(r.data || []); });
+            }
+            return allMaps;
+        }
+
+        async function loadLayerMapBboxes(layerId, baseUrl) {
+            ['layer-bboxes-labels', 'layer-bboxes-fill', 'layer-bboxes-line'].forEach(id => {
+                if (referenceMap.getLayer(id)) referenceMap.removeLayer(id);
+            });
+            if (referenceMap.getSource('layer-bboxes')) referenceMap.removeSource('layer-bboxes');
+            layerHoveredMapIds.clear();
+            layerSelectedMapIds.clear();
+
+            let allMaps;
+            try {
+                allMaps = await fetchAllLayerMaps(baseUrl, layerId);
+            } catch (e) {
+                console.error('Failed to fetch layer maps:', e);
+                return;
+            }
+
+            layerMapsData = allMaps;
+            renderLayerMapList(layerMapsData);
+
+            const features = allMaps
+                .filter(m => m.attributes && m.attributes.bbox)
+                .map(m => {
+                    const parts = m.attributes.bbox.split(',').map(Number);
+                    if (parts.length < 4 || parts.some(isNaN)) return null;
+                    const [west, south, east, north] = parts;
+                    const thumbRaw = m.links && m.links.thumb ? m.links.thumb : '';
+                    const thumbUrl = thumbRaw && !thumbRaw.startsWith('http') ? `${baseUrl}${thumbRaw}` : thumbRaw;
+                    return {
+                        type: 'Feature',
+                        id: parseInt(m.id),
+                        geometry: {
+                            type: 'Polygon',
+                            coordinates: [[[west,south],[east,south],[east,north],[west,north],[west,south]]]
+                        },
+                        properties: {
+                            id: m.id,
+                            title: m.attributes.title || '',
+                            status: m.attributes.status || '',
+                            width: m.attributes.width || 0,
+                            height: m.attributes.height || 0,
+                            thumb_url: thumbUrl
+                        }
+                    };
+                })
+                .filter(Boolean);
+
+            if (features.length === 0) return;
+
+            referenceMap.addSource('layer-bboxes', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features }
+            });
+
+            referenceMap.addLayer({
+                id: 'layer-bboxes-fill',
+                type: 'fill',
+                source: 'layer-bboxes',
+                paint: {
+                    'fill-color': ['match', ['get', 'status'], 'warped', '#3b82f6', '#f97316'],
+                    'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.4, 0.12]
+                }
+            });
+
+            referenceMap.addLayer({
+                id: 'layer-bboxes-line',
+                type: 'line',
+                source: 'layer-bboxes',
+                paint: {
+                    'line-color': ['match', ['get', 'status'], 'warped', '#2563eb', '#ea580c'],
+                    'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2.5, 1.5],
+                    'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.7]
+                }
+            });
+
+            referenceMap.addLayer({
+                id: 'layer-bboxes-labels',
+                type: 'symbol',
+                source: 'layer-bboxes',
+                layout: {
+                    'text-field': ['get', 'title'],
+                    'text-font': ['Open Sans SemiBold'],
+                    'text-size': 11,
+                    'text-anchor': 'center',
+                    'text-max-width': 12,
+                    'text-allow-overlap': false,
+                    'symbol-avoid-edges': true
+                },
+                paint: {
+                    'text-color': '#1e293b',
+                    'text-halo-color': 'rgba(255,255,255,0.9)',
+                    'text-halo-width': 1.5
+                }
+            });
+
+            referenceMap.off('click', 'layer-bboxes-fill', onLayerBboxClick);
+            referenceMap.on('click', 'layer-bboxes-fill', onLayerBboxClick);
+
+            referenceMap.on('mousemove', 'layer-bboxes-fill', (e) => {
+                referenceMap.getCanvas().style.cursor = 'pointer';
+                const atPoint = referenceMap.queryRenderedFeatures(e.point, { layers: ['layer-bboxes-fill'] });
+                const newIds = new Set(atPoint.map(f => f.id));
+
+                // Clear features no longer hovered
+                layerHoveredMapIds.forEach(id => {
+                    if (!newIds.has(id)) referenceMap.setFeatureState({ source: 'layer-bboxes', id }, { hover: false });
+                });
+                // Set new hovers
+                newIds.forEach(id => {
+                    if (!layerHoveredMapIds.has(id)) referenceMap.setFeatureState({ source: 'layer-bboxes', id }, { hover: true });
+                });
+                layerHoveredMapIds = newIds;
+
+                syncListHighlight(atPoint.map(f => String(f.properties.id)), 'map-hovered');
+            });
+
+            referenceMap.on('mouseleave', 'layer-bboxes-fill', () => {
+                referenceMap.getCanvas().style.cursor = '';
+                layerHoveredMapIds.forEach(id => {
+                    referenceMap.setFeatureState({ source: 'layer-bboxes', id }, { hover: false });
+                });
+                layerHoveredMapIds.clear();
+                syncListHighlight([], 'map-hovered');
+            });
+
+            const allCoords = features.flatMap(f => f.geometry.coordinates[0]);
+            if (allCoords.length > 0) {
+                const bounds = allCoords.reduce(
+                    (b, c) => b.extend(c),
+                    new mapboxgl.LngLatBounds(allCoords[0], allCoords[0])
+                );
+                referenceMap.fitBounds(bounds, { padding: 60, duration: 1000, maxZoom: 14 });
+            }
+        }
+
+        function renderLayerMapList(maps) {
+            const list = document.getElementById('layer-map-list');
+            const count = document.getElementById('layer-map-count');
+            if (!list) return;
+            if (count) count.textContent = `${maps.length} of ${layerMapsData.length} maps`;
+
+            list.innerHTML = maps.map(m => {
+                const id = String(m.id);
+                const title = escapeHtml(m.attributes.title || `Map #${id}`);
+                const isWarped = m.attributes.status === 'warped';
+                const dot = isWarped ? '#22c55e' : '#f97316';
+                return `<div class="map-list-item" data-map-id="${id}" data-original-index="${maps.indexOf(m)}"
+                    onmouseenter="onListItemHover('${id}', true)"
+                    onmouseleave="onListItemHover('${id}', false)"
+                    onclick="onListItemClick('${id}')">
+                    <div class="map-list-dot" style="background:${dot}"></div>
+                    <div class="map-list-title">${title}</div>
+                </div>`;
+            }).join('');
+        }
+
+        function filterLayerMaps(text) {
+            const q = text.trim().toLowerCase();
+            const filtered = q
+                ? layerMapsData.filter(m => (m.attributes.title || '').toLowerCase().includes(q))
+                : layerMapsData;
+
+            renderLayerMapList(filtered);
+
+            const filter = q
+                ? ['in', ['get', 'id'], ['literal', filtered.map(m => String(m.id))]]
+                : null;
+            ['layer-bboxes-fill', 'layer-bboxes-line', 'layer-bboxes-labels'].forEach(lid => {
+                if (referenceMap.getLayer(lid)) referenceMap.setFilter(lid, filter);
+            });
+        }
+
+        function syncListHighlight(ids, cssClass) {
+            const idSet = new Set(ids);
+            const list = document.getElementById('layer-map-list');
+            if (!list) return;
+
+            const allItems = [...list.querySelectorAll('.map-list-item')];
+            allItems.forEach(el => el.classList.toggle(cssClass, idSet.has(el.dataset.mapId)));
+
+            const byIndex = (a, b) => parseInt(a.dataset.originalIndex) - parseInt(b.dataset.originalIndex);
+            const active = allItems.filter(el =>
+                el.classList.contains('map-hovered') || el.classList.contains('map-selected')
+            ).sort(byIndex);
+            const inactive = allItems.filter(el =>
+                !el.classList.contains('map-hovered') && !el.classList.contains('map-selected')
+            ).sort(byIndex);
+
+            [...active, ...inactive].forEach(el => list.appendChild(el));
+
+            if (active.length > 0) list.scrollTop = 0;
+        }
+
+        function onListItemHover(mapId, entering) {
+            const numId = parseInt(mapId);
+            if (referenceMap.getSource('layer-bboxes')) {
+                referenceMap.setFeatureState({ source: 'layer-bboxes', id: numId }, { hover: entering });
+            }
+        }
+
+        function onListItemClick(mapId) {
+            const m = layerMapsData.find(m => String(m.id) === String(mapId));
+            if (!m || !m.attributes.bbox) return;
+            const [west, south, east, north] = m.attributes.bbox.split(',').map(Number);
+            referenceMap.fitBounds([[west, south], [east, north]], { padding: 60, maxZoom: 14, duration: 600 });
+        }
+
+        function onLayerBboxClick(e) {
+            const features = referenceMap.queryRenderedFeatures(e.point, { layers: ['layer-bboxes-fill'] });
+            if (!features.length) return;
+            const baseUrl = warpBaseUrl || 'https://mapwarper.net';
+
+            // Sync list selection
+            syncListHighlight(features.map(f => String(f.properties.id)), 'map-selected');
+            layerSelectedMapIds = new Set(features.map(f => String(f.properties.id)));
+
+            const items = features.map(f => {
+                const p = f.properties;
+                const isWarped = p.status === 'warped';
+                const statusStyle = isWarped ? 'background:#dcfce7;color:#166534' : 'background:#fff7ed;color:#9a3412';
+                return `<div style="padding:10px 0;border-bottom:1px solid #e5e7eb;">
+                    <div style="font-weight:600;margin-bottom:4px;line-height:1.3;">${escapeHtml(p.title || 'Untitled')}</div>
+                    <div style="margin-bottom:6px;display:flex;align-items:center;gap:8px;">
+                        <span style="padding:2px 8px;border-radius:10px;font-size:11px;${statusStyle}">${escapeHtml(p.status).toUpperCase()}</span>
+                        ${p.width ? `<span style="color:#6b7280;font-size:11px;">${p.width}×${p.height}px</span>` : ''}
+                    </div>
+                    <div style="display:flex;gap:6px;">
+                        <button onclick="openMapInWarper('${escapeHtml(String(p.id))}','${escapeHtml(baseUrl)}')"
+                            style="flex:1;padding:5px;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;">
+                            Open in Warper
+                        </button>
+                        <a href="${escapeHtml(baseUrl)}/maps/${escapeHtml(String(p.id))}" target="_blank"
+                            style="padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;color:#374151;text-decoration:none;font-size:12px;">↗</a>
+                    </div>
+                </div>`;
+            });
+
+            const header = features.length > 1
+                ? `<div style="font-size:11px;color:#6b7280;margin-bottom:4px;">${features.length} maps at this location</div>`
+                : '';
+
+            const html = `<div style="font-family:sans-serif;font-size:13px;max-height:400px;overflow-y:auto;">
+                ${header}${items.join('')}
+            </div>`;
+
+            if (currentLayerPopup) currentLayerPopup.remove();
+            currentLayerPopup = new mapboxgl.Popup({ maxWidth: '280px', closeOnClick: true })
+                .setLngLat(e.lngLat)
+                .setHTML(html)
+                .addTo(referenceMap);
+            currentLayerPopup.once('close', () => {
+                layerSelectedMapIds.clear();
+                syncListHighlight([], 'map-selected');
+            });
+        }
+
+        function openMapInWarper(mapId, baseUrl) {
+            if (currentLayerPopup) { currentLayerPopup.remove(); currentLayerPopup = null; }
+            document.getElementById('mapwarper-url').value = `${baseUrl}/maps/${mapId}`;
+            loadMapWarperMap();
+        }
+
+        function extractMapId(url) {
+            return !!parseMapwarperUrl(url);
+        }
+
+        function parseMapwarperUrl(url) {
+            const mapPattern = /^(https?:\/\/[^\/]+)\/maps\/(\d+)/;
+            let match = url.match(mapPattern);
+            if (match) return { baseUrl: match[1], type: 'map', mapId: match[2] };
+
+            const layerPattern = /^(https?:\/\/[^\/]+)\/layers\/(\d+)/;
+            match = url.match(layerPattern);
+            if (match) return { baseUrl: match[1], type: 'layer', layerId: match[2] };
+
             return null;
         }
 
@@ -1410,6 +1873,7 @@
 
 
         function addControlPoint(e, mapType) {
+            if (currentViewMode === 'layer') return;
             // Find existing incomplete point or create new one
             let pointIndex = controlPoints.findIndex(p =>
                 (mapType === 'source' && !p.sourceCoords) ||
@@ -2508,9 +2972,8 @@
             const status = attrs.status || '';
             const statusColor = status === 'warped' ? '#16a34a' : status === 'available' ? '#2563eb' : '#9ca3af';
             const url = `${baseUrl}/${type === 'mosaic' ? 'layers' : 'maps'}/${item.id}`;
-            const loadBtn = type === 'map'
-                ? `<button onclick="loadMapFromUserList('${url}')" style="padding:2px 8px; background:#2563eb; color:white; border:none; border-radius:3px; cursor:pointer; font-size:11px; flex-shrink:0;">Load</button>`
-                : `<a href="${url}" target="_blank" style="padding:2px 8px; background:#6b7280; color:white; border:none; border-radius:3px; cursor:pointer; font-size:11px; flex-shrink:0; text-decoration:none;">View</a>`;
+            const btnColor = type === 'map' ? '#2563eb' : '#7c3aed';
+            const loadBtn = `<button onclick="loadMapFromUserList('${url}')" style="padding:2px 8px; background:${btnColor}; color:white; border:none; border-radius:3px; cursor:pointer; font-size:11px; flex-shrink:0;">Load</button>`;
             return `<div data-title="${title.replace(/"/g, '&quot;')}" style="display:flex; align-items:center; padding:5px 8px; border-bottom:1px solid #f3f4f6; gap:8px;">
                 <div style="flex:1; min-width:0;">
                     <div style="font-size:12px; font-weight:500; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${title}</div>

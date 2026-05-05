@@ -204,6 +204,12 @@ class MapwarperAPI {
         if (!response.ok) throw new Error(`Failed to fetch layer: ${response.status}`);
         return response.json();
     }
+
+    async getLayerMaps(baseUrl, layerId, page = 1, perPage = 50) {
+        const response = await fetch(`${baseUrl}/api/v1/layers/${layerId}/maps?page=${page}&per_page=${perPage}`);
+        if (!response.ok) throw new Error(`Failed to fetch layer maps: ${response.status}`);
+        return response.json();
+    }
 }
 
 window.mapwarperAPI = new MapwarperAPI();
