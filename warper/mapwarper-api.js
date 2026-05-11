@@ -169,25 +169,45 @@ class MapwarperAPI {
         if (!response.ok) throw new Error(`Failed to delete GCP ${gcpId}: ${response.status}`);
     }
 
-    async addManyGCPs(baseUrl, gcps) {
-        const response = await fetch(`${baseUrl}/api/v1/gcps/add_many`, {
+    async createGCP(baseUrl, mapId, gcp) {
+        const response = await fetch(`${baseUrl}/api/v1/gcps`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
-            body: JSON.stringify({ gcps })
+            body: JSON.stringify({ data: { type: 'gcps', attributes: { map_id: parseInt(mapId), x: gcp.x, y: gcp.y, lat: gcp.lat, lon: gcp.lon } } })
         });
         if (!response.ok) {
             const err = await response.text();
-            throw new Error(`Failed to add GCPs: ${err}`);
+            throw new Error(`Failed to create GCP: ${err}`);
         }
         return response.json();
     }
 
-    async replaceGCPs(baseUrl, mapId, gcps) {
-        const existingData = await this.getGCPs(baseUrl, mapId);
-        if (existingData.data && existingData.data.length > 0) {
-            await Promise.all(existingData.data.map(gcp => this.deleteGCP(baseUrl, gcp.id)));
+    async updateGCP(baseUrl, gcpId, gcp) {
+        const response = await fetch(`${baseUrl}/api/v1/gcps/${gcpId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
+            body: JSON.stringify({ data: { type: 'gcps', id: String(gcpId), attributes: { x: gcp.x, y: gcp.y, lat: gcp.lat, lon: gcp.lon } } })
+        });
+        if (!response.ok) {
+            const err = await response.text();
+            throw new Error(`Failed to update GCP ${gcpId}: ${err}`);
         }
-        return this.addManyGCPs(baseUrl, gcps);
+        return response.json();
+    }
+
+    async syncGCPs(baseUrl, mapId, gcps) {
+        const existingData = await this.getGCPs(baseUrl, mapId);
+        const existingIds = new Set((existingData.data || []).map(g => String(g.id)));
+        const submittedIds = new Set(gcps.filter(g => g.gcpId).map(g => String(g.gcpId)));
+
+        const toDelete = (existingData.data || []).filter(g => !submittedIds.has(String(g.id)));
+        const toUpdate = gcps.filter(g => g.gcpId && existingIds.has(String(g.gcpId)));
+        const toCreate = gcps.filter(g => !g.gcpId);
+
+        await Promise.all(toDelete.map(g => this.deleteGCP(baseUrl, g.id)));
+        await Promise.all(toUpdate.map(g => this.updateGCP(baseUrl, g.gcpId, g)));
+        const created = await Promise.all(toCreate.map(g => this.createGCP(baseUrl, mapId, g)));
+        return { deleted: toDelete.length, updated: toUpdate.length, created: toCreate.length, createdData: created };
     }
 
     async getUserActivity(baseUrl, userId, page = 1) {
@@ -198,6 +218,31 @@ class MapwarperAPI {
         return response.json();
     }
 
+
+    async getMapStatus(baseUrl, mapId) {
+        const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}/status`);
+        if (!response.ok) throw new Error(`Failed to get map status: ${response.status}`);
+        return (await response.text()).trim();
+    }
+
+    async warpMap(baseUrl, mapId, warpType = 'auto') {
+        const body = new URLSearchParams({
+            use_mask: 'true',
+            format: 'json',
+            transform_options: warpType,
+            resample_options: 'near'
+        });
+        const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}/rectify`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...this._authHeaders() },
+            body
+        });
+        if (!response.ok) {
+            const err = await response.text();
+            throw new Error(`Warp failed (${response.status}): ${err}`);
+        }
+        return response.json();
+    }
 
     async getLayer(baseUrl, layerId) {
         const response = await fetch(`${baseUrl}/api/v1/layers/${layerId}.json`);

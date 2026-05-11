@@ -227,12 +227,31 @@
         }
 
         /* Layer viewer mode */
-        body.layer-mode #source-map-panel { display: none; }
-        body.layer-mode #reference-map-panel { flex: 1; }
-        body.layer-mode #controls-panel { display: none; }
-        body.layer-mode #maps-container { flex: 1; height: auto; min-height: 0; }
-        body.layer-mode #output-section { display: none; }
-        body.layer-mode #control-mode-section { display: none; }
+        body.layer-mode #source-map-panel {
+            display: none;
+        }
+
+        body.layer-mode #reference-map-panel {
+            flex: 1;
+        }
+
+        body.layer-mode #controls-panel {
+            display: none;
+        }
+
+        body.layer-mode #maps-container {
+            flex: 1;
+            height: auto;
+            min-height: 0;
+        }
+
+        body.layer-mode #output-section {
+            display: none;
+        }
+
+        body.layer-mode #control-mode-section {
+            display: none;
+        }
 
         /* Layer panel */
         #layer-panel {
@@ -243,7 +262,10 @@
             background: white;
             flex-shrink: 0;
         }
-        body.layer-mode #layer-panel { display: flex; }
+
+        body.layer-mode #layer-panel {
+            display: flex;
+        }
 
         .map-list-item {
             display: flex;
@@ -257,15 +279,37 @@
             color: #374151;
             transition: background 0.1s;
         }
-        .map-list-item:hover { background: #f0f9ff; }
-        .map-list-item.map-hovered { background: #dbeafe; }
-        .map-list-item.map-selected { background: #bfdbfe; }
-        .map-list-dot {
-            width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 3px;
-        }
-        .map-list-title { overflow: hidden; text-overflow: ellipsis; }
 
-        .mapboxgl-popup-content { padding: 12px; min-width: 220px; }
+        .map-list-item:hover {
+            background: #f0f9ff;
+        }
+
+        .map-list-item.map-hovered {
+            background: #dbeafe;
+        }
+
+        .map-list-item.map-selected {
+            background: #bfdbfe;
+        }
+
+        .map-list-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 3px;
+        }
+
+        .map-list-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mapboxgl-popup-content {
+            padding: 12px;
+            min-width: 220px;
+        }
+
         .mapboxgl-popup-close-button {
             font-size: 20px;
             width: 28px;
@@ -274,7 +318,48 @@
             color: #6b7280;
             padding: 0;
         }
-        .mapboxgl-popup-close-button:hover { color: #111827; background: #f3f4f6; border-radius: 4px; }
+
+        .mapboxgl-popup-close-button:hover {
+            color: #111827;
+            background: #f3f4f6;
+            border-radius: 4px;
+        }
+
+        .mapboxgl-marker.gcp-selected svg {
+            filter: drop-shadow(0 0 3px #1d4ed8);
+            transform: translateY(0);
+            transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease;
+            transform-origin: 50% 100%;
+        }
+
+        .mapboxgl-marker.gcp-dragging svg {
+            transform: translateY(-14px);
+            filter: drop-shadow(0 0 3px #1d4ed8) drop-shadow(0 8px 5px rgba(0, 0, 0, 0.35));
+            transition: transform 0.15s ease-out, filter 0.15s ease-out;
+        }
+
+        .mapboxgl-marker.gcp-selected::before,
+        .mapboxgl-marker.gcp-selected::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: 6px;
+            background: #1d4ed8;
+            box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.9);
+            pointer-events: none;
+        }
+
+        .mapboxgl-marker.gcp-selected::before {
+            width: 1px;
+            height: 20px;
+            transform: translate(-50%, 50%) rotate(45deg);
+        }
+
+        .mapboxgl-marker.gcp-selected::after {
+            width: 20px;
+            height: 1px;
+            transform: translate(-50%, 50%) rotate(45deg);
+        }
     </style>
 </head>
 
@@ -290,7 +375,8 @@
             <input type="text" id="mapwarper-url" value="https://mapwarper.net/layers/2054"
                 placeholder="Enter MapWarper URL (e.g., https://mapwarper.net/maps/12345 or https://mapwarper.net/layers/2054)"
                 class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="loadMapWarperMap()">Load</button>
+            <button class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                onclick="loadMapWarperMap()">Load</button>
         </div>
 
         <!-- Helper text for mapwarper URL input -->
@@ -302,28 +388,19 @@
         </div>
 
         <!-- Map Metadata Display -->
-        <div id="map-metadata" class="hidden mt-3 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <div class="flex items-start gap-4">
-                <div id="map-thumbnail" class="flex-shrink-0"></div>
-                <div class="flex-1 min-w-0">
-                    <h3 id="map-title" class="text-lg font-semibold text-gray-900 mb-2"></h3>
-                    <p id="map-description" class="text-sm text-gray-600 mb-3"></p>
-                    <div class="flex flex-wrap gap-4 text-xs text-gray-500">
-                        <span id="map-status" class="px-2 py-1 bg-gray-100 rounded"></span>
-                        <span id="map-dimensions"></span>
-                        <span id="map-updated"></span>
-                    </div>
-                    <div class="mt-3 flex gap-2">
-                        <a id="map-source-link" href="#" target="_blank"
-                            class="text-blue-600 hover:text-blue-800 text-sm">View Source</a>
-                        <span class="text-gray-400">•</span>
-                        <a id="mapwarper-link" href="#" target="_blank"
-                            class="text-blue-600 hover:text-blue-800 text-sm">Open in MapWarper</a>
-                        <span class="text-gray-400">•</span>
-                        <a id="allmaps-link" href="#" target="_blank"
-                            class="text-blue-600 hover:text-blue-800 text-sm">Open in Allmaps</a>
-                    </div>
-                </div>
+        <div id="map-metadata" class="hidden mt-2 flex items-center gap-3 px-3 py-1.5 bg-white border border-gray-200 rounded-lg min-w-0 text-xs">
+            <div id="map-thumbnail" class="flex-shrink-0"></div>
+            <span id="map-title" class="font-semibold text-gray-900 truncate min-w-0"></span>
+            <span id="map-mosaics" class="flex-shrink-0 flex items-center gap-1 flex-wrap"></span>
+            <span class="flex-1 min-w-0"></span>
+            <span id="map-status" class="flex-shrink-0 px-2 py-0.5 rounded bg-gray-100"></span>
+            <span id="map-dimensions" class="flex-shrink-0 text-gray-400"></span>
+            <span id="map-updated" class="flex-shrink-0 text-gray-400"></span>
+            <p id="map-description" class="hidden"></p>
+            <div class="flex-shrink-0 flex items-center gap-2 text-gray-500 border-l border-gray-200 pl-3 ml-1">
+                <a id="map-source-link" href="#" target="_blank" class="hover:text-blue-600">Source ↗</a>
+                <a id="mapwarper-link" href="#" target="_blank" class="hover:text-blue-600">MapWarper ↗</a>
+                <a id="allmaps-link" href="#" target="_blank" class="hover:text-blue-600">Allmaps ↗</a>
             </div>
         </div>
     </div>
@@ -370,6 +447,10 @@
                             data-mode="pan" data-key="3">
                             3 - Pan Map
                         </div>
+                        <div class="control-mode px-3 py-2 rounded cursor-pointer transition-colors text-sm"
+                            data-mode="delete" data-key="4">
+                            4 - Delete Control Point
+                        </div>
                     </div>
                 </div>
 
@@ -404,9 +485,16 @@
                 <!-- MapWarper Account -->
                 <div>
                     <h3 class="text-sm font-semibold mb-3 text-gray-700">MapWarper</h3>
+                    <select id="warp-method-select" class="w-full mb-2 px-2 py-1.5 border border-gray-300 rounded text-sm bg-white hidden">
+                        <option value="auto">Auto</option>
+                        <option value="p1">Polynomial 1</option>
+                        <option value="p2">Polynomial 2</option>
+                        <option value="p3">Polynomial 3</option>
+                        <option value="tps">Thin Plate Spline</option>
+                    </select>
                     <button id="push-gcp-btn"
                         class="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm hidden"
-                        onclick="pushGCPsToMapWarper()">Push GCP</button>
+                        onclick="pushGCPsToMapWarper()">Push &amp; Warp</button>
                     <p id="auth-status" class="text-xs text-gray-500 mt-1 hidden"></p>
                 </div>
 
@@ -427,8 +515,8 @@
         <div id="layer-panel">
             <div style="padding:12px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
                 <input type="text" id="layer-map-filter" placeholder="Search maps…"
-                       oninput="filterLayerMaps(this.value)"
-                       style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;outline:none;">
+                    oninput="filterLayerMaps(this.value)"
+                    style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;outline:none;">
                 <div id="layer-map-count" style="font-size:11px;color:#9ca3af;margin-top:6px;"></div>
             </div>
             <div id="layer-map-list" style="flex:1;overflow-y:auto;min-height:0;"></div>
@@ -453,6 +541,7 @@
                         <th style="padding:4px 8px; text-align:right; color:#666; font-weight:600;">y</th>
                         <th style="padding:4px 8px; text-align:right; color:#666; font-weight:600;">lon</th>
                         <th style="padding:4px 8px; text-align:right; color:#666; font-weight:600;">lat</th>
+                        <th style="padding:4px 8px; text-align:right; color:#666; font-weight:600;" title="Per-GCP residual from least-squares affine fit, expressed as percentage of the worst GCP's error">Error %</th>
                         <th style="width:24px;"></th>
                     </tr>
                 </thead>
@@ -519,12 +608,14 @@
                             style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:13px; box-sizing:border-box;">
                     </div>
                     <div style="margin-bottom:12px;">
-                        <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Password</label>
+                        <label
+                            style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Password</label>
                         <input type="password" id="auth-password" autocomplete="off"
                             style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:13px; box-sizing:border-box;">
                     </div>
                     <div style="margin-bottom:14px;">
-                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#4b5563; cursor:pointer;">
+                        <label
+                            style="display:flex; align-items:center; gap:8px; font-size:13px; color:#4b5563; cursor:pointer;">
                             <input type="checkbox" id="auth-remember"> Remember me
                         </label>
                     </div>
@@ -543,29 +634,44 @@
                 </div>
 
                 <!-- OAuth in-progress state -->
-                <div id="auth-oauth-progress" style="display:none; margin-top:16px; padding:16px; background:#f0f9ff; border-radius:8px; border:1px solid #bae6fd; text-align:center;">
-                    <p style="font-size:13px; color:#0369a1; margin-bottom:12px;">Login in the popup window, then click Done.</p>
-                    <button onclick="oauthDone()" style="padding:8px 20px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:500;">Done — I've logged in</button>
+                <div id="auth-oauth-progress"
+                    style="display:none; margin-top:16px; padding:16px; background:#f0f9ff; border-radius:8px; border:1px solid #bae6fd; text-align:center;">
+                    <p style="font-size:13px; color:#0369a1; margin-bottom:12px;">Login in the popup window, then click
+                        Done.</p>
+                    <button onclick="oauthDone()"
+                        style="padding:8px 20px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:500;">Done
+                        — I've logged in</button>
                 </div>
 
                 <!-- Manual token entry fallback -->
-                <div id="auth-manual-form" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid #e5e7eb;">
-                    <p style="font-size:13px; color:#374151; margin-bottom:4px; font-weight:500;">Enter your API credentials</p>
-                    <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">After signing in, find your token at <a id="auth-profile-link" href="https://mapwarper.net/u/edit" target="_blank" style="color:#2563eb;">your profile page</a> under API Token.</p>
+                <div id="auth-manual-form"
+                    style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid #e5e7eb;">
+                    <p style="font-size:13px; color:#374151; margin-bottom:4px; font-weight:500;">Enter your API
+                        credentials</p>
+                    <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">After signing in, find your token at
+                        <a id="auth-profile-link" href="https://mapwarper.net/u/edit" target="_blank"
+                            style="color:#2563eb;">your profile page</a> under API Token.
+                    </p>
                     <div style="margin-bottom:10px;">
-                        <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Authentication Token</label>
+                        <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Authentication
+                            Token</label>
                         <input type="text" id="auth-manual-token" placeholder="authentication_token"
                             style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; box-sizing:border-box; font-family:monospace;">
                     </div>
                     <div style="margin-bottom:14px;">
-                        <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">User ID</label>
+                        <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">User
+                            ID</label>
                         <input type="text" id="auth-manual-userid" placeholder="numeric user ID"
                             style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; box-sizing:border-box; font-family:monospace;">
                     </div>
-                    <p id="auth-manual-error" style="display:none; font-size:13px; color:#dc2626; margin-bottom:8px;"></p>
+                    <p id="auth-manual-error" style="display:none; font-size:13px; color:#dc2626; margin-bottom:8px;">
+                    </p>
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <button onclick="cancelManualAuth()" style="padding:6px 14px; background:white; color:#6b7280; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; font-size:13px;">← Back</button>
-                        <button onclick="submitManualAuth()" id="auth-manual-btn" style="padding:8px 20px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:500;">Connect</button>
+                        <button onclick="cancelManualAuth()"
+                            style="padding:6px 14px; background:white; color:#6b7280; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; font-size:13px;">←
+                            Back</button>
+                        <button onclick="submitManualAuth()" id="auth-manual-btn"
+                            style="padding:8px 20px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:500;">Connect</button>
                     </div>
                 </div>
             </div>
@@ -586,20 +692,31 @@
                 </div>
                 <!-- User Maps and Mosaics -->
                 <div id="auth-user-content" style="margin-bottom:16px;">
-                    <div id="auth-content-loading" style="text-align:center; padding:10px; color:#6b7280; font-size:12px;">Loading your maps…</div>
+                    <div id="auth-content-loading"
+                        style="text-align:center; padding:10px; color:#6b7280; font-size:12px;">Loading your maps…</div>
                     <input id="auth-list-filter" type="text" placeholder="Filter…" oninput="_filterUserLists()"
                         style="display:none; width:100%; padding:5px 8px; margin-bottom:8px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; box-sizing:border-box;">
                     <div id="auth-maps-section" style="display:none; margin-bottom:10px;">
-                        <div style="font-size:11px; font-weight:600; color:#374151; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em;">Maps <span id="auth-maps-count" style="color:#9ca3af; font-weight:normal;"></span></div>
-                        <div id="auth-maps-list" style="max-height:140px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px; background:#fafafa;"></div>
+                        <div
+                            style="font-size:11px; font-weight:600; color:#374151; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em;">
+                            Maps <span id="auth-maps-count" style="color:#9ca3af; font-weight:normal;"></span></div>
+                        <div id="auth-maps-list"
+                            style="max-height:140px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px; background:#fafafa;">
+                        </div>
                     </div>
                     <div id="auth-mosaics-section" style="display:none;">
-                        <div style="font-size:11px; font-weight:600; color:#374151; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em;">Mosaics <span id="auth-mosaics-count" style="color:#9ca3af; font-weight:normal;"></span></div>
-                        <div id="auth-mosaics-list" style="max-height:100px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px; background:#fafafa;"></div>
+                        <div
+                            style="font-size:11px; font-weight:600; color:#374151; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em;">
+                            Mosaics <span id="auth-mosaics-count" style="color:#9ca3af; font-weight:normal;"></span>
+                        </div>
+                        <div id="auth-mosaics-list"
+                            style="max-height:100px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px; background:#fafafa;">
+                        </div>
                     </div>
                     <div id="auth-load-more-wrap" style="display:none; text-align:center; margin-top:8px;">
                         <button id="auth-load-more-btn" onclick="_loadMoreActivity()"
-                            style="padding:4px 14px; background:white; color:#374151; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; font-size:12px;">Load More</button>
+                            style="padding:4px 14px; background:white; color:#374151; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; font-size:12px;">Load
+                            More</button>
                     </div>
                 </div>
 
@@ -646,6 +763,7 @@
         let currentMode = 'pan';
         let controlPoints = [];
         let selectedPointIndex = -1;
+        let zoomedToPointIndex = -1;
         let focusedMap = null;
         let nextPointId = 1;
         let sourceMarkers = new Map();
@@ -831,11 +949,18 @@
                     id: 'cadastral-layer',
                     type: 'line',
                     source: 'cadastral-source',
+                    minzoom: 13,
                     'source-layer': 'Onemapgoa_GA_Cadastrals',
                     paint: {
                         'line-color': 'black',
-                        'line-width': 1,
-                        'line-opacity': 0.7
+                        'line-width': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            13, 0.2,
+                            16, 1
+                        ],
+                        'line-opacity': 0.6
                     }
                 });
 
@@ -986,6 +1111,21 @@
             // Populate metadata fields
             document.getElementById('map-title').textContent = metadata.title || 'Untitled Map';
 
+            // Mosaics (layers this map is included in) — rendered as clickable buttons
+            const mosaicsEl = document.getElementById('map-mosaics');
+            mosaicsEl.innerHTML = '';
+            const mosaics = (mapData.included || []).filter(i => i.type === 'layers');
+            mosaics.forEach(layer => {
+                const name = (layer.attributes && layer.attributes.name) || `Layer #${layer.id}`;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = name;
+                btn.title = `Open mosaic: ${name}`;
+                btn.className = 'px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 text-xs truncate max-w-[200px]';
+                btn.addEventListener('click', () => openLayerInWarper(layer.id, baseUrl));
+                mosaicsEl.appendChild(btn);
+            });
+
             // Convert URLs in description to clickable links
             const description = metadata.description || 'No description available';
             document.getElementById('map-description').innerHTML = convertUrlsToLinks(description);
@@ -1011,7 +1151,7 @@
             // Thumbnail
             const thumbnailDiv = document.getElementById('map-thumbnail');
             if (metadata.thumb_url) {
-                thumbnailDiv.innerHTML = `<img src="${metadata.thumb_url}" alt="Map thumbnail" class="w-16 h-16 object-cover rounded border">`;
+                thumbnailDiv.innerHTML = `<img src="${metadata.thumb_url}" alt="Map thumbnail" class="w-8 h-8 object-cover rounded">`;
             } else {
                 thumbnailDiv.innerHTML = '';
             }
@@ -1131,6 +1271,8 @@
 
                 if (currentMode === 'move') {
                     selectControlPoint(e, mapType);
+                } else if (currentMode === 'delete') {
+                    deleteControlPointAtClick(e, mapType);
                 }
             });
 
@@ -1214,7 +1356,7 @@
 
         function escapeHtml(str) {
             if (!str) return '';
-            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
         function setLayerViewMode(isLayer) {
@@ -1305,15 +1447,15 @@
             const metadataDiv = document.getElementById('map-metadata');
 
             document.getElementById('map-title').textContent = attrs.name || 'Untitled Layer';
+            document.getElementById('map-mosaics').innerHTML = '';
             document.getElementById('map-description').innerHTML = convertUrlsToLinks(attrs.description || '');
 
             const pct = attrs.rectified_percent || 0;
             const statusEl = document.getElementById('map-status');
             statusEl.textContent = `${pct}% WARPED`;
-            statusEl.className = `px-2 py-1 rounded text-xs ${
-                pct === 100 ? 'bg-green-100 text-green-800' :
+            statusEl.className = `px-2 py-1 rounded text-xs ${pct === 100 ? 'bg-green-100 text-green-800' :
                 pct > 0 ? 'bg-yellow-100 text-yellow-800' :
-                'bg-gray-100 text-gray-800'}`;
+                    'bg-gray-100 text-gray-800'}`;
 
             document.getElementById('map-dimensions').textContent = `${attrs.maps_count || 0} maps`;
             document.getElementById('map-updated').textContent =
@@ -1341,9 +1483,9 @@
             let allMaps = first.data || [];
 
             if (totalPages > 1) {
-                const pages = Array.from({length: totalPages - 1}, (_, i) => i + 2);
+                const pages = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
                 const results = await Promise.all(
-                    pages.map(p => mapwarperAPI.getLayerMaps(baseUrl, layerId, p, 50).catch(() => ({data:[]})))
+                    pages.map(p => mapwarperAPI.getLayerMaps(baseUrl, layerId, p, 50).catch(() => ({ data: [] })))
                 );
                 results.forEach(r => { allMaps = allMaps.concat(r.data || []); });
             }
@@ -1382,7 +1524,7 @@
                         id: parseInt(m.id),
                         geometry: {
                             type: 'Polygon',
-                            coordinates: [[[west,south],[east,south],[east,north],[west,north],[west,south]]]
+                            coordinates: [[[west, south], [east, south], [east, north], [west, north], [west, south]]]
                         },
                         properties: {
                             id: m.id,
@@ -1557,7 +1699,9 @@
         }
 
         function onLayerBboxClick(e) {
-            const features = referenceMap.queryRenderedFeatures(e.point, { layers: ['layer-bboxes-fill'] });
+            const seen = new Set();
+            const features = referenceMap.queryRenderedFeatures(e.point, { layers: ['layer-bboxes-fill'] })
+                .filter(f => { if (seen.has(f.id)) return false; seen.add(f.id); return true; });
             if (!features.length) return;
             const baseUrl = warpBaseUrl || 'https://mapwarper.net';
 
@@ -1608,6 +1752,12 @@
         function openMapInWarper(mapId, baseUrl) {
             if (currentLayerPopup) { currentLayerPopup.remove(); currentLayerPopup = null; }
             document.getElementById('mapwarper-url').value = `${baseUrl}/maps/${mapId}`;
+            loadMapWarperMap();
+        }
+
+        function openLayerInWarper(layerId, baseUrl) {
+            if (currentLayerPopup) { currentLayerPopup.remove(); currentLayerPopup = null; }
+            document.getElementById('mapwarper-url').value = `${baseUrl}/layers/${layerId}`;
             loadMapWarperMap();
         }
 
@@ -1860,7 +2010,8 @@
                 const point = {
                     id: nextPointId,
                     rowNumber: getNextRowNumber(),
-                    sourcePixelCoords: sourcePixelCoords, // Store original pixel coordinates
+                    gcpId: gcp.id,
+                    sourcePixelCoords: sourcePixelCoords,
                     referenceCoords: referenceCoords
                 };
 
@@ -1979,6 +2130,42 @@
             updateMarkers();
         }
 
+        function deleteControlPointAtClick(e, mapType) {
+            const clickPoint = e.lngLat;
+            let closestIndex = -1;
+            let closestDistance = Infinity;
+
+            controlPoints.forEach((point, index) => {
+                let pointCoords;
+                if (mapType === 'source') {
+                    if (point.sourceCoords) {
+                        pointCoords = point.sourceCoords;
+                    } else if (point.sourcePixelCoords && imageTransform) {
+                        pointCoords = pixelToGeographic(point.sourcePixelCoords[0], point.sourcePixelCoords[1]);
+                    }
+                    if (!pointCoords) return;
+                } else if (mapType === 'reference' && point.referenceCoords) {
+                    pointCoords = point.referenceCoords;
+                } else {
+                    return;
+                }
+
+                const distance = Math.sqrt(
+                    Math.pow(clickPoint.lng - pointCoords[0], 2) +
+                    Math.pow(clickPoint.lat - pointCoords[1], 2)
+                );
+
+                if (distance < 0.001 && distance < closestDistance) {
+                    closestDistance = distance;
+                    closestIndex = index;
+                }
+            });
+
+            if (closestIndex >= 0) {
+                deleteControlPoint(controlPoints[closestIndex].id);
+            }
+        }
+
         function saveMarkerPositionToHistory(pointIndex) {
             // Save the current position of the specified marker to history
             if (pointIndex >= 0 && pointIndex < controlPoints.length) {
@@ -2037,9 +2224,6 @@
         }
 
         function deselectMarkerAndSwitchToPan() {
-            // Restore saved camera positions before deselecting
-            restoreSavedCameraPositions();
-
             selectedPointIndex = -1;
             currentMode = 'pan';
 
@@ -2103,7 +2287,7 @@
             if (sourceCoords) {
                 sourceMap.flyTo({
                     center: sourceCoords,
-                    zoom: targetZoom,
+                    zoom: targetZoom - 6,
                     duration: 1000
                 });
             }
@@ -2142,6 +2326,7 @@
             // Clear saved positions
             savedCameraPositions.sourceMap = null;
             savedCameraPositions.referenceMap = null;
+            zoomedToPointIndex = -1;
         }
 
         function updateMapCursor() {
@@ -2160,12 +2345,118 @@
             }
         }
 
+        const ERROR_BUCKET_COLORS = ['#22c55e', '#eab308', '#f97316', '#ef4444'];
+
+        function getSourcePixelCoords(point) {
+            if (point.sourcePixelCoords) return point.sourcePixelCoords;
+            if (point.sourceCoords) {
+                const px = geographicToPixel(point.sourceCoords[0], point.sourceCoords[1]);
+                if (px) return px;
+                const projected = sourceMap.project(point.sourceCoords);
+                return [projected.x, projected.y];
+            }
+            return null;
+        }
+
+        function solveLinearSystem(A, b) {
+            const n = A.length;
+            const M = A.map((row, i) => [...row, b[i]]);
+            for (let i = 0; i < n; i++) {
+                let pivot = i;
+                for (let k = i + 1; k < n; k++) {
+                    if (Math.abs(M[k][i]) > Math.abs(M[pivot][i])) pivot = k;
+                }
+                if (Math.abs(M[pivot][i]) < 1e-12) return null;
+                if (pivot !== i) [M[i], M[pivot]] = [M[pivot], M[i]];
+                for (let k = i + 1; k < n; k++) {
+                    const factor = M[k][i] / M[i][i];
+                    for (let j = i; j <= n; j++) M[k][j] -= factor * M[i][j];
+                }
+            }
+            const x = new Array(n);
+            for (let i = n - 1; i >= 0; i--) {
+                let sum = M[i][n];
+                for (let j = i + 1; j < n; j++) sum -= M[i][j] * x[j];
+                x[i] = sum / M[i][i];
+            }
+            return x;
+        }
+
+        // Per-GCP RMS error following the mapwarper ErrorCalculator algorithm:
+        // fit a centered affine transform from source (lon, lat) to dest (pixel x, y),
+        // then measure each GCP's residual as Euclidean distance in pixel space.
+        // https://github.com/timwaters/mapwarper/blob/master/app/models/error_calculator.rb
+        function calculateGCPErrors() {
+            const valid = controlPoints
+                .map(p => ({ point: p, pixel: getSourcePixelCoords(p) }))
+                .filter(e => e.pixel && e.point.referenceCoords);
+
+            const errorsById = new Map();
+            if (valid.length <= 3) return errorsById;
+
+            const destSet = valid.map(v => v.pixel);
+            const sourceSet = valid.map(v => v.point.referenceCoords);
+            const N = valid.length;
+
+            let cxDst = 0, cyDst = 0, cxSrc = 0, cySrc = 0;
+            for (let i = 0; i < N; i++) {
+                cxDst += destSet[i][0]; cyDst += destSet[i][1];
+                cxSrc += sourceSet[i][0]; cySrc += sourceSet[i][1];
+            }
+            cxDst /= N; cyDst /= N; cxSrc /= N; cySrc /= N;
+
+            const ATA = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+            const ATx = [0, 0, 0];
+            const ATy = [0, 0, 0];
+            for (let i = 0; i < N; i++) {
+                const row = [1.0, sourceSet[i][0] - cxSrc, sourceSet[i][1] - cySrc];
+                const xc = destSet[i][0] - cxDst;
+                const yc = destSet[i][1] - cyDst;
+                for (let r = 0; r < 3; r++) {
+                    ATx[r] += row[r] * xc;
+                    ATy[r] += row[r] * yc;
+                    for (let c = 0; c < 3; c++) ATA[r][c] += row[r] * row[c];
+                }
+            }
+
+            const ATAcopy = ATA.map(r => [...r]);
+            const a = solveLinearSystem(ATA, ATx);
+            const b = solveLinearSystem(ATAcopy, ATy);
+            if (!a || !b) return errorsById;
+
+            const a1 = a[1], a2 = a[2], a3 = b[1], a4 = b[2];
+            const w = [a1, a3, a2, a4, cxDst - a1 * cxSrc - a2 * cySrc, cyDst - a3 * cxSrc - a4 * cySrc];
+
+            valid.forEach((v, i) => {
+                const [lon, lat] = sourceSet[i];
+                const px = w[4] + w[0] * lon + w[2] * lat;
+                const py = w[5] + w[1] * lon + w[3] * lat;
+                const sx = Math.abs(destSet[i][0] - px);
+                const sy = Math.abs(destSet[i][1] - py);
+                errorsById.set(v.point.id, Math.sqrt(sx * sx + sy * sy));
+            });
+
+            return errorsById;
+        }
+
+        function getErrorBucket(errorMeters, maxError) {
+            if (!isFinite(errorMeters) || maxError <= 0) return 0;
+            const pct = errorMeters / maxError;
+            if (pct < 0.25) return 0;
+            if (pct < 0.5) return 1;
+            if (pct < 0.75) return 2;
+            return 3;
+        }
+
         function updateMarkers() {
             // Clear existing markers
             sourceMarkers.forEach(marker => marker.remove());
             referenceMarkers.forEach(marker => marker.remove());
             sourceMarkers.clear();
             referenceMarkers.clear();
+
+            const errorsById = calculateGCPErrors();
+            const maxError = errorsById.size > 0 ? Math.max(...errorsById.values()) : 0;
 
             controlPoints.forEach((point, index) => {
                 // Add marker to source map
@@ -2179,12 +2470,19 @@
                     sourceMapCoords = pixelToGeographic(point.sourcePixelCoords[0], point.sourcePixelCoords[1]);
                 }
 
+                const errorMeters = errorsById.get(point.id);
+                const bucket = errorMeters !== undefined ? getErrorBucket(errorMeters, maxError) : 0;
+                const markerColor = errorsById.size > 0 && errorMeters !== undefined
+                    ? ERROR_BUCKET_COLORS[bucket]
+                    : '#ff0000';
+
                 if (sourceMapCoords) {
                     const marker = createNumberedMarker(
                         sourceMapCoords,
                         point.rowNumber,
                         index === selectedPointIndex,
-                        sourceMap
+                        sourceMap,
+                        markerColor
                     );
 
                     const srcEl = marker.getElement();
@@ -2202,10 +2500,11 @@
 
                     srcEl.addEventListener('dblclick', (e) => {
                         e.stopPropagation();
-                        if (savedCameraPositions.sourceMap) {
+                        if (zoomedToPointIndex === index) {
                             restoreSavedCameraPositions();
                         } else {
                             saveCameraPositionsAndPanToMarker(index);
+                            zoomedToPointIndex = index;
                         }
                     });
 
@@ -2213,9 +2512,11 @@
                     if (index === selectedPointIndex) {
                         marker.on('dragstart', () => {
                             saveMarkerPositionToHistory(index);
+                            marker.getElement().classList.add('gcp-dragging');
                         });
 
                         marker.on('dragend', () => {
+                            marker.getElement().classList.remove('gcp-dragging');
                             const lngLat = marker.getLngLat();
                             point.sourceCoords = [lngLat.lng, lngLat.lat];
                             const px = geographicToPixel(lngLat.lng, lngLat.lat);
@@ -2225,6 +2526,7 @@
                                 delete point.sourcePixelCoords;
                             }
                             updateCSVFromPoints();
+                            setTimeout(() => updateMarkers(), 450);
                         });
                     }
 
@@ -2237,7 +2539,8 @@
                         point.referenceCoords,
                         point.rowNumber,
                         index === selectedPointIndex,
-                        referenceMap
+                        referenceMap,
+                        markerColor
                     );
 
                     const refEl = marker.getElement();
@@ -2255,10 +2558,11 @@
 
                     refEl.addEventListener('dblclick', (e) => {
                         e.stopPropagation();
-                        if (savedCameraPositions.referenceMap) {
+                        if (zoomedToPointIndex === index) {
                             restoreSavedCameraPositions();
                         } else {
                             saveCameraPositionsAndPanToMarker(index);
+                            zoomedToPointIndex = index;
                         }
                     });
 
@@ -2266,13 +2570,16 @@
                     if (index === selectedPointIndex) {
                         marker.on('dragstart', () => {
                             saveMarkerPositionToHistory(index);
+                            marker.getElement().classList.add('gcp-dragging');
                         });
 
                         marker.on('dragend', () => {
+                            marker.getElement().classList.remove('gcp-dragging');
                             const lngLat = marker.getLngLat();
                             // Update the control point coordinates
                             point.referenceCoords = [lngLat.lng, lngLat.lat];
                             updateCSVFromPoints();
+                            setTimeout(() => updateMarkers(), 450);
                         });
                     }
 
@@ -2284,10 +2591,10 @@
             updateMapCursor();
         }
 
-        function createNumberedMarker(lngLat, number, isSelected, map) {
+        function createNumberedMarker(lngLat, number, isSelected, map, color) {
             // Create the main marker using Mapbox's default marker
             const marker = new mapboxgl.Marker({
-                color: isSelected ? '#00ff00' : '#ff0000',
+                color: color || '#ff0000',
                 draggable: isSelected // Make selected markers draggable
             }).setLngLat(lngLat);
 
@@ -2296,6 +2603,7 @@
 
             // Create number overlay and add it to the marker element
             const markerElement = marker.getElement();
+            if (isSelected) markerElement.classList.add('gcp-selected');
             const numberEl = document.createElement('div');
             numberEl.style.position = 'absolute';
             numberEl.style.top = '-25px';
@@ -2354,6 +2662,7 @@
 
             document.getElementById('csv-output').value = lines.join('\n');
             if (!isEditMode) updateTableFromPoints();
+            updateAutoWarpLabel();
         }
 
         function updatePointsFromCSV() {
@@ -2376,13 +2685,10 @@
                     const lat = parseFloat(parts[3]);
 
                     if (!isNaN(x) && !isNaN(y) && !isNaN(lon) && !isNaN(lat)) {
-                        // Convert pixel coordinates back to geographic coordinates for source map
-                        const sourceCoords = sourceMap.unproject([x, y]);
-
                         const point = {
                             id: nextPointId++,
-                            rowNumber: i, // Use line number as row number
-                            sourceCoords: [sourceCoords.lng, sourceCoords.lat],
+                            rowNumber: i,
+                            sourcePixelCoords: [x, y],
                             referenceCoords: [lon, lat]
                         };
 
@@ -2663,6 +2969,9 @@
             if (!tbody) return;
             tbody.innerHTML = '';
 
+            const errorsById = calculateGCPErrors();
+            const maxError = errorsById.size > 0 ? Math.max(...errorsById.values()) : 0;
+
             const sorted = [...controlPoints].sort((a, b) => a.rowNumber - b.rowNumber);
             sorted.forEach(point => {
                 let x = '', y = '', lon = '', lat = '';
@@ -2703,6 +3012,20 @@
                     }
                     tr.appendChild(td);
                 });
+
+                const errTd = document.createElement('td');
+                errTd.style.cssText = 'padding:3px 8px; text-align:right; font-weight:600;';
+                const err = errorsById.get(point.id);
+                if (err !== undefined && maxError > 0) {
+                    const pct = (err / maxError) * 100;
+                    errTd.textContent = pct.toFixed(0) + '%';
+                    errTd.style.color = ERROR_BUCKET_COLORS[getErrorBucket(err, maxError)];
+                    errTd.title = `Residual: ${err.toFixed(2)} px`;
+                } else {
+                    errTd.textContent = '—';
+                    errTd.style.color = '#ccc';
+                }
+                tr.appendChild(errTd);
 
                 const delTd = document.createElement('td');
                 delTd.style.cssText = 'padding:3px 4px; text-align:center;';
@@ -2910,11 +3233,11 @@
             const records = results.flatMap(r => r.data || []);
             const newMapIds = [...new Set(
                 records.filter(r => r.auditable_type === 'Map' && r.action === 'create')
-                       .map(r => r.auditable_id).filter(id => !state.seenMapIds.has(id))
+                    .map(r => r.auditable_id).filter(id => !state.seenMapIds.has(id))
             )];
             const newLayerIds = [...new Set(
                 records.filter(r => r.auditable_type === 'Layer' && r.action === 'create')
-                       .map(r => r.auditable_id).filter(id => !state.seenLayerIds.has(id))
+                    .map(r => r.auditable_id).filter(id => !state.seenLayerIds.has(id))
             )];
             newMapIds.forEach(id => state.seenMapIds.add(id));
             newLayerIds.forEach(id => state.seenLayerIds.add(id));
@@ -3109,18 +3432,36 @@
 
         function updateAuthUI() {
             const pushGcpBtn = document.getElementById('push-gcp-btn');
+            const warpSelect = document.getElementById('warp-method-select');
             const authStatus = document.getElementById('auth-status');
             const loginBtn = document.getElementById('mapwarper-login-btn');
 
             if (mapwarperAPI.isAuthenticated) {
                 if (pushGcpBtn) pushGcpBtn.classList.remove('hidden');
+                if (warpSelect) warpSelect.classList.remove('hidden');
                 if (authStatus) { authStatus.textContent = mapwarperAPI.auth.login; authStatus.classList.remove('hidden'); }
                 if (loginBtn) loginBtn.textContent = mapwarperAPI.auth.login || 'Account';
             } else {
                 if (pushGcpBtn) pushGcpBtn.classList.add('hidden');
+                if (warpSelect) warpSelect.classList.add('hidden');
                 if (authStatus) authStatus.classList.add('hidden');
                 if (loginBtn) loginBtn.textContent = 'Mapwarper Login';
             }
+        }
+
+        function getAutoWarpMethod(gcpCount) {
+            if (gcpCount >= 10) return 'tps';
+            if (gcpCount >= 6) return 'p2';
+            return 'p1';
+        }
+
+        function updateAutoWarpLabel() {
+            const select = document.getElementById('warp-method-select');
+            if (!select) return;
+            const completePts = controlPoints.filter(p => (p.sourcePixelCoords || p.sourceCoords) && p.referenceCoords).length;
+            const autoMethod = getAutoWarpMethod(completePts);
+            const labels = { tps: 'Thin Plate Spline', p1: 'Polynomial 1', p2: 'Polynomial 2', p3: 'Polynomial 3' };
+            select.options[0].text = `Auto (${labels[autoMethod] || autoMethod})`;
         }
 
         async function pushGCPsToMapWarper() {
@@ -3140,29 +3481,85 @@
                         y = (bounds.north - p.sourceCoords[1]) / (bounds.north - bounds.south) * height;
                     }
                     return {
+                        gcpId: p.gcpId || null,
                         mapid: parseInt(warpMapId),
                         x: parseFloat(x.toFixed(1)),
                         y: parseFloat(y.toFixed(1)),
-                        lat: p.referenceCoords[1].toFixed(7),
-                        lon: p.referenceCoords[0].toFixed(7)
+                        lat: parseFloat(p.referenceCoords[1].toFixed(7)),
+                        lon: parseFloat(p.referenceCoords[0].toFixed(7))
                     };
                 });
 
-            if (gcps.length === 0) { alert('No complete control points to push'); return; }
+            if (gcps.length < 3) { alert('Need at least 3 complete control points to warp'); return; }
 
             const pushBtn = document.getElementById('push-gcp-btn');
-            pushBtn.textContent = 'Pushing...';
-            pushBtn.disabled = true;
+            const warpSelect = document.getElementById('warp-method-select');
+            const selectedMethod = warpSelect ? warpSelect.value : 'auto';
+            const warpMethod = selectedMethod === 'auto' ? getAutoWarpMethod(gcps.length) : selectedMethod;
+
+            const setBtn = (text, classes) => {
+                pushBtn.textContent = text;
+                pushBtn.className = `w-full px-3 py-2 text-white rounded text-sm ${classes}`;
+            };
+
+            const resetBtn = () => {
+                setBtn('Push &amp; Warp', 'bg-green-600 hover:bg-green-700 cursor-pointer');
+                pushBtn.disabled = false;
+                if (warpSelect) warpSelect.disabled = false;
+            };
 
             try {
-                await mapwarperAPI.replaceGCPs(warpBaseUrl, warpMapId, gcps);
-                alert(`Pushed ${gcps.length} GCPs to MapWarper`);
+                setBtn('Pushing...', 'bg-gray-400 cursor-not-allowed');
+                pushBtn.disabled = true;
+                if (warpSelect) warpSelect.disabled = true;
+
+                await mapwarperAPI.syncGCPs(warpBaseUrl, warpMapId, gcps);
+
+                setBtn('Warping...', 'bg-yellow-500 cursor-not-allowed');
+                const warpResult = await mapwarperAPI.warpMap(warpBaseUrl, warpMapId, warpMethod);
+                const warpStatus = warpResult?.data?.attributes?.status;
+
+                // Rectify is usually synchronous — check response status before polling
+                if (warpStatus !== 'warped' && warpStatus !== 'published') {
+                    let elapsed = 0;
+                    while (elapsed < 60000) {
+                        await new Promise(r => setTimeout(r, 2000));
+                        elapsed += 2000;
+                        setBtn(`Warping… ${Math.round(elapsed / 1000)}s`, 'bg-yellow-500 cursor-not-allowed');
+                        const status = await mapwarperAPI.getMapStatus(warpBaseUrl, warpMapId);
+                        if (status === 'warped' || status === 'published') break;
+                    }
+                    if (elapsed >= 60000) throw new Error('Warp timed out after 60s');
+                }
+
+                refreshWarpedLayer(warpBaseUrl, warpMapId);
+
+                setBtn('Map Warped', 'bg-green-600');
+                setTimeout(resetBtn, 1000);
             } catch (error) {
-                alert(`Error: ${error.message}`);
-            } finally {
-                pushBtn.textContent = 'Push GCP';
-                pushBtn.disabled = false;
+                setBtn('Failed', 'bg-red-600 cursor-not-allowed');
+                console.error('Push/warp error:', error);
+                setTimeout(resetBtn, 2000);
             }
+        }
+
+        function refreshWarpedLayer(baseUrl, mapId) {
+            if (!referenceMap.getLayer('warped-layer')) return;
+            const opacity = referenceMap.getPaintProperty('warped-layer', 'raster-opacity') ?? 0.5;
+            referenceMap.removeLayer('warped-layer');
+            referenceMap.removeSource('warped-source');
+            const beforeLayerId = referenceMap.getLayer('village-fill') ? 'village-fill' : undefined;
+            referenceMap.addSource('warped-source', {
+                type: 'raster',
+                tiles: [`${baseUrl}/maps/tile/${mapId}/{z}/{x}/{y}?t=${Date.now()}`],
+                tileSize: 256
+            });
+            referenceMap.addLayer({
+                id: 'warped-layer',
+                type: 'raster',
+                source: 'warped-source',
+                paint: { 'raster-opacity': opacity }
+            }, beforeLayerId);
         }
 
         // Control mode handlers
@@ -3188,10 +3585,10 @@
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
-            // Mode selection (1-3 keys)
-            if (e.key >= '1' && e.key <= '3' && focusedMap) {
+            // Mode selection (1-4 keys)
+            if (e.key >= '1' && e.key <= '4' && focusedMap) {
                 e.preventDefault();
-                const modes = ['add', 'move', 'pan'];
+                const modes = ['add', 'move', 'pan', 'delete'];
                 const mode = modes[parseInt(e.key) - 1];
                 currentMode = mode;
 
