@@ -668,9 +668,17 @@ Select a zipped shapefile to upload">
         // Easter egg: Convert 'google' keyword to Google Maps tiles
         const urlInput = document.getElementById('url-input');
         urlInput.addEventListener('input', function (e) {
-            const value = this.value.trim().toLowerCase();
-            if (value === 'google') {
+            const value = this.value.trim();
+            if (value.toLowerCase() === 'google') {
                 this.value = 'http://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
+                this.dispatchEvent(new Event('change'));
+                return;
+            }
+
+            const githubBlobMatch = value.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/);
+            if (githubBlobMatch) {
+                const [, owner, repo, branch, path] = githubBlobMatch;
+                this.value = `https://raw.githubusercontent.com/${owner}/${repo}/refs/heads/${branch}/${path}`;
                 this.dispatchEvent(new Event('change'));
             }
         });
