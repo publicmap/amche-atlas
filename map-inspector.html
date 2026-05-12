@@ -501,6 +501,63 @@
             requestLayerData();
         });
 
+        // Render a property value, turning URLs into links and image URLs into thumbnails
+        function renderPropertyValue(value) {
+            const $cell = $('<div>', { class: 'property-value' });
+            const str = String(value);
+            const urlRegex = /https?:\/\/[^\s<>"')]+/gi;
+            const imageExtRegex = /\.(png|jpe?g|gif|tiff?|svg|webp|bmp)(\?.*)?$/i;
+
+            let lastIndex = 0;
+            let match;
+            let hasMatch = false;
+            while ((match = urlRegex.exec(str)) !== null) {
+                hasMatch = true;
+                if (match.index > lastIndex) {
+                    $cell.append(document.createTextNode(str.substring(lastIndex, match.index)));
+                }
+                const url = match[0];
+                if (imageExtRegex.test(url)) {
+                    const $link = $('<a>', {
+                        href: url,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                        css: { display: 'inline-block', marginRight: '4px' }
+                    });
+                    $link.append($('<img>', {
+                        src: url,
+                        alt: url,
+                        loading: 'lazy',
+                        css: {
+                            maxWidth: '120px',
+                            maxHeight: '80px',
+                            display: 'block',
+                            marginTop: '2px',
+                            borderRadius: '3px',
+                            border: '1px solid #4b5563',
+                            background: '#1f2937'
+                        }
+                    }));
+                    $cell.append($link);
+                } else {
+                    $cell.append($('<a>', {
+                        href: url,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                        text: url,
+                        css: { color: '#60a5fa', textDecoration: 'underline', wordBreak: 'break-all' }
+                    }));
+                }
+                lastIndex = match.index + url.length;
+            }
+            if (!hasMatch) {
+                $cell.text(str);
+            } else if (lastIndex < str.length) {
+                $cell.append(document.createTextNode(str.substring(lastIndex)));
+            }
+            return $cell;
+        }
+
         // Request layer data from parent
         function requestLayerData() {
             window.parent.postMessage({
@@ -1655,7 +1712,7 @@
                                 const fieldTitle = inspectConfig.fieldTitles?.[index] || fieldName;
                                 const $row = $('<div>', { class: 'property-row' });
                                 $row.append($('<div>', { class: 'property-key', text: fieldTitle }));
-                                $row.append($('<div>', { class: 'property-value', text: String(value) }));
+                                $row.append(renderPropertyValue(value));
                                 $props.append($row);
                             }
                         });
@@ -1678,7 +1735,7 @@
                             if (value !== null && value !== undefined && value !== '') {
                                 const $row = $('<div>', { class: 'property-row' });
                                 $row.append($('<div>', { class: 'property-key', text: key }));
-                                $row.append($('<div>', { class: 'property-value', text: String(value) }));
+                                $row.append(renderPropertyValue(value));
                                 $allPropsContainer.append($row);
                             }
                         });
@@ -2214,7 +2271,7 @@
                                     const fieldTitle = inspectConfig.fieldTitles?.[index] || fieldName;
                                     const $row = $('<div>', { class: 'property-row' });
                                     $row.append($('<div>', { class: 'property-key', text: fieldTitle }));
-                                    $row.append($('<div>', { class: 'property-value', text: String(value) }));
+                                    $row.append(renderPropertyValue(value));
                                     $props.append($row);
                                 }
                             });
@@ -2237,7 +2294,7 @@
                                 if (value !== null && value !== undefined && value !== '') {
                                     const $row = $('<div>', { class: 'property-row' });
                                     $row.append($('<div>', { class: 'property-key', text: key }));
-                                    $row.append($('<div>', { class: 'property-value', text: String(value) }));
+                                    $row.append(renderPropertyValue(value));
                                     $allPropsContainer.append($row);
                                 }
                             });

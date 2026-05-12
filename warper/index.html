@@ -448,8 +448,8 @@
                             3 - Pan Map
                         </div>
                         <div class="control-mode px-3 py-2 rounded cursor-pointer transition-colors text-sm"
-                            data-mode="delete" data-key="4">
-                            4 - Delete Control Point
+                            data-action="delete-selected" data-key="4">
+                            4 - Delete Selected Point
                         </div>
                     </div>
                 </div>
@@ -1271,8 +1271,6 @@
 
                 if (currentMode === 'move') {
                     selectControlPoint(e, mapType);
-                } else if (currentMode === 'delete') {
-                    deleteControlPointAtClick(e, mapType);
                 }
             });
 
@@ -2027,7 +2025,7 @@
             if (currentViewMode === 'layer') return;
             // Find existing incomplete point or create new one
             let pointIndex = controlPoints.findIndex(p =>
-                (mapType === 'source' && !p.sourceCoords) ||
+                (mapType === 'source' && !p.sourceCoords && !p.sourcePixelCoords) ||
                 (mapType === 'reference' && !p.referenceCoords)
             );
 
@@ -2130,40 +2128,9 @@
             updateMarkers();
         }
 
-        function deleteControlPointAtClick(e, mapType) {
-            const clickPoint = e.lngLat;
-            let closestIndex = -1;
-            let closestDistance = Infinity;
-
-            controlPoints.forEach((point, index) => {
-                let pointCoords;
-                if (mapType === 'source') {
-                    if (point.sourceCoords) {
-                        pointCoords = point.sourceCoords;
-                    } else if (point.sourcePixelCoords && imageTransform) {
-                        pointCoords = pixelToGeographic(point.sourcePixelCoords[0], point.sourcePixelCoords[1]);
-                    }
-                    if (!pointCoords) return;
-                } else if (mapType === 'reference' && point.referenceCoords) {
-                    pointCoords = point.referenceCoords;
-                } else {
-                    return;
-                }
-
-                const distance = Math.sqrt(
-                    Math.pow(clickPoint.lng - pointCoords[0], 2) +
-                    Math.pow(clickPoint.lat - pointCoords[1], 2)
-                );
-
-                if (distance < 0.001 && distance < closestDistance) {
-                    closestDistance = distance;
-                    closestIndex = index;
-                }
-            });
-
-            if (closestIndex >= 0) {
-                deleteControlPoint(controlPoints[closestIndex].id);
-            }
+        function deleteSelectedControlPoint() {
+            if (selectedPointIndex < 0 || selectedPointIndex >= controlPoints.length) return;
+            deleteControlPoint(controlPoints[selectedPointIndex].id);
         }
 
         function saveMarkerPositionToHistory(pointIndex) {
@@ -3565,6 +3532,11 @@
         // Control mode handlers
         document.querySelectorAll('.control-mode').forEach(button => {
             button.addEventListener('click', function () {
+                if (this.dataset.action === 'delete-selected') {
+                    deleteSelectedControlPoint();
+                    return;
+                }
+
                 const mode = this.dataset.mode;
                 currentMode = mode;
 
@@ -3585,10 +3557,17 @@
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
-            // Mode selection (1-4 keys)
-            if (e.key >= '1' && e.key <= '4' && focusedMap) {
+            // Delete currently selected point (key 4)
+            if (e.key === '4' && focusedMap) {
                 e.preventDefault();
-                const modes = ['add', 'move', 'pan', 'delete'];
+                deleteSelectedControlPoint();
+                return;
+            }
+
+            // Mode selection (1-3 keys)
+            if (e.key >= '1' && e.key <= '3' && focusedMap) {
+                e.preventDefault();
+                const modes = ['add', 'move', 'pan'];
                 const mode = modes[parseInt(e.key) - 1];
                 currentMode = mode;
 
