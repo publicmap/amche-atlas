@@ -217,20 +217,25 @@ Example atlas structure:
 - Deployment via GitHub Pages with ~1 minute deploy time
 - Use `git push origin HEAD:dev --force` to test changes live
 
-**IMPORTANT: New HTML Files and Directories**
-When adding new HTML files or directories, they MUST be added to BOTH build configurations:
+**Adding new HTML files or directories**
 
-1. **Root-level HTML files** (e.g., `map-inspector.html`):
-   - Add to `vite.config.js` in `build.rollupOptions.input` object
-   - Add to `webpack.config.js` in `CopyWebpackPlugin` patterns array
-   - Example: `'map-inspector': 'map-inspector.html'`
+The build (dev server, preview, and GitHub Pages deploy) is a single Vite config at `vite.config.mjs`. Page entry points are **auto-discovered** at config-load time by `collectHtmlEntries()`:
 
-2. **Special purpose directories** (e.g., `/bus/`, `/game/`, `/warper/`):
-   - Add to `webpack.config.js` in `CopyWebpackPlugin` patterns array
-   - Example: `{ from: 'warper', to: 'warper' }`
+- Every root-level `*.html` file is automatically added as an MPA entry.
+- Every top-level subdirectory containing an `index.html` is automatically added as an MPA entry under its directory name.
 
-Without these updates, new files/directories will work locally but return 404 on GitHub Pages.
+So adding `foo.html` at the root, or `foo/index.html` in a new subdirectory, requires **no config edits**. Just create the file and run `npm run dev` or `npm run build`.
 
-**Testing deployment configuration:**
-- Run `npm test` to verify all HTML files and directories are properly configured
-- The test suite includes checks for missing deployment configurations
+Two cases that *do* require a config edit:
+
+1. **Subdirectory pages with non-module `<script>` tags** (classic scripts without `type="module"`). Vite cannot bundle these, so the source `.js` files must be explicitly listed in the `viteStaticCopy` plugin targets. Existing examples: `sound/`, `warper/`, `game/`. The build-config test (`js/tests/build-config.test.js`) catches this automatically and prints the exact line to paste.
+
+2. **A subdirectory with multiple loose HTML files** (no `index.html`), like `pages/`. These need a copy entry such as `{ src: 'pages', dest: '.' }` — already in place for the existing case.
+
+**Verifying the build** — always run before pushing a branch with new pages:
+
+```
+npm test -- build-config
+```
+
+This asserts that auto-discovery picks up every page on disk and that every directory with non-module scripts has the matching static-copy entry. If either check fails the error message tells you exactly what to add.
