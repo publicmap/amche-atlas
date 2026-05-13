@@ -479,6 +479,7 @@
                                 class="mr-2">
                             Warped Map
                         </label>
+                        <div id="mosaic-toggles" class="space-y-2"></div>
                     </div>
                 </div>
 
@@ -1126,6 +1127,8 @@
                 mosaicsEl.appendChild(btn);
             });
 
+            renderMosaicToggles(mosaics, baseUrl);
+
             // Convert URLs in description to clickable links
             const description = metadata.description || 'No description available';
             document.getElementById('map-description').innerHTML = convertUrlsToLinks(description);
@@ -1178,6 +1181,8 @@
 
         function hideMapMetadata() {
             document.getElementById('map-metadata').classList.add('hidden');
+            document.getElementById('mosaic-toggles').innerHTML = '';
+            clearMosaicLayers();
         }
 
         function fitMapToControlPoints() {
@@ -1446,6 +1451,8 @@
 
             document.getElementById('map-title').textContent = attrs.name || 'Untitled Layer';
             document.getElementById('map-mosaics').innerHTML = '';
+            document.getElementById('mosaic-toggles').innerHTML = '';
+            clearMosaicLayers();
             document.getElementById('map-description').innerHTML = convertUrlsToLinks(attrs.description || '');
 
             const pct = attrs.rectified_percent || 0;
@@ -2763,6 +2770,66 @@
 
             if (referenceMap.getLayer('warped-layer')) {
                 referenceMap.setLayoutProperty('warped-layer', 'visibility', isVisible ? 'visible' : 'none');
+            }
+        }
+
+        const activeMosaicLayerIds = new Set();
+
+        function clearMosaicLayers() {
+            activeMosaicLayerIds.forEach(layerId => {
+                const id = `mosaic-layer-${layerId}`;
+                if (referenceMap.getLayer(id)) referenceMap.removeLayer(id);
+                if (referenceMap.getSource(id)) referenceMap.removeSource(id);
+            });
+            activeMosaicLayerIds.clear();
+        }
+
+        function renderMosaicToggles(mosaics, baseUrl) {
+            const container = document.getElementById('mosaic-toggles');
+            clearMosaicLayers();
+            container.innerHTML = '';
+            mosaics.forEach(layer => {
+                const name = (layer.attributes && layer.attributes.name) || `Layer #${layer.id}`;
+                const checkboxId = `mosaic-toggle-${layer.id}`;
+                const label = document.createElement('label');
+                label.className = 'flex items-center text-xs text-gray-600';
+                label.innerHTML =
+                    `<input type="checkbox" id="${escapeHtml(checkboxId)}" class="mr-2">` +
+                    `<span class="truncate" title="${escapeHtml(name)}">${escapeHtml(name)}</span>`;
+                container.appendChild(label);
+                label.querySelector('input').addEventListener('change', (e) => {
+                    toggleMosaicLayer(layer.id, baseUrl, e.target.checked);
+                });
+            });
+        }
+
+        function toggleMosaicLayer(layerId, baseUrl, isVisible) {
+            const sourceId = `mosaic-layer-${layerId}`;
+            const layerMapId = `mosaic-layer-${layerId}`;
+
+            if (isVisible) {
+                if (!referenceMap.getSource(sourceId)) {
+                    referenceMap.addSource(sourceId, {
+                        type: 'raster',
+                        tiles: [`${baseUrl}/layers/tile/${layerId}/{z}/{x}/{y}.png`],
+                        tileSize: 256
+                    });
+                }
+                if (!referenceMap.getLayer(layerMapId)) {
+                    const beforeLayerId = referenceMap.getLayer('warped-layer') ? 'warped-layer' :
+                        (referenceMap.getLayer('village-fill') ? 'village-fill' : undefined);
+                    referenceMap.addLayer({
+                        id: layerMapId,
+                        type: 'raster',
+                        source: sourceId,
+                        paint: { 'raster-opacity': 0.7 }
+                    }, beforeLayerId);
+                }
+                activeMosaicLayerIds.add(layerId);
+            } else {
+                if (referenceMap.getLayer(layerMapId)) referenceMap.removeLayer(layerMapId);
+                if (referenceMap.getSource(sourceId)) referenceMap.removeSource(sourceId);
+                activeMosaicLayerIds.delete(layerId);
             }
         }
 

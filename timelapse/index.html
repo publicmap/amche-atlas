@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self' 'unsafe-inline' 'unsafe-eval';
+  media-src https://storage.googleapis.com blob: data:;
+  img-src https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org data: blob: *;
+  script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+  style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+  connect-src *;
+">
+<title>Earth Engine Timelapse</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0d12;
+    font-family: 'Courier New', monospace;
+    color: #c8e6c9;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #header {
+    padding: 10px 18px;
+    background: rgba(0,0,0,0.7);
+    border-bottom: 1px solid #1b5e20;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 1000;
+    flex-shrink: 0;
+  }
+
+  #header h1 {
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #69f0ae;
+    font-weight: normal;
+  }
+
+  #year-display {
+    font-size: 22px;
+    font-weight: bold;
+    color: #69f0ae;
+    letter-spacing: 2px;
+    min-width: 50px;
+  }
+
+  #map {
+    flex: 1;
+    width: 100%;
+  }
+
+  /* Hide default Leaflet tiles background flash */
+  .leaflet-tile-pane { background: #0a0d12; }
+
+  /* Video overlays are positioned by Leaflet via lat/lng bounds. */
+  .leaflet-image-layer video { image-rendering: auto; }
+
+  #controls {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: rgba(0,0,0,0.82);
+    border: 1px solid #1b5e20;
+    border-radius: 4px;
+    padding: 12px 22px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    min-width: 460px;
+    backdrop-filter: blur(8px);
+  }
+
+  #year-big {
+    font-size: 32px;
+    font-weight: bold;
+    color: #69f0ae;
+    letter-spacing: 6px;
+    text-shadow: 0 0 14px #69f0ae66;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #timeline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  #scrubber {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: #1b5e20;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    /* Discrete year tick marks rendered via repeating gradient */
+    background-image: repeating-linear-gradient(
+      to right,
+      #1b5e20 0, #1b5e20 calc(100% / 38 - 1px),
+      #388e3c calc(100% / 38 - 1px), #388e3c calc(100% / 38)
+    );
+  }
+  #scrubber::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #69f0ae;
+    cursor: pointer;
+    box-shadow: 0 0 8px #69f0aeaa;
+    border: 2px solid #0a0d12;
+  }
+  #scrubber::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #69f0ae;
+    border: 2px solid #0a0d12;
+    cursor: pointer;
+    box-shadow: 0 0 8px #69f0aeaa;
+  }
+
+  .timeline-btn {
+    background: none;
+    border: 1px solid #388e3c;
+    color: #69f0ae;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    text-transform: uppercase;
+    transition: background 0.15s;
+    min-width: 32px;
+  }
+  .timeline-btn:hover:not(:disabled) { background: #1b5e2044; }
+  .timeline-btn:disabled { opacity: 0.35; cursor: default; }
+
+  #btn-play { min-width: 72px; }
+
+  .year-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 9px;
+    color: #388e3c;
+    letter-spacing: 1px;
+    padding: 0 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #speed-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+    color: #4caf50;
+    letter-spacing: 1px;
+  }
+
+  #speed {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 2px;
+    width: 90px;
+    background: #1b5e20;
+    outline: none;
+    cursor: pointer;
+  }
+  #speed::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #4caf50;
+    cursor: pointer;
+  }
+
+  #status {
+    position: absolute;
+    top: 55px;
+    right: 14px;
+    z-index: 1000;
+    font-size: 9px;
+    color: #388e3c;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  #basemap-panel {
+    position: absolute;
+    top: 55px;
+    left: 60px;
+    z-index: 1000;
+    background: rgba(0,0,0,0.72);
+    border: 1px solid #1b5e20;
+    border-radius: 3px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    backdrop-filter: blur(6px);
+  }
+  #basemap-panel label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #4caf50;
+    text-transform: uppercase;
+  }
+  #basemap-panel select {
+    background: #000;
+    color: #69f0ae;
+    border: 1px solid #388e3c;
+    font-family: inherit;
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: 2px;
+    outline: none;
+  }
+  #basemap-panel input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 90px;
+    height: 2px;
+    background: #1b5e20;
+    outline: none;
+    cursor: pointer;
+  }
+  #basemap-panel input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #69f0ae;
+    cursor: pointer;
+  }
+  #basemap-opacity-val {
+    color: #69f0ae;
+    min-width: 28px;
+    text-align: right;
+  }
+
+  /* Leaflet attribution tweak */
+  .leaflet-control-attribution {
+    background: rgba(0,0,0,0.6) !important;
+    color: #4caf50 !important;
+    font-size: 9px !important;
+  }
+  .leaflet-control-attribution a { color: #69f0ae !important; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>🌍 Earth Timelapse</h1>
+  <div id="year-display">1984</div>
+  <span style="font-size:10px;color:#388e3c;letter-spacing:1px;">1984 – 2022</span>
+  <span id="level-info" style="font-size:10px;color:#4caf50;letter-spacing:1px;margin-left:auto;"></span>
+  <a id="ee-link" href="#" target="_blank" rel="noopener"
+     style="background:none;border:1px solid #388e3c;color:#69f0ae;font-family:inherit;
+            font-size:10px;letter-spacing:2px;padding:4px 10px;border-radius:2px;
+            text-decoration:none;text-transform:uppercase;">Open in EE ↗</a>
+</div>
+
+<div id="map"></div>
+<div id="status">loading tiles…</div>
+
+<div id="basemap-panel">
+  <label>BASE
+    <select id="basemap-select">
+      <option value="dark">Dark</option>
+      <option value="osm">OSM</option>
+      <option value="off">Off</option>
+    </select>
+  </label>
+  <label>OPACITY
+    <input type="range" id="basemap-opacity" min="0" max="1" step="0.05" value="0.35">
+    <span id="basemap-opacity-val">0.35</span>
+  </label>
+</div>
+
+<div id="controls">
+  <div id="year-big">1984</div>
+  <div id="timeline">
+    <button id="btn-prev" class="timeline-btn" title="Previous year (←)">⏮</button>
+    <button id="btn-play" class="timeline-btn">▶ Play</button>
+    <button id="btn-next" class="timeline-btn" title="Next year (→)">⏭</button>
+    <input type="range" id="scrubber" min="0" max="38" step="1" value="0" list="year-ticks">
+    <datalist id="year-ticks">
+      <option value="0" label="1984"></option>
+      <option value="6" label="1990"></option>
+      <option value="12" label="1996"></option>
+      <option value="18" label="2002"></option>
+      <option value="24" label="2008"></option>
+      <option value="30" label="2014"></option>
+      <option value="38" label="2022"></option>
+    </datalist>
+  </div>
+  <div class="year-labels">
+    <span>1984</span><span>1990</span><span>1996</span><span>2002</span>
+    <span>2008</span><span>2014</span><span>2022</span>
+  </div>
+  <div id="speed-row">
+    SPEED <input type="range" id="speed" min="0.1" max="3" step="0.1" value="1">
+    <span id="speed-val">1×</span>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+// EE Timelapse (CMU Time Machine) tile pyramid:
+//   URL: {BASE}/{level}/{r*STRIDE}/{c*STRIDE}.mp4
+//     - row first then col, both multiplied by STRIDE=4 (per Time Machine
+//       sparse-mode URL builder: `ti.l/ti.r*4/ti.c*4`)
+//     - each video covers 4×4 LEVEL_INFO source cells (1068×600 mp4 over a
+//       wider-than-tall mercator rectangle)
+//   Projection: Web Mercator clamped to ±85° latitude.
+//   LEVEL_INFO from .../1068x600/r.json `level_info`.
+const BASE = 'https://storage.googleapis.com/earthengine-timelapse/2023/cmu/1984_2022/1068x600';
+
+// Pyramid geometry, from /1068x600/r.json:
+//   width=2504688, height=2496483        — full image at max level (px)
+//   tile_width=356, tile_height=200      — source-cell px
+//   video_width=1424, video_height=800   — px per video tile (=4×source)
+// EE's TileView positions tiles by max-level pixel coords (NOT by the
+// per-level source-cell grid in level_info, which is slightly narrower
+// than the true pano width and causes ~0.1° eastward drift).
+const PANO_W    = 2504688;
+const PANO_H    = 2496483;
+const TILE_W    = 1424;       // = 4 × source tile_width
+const TILE_H    = 800;        // = 4 × source tile_height
+const STRIDE    = 4;          // URL filename step in source-cell units
+const MAX_LEVEL = 12;         // 13 pyramid levels (per r.json nlevels)
+const MERC_MAX  = Math.asinh(Math.tan(85 * Math.PI / 180));   // ≈ 3.1313
+const YEAR_START      = 1984;
+const YEAR_END        = 2022;
+const NUM_YEARS       = YEAR_END - YEAR_START + 1;   // 39 frames (1 per year)
+const SECONDS_PER_YEAR = 0.3;  // base pacing; multiplied by playbackSpeed
+
+// URL convention (sparse, `_renumberDensely=false`):
+//   {BASE}/{level}/{row*STRIDE}/{col*STRIDE}.mp4
+// where (row, col) are video-grid indices.
+
+const log = (...a) => console.log('%c[timelapse]', 'color:#69f0ae', ...a);
+
+// ─── URL HASH (#lat,lon,zoom) ────────────────────────────────────────────────
+function readHash() {
+  const m = location.hash.match(/^#(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)/);
+  if (!m) return null;
+  const lat = +m[1], lon = +m[2], zoom = +m[3];
+  if (![lat, lon, zoom].every(Number.isFinite)) return null;
+  return {lat, lon, zoom};
+}
+function writeHash() {
+  const c = map.getCenter();
+  const h = `#${c.lat.toFixed(5)},${c.lng.toFixed(5)},${map.getZoom().toFixed(2)}`;
+  if (location.hash !== h) history.replaceState(null, '', h);
+}
+
+// ─── MAP ─────────────────────────────────────────────────────────────────────
+const initial = readHash() || {lat: 15.45, lon: 73.85, zoom: 12};
+log('init', initial);
+
+const map = L.map('map', {
+  center: [initial.lat, initial.lon],
+  zoom: initial.zoom,
+  zoomControl: true,
+  attributionControl: true,
+  maxBounds: [[-85, -180], [85, 180]],
+  worldCopyJump: false,
+});
+
+// ─── BASEMAP SWITCHER ────────────────────────────────────────────────────────
+// Default Leaflet pane order is tilePane (200) < overlayPane (400), so video
+// overlays would cover the basemap. We render the basemap in a custom pane
+// ABOVE the videos so labels/streets stay visible; the opacity slider controls
+// how much it obscures the imagery.
+map.createPane('basemapTop');
+map.getPane('basemapTop').style.zIndex = 450;
+map.getPane('basemapTop').style.pointerEvents = 'none';
+
+const BASEMAPS = {
+  dark: () => L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO | Earth Engine Timelapse',
+    subdomains: 'abcd', maxZoom: 18, pane: 'basemapTop',
+  }),
+  osm: () => L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap | Earth Engine Timelapse',
+    subdomains: 'abc', maxZoom: 19, pane: 'basemapTop',
+  }),
+};
+
+let basemap = null;
+function setBasemap(name) {
+  if (basemap) { map.removeLayer(basemap); basemap = null; }
+  if (name !== 'off') {
+    basemap = BASEMAPS[name]();
+    basemap.setOpacity(parseFloat(document.getElementById('basemap-opacity').value));
+    basemap.addTo(map);
+  }
+  log('basemap', name);
+}
+
+document.getElementById('basemap-select').addEventListener('change', e => setBasemap(e.target.value));
+document.getElementById('basemap-opacity').addEventListener('input', e => {
+  const v = parseFloat(e.target.value);
+  document.getElementById('basemap-opacity-val').textContent = v.toFixed(2);
+  if (basemap) basemap.setOpacity(v);
+});
+setBasemap('dark');
+
+// ─── TILE PROJECTION MATH ────────────────────────────────────────────────────
+function lat2mercY(lat) {
+  const c = Math.max(-85, Math.min(85, lat));
+  return Math.asinh(Math.tan(c * Math.PI / 180));
+}
+function mercY2Lat(y) {
+  return Math.atan(Math.sinh(y)) * 180 / Math.PI;
+}
+function levelScaleAt(level) { return Math.pow(2, MAX_LEVEL - level); }
+
+function videoGrid(level) {
+  const s = levelScaleAt(level);
+  return {
+    vcols: Math.ceil(PANO_W / (TILE_W * s)),
+    vrows: Math.ceil(PANO_H / (TILE_H * s)),
+  };
+}
+function tileBounds(level, row, col) {
+  // Tile (row, col) covers max-level pixel rect
+  //   x ∈ [col   * TILE_W * s, (col+1) * TILE_W * s)
+  //   y ∈ [row   * TILE_H * s, (row+1) * TILE_H * s)
+  // where s = 2^(MAX_LEVEL − level). Convert to lat/lng via PANO_W/PANO_H.
+  const s = levelScaleAt(level);
+  const xL = col * TILE_W * s, xR = (col + 1) * TILE_W * s;
+  const yT = row * TILE_H * s, yB = (row + 1) * TILE_H * s;
+  const west = -180 + Math.min(1, xL / PANO_W) * 360;
+  const east = -180 + Math.min(1, xR / PANO_W) * 360;
+  const ymT  = MERC_MAX * (1 - 2 * Math.min(1, yT / PANO_H));
+  const ymB  = MERC_MAX * (1 - 2 * Math.min(1, yB / PANO_H));
+  return L.latLngBounds([mercY2Lat(ymB), west], [mercY2Lat(ymT), east]);
+}
+function pickLevel(zoom) {
+  // EE's scale2level rounds map zoom to the nearest pyramid level. Verified
+  // empirically: at map zoom 8.8 EE loads level 9.
+  return Math.max(0, Math.min(MAX_LEVEL, Math.round(zoom)));
+}
+function visibleTiles(level, bounds) {
+  const s = levelScaleAt(level);
+  const {vcols, vrows} = videoGrid(level);
+  const west  = Math.max(-180, bounds.getWest());
+  const east  = Math.min( 180, bounds.getEast());
+  const south = Math.max(-85,  bounds.getSouth());
+  const north = Math.min( 85,  bounds.getNorth());
+  if (east <= west || north <= south) return [];
+  const pxW = (west + 180) / 360 * PANO_W;
+  const pxE = (east + 180) / 360 * PANO_W;
+  const pxN = (MERC_MAX - lat2mercY(north)) / (2 * MERC_MAX) * PANO_H;
+  const pxS = (MERC_MAX - lat2mercY(south)) / (2 * MERC_MAX) * PANO_H;
+  const colMin = Math.max(0,         Math.floor(pxW / (TILE_W * s)));
+  const colMax = Math.min(vcols - 1, Math.floor(pxE / (TILE_W * s)));
+  const rowMin = Math.max(0,         Math.floor(pxN / (TILE_H * s)));
+  const rowMax = Math.min(vrows - 1, Math.floor(pxS / (TILE_H * s)));
+  const tiles = [];
+  for (let r = rowMin; r <= rowMax; r++)
+    for (let c = colMin; c <= colMax; c++)
+      tiles.push({level, row: r, col: c, key: `${level}/${r}/${c}`});
+  return tiles;
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+// EE serves a byte-identical 3787-byte stub mp4 for every (level,row,col) with
+// no imagery. Skipping those prevents the visible "same video tiled" pattern.
+const STUB_BYTES = 3787;
+const probeCache = new Map();   // url → Promise<boolean>  (true = real tile)
+
+function probeTile(url) {
+  let p = probeCache.get(url);
+  if (!p) {
+    p = fetch(url, {method: 'HEAD'})
+      .then(r => {
+        const len = parseInt(r.headers.get('content-length') || '0', 10);
+        return {ok: r.ok && len > STUB_BYTES, len};
+      })
+      .catch(e => { log('probe failed', url, e); return {ok: false, len: 0}; });
+    probeCache.set(url, p);
+  }
+  return p;
+}
+
+const active = new Map();   // key → {overlay, video, probing}
+let currentYearIdx  = 0;        // 0..NUM_YEARS-1
+let yearAccumulator = 0;        // fractional progress toward next year while playing
+let isPlaying       = false;
+let animFrame       = null;
+let lastTimestamp   = null;
+let playbackSpeed   = 1;
+
+function updateStatus() {
+  let loaded = 0;
+  for (const {video} of active.values())
+    if (video && video.readyState >= 1) loaded++;
+  document.getElementById('status').textContent =
+    `${loaded}/${active.size} tile${active.size !== 1 ? 's' : ''} loaded`;
+}
+
+// ─── VIDEO SYNC ──────────────────────────────────────────────────────────────
+// Videos are ALWAYS paused; we seek to a per-year frame slot center each tick.
+// Letting browsers play the video at its native rate while also advancing a
+// JS timeline caused drift — when the drift exceeded the prior 0.1s threshold
+// we'd seek backward, producing visible flicker / back-and-forth frames.
+function syncOne(video) {
+  if (!video || !video.duration || isNaN(video.duration)) return;
+  if (!video.paused) video.pause();
+  // Aim at the center of the year's slice of the video timeline. With N years
+  // and N frames, this lands between frame i and i+1 → browsers display frame i.
+  const target = (currentYearIdx + 0.5) / NUM_YEARS * video.duration;
+  if (Math.abs(video.currentTime - target) > 0.005) video.currentTime = target;
+}
+function syncAll() { for (const {video} of active.values()) syncOne(video); }
+function pauseAll(){ for (const {video} of active.values()) video && video.pause(); }
+
+// ─── TILE LIFECYCLE ──────────────────────────────────────────────────────────
+function removeTile(key) {
+  const entry = active.get(key);
+  if (!entry) return;
+  if (entry.video) { entry.video.pause(); entry.video.removeAttribute('src'); entry.video.load(); }
+  if (entry.overlay) map.removeLayer(entry.overlay);
+  active.delete(key);
+}
+
+function tileUrl(level, row, col) {
+  return `${BASE}/${level}/${row * STRIDE}/${col * STRIDE}.mp4`;
+}
+
+function refreshTiles() {
+  const zoom  = map.getZoom();
+  const level = pickLevel(zoom);
+  const tiles = visibleTiles(level, map.getBounds());
+  const wanted = new Set(tiles.map(t => t.key));
+  const {vcols, vrows} = videoGrid(level);
+
+  log(`refresh zoom=${zoom.toFixed(2)} level=${level} grid=${vcols}×${vrows} visible=${tiles.length}`);
+  document.getElementById('level-info').textContent =
+    `Z${zoom.toFixed(1)} · L${level} · ${tiles.length} tiles`;
+
+  let removed = 0;
+  for (const key of Array.from(active.keys())) {
+    if (!wanted.has(key)) { removeTile(key); removed++; }
+  }
+  if (removed) log(`removed ${removed} stale tiles`);
+
+  for (const t of tiles) {
+    if (active.has(t.key)) continue;
+    const url = tileUrl(t.level, t.row, t.col);
+    const entry = {overlay: null, video: null, probing: true};
+    active.set(t.key, entry);
+
+    probeTile(url).then(({ok, len}) => {
+      if (active.get(t.key) !== entry) return;
+      entry.probing = false;
+      if (!ok) {
+        log(`skip stub L${t.level} r=${t.row} c=${t.col} (${len}B)`, url);
+        active.delete(t.key);
+        return;
+      }
+      const bounds = tileBounds(t.level, t.row, t.col);
+      log(`add  L${t.level} r=${t.row} c=${t.col} (${(len/1e6).toFixed(2)}MB) ` +
+          `bounds=[S${bounds.getSouth().toFixed(3)},W${bounds.getWest().toFixed(3)},` +
+          `N${bounds.getNorth().toFixed(3)},E${bounds.getEast().toFixed(3)}]`);
+      const overlay = L.videoOverlay(url, bounds, {
+        autoplay: false, loop: true, muted: true,
+        playsInline: true, keepAspectRatio: false,
+        interactive: false, crossOrigin: 'anonymous',
+      }).addTo(map);
+      entry.overlay = overlay;
+
+      overlay.on('load', () => {
+        if (active.get(t.key) !== entry) return;
+        const video = overlay.getElement();
+        entry.video = video;
+        if (!video) return;
+        video.muted = true; video.playsInline = true; video.preload = 'auto';
+        video.pause();
+        syncOne(video);
+        video.addEventListener('error', e => {
+          log(`error L${t.level} r=${t.row} c=${t.col}`, e);
+          removeTile(t.key);
+        });
+        updateStatus();
+      });
+      updateStatus();
+    });
+  }
+  updateStatus();
+}
+
+// ─── YEAR UI ─────────────────────────────────────────────────────────────────
+const yearDisplay = document.getElementById('year-display');
+const yearBig     = document.getElementById('year-big');
+const scrubber    = document.getElementById('scrubber');
+
+function updateYearUI() {
+  const y = YEAR_START + currentYearIdx;
+  yearDisplay.textContent = y;
+  yearBig.textContent = y;
+  if (+scrubber.value !== currentYearIdx) scrubber.value = currentYearIdx;
+}
+
+function setYear(idx, {fromScrub = false} = {}) {
+  currentYearIdx = ((idx % NUM_YEARS) + NUM_YEARS) % NUM_YEARS;
+  if (!fromScrub) yearAccumulator = 0;
+  updateYearUI();
+  syncAll();
+}
+
+// ─── ANIMATION LOOP ──────────────────────────────────────────────────────────
+function tick(ts) {
+  if (lastTimestamp === null) lastTimestamp = ts;
+  const dt = (ts - lastTimestamp) / 1000;
+  lastTimestamp = ts;
+  yearAccumulator += dt * playbackSpeed / SECONDS_PER_YEAR;
+  if (yearAccumulator >= 1) {
+    const steps = Math.floor(yearAccumulator);
+    yearAccumulator -= steps;
+    currentYearIdx = (currentYearIdx + steps) % NUM_YEARS;
+    updateYearUI();
+    syncAll();
+  }
+  if (isPlaying) animFrame = requestAnimationFrame(tick);
+}
+
+// ─── CONTROLS ────────────────────────────────────────────────────────────────
+const btnPlay     = document.getElementById('btn-play');
+const btnPrev     = document.getElementById('btn-prev');
+const btnNext     = document.getElementById('btn-next');
+const speedSlider = document.getElementById('speed');
+const speedVal    = document.getElementById('speed-val');
+
+btnPlay.addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  log(isPlaying ? 'play' : 'pause');
+  if (isPlaying) {
+    lastTimestamp = null;
+    yearAccumulator = 0;
+    animFrame = requestAnimationFrame(tick);
+    btnPlay.textContent = '⏸ Pause';
+  } else {
+    cancelAnimationFrame(animFrame);
+    pauseAll();
+    btnPlay.textContent = '▶ Play';
+  }
+});
+
+btnPrev.addEventListener('click', () => setYear(currentYearIdx - 1));
+btnNext.addEventListener('click', () => setYear(currentYearIdx + 1));
+
+scrubber.addEventListener('input', () => {
+  setYear(parseInt(scrubber.value, 10), {fromScrub: true});
+  lastTimestamp = null;
+});
+
+speedSlider.addEventListener('input', () => {
+  playbackSpeed = parseFloat(speedSlider.value);
+  speedVal.textContent = playbackSpeed.toFixed(1) + '×';
+});
+
+// Arrow keys for year stepping. Ignore when typing in form fields.
+window.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toUpperCase();
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft')  { setYear(currentYearIdx - 1); e.preventDefault(); }
+  else if (e.key === 'ArrowRight') { setYear(currentYearIdx + 1); e.preventDefault(); }
+  else if (e.key === ' ')          { btnPlay.click(); e.preventDefault(); }
+});
+
+// Refresh tiles on pan/zoom (debounced).
+let refreshScheduled = null;
+function scheduleRefresh() {
+  if (refreshScheduled) clearTimeout(refreshScheduled);
+  refreshScheduled = setTimeout(() => { refreshScheduled = null; refreshTiles(); }, 120);
+}
+
+function updateEELink() {
+  const c = map.getCenter();
+  const z = map.getZoom();
+  document.getElementById('ee-link').href =
+    `https://earthengine.google.com/timelapse/#v=${c.lat.toFixed(5)},${c.lng.toFixed(5)},${z.toFixed(2)},latLng`;
+}
+
+map.on('moveend zoomend', () => { writeHash(); updateEELink(); scheduleRefresh(); });
+window.addEventListener('hashchange', () => {
+  const h = readHash();
+  if (h) map.setView([h.lat, h.lon], h.zoom, {animate: false});
+});
+
+writeHash();
+updateEELink();
+refreshTiles();
+setTimeout(() => btnPlay.click(), 800);
+</script>
+</body>
+</html>
