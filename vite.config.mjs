@@ -32,6 +32,11 @@ function collectHtmlEntries() {
 
 export default defineConfig({
   root: '.',
+  // Relative asset paths so the same build artifact works both at the domain
+  // root (amche.in/, main branch) and at a subpath (amche.in/dev/, dev
+  // branch). With base: '/' Vite emits absolute URLs like /assets/vite/foo.js
+  // which 404 when the site is served under /dev/.
+  base: './',
   // We manage all static copies via the static-copy plugin below so URL paths
   // match production exactly (Vite's publicDir flattens its contents to the
   // dist root, which would break absolute /assets/... URL references).
