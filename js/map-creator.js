@@ -383,7 +383,58 @@ export class MapCreator {
             });
         }
 
+        const editMatch = url.match(/^(https?:\/\/docs\.google\.com\/spreadsheets\/d\/[^/]+)\/edit(?:\?([^#]*))?(?:#(.*))?$/i);
+        if (editMatch) {
+            const [, base, queryString, hash] = editMatch;
+            let gid = null;
+            if (queryString) {
+                const params = new URLSearchParams(queryString);
+                gid = params.get('gid');
+            }
+            if (!gid && hash) {
+                const hashMatch = hash.match(/gid=(\d+)/);
+                if (hashMatch) gid = hashMatch[1];
+            }
+            return `${base}/export?format=csv${gid ? `&gid=${gid}` : ''}`;
+        }
+
         return url;
+    }
+
+    parseGoogleSheetsHTML(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const table = doc.querySelector('table.waffle');
+        if (!table) {
+            throw new Error('No Google Sheets data table found in HTML response');
+        }
+
+        const extractCells = (tr) => Array.from(tr.querySelectorAll('td')).map(td => {
+            td.querySelectorAll('br').forEach(br => br.replaceWith(' '));
+            return td.textContent.replace(/\s+/g, ' ').trim();
+        });
+
+        const trs = Array.from(table.querySelectorAll('tbody tr'));
+        if (trs.length < 2) {
+            throw new Error('Google Sheets HTML has no data rows');
+        }
+
+        const rawHeaders = extractCells(trs[0]);
+        let lastIdx = rawHeaders.length - 1;
+        while (lastIdx >= 0 && !rawHeaders[lastIdx]) lastIdx--;
+        const headers = rawHeaders.slice(0, lastIdx + 1);
+        if (!headers.length) {
+            throw new Error('Google Sheets HTML has no header row');
+        }
+
+        return trs.slice(1)
+            .map(tr => {
+                const cells = extractCells(tr);
+                const row = {};
+                headers.forEach((h, i) => { row[h] = cells[i] || ''; });
+                return row;
+            })
+            .filter(row => Object.values(row).some(v => v !== ''));
     }
 
     isCSVUrl(url) {
@@ -521,7 +572,10 @@ export class MapCreator {
                 const csvText = await response.text();
                 console.log('[MapCreator] CSV text length:', csvText.length);
                 console.log('[MapCreator] First 500 chars:', csvText.substring(0, 500));
-                const rows = DataUtils.parseCSV(csvText);
+                const looksLikeHTML = /^\s*<(!doctype|html|head|meta)/i.test(csvText);
+                const rows = (looksLikeHTML && url.includes('docs.google.com/spreadsheets'))
+                    ? this.parseGoogleSheetsHTML(csvText)
+                    : DataUtils.parseCSV(csvText);
                 console.log('[MapCreator] Parsed rows:', rows.length);
                 if (rows.length > 0) {
                     console.log('[MapCreator] First row keys:', Object.keys(rows[0]));
@@ -555,7 +609,10 @@ export class MapCreator {
                     const csvText = await response.text();
                     console.log('[MapCreator] CSV text length:', csvText.length);
                     console.log('[MapCreator] First 500 chars:', csvText.substring(0, 500));
-                    const rows = DataUtils.parseCSV(csvText);
+                    const looksLikeHTML = /^\s*<(!doctype|html|head|meta)/i.test(csvText);
+                    const rows = (looksLikeHTML && url.includes('docs.google.com/spreadsheets'))
+                        ? this.parseGoogleSheetsHTML(csvText)
+                        : DataUtils.parseCSV(csvText);
                     console.log('[MapCreator] Parsed rows:', rows.length);
                     if (rows.length > 0) {
                         console.log('[MapCreator] First row keys:', Object.keys(rows[0]));
