@@ -493,9 +493,15 @@
                         <option value="p3">Polynomial 3</option>
                         <option value="tps">Thin Plate Spline</option>
                     </select>
-                    <button id="push-gcp-btn"
-                        class="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm hidden"
-                        onclick="pushGCPsToMapWarper()">Push &amp; Warp</button>
+                    <div id="sync-warp-btn-group" class="flex gap-2 hidden">
+                        <button id="sync-gcp-btn"
+                            class="flex-1 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm cursor-pointer"
+                            onclick="syncGCPsToMapWarper()">Sync Points</button>
+                        <button id="warp-btn"
+                            class="flex-1 px-3 py-2 bg-gray-300 text-gray-500 rounded text-sm cursor-not-allowed"
+                            disabled
+                            onclick="warpCurrentMap()">Warp</button>
+                    </div>
                     <p id="auth-status" class="text-xs text-gray-500 mt-1 hidden"></p>
                 </div>
 
@@ -770,6 +776,7 @@
         let sourceMarkers = new Map();
         let referenceMarkers = new Map();
         let deletedRowNumbers = new Set();
+        let pointsSynced = false;
 
         // Camera position save/restore for marker selection
         let savedCameraPositions = {
@@ -1825,6 +1832,7 @@
                     updateMarkers();
                     updateCSVFromPoints();
                     updateRowNumbers();
+                    markPointsSynced();
 
                     console.log(`Successfully loaded ${controlPoints.length} control points`);
 
@@ -2063,6 +2071,7 @@
             updateMarkers();
             updateCSVFromPoints();
             updateRowNumbers();
+            markPointsDirty();
         }
 
         function getNextRowNumber() {
@@ -2094,6 +2103,7 @@
 
                 updateMarkers();
                 updateCSVFromPoints();
+                markPointsDirty();
                 // Keep marker selected after moving - don't reset selectedPointIndex
             }
         }
@@ -2673,6 +2683,7 @@
 
             updateMarkers();
             updateRowNumbers();
+            markPointsDirty();
         }
 
         function updateRowNumbers() {
@@ -2723,6 +2734,7 @@
                 updateMarkers();
                 updateCSVFromPoints();
                 updateRowNumbers();
+                markPointsDirty();
 
                 if (selectedPointIndex === pointIndex) {
                     selectedPointIndex = -1;
@@ -2740,6 +2752,7 @@
             updateMarkers();
             updateCSVFromPoints();
             updateRowNumbers();
+            markPointsDirty();
         }
 
         function saveCSV() {
@@ -3465,18 +3478,19 @@
         }
 
         function updateAuthUI() {
-            const pushGcpBtn = document.getElementById('push-gcp-btn');
+            const btnGroup = document.getElementById('sync-warp-btn-group');
             const warpSelect = document.getElementById('warp-method-select');
             const authStatus = document.getElementById('auth-status');
             const loginBtn = document.getElementById('mapwarper-login-btn');
 
             if (mapwarperAPI.isAuthenticated) {
-                if (pushGcpBtn) pushGcpBtn.classList.remove('hidden');
+                if (btnGroup) btnGroup.classList.remove('hidden');
                 if (warpSelect) warpSelect.classList.remove('hidden');
                 if (authStatus) { authStatus.textContent = mapwarperAPI.auth.login; authStatus.classList.remove('hidden'); }
                 if (loginBtn) loginBtn.textContent = mapwarperAPI.auth.login || 'Account';
+                updateSyncWarpButtonsUI();
             } else {
-                if (pushGcpBtn) pushGcpBtn.classList.add('hidden');
+                if (btnGroup) btnGroup.classList.add('hidden');
                 if (warpSelect) warpSelect.classList.add('hidden');
                 if (authStatus) authStatus.classList.add('hidden');
                 if (loginBtn) loginBtn.textContent = 'Mapwarper Login';
@@ -3498,11 +3512,43 @@
             select.options[0].text = `Auto (${labels[autoMethod] || autoMethod})`;
         }
 
-        async function pushGCPsToMapWarper() {
-            if (!mapwarperAPI.isAuthenticated) { showAuthModal(); return; }
-            if (!warpMapId || !warpBaseUrl) { alert('No map loaded'); return; }
+        function markPointsDirty() {
+            pointsSynced = false;
+            updateSyncWarpButtonsUI();
+        }
 
-            const gcps = controlPoints
+        function markPointsSynced() {
+            pointsSynced = true;
+            updateSyncWarpButtonsUI();
+        }
+
+        function updateSyncWarpButtonsUI() {
+            const syncBtn = document.getElementById('sync-gcp-btn');
+            const warpBtn = document.getElementById('warp-btn');
+            if (!syncBtn || !warpBtn) return;
+            if (syncBtn.dataset.busy === '1' || warpBtn.dataset.busy === '1') return;
+
+            const completeCount = controlPoints.filter(p =>
+                (p.sourcePixelCoords || p.sourceCoords) && p.referenceCoords
+            ).length;
+            const enoughPoints = completeCount >= 3;
+
+            syncBtn.textContent = 'Sync Points';
+            syncBtn.disabled = !enoughPoints;
+            syncBtn.className = enoughPoints
+                ? 'flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm cursor-pointer'
+                : 'flex-1 px-3 py-2 bg-gray-300 text-gray-500 rounded text-sm cursor-not-allowed';
+
+            const canWarp = pointsSynced && enoughPoints;
+            warpBtn.textContent = 'Warp';
+            warpBtn.disabled = !canWarp;
+            warpBtn.className = canWarp
+                ? 'flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm cursor-pointer'
+                : 'flex-1 px-3 py-2 bg-gray-300 text-gray-500 rounded text-sm cursor-not-allowed';
+        }
+
+        function buildGCPsForSync() {
+            return controlPoints
                 .filter(p => (p.sourcePixelCoords || p.sourceCoords) && p.referenceCoords)
                 .map(p => {
                     let x, y;
@@ -3523,33 +3569,73 @@
                         lon: parseFloat(p.referenceCoords[0].toFixed(7))
                     };
                 });
+        }
 
-            if (gcps.length < 3) { alert('Need at least 3 complete control points to warp'); return; }
+        async function syncGCPsToMapWarper() {
+            if (!mapwarperAPI.isAuthenticated) { showAuthModal(); return; }
+            if (!warpMapId || !warpBaseUrl) { alert('No map loaded'); return; }
 
-            const pushBtn = document.getElementById('push-gcp-btn');
-            const warpSelect = document.getElementById('warp-method-select');
-            const selectedMethod = warpSelect ? warpSelect.value : 'auto';
-            const warpMethod = selectedMethod === 'auto' ? getAutoWarpMethod(gcps.length) : selectedMethod;
+            const gcps = buildGCPsForSync();
+            if (gcps.length < 3) { alert('Need at least 3 complete control points to sync'); return; }
 
-            const setBtn = (text, classes) => {
-                pushBtn.textContent = text;
-                pushBtn.className = `w-full px-3 py-2 text-white rounded text-sm ${classes}`;
-            };
+            const syncBtn = document.getElementById('sync-gcp-btn');
+            const warpBtn = document.getElementById('warp-btn');
 
-            const resetBtn = () => {
-                setBtn('Push &amp; Warp', 'bg-green-600 hover:bg-green-700 cursor-pointer');
-                pushBtn.disabled = false;
-                if (warpSelect) warpSelect.disabled = false;
+            const setSyncBtn = (text, classes) => {
+                syncBtn.textContent = text;
+                syncBtn.className = `flex-1 px-3 py-2 text-white rounded text-sm ${classes}`;
             };
 
             try {
-                setBtn('Pushing...', 'bg-gray-400 cursor-not-allowed');
-                pushBtn.disabled = true;
-                if (warpSelect) warpSelect.disabled = true;
+                syncBtn.dataset.busy = '1';
+                syncBtn.disabled = true;
+                warpBtn.disabled = true;
+                setSyncBtn('Syncing…', 'bg-gray-400 cursor-not-allowed');
 
                 await mapwarperAPI.syncGCPs(warpBaseUrl, warpMapId, gcps);
 
-                setBtn('Warping...', 'bg-yellow-500 cursor-not-allowed');
+                setSyncBtn('Synced', 'bg-green-600');
+                setTimeout(() => {
+                    delete syncBtn.dataset.busy;
+                    markPointsSynced();
+                }, 800);
+            } catch (error) {
+                setSyncBtn('Failed', 'bg-red-600 cursor-not-allowed');
+                console.error('Sync error:', error);
+                setTimeout(() => {
+                    delete syncBtn.dataset.busy;
+                    updateSyncWarpButtonsUI();
+                }, 2000);
+            }
+        }
+
+        async function warpCurrentMap() {
+            if (!mapwarperAPI.isAuthenticated) { showAuthModal(); return; }
+            if (!warpMapId || !warpBaseUrl) { alert('No map loaded'); return; }
+            if (!pointsSynced) { alert('Sync points before warping'); return; }
+
+            const completeCount = controlPoints.filter(p =>
+                (p.sourcePixelCoords || p.sourceCoords) && p.referenceCoords
+            ).length;
+            const warpSelect = document.getElementById('warp-method-select');
+            const selectedMethod = warpSelect ? warpSelect.value : 'auto';
+            const warpMethod = selectedMethod === 'auto' ? getAutoWarpMethod(completeCount) : selectedMethod;
+
+            const syncBtn = document.getElementById('sync-gcp-btn');
+            const warpBtn = document.getElementById('warp-btn');
+
+            const setWarpBtn = (text, classes) => {
+                warpBtn.textContent = text;
+                warpBtn.className = `flex-1 px-3 py-2 text-white rounded text-sm ${classes}`;
+            };
+
+            try {
+                warpBtn.dataset.busy = '1';
+                warpBtn.disabled = true;
+                syncBtn.disabled = true;
+                if (warpSelect) warpSelect.disabled = true;
+                setWarpBtn('Warping…', 'bg-yellow-500 cursor-not-allowed');
+
                 const warpResult = await mapwarperAPI.warpMap(warpBaseUrl, warpMapId, warpMethod);
                 const warpStatus = warpResult?.data?.attributes?.status;
 
@@ -3559,7 +3645,7 @@
                     while (elapsed < 60000) {
                         await new Promise(r => setTimeout(r, 2000));
                         elapsed += 2000;
-                        setBtn(`Warping… ${Math.round(elapsed / 1000)}s`, 'bg-yellow-500 cursor-not-allowed');
+                        setWarpBtn(`Warping… ${Math.round(elapsed / 1000)}s`, 'bg-yellow-500 cursor-not-allowed');
                         const status = await mapwarperAPI.getMapStatus(warpBaseUrl, warpMapId);
                         if (status === 'warped' || status === 'published') break;
                     }
@@ -3568,12 +3654,20 @@
 
                 refreshWarpedLayer(warpBaseUrl, warpMapId);
 
-                setBtn('Map Warped', 'bg-green-600');
-                setTimeout(resetBtn, 1000);
+                setWarpBtn('Map Warped', 'bg-green-600');
+                setTimeout(() => {
+                    delete warpBtn.dataset.busy;
+                    if (warpSelect) warpSelect.disabled = false;
+                    updateSyncWarpButtonsUI();
+                }, 1000);
             } catch (error) {
-                setBtn('Failed', 'bg-red-600 cursor-not-allowed');
-                console.error('Push/warp error:', error);
-                setTimeout(resetBtn, 2000);
+                setWarpBtn('Failed', 'bg-red-600 cursor-not-allowed');
+                console.error('Warp error:', error);
+                setTimeout(() => {
+                    delete warpBtn.dataset.busy;
+                    if (warpSelect) warpSelect.disabled = false;
+                    updateSyncWarpButtonsUI();
+                }, 2000);
             }
         }
 
