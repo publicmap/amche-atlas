@@ -106,12 +106,20 @@
 
         .search-input {
             transition: all 0.2s ease;
+            background: transparent !important;
+            color: #fff !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+        }
+
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.55);
         }
 
         .search-input:focus {
             outline: none;
-            border-color: #3b82f6;
+            border-color: #3b82f6 !important;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+            background: rgba(255, 255, 255, 0.05) !important;
         }
 
         .header-section {
@@ -152,19 +160,6 @@
 
             .search-section .flex {
                 gap: 4px !important;
-            }
-
-            #add-new-map-link {
-                font-size: 10px !important;
-                padding: 4px 6px !important;
-            }
-
-            #add-new-map-link span {
-                display: none;
-            }
-
-            #add-new-map-link::after {
-                content: 'New Map';
             }
         }
 
@@ -240,86 +235,6 @@
 
         #search-options summary::-webkit-details-marker {
             display: none;
-        }
-
-        .atlas-nav {
-            background: #111827;
-            padding: 8px 12px;
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            position: sticky;
-            top: 0;
-            z-index: 9;
-            border-bottom: 1px solid #374151;
-        }
-
-        .atlas-nav::-webkit-scrollbar {
-            height: 4px;
-        }
-
-        .atlas-nav::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .atlas-nav::-webkit-scrollbar-thumb {
-            background: #d1d5db;
-            border-radius: 2px;
-        }
-
-        .atlas-nav-link {
-            text-decoration: none;
-            font-size: 11px;
-            font-weight: 600;
-            white-space: nowrap;
-            padding: 4px 10px;
-            border-radius: 4px;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            color: white;
-            opacity: 0.5;
-            flex-shrink: 0;
-        }
-
-        .atlas-nav-link:hover {
-            opacity: 1;
-            transform: scale(1.05);
-        }
-
-        .atlas-nav-link.active {
-            opacity: 1;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            transform: scale(1.05);
-        }
-
-        .atlas-nav-link .count {
-            opacity: 0.8;
-            font-size: 10px;
-        }
-
-        .atlas-nav-more {
-            text-decoration: none;
-            font-size: 11px;
-            font-weight: 600;
-            white-space: nowrap;
-            padding: 4px 10px;
-            border-radius: 4px;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            color: #9ca3af;
-            opacity: 0.7;
-            flex-shrink: 0;
-            cursor: pointer;
-            font-style: italic;
-        }
-
-        .atlas-nav-more:hover {
-            opacity: 1;
-            color: white;
         }
 
         .atlas-heading {
@@ -812,32 +727,19 @@
 <body class="bg-gray-900">
     <div class="flex flex-col h-screen max-w-[600px] w-full" style="margin: 0 auto;">
         <!-- Search Section -->
-        <div class="search-section" style="background: #1f2937; padding: 8px; border-bottom: 1px solid #374151;">
-            <!-- Header Text with Close Button -->
-            <div class="mb-2 text-sm text-gray-300 flex items-center gap-1 justify-between" style="min-width: 0;">
-                <div class="flex items-center gap-1 flex-wrap" style="min-width: 0; flex: 1;">
-                    <span style="flex-shrink: 0;">Import</span>
-                    <button id="add-new-map-link"
-                        style="background: transparent; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
-                        <sl-icon name="plus-circle" style="font-size: 12px;"></sl-icon>
-                        <span>New Map</span>
-                    </button>
-                </div>
-                <button id="close-browser-btn" class="text-white"
-                    style="background: transparent; border: none; cursor: pointer; padding: 4px; opacity: 0.7; font-size: 20px; line-height: 1; flex-shrink: 0;"
-                    title="Close browser" onmouseover="this.style.opacity='1'"
-                    onmouseout="this.style.opacity='0.7'">×</button>
-            </div>
-
-            <!-- Main Search Bar -->
-            <div class="flex gap-2">
+        <div class="search-section" style="background: #1f2937; padding: 10px 12px; border-bottom: 1px solid #374151;">
+            <!-- Search Row -->
+            <div class="flex items-center gap-2" style="min-width: 0;">
                 <!-- Search Input -->
                 <div class="relative flex-1 min-w-0">
-                    <input type="text" id="search-input" placeholder="Search maps..."
-                        class="search-input w-full px-2 py-1.5 pr-8 rounded border border-gray-300 bg-white text-gray-900 text-xs" />
+                    <sl-icon name="search"
+                        style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.55); font-size: 14px; pointer-events: none;"></sl-icon>
+                    <input type="text" id="search-input" placeholder="Filter by map name"
+                        class="search-input w-full rounded text-sm"
+                        style="padding: 8px 32px 8px 32px; font-size: 14px;" />
                     <button id="clear-search-btn"
-                        class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        style="display: none;">
+                        class="absolute right-2 top-1/2 -translate-y-1/2"
+                        style="display: none; background: transparent; border: none; color: rgba(255,255,255,0.6); cursor: pointer; padding: 2px;">
                         ✕
                     </button>
                 </div>
@@ -852,6 +754,19 @@
                 <div id="layer-grid" class="layer-grid"></div>
             </div>
 
+        </div>
+
+        <!-- Sticky Footer -->
+        <div class="browser-footer"
+            style="background: #111827; border-top: 1px solid #374151; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0;">
+            <div id="footer-stats" style="color: #9ca3af; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                Loading maps...
+            </div>
+            <button id="add-new-map-link"
+                style="background: #16a34a; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                <sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon>
+                <span>New Map</span>
+            </button>
         </div>
     </div>
 
@@ -913,7 +828,6 @@
         $(document).ready(function () {
             setupMessageListener();
             setupEventListeners();
-            setupNavScrolling();
             requestLayerData();
 
             // Auto-focus search input when browser opens for first time
@@ -1184,13 +1098,9 @@
 
             // Add new map button hover effects
             $('#add-new-map-link').on('mouseenter', function () {
-                $(this).css('background', '#16a34a');
+                $(this).css('background', '#15803d');
             }).on('mouseleave', function () {
-                $(this).css('background', 'transparent');
-            });
-
-            $('#close-browser-btn').on('click', function () {
-                window.parent.postMessage({ type: 'close-browser' }, '*');
+                $(this).css('background', '#16a34a');
             });
 
             $('#close-map-modal').on('click', function () {
@@ -1202,75 +1112,6 @@
                     hidePreviewMapModal();
                 }
             });
-        }
-
-        // Setup nav link scrolling
-        function setupNavScrolling() {
-            // Setup atlas nav scrolling (delegated event handler)
-            $(document).on('click', '.atlas-nav-link', function (e) {
-                e.preventDefault();
-                const atlasId = $(this).data('atlas');
-                const $target = $(`#atlas-${atlasId}`);
-
-                if ($target.length) {
-                    // Update active state
-                    $('.atlas-nav-link').removeClass('active');
-                    $(this).addClass('active');
-
-                    // Smooth scroll to atlas section
-                    const container = $('#layer-container')[0];
-                    const $atlasNav = $('.atlas-nav');
-                    const navHeight = $atlasNav.length ? $atlasNav.outerHeight() : 0;
-                    const targetOffset = $target.offset().top - $(container).offset().top + container.scrollTop;
-                    $(container).animate({
-                        scrollTop: targetOffset - navHeight - 10
-                    }, 400);
-                }
-            });
-
-            // Setup scroll listener to update active nav link
-            const container = $('#layer-container')[0];
-            if (container) {
-                let scrollTimeout;
-                $(container).on('scroll', function () {
-                    clearTimeout(scrollTimeout);
-                    scrollTimeout = setTimeout(updateActiveNavLink, 100);
-                });
-            }
-        }
-
-        // Update active nav link based on scroll position
-        function updateActiveNavLink() {
-            const container = $('#layer-container')[0];
-            if (!container) return;
-
-            const $atlasNav = $('.atlas-nav');
-            const navHeight = $atlasNav.length ? $atlasNav.outerHeight() : 0;
-            const scrollTop = container.scrollTop;
-            const containerTop = $(container).offset().top;
-            const threshold = scrollTop + navHeight + 20;
-
-            let activeAtlasId = null;
-
-            // Find the last atlas section that has scrolled past the threshold
-            $('.atlas-collapsed').each(function () {
-                const $section = $(this);
-                const atlasId = $section.attr('id')?.replace('atlas-', '');
-                if (!atlasId) return;
-
-                const sectionTop = $section.offset().top - containerTop + scrollTop;
-
-                // Only activate if section top has passed the threshold
-                if (sectionTop <= threshold) {
-                    activeAtlasId = atlasId;
-                }
-            });
-
-            // Update active state
-            if (activeAtlasId) {
-                $('.atlas-nav-link').removeClass('active');
-                $(`.atlas-nav-link[data-atlas="${activeAtlasId}"]`).addClass('active');
-            }
         }
 
         // Select atlas (expand it in the list)
@@ -2127,129 +1968,6 @@
                 ? [indexAtlasId, ...inViewAtlasIds, ...outOfViewAtlasIds]
                 : [...inViewAtlasIds, ...outOfViewAtlasIds];
 
-            // Create atlas navigation if there are multiple atlases
-            if (orderedAtlasIds.length > 1) {
-                const $atlasNav = $('<div>', {
-                    class: 'atlas-nav'
-                });
-
-                // Add index atlas first if it exists
-                if (indexAtlasId && byAtlas[indexAtlasId]) {
-                    const atlasData = atlasMetadata.get(indexAtlasId) || {};
-                    const count = byAtlas[indexAtlasId].length;
-                    const atlasName = atlasData.name || indexAtlasId;
-                    const atlasColor = atlasData.color || '#6b7280';
-
-                    const $indexLink = $('<a>', {
-                        href: `#atlas-${indexAtlasId}`,
-                        class: 'atlas-nav-link',
-                        'data-atlas': indexAtlasId,
-                        style: `background-color: ${atlasColor};`,
-                        html: `${atlasName} <span class="count">(${count})</span>`,
-                        click: function (e) {
-                            e.preventDefault();
-                            userHasInteractedWithAtlas = true;
-                            expandedAtlasId = indexAtlasId;
-                            userCollapsedAll = false;
-                            userManuallyExpandedAtlas = (window.selectedAtlasId && indexAtlasId !== window.selectedAtlasId);
-                            renderLayers();
-                            setTimeout(() => {
-                                document.getElementById(`atlas-${indexAtlasId}`)?.scrollIntoView({
-                                    behavior: 'smooth',
-                                    block: 'start'
-                                });
-                            }, 100);
-                        }
-                    });
-
-                    $atlasNav.append($indexLink);
-
-                    // Add separator after index atlas
-                    const $separator = $('<div>', {
-                        style: 'width: 2px; height: 20px; background: #374151; margin: 0 4px; flex-shrink: 0;'
-                    });
-                    $atlasNav.append($separator);
-                }
-
-                // Add in-view atlases
-                inViewAtlasIds.forEach(atlasId => {
-                    const atlasData = atlasMetadata.get(atlasId) || {};
-                    const count = byAtlas[atlasId].length;
-                    const atlasName = atlasData.name || atlasId;
-                    const atlasColor = atlasData.color || '#6b7280';
-
-                    const $atlasLink = $('<a>', {
-                        href: `#atlas-${atlasId}`,
-                        class: 'atlas-nav-link',
-                        'data-atlas': atlasId,
-                        style: `background-color: ${atlasColor};`,
-                        html: `${atlasName} <span class="count">(${count})</span>`,
-                        click: function (e) {
-                            e.preventDefault();
-                            userHasInteractedWithAtlas = true;
-                            // Expand this atlas
-                            expandedAtlasId = atlasId;
-                            userCollapsedAll = false;
-                            userManuallyExpandedAtlas = (window.selectedAtlasId && atlasId !== window.selectedAtlasId);
-                            renderLayers();
-                            // Scroll to atlas after render
-                            setTimeout(() => {
-                                document.getElementById(`atlas-${atlasId}`)?.scrollIntoView({
-                                    behavior: 'smooth',
-                                    block: 'start'
-                                });
-                            }, 100);
-                        }
-                    });
-
-                    $atlasNav.append($atlasLink);
-                });
-
-                // Add separator if there are out-of-view atlases
-                if (outOfViewAtlasIds.length > 0 && inViewAtlasIds.length > 0) {
-                    const $separator = $('<div>', {
-                        style: 'width: 2px; height: 20px; background: #374151; margin: 0 8px;'
-                    });
-                    $atlasNav.append($separator);
-                }
-
-                // Add out-of-view atlases
-                outOfViewAtlasIds.forEach(atlasId => {
-                    const atlasData = atlasMetadata.get(atlasId) || {};
-                    const count = byAtlas[atlasId].length;
-                    const atlasName = atlasData.name || atlasId;
-                    const atlasColor = atlasData.color || '#6b7280';
-
-                    const $atlasLink = $('<a>', {
-                        href: `#atlas-${atlasId}`,
-                        class: 'atlas-nav-link',
-                        'data-atlas': atlasId,
-                        style: `background-color: ${atlasColor}; opacity: 0.6;`,
-                        html: `${atlasName} <span class="count">(${count})</span>`,
-                        click: function (e) {
-                            e.preventDefault();
-                            userHasInteractedWithAtlas = true;
-                            // Expand this atlas
-                            expandedAtlasId = atlasId;
-                            userCollapsedAll = false;
-                            userManuallyExpandedAtlas = (window.selectedAtlasId && atlasId !== window.selectedAtlasId);
-                            renderLayers();
-                            // Scroll to atlas after render
-                            setTimeout(() => {
-                                document.getElementById(`atlas-${atlasId}`)?.scrollIntoView({
-                                    behavior: 'smooth',
-                                    block: 'start'
-                                });
-                            }, 100);
-                        }
-                    });
-
-                    $atlasNav.append($atlasLink);
-                });
-
-                $grid.append($atlasNav);
-            }
-
             // Only expand first atlas on very first render (not set by user action)
             // Check if this is initial page load by seeing if expandedAtlasId was never set
             if (expandedAtlasId === null && orderedAtlasIds.length > 0 && !userCollapsedAll && typeof window.hasInitiallyExpanded === 'undefined') {
@@ -2299,9 +2017,6 @@
                 const atlasLayers = byAtlas[atlasId];
                 renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid, searchTerm, atlasIdsWithResults);
             });
-
-            // Set active atlas based on scroll position
-            setTimeout(updateActiveNavLink, 100);
         }
 
         // Render atlas in collapsed view
@@ -2990,16 +2705,26 @@
 
         // Update results count
         function updateResultsCount(filteredLayers, total) {
-            const atlasesByLayer = new Set();
+            const searchTerm = $('#search-input').val().trim();
 
+            const atlasesByLayer = new Set();
             filteredLayers.forEach(layer => {
-                const atlasId = layer._sourceAtlas;
-                atlasesByLayer.add(atlasId);
+                atlasesByLayer.add(layer._sourceAtlas);
             });
 
-            const totalAtlasCount = atlasesByLayer.size;
-            const collectionWord = totalAtlasCount === 1 ? 'collection' : 'collections';
-            $('#search-input').attr('placeholder', `Search ${filteredLayers.length} maps from ${totalAtlasCount} ${collectionWord}`);
+            const totalAtlases = new Set();
+            allLayers.forEach(layer => totalAtlases.add(layer._sourceAtlas));
+
+            const collectionWord = totalAtlases.size === 1 ? 'collection' : 'collections';
+            const mapWord = filteredLayers.length === 1 ? 'map' : 'maps';
+
+            let statsText;
+            if (searchTerm) {
+                statsText = `Showing ${filteredLayers.length} of ${total} ${mapWord}`;
+            } else {
+                statsText = `${total} ${mapWord} loaded from ${totalAtlases.size} ${collectionWord}`;
+            }
+            $('#footer-stats').text(statsText);
         }
 
         // Show preview map modal
