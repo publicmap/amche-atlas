@@ -995,7 +995,7 @@ export class MapMarkerManager {
                             justify-content: center;
                             flex-shrink: 0;
                             transition: all 0.2s;
-                        " title="Browse Map Collections"><sl-icon name="grid" style="font-size: 12px;"></sl-icon></button>
+                        " title="Browse Map Collections"><sl-icon name="map" style="font-size: 12px;"></sl-icon></button>
                         ${extraLayerCount > 0 ? `
                         <button class="show-more-layers" style="
                             background: #1e293b;

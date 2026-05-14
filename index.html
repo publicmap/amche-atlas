@@ -581,25 +581,6 @@
                 </div>
             </div>
 
-            <!-- Featured Atlas Picker -->
-            <div id="atlas-picker-heading"
-                style="display: block; margin-top: 12px; text-align: center; font-size: 0.875rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-                Explore Atlases
-            </div>
-
-            <div id="atlas-picker-container" style="
-                display: grid;
-                margin-top: 8px;
-                width: 100%;
-                max-width: 900px;
-                max-height: 40vh;
-                overflow-y: auto;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 10px;
-                padding: 0 12px 12px 12px;
-            ">
-                <!-- Atlas cards will be inserted here dynamically -->
-            </div>
         </div>
     </div>
 
@@ -729,189 +710,10 @@
                 bestAtlas: null,
                 proceedNormally: false,
                 mapReady: false,
-                manualOverlayControl: hasURLParams,
-                shouldShowAtlasPicker: false // Will be set later based on conditions
+                manualOverlayControl: hasURLParams
             };
 
-            const atlasPickerContainer = document.getElementById('atlas-picker-container');
-            const atlasPickerHeading = document.getElementById('atlas-picker-heading');
             const loadingOverlayClose = document.getElementById('loading-overlay-close');
-
-            /**
-             * Create an atlas card element
-             */
-            function createAtlasCard(atlasId, metadata) {
-                const card = document.createElement('div');
-                card.className = 'atlas-card';
-                card.dataset.atlasId = atlasId;
-
-                card.style.cssText = `
-                    position: relative;
-                    display: flex;
-                    flex-direction: column;
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 2px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 8px;
-                    overflow: hidden;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                    backdrop-filter: blur(10px);
-                    padding: 10px;
-                `;
-
-                // Square thumbnail
-                const thumbnail = document.createElement('div');
-                thumbnail.style.cssText = `
-                    width: 64px;
-                    height: 64px;
-                    margin: 0 auto 8px auto;
-                    border-radius: 6px;
-                    background-image: url('${metadata.headerImage}');
-                    background-size: cover;
-                    background-position: center;
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-                    transition: transform 0.3s ease;
-                    flex-shrink: 0;
-                `;
-                card.appendChild(thumbnail);
-
-                // Title
-                const title = document.createElement('div');
-                title.textContent = metadata.name || atlasId;
-                title.style.cssText = `
-                    font-size: 0.875rem;
-                    font-weight: 700;
-                    margin-bottom: 2px;
-                    color: white;
-                    text-align: center;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    line-height: 1.2;
-                `;
-                card.appendChild(title);
-
-                // Area of Interest
-                if (metadata.areaOfInterest) {
-                    const area = document.createElement('div');
-                    area.textContent = metadata.areaOfInterest;
-                    area.style.cssText = `
-                        font-size: 0.625rem;
-                        opacity: 0.6;
-                        margin-bottom: 6px;
-                        color: white;
-                        text-align: center;
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                        line-height: 1.2;
-                    `;
-                    card.appendChild(area);
-                }
-
-                // Layer count badge (always visible)
-                const layerBadge = document.createElement('div');
-                layerBadge.style.cssText = `
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 3px;
-                    padding: 3px 6px;
-                    background: rgba(59, 130, 246, 0.2);
-                    border: 1px solid rgba(59, 130, 246, 0.4);
-                    border-radius: 10px;
-                    font-size: 0.625rem;
-                    font-weight: 600;
-                    color: rgba(255, 255, 255, 0.9);
-                    margin: 0 auto;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                `;
-
-                const layerIcon = document.createElement('svg');
-                layerIcon.setAttribute('width', '10');
-                layerIcon.setAttribute('height', '10');
-                layerIcon.setAttribute('viewBox', '0 0 24 24');
-                layerIcon.setAttribute('fill', 'currentColor');
-                layerIcon.innerHTML = '<path d="M12 0l-11 6v12.131l11 5.869 11-5.869v-12.131l-11-6zm0 2.236l8.321 4.421-8.321 4.443-8.321-4.443 8.321-4.421zm-9 11.394l9 4.805 9-4.805v-6.508l-9 4.805-9-4.805v6.508z"/>';
-                layerBadge.appendChild(layerIcon);
-
-                const layerCount = document.createElement('span');
-                layerCount.textContent = `${metadata.layerCount || 0}`;
-                layerBadge.appendChild(layerCount);
-
-                card.appendChild(layerBadge);
-
-                // Click handler
-                card.addEventListener('click', () => {
-                    window.location.href = `?atlas=${atlasId}`;
-                });
-
-                // Hover effect
-                card.addEventListener('mouseenter', () => {
-                    card.style.transform = 'translateY(-2px)';
-                    card.style.borderColor = 'rgba(59, 130, 246, 0.5)';
-                    card.style.background = 'rgba(59, 130, 246, 0.1)';
-                    card.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
-                    thumbnail.style.transform = 'scale(1.05)';
-                });
-
-                card.addEventListener('mouseleave', () => {
-                    card.style.transform = 'translateY(0)';
-                    card.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                    card.style.background = 'rgba(255, 255, 255, 0.05)';
-                    card.style.boxShadow = 'none';
-                    thumbnail.style.transform = 'scale(1)';
-                });
-
-                return card;
-            }
-
-            /**
-             * Load featured atlases
-             */
-            async function loadFeaturedAtlases() {
-                if (!atlasPickerContainer) {
-                    console.warn('Atlas picker container not found');
-                    return;
-                }
-
-                try {
-                    // Load index config to get atlas order
-                    const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
-                    if (!indexResponse.ok) {
-                        console.error('Failed to load index atlas');
-                        return;
-                    }
-
-                    const indexConfig = await indexResponse.json();
-                    const atlasOrder = indexConfig.atlases || [];
-
-                    // Load each atlas config and create cards
-                    for (const atlasId of atlasOrder) {
-                        try {
-                            const response = await fetch(`config/${atlasId}.atlas.json`);
-                            if (!response.ok) continue;
-
-                            const config = await response.json();
-
-                            // Only show atlases with header images
-                            if (config.headerImage) {
-                                const metadata = {
-                                    name: config.name || atlasId,
-                                    description: config.description || '',
-                                    areaOfInterest: config.areaOfInterest || '',
-                                    headerImage: config.headerImage,
-                                    color: config.color || '#2563eb',
-                                    layerCount: config.layers ? config.layers.length : 0
-                                };
-
-                                const card = createAtlasCard(atlasId, metadata);
-                                atlasPickerContainer.appendChild(card);
-                            }
-                        } catch (error) {
-                            console.warn(`Failed to load atlas ${atlasId}:`, error);
-                        }
-                    }
-                } catch (error) {
-                    console.error('Failed to load featured atlases:', error);
-                }
-            }
 
             function onMapReady() {
                 if (requestedMapSpinner) {
@@ -923,18 +725,7 @@
 
                 window.loadingStartupState.mapReady = true;
 
-                // If showing atlas picker (basepath mode), don't auto-close at all
-                if (window.loadingStartupState.shouldShowAtlasPicker) {
-                    if (requestedMapStatus) {
-                        requestedMapStatus.textContent = 'Map ready - choose an atlas to explore';
-                    }
-                    return;
-                }
-
                 if (autoProceedCancelled || userInteracted) {
-                    if (requestedMapStatus) {
-                        requestedMapStatus.textContent = 'Click on an atlas to explore';
-                    }
                     return;
                 }
 
@@ -958,9 +749,6 @@
                     sectionFillAnimation.style.transition = 'none';
                     sectionFillAnimation.style.width = '0%';
                 }
-                if (requestedMapStatus) {
-                    requestedMapStatus.textContent = 'Click on an atlas to explore';
-                }
                 if (cancelAutoProceedBtn) {
                     cancelAutoProceedBtn.style.display = 'none';
                 }
@@ -976,16 +764,6 @@
                     // Show close button when manually opened
                     if (loadingOverlayClose) {
                         loadingOverlayClose.style.display = 'block';
-                    }
-
-                    // Always show atlas picker when manually opening
-                    if (atlasPickerHeading) atlasPickerHeading.style.display = 'block';
-                    if (atlasPickerContainer) atlasPickerContainer.style.display = 'grid';
-                    if (requestedMapStatus) requestedMapStatus.textContent = 'Choose an atlas to explore';
-
-                    // Reload atlas cards if container is empty
-                    if (atlasPickerContainer && atlasPickerContainer.children.length === 0) {
-                        loadFeaturedAtlases();
                     }
                 }
             }
@@ -1148,8 +926,8 @@
 
             // Add click handler to loading overlay to disable auto-close
             loadingOverlay.addEventListener('click', function (e) {
-                // Don't disable auto-close if clicking on atlas cards or links
-                if (!e.target.closest('.atlas-card') && !e.target.closest('a') && !e.target.closest('button')) {
+                // Don't disable auto-close if clicking on links or buttons
+                if (!e.target.closest('a') && !e.target.closest('button')) {
                     userInteracted = true;
                     autoProceedCancelled = true;
                     if (fillAnimationTimeout) {
@@ -1160,9 +938,6 @@
                         sectionFillAnimation.style.transition = 'none';
                         sectionFillAnimation.style.width = '0%';
                     }
-                    if (requestedMapStatus && window.loadingStartupState.mapReady) {
-                        requestedMapStatus.textContent = 'Click on an atlas to explore';
-                    }
                 }
             });
 
@@ -1171,17 +946,6 @@
             if (activationPanel) {
                 activationPanel.style.display = 'block';
             }
-
-            // Always show atlas picker for quick access
-            if (atlasPickerHeading) atlasPickerHeading.style.display = 'block';
-            if (atlasPickerContainer) atlasPickerContainer.style.display = 'grid';
-
-            // Load atlas cards immediately
-            loadFeaturedAtlases();
-
-            // Determine if we should show atlas picker
-            const shouldShowAtlasPicker = !hasURLParams && !hashLocation;
-            window.loadingStartupState.shouldShowAtlasPicker = shouldShowAtlasPicker;
 
             if (hasURLParams) {
                 // Show URL info and cancel button for URL params
@@ -1220,11 +984,6 @@
                     cancelAutoProceedBtn.addEventListener('click', cancelAutoProceed);
                 }
 
-                // Update heading to indicate current and alternative options
-                if (atlasPickerHeading) {
-                    atlasPickerHeading.textContent = 'Or explore other atlases:';
-                }
-
                 // If there's a location hash, proceed normally with the URL
                 // If there's NO location hash, let SplashScreenManager handle location detection
                 if (hashInfo) {
@@ -1244,11 +1003,6 @@
                 }
 
                 requestedMapStatus.innerHTML = `Using location from URL: <a href="${window.location.href}" style="color: #60a5fa; text-decoration: underline;">${hashLocation.lat.toFixed(6)}, ${hashLocation.lng.toFixed(6)}</a>`;
-
-                // Update heading
-                if (atlasPickerHeading) {
-                    atlasPickerHeading.textContent = 'Or explore other atlases:';
-                }
 
                 // Automatically proceed with hash location
                 setTimeout(() => {
@@ -1573,25 +1327,6 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        /* Atlas picker scrollbar */
-        #atlas-picker-container::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        #atlas-picker-container::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-        }
-
-        #atlas-picker-container::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-        }
-
-        #atlas-picker-container::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
         /* Responsive activation panel grid */
         @media (max-width: 768px) {
             .activation-grid {
@@ -1608,17 +1343,6 @@
             #nav-menu-container {
                 width: 340px !important;
                 max-width: 90vw !important;
-            }
-
-            #atlas-picker-container {
-                gap: 8px !important;
-                padding: 0 8px 12px 8px !important;
-                max-height: 45vh !important;
-                grid-template-columns: repeat(2, 1fr) !important;
-            }
-
-            .atlas-card {
-                padding: 8px !important;
             }
 
             #loading-overlay {
@@ -1638,17 +1362,6 @@
             #nav-menu-container {
                 width: 100% !important;
                 max-width: 100vw !important;
-            }
-
-            #atlas-picker-container {
-                gap: 6px !important;
-                padding: 0 6px 12px 6px !important;
-                max-height: 40vh !important;
-                grid-template-columns: 1fr !important;
-            }
-
-            .atlas-card {
-                padding: 6px !important;
             }
 
             #loading-overlay {

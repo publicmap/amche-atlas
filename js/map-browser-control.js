@@ -149,15 +149,15 @@ export class MapBrowserControl {
             this._button.classList.add('active');
             this._button.style.cssText = 'height: 38px; padding: 0 0.75rem; border-radius: 0.375rem 0.375rem 0 0; border-bottom: none; position: relative; z-index: 1000;';
             this._button.innerHTML = `
-                <sl-icon name="plus-circle-fill" style="font-size: 14px;"></sl-icon>
-                <span class="map-browser-text">Add Map</span>
+                <sl-icon name="map" style="font-size: 14px;"></sl-icon>
+                <span class="map-browser-text">Maps</span>
             `;
         } else {
             this._button.classList.remove('active');
             this._button.style.cssText = 'height: 36px; padding: 0 0.75rem; border-radius: 0.375rem; position: relative;';
             this._button.innerHTML = `
-                <sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon>
-                <span class="map-browser-text">Add Map</span>
+                <sl-icon name="map" style="font-size: 14px;"></sl-icon>
+                <span class="map-browser-text">Maps</span>
             `;
         }
     }
