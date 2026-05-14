@@ -28,11 +28,12 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         // url-manager flips the control back to OFF and the button gets stuck
         // showing the idle "Locating…" label.
         const autoActivate = new URLSearchParams(window.location.search).get('geolocate') === 'true';
-        const idleText = autoActivate ? 'Locating…' : 'GPS Off';
+        let idleText = autoActivate ? 'Locating…' : 'GPS Off';
 
         // Track when tracking starts/stops
         this.on('trackuserlocationstart', () => {
             this.isTracking = true;
+            idleText = 'GPS Off';
             $(window).on('deviceorientationabsolute', this.handleOrientation);
             $(document).trigger('update_url', { geolocate: true });
         });
