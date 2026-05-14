@@ -12,7 +12,6 @@ export class MapCreator {
     }
 
     init() {
-        this.setupTabNavigation();
         this.setupEventListeners();
         this.setupColorPickers();
         this.setupMessageListener();
@@ -24,7 +23,7 @@ export class MapCreator {
             if (event.data.type === 'load-file-data') {
                 const { fileName, content, arrayBuffer } = event.data;
                 const ext = fileName.split('.').pop().toLowerCase();
-                this.switchTab('upload');
+                this.showSelectedFile(fileName);
                 try {
                     let geojson;
                     if (ext === 'gpkg') {
@@ -54,18 +53,16 @@ export class MapCreator {
         });
     }
 
-    setupTabNavigation() {
-        $('.tab-button').on('click', (e) => {
-            const tabName = $(e.currentTarget).data('tab');
-            this.switchTab(tabName);
-        });
+    showSelectedFile(fileName) {
+        $('#selected-file-name').text(fileName);
+        $('#selected-file-info').removeClass('hidden');
     }
 
-    switchTab(tabName) {
-        $('.tab-button').removeClass('active');
-        $(`.tab-button[data-tab="${tabName}"]`).addClass('active');
-        $('.tab-content').removeClass('active');
-        $(`#tab-${tabName}`).addClass('active');
+    clearSelectedFile() {
+        $('#file-input').val('');
+        $('#selected-file-info').addClass('hidden');
+        $('#selected-file-name').text('');
+        $('#georef-notice').addClass('hidden');
     }
 
     setupEventListeners() {
@@ -78,6 +75,10 @@ export class MapCreator {
 
             if (url) {
                 $('#clear-url-btn').removeClass('hidden');
+                const fileInput = $('#file-input')[0];
+                if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    this.clearSelectedFile();
+                }
             } else {
                 $('#clear-url-btn').addClass('hidden');
                 $('#url-validation').html('');
@@ -123,9 +124,29 @@ export class MapCreator {
             $('#settings-section').hide();
             this.setLoadingState('default');
             $('.format-chip').removeClass('active-format');
+            this.clearPreview();
+        });
+
+        $('#upload-file-btn').on('click', () => {
+            $('#file-input').trigger('click');
+        });
+
+        $('#clear-file-btn').on('click', () => {
+            this.clearSelectedFile();
+            $('#data-preview-details').hide();
+            $('#settings-section').hide();
+            this.setLoadingState('default');
+            this.clearPreview();
         });
 
         $('#file-input').on('change', (e) => {
+            if (e.target.files.length > 0) {
+                $('#url-input').val('');
+                $('#clear-url-btn').addClass('hidden');
+                $('#url-validation').html('');
+                $('.format-chip').removeClass('active-format');
+                this.showSelectedFile(e.target.files[0].name);
+            }
             this.handleFileUpload(e);
         });
 
@@ -174,6 +195,8 @@ export class MapCreator {
         $('.format-chip').on('click', (e) => {
             const $chip = $(e.currentTarget);
             const sampleUrl = $chip.data('sample');
+            if (!sampleUrl) return;
+            this.clearSelectedFile();
             $('#url-input').val(sampleUrl).trigger('input').focus();
         });
 
@@ -351,15 +374,16 @@ export class MapCreator {
     }
 
     handleLoadData() {
-        const activeTab = $('.tab-button.active').data('tab');
-        if (activeTab === 'url') {
+        const url = $('#url-input').val().trim();
+        const fileInput = $('#file-input')[0];
+        const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+
+        if (url) {
             this.handleURLImport();
-        } else if (activeTab === 'upload') {
-            const fileInput = $('#file-input')[0];
-            if (fileInput.files.length === 0) {
-                alert('Please select a file to upload');
-                return;
-            }
+        } else if (hasFile) {
+            this.handleFileUpload({ target: fileInput });
+        } else {
+            alert('Paste a URL or upload a file to load data');
         }
     }
 
@@ -746,7 +770,7 @@ export class MapCreator {
                 $btn.prop('disabled', false)
                     .removeClass('bg-blue-600 bg-blue-400 hover:bg-blue-700')
                     .addClass('bg-green-600 hover:bg-green-700')
-                    .html('<span class="inline-flex items-center gap-2">✓ Data Loaded</span>');
+                    .html('<span class="inline-flex items-center gap-2">↻ Refresh Data</span>');
                 break;
             case 'error':
                 $btn.prop('disabled', false)
@@ -882,6 +906,9 @@ export class MapCreator {
     }
 
     processGeoJSON(geojson, sourceName) {
+        if (sourceName !== 'edited') {
+            this._previewFitted = false;
+        }
         this.currentData = geojson;
         this.currentDataSource = sourceName;
         this.currentLayerType = 'geojson';
@@ -908,6 +935,7 @@ export class MapCreator {
     }
 
     processCSVLayer(csvUrl, geojson, rows) {
+        this._previewFitted = false;
         this.currentData = {
             csvUrl: csvUrl,
             geojson: geojson,
@@ -1204,9 +1232,8 @@ export class MapCreator {
 
         if (isExternalUrl) {
             config.url = this.currentDataSource;
-        } else {
-            config.dataSource = 'localStorage';
         }
+        config.dataSource = 'localStorage';
 
         if (description) {
             config.description = description;
@@ -1268,9 +1295,8 @@ export class MapCreator {
         if (isExternalUrl) {
             config.type = layerType;
             config.url = this.currentData.csvUrl;
-        } else {
-            config.dataSource = 'localStorage';
         }
+        config.dataSource = 'localStorage';
 
         if (description) {
             config.description = description;
@@ -1317,6 +1343,7 @@ export class MapCreator {
             $('#config-preview').val(JSON.stringify(config, null, 2));
         } else if (this.currentLayerType !== 'geojson') {
             this.updateTileConfigPreview(this.currentData);
+            this.schedulePreview();
             return;
         } else {
             config = this.generateLayerConfig();
@@ -1327,6 +1354,52 @@ export class MapCreator {
         const configJson = JSON.stringify(config).replace(/"/g, "'");
         const inlineUrl = `${baseUrl}?layers=${encodeURIComponent(configJson)}`;
         $('#inline-url').val(inlineUrl);
+
+        this.schedulePreview();
+    }
+
+    schedulePreview() {
+        clearTimeout(this._previewTimer);
+        this._previewTimer = setTimeout(() => this.sendPreview(), 150);
+    }
+
+    sendPreview() {
+        let geojson = null;
+        let bbox = null;
+        let config = null;
+
+        if (this.currentLayerType === 'geojson') {
+            geojson = this.currentData;
+            bbox = this.calculateBBox(geojson);
+            config = this.generateLayerConfig();
+        } else if (this.currentLayerType === 'csv') {
+            geojson = this.currentData?.geojson;
+            if (!geojson) return;
+            bbox = this.calculateBBox(geojson);
+            config = this.generateCSVLayerConfig();
+        } else {
+            return;
+        }
+
+        if (!geojson || !geojson.features || geojson.features.length === 0) return;
+
+        const fitBounds = !this._previewFitted;
+        this._previewFitted = true;
+
+        window.parent.postMessage({
+            type: 'creator-preview',
+            geojson: geojson,
+            style: config.style,
+            geometryType: this.currentGeometryType,
+            bbox: bbox,
+            fitBounds: fitBounds
+        }, '*');
+    }
+
+    clearPreview() {
+        clearTimeout(this._previewTimer);
+        this._previewFitted = false;
+        window.parent.postMessage({ type: 'creator-clear-preview' }, '*');
     }
 
     extractFields(geojson) {
@@ -1461,6 +1534,7 @@ export class MapCreator {
         }
 
         this.currentData.geojson = geojson;
+        this._previewFitted = false;
         this.updateDataPreview(geojson);
 
         const geometryType = this.detectGeometryType(geojson);
@@ -1538,11 +1612,14 @@ export class MapCreator {
                 LayerConfigGenerator.storeGeoJSONData(config.id, geojsonData);
             } catch (e) {
                 delete config.dataSource;
-                config.geojson = geojsonData;
+                if (!config.url) {
+                    config.geojson = geojsonData;
+                }
             }
         }
 
         console.log('[MapCreator] Sending add-custom-layer message to parent');
+        this.clearPreview();
         window.parent.postMessage({
             type: 'add-custom-layer',
             config: config
@@ -1550,12 +1627,14 @@ export class MapCreator {
     }
 
     returnToBrowser() {
+        this.clearPreview();
         window.parent.postMessage({
             type: 'return-to-browser'
         }, '*');
     }
 
     closeBrowser() {
+        this.clearPreview();
         window.parent.postMessage({
             type: 'close-browser'
         }, '*');
