@@ -1332,12 +1332,23 @@ export class MapboxAPI {
                 // Support geojson property (can be null or a GeoJSON object)
                 dataSource = config.geojson ? this._processGeoJSONData(config.geojson) : { type: 'FeatureCollection', features: [] };
             } else if (config.dataSource === 'localStorage') {
-                // Retrieve GeoJSON from localStorage
+                // Retrieve GeoJSON from localStorage cache; fall back to URL if absent
                 const storedData = LayerConfigGenerator.retrieveGeoJSONData(config.id);
                 if (storedData) {
                     dataSource = this._processGeoJSONData(storedData);
+                } else if (config.url) {
+                    if (KMLConverter.isKmlUrl(config.url)) {
+                        try {
+                            dataSource = await KMLConverter.fetchAndConvert(config.url);
+                        } catch (error) {
+                            console.error(`Error converting KML for ${groupId}:`, error);
+                            return false;
+                        }
+                    } else {
+                        dataSource = config.url;
+                    }
                 } else {
-                    console.error(`GeoJSON data not found in localStorage for ${groupId}`);
+                    console.error(`GeoJSON data not found in localStorage and no URL fallback for ${groupId}`);
                     return false;
                 }
             } else if (config.url) {
@@ -1427,8 +1438,21 @@ export class MapboxAPI {
             const storedData = LayerConfigGenerator.retrieveGeoJSONData(config.id);
             if (storedData) {
                 geojson = this._processGeoJSONData(storedData);
+            } else if (config.url) {
+                try {
+                    if (KMLConverter.isKmlUrl(config.url)) {
+                        geojson = await KMLConverter.fetchAndConvert(config.url);
+                    } else {
+                        const response = await fetch(config.url);
+                        const data = await response.json();
+                        geojson = this._processGeoJSONData(data);
+                    }
+                } catch (error) {
+                    console.error(`Error loading data for segregated layer ${groupId}:`, error);
+                    return false;
+                }
             } else {
-                console.error(`GeoJSON data not found in localStorage for ${groupId}`);
+                console.error(`GeoJSON data not found in localStorage and no URL fallback for ${groupId}`);
                 return false;
             }
         } else if (config.url) {
@@ -1960,6 +1984,18 @@ export class MapboxAPI {
 
                 if (config.data) {
                     geojson = this._processCSVData(config.data, config.csvParser);
+                } else if (config.dataSource === 'localStorage') {
+                    const storedData = LayerConfigGenerator.retrieveGeoJSONData(config.id);
+                    if (storedData) {
+                        geojson = this._processGeoJSONData(storedData);
+                    } else if (config.url) {
+                        const response = await fetch(config.url);
+                        const csvText = await response.text();
+                        geojson = this._processCSVData(csvText, config.csvParser);
+                    } else {
+                        console.error('CSV layer cache miss and no URL fallback:', groupId);
+                        return false;
+                    }
                 } else if (config.url) {
                     const response = await fetch(config.url);
                     const csvText = await response.text();

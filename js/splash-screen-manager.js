@@ -46,6 +46,10 @@ export class SplashScreenManager {
         this.populateActivationPanel();
         this.setupEventListeners();
 
+        // If URL has no atlas/hash, ask user before triggering GPS so a slow
+        // permission prompt can't lose the race to a wrong-atlas GeoIP fallback.
+        await this.maybeShowGPSPermissionNotice();
+
         // Trigger geolocation detection if needed (but don't wait for it)
         this.triggerLocationDetectionIfNeeded();
 
@@ -54,26 +58,203 @@ export class SplashScreenManager {
     }
 
     /**
-     * Trigger location detection based on locationSource
-     * This runs in the background and doesn't block the UI
+     * When URL has no atlas/hash, locationSource is 'gps' and we'd otherwise
+     * race a browser permission prompt against GeoIP. Show an in-app notice
+     * so the user can decide synchronously: Locate Now = GPS (with GeoIP
+     * fallback), Later = GeoIP only. Auto-defaults to GPS after 5s.
+     *
+     * Skips the notice only when permission is already granted (GPS resolves
+     * without a prompt — no race to worry about). In the 'denied' state we
+     * still show the notice; otherwise the user just sees the atlas silently
+     * jump on GeoIP, which is the exact surprise this is meant to prevent.
+     * "Locate Now" with denied permission falls through to GeoIP anyway.
+     */
+    async maybeShowGPSPermissionNotice() {
+        if (this.state.locationSource !== 'gps') return;
+
+        if ('permissions' in navigator) {
+            try {
+                const status = await navigator.permissions.query({ name: 'geolocation' });
+                if (status.state === 'granted') return;
+            } catch (e) {}
+        }
+
+        const notice = document.getElementById('gps-permission-notice');
+        const locateBtn = document.getElementById('gps-locate-now-btn');
+        const laterBtn = document.getElementById('gps-later-btn');
+        const locateText = document.getElementById('gps-locate-now-text');
+        if (!notice || !locateBtn || !laterBtn || !locateText) return;
+
+        notice.style.display = 'flex';
+
+        return new Promise(resolve => {
+            let countdown = 5;
+            let timer = null;
+
+            const cleanup = () => {
+                if (timer) clearInterval(timer);
+                notice.style.display = 'none';
+            };
+
+            const useGPS = () => {
+                cleanup();
+                this.state.locationSource = 'gps';
+                resolve();
+            };
+
+            const useGeoIP = () => {
+                cleanup();
+                this.state.locationSource = 'geoip';
+                this.updateLocationText();
+                resolve();
+            };
+
+            locateText.textContent = `Locate Now (${countdown}s)`;
+            timer = setInterval(() => {
+                countdown--;
+                if (countdown <= 0) {
+                    useGPS();
+                } else {
+                    locateText.textContent = `Locate Now (${countdown}s)`;
+                }
+            }, 1000);
+
+            locateBtn.addEventListener('click', useGPS, { once: true });
+            laterBtn.addEventListener('click', useGeoIP, { once: true });
+        });
+    }
+
+    /**
+     * Trigger location detection based on locationSource.
+     * For 'gps', tries device GPS first and falls back to GeoIP on failure so
+     * a wrong hotspot IP doesn't pick the initial atlas.
      */
     triggerLocationDetectionIfNeeded() {
-        if (this.state.locationSource === 'geoip') {
-            if (window.handleIPLocationFallback) {
-                console.log('[SplashScreen] Triggering GeoIP location detection');
-                window.handleIPLocationFallback().then(success => {
-                    if (success && !this.state.manualLocationSelection) {
-                        console.log('[SplashScreen] GeoIP detection completed');
-                        this.updateLocationText();
-                    }
-                });
-            }
-        } else if (this.state.locationSource === 'gps') {
-            if (window.handleGeolocation) {
-                console.log('[SplashScreen] Triggering GPS location detection');
-                window.handleGeolocation(false);
-            }
+        if (this.state.locationSource === 'gps') {
+            this.detectGPSThenGeoIP();
+        } else if (this.state.locationSource === 'geoip') {
+            this.detectGeoIP();
         }
+    }
+
+    async detectGPSThenGeoIP() {
+        if ('permissions' in navigator) {
+            try {
+                const status = await navigator.permissions.query({ name: 'geolocation' });
+                if (status.state === 'denied') {
+                    console.log('[SplashScreen] GPS permission denied, using GeoIP');
+                    return this.fallbackToGeoIP();
+                }
+            } catch (e) {}
+        }
+
+        if (!window.handleGeolocation) {
+            return this.fallbackToGeoIP();
+        }
+
+        console.log('[SplashScreen] Trying GPS first');
+        const success = await window.handleGeolocation(false);
+
+        if (this.state.manualLocationSelection) return;
+
+        if (success) {
+            // Synchronously update URL with best atlas before map-init.js's race
+            // callback (50ms cadence) sees userLocation and runs its own detection.
+            const loc = window.loadingStartupState?.userLocation;
+            if (loc) await this.applyLocationBasedAtlas(loc.lat, loc.lng, 'gps');
+            console.log('[SplashScreen] GPS detection succeeded');
+            this.updateLocationText();
+        } else {
+            console.log('[SplashScreen] GPS detection failed, falling back to GeoIP');
+            this.fallbackToGeoIP();
+        }
+    }
+
+    async fallbackToGeoIP() {
+        this.state.locationSource = 'geoip';
+        this.updateLocationText();
+        await this.detectGeoIP();
+    }
+
+    async detectGeoIP() {
+        if (!window.handleIPLocationFallback) return;
+        console.log('[SplashScreen] Triggering GeoIP location detection');
+        const success = await window.handleIPLocationFallback();
+        if (success && !this.state.manualLocationSelection) {
+            const ip = window.ipLocationData;
+            if (ip?.lat && ip?.lng) await this.applyLocationBasedAtlas(ip.lat, ip.lng, 'geoip');
+            console.log('[SplashScreen] GeoIP detection completed');
+            this.updateLocationText();
+        }
+    }
+
+    /**
+     * Find the smallest atlas whose bbox contains the point. Synchronous —
+     * relies on layerRegistry being initialized (waitForLayerRegistry already
+     * ensured this in initialize()).
+     */
+    findBestAtlasForLocation(lat, lng) {
+        const reg = window.layerRegistry;
+        if (!reg?._atlasMetadata) return null;
+
+        let best = null;
+        for (const [atlasId, metadata] of reg._atlasMetadata.entries()) {
+            if (atlasId === 'index' || !metadata.bbox) continue;
+            if (!reg.isPointInAtlasBbox(atlasId, lng, lat)) continue;
+            const [w, s, e, n] = metadata.bbox;
+            const area = (e - w) * (n - s);
+            if (!best || area < best.area) best = { id: atlasId, area };
+        }
+        return best?.id || null;
+    }
+
+    /**
+     * Build URL layer list as atlas-initiallyChecked + index-initiallyChecked
+     * (atlas wins on conflicts). Mirrors the merge in map-init.js so behavior
+     * matches when splash drives atlas selection.
+     */
+    buildMergedLayerIds(atlasId) {
+        const reg = window.layerRegistry;
+        if (!reg) return [];
+        const idsFrom = (id) => (reg.getAtlasLayers(id) || [])
+            .filter(l => l.initiallyChecked)
+            .map(l => l.id)
+            .filter(Boolean);
+        const atlasLayers = idsFrom(atlasId);
+        const indexLayers = idsFrom('index');
+        return [...atlasLayers, ...indexLayers.filter(id => !atlasLayers.includes(id))];
+    }
+
+    /**
+     * Owned by splash: pick the best atlas for the detected coords, write the
+     * URL (with hash zoom that lands directly on the user — 18 for GPS, 12 for
+     * GeoIP), and re-render the panel so the UI matches.
+     *
+     * Why URL update must be synchronous before any await: map-init.js's
+     * waitForStartupChoice polls userLocation at 50ms; once it sees the value,
+     * it checks `URLUtils.getUrlParameter('atlas')` for shouldSkip. Our
+     * replaceState here gates that skip — losing the race re-runs findBestAtlas
+     * in map-init.js and rewrites the URL twice.
+     */
+    async applyLocationBasedAtlas(lat, lng, source) {
+        if (this.state.manualAtlasSelection) return;
+
+        const bestAtlasId = this.findBestAtlasForLocation(lat, lng);
+        if (!bestAtlasId || bestAtlasId === this.state.atlas?.id) return;
+
+        const hashZoom = source === 'gps' ? 18 : 12;
+        const layerIds = this.buildMergedLayerIds(bestAtlasId);
+        const layersParam = layerIds.length ? `&layers=${layerIds.join(',')}` : '';
+        const hash = `#${hashZoom}/${lat.toFixed(6)}/${lng.toFixed(6)}`;
+        const newUrl = `${window.location.pathname}?atlas=${bestAtlasId}${layersParam}&geolocate=true${hash}`;
+        window.history.replaceState({}, '', newUrl);
+        console.log('[SplashScreen] Auto-selected atlas:', bestAtlasId, 'for', source, 'location');
+
+        await this.loadAtlasById(bestAtlasId);
+        // loadAtlasById sets locationSource='atlas' — restore detected source
+        this.state.locationSource = source;
+        this.state.locationData = { lat, lng, zoom: hashZoom };
+        this.populateActivationPanel();
     }
 
     /**
@@ -116,11 +297,7 @@ export class SplashScreenManager {
     async parseURLConfiguration() {
         const atlasParam = this.state.urlParams.get('atlas');
         const layersParam = this.state.urlParams.get('layers');
-        const geolocateParam = this.state.urlParams.get('geolocate');
         const hashLocation = this.parseHashLocation();
-
-        // Check if user has granted GPS permission before
-        const hasGrantedGPS = localStorage.getItem('gps-permission-granted') === 'true';
 
         // Parse atlas and layers first
         if (atlasParam || layersParam) {
@@ -137,19 +314,14 @@ export class SplashScreenManager {
             this.state.locationSource = 'atlas';
             this.state.manualAtlasSelection = true;
             console.log('[SplashScreen] Explicit atlas parameter detected - treating as manual selection');
-        } else if (geolocateParam === 'true') {
-            // Handle ?geolocate=true - auto-select GPS
-            this.state.locationSource = 'gps';
         } else if (hashLocation) {
             // Hash location in URL takes precedence
             this.state.locationSource = 'url';
             this.state.locationData = hashLocation;
-        } else if (hasGrantedGPS) {
-            // Prefer GPS if previously granted (only when no explicit atlas)
-            this.state.locationSource = 'gps';
         } else {
-            // Default to GeoIP
-            this.state.locationSource = 'geoip';
+            // Try GPS first, fall back to GeoIP on failure.
+            // GeoIP on hotspots/VPNs can pick the wrong atlas before GPS corrects it.
+            this.state.locationSource = 'gps';
         }
     }
 
@@ -410,7 +582,9 @@ export class SplashScreenManager {
                 }
                 break;
             case 'gps':
-                this.elements.locationText.textContent = 'GPS';
+                this.elements.locationText.textContent = window.loadingStartupState?.userLocation
+                    ? 'GPS'
+                    : 'Detecting...';
                 break;
             case 'atlas':
                 this.elements.locationText.textContent = this.state.atlas?.name || 'Atlas default';
@@ -546,18 +720,6 @@ export class SplashScreenManager {
     }
 
     /**
-     * Store GPS permission grant in localStorage
-     */
-    static rememberGPSPermission() {
-        try {
-            localStorage.setItem('gps-permission-granted', 'true');
-            console.log('[SplashScreen] GPS permission remembered');
-        } catch (e) {
-            console.warn('[SplashScreen] Failed to store GPS permission:', e);
-        }
-    }
-
-    /**
      * Start auto-proceed timer (5 second minimum)
      */
     startAutoProceedTimer() {
@@ -674,11 +836,6 @@ export class SplashScreenManager {
             return;
         }
         this.hasProceeded = true;
-
-        // If GPS is selected, remember the permission for next time
-        if (this.state.locationSource === 'gps') {
-            SplashScreenManager.rememberGPSPermission();
-        }
 
         // Set global state for map initialization
         window.loadingStartupState = {

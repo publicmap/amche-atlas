@@ -21,6 +21,15 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
     onAdd(map) {
         this.map = map;
 
+        // If URL says geolocate=true, show "Locating…" instead of "GPS Off" so
+        // the button reflects pending activation while url-manager.applyURLParameters
+        // (after waitForMapReady) calls triggerGeolocation. Do NOT auto-trigger
+        // here as well — Mapbox's trigger() is a toggle, so a second call from
+        // url-manager flips the control back to OFF and the button gets stuck
+        // showing the idle "Locating…" label.
+        const autoActivate = new URLSearchParams(window.location.search).get('geolocate') === 'true';
+        const idleText = autoActivate ? 'Locating…' : 'GPS Off';
+
         // Track when tracking starts/stops
         this.on('trackuserlocationstart', () => {
             this.isTracking = true;
@@ -106,7 +115,7 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
                     iconSpan.innerHTML = `
                         <sl-icon name="crosshair" class="geolocation-icon" style="font-size: 18px; color: white; flex-shrink: 0;"></sl-icon>
-                        <span class="geolocation-text" style="margin-left: 6px; font-size: 0.875rem; white-space: nowrap; color: white;">GPS Off</span>
+                        <span class="geolocation-text" style="margin-left: 6px; font-size: 0.875rem; white-space: nowrap; color: white;">${idleText}</span>
                     `;
 
                     // Update button colors and text based on state
@@ -137,7 +146,7 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                             button.style.background = '#202020 !important';
                             button.style.borderColor = '#404040 !important';
                             if (icon) { icon.name = 'crosshair'; icon.style.color = 'white'; }
-                            if (textSpan) { textSpan.textContent = 'GPS Off'; textSpan.style.color = 'white'; }
+                            if (textSpan) { textSpan.textContent = idleText; textSpan.style.color = 'white'; }
                         }
                     };
 

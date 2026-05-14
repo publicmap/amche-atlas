@@ -195,6 +195,12 @@ export class MapInitializer {
             }
         }
 
+        // When SplashScreenManager is driving startup it sets manualOverlayControl
+        // synchronously in its initialize(); the GPS-permission notice + detection
+        // can easily take 5-10s, so 2.5s isn't enough. Use a generous safety
+        // timeout in that mode — splash will normally resolve via userLocation/
+        // proceedNormally well before it fires.
+        const safetyTimeoutMs = window.loadingStartupState?.manualOverlayControl ? 30000 : 2500;
         const choice = await Promise.race([
             new Promise(resolve => {
                 const check = setInterval(() => {
@@ -205,7 +211,7 @@ export class MapInitializer {
                     }
                 }, 50);
             }),
-            new Promise(resolve => setTimeout(() => resolve('proceed'), 2500))
+            new Promise(resolve => setTimeout(() => resolve('proceed'), safetyTimeoutMs))
         ]);
 
         // Skip location-based atlas detection if:

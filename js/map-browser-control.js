@@ -265,6 +265,14 @@ export class MapBrowserControl {
             if (event.data.type === 'update-atlas-param') {
                 this._handleUpdateAtlasParam(event.data.atlasId);
             }
+
+            if (event.data.type === 'creator-preview') {
+                this._handleCreatorPreview(event.data);
+            }
+
+            if (event.data.type === 'creator-clear-preview') {
+                this._clearCreatorPreview();
+            }
         });
 
         window.addEventListener('layer-toggled', () => {
@@ -1031,6 +1039,98 @@ export class MapBrowserControl {
 
         console.log('[MapBrowserControl] Reloading with atlas URL:', finalUrl);
         window.location.href = finalUrl;
+    }
+
+    _handleCreatorPreview({ geojson, style, geometryType, bbox, fitBounds }) {
+        if (!this._map || !geojson) return;
+
+        const sourceId = '__creator_preview__';
+        const layerIds = {
+            fill: '__creator_preview_fill__',
+            line: '__creator_preview_line__',
+            circle: '__creator_preview_circle__'
+        };
+
+        const src = this._map.getSource(sourceId);
+        if (src) {
+            src.setData(geojson);
+        } else {
+            this._map.addSource(sourceId, { type: 'geojson', data: geojson });
+        }
+
+        const ensureLayer = (id, layerDef) => {
+            if (this._map.getLayer(id)) {
+                this._map.removeLayer(id);
+            }
+            this._map.addLayer(layerDef);
+        };
+
+        const paintFor = (kind) => {
+            const paint = {};
+            if (!style) return paint;
+            Object.keys(style).forEach(key => {
+                if (kind === 'fill' && (key === 'fill-color' || key === 'fill-opacity')) paint[key] = style[key];
+                if (kind === 'line' && (key === 'line-color' || key === 'line-width' || key === 'line-opacity')) paint[key] = style[key];
+                if (kind === 'circle' && (key === 'circle-color' || key === 'circle-radius' || key === 'circle-stroke-color' || key === 'circle-stroke-width' || key === 'circle-opacity')) paint[key] = style[key];
+            });
+            return paint;
+        };
+
+        Object.values(layerIds).forEach(id => {
+            if (this._map.getLayer(id)) this._map.removeLayer(id);
+        });
+
+        if (geometryType === 'Polygon') {
+            ensureLayer(layerIds.fill, {
+                id: layerIds.fill,
+                type: 'fill',
+                source: sourceId,
+                filter: ['any', ['==', ['geometry-type'], 'Polygon'], ['==', ['geometry-type'], 'MultiPolygon']],
+                paint: paintFor('fill')
+            });
+            ensureLayer(layerIds.line, {
+                id: layerIds.line,
+                type: 'line',
+                source: sourceId,
+                filter: ['any', ['==', ['geometry-type'], 'Polygon'], ['==', ['geometry-type'], 'MultiPolygon'], ['==', ['geometry-type'], 'LineString'], ['==', ['geometry-type'], 'MultiLineString']],
+                paint: paintFor('line')
+            });
+        } else if (geometryType === 'LineString') {
+            ensureLayer(layerIds.line, {
+                id: layerIds.line,
+                type: 'line',
+                source: sourceId,
+                paint: paintFor('line')
+            });
+        } else {
+            ensureLayer(layerIds.circle, {
+                id: layerIds.circle,
+                type: 'circle',
+                source: sourceId,
+                paint: paintFor('circle')
+            });
+        }
+
+        if (fitBounds && bbox && bbox.length === 4) {
+            try {
+                this._map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], {
+                    padding: 60,
+                    duration: 800,
+                    maxZoom: 16
+                });
+            } catch (e) {
+                console.warn('Preview fitBounds failed:', e);
+            }
+        }
+    }
+
+    _clearCreatorPreview() {
+        if (!this._map) return;
+        const sourceId = '__creator_preview__';
+        ['__creator_preview_fill__', '__creator_preview_line__', '__creator_preview_circle__'].forEach(id => {
+            if (this._map.getLayer(id)) this._map.removeLayer(id);
+        });
+        if (this._map.getSource(sourceId)) this._map.removeSource(sourceId);
     }
 
     _handleUpdateAtlasParam(atlasId) {

@@ -515,6 +515,72 @@
             </div>
 
 
+            <!-- GPS Permission Notice (shown when no atlas/hash in URL) -->
+            <div id="gps-permission-notice" style="
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(15, 23, 42, 0.85);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                z-index: 10002;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            ">
+                <div style="
+                    background: rgba(15, 25, 50, 0.99);
+                    border: 1px solid rgba(96, 165, 250, 0.35);
+                    border-radius: 10px;
+                    padding: 24px;
+                    max-width: 480px;
+                    width: 100%;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                ">
+                    <h1 style="font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 12px;">
+                        Allow GPS Location?
+                    </h1>
+                    <p style="font-size: 0.9rem; color: #cbd5e1; margin: 0 0 20px; line-height: 1.5;">
+                        Giving access to your device location will allow locating yourself on the map accurately. You can also do this later at anytime.
+                    </p>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
+                        <button id="gps-later-btn" style="
+                            padding: 8px 18px;
+                            background: rgba(255,255,255,0.08);
+                            color: #e5e7eb;
+                            border: 1px solid rgba(255,255,255,0.15);
+                            border-radius: 5px;
+                            font-size: 0.9rem;
+                            font-weight: 500;
+                            cursor: pointer;
+                        ">Later</button>
+                        <button id="gps-locate-now-btn" style="
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            padding: 8px 18px;
+                            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                            color: white;
+                            border: none;
+                            border-radius: 5px;
+                            font-size: 0.9rem;
+                            font-weight: 600;
+                            cursor: pointer;
+                            box-shadow: 0 2px 8px rgba(59,130,246,0.4);
+                        ">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8.5.5a.5.5 0 0 0-1 0v.518A7 7 0 0 0 1.018 7.5H.5a.5.5 0 0 0 0 1h.518A7 7 0 0 0 7.5 14.982v.518a.5.5 0 0 0 1 0v-.518A7 7 0 0 0 14.982 8.5h.518a.5.5 0 0 0 0-1h-.518A7 7 0 0 0 8.5 1.018zm-6.48 7A6 6 0 0 1 7.5 2.02v.48a.5.5 0 0 0 1 0v-.48a6 6 0 0 1 5.48 5.48h-.48a.5.5 0 0 0 0 1h.48a6 6 0 0 1-5.48 5.48v-.48a.5.5 0 0 0-1 0v.48A6 6 0 0 1 2.02 8.5h.48a.5.5 0 0 0 0-1zM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4"/>
+                            </svg>
+                            <span id="gps-locate-now-text">Locate Now (5s)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Featured Atlas Picker -->
             <div id="atlas-picker-heading"
                 style="display: block; margin-top: 12px; text-align: center; font-size: 0.875rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
@@ -1076,47 +1142,6 @@
                     }
                     return false;
                 }
-            }
-
-            async function checkAndUseGeolocation() {
-                // Check if Permissions API is available
-                if ('permissions' in navigator) {
-                    try {
-                        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
-
-                        if (permissionStatus.state === 'granted') {
-                            // Permission already granted, use device location directly
-                            if (requestedMapStatus) {
-                                requestedMapStatus.textContent = 'Using device location...';
-                            }
-                            const success = await handleGeolocation(true);
-                            if (success) {
-                                return true;
-                            }
-                        }
-                    } catch (error) {
-                        console.warn('Permissions API error:', error);
-                    }
-                }
-
-                // If permission not granted or Permissions API not available, try geolocation silently
-                try {
-                    const success = await handleGeolocation(false);
-                    if (success) {
-                        requestedMapStatus.innerHTML = `Detected device location: <a href="#${window.loadingStartupState.userLocation.lat.toFixed(6)},${window.loadingStartupState.userLocation.lng.toFixed(6)}" style="color: #60a5fa; text-decoration: underline;">${window.loadingStartupState.userLocation.lat.toFixed(6)}, ${window.loadingStartupState.userLocation.lng.toFixed(6)}</a>`;
-
-                        // Automatically proceed with device location
-                        setTimeout(() => {
-                            requestedMapStatus.textContent = 'Loading map...';
-                        }, 1500);
-                        return true;
-                    }
-                } catch (error) {
-                    // Silently fail and fall back to IP
-                }
-
-                // Fall back to IP location
-                return false;
             }
 
             window.addEventListener('mapReady', onMapReady);
