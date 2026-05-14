@@ -154,12 +154,6 @@
                 gap: 4px !important;
             }
 
-            #atlas-filter-btn {
-                max-width: 100px !important;
-                font-size: 10px !important;
-                padding: 4px 6px !important;
-            }
-
             #add-new-map-link {
                 font-size: 10px !important;
                 padding: 4px 6px !important;
@@ -356,23 +350,6 @@
             padding: 12px 12px 8px;
             background: #111827;
             text-transform: capitalize;
-        }
-
-        .atlas-filter-menu::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .atlas-filter-menu::-webkit-scrollbar-track {
-            background: #1f2937;
-        }
-
-        .atlas-filter-menu::-webkit-scrollbar-thumb {
-            background: #6b7280;
-            border-radius: 3px;
-        }
-
-        .atlas-filter-menu::-webkit-scrollbar-thumb:hover {
-            background: #9ca3af;
         }
 
         .atlas-collapsed {
@@ -839,13 +816,7 @@
             <!-- Header Text with Close Button -->
             <div class="mb-2 text-sm text-gray-300 flex items-center gap-1 justify-between" style="min-width: 0;">
                 <div class="flex items-center gap-1 flex-wrap" style="min-width: 0; flex: 1;">
-                    <span style="flex-shrink: 0;">Choose</span>
-                    <button id="atlas-filter-btn"
-                        style="background: transparent; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 1; min-width: 0; max-width: 160px; overflow: hidden; text-overflow: ellipsis;">
-                        <sl-icon name="map" style="font-size: 12px;"></sl-icon>
-                        <span id="atlas-filter-label">Map Atlas</span>
-                    </button>
-                    <span style="flex-shrink: 0;">or Import</span>
+                    <span style="flex-shrink: 0;">Import</span>
                     <button id="add-new-map-link"
                         style="background: transparent; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
                         <sl-icon name="plus-circle" style="font-size: 12px;"></sl-icon>
@@ -1207,17 +1178,6 @@
             });
 
 
-            $('#atlas-filter-btn').on('click', function () {
-                window.parent.postMessage({ type: 'open-splash' }, '*');
-            });
-
-            // Atlas filter button hover effects
-            $('#atlas-filter-btn').on('mouseenter', function () {
-                $(this).css('background', '#16a34a');
-            }).on('mouseleave', function () {
-                $(this).css('background', 'transparent');
-            });
-
             $('#add-new-map-link').on('click', function () {
                 window.parent.postMessage({ type: 'open-creator' }, '*');
             });
@@ -1311,142 +1271,6 @@
                 $('.atlas-nav-link').removeClass('active');
                 $(`.atlas-nav-link[data-atlas="${activeAtlasId}"]`).addClass('active');
             }
-        }
-
-        // Show atlas filter menu
-        function showAtlasFilterMenu() {
-            // Remove existing menu if any
-            $('.atlas-filter-menu').remove();
-
-            // Get button position
-            const $btn = $('#atlas-filter-btn');
-            const btnOffset = $btn.offset();
-            const btnHeight = $btn.outerHeight();
-            const btnWidth = $btn.outerWidth();
-
-            // Create menu
-            const $menu = $('<div>', {
-                class: 'atlas-filter-menu',
-                style: `position: absolute;
-                        top: ${btnOffset.top + btnHeight + 4}px;
-                        left: ${btnOffset.left}px;
-                        min-width: ${btnWidth}px;
-                        background: #374151;
-                        border: 1px solid #4b5563;
-                        border-radius: 6px;
-                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                        max-height: 500px;
-                        overflow-y: auto;
-                        z-index: 1000;`
-            });
-
-            // All collections option
-            const $allOption = $('<div>', {
-                class: 'atlas-menu-item',
-                style: 'padding: 8px 12px; cursor: pointer; color: white; font-size: 12px; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;',
-                click: function () {
-                    selectAtlas('', 'All Map Collections');
-                    $('.atlas-filter-menu').remove();
-                }
-            });
-            $allOption.append($('<span>', { text: 'All Map Collections' }));
-            $allOption.append($('<span>', {
-                style: 'color: #9ca3af; font-size: 11px;',
-                text: `(${allLayers.length})`
-            }));
-            if (!window.selectedAtlasId) {
-                $allOption.css('background-color', '#4b5563');
-            }
-            $allOption.on('mouseenter', function () {
-                $(this).css('background-color', '#4b5563');
-            }).on('mouseleave', function () {
-                if (window.selectedAtlasId || $(this).text() !== 'All Map Collections') {
-                    $(this).css('background-color', '');
-                }
-            });
-            $menu.append($allOption);
-
-            // Separator
-            $menu.append($('<div>', {
-                style: 'height: 1px; background: #4b5563; margin: 4px 0;'
-            }));
-
-            // Atlas options - filter out index atlas and sort with imported atlases first
-            const atlases = Array.from(atlasMetadata.entries())
-                .filter(([id]) => id !== 'index')
-                .sort((a, b) => {
-                    // Imported atlases (marked with *) come first
-                    const aImported = a[1].isImported || (a[1].name && a[1].name.startsWith('*'));
-                    const bImported = b[1].isImported || (b[1].name && b[1].name.startsWith('*'));
-
-                    if (aImported && !bImported) return -1;
-                    if (!aImported && bImported) return 1;
-
-                    // Otherwise sort alphabetically
-                    return (a[1].name || a[0]).localeCompare(b[1].name || b[0]);
-                });
-
-            atlases.forEach(([id, metadata]) => {
-                // Count layers for this atlas
-                const atlasLayers = allLayers.filter(layer => layer._sourceAtlas === id);
-                const layerCount = atlasLayers.length;
-
-                // Check if atlas has any layers in current view
-                const hasInViewLayers = atlasLayers.some(layer => isInView(layer));
-
-                const $option = $('<div>', {
-                    class: 'atlas-menu-item',
-                    style: `padding: 8px 12px; cursor: pointer; color: white; font-size: 12px; transition: all 0.2s; display: flex; align-items: center; gap: 6px; opacity: ${hasInViewLayers ? '1' : '0.7'};`,
-                    click: function () {
-                        selectAtlas(id, metadata.name || id);
-                        $('.atlas-filter-menu').remove();
-                    }
-                });
-
-                // Color badge
-                const $badge = $('<span>', {
-                    style: `display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: ${metadata.color || '#6b7280'}; flex-shrink: 0;`
-                });
-                $option.append($badge);
-
-                // Atlas name and count
-                const $nameContainer = $('<div>', {
-                    style: 'flex: 1; display: flex; justify-content: space-between; align-items: center;'
-                });
-                $nameContainer.append($('<span>', { text: metadata.name || id }));
-                $nameContainer.append($('<span>', {
-                    style: 'color: #9ca3af; font-size: 11px;',
-                    text: `(${layerCount})`
-                }));
-                $option.append($nameContainer);
-
-                if (window.selectedAtlasId === id) {
-                    $option.css('background-color', '#4b5563');
-                }
-                $option.on('mouseenter', function () {
-                    $(this).css({ 'background-color': '#4b5563', 'opacity': '1' });
-                }).on('mouseleave', function () {
-                    const baseOpacity = hasInViewLayers ? '1' : '0.7';
-                    if (window.selectedAtlasId !== id) {
-                        $(this).css({ 'background-color': '', 'opacity': baseOpacity });
-                    } else {
-                        $(this).css('opacity', baseOpacity);
-                    }
-                });
-
-                $menu.append($option);
-            });
-
-            $('body').append($menu);
-
-            // Close menu when clicking outside
-            setTimeout(() => {
-                $(document).one('click', function (e) {
-                    if (!$(e.target).closest('.atlas-filter-menu, #atlas-filter-btn').length) {
-                        $('.atlas-filter-menu').remove();
-                    }
-                });
-            }, 100);
         }
 
         // Select atlas (expand it in the list)

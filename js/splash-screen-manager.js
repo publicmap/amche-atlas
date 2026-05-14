@@ -286,8 +286,7 @@ export class SplashScreenManager {
             locationBtn: document.getElementById('activation-location-btn'),
             locationText: document.getElementById('activation-location-text'),
             locationDropdown: document.getElementById('activation-location-dropdown'),
-            openMapButton: document.getElementById('activation-open-map'),
-            atlasCards: document.querySelectorAll('.atlas-card')
+            openMapButton: document.getElementById('activation-open-map')
         };
     }
 
@@ -660,19 +659,6 @@ export class SplashScreenManager {
             if (this.elements.locationDropdown) {
                 this.elements.locationDropdown.style.display = 'none';
             }
-        });
-
-        // Atlas card selection
-        this.elements.atlasCards.forEach(card => {
-            card.addEventListener('click', async () => {
-                const atlasId = card.dataset.atlasId;
-                if (atlasId) {
-                    this.cancelAutoProceed();
-                    await this.loadAtlasById(atlasId);
-                    this.state.manualAtlasSelection = true;
-                    this.populateActivationPanel();
-                }
-            });
         });
 
         // Open Map button - first click cancels auto-proceed, second click proceeds

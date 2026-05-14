@@ -240,8 +240,6 @@ export class LayerThumbnail {
     static _generateSymbologyOverlay(layer, size, layerDefaults = {}) {
         // Style properties can be in layer.style OR at the top level
         const style = layer.style || layer;
-        // Vector line/fill/circle defaults from _defaults.json for filling in missing properties
-        const vectorDefaults = layerDefaults.vector || {};
 
         // Check for icon-image first (try both locations)
         const iconImage = style['icon-image'] || layer['icon-image'];
@@ -448,10 +446,10 @@ export class LayerThumbnail {
             }
         }
         // Line symbology
-        else if (style['line-color'] || style['line-width'] || vectorDefaults.line?.['line-color'] || vectorDefaults.line?.['line-width']) {
-            const effectiveLineColor = style['line-color'] || vectorDefaults.line?.['line-color'];
-            const width = getValue(style['line-width'] ?? vectorDefaults.line?.['line-width'], 2);
-            const opacity = getValue(style['line-opacity'] ?? vectorDefaults.line?.['line-opacity'], 1);
+        else if (style['line-color'] || style['line-width']) {
+            const effectiveLineColor = style['line-color'];
+            const width = getValue(style['line-width'], 2);
+            const opacity = getValue(style['line-opacity'], 1);
             const hasCircle = !!(style['circle-radius'] || style['circle-color']);
             const circleColors = hasCircle ? getMultiValues(style['circle-color']) : null;
             const circleR = hasCircle ? Math.min(Math.max(getValue(style['circle-radius'], 3), 2), size * 0.08) : 0;
