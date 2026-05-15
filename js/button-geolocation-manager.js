@@ -14,20 +14,33 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         });
         this.isTracking = false;
         this.locationErrorCount = 0;
+        // One-shot flag set synchronously when trigger() is first called, so
+        // url-manager's later applyURLParameters() can't re-toggle tracking
+        // off in the window before the first GPS position arrives.
+        this._initialTriggerSent = false;
 
         $(document).on('url_updated', this.handleUrlUpdate);
     }
 
     onAdd(map) {
         this.map = map;
+        console.log(`[GPS] ButtonGeolocationManager.onAdd at t=${Math.round(performance.now())}ms`);
 
-        // If URL says geolocate=true, show "Locating…" instead of "GPS Off" so
-        // the button reflects pending activation while url-manager.applyURLParameters
-        // (after waitForMapReady) calls triggerGeolocation. Do NOT auto-trigger
-        // here as well — Mapbox's trigger() is a toggle, so a second call from
-        // url-manager flips the control back to OFF and the button gets stuck
-        // showing the idle "Locating…" label.
-        const autoActivate = new URLSearchParams(window.location.search).get('geolocate') === 'true';
+        // Two paths can request automatic tracking activation:
+        //   1) URL already has ?geolocate=true on load (share link, refresh).
+        //   2) The splash detects GPS *after* onAdd runs and writes the URL via
+        //      history.replaceState — which fires no event. The button used to
+        //      miss this case and only trigger later, when url-manager's
+        //      applyURLParameters fired the `url_updated` jQuery event.
+        // We treat both as "wants tracking" — initial URL check + a watcher for
+        // window.loadingStartupState.userLocation (set by index.html's
+        // handleGeolocation) — so trigger() fires the moment GPS resolves,
+        // regardless of which subsystem detected it.
+        const hasGeolocateUrlParam = () =>
+            new URLSearchParams(window.location.search).get('geolocate') === 'true';
+        const hasUserLocation = () =>
+            !!window.loadingStartupState?.userLocation;
+        const autoActivate = hasGeolocateUrlParam() || hasUserLocation();
         let idleText = autoActivate ? 'Locating…' : 'GPS Off';
 
         // Track when tracking starts/stops
@@ -40,6 +53,9 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
         this.on('trackuserlocationend', () => {
             this.isTracking = false;
+            // Allow re-triggering from a subsequent URL update (e.g. share link
+            // applied later) now that the previous tracking session has ended.
+            this._initialTriggerSent = false;
             $(window).off('deviceorientationabsolute', this.handleOrientation);
             $(document).trigger('update_url', { geolocate: false });
             // Reset map orientation
@@ -53,6 +69,9 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         // Handle geolocation errors
         this.on('error', (error) => {
             this.locationErrorCount++;
+            // The trigger() call has resolved (with failure); allow retry via
+            // a subsequent URL update.
+            this._initialTriggerSent = false;
             console.warn('Geolocation error:', error);
 
             // macOS CoreLocation sporadically reports kCLErrorLocationUnknown
@@ -69,8 +88,16 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
             }, 60000);
         });
 
-        this.on('geolocate', () => {
+        this.on('geolocate', (e) => {
             this.locationErrorCount = 0;
+            const now = performance.now();
+            const elapsed = this._triggerStartedAt
+                ? Math.round(now - this._triggerStartedAt) + 'ms after trigger()'
+                : '(no trigger timestamp)';
+            console.log(
+                `[GPS] First position from Mapbox at t=${Math.round(now)}ms (${elapsed}):`,
+                `${e.coords.latitude.toFixed(6)}, ${e.coords.longitude.toFixed(6)}`
+            );
         });
 
         const container = super.onAdd(map);
@@ -166,6 +193,50 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                         this._updateButtonStyle();
                     });
                     buttonObserver.observe(button, { attributes: true, attributeFilter: ['class'] });
+
+                    // Trigger tracking as soon as either signal is present:
+                    // (a) URL has ?geolocate=true (initial or rewritten by splash)
+                    // (b) window.loadingStartupState.userLocation is set
+                    // We poll because the splash uses history.replaceState
+                    // (no event) to add geolocate=true *after* this onAdd runs.
+                    const tryTrigger = (reason) => {
+                        if (this._initialTriggerSent || this.isTracking) return true;
+                        if (hasGeolocateUrlParam() || hasUserLocation()) {
+                            this._initialTriggerSent = true;
+                            this._triggerStartedAt = performance.now();
+                            console.log(
+                                `[GPS] trigger() called at t=${Math.round(this._triggerStartedAt)}ms (${reason})`
+                            );
+                            this.trigger();
+                            return true;
+                        }
+                        return false;
+                    };
+
+                    if (!tryTrigger('immediate: URL/userLocation already set')) {
+                        // Splash may set userLocation / URL within a few hundred
+                        // ms — show "Locating…" instead of "GPS Off" during the
+                        // poll window so the button reflects pending activation.
+                        idleText = 'Locating…';
+                        if (this._updateButtonStyle) this._updateButtonStyle();
+
+                        // Poll every 100ms for up to 15s. We stop on first
+                        // success or when the page is clearly past the splash
+                        // phase (timeout). Without this, the splash's later
+                        // history.replaceState would not be observed.
+                        let attempts = 0;
+                        const watcher = setInterval(() => {
+                            if (tryTrigger('watcher: splash wrote URL/userLocation')) {
+                                clearInterval(watcher);
+                            } else if (++attempts >= 150) {
+                                clearInterval(watcher);
+                                // Timeout — revert idle text so user can click
+                                // the button to start tracking manually.
+                                idleText = 'GPS Off';
+                                if (this._updateButtonStyle) this._updateButtonStyle();
+                            }
+                        }, 100);
+                    }
                 } else {
                     console.warn('[Geolocation] Icon span not found!');
                 }
@@ -190,7 +261,13 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
     }
 
     handleUrlUpdate = (event, params) => {
-        if (params !== undefined && params.geolocate === true) {
+        // Guard against double-trigger: trigger() is a toggle, so calling it
+        // while already tracking (or with a tracking request already in flight)
+        // would turn tracking OFF. onAdd may have already auto-triggered for
+        // the same URL state; if so, _initialTriggerSent will be true even
+        // before the first GPS position arrives and isTracking flips.
+        if (params !== undefined && params.geolocate === true && !this._initialTriggerSent && !this.isTracking) {
+            this._initialTriggerSent = true;
             this.trigger();
         }
     }

@@ -56,15 +56,13 @@
       "minzoom": 0,
       "maxzoom": 15,
       "attribution": "<a href='https://sra.gov.in/details/sub-category/gismis-slum-data'>Slum Clusters 2015, Slum Rehabilitation Authority, Brihanmumbai,</a> via <a href='https://www.maphub.co/map/03f1d864-8e66-490b-b770-4ef18865901b'>Maphub</a> - Collected by <a href='https://data.opencity.in/dataset/mumbai-slum-cluster-map'>OpenCity.in</a>",
-      "initiallyChecked": true,
       "inspect": {
         "id": "area_km2"
       },
       "style": {
         "fill-color": "darkred",
         "fill-opacity": 0.1,
-        "line-color": "darkred",
-        "line-width": 1
+        "line-color": "darkred"
       },
       "sourceLayer": "vector",
       "headerImage": "https://api-main-432878571563.europe-west4.run.app/maps/03f1d864-8e66-490b-b770-4ef18865901b/thumbnail"

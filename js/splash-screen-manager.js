@@ -18,12 +18,13 @@ export class SplashScreenManager {
             manualAtlasSelection: false,
             manualLocationSelection: false
         };
+        // Auto-proceed gating. We used to track delayElapsed/styleLoaded as a
+        // two-gate AND, but the delay was always 0ms (one rAF) and the style
+        // signal was tied to mapDisplayReady — which only fires after a full
+        // map.idle (every layer/tile loaded). The result was the splash sat
+        // open for seconds after the map was already usable. Now we proceed
+        // on the earliest map-ready signal we can observe.
         this.autoProceed = {
-            enabled: true,
-            minDelay: 0,
-            timer: null,
-            delayElapsed: false,
-            styleLoaded: false,
             cancelled: false
         };
         this.hasProceeded = false; // Prevent multiple proceed calls
@@ -42,6 +43,11 @@ export class SplashScreenManager {
         await this.waitForLayerRegistry();
 
         this.cacheElements();
+        // Synchronously fill the panel from URL params so the user sees real
+        // info (atlas id, layer ids, hash coords) instead of "Loading..." /
+        // "Detecting..." placeholders while parseURLConfiguration() fetches
+        // the atlas JSON in the background.
+        this.prefillPanelFromURL();
         await this.parseURLConfiguration();
         this.populateActivationPanel();
         this.setupEventListeners();
@@ -53,8 +59,13 @@ export class SplashScreenManager {
         // Trigger geolocation detection if needed (but don't wait for it)
         this.triggerLocationDetectionIfNeeded();
 
-        this.startAutoProceedTimer();
-        this.watchForStyleLoad();
+        // The button text used to be set by the (now-removed) auto-proceed
+        // countdown. Set it directly here so the user sees "Loading map…"
+        // until proceedToMap() runs.
+        if (this.elements.openMapButton) {
+            this.elements.openMapButton.textContent = 'Loading map…';
+        }
+        this.watchForMapReady();
     }
 
     /**
@@ -161,8 +172,14 @@ export class SplashScreenManager {
             // Synchronously update URL with best atlas before map-init.js's race
             // callback (50ms cadence) sees userLocation and runs its own detection.
             const loc = window.loadingStartupState?.userLocation;
-            if (loc) await this.applyLocationBasedAtlas(loc.lat, loc.lng, 'gps');
-            console.log('[SplashScreen] GPS detection succeeded');
+            if (loc) {
+                console.log(
+                    `[SplashScreen] GPS resolved at t=${Math.round(performance.now())}ms:`,
+                    `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)} — applying atlas`
+                );
+                await this.applyLocationBasedAtlas(loc.lat, loc.lng, 'gps');
+            }
+            console.log(`[SplashScreen] GPS detection succeeded at t=${Math.round(performance.now())}ms`);
             this.updateLocationText();
         } else {
             console.log('[SplashScreen] GPS detection failed, falling back to GeoIP');
@@ -491,6 +508,71 @@ export class SplashScreenManager {
     }
 
     /**
+     * Synchronous fast-fill from URL params. Runs before parseURLConfiguration()
+     * has fetched the atlas JSON, so the panel shows useful info immediately
+     * rather than the "Loading..." / "Detecting..." placeholders.
+     */
+    prefillPanelFromURL() {
+        const atlasParam = this.state.urlParams.get('atlas');
+        const layersParam = this.state.urlParams.get('layers');
+        const hashLocation = this.parseHashLocation();
+
+        if (this.elements.activationPanel) {
+            this.elements.activationPanel.style.display = 'block';
+        }
+
+        if (this.elements.atlasName) {
+            let display;
+            if (!atlasParam) {
+                display = 'Map';
+            } else if (atlasParam.startsWith('{')) {
+                display = 'Custom map';
+            } else if (atlasParam.startsWith('http')) {
+                display = 'Imported map';
+            } else {
+                display = atlasParam.charAt(0).toUpperCase() + atlasParam.slice(1);
+            }
+            this.elements.atlasName.textContent = display;
+        }
+
+        if (this.elements.layersList && layersParam) {
+            this.elements.layersList.innerHTML = '';
+            // Split on top-level commas (don't split inside {...} layer JSON)
+            const items = [];
+            let depth = 0, current = '';
+            for (const ch of layersParam) {
+                if (ch === '{') depth++;
+                else if (ch === '}') depth--;
+                if (ch === ',' && depth === 0) { items.push(current.trim()); current = ''; }
+                else current += ch;
+            }
+            if (current.trim()) items.push(current.trim());
+
+            items.forEach(id => {
+                if (id === 'selection') return;
+                const chip = document.createElement('div');
+                chip.style.cssText = 'display:flex;align-items:center;gap:5px;padding:3px 8px;background:rgba(255,255,255,0.07);border-radius:12px;border:1px solid rgba(255,255,255,0.12);';
+                const name = document.createElement('span');
+                name.textContent = id.startsWith('{') ? 'custom' : id;
+                name.style.cssText = 'color:#e5e7eb;font-size:0.75rem;white-space:nowrap;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;';
+                chip.appendChild(name);
+                this.elements.layersList.appendChild(chip);
+            });
+        }
+
+        if (this.elements.locationText) {
+            if (hashLocation) {
+                this.elements.locationText.textContent =
+                    `${hashLocation.lat.toFixed(2)}, ${hashLocation.lng.toFixed(2)}`;
+            } else if (atlasParam) {
+                // URL specifies atlas -> location detection will be skipped;
+                // surface that immediately instead of "Detecting...".
+                this.elements.locationText.textContent = 'Atlas default';
+            }
+        }
+    }
+
+    /**
      * Populate the activation panel with current state
      */
     populateActivationPanel() {
@@ -706,90 +788,41 @@ export class SplashScreenManager {
     }
 
     /**
-     * Start auto-proceed timer (5 second minimum)
+     * Close the splash as soon as the map is renderable. We listen for the
+     * earliest available signal: map.on('load') (style + initial tiles
+     * parsed) — much earlier than the previous mapDisplayReady event, which
+     * was gated on a full map.idle and could be several seconds after the
+     * map was already visible/interactive.
      */
-    startAutoProceedTimer() {
-        const startTime = Date.now();
-
-        const updateCountdown = () => {
-            if (this.autoProceed.cancelled) {
-                console.log('[SplashScreen] Auto-proceed countdown stopped');
-                return;
-            }
-
-            const elapsed = Date.now() - startTime;
-            const remaining = Math.max(0, this.autoProceed.minDelay - elapsed);
-            const seconds = Math.ceil(remaining / 1000);
-
-            // Update countdown display with cancel instruction
-            if (this.elements.openMapButton && seconds > 0) {
-                this.elements.openMapButton.textContent = `Click to cancel (${seconds}s)`;
-            } else if (this.elements.openMapButton && !this.autoProceed.styleLoaded) {
-                this.elements.openMapButton.textContent = 'Map loading...';
-            }
-
-            if (remaining > 0) {
-                requestAnimationFrame(updateCountdown);
-            } else {
-                this.autoProceed.delayElapsed = true;
-                this.checkAutoProceedReady();
-            }
-        };
-
-        updateCountdown();
-    }
-
-    /**
-     * Watch for map to be ready for display (style loaded + initial move initiated)
-     */
-    watchForStyleLoad() {
-        const onReady = () => {
-            if (this.autoProceed.cancelled) return;
-            this.autoProceed.styleLoaded = true;
-            this.checkAutoProceedReady();
-        };
-
-        // Already fired before we set up listener
-        if (window.mapDisplayReady) {
-            onReady();
-            return;
-        }
-
-        window.addEventListener('mapDisplayReady', onReady, { once: true });
-
-        // Fallback: if mapDisplayReady event never fires, use map.idle
-        const fallback = () => {
-            if (this.autoProceed.cancelled || this.autoProceed.styleLoaded) return;
-            if (window.map) {
-                window.map.once('idle', onReady);
-            } else {
-                setTimeout(fallback, 500);
-            }
-        };
-        setTimeout(fallback, 5000);
-    }
-
-    /**
-     * Check if both conditions are met and proceed
-     */
-    checkAutoProceedReady() {
-        if (this.autoProceed.cancelled) {
-            console.log('[SplashScreen] Auto-proceed cancelled, not checking conditions');
-            return;
-        }
-
-        console.log('[SplashScreen] Checking auto-proceed conditions:', {
-            delayElapsed: this.autoProceed.delayElapsed,
-            styleLoaded: this.autoProceed.styleLoaded,
-            cancelled: this.autoProceed.cancelled
-        });
-
-        if (this.autoProceed.delayElapsed && this.autoProceed.styleLoaded) {
-            console.log('[SplashScreen] Auto-proceed conditions met, proceeding to map');
+    watchForMapReady() {
+        const proceed = () => {
+            if (this.autoProceed.cancelled || this.hasProceeded) return;
+            console.log(`[SplashScreen] Map ready at t=${Math.round(performance.now())}ms, proceeding`);
             this.proceedToMap();
-        } else {
-            console.log('[SplashScreen] Waiting for conditions to be met');
-        }
+        };
+
+        // Always listen for the parent's signal as one fallback path.
+        window.addEventListener('mapDisplayReady', proceed, { once: true });
+
+        // `window.map` is unreliable in two ways before map-init assigns it:
+        // (a) it can be the <div id="map"> element exposed via the named-
+        //     access window proxy, and
+        // (b) it can be undefined.
+        // Treat it as a real Mapbox map only once it has the `on` method.
+        const attachLoad = () => {
+            if (this.autoProceed.cancelled || this.hasProceeded) return;
+            if (window.mapDisplayReady) { proceed(); return; }
+            const m = window.map;
+            const isMapboxMap = m && typeof m.on === 'function';
+            if (isMapboxMap) {
+                if (typeof m.loaded === 'function' && m.loaded()) proceed();
+                else m.once('load', proceed);
+            } else {
+                // map-init.js hasn't created the map yet; check again shortly.
+                setTimeout(attachLoad, 50);
+            }
+        };
+        attachLoad();
     }
 
     /**
@@ -797,8 +830,6 @@ export class SplashScreenManager {
      */
     cancelAutoProceed() {
         this.autoProceed.cancelled = true;
-        this.autoProceed.delayElapsed = false;
-        this.autoProceed.styleLoaded = false;
 
         // Also notify the inline JavaScript to cancel its auto-proceed
         if (window.cancelAutoProceed && typeof window.cancelAutoProceed === 'function') {

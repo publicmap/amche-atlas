@@ -1,3 +1,8 @@
+// In-flight initialize() promise, keyed off the registry instance. Held in
+// a module-level WeakMap (not on the instance) because postMessage to iframes
+// structured-clones the registry, and Promises can't be cloned.
+const inFlightInit = new WeakMap();
+
 export class LayerRegistry {
     constructor() {
         this._registry = new Map(); // layerId -> layer config
@@ -9,7 +14,18 @@ export class LayerRegistry {
 
     async initialize() {
         if (this._initialized) return;
+        const existing = inFlightInit.get(this);
+        if (existing) return existing;
+        const promise = this._doInitialize();
+        inFlightInit.set(this, promise);
+        try {
+            await promise;
+        } finally {
+            inFlightInit.delete(this);
+        }
+    }
 
+    async _doInitialize() {
         // Load all atlas configurations
         let atlasConfigs = [window.amche.DEFAULT_ATLAS.slice(window.amche.DEFAULT_ATLAS.indexOf('config/') + 7, window.amche.DEFAULT_ATLAS.indexOf('.atlas.json'))];
         const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);

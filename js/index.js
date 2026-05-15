@@ -38,6 +38,7 @@ mapboxgl.accessToken = window.amche.MAPBOXGL_ACCESS_TOKEN;
 
 // Start initialization
 $(window).on('load', async function () {
+    console.log(`[Timing] window.load fired at t=${Math.round(performance.now())}ms`);
     const permalinkHandler = new PermalinkManager();
     permalinkHandler.detectAndRedirect();
 

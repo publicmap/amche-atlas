@@ -7,6 +7,7 @@
 
     <!-- Global Variables -->
     <script>
+        console.log(`[Timing] inline-script (page head) parsing at t=${Math.round(performance.now())}ms`);
         window.amche = {};
         window.amche.ENABLE_INTRO_CONTENT = false; // Set to true to enable intro content auto-loading
         window.amche.MAPBOXGL_ACCESS_TOKEN = 'pk.eyJ1Ijoib3NtaW5kaWEiLCJhIjoiY202czRpbWdpMDNyZjJwczJqZXdkMGR1eSJ9.eQQf--msfqtZIamJN-KKVQ'; // Mapbox Token by OpenStreetMap India Community for amche.in under not for profit community use https://www.mapbox.com/nonprofit . Please replace token for other uses
@@ -507,8 +508,7 @@
 
                             <!-- Open Map button -->
                             <button id="activation-open-map"
-                                style="padding: 7px 20px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 5px; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; box-shadow: 0 2px 8px rgba(59,130,246,0.4); white-space: nowrap; flex-shrink: 0;">Map
-                                loading...</button>
+                                style="padding: 7px 20px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 5px; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; box-shadow: 0 2px 8px rgba(59,130,246,0.4); white-space: nowrap; flex-shrink: 0;">Loading map…</button>
                         </div>
                     </div>
                 </div>
@@ -826,8 +826,15 @@
 
                     window.loadingStartupState.userLocation = {
                         lat: position.coords.latitude,
-                        lng: position.coords.longitude
+                        lng: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        detectedAt: performance.now()
                     };
+                    console.log(
+                        `[GPS] User location detected at t=${Math.round(performance.now())}ms:`,
+                        `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`,
+                        `(accuracy: ${Math.round(position.coords.accuracy)}m)`
+                    );
 
                     if (showStatusMessages && requestedMapStatus) {
                         requestedMapStatus.innerHTML = `Detected device location: <a href="#${position.coords.latitude.toFixed(6)},${position.coords.longitude.toFixed(6)}" style="color: #60a5fa; text-decoration: underline;">${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}</a>`;

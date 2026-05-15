@@ -749,13 +749,13 @@
             "zoom"
           ],
           "",
-          15,
+          16,
           [
             "format",
             "Sy.No.\n",
             {
               "text-color": "white",
-              "font-scale": 0.8
+              "font-scale": 0.6
             },
             [
               "get",
@@ -766,7 +766,7 @@
               "font-scale": 1
             }
           ],
-          16.5,
+          17,
           [
             "format",
             [
@@ -775,7 +775,7 @@
             ],
             {
               "text-color": "white",
-              "font-scale": 1.25
+              "font-scale": 1
             },
             " / ",
             {},
@@ -785,7 +785,7 @@
             ],
             {
               "text-color": "#eee",
-              "font-scale": 1.0
+              "font-scale": 1.25
             }
           ]
         ],
@@ -853,14 +853,16 @@
         "title": "Survey Number",
         "label": "plot",
         "fields": [
+          "occupant_name",
           "villagenam",
           "talname",
           "shape_area"
         ],
         "fieldTitles": [
+          "Occupant",
           "Village",
           "Taluk",
-          "Shape Area (sqm)"
+          "GIS Area (sqm)"
         ],
         "onClick": "getBhunakshaInfo"
       }

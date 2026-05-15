@@ -258,7 +258,13 @@ export class MapInitializer {
                 window.loadingStartupState.bestAtlas = bestAtlas;
             }
         } else if (shouldSkipLocationDetection) {
+            // The splash already wrote `?atlas=…` to the URL before this ran,
+            // so map-init's own duplicate detection is intentionally skipped.
+            // (manualAtlasSelection/locationSource/manualLocationSelection
+            //  flags are not set by the current splash flow — they're legacy
+            //  fields, but kept in the log for completeness.)
             console.log('[MapInit] Skipping location-based atlas detection - reason:', {
+                urlAtlas: URLUtils.getUrlParameter('atlas'),
                 manualAtlasSelection: window.loadingStartupState?.manualAtlasSelection,
                 locationSource: window.loadingStartupState?.locationSource,
                 manualLocationSelection: window.loadingStartupState?.manualLocationSelection
@@ -703,31 +709,103 @@ export class MapInitializer {
         return config;
     }
 
+    // Fast-path config used only to create the Mapbox map. Fetches the
+    // defaults + active atlas (+ index for style inheritance) in parallel,
+    // skipping the full layer registry, layer resolution, and waitForStartupChoice
+    // that loadConfiguration() does later. Returns the merged `map` block.
+    // Critically includes `hash: true` from _defaults.json so the URL hash
+    // (#zoom/lat/lng) is respected at initial render.
+    static async _loadInitialMapOptions(configParam) {
+        let configPath = window.amche.DEFAULT_ATLAS;
+        let inlineConfig = null;
+
+        if (configParam) {
+            if (configParam.startsWith('{') && configParam.endsWith('}')) {
+                try { inlineConfig = JSON.parse(configParam); } catch (e) {
+                    console.warn('[MapInit] Inline atlas JSON parse failed:', e);
+                }
+            } else if (configParam.startsWith('http://') || configParam.startsWith('https://')) {
+                configPath = configParam;
+            } else {
+                configPath = `config/${configParam}.atlas.json`;
+            }
+        }
+
+        const needsIndex = configPath !== window.amche.DEFAULT_ATLAS;
+
+        // Parallel fetches: defaults + active atlas + (optional) index for style inheritance
+        const [defaultsResult, atlasResult, indexResult] = await Promise.allSettled([
+            fetch(window.amche.LAYER_DEFAULTS).then(r => r.ok ? r.json() : null),
+            inlineConfig ? Promise.resolve(inlineConfig) : fetch(configPath).then(r => r.ok ? r.json() : null),
+            needsIndex ? fetch(window.amche.DEFAULT_ATLAS).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
+        ]);
+
+        const defaults = defaultsResult.status === 'fulfilled' ? defaultsResult.value : null;
+        let atlas = atlasResult.status === 'fulfilled' ? atlasResult.value : null;
+        const indexConfig = indexResult.status === 'fulfilled' ? indexResult.value : null;
+
+        // If the requested atlas failed, fall back to the index atlas wholesale
+        if (!atlas && indexConfig) atlas = indexConfig;
+
+        // Inherit missing style/center/zoom from index — matches loadConfiguration()
+        if (atlas && indexConfig && atlas !== indexConfig) {
+            atlas.map = atlas.map || {};
+            atlas.map.style = atlas.map.style || indexConfig.map?.style;
+            atlas.map.center = atlas.map.center || indexConfig.map?.center;
+            if (atlas.map.zoom === undefined) atlas.map.zoom = indexConfig.map?.zoom;
+        }
+
+        // Layer defaults' map block first (hash: true, attributionControl: false, ...),
+        // then atlas-specific overrides — same order loadConfiguration uses
+        return { ...(defaults?.map || {}), ...(atlas?.map || {}) };
+    }
+
     // Initialize the map with the configuration
     static async initializeMap() {
-        const config = await this.loadConfiguration();
-        const layers = config.layers || [];
-        console.log('🔍 Final layers for MapLayerControl:', layers.filter(l => l.initiallyChecked).map(l => l.id));
+        // Kick off the full atlas registry in parallel. We do NOT await it
+        // here — loadConfiguration() awaits it inside map.on('load') once the
+        // map is already rendering. The registry dedupes concurrent calls so
+        // this and the await in loadConfiguration() share one promise.
+        layerRegistry.initialize();
 
-        // Apply defaults from config.defaults.map first
-        if (config.defaults && config.defaults.map) {
-            Object.assign(window.amche.MAPBOX_MAP_OPTIONS, config.defaults.map);
-        }
-
-        // Then apply atlas-specific overrides from config.map
-        if (config.map) {
-            Object.assign(window.amche.MAPBOX_MAP_OPTIONS, config.map);
-        }
+        // Fast path: fetch just the active atlas (and index fallback if
+        // needed) to build the minimal map options. This lets the map start
+        // rendering its base style ~immediately instead of waiting for all
+        // ~15 atlas JSONs + waitForStartupChoice + layer resolution.
+        const configParam = URLUtils.getUrlParameter('atlas');
+        const initialMapOptions = await this._loadInitialMapOptions(configParam);
+        Object.assign(window.amche.MAPBOX_MAP_OPTIONS, initialMapOptions);
 
         const map = new mapboxgl.Map(window.amche.MAPBOX_MAP_OPTIONS);
 
         // Make map accessible globally for debugging
         window.map = map;
 
+        // Mount the geolocation control IMMEDIATELY (before map.on('load')) so
+        // its auto-trigger starts navigator.geolocation.watchPosition in
+        // parallel with Mapbox's style/tile fetching. The button is just DOM;
+        // Mapbox's GeolocateControl defers the location-marker layer addition
+        // until style.load fires internally, so this is safe.
+        // Previously this ran inside map.on('load'), which delayed trigger()
+        // by the ~1.5-2s Mapbox spends loading the style after construction.
+        const userLoc = window.loadingStartupState?.userLocation;
+        if (userLoc) {
+            console.log(
+                `[GPS] Splash-detected location available before map.on('load'): ` +
+                `${userLoc.lat.toFixed(6)}, ${userLoc.lng.toFixed(6)} at t=${Math.round(performance.now())}ms`
+            );
+        }
+        window.geolocationControl = new ButtonGeolocationManager();
+        const geolocationControlContainer = document.getElementById('geolocation-control-container');
+        if (geolocationControlContainer) {
+            const controlElement = window.geolocationControl.onAdd(map);
+            geolocationControlContainer.appendChild(controlElement);
+        }
+
         // Setup proper cursor handling for map dragging
-        map.on('load', () => {
-            // Initialize slot layers for proper layer ordering
-            // Reference: https://docs.mapbox.com/style-spec/reference/slots/
+        map.on('load', async () => {
+            console.log(`[GPS] map.on('load') fired at t=${Math.round(performance.now())}ms`);
+
             // Initialize slot layers for proper layer ordering
             // Reference: https://docs.mapbox.com/style-spec/reference/slots/
             MapUtils.initializeSlotLayers(map);
@@ -788,14 +866,6 @@ export class MapInitializer {
             // Enable debug logging temporarily to diagnose layer matching issues
             stateManager.setDebug(true);
 
-            // Hide loader and show controls
-            document.getElementById('map-layer-filter').classList.remove('hidden');
-
-            // Initialize layer control & Make it globally accessible
-            window.layerControl = new MapLayerControl(layers);
-            window.layerControl.renderToContainer('#layer-controls-container', map);
-            window.layerControl.setStateManager(stateManager);
-
             // Make components globally accessible
             window.stateManager = stateManager;
 
@@ -846,13 +916,8 @@ export class MapInitializer {
                 }
             });
 
-            // Add geolocation control to header instead of map
-            window.geolocationControl = new ButtonGeolocationManager();
-            const geolocationControlContainer = document.getElementById('geolocation-control-container');
-            if (geolocationControlContainer) {
-                const controlElement = window.geolocationControl.onAdd(map);
-                geolocationControlContainer.appendChild(controlElement);
-            }
+            // (Geolocation control already mounted at the top of map.on('load')
+            // so its GPS auto-trigger runs in parallel with the rest of setup.)
             map.addControl(window.featureControl, 'top-right');
             map.addControl(new TimeControl(), 'top-right');
             map.addControl(window.terrain3DControl, 'top-right');
@@ -863,6 +928,22 @@ export class MapInitializer {
             map.addControl(window.externalMapLinksControl, 'bottom-right');
             map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: true }));
             map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
+
+            // Resolve the full config now that the map and all chrome controls
+            // are in place. loadConfiguration() awaits the (already in-flight)
+            // layer registry, location detection, and layer resolution — work
+            // that previously blocked map creation.
+            const config = await MapInitializer.loadConfiguration();
+            const layers = config.layers || [];
+            console.log('🔍 Final layers for MapLayerControl:', layers.filter(l => l.initiallyChecked).map(l => l.id));
+
+            // Hide loader and show controls
+            document.getElementById('map-layer-filter').classList.remove('hidden');
+
+            // Initialize layer control & Make it globally accessible
+            window.layerControl = new MapLayerControl(layers);
+            window.layerControl.renderToContainer('#layer-controls-container', map);
+            window.layerControl.setStateManager(stateManager);
 
             // Initialize feature control (panel starts collapsed)
             window.featureControl.initialize(stateManager, config);
