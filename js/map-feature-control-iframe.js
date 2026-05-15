@@ -190,15 +190,18 @@ export class MapFeatureControl {
             transition: height 0.3s ease;
         `;
 
-        // Create iframe
+        // Create iframe element but defer setting src until preload() or first
+        // open. This keeps the inspector bundle off the critical render path —
+        // the iframe loads map-inspector.html in the background once the map
+        // is idle (see preload()), so the panel opens instantly when clicked.
         this._iframe = document.createElement('iframe');
-        this._iframe.src = 'map-inspector.html';
         this._iframe.style.cssText = `
             width: 100%;
             height: 100%;
             border: none;
             pointer-events: auto;
         `;
+        this._iframeSrcLoaded = false;
 
         this._panel.appendChild(this._iframe);
 
@@ -1419,7 +1422,15 @@ export class MapFeatureControl {
         }
     }
 
+    preload() {
+        if (this._iframeSrcLoaded || !this._iframe) return;
+        this._iframe.src = 'map-inspector.html';
+        this._iframeSrcLoaded = true;
+    }
+
     _showPanel() {
+        this.preload();
+
         // Only show loading overlay if inspector hasn't been initialized yet
         if (this._loadingOverlay && !this._inspectorInitialized) {
             this._loadingOverlay.style.display = 'flex';

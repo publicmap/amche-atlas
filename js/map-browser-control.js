@@ -175,6 +175,10 @@ export class MapBrowserControl {
         this._ensureIframe();
     }
 
+    preload() {
+        this._ensureIframe();
+    }
+
     _setupMessageListener() {
         window.addEventListener('message', (event) => {
             if (event.data.type === 'request-layer-data') {

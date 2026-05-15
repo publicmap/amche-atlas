@@ -857,7 +857,8 @@ export class MapInitializer {
             map.addControl(new TimeControl(), 'top-right');
             map.addControl(window.terrain3DControl, 'top-right');
             map.addControl(window.attributionControl, 'bottom-right');
-            map.addControl(new MapExportControl(), 'bottom-right');
+            window.exportControl = new MapExportControl();
+            map.addControl(window.exportControl, 'bottom-right');
             window.externalMapLinksControl = new ButtonExternalMapLinks();
             map.addControl(window.externalMapLinksControl, 'bottom-right');
             map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: true }));
@@ -865,6 +866,15 @@ export class MapInitializer {
 
             // Initialize feature control (panel starts collapsed)
             window.featureControl.initialize(stateManager, config);
+
+            // Preload iframe-backed controls once the map is idle, so their
+            // bundles (map-inspector.html, map-export.html, map-browser.html)
+            // load off the critical path but are ready before the user clicks.
+            map.once('idle', () => {
+                window.featureControl?.preload?.();
+                window.exportControl?.preload?.();
+                window.browserControl?.preload?.();
+            });
 
             // Initialize 3D control from URL parameters after URL manager is ready
             window.terrain3DControl.initializeFromURL();

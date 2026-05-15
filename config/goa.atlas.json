@@ -741,7 +741,6 @@
           2
         ],
         "text-font": [
-          "Courier New",
           "Open Sans SemiBold"
         ],
         "text-field": [
@@ -1373,7 +1372,7 @@
           "High Tide Line",
           "blue",
           "Low Tide Line",
-          "blue",
+          "lightblue",
           "grey"
         ],
         "text-halo-color": [
@@ -1387,7 +1386,7 @@
           "High Tide Line",
           "blue",
           "Low Tide Line",
-          "blue",
+          "lightblue",
           "grey"
         ],
         "line-width": 1,

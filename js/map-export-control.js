@@ -91,9 +91,12 @@ export class MapExportControl {
     }
 
     _createIframe() {
+        // Iframe element only; src is deferred so map-export.html and its
+        // bundle don't load on the critical path. preload() loads it once
+        // the map is idle; _show() loads it if the user opens the panel first.
         this._iframe = document.createElement('iframe');
-        this._iframe.src = 'map-export.html';
         this._iframe.className = 'map-export-iframe';
+        this._iframeSrcLoaded = false;
 
         const isMobile = window.innerWidth <= 768;
         const panelWidth = isMobile ? '100%' : '400px';
@@ -319,7 +322,14 @@ export class MapExportControl {
         }
     }
 
+    preload() {
+        if (this._iframeSrcLoaded || !this._iframe) return;
+        this._iframe.src = 'map-export.html';
+        this._iframeSrcLoaded = true;
+    }
+
     _show() {
+        this.preload();
         this._iframe.style.display = 'block';
         this._isPanelOpen = true;
 
