@@ -55,7 +55,14 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
             this.locationErrorCount++;
             console.warn('Geolocation error:', error);
 
-            this._showErrorDialog(error);
+            // macOS CoreLocation sporadically reports kCLErrorLocationUnknown
+            // (code 2) and TIMEOUT (code 3) that recover on retry. Only surface
+            // the dialog if errors persist, or immediately for PERMISSION_DENIED
+            // (code 1), which won't resolve itself.
+            const isTransient = error.code === 2 || error.code === 3;
+            if (!isTransient || this.locationErrorCount >= 3) {
+                this._showErrorDialog(error);
+            }
 
             setTimeout(() => {
                 this.locationErrorCount = 0;
