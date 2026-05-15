@@ -15,58 +15,11 @@ import { ButtonGeolocationManager } from './button-geolocation-manager.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 
 export class MapInitializer {
-    static async findBestAtlasForLocation(lat, lng) {
-        if (!window.layerRegistry) {
-            console.warn('[MapInit] Layer registry not available');
-            return null;
-        }
-
-        const matchingAtlases = [];
-
-        for (const [atlasId, metadata] of window.layerRegistry._atlasMetadata.entries()) {
-            if (atlasId === 'index') continue;
-
-            if (metadata.bbox && window.layerRegistry.isPointInAtlasBbox(atlasId, lng, lat)) {
-                const area = window.layerRegistry._atlasMetadata.get(atlasId)?.bbox
-                    ? this.calculateBboxArea(metadata.bbox)
-                    : Infinity;
-
-                matchingAtlases.push({
-                    id: atlasId,
-                    name: metadata.name,
-                    area: area,
-                    metadata: metadata
-                });
-            }
-        }
-
-        if (matchingAtlases.length === 0) {
-            return null;
-        }
-
-        matchingAtlases.sort((a, b) => a.area - b.area);
-        return matchingAtlases[0];
-    }
-
-    static calculateBboxArea(bbox) {
-        if (!bbox || bbox.length !== 4) return Infinity;
-        const [west, south, east, north] = bbox;
-        return (east - west) * (north - south);
-    }
-
-    static async waitForStartupChoice() {
-        return new Promise((resolve) => {
-            const checkInterval = setInterval(() => {
-                if (window.loadingStartupState?.proceedNormally) {
-                    clearInterval(checkInterval);
-                    resolve('proceed');
-                } else if (window.loadingStartupState?.userLocation) {
-                    clearInterval(checkInterval);
-                    resolve('location');
-                }
-            }, 100);
-        });
-    }
+    // Note: location-based atlas selection is owned by SplashScreenManager
+    // (see js/splash-screen-manager.js: findBestAtlasForLocation +
+    // applyLocationBasedAtlas). It writes `?atlas=…` to the URL before
+    // loadConfiguration() reads URL state below, so map-init has no need
+    // to duplicate that logic.
 
     // Function to load configuration
     static async loadConfiguration() {
@@ -195,81 +148,26 @@ export class MapInitializer {
             }
         }
 
-        // When SplashScreenManager is driving startup it sets manualOverlayControl
-        // synchronously in its initialize(); the GPS-permission notice + detection
-        // can easily take 5-10s, so 2.5s isn't enough. Use a generous safety
-        // timeout in that mode — splash will normally resolve via userLocation/
-        // proceedNormally well before it fires.
+        // Synchronize with the splash before we read URL state. The splash
+        // detects GPS/GeoIP and writes `?atlas=…` to the URL via
+        // history.replaceState — that write must complete before we read
+        // URLUtils.getUrlParameter('atlas') below, otherwise we'd boot
+        // with the wrong (or no) atlas. The race resolves on any of:
+        //   - splash set proceedNormally (user clicked through, or auto-proceed)
+        //   - splash set userLocation (GPS resolved → URL is rewritten by now)
+        //   - safety timeout (splash never ran / page has no splash hook)
         const safetyTimeoutMs = window.loadingStartupState?.manualOverlayControl ? 30000 : 2500;
-        const choice = await Promise.race([
+        await Promise.race([
             new Promise(resolve => {
                 const check = setInterval(() => {
-                    if (window.loadingStartupState?.proceedNormally) {
-                        clearInterval(check); resolve('proceed');
-                    } else if (window.loadingStartupState?.userLocation) {
-                        clearInterval(check); resolve('location');
+                    if (window.loadingStartupState?.proceedNormally
+                     || window.loadingStartupState?.userLocation) {
+                        clearInterval(check); resolve();
                     }
                 }, 50);
             }),
-            new Promise(resolve => setTimeout(() => resolve('proceed'), safetyTimeoutMs))
+            new Promise(resolve => setTimeout(resolve, safetyTimeoutMs))
         ]);
-
-        // Skip location-based atlas detection if:
-        // 1. User manually selected an atlas
-        // 2. Location source is 'atlas' (using atlas default location)
-        // 3. Manual location selection was made
-        // 4. Atlas is explicitly specified in URL (avoids race condition where
-        //    window.loadingStartupState.manualAtlasSelection may not be set yet)
-        const shouldSkipLocationDetection =
-            window.loadingStartupState?.manualAtlasSelection ||
-            window.loadingStartupState?.locationSource === 'atlas' ||
-            window.loadingStartupState?.manualLocationSelection ||
-            !!URLUtils.getUrlParameter('atlas');
-
-        if (choice === 'location' &&
-            window.loadingStartupState?.userLocation &&
-            !shouldSkipLocationDetection) {
-            const loc = window.loadingStartupState.userLocation;
-            const bestAtlas = await this.findBestAtlasForLocation(loc.lat, loc.lng);
-
-            if (bestAtlas) {
-                const atlasParam = bestAtlas.id;
-                const hash = `#12/${loc.lat.toFixed(4)}/${loc.lng.toFixed(4)}`;
-
-                try {
-                    const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
-                    const indexConfig = await indexResponse.json();
-                    const indexLayers = indexConfig.layers?.filter(l => l.initiallyChecked).map(l => l.id) || [];
-
-                    const bestAtlasResponse = await fetch(`config/${atlasParam}.atlas.json`);
-                    const bestAtlasConfig = await bestAtlasResponse.json();
-                    const atlasLayers = bestAtlasConfig.layers?.filter(l => l.initiallyChecked).map(l => l.id) || [];
-
-                    const allLayers = [...atlasLayers, ...indexLayers.filter(id => !atlasLayers.includes(id))];
-
-                    const layersParam = allLayers.length > 0 ? `&layers=${allLayers.join(',')}` : '';
-
-                    window.history.replaceState({}, '', `?atlas=${atlasParam}${layersParam}&geolocate=true${hash}`);
-                } catch (error) {
-                    console.warn('[MapInit] Failed to load atlas configs for layer merging, using simple URL:', error);
-                    window.history.replaceState({}, '', `?atlas=${atlasParam}&geolocate=true${hash}`);
-                }
-
-                window.loadingStartupState.bestAtlas = bestAtlas;
-            }
-        } else if (shouldSkipLocationDetection) {
-            // The splash already wrote `?atlas=…` to the URL before this ran,
-            // so map-init's own duplicate detection is intentionally skipped.
-            // (manualAtlasSelection/locationSource/manualLocationSelection
-            //  flags are not set by the current splash flow — they're legacy
-            //  fields, but kept in the log for completeness.)
-            console.log('[MapInit] Skipping location-based atlas detection - reason:', {
-                urlAtlas: URLUtils.getUrlParameter('atlas'),
-                manualAtlasSelection: window.loadingStartupState?.manualAtlasSelection,
-                locationSource: window.loadingStartupState?.locationSource,
-                manualLocationSelection: window.loadingStartupState?.manualLocationSelection
-            });
-        }
 
         // Check if a specific config is requested via URL parameter
         var configParam = URLUtils.getUrlParameter('atlas');
