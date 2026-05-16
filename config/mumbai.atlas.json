@@ -259,6 +259,18 @@
     },
     {
       "tags": [
+        "1.Development Plans"
+      ],
+      "title": "Greater Mumbai Development Plan 2034",
+      "description": "Please see <a href='https://portal.mcgm.gov.in/irj/go/km/docs/documents/MCGM%20Department%20List/Chief%20Engineer%20(Development%20Plan)/Docs/SANCTIONED%20DP2034/DCPR/DCPR%202034.pdf'>DP Regulations</a> for detailed information",
+      "headerImage": "",
+      "type": "cog",
+      "id": "2034-development-plan",
+      "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Mumbai_Final_COG.tif",
+      "attribution": "<a href='https://dpremarks.mcgm.gov.in/dp2034/'>MCGM</a>"
+    },
+    {
+      "tags": [
         "masterplan"
       ],
       "title": "BMC T Ward - 2034 DP",

@@ -7,12 +7,22 @@ import { DataUtils, GeoUtils } from './map-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 
+const COG_PROVIDER_URL = new URL('./cog-tile-provider.js', import.meta.url).href;
+let _cogProviderRegistered = false;
+function registerCOGProvider() {
+    if (_cogProviderRegistered) return;
+    if (typeof mapboxgl === 'undefined' || typeof mapboxgl.addTileProvider !== 'function') return;
+    mapboxgl.addTileProvider('cog', COG_PROVIDER_URL);
+    _cogProviderRegistered = true;
+}
+
 export class MapboxAPI {
     constructor(map, atlasConfig = {}) {
         this._map = map;
         this._atlasConfig = atlasConfig;
         this._defaultStyles = atlasConfig.styles || {};
         this._orderedGroups = atlasConfig.orderedGroups || []; // Store ordered groups for layer positioning
+        registerCOGProvider();
         this._layerCache = new Map(); // Cache for layer configurations
         this._sourceCache = new Map(); // Cache for sources
         this._refreshTimers = new Map(); // Cache for refresh timers
@@ -334,6 +344,8 @@ export class MapboxAPI {
                     return this._createWMTSLayer(groupId, config, visible);
                 case 'wms':
                     return this._createWMSLayer(groupId, config, visible);
+                case 'cog':
+                    return this._createCOGLayer(groupId, config, visible);
                 case 'geojson':
                     return this._createGeoJSONLayer(groupId, config, visible);
                 case 'csv':
@@ -382,6 +394,8 @@ export class MapboxAPI {
                     return this._updateWMTSLayerVisibility(groupId, config, visible);
                 case 'wms':
                     return this._updateWMSLayerVisibility(groupId, config, visible);
+                case 'cog':
+                    return this._updateCOGLayerVisibility(groupId, config, visible);
                 case 'geojson':
                     return this._updateGeoJSONLayerVisibility(groupId, config, visible);
                 case 'csv':
@@ -432,6 +446,8 @@ export class MapboxAPI {
                     return this._removeWMTSLayer(groupId, config);
                 case 'wms':
                     return this._removeWMSLayer(groupId, config);
+                case 'cog':
+                    return this._removeCOGLayer(groupId, config);
                 case 'geojson':
                     return this._removeGeoJSONLayer(groupId, config);
                 case 'csv':
@@ -468,6 +484,8 @@ export class MapboxAPI {
                     return this._updateWMTSLayerOpacity(groupId, config, opacity);
                 case 'wms':
                     return this._updateWMSLayerOpacity(groupId, config, opacity);
+                case 'cog':
+                    return this._updateCOGLayerOpacity(groupId, config, opacity);
                 case 'geojson':
                     return this._updateGeoJSONLayerOpacity(groupId, config, opacity);
                 case 'img':
@@ -888,6 +906,88 @@ export class MapboxAPI {
             : opacity;
 
         const layerId = `tms-layer-${groupId}`;
+        if (this._map.getLayer(layerId)) {
+            this._map.setPaintProperty(layerId, 'raster-opacity', finalOpacity);
+        }
+        return true;
+    }
+
+    // COG (Cloud Optimized GeoTIFF) layer methods
+    // Uses Mapbox GL JS 3.23+ TileProvider API + a geotiff.js-backed provider
+    // module (js/cog-tile-provider.js) that resolves tiles via HTTP range requests.
+    _createCOGLayer(groupId, config, visible) {
+        if (typeof mapboxgl === 'undefined' || typeof mapboxgl.addTileProvider !== 'function') {
+            console.warn(`COG layer "${config.id}" requires Mapbox GL JS 3.23+ TileProvider API`);
+            return false;
+        }
+        registerCOGProvider();
+
+        const sourceId = `cog-${groupId}`;
+        const layerId = `cog-layer-${groupId}`;
+
+        if (!this._map.getSource(sourceId)) {
+            const sourceConfig = {
+                type: 'raster',
+                provider: 'cog',
+                url: config.url,
+                tileSize: config.tileSize || 256,
+                minzoom: config.minzoom || 0,
+                maxzoom: config.maxzoom || 22,
+            };
+
+            if (config.attribution) {
+                sourceConfig.attribution = config.attribution;
+            }
+
+            this._map.addSource(sourceId, sourceConfig);
+
+            const layerConfig = this._createLayerConfig({
+                id: layerId,
+                groupId: groupId,
+                source: sourceId,
+                style: {
+                    ...(this._defaultStyles.raster || {}),
+                    ...(config.style || {}),
+                    'raster-opacity': config.style?.['raster-opacity'] || config.opacity || this._defaultStyles.raster?.['raster-opacity'] || 1
+                },
+                visible
+            }, 'raster');
+
+            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'cog', null, config, this._orderedGroups));
+        } else {
+            this._updateCOGLayerVisibility(groupId, config, visible);
+        }
+
+        return true;
+    }
+
+    _updateCOGLayerVisibility(groupId, config, visible) {
+        const layerId = `cog-layer-${groupId}`;
+        if (this._map.getLayer(layerId)) {
+            this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+        }
+        return true;
+    }
+
+    _removeCOGLayer(groupId, config) {
+        const sourceId = `cog-${groupId}`;
+        const layerId = `cog-layer-${groupId}`;
+
+        if (this._map.getLayer(layerId)) {
+            this._map.removeLayer(layerId);
+        }
+        if (this._map.getSource(sourceId)) {
+            this._map.removeSource(sourceId);
+        }
+        return true;
+    }
+
+    _updateCOGLayerOpacity(groupId, config, opacity) {
+        const finalOpacity = (config.opacity !== undefined && config.opacity !== 1)
+            ? opacity * config.opacity
+            : opacity;
+
+        const layerId = `cog-layer-${groupId}`;
         if (this._map.getLayer(layerId)) {
             this._map.setPaintProperty(layerId, 'raster-opacity', finalOpacity);
         }
@@ -2639,6 +2739,8 @@ export class MapboxAPI {
                 ].filter(id => this._map.getLayer(id));
             case 'tms':
                 return [`tms-layer-${groupId}`].filter(id => this._map.getLayer(id));
+            case 'cog':
+                return [`cog-layer-${groupId}`].filter(id => this._map.getLayer(id));
             case 'wmts':
                 return [`wmts-layer-${groupId}`].filter(id => this._map.getLayer(id));
             case 'wms':

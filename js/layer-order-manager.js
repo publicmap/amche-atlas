@@ -131,7 +131,7 @@ export class LayerOrderManager {
      * @returns {string|null} - The slot name to insert into
      */
     static getInsertPosition(map, type, layerType, currentGroup, orderedGroups) {
-        if (['tms', 'wmts', 'wms', 'img', 'raster-style-layer'].includes(type)) {
+        if (['tms', 'wmts', 'wms', 'cog', 'img', 'raster-style-layer'].includes(type)) {
             return 'bottom';
         }
 
