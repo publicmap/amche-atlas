@@ -88,9 +88,17 @@ Available API options and examples are maintained in `/docs/API.md`
 The application supports multiple data layer types:
 - `style` - Uses existing Mapbox style sources
 - `vector` - Vector tiles (.pbf/.mvt) with sourceLayer
-- `geojson` - GeoJSON vector data
-- `tms` - Raster tile services
-- `csv` - Tabular data with lat/lng columns
+- `geojson` - GeoJSON / KML vector data
+- `tms` - Raster XYZ tile services
+- `wmts` - OGC WMTS endpoints
+- `wms` - OGC WMS endpoints
+- `cog` - Cloud Optimized GeoTIFF (HTTP range requests via Mapbox `TileProvider`)
+- `csv` - Tabular data with auto-detected lat/lng columns
+- `img` - Single georeferenced image overlay
+- `raster-style-layer` - Toggle for a raster layer in the base Mapbox style
+- `layer-group` - Bundled toggle for multiple existing layer IDs
+
+`docs/API.md` → **Layer Source Formats** is the canonical reference for every type's fields and examples. **When adding a new layer type, you MUST update `docs/API.md` in the same change** — the doc has an "Adding a New Layer Type" checklist that enumerates every file to touch (dispatch switches in `js/mapbox-api.js`, `getInsertPosition` in `js/layer-order-manager.js`, the new type's docs section). Treat the doc update as part of the implementation, not a follow-up.
 
 **Layer Ordering Logic**
 The layer ordering system ensures consistent visual stacking between URL parameters, map rendering, and the inspector UI:

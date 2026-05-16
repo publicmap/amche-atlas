@@ -112,17 +112,20 @@ export default class COGTileProvider {
             ? Math.abs(fullResX) * (HALF_CIRCUMFERENCE / 180)
             : Math.abs(fullResX);
 
-        let best = this._images[this._images.length - 1];
-        for (const img of this._images) {
+        // Walk overviews from coarse → fine. Pick the coarsest level whose
+        // pixels are still finer than (or equal to) what the tile needs —
+        // that minimises bytes downloaded without sacrificing visible detail.
+        // When NO overview qualifies (tile resolution finer than image[0],
+        // i.e. the user has zoomed past the COG's native resolution), fall
+        // back to image[0] so overzoom still shows real pixels instead of a
+        // pixelated low-res overview.
+        for (let i = this._images.length - 1; i >= 0; i--) {
+            const img = this._images[i];
             const overviewScale = full.getWidth() / img.getWidth();
             const res = fullResMeters * overviewScale;
-            if (res <= tileResolution) {
-                best = img;
-            } else {
-                break;
-            }
+            if (res <= tileResolution) return img;
         }
-        return best;
+        return full;
     }
 
     async load() {

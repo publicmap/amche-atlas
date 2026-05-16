@@ -261,30 +261,6 @@
       "tags": [
         "1.Development Plans"
       ],
-      "title": "Greater Mumbai Development Plan 2034",
-      "description": "Please see <a href='https://portal.mcgm.gov.in/irj/go/km/docs/documents/MCGM%20Department%20List/Chief%20Engineer%20(Development%20Plan)/Docs/SANCTIONED%20DP2034/DCPR/DCPR%202034.pdf'>DP Regulations</a> for detailed information",
-      "headerImage": "",
-      "type": "cog",
-      "id": "2034-development-plan",
-      "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Mumbai_Final_COG.tif",
-      "attribution": "<a href='https://dpremarks.mcgm.gov.in/dp2034/'>MCGM</a>"
-    },
-    {
-      "tags": [
-        "masterplan"
-      ],
-      "title": "BMC T Ward - 2034 DP",
-      "description": "Sanctioned Development Plan of BMC T Ward (Mulund) from MCGM DP 2034",
-      "headerImage": "assets/map-layers/map-layer-gmlr.png",
-      "type": "tms",
-      "id": "dp-2034",
-      "url": "https://mapwarper.net/maps/tile/34909/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://dpremarks.mcgm.gov.in/srdp1991/'>BMC DP 2034</a> via <a href='https://mapwarper.net/maps/34909'>Map Warper</a>"
-    },
-    {
-      "tags": [
-        "masterplan"
-      ],
       "title": "BMC T Ward - 1991 SRDP",
       "description": "Sanctioned Development Plan of BMC T Ward (Mulund from MCGM SRDP (1991-2011)",
       "headerImage": "assets/map-layers/map-layer-gmlr.png",
@@ -292,6 +268,78 @@
       "id": "dp-1991",
       "url": "https://mapwarper.net/maps/tile/67753/{z}/{x}/{y}.png",
       "attribution": "<a href='https://dpremarks.mcgm.gov.in/srdp1991/'>BMC SRDP 1991</a> via <a href='https://mapwarper.net/maps/67753'>Map Warper</a>"
+    },
+    {
+      "tags": [
+        "1.Development Plans"
+      ],
+      "title": "Navi Mumbai CIDCO Nodal Plan",
+      "description": "Please see <a href='https://data.opencity.in/dataset/55eb59d8-c9d5-402d-8896-a54b928c4425/resource/9b79888c-0c82-4c45-8655-0b74a313cd00/download/b573af3f-1ec7-48ee-8b14-3157ef48f81f.pdf'>DP Report</a> for detailed information",
+      "headerImage": "",
+      "type": "cog",
+      "id": "navi-mumbai-cidco-plan",
+      "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Navi_Mumbai_DP38_COG.tif",
+      "attribution": "<a href='https://cidco.maharashtra.gov.in/Page?Token=831AAA8551'>CIDCO</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>"
+    },
+    {
+      "tags": [
+        "1.Development Plans"
+      ],
+      "title": "Navi Mumbai Development Plan 2038",
+      "description": "Please see <a href='https://data.opencity.in/dataset/55eb59d8-c9d5-402d-8896-a54b928c4425/resource/9b79888c-0c82-4c45-8655-0b74a313cd00/download/b573af3f-1ec7-48ee-8b14-3157ef48f81f.pdf'>DP Report</a> for detailed information",
+      "headerImage": "",
+      "type": "cog",
+      "id": "2038-navi-mumbai-development-plan",
+      "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Navi_Mumbai_DP38_COG.tif",
+      "attribution": "<a href='https://www.nmmc.gov.in/online-information/Development%20Control%20Regulations'>NMMC</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>"
+    },
+    {
+      "tags": [
+        "1.Development Plans"
+      ],
+      "title": "Thane Development Plan 2046",
+      "description": "Thane Draft Revised Development Plan for 2026-2046. Please see <a href='https://thanecity.gov.in/tmc/cache/1/15-Oct-24/EIP/EIP_PUBLIC_NOTICES/HOME_PAGE/1728989801190/Draft%20Developement%20Report.pdf'>DP Report</a> for detailed information",
+      "headerImage": "",
+      "type": "cog",
+      "id": "2046-thane-development-plan",
+      "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Thane-26-COG-Final_2.tif",
+      "attribution": "<a href='https://thanecity.gov.in/'>TMC</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>"
+    },
+    {
+      "tags": [
+        "1.Development Plans"
+      ],
+      "title": "Greater Mumbai Development Plan 2034",
+      "description": "Sanctioned development plan prepared by MCGM. Please see <a href='https://portal.mcgm.gov.in/irj/go/km/docs/documents/MCGM%20Department%20List/Chief%20Engineer%20(Development%20Plan)/Docs/SANCTIONED%20DP2034/DCPR/DCPR%202034.pdf'>DP Regulations</a> for detailed information",
+      "headerImage": "",
+      "type": "cog",
+      "id": "2034-mumbai-development-plan",
+      "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Mumbai_Final_COG.tif",
+      "attribution": "<a href='https://dpremarks.mcgm.gov.in/dp2034/'>MCGM</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>"
+    },
+    {
+      "tags": [
+        "1.Development Plans"
+      ],
+      "title": "Panvel Development Plan 2044",
+      "description": "Revised and Comprehensive Draft Development Plan of Panvel Municipal Corporation notified via <a href='https://panvelcorporation.maharashtra.gov.in/public/map/Gazette.pdf'>Gazette Notification</a>. Please see <a href='https://panvelcorporation.maharashtra.gov.in/public/map/PMC%20DP%20Report.pdf'>DP Report</a> for detailed information",
+      "headerImage": "",
+      "type": "cog",
+      "id": "2044-panvel-development-plan",
+      "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Panvel_DP.tif",
+      "attribution": "<a href='https://panvelcorporation.maharashtra.gov.in/'>PMC</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>"
+    },
+    {
+      "tags": [
+        "1.Development Plans"
+      ],
+      "title": "Bhiwandi Development Plan 2028",
+      "description": "Development plan prepared by Bhiwandi Nizampur City Municipal Corporation. Please see <a href='https://www.bncmc.gov.in/department.php?department_id=51'>DC Regulations</a> for detailed information",
+      "headerImage": "",
+      "type": "cog",
+      "id": "2028-bhiwandi-development-plan",
+      "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Bhiwandi-Area_MMRDA_COG.tif",
+      "attribution": "<a href='https://www.bncmc.gov.in/department.php?department_id=51'>BNCMC</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>"
     },
     {
       "tags": [

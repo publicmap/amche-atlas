@@ -209,6 +209,309 @@ Use the share button to copy the current URL with all active parameters.
 
 ---
 
+## Layer Source Formats
+
+Layers in an atlas config are objects in the `layers` array. Each one declares a `type` that selects the loader in `js/mapbox-api.js`. This section is the canonical reference for every supported `type`. **When a new layer type is added in `mapbox-api.js`, this section MUST be updated in the same change** — see [Adding a New Layer Type](#adding-a-new-layer-type) below.
+
+### Common Properties
+
+Available on all layer types unless noted otherwise.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | Unique identifier referenced from URLs and other configs. **Required** for all types except inline `style` layers. |
+| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `csv`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
+| `title` | string | Display name in the layer control. |
+| `description` | string | HTML allowed; shown in the layer info panel. |
+| `tags` | string[] | Used to group layers in the UI. Prefix with `N.` (e.g. `"1.Development Plans"`) to control sort order. |
+| `headerImage` | string | Thumbnail shown in the layer control. |
+| `legendImage` | string | Image shown in the legend panel when the layer is active. |
+| `attribution` | string | HTML allowed. Shown in the bottom-right attribution control while the layer is visible. |
+| `initiallyChecked` | boolean | If `true`, the layer is on at first load (unless `?layers=` overrides). |
+| `opacity` | number | 0–1 multiplier applied on top of any `style` opacity. |
+| `style` | object | Mapbox GL paint/layout properties. See `config/_defaults.json` for the cascade. |
+| `minzoom`, `maxzoom` | number | Standard Mapbox source zoom range. |
+| `inspect` | object | Configures the feature popup. See [Inspect Configuration](#inspect-configuration). Set to `false`/`null` to disable interactivity. |
+
+#### Inspect Configuration
+
+```json
+"inspect": {
+  "id": "osm_id",
+  "title": "Name",
+  "label": "name",
+  "fields": ["iata", "icao", "aerodrome"]
+}
+```
+
+- `id` — property used as the feature's stable identifier (also promoted to `feature.id` for state).
+- `title` — header text for the popup.
+- `label` — property whose value is shown as the popup heading.
+- `fields` — properties listed in the popup body.
+
+---
+
+### `style` — Mapbox style layer toggle
+
+Toggle the visibility of layers already present in the base Mapbox style (e.g. Mapbox Streets sublayers). Selects target sublayers by `source-layer`.
+
+| Field | Notes |
+|---|---|
+| `layers` | Array of `{ title, sourceLayer }` selecting which style sublayers this group controls. **Required.** |
+
+```json
+{
+  "id": "mapbox-streets",
+  "type": "style",
+  "title": "Mapbox Streets",
+  "description": "Detailed street-level data from Mapbox Streets vector tiles.",
+  "attribution": "© Mapbox © OpenStreetMap contributors",
+  "layers": [
+    { "title": "Hillshade", "sourceLayer": "hillshade" },
+    { "title": "Places Labels", "sourceLayer": "place_label" }
+  ]
+}
+```
+
+### `vector` — Vector tile source
+
+Mapbox Vector Tiles (`.pbf` / `.mvt`). Renders as fill / line / circle / symbol layers driven by the `style` object.
+
+| Field | Notes |
+|---|---|
+| `url` | XYZ template `https://.../{z}/{x}/{y}.pbf` **or** `mapbox://tileset.id`. **Required.** |
+| `sourceLayer` | Name of the source-layer inside the tile. **Required.** |
+| `minzoom`, `maxzoom` | Vector tile zoom range. |
+| `inspect` | Popup configuration (see common properties). |
+
+```json
+{
+  "id": "tngis_tn_cadastrals",
+  "type": "vector",
+  "title": "Tamil Nadu Cadastrals",
+  "url": "https://indianopenmaps.com/not-so-open/cadastrals/tamil-nadu/tngis/{z}/{x}/{y}.pbf",
+  "sourceLayer": "TNGIS_TN_Cadastrals",
+  "minzoom": 0,
+  "maxzoom": 14,
+  "inspect": { "id": "id", "title": "Plot", "label": "survey_no" }
+}
+```
+
+### `tms` — Raster XYZ tile service
+
+Standard raster tile services (`/{z}/{x}/{y}.png|.jpg`). Supports an optional proxy for CORS / referer-restricted sources.
+
+| Field | Notes |
+|---|---|
+| `url` | XYZ template **or** `mapbox://...`. **Required.** |
+| `scheme` | `xyz` (default) or `tms` (Y-axis flipped). |
+| `tileSize` | Default `256`. |
+| `proxyUrl`, `proxyReferer` | Wraps the tile URL through a CORS proxy with the given Referer header. |
+| `urlTimeParam` | Template such as `TIME={time}` for time-aware sources (see NASA GIBS atlas). |
+| `geojson` | Inline GeoJSON drawn as a `simplestyle-spec` overlay on top of the raster. |
+
+```json
+{
+  "id": "dp-2034",
+  "type": "tms",
+  "title": "BMC T Ward - 2034 DP",
+  "url": "https://mapwarper.net/maps/tile/34909/{z}/{x}/{y}.png",
+  "attribution": "<a href='https://mapwarper.net/maps/34909'>Map Warper</a>"
+}
+```
+
+### `wmts` — Web Map Tile Service
+
+OGC WMTS endpoints. The `TileMatrix={z}` / `TileCol={x}` / `TileRow={y}` placeholders in the URL are converted to XYZ. The application defaults to requesting `GoogleMapsCompatible_Level9` tilematrixset (EPSG:3857) when possible.
+
+| Field | Notes |
+|---|---|
+| `url` | WMTS GetTile URL with `TileMatrix={z}`, `TileCol={x}`, `TileRow={y}` placeholders. **Required.** |
+| `tileSize` | Default `256`. |
+| `forceWebMercator` | Override the EPSG:4326 → EPSG:3857 auto-conversion heuristic. |
+| `urlTimeParam` | Template such as `TIME={time}` for time-aware layers. |
+
+```json
+{
+  "id": "modis-terra-truecolor",
+  "type": "wmts",
+  "title": "MODIS Terra True Color",
+  "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/wmts.cgi?layer=MODIS_Terra_CorrectedReflectance_TrueColor&style=default&tilematrixset=GoogleMapsCompatible_Level9&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image%2Fjpeg&TileMatrix={z}&TileCol={x}&TileRow={y}",
+  "urlTimeParam": "TIME={time}",
+  "attribution": "NASA GIBS"
+}
+```
+
+### `wms` — Web Map Service
+
+OGC WMS endpoints. Converted to Mapbox raster tile requests with `{bbox-epsg-3857}` / `{bbox-epsg-4326}` placeholders.
+
+| Field | Notes |
+|---|---|
+| `url` | WMS `GetMap` URL with `LAYERS`, `FORMAT`, etc. The bbox parameter is added/replaced automatically. **Required.** |
+| `srs` | Force a specific CRS (e.g. `EPSG:4326`). Auto-detected from URL otherwise. |
+| `tileSize` | Default `256`. |
+| `proxyUrl`, `proxyReferer` | CORS / referer proxy (same semantics as `tms`). |
+| `urlTimeParam` | Template such as `TIME={time}`. |
+
+```json
+{
+  "id": "gsi-nlsm",
+  "type": "wms",
+  "title": "Landslide Susceptibility",
+  "url": "https://bhukosh.gsi.gov.in/arcgis/services/Landslide/NLSM/MapServer/WMSServer?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=0,2,5&FORMAT=image%2Fpng&CRS=EPSG%3A3857&TRANSPARENT=TRUE",
+  "maxzoom": 12,
+  "attribution": "Geological Survey of India"
+}
+```
+
+### `cog` — Cloud Optimized GeoTIFF
+
+A single COG `.tif` served over HTTP. Reads the COG's overview pyramid via HTTP range requests using the Mapbox GL JS 3.23+ [`TileProvider`](https://github.com/mapbox/mapbox-gl-js/commit/2a50e9fa34b7583007c0d752ec76e9a2d028ecb1) API. The actual range-request logic lives in `js/cog-tile-provider.js` (which depends on `geotiff.js` via CDN ESM).
+
+| Field | Notes |
+|---|---|
+| `url` | Direct URL to the `.tif` file. **Required.** The server **must** support HTTP Range requests (`Accept-Ranges: bytes`) and CORS. |
+| `tileSize` | Default `256`. |
+
+**Requirements on the COG:**
+- Properly tiled with internal overviews (use `gdal_translate -of COG` or `rio cogeo create`).
+- CRS in EPSG:3857 (web mercator) **or** EPSG:4326. Other CRSes will be misregistered.
+- Pixel data must be 8-bit RGB, RGBA, or single-band grayscale. Floating-point DEMs / multi-band scientific data are not yet supported.
+
+```json
+{
+  "id": "2034-development-plan",
+  "type": "cog",
+  "title": "Greater Mumbai Development Plan 2034",
+  "description": "Sanctioned Development Plan 2034 raster.",
+  "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Mumbai_Final_COG.tif",
+  "attribution": "<a href='https://dpremarks.mcgm.gov.in/dp2034/'>MCGM</a>"
+}
+```
+
+### `geojson` — GeoJSON / KML
+
+Inline or remote GeoJSON. Also accepts a KML URL (auto-converted using `js/kml-converter.js`).
+
+| Field | Notes |
+|---|---|
+| `url` | Remote GeoJSON or KML URL. |
+| `data` | Inline GeoJSON object (mutually exclusive with `url`). |
+| `geojson` | Alternative inline GeoJSON property (`null` is treated as an empty FeatureCollection). |
+| `dataSource` | `"localStorage"` to read from the in-browser cache populated by the layer creator UI (`url` is used as fallback). |
+| `clustered` | Enable point clustering. |
+| `clusterMaxZoom`, `clusterRadius` | Standard Mapbox clustering options. |
+| `clusterSeparateBy` | Property name used to split clusters into one source per value. |
+| `clusterStyles` | Map of `{ propertyValue: { color } }` for per-value cluster styling. |
+| `refresh` | Polling interval in milliseconds for refetching the remote URL. |
+| `blink` | Animate the layer to blink while visible. |
+| `inspect` | Popup configuration. |
+
+```json
+{
+  "id": "aerodromes",
+  "type": "geojson",
+  "title": "Aerodrome 10km Buffer",
+  "url": "https://gist.githubusercontent.com/planemad/.../india-aerodrome-10km-buffer.geojson",
+  "inspect": { "id": "osm_id", "title": "Aerodrome", "label": "name" },
+  "style": {
+    "fill-color": "rgba(0,150,255,0.2)",
+    "line-color": "#0096ff"
+  }
+}
+```
+
+### `csv` — CSV tabular data
+
+CSV with one row per point. Latitude / longitude columns are **auto-detected** by name pattern (`lat`, `latitude`, `y`, `northing`, ... for latitude; `lng`, `lon`, `longitude`, `x`, `easting`, ... for longitude — see `GeoUtils.rowsToGeoJSON` in `js/map-utils.js` for the full pattern list). Renders as points using the GeoJSON style pipeline.
+
+| Field | Notes |
+|---|---|
+| `url` | CSV URL (e.g. a published Google Sheet `output=csv` link). |
+| `data` | Inline CSV text or pre-parsed rows. |
+| `cache` | Path to a static CSV under `/data/` used as a fast fallback before the remote URL responds. |
+| `csvParser` | Custom parser function (rare; usually omit and let the default delimiter detection handle it). |
+| `refresh` | Polling interval in milliseconds. |
+| `style` | Mapbox circle/symbol properties (same as GeoJSON). |
+| `inspect` | Popup configuration. |
+
+```json
+{
+  "id": "goa-schools",
+  "type": "csv",
+  "title": "Schools (by capacity)",
+  "url": "https://docs.google.com/.../pub?output=csv",
+  "cache": "data/dfes/goa-schools.csv",
+  "style": {
+    "circle-radius": ["case", [">", ["get", "Capacity"], 500], 8, 5],
+    "circle-color": "#e11d48"
+  }
+}
+```
+
+### `img` — Single image overlay
+
+A georeferenced raster bounded by a bounding box. Useful for thumbnails, daily satellite snapshots, etc.
+
+| Field | Notes |
+|---|---|
+| `url` | Image URL (PNG/JPEG). **Required.** |
+| `bounds` (alias: `bbox`) | `[west, south, east, north]` in lng/lat. **Required.** |
+| `urlTimeParam` | Template such as `TIME={time}` to refresh the URL on the global time control. |
+
+```json
+{
+  "id": "imd-satellite",
+  "type": "img",
+  "title": "INSAT-3DR IR1",
+  "url": "https://amche-atlas-production.up.railway.app/proxy?url=https://mausam.imd.gov.in/Satellite/rswmo_ir1.jpg&referer=https://mausam.imd.gov.in/",
+  "bounds": [44.5, -15.8, 113, 48.5],
+  "attribution": "India Meteorological Department"
+}
+```
+
+### `raster-style-layer` — Existing raster style layer
+
+Toggles a raster layer already present in the base Mapbox style. Use when the basemap style ships a raster source you want to expose as a toggle (e.g. Mapbox Satellite).
+
+| Field | Notes |
+|---|---|
+| `styleLayer` | Layer ID inside the base style to toggle. **Required.** |
+
+```json
+{
+  "id": "satellite-imagery",
+  "type": "raster-style-layer",
+  "title": "Satellite",
+  "styleLayer": "mapbox-satellite"
+}
+```
+
+### `layer-group` — Grouped toggle
+
+Bundle multiple existing layer IDs under one user-facing toggle. The child layers are referenced by ID and may live in any other atlas.
+
+| Field | Notes |
+|---|---|
+| `groups` | Array of child references. Each child is `{ id, title, attribution?, location? }`. **Required.** |
+
+```json
+{
+  "id": "slope",
+  "type": "layer-group",
+  "title": "Slope (DEM)",
+  "description": "Slope classification from multiple DEM sources.",
+  "legendImage": "assets/map-layers/goa/legend-slope.png",
+  "groups": [
+    { "id": "nasadem-30-m", "title": "NASA NASADEM 30m", "location": "Goa" },
+    { "id": "cartodem-2-5-m", "title": "ISRO CartoDEM 2.5m", "location": "Bardez" }
+  ]
+}
+```
+
+---
+
 ## Architecture
 
 ### Two-Phase Parameter Processing
@@ -331,6 +634,54 @@ if (window.urlManager) {
 ### If the parameter must affect config loading (like `atlas` or `layers`)
 
 Also edit `js/map-init.js` → `loadConfiguration()` to read and act on it before the map is created. Use `URLUtils.getUrlParameter('foo')` for consistency.
+
+---
+
+## Adding a New Layer Type
+
+When you add support for a new `type` value (e.g. `cog`, `pmtiles`, ...), touch every location in this list and update [Layer Source Formats](#layer-source-formats) in the same change:
+
+### 1. `js/mapbox-api.js` — add the type to all five dispatch switches
+
+```javascript
+// createLayerGroup
+case 'mytype': return this._createMyTypeLayer(groupId, config, visible);
+// updateLayerGroupVisibility
+case 'mytype': return this._updateMyTypeLayerVisibility(groupId, config, visible);
+// removeLayerGroup
+case 'mytype': return this._removeMyTypeLayer(groupId, config);
+// updateLayerOpacity
+case 'mytype': return this._updateMyTypeLayerOpacity(groupId, config, opacity);
+// getLayerGroupIds — return the actual map layer IDs the type owns
+case 'mytype': return [`mytype-layer-${groupId}`].filter(id => this._map.getLayer(id));
+```
+
+Implement the four `_createMyTypeLayer` / `_updateMyTypeLayerVisibility` / `_removeMyTypeLayer` / `_updateMyTypeLayerOpacity` methods following the existing TMS / WMS structure.
+
+### 2. `js/layer-order-manager.js` — set the layer slot
+
+Add the type to the appropriate slot bucket in `getInsertPosition()`:
+
+```javascript
+if (['tms', 'wmts', 'wms', 'cog', 'mytype', ...].includes(type)) return 'bottom';
+```
+
+Vector-like types (querying features, sitting between basemap and labels) should return `null` (default middle slot) instead.
+
+### 3. `docs/API.md` — document the type
+
+**This step is non-negotiable.** Add a `### `mytype` — Title` subsection under [Layer Source Formats](#layer-source-formats) including:
+
+- A one-line description of what it loads.
+- A table of required + optional fields (mark which are required).
+- A complete JSON example pulled from a real atlas config when possible.
+- Any external dependencies (CDN scripts, server requirements like Range-request support, browser API requirements, etc).
+
+Also bump the type list in the [Common Properties](#common-properties) table.
+
+### 4. (If applicable) `index.html` / new ES modules
+
+If the new type needs a CDN library or a Mapbox `TileProvider` module, document it in the type's section so the next person doesn't have to dig through the source.
 
 ---
 
