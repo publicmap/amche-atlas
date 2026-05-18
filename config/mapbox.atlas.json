@@ -137,11 +137,11 @@
         ]
       ],
       "style": {
-        "fill-color": "white"
+        "fill-color": "rgba(255, 255, 255, 0.2)"
       },
       "inspect": {
         "id": "iso_3166_1",
-        "title": "Name",
+        "title": "Country",
         "label": "name_en"
       },
       "initiallyChecked": true

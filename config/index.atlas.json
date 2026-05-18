@@ -107,17 +107,19 @@
     },
     {
       "id": "mapbox-streets",
-      "initiallyChecked": false
+      "initiallyChecked": true
     },
     {
-      "id": "osm-mapnik"
+      "id": "osm-mapnik",
+      "initiallyChecked": true
     },
     {
       "id": "mapbox-admin-lines",
       "initiallyChecked": true
     },
     {
-      "id": "mapbox-countries"
+      "id": "mapbox-countries",
+      "initiallyChecked": false
     },
     {
       "id": "mapbox-satellite",

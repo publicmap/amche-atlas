@@ -412,6 +412,10 @@ export class MapFeatureControl {
                 this._isolateLayer(event.data.layerId, event.data.isBasemap);
             } else if (event.data.type === 'clear-layer-isolation') {
                 this._clearLayerIsolation();
+            } else if (event.data.type === 'hover-isolate-layer') {
+                this._hoverIsolateLayer(event.data.layerId, event.data.isBasemap);
+            } else if (event.data.type === 'clear-hover-layer-isolation') {
+                this._clearHoverLayerIsolation();
             } else if (event.data.type === 'update-layer-opacity') {
                 this._updateLayerOpacity(event.data.layerId, event.data.opacity);
             } else if (event.data.type === 'zoom-to-layer') {
@@ -1183,36 +1187,104 @@ export class MapFeatureControl {
     }
 
     /**
-     * Isolate a layer by hiding all others in the same section
+     * Get all user-toggled-on layers based on checkbox state, regardless of
+     * current map visibility. Needed for isolation logic so we don't lose track
+     * of layers that the user has enabled but are currently hidden by a prior
+     * isolation.
+     */
+    _getToggledOnLayers() {
+        const layers = new Map();
+        if (!window.layerControl || !window.layerControl._state?.groups || !window.layerControl._sourceControls) {
+            return layers;
+        }
+
+        window.layerControl._state.groups.forEach((group, index) => {
+            const controlElement = window.layerControl._sourceControls[index];
+            if (!controlElement) return;
+
+            const checkbox = controlElement.querySelector('.toggle-switch input[type="checkbox"]');
+            if (checkbox && checkbox.checked) {
+                layers.set(group.id, { config: group });
+            }
+        });
+
+        return layers;
+    }
+
+    /**
+     * Persistent isolation (click): set state and apply.
+     * If a hover-isolation is currently active, the persistent state is just
+     * recorded — the new persistent isolation takes effect when hover ends.
+     * This avoids the map briefly flashing the wrong layer when the user
+     * clicks while their cursor is still over a card.
      */
     _isolateLayer(layerId, isBasemap) {
-        const mapboxAPI = this._getMapboxAPI();
-        if (!mapboxAPI) return;
+        this._persistentIsolation = { layerId, isBasemap };
+        if (this._hoverIsolation) return;
+        this._applyIsolation(layerId, isBasemap);
+    }
 
-        const activeLayers = this._getActiveLayersFromConfig();
+    /**
+     * Clear persistent isolation (click).
+     */
+    _clearLayerIsolation() {
+        this._persistentIsolation = null;
+        if (this._hoverIsolation) return;
+        this._applyClearIsolation();
+    }
 
-        for (const [id, layerData] of activeLayers.entries()) {
-            if (id !== layerId) {
-                const layerIsBasemap = layerData.config.tags &&
-                    Array.isArray(layerData.config.tags) &&
-                    layerData.config.tags.includes('basemap');
+    /**
+     * Temporary isolation while hovering a layer card in the inspector.
+     * On hover-leave, the prior persistent isolation (if any) is restored.
+     */
+    _hoverIsolateLayer(layerId, isBasemap) {
+        if (this._hoverIsolation && this._hoverIsolation.layerId === layerId) return;
+        this._hoverIsolation = { layerId, isBasemap };
+        this._applyIsolation(layerId, isBasemap);
+    }
 
-                if (layerIsBasemap === isBasemap) {
-                    mapboxAPI.updateLayerGroupVisibility(id, layerData.config, false);
-                }
-            }
+    _clearHoverLayerIsolation() {
+        if (!this._hoverIsolation) return;
+        this._hoverIsolation = null;
+
+        if (this._persistentIsolation) {
+            this._applyIsolation(this._persistentIsolation.layerId, this._persistentIsolation.isBasemap);
+        } else {
+            this._applyClearIsolation();
         }
     }
 
     /**
-     * Clear layer isolation (show all layers)
+     * Hide all toggled-on siblings in the same section as layerId.
+     * Always clears prior isolation first so we have a clean baseline —
+     * otherwise sibling layers hidden by a previous isolation stay invisible
+     * to _getToggledOnLayers' loop and we leave the section dark.
      */
-    _clearLayerIsolation() {
+    _applyIsolation(layerId, isBasemap) {
         const mapboxAPI = this._getMapboxAPI();
         if (!mapboxAPI) return;
 
-        const activeLayers = this._getActiveLayersFromConfig();
+        this._applyClearIsolation();
 
+        const activeLayers = this._getToggledOnLayers();
+        for (const [id, layerData] of activeLayers.entries()) {
+            if (id === layerId) continue;
+
+            const layerIsBasemap = layerData.config.tags &&
+                Array.isArray(layerData.config.tags) &&
+                layerData.config.tags.includes('basemap');
+
+            if (layerIsBasemap === isBasemap) {
+                mapboxAPI.updateLayerGroupVisibility(id, layerData.config, false);
+            }
+        }
+    }
+
+    _applyClearIsolation() {
+        const mapboxAPI = this._getMapboxAPI();
+        if (!mapboxAPI) return;
+
+        const activeLayers = this._getToggledOnLayers();
         for (const [id, layerData] of activeLayers.entries()) {
             mapboxAPI.updateLayerGroupVisibility(id, layerData.config, true);
         }

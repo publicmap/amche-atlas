@@ -275,19 +275,27 @@ export class SplashScreenManager {
     }
 
     /**
-     * Wait for layer registry to be initialized
+     * Wait for layer registry to be fully initialized. We can't just check
+     * `_atlasMetadata` truthiness — the Map is created (empty) in the
+     * LayerRegistry constructor at module load, so that check passes before
+     * any atlas JSON has been fetched. findBestAtlasForLocation needs the
+     * Map *populated*, so await the registry's idempotent initialize() —
+     * it dedupes concurrent calls with map-init.js via an in-flight WeakMap.
      */
     async waitForLayerRegistry() {
-        return new Promise((resolve) => {
-            const checkRegistry = () => {
-                if (window.layerRegistry && window.layerRegistry._atlasMetadata) {
-                    resolve();
-                } else {
-                    setTimeout(checkRegistry, 100);
-                }
+        const waitForInstance = () => new Promise((resolve) => {
+            const check = () => {
+                if (window.layerRegistry) resolve();
+                else setTimeout(check, 50);
             };
-            checkRegistry();
+            check();
         });
+        await waitForInstance();
+        try {
+            await window.layerRegistry.initialize();
+        } catch (e) {
+            console.warn('[SplashScreen] Layer registry initialize failed, continuing with partial state:', e);
+        }
     }
 
     /**

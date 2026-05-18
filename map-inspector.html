@@ -1124,6 +1124,42 @@
             });
         }
 
+        // Temporarily isolate a layer while hovering its card; restore on leave.
+        function setupCardHoverIsolation($card, layer) {
+            const isBasemap = !!(layer.tags && Array.isArray(layer.tags) && layer.tags.includes('basemap'));
+
+            $card.on('mouseenter', function () {
+                if (!isolateEnabled) return;
+                if (_draggedCard) return;
+                if (expandedLayerId === layer.id) return; // already isolated via expansion
+
+                window.parent.postMessage({
+                    type: 'hover-isolate-layer',
+                    layerId: layer.id,
+                    isBasemap
+                }, '*');
+
+                applyVisualIsolation(layer.id, isBasemap);
+            });
+
+            $card.on('mouseleave', function () {
+                if (!isolateEnabled) return;
+                if (expandedLayerId === layer.id) return;
+
+                window.parent.postMessage({
+                    type: 'clear-hover-layer-isolation'
+                }, '*');
+
+                // Restore visual state: dim back to the expanded layer's isolation
+                // if one is active, otherwise clear all dimming.
+                if (expandedLayerId) {
+                    reapplyVisualIsolationIfNeeded();
+                } else {
+                    clearVisualIsolation();
+                }
+            });
+        }
+
         // Render all active layers
         function renderLayers() {
             // console.group('🔍 Inspector Layer Order Debug');
@@ -1943,6 +1979,8 @@
                 }
             });
 
+            setupCardHoverIsolation($card, layerConfig);
+
             return $card;
         }
 
@@ -2476,6 +2514,8 @@
                     toggleLayerExpanded(layer.id);
                 }
             });
+
+            setupCardHoverIsolation($card, layer);
 
             return $card;
         }
