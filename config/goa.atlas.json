@@ -274,6 +274,71 @@
       "tags": [
         "4.Government Publications"
       ],
+      "title": "Spring Census 2026 (Ongoing)",
+      "description": "Data of springs surveyed as part of the <a href=''>7th Minor Irrigation Census<a> initiated by the Ministry of Jal Shakti..",
+      "type": "csv",
+      "id": "2026-spring-census",
+      "url": "https://raw.githubusercontent.com/alansaviolobo/micensus/refs/heads/master/downloads/combined_schedules.csv",
+      "attribution": "<a href='https://alansaviolobo.github.io/micensus/'>micensus Dahsboard</a>",
+      "style": {
+        "circle-color": [
+          "coalesce",
+          [
+            "get",
+            "fill-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#3b82f6"
+        ],
+        "circle-radius": 4,
+        "circle-stroke-color": [
+          "coalesce",
+          [
+            "get",
+            "stroke-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#1e40af"
+        ],
+        "circle-stroke-width": 2,
+        "text-field": [
+          "to-string",
+          [
+            "get",
+            "block"
+          ]
+        ]
+      },
+      "inspect": {
+        "id": "Spring Id",
+        "title": "Village",
+        "label": "Village",
+        "fields": [
+          "village",
+          "owner_type",
+          "condition",
+          "construction",
+          "purpose"
+        ],
+        "fieldTitles": [
+          "Village",
+          "Owner Type",
+          "Condition",
+          "Construction",
+          "Purpose"
+        ]
+      }
+    },
+    {
+      "tags": [
+        "4.Government Publications"
+      ],
       "title": "Water Body Atlas 2025",
       "description": "Springs, lakes and other minor water bodies surveyed by the Department of Water Resources, Government of Goa.",
       "type": "geojson",
