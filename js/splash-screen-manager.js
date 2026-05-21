@@ -1,9 +1,11 @@
 /**
  * Splash Screen Manager
- * Handles the initial loading screen with atlas/layer selection and location options
+ * Two-state UI: "Detecting user location" (with optional Allow/Deny when the
+ * geolocation permission has never been answered), then "Loading map atlas of
+ * <name> [Change]" once an atlas has been picked. The map loads in the
+ * background; watchForMapReady auto-proceeds the splash when the map is
+ * renderable.
  */
-
-import { LayerThumbnail } from './layer-thumbnail.js';
 
 export class SplashScreenManager {
     constructor() {
@@ -16,192 +18,323 @@ export class SplashScreenManager {
             urlParams: new URLSearchParams(window.location.search),
             urlHash: window.location.hash,
             manualAtlasSelection: false,
-            manualLocationSelection: false
+            manualLocationSelection: false,
+            wasLocated: false
         };
-        // Auto-proceed gating. We used to track delayElapsed/styleLoaded as a
-        // two-gate AND, but the delay was always 0ms (one rAF) and the style
-        // signal was tied to mapDisplayReady — which only fires after a full
-        // map.idle (every layer/tile loaded). The result was the splash sat
-        // open for seconds after the map was already usable. Now we proceed
-        // on the earliest map-ready signal we can observe.
-        this.autoProceed = {
-            cancelled: false
-        };
-        this.hasProceeded = false; // Prevent multiple proceed calls
+        this.autoProceed = { cancelled: false };
+        this.hasProceeded = false;
     }
 
-    /**
-     * Initialize the splash screen
-     */
     async initialize() {
-        // Tell map initialization NOT to auto-close the overlay
-        // SplashScreenManager will control it
         window.loadingStartupState = window.loadingStartupState || {};
         window.loadingStartupState.manualOverlayControl = true;
 
-        // Wait for layer registry to be ready
         await this.waitForLayerRegistry();
-
         this.cacheElements();
-        // Synchronously fill the panel from URL params so the user sees real
-        // info (atlas id, layer ids, hash coords) instead of "Loading..." /
-        // "Detecting..." placeholders while parseURLConfiguration() fetches
-        // the atlas JSON in the background.
-        this.prefillPanelFromURL();
         await this.parseURLConfiguration();
-        this.populateActivationPanel();
+        this.showSplashSection();
         this.setupEventListeners();
+        this.applyAtlasName();
 
-        // If URL has no atlas/hash, ask user before triggering GPS so a slow
-        // permission prompt can't lose the race to a wrong-atlas GeoIP fallback.
-        await this.maybeShowGPSPermissionNotice();
-
-        // Trigger geolocation detection if needed (but don't wait for it)
-        this.triggerLocationDetectionIfNeeded();
-
-        // The button text used to be set by the (now-removed) auto-proceed
-        // countdown. Set it directly here so the user sees "Loading map…"
-        // until proceedToMap() runs.
-        if (this.elements.openMapButton) {
-            this.elements.openMapButton.textContent = 'Loading map…';
+        // URL drives atlas/coords → no detection. Otherwise run the
+        // detect-then-pick-atlas flow.
+        if (this.state.locationSource === 'atlas' || this.state.locationSource === 'url') {
+            this.showAtlasState();
+        } else {
+            await this.runLocationDetectionFlow();
+            this.applyAtlasName();
+            this.showAtlasState();
         }
+
         this.watchForMapReady();
     }
 
     /**
-     * When URL has no atlas/hash, locationSource is 'gps' and we'd otherwise
-     * race a browser permission prompt against GeoIP. Show an in-app notice
-     * so the user can decide synchronously: Locate Now = GPS (with GeoIP
-     * fallback), Later = GeoIP only. Auto-defaults to GPS after 5s.
-     *
-     * Skips the notice only when permission is already granted (GPS resolves
-     * without a prompt — no race to worry about). In the 'denied' state we
-     * still show the notice; otherwise the user just sees the atlas silently
-     * jump on GeoIP, which is the exact surprise this is meant to prevent.
-     * "Locate Now" with denied permission falls through to GeoIP anyway.
+     * Wait for layer registry to be fully initialized — findBestAtlasForLocation
+     * needs `_atlasMetadata` populated, which only happens after the registry's
+     * idempotent initialize() resolves (deduped via in-flight WeakMap shared
+     * with map-init.js).
      */
-    async maybeShowGPSPermissionNotice() {
-        if (this.state.locationSource !== 'gps') return;
-
-        if ('permissions' in navigator) {
-            try {
-                const status = await navigator.permissions.query({ name: 'geolocation' });
-                if (status.state === 'granted') return;
-            } catch (e) {}
-        }
-
-        const notice = document.getElementById('gps-permission-notice');
-        const locateBtn = document.getElementById('gps-locate-now-btn');
-        const laterBtn = document.getElementById('gps-later-btn');
-        const locateText = document.getElementById('gps-locate-now-text');
-        if (!notice || !locateBtn || !laterBtn || !locateText) return;
-
-        notice.style.display = 'flex';
-
-        return new Promise(resolve => {
-            let countdown = 5;
-            let timer = null;
-
-            const cleanup = () => {
-                if (timer) clearInterval(timer);
-                notice.style.display = 'none';
+    async waitForLayerRegistry() {
+        const waitForInstance = () => new Promise((resolve) => {
+            const check = () => {
+                if (window.layerRegistry) resolve();
+                else setTimeout(check, 50);
             };
-
-            const useGPS = () => {
-                cleanup();
-                this.state.locationSource = 'gps';
-                resolve();
-            };
-
-            const useGeoIP = () => {
-                cleanup();
-                this.state.locationSource = 'geoip';
-                this.updateLocationText();
-                resolve();
-            };
-
-            locateText.textContent = `Locate Now (${countdown}s)`;
-            timer = setInterval(() => {
-                countdown--;
-                if (countdown <= 0) {
-                    useGPS();
-                } else {
-                    locateText.textContent = `Locate Now (${countdown}s)`;
-                }
-            }, 1000);
-
-            locateBtn.addEventListener('click', useGPS, { once: true });
-            laterBtn.addEventListener('click', useGeoIP, { once: true });
+            check();
         });
+        await waitForInstance();
+        try {
+            await window.layerRegistry.initialize();
+        } catch (e) {
+            console.warn('[SplashScreen] Layer registry initialize failed, continuing with partial state:', e);
+        }
+    }
+
+    cacheElements() {
+        this.elements = {
+            splashSection: document.getElementById('splash-atlas-section'),
+            detectingState: document.getElementById('splash-detecting-state'),
+            permissionButtons: document.getElementById('splash-permission-buttons'),
+            allowBtn: document.getElementById('splash-allow-btn'),
+            denyBtn: document.getElementById('splash-deny-btn'),
+            allowCountdown: document.getElementById('splash-allow-countdown'),
+            atlasState: document.getElementById('splash-atlas-state'),
+            locatedText: document.getElementById('splash-located-text'),
+            atlasName: document.getElementById('splash-atlas-name'),
+            changeAtlasBtn: document.getElementById('splash-change-atlas-btn'),
+            atlasDropdown: document.getElementById('splash-atlas-dropdown')
+        };
+    }
+
+    showSplashSection() {
+        if (this.elements.splashSection) {
+            this.elements.splashSection.style.display = 'block';
+        }
     }
 
     /**
-     * Trigger location detection based on locationSource.
-     * For 'gps', tries device GPS first and falls back to GeoIP on failure so
-     * a wrong hotspot IP doesn't pick the initial atlas.
+     * Parse URL configuration and determine what to load
      */
-    triggerLocationDetectionIfNeeded() {
-        if (this.state.locationSource === 'gps') {
-            this.detectGPSThenGeoIP();
-        } else if (this.state.locationSource === 'geoip') {
-            this.detectGeoIP();
+    async parseURLConfiguration() {
+        const atlasParam = this.state.urlParams.get('atlas');
+        const layersParam = this.state.urlParams.get('layers');
+        const hashLocation = this.parseHashLocation();
+
+        if (atlasParam || layersParam) {
+            await this.loadConfigurationFromURL(atlasParam, layersParam);
+        } else {
+            await this.loadDefaultConfiguration();
+        }
+
+        if (atlasParam) {
+            this.state.locationSource = 'atlas';
+            this.state.manualAtlasSelection = true;
+        } else if (hashLocation) {
+            this.state.locationSource = 'url';
+            this.state.locationData = hashLocation;
+        } else {
+            this.state.locationSource = 'gps';
         }
     }
 
-    async detectGPSThenGeoIP() {
+    parseHashLocation() {
+        if (!this.state.urlHash || this.state.urlHash.length <= 1) return null;
+        const parts = this.state.urlHash.substring(1).split('/');
+        if (parts.length !== 3) return null;
+        const zoom = parseFloat(parts[0]);
+        const lat = parseFloat(parts[1]);
+        const lng = parseFloat(parts[2]);
+        if (isNaN(lat) || isNaN(lng) || isNaN(zoom)) return null;
+        return { lat, lng, zoom };
+    }
+
+    async loadConfigurationFromURL(atlasParam, layersParam) {
+        try {
+            let atlasConfig;
+            let atlasId = 'index';
+
+            if (atlasParam) {
+                if (atlasParam.startsWith('{') && atlasParam.endsWith('}')) {
+                    atlasConfig = JSON.parse(atlasParam);
+                    atlasId = 'imported';
+                } else if (atlasParam.startsWith('http')) {
+                    const response = await fetch(atlasParam);
+                    atlasConfig = await response.json();
+                    atlasId = 'imported';
+                } else {
+                    const response = await fetch(`config/${atlasParam}.atlas.json`);
+                    atlasConfig = await response.json();
+                    atlasId = atlasParam;
+                }
+            } else {
+                const response = await fetch('config/index.atlas.json');
+                atlasConfig = await response.json();
+            }
+
+            this.state.atlas = this._atlasFromConfig(atlasId, atlasConfig);
+
+            if (layersParam) {
+                this.state.layers = this.parseLayersParam(layersParam);
+            } else if (atlasConfig.layers) {
+                this.state.layers = atlasConfig.layers.filter(l => l.initiallyChecked);
+            }
+        } catch (error) {
+            console.error('[SplashScreen] Error loading configuration:', error);
+            await this.loadFallbackConfiguration();
+        }
+    }
+
+    parseLayersParam(layersParam) {
+        const items = [];
+        let depth = 0;
+        let current = '';
+        for (const char of layersParam) {
+            if (char === '{') depth++;
+            else if (char === '}') depth--;
+            if (char === ',' && depth === 0) {
+                items.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        if (current.trim()) items.push(current.trim());
+
+        const layers = [];
+        for (const item of items) {
+            if (item.startsWith('{') && item.endsWith('}')) {
+                try {
+                    layers.push(JSON.parse(item));
+                } catch (e) {
+                    console.warn('[SplashScreen] Failed to parse layer JSON:', item);
+                }
+            } else {
+                layers.push({ id: item });
+            }
+        }
+        return layers;
+    }
+
+    async loadDefaultConfiguration() {
+        try {
+            const response = await fetch('config/index.atlas.json');
+            const config = await response.json();
+            this.state.atlas = this._atlasFromConfig('index', config);
+            this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
+        } catch (error) {
+            console.error('[SplashScreen] Error loading default configuration:', error);
+            await this.loadFallbackConfiguration();
+        }
+    }
+
+    async loadFallbackConfiguration() {
+        try {
+            const response = await fetch('config/index.atlas.json');
+            const config = await response.json();
+            this.state.atlas = {
+                ...this._atlasFromConfig('index', config),
+                name: 'Goa Map (Fallback)',
+                description: 'Default map view',
+                color: '#3b82f6'
+            };
+            this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
+        } catch (error) {
+            console.error('[SplashScreen] Critical error: Cannot load fallback configuration');
+        }
+    }
+
+    _atlasFromConfig(id, config) {
+        return {
+            id,
+            name: config.name || 'Map',
+            description: config.description || '',
+            color: config.color || '#3b82f6',
+            headerImage: config.headerImage || null,
+            center: config.map?.center,
+            zoom: config.map?.zoom,
+            bbox: config.bbox
+        };
+    }
+
+    /**
+     * The detect-then-show flow. Three permission states:
+     *   - granted  → silent GPS detection (no Allow/Deny buttons shown)
+     *   - prompt   → show "Detecting..." + Allow/Deny with 3s auto-Allow
+     *   - denied   → skip GPS, go straight to GeoIP (no buttons either)
+     */
+    async runLocationDetectionFlow() {
+        let permissionState = 'prompt';
         if ('permissions' in navigator) {
             try {
                 const status = await navigator.permissions.query({ name: 'geolocation' });
-                if (status.state === 'denied') {
-                    console.log('[SplashScreen] GPS permission denied, using GeoIP');
-                    return this.fallbackToGeoIP();
-                }
+                permissionState = status.state;
             } catch (e) {}
         }
 
-        if (!window.handleGeolocation) {
-            return this.fallbackToGeoIP();
+        this.showDetectingState({ withPermissionButtons: permissionState === 'prompt' });
+
+        if (permissionState === 'granted') {
+            await this.detectGPSThenGeoIP();
+            this.state.wasLocated = true;
+            return;
         }
 
-        console.log('[SplashScreen] Trying GPS first');
-        const success = await window.handleGeolocation(false);
+        if (permissionState === 'denied') {
+            await this.detectGeoIP();
+            this.state.wasLocated = true;
+            return;
+        }
 
-        if (this.state.manualLocationSelection) return;
+        const choice = await this.waitForPermissionChoice();
+        this.hidePermissionButtons();
 
-        if (success) {
-            // Synchronously update URL with best atlas before map-init.js's race
-            // callback (50ms cadence) sees userLocation and runs its own detection.
-            const loc = window.loadingStartupState?.userLocation;
-            if (loc) {
-                console.log(
-                    `[SplashScreen] GPS resolved at t=${Math.round(performance.now())}ms:`,
-                    `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)} — applying atlas`
-                );
-                await this.applyLocationBasedAtlas(loc.lat, loc.lng, 'gps');
-            }
-            console.log(`[SplashScreen] GPS detection succeeded at t=${Math.round(performance.now())}ms`);
-            this.updateLocationText();
+        if (choice === 'allow') {
+            await this.detectGPSThenGeoIP();
         } else {
-            console.log('[SplashScreen] GPS detection failed, falling back to GeoIP');
-            this.fallbackToGeoIP();
+            await this.detectGeoIP();
+        }
+        this.state.wasLocated = true;
+    }
+
+    showDetectingState({ withPermissionButtons }) {
+        if (this.elements.detectingState) this.elements.detectingState.style.display = 'block';
+        if (this.elements.atlasState) this.elements.atlasState.style.display = 'none';
+        if (this.elements.permissionButtons) {
+            this.elements.permissionButtons.style.display = withPermissionButtons ? 'flex' : 'none';
         }
     }
 
-    async fallbackToGeoIP() {
-        this.state.locationSource = 'geoip';
-        this.updateLocationText();
-        await this.detectGeoIP();
+    hidePermissionButtons() {
+        if (this.elements.permissionButtons) this.elements.permissionButtons.style.display = 'none';
+    }
+
+    /**
+     * Resolve with 'allow' or 'deny'. 3s auto-Allow countdown — clears on click.
+     */
+    waitForPermissionChoice() {
+        return new Promise(resolve => {
+            let countdown = 3;
+            let timer = null;
+            const finish = (choice) => {
+                if (timer) clearInterval(timer);
+                resolve(choice);
+            };
+
+            if (this.elements.allowBtn) {
+                this.elements.allowBtn.addEventListener('click', () => finish('allow'), { once: true });
+            }
+            if (this.elements.denyBtn) {
+                this.elements.denyBtn.addEventListener('click', () => finish('deny'), { once: true });
+            }
+
+            timer = setInterval(() => {
+                countdown--;
+                if (this.elements.allowCountdown) this.elements.allowCountdown.textContent = countdown;
+                if (countdown <= 0) finish('allow');
+            }, 1000);
+        });
+    }
+
+    async detectGPSThenGeoIP() {
+        if (!window.handleGeolocation) return this.detectGeoIP();
+        const success = await window.handleGeolocation(false);
+        if (this.state.manualLocationSelection) return;
+
+        if (success) {
+            const loc = window.loadingStartupState?.userLocation;
+            if (loc) await this.applyLocationBasedAtlas(loc.lat, loc.lng, 'gps');
+        } else {
+            await this.detectGeoIP();
+        }
     }
 
     async detectGeoIP() {
         if (!window.handleIPLocationFallback) return;
-        console.log('[SplashScreen] Triggering GeoIP location detection');
         const success = await window.handleIPLocationFallback();
         if (success && !this.state.manualLocationSelection) {
             const ip = window.ipLocationData;
             if (ip?.lat && ip?.lng) await this.applyLocationBasedAtlas(ip.lat, ip.lng, 'geoip');
-            console.log('[SplashScreen] GeoIP detection completed');
-            this.updateLocationText();
         }
     }
 
@@ -245,9 +378,9 @@ export class SplashScreenManager {
     /**
      * Owned by splash: pick the best atlas for the detected coords, write the
      * URL (with hash zoom that lands directly on the user — 18 for GPS, 12 for
-     * GeoIP), and re-render the panel so the UI matches.
+     * GeoIP), and refresh state so the UI matches.
      *
-     * Why URL update must be synchronous before any await: map-init.js's
+     * URL update must be synchronous before any await: map-init.js's
      * waitForStartupChoice polls userLocation at 50ms; once it sees the value,
      * it checks `URLUtils.getUrlParameter('atlas')` for shouldSkip. Our
      * replaceState here gates that skip — losing the race re-runs findBestAtlas
@@ -265,558 +398,111 @@ export class SplashScreenManager {
         const hash = `#${hashZoom}/${lat.toFixed(6)}/${lng.toFixed(6)}`;
         const newUrl = `${window.location.pathname}?atlas=${bestAtlasId}${layersParam}&geolocate=true${hash}`;
         window.history.replaceState({}, '', newUrl);
-        console.log('[SplashScreen] Auto-selected atlas:', bestAtlasId, 'for', source, 'location');
 
         await this.loadAtlasById(bestAtlasId);
-        // loadAtlasById sets locationSource='atlas' — restore detected source
         this.state.locationSource = source;
         this.state.locationData = { lat, lng, zoom: hashZoom };
-        this.populateActivationPanel();
     }
 
-    /**
-     * Wait for layer registry to be fully initialized. We can't just check
-     * `_atlasMetadata` truthiness — the Map is created (empty) in the
-     * LayerRegistry constructor at module load, so that check passes before
-     * any atlas JSON has been fetched. findBestAtlasForLocation needs the
-     * Map *populated*, so await the registry's idempotent initialize() —
-     * it dedupes concurrent calls with map-init.js via an in-flight WeakMap.
-     */
-    async waitForLayerRegistry() {
-        const waitForInstance = () => new Promise((resolve) => {
-            const check = () => {
-                if (window.layerRegistry) resolve();
-                else setTimeout(check, 50);
-            };
-            check();
-        });
-        await waitForInstance();
-        try {
-            await window.layerRegistry.initialize();
-        } catch (e) {
-            console.warn('[SplashScreen] Layer registry initialize failed, continuing with partial state:', e);
-        }
-    }
-
-    /**
-     * Cache DOM elements
-     */
-    cacheElements() {
-        this.elements = {
-            activationPanel: document.getElementById('map-activation-panel'),
-            headerImage: document.getElementById('activation-header-image'),
-            atlasName: document.getElementById('activation-atlas-name'),
-            atlasDescription: document.getElementById('activation-atlas-description'),
-            layersList: document.getElementById('activation-layers-list'),
-            locationBtn: document.getElementById('activation-location-btn'),
-            locationText: document.getElementById('activation-location-text'),
-            locationDropdown: document.getElementById('activation-location-dropdown'),
-            openMapButton: document.getElementById('activation-open-map')
-        };
-    }
-
-    /**
-     * Parse URL configuration and determine what to load
-     */
-    async parseURLConfiguration() {
-        const atlasParam = this.state.urlParams.get('atlas');
-        const layersParam = this.state.urlParams.get('layers');
-        const hashLocation = this.parseHashLocation();
-
-        // Parse atlas and layers first
-        if (atlasParam || layersParam) {
-            await this.loadConfigurationFromURL(atlasParam, layersParam);
-        } else {
-            // No URL params - use auto-detection or index atlas
-            await this.loadDefaultConfiguration();
-        }
-
-        // Determine location source AFTER loading atlas
-        // If explicit atlas parameter is provided, treat it as manual selection
-        if (atlasParam) {
-            // User explicitly requested an atlas - don't override with location detection
-            this.state.locationSource = 'atlas';
-            this.state.manualAtlasSelection = true;
-            console.log('[SplashScreen] Explicit atlas parameter detected - treating as manual selection');
-        } else if (hashLocation) {
-            // Hash location in URL takes precedence
-            this.state.locationSource = 'url';
-            this.state.locationData = hashLocation;
-        } else {
-            // Try GPS first, fall back to GeoIP on failure.
-            // GeoIP on hotspots/VPNs can pick the wrong atlas before GPS corrects it.
-            this.state.locationSource = 'gps';
-        }
-    }
-
-    /**
-     * Parse location from URL hash (#zoom/lat/lng)
-     */
-    parseHashLocation() {
-        if (!this.state.urlHash || this.state.urlHash.length <= 1) {
-            return null;
-        }
-
-        const hash = this.state.urlHash.substring(1);
-        const parts = hash.split('/');
-
-        if (parts.length === 3) {
-            const zoom = parseFloat(parts[0]);
-            const lat = parseFloat(parts[1]);
-            const lng = parseFloat(parts[2]);
-
-            if (!isNaN(lat) && !isNaN(lng) && !isNaN(zoom)) {
-                return { lat, lng, zoom };
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Load configuration from URL parameters
-     */
-    async loadConfigurationFromURL(atlasParam, layersParam) {
-        try {
-            // Load atlas config
-            let atlasConfig;
-            let atlasId = 'index';
-
-            if (atlasParam) {
-                if (atlasParam.startsWith('{') && atlasParam.endsWith('}')) {
-                    // Inline JSON
-                    atlasConfig = JSON.parse(atlasParam);
-                    atlasId = 'imported';
-                } else if (atlasParam.startsWith('http')) {
-                    // Remote URL
-                    const response = await fetch(atlasParam);
-                    atlasConfig = await response.json();
-                    atlasId = 'imported';
-                } else {
-                    // Local file
-                    const response = await fetch(`config/${atlasParam}.atlas.json`);
-                    atlasConfig = await response.json();
-                    atlasId = atlasParam;
-                }
-            } else {
-                // Default to index
-                const response = await fetch('config/index.atlas.json');
-                atlasConfig = await response.json();
-            }
-
-            this.state.atlas = {
-                id: atlasId,
-                name: atlasConfig.name || 'Map',
-                description: atlasConfig.description || '',
-                color: atlasConfig.color || '#3b82f6',
-                headerImage: atlasConfig.headerImage || null,
-                center: atlasConfig.map?.center,
-                zoom: atlasConfig.map?.zoom,
-                bbox: atlasConfig.bbox
-            };
-
-            // Parse layers
-            if (layersParam) {
-                this.state.layers = await this.parseLayersParam(layersParam);
-            } else if (atlasConfig.layers) {
-                this.state.layers = atlasConfig.layers.filter(l => l.initiallyChecked);
-            }
-
-        } catch (error) {
-            console.error('[SplashScreen] Error loading configuration:', error);
-            await this.loadFallbackConfiguration();
-        }
-    }
-
-    /**
-     * Parse layers parameter from URL
-     */
-    async parseLayersParam(layersParam) {
-        const layers = [];
-        const items = [];
-        let depth = 0;
-        let current = '';
-
-        for (const char of layersParam) {
-            if (char === '{') depth++;
-            else if (char === '}') depth--;
-            if (char === ',' && depth === 0) {
-                items.push(current.trim());
-                current = '';
-            } else {
-                current += char;
-            }
-        }
-        if (current.trim()) items.push(current.trim());
-
-        for (const item of items) {
-            const trimmed = item.trim();
-            if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-                try {
-                    layers.push(JSON.parse(trimmed));
-                } catch (e) {
-                    console.warn('[SplashScreen] Failed to parse layer JSON:', trimmed);
-                }
-            } else {
-                layers.push({ id: trimmed });
-            }
-        }
-
-        return layers;
-    }
-
-    /**
-     * Load default configuration (index atlas)
-     */
-    async loadDefaultConfiguration() {
-        try {
-            const response = await fetch('config/index.atlas.json');
-            const config = await response.json();
-
-            this.state.atlas = {
-                id: 'index',
-                name: config.name || 'Map',
-                description: config.description || '',
-                color: config.color || '#3b82f6',
-                headerImage: config.headerImage || null,
-                center: config.map?.center,
-                zoom: config.map?.zoom,
-                bbox: config.bbox
-            };
-
-            this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
-        } catch (error) {
-            console.error('[SplashScreen] Error loading default configuration:', error);
-            await this.loadFallbackConfiguration();
-        }
-    }
-
-    /**
-     * Fallback to index.atlas.json on any error
-     */
-    async loadFallbackConfiguration() {
-        try {
-            const response = await fetch('config/index.atlas.json');
-            const config = await response.json();
-
-            this.state.atlas = {
-                id: 'index',
-                name: 'Goa Map (Fallback)',
-                description: 'Default map view',
-                color: '#3b82f6',
-                headerImage: null,
-                center: config.map?.center || [73.8274, 15.4406],
-                zoom: config.map?.zoom || 9
-            };
-
-            this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
-        } catch (error) {
-            console.error('[SplashScreen] Critical error: Cannot load fallback configuration');
-        }
-    }
-
-    /**
-     * Synchronous fast-fill from URL params. Runs before parseURLConfiguration()
-     * has fetched the atlas JSON, so the panel shows useful info immediately
-     * rather than the "Loading..." / "Detecting..." placeholders.
-     */
-    prefillPanelFromURL() {
-        const atlasParam = this.state.urlParams.get('atlas');
-        const layersParam = this.state.urlParams.get('layers');
-        const hashLocation = this.parseHashLocation();
-
-        if (this.elements.activationPanel) {
-            this.elements.activationPanel.style.display = 'block';
-        }
-
-        if (this.elements.atlasName) {
-            let display;
-            if (!atlasParam) {
-                display = 'Map';
-            } else if (atlasParam.startsWith('{')) {
-                display = 'Custom map';
-            } else if (atlasParam.startsWith('http')) {
-                display = 'Imported map';
-            } else {
-                display = atlasParam.charAt(0).toUpperCase() + atlasParam.slice(1);
-            }
-            this.elements.atlasName.textContent = display;
-        }
-
-        if (this.elements.layersList && layersParam) {
-            this.elements.layersList.innerHTML = '';
-            // Split on top-level commas (don't split inside {...} layer JSON)
-            const items = [];
-            let depth = 0, current = '';
-            for (const ch of layersParam) {
-                if (ch === '{') depth++;
-                else if (ch === '}') depth--;
-                if (ch === ',' && depth === 0) { items.push(current.trim()); current = ''; }
-                else current += ch;
-            }
-            if (current.trim()) items.push(current.trim());
-
-            items.forEach(id => {
-                if (id === 'selection') return;
-                const chip = document.createElement('div');
-                chip.style.cssText = 'display:flex;align-items:center;gap:5px;padding:3px 8px;background:rgba(255,255,255,0.07);border-radius:12px;border:1px solid rgba(255,255,255,0.12);';
-                const name = document.createElement('span');
-                name.textContent = id.startsWith('{') ? 'custom' : id;
-                name.style.cssText = 'color:#e5e7eb;font-size:0.75rem;white-space:nowrap;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;';
-                chip.appendChild(name);
-                this.elements.layersList.appendChild(chip);
-            });
-        }
-
-        if (this.elements.locationText) {
-            if (hashLocation) {
-                this.elements.locationText.textContent =
-                    `${hashLocation.lat.toFixed(2)}, ${hashLocation.lng.toFixed(2)}`;
-            } else if (atlasParam) {
-                // URL specifies atlas -> location detection will be skipped;
-                // surface that immediately instead of "Detecting...".
-                this.elements.locationText.textContent = 'Atlas default';
-            }
-        }
-    }
-
-    /**
-     * Populate the activation panel with current state
-     */
-    populateActivationPanel() {
-        if (!this.elements.activationPanel) return;
-
-        this.elements.activationPanel.style.display = 'block';
-
-        if (this.state.atlas) {
-            // Header thumbnail
-            if (this.elements.headerImage && this.state.atlas.headerImage) {
-                this.elements.headerImage.src = this.state.atlas.headerImage;
-                this.elements.headerImage.style.display = 'block';
-            } else if (this.elements.headerImage) {
-                this.elements.headerImage.style.display = 'none';
-            }
-
-            if (this.elements.atlasName) {
-                this.elements.atlasName.textContent = this.state.atlas.name;
-                this.elements.atlasName.style.color = this.state.atlas.color;
-            }
-
-            if (this.elements.atlasDescription && this.state.atlas.description) {
-                this.elements.atlasDescription.innerHTML = this.state.atlas.description;
-                this.elements.atlasDescription.style.display = 'block';
-            }
-        }
-
-        // Compact layer chips
-        if (this.elements.layersList) {
-            this.elements.layersList.innerHTML = '';
-
-            const displayLayers = this.state.layers.filter(l => l.id !== 'selection');
-            if (displayLayers.length > 0) {
-                displayLayers.forEach(layer => {
-                    let fullLayer = layer;
-
-                    if (layer.id && window.layerRegistry) {
-                        try {
-                            const originalWarn = console.warn;
-                            console.warn = () => {};
-                            const registryLayer = window.layerRegistry.getLayer(layer.id);
-                            console.warn = originalWarn;
-                            if (registryLayer) fullLayer = { ...registryLayer, ...layer };
-                        } catch (e) {}
-                    }
-
-                    const chip = document.createElement('div');
-                    chip.style.cssText = 'display:flex;align-items:center;gap:5px;padding:3px 8px 3px 4px;background:rgba(255,255,255,0.07);border-radius:12px;border:1px solid rgba(255,255,255,0.12);';
-
-                    if (fullLayer.type) {
-                        try {
-                            const thumb = LayerThumbnail.generate(fullLayer, 18, { isInView: true });
-                            thumb.style.borderRadius = '50%';
-                            chip.appendChild(thumb);
-                        } catch (e) {}
-                    }
-
-                    const name = document.createElement('span');
-                    name.textContent = fullLayer.title || fullLayer.id || 'Layer';
-                    name.style.cssText = 'color:#e5e7eb;font-size:0.75rem;white-space:nowrap;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;';
-                    chip.appendChild(name);
-                    this.elements.layersList.appendChild(chip);
-                });
-            }
-        }
-
-        // Show URL option only if there's a hash location
-        const urlOption = document.getElementById('location-option-url');
-        if (urlOption) {
-            urlOption.style.display = this.parseHashLocation() ? 'block' : 'none';
-        }
-
-        this.updateLocationText();
-    }
-
-    /**
-     * Update the location button text based on current locationSource
-     */
-    updateLocationText() {
-        if (!this.elements.locationText) return;
-
-        switch (this.state.locationSource) {
-            case 'geoip':
-                if (window.ipLocationData?.city) {
-                    this.elements.locationText.textContent = window.ipLocationData.city;
-                } else {
-                    this.elements.locationText.textContent = 'Detecting...';
-                }
-                break;
-            case 'gps':
-                this.elements.locationText.textContent = window.loadingStartupState?.userLocation
-                    ? 'GPS'
-                    : 'Detecting...';
-                break;
-            case 'atlas':
-                this.elements.locationText.textContent = this.state.atlas?.name || 'Atlas default';
-                break;
-            case 'url':
-                if (this.state.locationData) {
-                    this.elements.locationText.textContent = `${this.state.locationData.lat.toFixed(2)}, ${this.state.locationData.lng.toFixed(2)}`;
-                } else {
-                    this.elements.locationText.textContent = 'From URL';
-                }
-                break;
-            default:
-                this.elements.locationText.textContent = 'Auto';
-        }
-    }
-
-    /**
-     * Apply current locationSource to the map camera (for post-load interactions)
-     */
-    _applyLocationToMap() {
-        const source = this.state.locationSource;
-        const doFly = (map) => {
-            if (source === 'atlas' && this.state.atlas?.center) {
-                map.flyTo({ center: this.state.atlas.center, zoom: this.state.atlas.zoom || 10, essential: true });
-            } else if (source === 'geoip' && window.ipLocationData) {
-                map.flyTo({ center: [window.ipLocationData.lng, window.ipLocationData.lat], zoom: 12, essential: true });
-            } else if (source === 'gps') {
-                if (window.handleGeolocation) window.handleGeolocation(false);
-            } else if (source === 'url' && this.state.locationData) {
-                map.flyTo({ center: [this.state.locationData.lng, this.state.locationData.lat], zoom: this.state.locationData.zoom, essential: true });
-            }
-        };
-
-        if (window.map) {
-            if (window.map.loaded()) {
-                doFly(window.map);
-            } else {
-                window.map.once('load', () => doFly(window.map));
-            }
-        }
-    }
-
-    /**
-     * Setup event listeners
-     */
-    setupEventListeners() {
-        // Location dropdown toggle
-        if (this.elements.locationBtn) {
-            this.elements.locationBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const dd = this.elements.locationDropdown;
-                if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
-            });
-        }
-
-        // Location option selection
-        if (this.elements.locationDropdown) {
-            this.elements.locationDropdown.querySelectorAll('.location-option').forEach(opt => {
-                opt.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.state.locationSource = opt.dataset.value;
-                    this.state.manualLocationSelection = true;
-                    this.elements.locationDropdown.style.display = 'none';
-                    this.updateLocationText();
-                    this.cancelAutoProceed();
-                    this._applyLocationToMap();
-                });
-            });
-        }
-
-        // Close dropdown on outside click
-        document.addEventListener('click', () => {
-            if (this.elements.locationDropdown) {
-                this.elements.locationDropdown.style.display = 'none';
-            }
-        });
-
-        // Open Map button - first click cancels auto-proceed, second click proceeds
-        if (this.elements.openMapButton) {
-            this.elements.openMapButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-
-                if (!this.autoProceed.cancelled) {
-                    this.cancelAutoProceed();
-                } else {
-                    this.proceedToMap();
-                }
-            });
-        }
-    }
-
-    /**
-     * Load atlas by ID
-     */
     async loadAtlasById(atlasId) {
         try {
             const response = await fetch(`config/${atlasId}.atlas.json`);
             const config = await response.json();
-
-            this.state.atlas = {
-                id: atlasId,
-                name: config.name || 'Map',
-                description: config.description || '',
-                color: config.color || '#3b82f6',
-                headerImage: config.headerImage || null,
-                center: config.map?.center,
-                zoom: config.map?.zoom,
-                bbox: config.bbox
-            };
-
+            this.state.atlas = this._atlasFromConfig(atlasId, config);
             this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
-
-            // Update location source to atlas default
-            this.state.locationSource = 'atlas';
-
         } catch (error) {
             console.error('[SplashScreen] Error loading atlas:', atlasId, error);
         }
     }
 
+    applyAtlasName() {
+        if (!this.elements.atlasName) return;
+        this.elements.atlasName.textContent = this.state.atlas?.name || 'Map';
+        if (this.state.atlas?.color) {
+            this.elements.atlasName.style.color = this.state.atlas.color;
+        }
+    }
+
+    showAtlasState() {
+        if (this.elements.detectingState) this.elements.detectingState.style.display = 'none';
+        if (this.elements.atlasState) this.elements.atlasState.style.display = 'block';
+        if (this.elements.locatedText) {
+            this.elements.locatedText.style.display = this.state.wasLocated ? 'flex' : 'none';
+        }
+    }
+
+    populateAtlasDropdown() {
+        const dropdown = this.elements.atlasDropdown;
+        const reg = window.layerRegistry;
+        if (!dropdown || !reg?._atlasMetadata) return;
+
+        dropdown.innerHTML = '';
+        const currentId = this.state.atlas?.id;
+        const entries = Array.from(reg._atlasMetadata.entries())
+            .filter(([id]) => id !== 'index')
+            .sort((a, b) => (a[1].name || a[0]).localeCompare(b[1].name || b[0]));
+
+        const indexMeta = reg._atlasMetadata.get('index');
+        if (indexMeta) entries.unshift(['index', indexMeta]);
+
+        entries.forEach(([id, meta]) => {
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = meta.name || id;
+            if (id === currentId) opt.selected = true;
+            dropdown.appendChild(opt);
+        });
+    }
+
+    setupEventListeners() {
+        if (this.elements.changeAtlasBtn) {
+            this.elements.changeAtlasBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.populateAtlasDropdown();
+                if (this.elements.atlasDropdown) this.elements.atlasDropdown.style.display = 'inline-block';
+                if (this.elements.atlasName) this.elements.atlasName.style.display = 'none';
+                this.elements.changeAtlasBtn.style.display = 'none';
+                this.cancelAutoProceed();
+            });
+        }
+
+        if (this.elements.atlasDropdown) {
+            this.elements.atlasDropdown.addEventListener('change', (e) => {
+                const newAtlasId = e.target.value;
+                if (newAtlasId && newAtlasId !== this.state.atlas?.id) {
+                    this.switchAtlas(newAtlasId);
+                }
+            });
+        }
+    }
+
+    /**
+     * Full reload with the selected atlas. The hash (if present) is preserved
+     * so any detected coordinates remain in effect for the new atlas.
+     */
+    switchAtlas(atlasId) {
+        const hash = window.location.hash || '';
+        window.location.href = `${window.location.pathname}?atlas=${atlasId}${hash}`;
+    }
+
     /**
      * Close the splash as soon as the map is renderable. We listen for the
      * earliest available signal: map.on('load') (style + initial tiles
-     * parsed) — much earlier than the previous mapDisplayReady event, which
-     * was gated on a full map.idle and could be several seconds after the
-     * map was already visible/interactive.
+     * parsed) — much earlier than mapDisplayReady, which is gated on a full
+     * map.idle and can be several seconds after the map is usable.
      */
     watchForMapReady() {
         const proceed = () => {
             if (this.autoProceed.cancelled || this.hasProceeded) return;
-            console.log(`[SplashScreen] Map ready at t=${Math.round(performance.now())}ms, proceeding`);
             this.proceedToMap();
         };
 
-        // Always listen for the parent's signal as one fallback path.
         window.addEventListener('mapDisplayReady', proceed, { once: true });
 
-        // `window.map` is unreliable in two ways before map-init assigns it:
-        // (a) it can be the <div id="map"> element exposed via the named-
-        //     access window proxy, and
-        // (b) it can be undefined.
-        // Treat it as a real Mapbox map only once it has the `on` method.
+        // `window.map` is unreliable before map-init assigns it: it can be the
+        // <div id="map"> element via the named-access window proxy, or
+        // undefined. Treat it as a Mapbox map only once it has `on`.
         const attachLoad = () => {
             if (this.autoProceed.cancelled || this.hasProceeded) return;
             if (window.mapDisplayReady) { proceed(); return; }
@@ -826,43 +512,23 @@ export class SplashScreenManager {
                 if (typeof m.loaded === 'function' && m.loaded()) proceed();
                 else m.once('load', proceed);
             } else {
-                // map-init.js hasn't created the map yet; check again shortly.
                 setTimeout(attachLoad, 50);
             }
         };
         attachLoad();
     }
 
-    /**
-     * Cancel auto-proceed
-     */
     cancelAutoProceed() {
         this.autoProceed.cancelled = true;
-
-        // Also notify the inline JavaScript to cancel its auto-proceed
         if (window.cancelAutoProceed && typeof window.cancelAutoProceed === 'function') {
             window.cancelAutoProceed();
         }
-
-        if (this.elements.openMapButton) {
-            this.elements.openMapButton.textContent = 'Open Map';
-            this.elements.openMapButton.disabled = false;
-        }
-        console.log('[SplashScreen] Auto-proceed cancelled - click "Open Map" to continue');
     }
 
-    /**
-     * Proceed to map with current configuration
-     */
     proceedToMap() {
-        // Prevent multiple calls
-        if (this.hasProceeded) {
-            console.log('[SplashScreen] Already proceeding to map, ignoring duplicate call');
-            return;
-        }
+        if (this.hasProceeded) return;
         this.hasProceeded = true;
 
-        // Set global state for map initialization
         window.loadingStartupState = {
             ...window.loadingStartupState,
             proceedNormally: true,
@@ -874,28 +540,14 @@ export class SplashScreenManager {
             manualLocationSelection: this.state.manualLocationSelection
         };
 
-        console.log('[SplashScreen] Proceeding to map with configuration:', this.state);
-
-        // Apply location to already-loaded map (if user changed location after map started loading)
-        if (this.state.manualLocationSelection) {
-            this._applyLocationToMap();
-        }
-
         this.closeLoadingOverlay();
     }
 
-    /**
-     * Close the loading overlay with animation
-     */
     closeLoadingOverlay() {
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            console.log('[SplashScreen] Closing loading overlay');
-            loadingOverlay.style.opacity = '0';
-            loadingOverlay.style.transition = 'opacity 0.3s ease';
-            setTimeout(() => {
-                loadingOverlay.style.display = 'none';
-            }, 300);
-        }
+        const overlay = document.getElementById('loading-overlay');
+        if (!overlay) return;
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => { overlay.style.display = 'none'; }, 300);
     }
 }

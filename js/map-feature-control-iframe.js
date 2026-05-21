@@ -1301,8 +1301,12 @@ export class MapFeatureControl {
         const layerData = activeLayers.get(layerId);
 
         if (layerData) {
-            mapboxAPI.updateLayerOpacity(layerId, layerData.config, opacity);
+            // Set config.opacity first, then apply with a 1.0 multiplier — the
+            // mapbox-api opacity setters treat the passed value as a multiplier
+            // on top of config.opacity, so passing the new slider value as the
+            // multiplier would compound with the previous config.opacity.
             layerData.config.opacity = opacity;
+            mapboxAPI.updateLayerOpacity(layerId, layerData.config, 1.0);
 
             // Update URL if urlManager is available
             if (window.urlManager) {

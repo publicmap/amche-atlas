@@ -1850,7 +1850,7 @@
                 });
 
                 // Opacity button
-                const currentOpacity = layerConfig.opacity !== undefined ? layerConfig.opacity : 0.9;
+                const currentOpacity = layerConfig.opacity !== undefined ? layerConfig.opacity : 1;
                 const $opacityBtn = $('<button>', {
                     class: 'px-2 py-1 rounded flex items-center justify-center gap-1 bg-gray-600 text-white whitespace-nowrap',
                     html: '<sl-icon name="eye" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Opacity</span>',
@@ -1960,6 +1960,7 @@
                 });
                 $opacitySlider.on('input', function () {
                     const opacity = $(this).val() / 100;
+                    layerConfig.opacity = opacity;
                     window.parent.postMessage({
                         type: 'update-layer-opacity',
                         layerId: layerConfig.id,
@@ -2404,7 +2405,7 @@
                 });
 
                 // Opacity button
-                const currentOpacity = layer.opacity !== undefined ? layer.opacity : 0.9;
+                const currentOpacity = layer.opacity !== undefined ? layer.opacity : 1;
                 const $opacityBtn = $('<button>', {
                     class: 'px-2 py-1 rounded flex items-center justify-center gap-1 bg-gray-600 text-white whitespace-nowrap',
                     html: '<sl-icon name="eye" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">Opacity</span>',
@@ -2496,6 +2497,7 @@
                 });
                 $opacitySlider.on('input', function () {
                     const opacity = $(this).val() / 100;
+                    layer.opacity = opacity;
                     window.parent.postMessage({
                         type: 'update-layer-opacity',
                         layerId: layer.id,

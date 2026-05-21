@@ -35,8 +35,7 @@
     {
       "id": "admin-lines",
       "tags": [
-        "boundaries",
-        "basemap"
+        "boundaries"
       ],
       "title": "Administrative Boundary Lines",
       "description": "Administrative boundary lines (admin-0/1/2) from Mapbox. See <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-streets-v8/#admin' target='_blank'>Mapbox Streets v8 Docs</a> for details.",
@@ -87,17 +86,12 @@
         ]
       },
       "line-opacity": 0.5,
-      "inspect": {
-        "id": "iso_3166_1",
-        "title": "Name",
-        "label": "name_en"
-      },
+      "inspect": false,
       "initiallyChecked": true
     },
     {
       "id": "countries",
       "tags": [
-        "boundaries",
         "basemap"
       ],
       "title": "Mapbox Country Boundaries",

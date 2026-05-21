@@ -436,151 +436,53 @@
                 </button>
             </div>
 
-            <!-- Map Activation Panel -->
-            <div id="map-activation-panel" style="display: none; margin-top: 12px; width: 100%; max-width: 900px;">
+            <!-- Splash Atlas Section: location detection + atlas selection -->
+            <div id="splash-atlas-section"
+                style="display: none; margin-top: 12px; width: 100%; max-width: 600px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
                 <div
-                    style="background: rgba(15, 25, 45, 0.97); backdrop-filter: blur(10px); border-radius: 8px; border: 1px solid rgba(96, 165, 250, 0.35); overflow: hidden;">
+                    style="background: rgba(15, 25, 45, 0.97); backdrop-filter: blur(10px); border-radius: 8px; border: 1px solid rgba(96, 165, 250, 0.35); padding: 16px;">
 
-                    <!-- Content -->
-                    <div style="padding: 12px 16px 14px;">
-
-                        <!-- Atlas thumbnail + name + description -->
-                        <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px;">
-                            <img id="activation-header-image"
-                                style="width: 44px; height: 44px; object-fit: cover; border-radius: 5px; flex-shrink: 0; display: none; border: 1px solid rgba(255,255,255,0.12);">
-                            <div style="flex: 1; min-width: 0;">
-                                <div id="activation-atlas-name"
-                                    style="font-size: 1.0625rem; font-weight: 700; color: #3b82f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-                                    Loading...</div>
-                                <div id="activation-atlas-description"
-                                    style="font-size: 0.8rem; color: #9ca3af; display: none; margin-top: 3px; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-                                </div>
+                    <!-- State 1: Detecting Location -->
+                    <div id="splash-detecting-state" style="display: none;">
+                        <div
+                            style="display: flex; align-items: center; gap: 10px; color: #e5e7eb; font-size: 0.95rem; flex-wrap: wrap;">
+                            <div
+                                style="width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; flex-shrink: 0;">
                             </div>
-                        </div>
-
-                        <!-- Layer chips -->
-                        <div id="activation-layers-list"
-                            style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; min-height: 24px;">
-                        </div>
-
-                        <!-- Bottom row: location dropdown + open map button -->
-                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-
-                            <!-- Location dropdown -->
-                            <div style="position: relative; flex: 1; min-width: 160px;">
-                                <button id="activation-location-btn"
-                                    style="display: flex; align-items: center; gap: 5px; width: 100%; padding: 7px 10px; background: rgba(255,255,255,0.07); color: #d1d5db; border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; font-size: 0.8125rem; cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-                                    <svg style="width:12px;height:12px;flex-shrink:0;opacity:0.7;" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    Map location:&nbsp;<span id="activation-location-text"
-                                        style="color:#93c5fd;flex:1;text-align:left;">Detecting...</span>
-                                    <svg style="width:10px;height:10px;flex-shrink:0;" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                </button>
-                                <div id="activation-location-dropdown"
-                                    style="display: none; position: absolute; bottom: calc(100% + 4px); left: 0; min-width: 200px; background: rgba(15,25,50,0.99); border: 1px solid rgba(96,165,250,0.3); border-radius: 5px; overflow: hidden; z-index: 100;">
-                                    <div class="location-option" data-value="geoip"
-                                        style="padding:8px 12px;color:#e5e7eb;font-size:0.8125rem;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;"
-                                        onmouseover="this.style.background='rgba(255,255,255,0.07)'"
-                                        onmouseout="this.style.background=''">🌐 Auto-detect (GeoIP)</div>
-                                    <div class="location-option" data-value="gps"
-                                        style="padding:8px 12px;color:#e5e7eb;font-size:0.8125rem;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;"
-                                        onmouseover="this.style.background='rgba(255,255,255,0.07)'"
-                                        onmouseout="this.style.background=''">📡 Use GPS</div>
-                                    <div class="location-option" data-value="atlas"
-                                        style="padding:8px 12px;color:#e5e7eb;font-size:0.8125rem;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;"
-                                        onmouseover="this.style.background='rgba(255,255,255,0.07)'"
-                                        onmouseout="this.style.background=''">🗺️ Atlas default</div>
-                                    <div class="location-option" data-value="url" id="location-option-url"
-                                        style="display:none;padding:8px 12px;color:#e5e7eb;font-size:0.8125rem;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;"
-                                        onmouseover="this.style.background='rgba(255,255,255,0.07)'"
-                                        onmouseout="this.style.background=''">🔗 From URL</div>
-                                </div>
+                            <span style="flex: 1;">Please wait. Detecting user location</span>
+                            <div id="splash-permission-buttons" style="display: none; gap: 8px;">
+                                <button id="splash-deny-btn"
+                                    style="padding: 6px 14px; background: rgba(255,255,255,0.08); color: #e5e7eb; border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; font-size: 0.85rem; cursor: pointer; font-family: inherit;">Deny</button>
+                                <button id="splash-allow-btn"
+                                    style="padding: 6px 14px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 5px; font-size: 0.85rem; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(59,130,246,0.4); font-family: inherit;">Allow
+                                    (<span id="splash-allow-countdown">3</span>s)</button>
                             </div>
-
-                            <!-- Open Map button -->
-                            <button id="activation-open-map"
-                                style="padding: 7px 20px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 5px; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; box-shadow: 0 2px 8px rgba(59,130,246,0.4); white-space: nowrap; flex-shrink: 0;">Loading
-                                map…</button>
                         </div>
                     </div>
-                </div>
-            </div>
 
-
-            <!-- GPS Permission Notice (shown when no atlas/hash in URL) -->
-            <div id="gps-permission-notice" style="
-                display: none;
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(15, 23, 42, 0.85);
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
-                z-index: 10002;
-                align-items: center;
-                justify-content: center;
-                padding: 20px;
-            ">
-                <div style="
-                    background: rgba(15, 25, 50, 0.99);
-                    border: 1px solid rgba(96, 165, 250, 0.35);
-                    border-radius: 10px;
-                    padding: 24px;
-                    max-width: 480px;
-                    width: 100%;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                ">
-                    <h1 style="font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 12px;">
-                        Allow GPS Location?
-                    </h1>
-                    <p style="font-size: 0.9rem; color: #cbd5e1; margin: 0 0 20px; line-height: 1.5;">
-                        Giving access to your device location will allow locating yourself on the map accurately. You
-                        can also do this later at anytime.
-                    </p>
-                    <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
-                        <button id="gps-later-btn" style="
-                            padding: 8px 18px;
-                            background: rgba(255,255,255,0.08);
-                            color: #e5e7eb;
-                            border: 1px solid rgba(255,255,255,0.15);
-                            border-radius: 5px;
-                            font-size: 0.9rem;
-                            font-weight: 500;
-                            cursor: pointer;
-                        ">Later</button>
-                        <button id="gps-locate-now-btn" style="
-                            display: flex;
-                            align-items: center;
-                            gap: 6px;
-                            padding: 8px 18px;
-                            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-                            color: white;
-                            border: none;
-                            border-radius: 5px;
-                            font-size: 0.9rem;
-                            font-weight: 600;
-                            cursor: pointer;
-                            box-shadow: 0 2px 8px rgba(59,130,246,0.4);
-                        ">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                                viewBox="0 0 16 16">
-                                <path
-                                    d="M8.5.5a.5.5 0 0 0-1 0v.518A7 7 0 0 0 1.018 7.5H.5a.5.5 0 0 0 0 1h.518A7 7 0 0 0 7.5 14.982v.518a.5.5 0 0 0 1 0v-.518A7 7 0 0 0 14.982 8.5h.518a.5.5 0 0 0 0-1h-.518A7 7 0 0 0 8.5 1.018zm-6.48 7A6 6 0 0 1 7.5 2.02v.48a.5.5 0 0 0 1 0v-.48a6 6 0 0 1 5.48 5.48h-.48a.5.5 0 0 0 0 1h.48a6 6 0 0 1-5.48 5.48v-.48a.5.5 0 0 0-1 0v.48A6 6 0 0 1 2.02 8.5h.48a.5.5 0 0 0 0-1zM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4" />
+                    <!-- State 2: Atlas Selection -->
+                    <div id="splash-atlas-state" style="display: none;">
+                        <div id="splash-located-text"
+                            style="display: none; align-items: center; gap: 6px; color: #10b981; font-size: 0.85rem; margin-bottom: 10px;">
+                            <svg style="width:14px;height:14px;flex-shrink:0;" fill="currentColor"
+                                viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                    clip-rule="evenodd" />
                             </svg>
-                            <span id="gps-locate-now-text">Locate Now (5s)</span>
-                        </button>
+                            User located successfully
+                        </div>
+                        <div
+                            style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #e5e7eb; font-size: 0.95rem;">
+                            <span>Loading map atlas of</span>
+                            <span id="splash-atlas-name"
+                                style="color: #3b82f6; font-weight: 700; font-size: 1rem;">Map</span>
+                            <select id="splash-atlas-dropdown"
+                                style="display: none; padding: 4px 8px; background: rgba(15,25,50,0.99); color: #e5e7eb; border: 1px solid rgba(96,165,250,0.3); border-radius: 5px; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: inherit;">
+                            </select>
+                            <button id="splash-change-atlas-btn"
+                                style="padding: 4px 12px; background: rgba(255,255,255,0.08); color: #d1d5db; border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; font-size: 0.8rem; cursor: pointer; font-family: inherit;">Change</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -951,12 +853,6 @@
                     }
                 }
             });
-
-            // Always show map-activation-panel
-            const activationPanel = document.getElementById('map-activation-panel');
-            if (activationPanel) {
-                activationPanel.style.display = 'block';
-            }
 
             if (hasURLParams) {
                 // Show URL info and cancel button for URL params
@@ -1338,18 +1234,6 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        /* Responsive activation panel grid */
-        @media (max-width: 768px) {
-            .activation-grid {
-                grid-template-columns: 1fr !important;
-                gap: 12px !important;
-            }
-
-            #activation-layers-list {
-                max-height: 120px !important;
-            }
-        }
-
         @media (max-width: 640px) {
             #nav-menu-container {
                 width: 340px !important;
@@ -1360,11 +1244,11 @@
                 padding: 10px 0 !important;
             }
 
-            #map-activation-panel {
+            #splash-atlas-section {
                 margin-top: 8px !important;
             }
 
-            #map-activation-panel>div {
+            #splash-atlas-section>div {
                 padding: 12px !important;
             }
         }
@@ -1379,7 +1263,7 @@
                 padding: 5px 0 !important;
             }
 
-            #map-activation-panel>div {
+            #splash-atlas-section>div {
                 padding: 10px !important;
             }
         }

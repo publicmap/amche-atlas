@@ -734,14 +734,25 @@
       "title": "Section 39A Land Conversion",
       "description": "Land parcels approved for landuse zone conversion under Section 39A of the Goa TCP Act.",
       "type": "geojson",
-      "url": "https://gist.githubusercontent.com/planemad/8c1b220d77d7b804356a76bb6f0b2c58/raw/c80bc1da3216fe6ffbe135561db96a17c3aacfea/39A.geojson",
+      "url": "https://gist.githubusercontent.com/planemad/8c1b220d77d7b804356a76bb6f0b2c58/raw/08a6642eced16ecddf2100062184cb2e2990aff0/39A.geojson",
       "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
       "style": {
         "text-field": [
           "get",
           "Name of Applicant"
         ],
-        "text-color": "red",
+        "text-color": [
+          "match",
+          [
+            "get",
+            "New Zone"
+          ],
+          [
+            "No Development"
+          ],
+          "green",
+          "red"
+        ],
         "symbol-sort-key": [
           "/",
           1,
@@ -750,14 +761,47 @@
             "plot_area_sqm"
           ]
         ],
-        "fill-color": "red",
-        "line-color": "red",
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "New Zone"
+          ],
+          [
+            "No Development"
+          ],
+          "green",
+          "red"
+        ],
+        "line-color": [
+          "match",
+          [
+            "get",
+            "New Zone"
+          ],
+          [
+            "No Development"
+          ],
+          "green",
+          "red"
+        ],
         "line-width": 3,
         "fill-opacity": 0.4,
         "circle-color": "white",
         "circle-radius": 0.5,
         "circle-stroke-width": 2,
-        "circle-stroke-color": "red"
+        "circle-stroke-color": [
+          "match",
+          [
+            "get",
+            "New Zone"
+          ],
+          [
+            "No Development"
+          ],
+          "green",
+          "red"
+        ]
       },
       "inspect": {
         "id": "Name of Applicant",
