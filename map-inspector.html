@@ -14,17 +14,41 @@
     <style>
         html,
         body {
-            height: auto;
+            height: 100%;
             margin: 0;
             padding: 0;
+        }
+
+        html {
             overflow: hidden;
         }
 
         body {
+            overflow-y: auto;
+            overflow-x: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #111827;
             --hover-color: #fbbf24;
             --selected-color: #000000;
+            scrollbar-width: thin;
+            scrollbar-color: #4b5563 #1f2937;
+        }
+
+        body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        body::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+
+        body::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+
+        body::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
         }
 
         .layer-card {
@@ -667,6 +691,12 @@
 
             if (event.data.type === 'request-height-update') {
                 notifyHeightChange();
+            }
+
+            if (event.data.type === 'open-overlay-section') {
+                if (!$('#overlay-list').is(':visible')) {
+                    $('#overlay-header').click();
+                }
             }
 
             if (event.data.type === 'feature-deselected') {
@@ -1858,7 +1888,7 @@
                     click: function (e) {
                         e.stopPropagation();
                         const $slider = $(this).closest('.layer-card-expanded').find('.opacity-slider-row');
-                        $slider.slideToggle(200);
+                        $slider.slideToggle(200, notifyHeightChange);
                     }
                 });
                 $opacityBtn.on('mouseenter', function () {
@@ -2413,7 +2443,7 @@
                     click: function (e) {
                         e.stopPropagation();
                         const $slider = $(this).closest('.layer-card-expanded').find('.opacity-slider-row');
-                        $slider.slideToggle(200);
+                        $slider.slideToggle(200, notifyHeightChange);
                     }
                 });
                 $opacityBtn.on('mouseenter', function () {

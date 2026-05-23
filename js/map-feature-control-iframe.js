@@ -1515,6 +1515,8 @@ export class MapFeatureControl {
         this._panel.style.display = 'block';
         this._sendDataToIframe();
 
+        this._sendMessageToIframe({ type: 'open-overlay-section' });
+
         setTimeout(() => {
             if (this._iframe && this._iframe.contentWindow) {
                 this._iframe.contentWindow.postMessage({
