@@ -5090,6 +5090,21 @@ sl-tab:hover::part(base) {
     border-top-color: #1e293b !important;
 }
 
+/* OSM attribution hover popups (Map Center + Nominatim result) */
+.osm-hover-popup .mapboxgl-popup-content {
+    padding: 0 !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45) !important;
+}
+
+.osm-hover-popup .mapboxgl-popup-tip {
+    border-top-color: #1e293b !important;
+    border-bottom-color: #111827 !important;
+    border-left-color: #1e293b !important;
+    border-right-color: #1e293b !important;
+}
+
 .selection-popup button:hover {
     opacity: 0.8;
 }

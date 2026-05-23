@@ -111,7 +111,7 @@
     },
     {
       "id": "osm-mapnik",
-      "initiallyChecked": true
+      "initiallyChecked": false
     },
     {
       "id": "mapbox-admin-lines",
