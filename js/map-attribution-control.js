@@ -19,9 +19,11 @@ export class MapAttributionControl {
         this._centerPopup = null;
         this._resultMarker = null;
         this._resultPopup = null;
-        this._fetchAbort = null;
         this._hoverActive = false;
         this._nominatimCache = new Map();
+        this._inFlightFetches = new Map();
+        this._locationLinkEl = null;
+        this._locationLinkTextEl = null;
 
         // Bind methods to preserve context
         this._updateAttribution = this._updateAttribution.bind(this);
@@ -96,20 +98,31 @@ export class MapAttributionControl {
             return;
         }
 
-        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=${zoom}`;
-        this._fetchAbort = new AbortController();
-        fetch(url, { signal: this._fetchAbort.signal, headers: { 'Accept-Language': 'en' } })
-            .then(r => r.ok ? r.json() : null)
-            .then(data => {
-                if (!data) return;
-                this._nominatimCache.set(cacheKey, data);
-                if (this._hoverActive) this._showResult(data);
-            })
-            .catch(err => {
-                if (err.name !== 'AbortError') {
+        // If a fetch is already in flight for this location, just wait on it.
+        // Don't abort on hover-out — let it finish so the cache fills and
+        // subsequent hovers of the same location are instant.
+        let promise = this._inFlightFetches.get(cacheKey);
+        if (!promise) {
+            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=${zoom}`;
+            promise = fetch(url, { headers: { 'Accept-Language': 'en' } })
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (data) this._nominatimCache.set(cacheKey, data);
+                    return data;
+                })
+                .catch(err => {
                     console.warn('[MapAttributionControl] Nominatim fetch failed:', err);
-                }
-            });
+                    return null;
+                })
+                .finally(() => {
+                    this._inFlightFetches.delete(cacheKey);
+                });
+            this._inFlightFetches.set(cacheKey, promise);
+        }
+
+        promise.then(data => {
+            if (data && this._hoverActive) this._showResult(data);
+        });
     }
 
     _handleLinkOut(e) {
@@ -126,6 +139,13 @@ export class MapAttributionControl {
         const resultLat = parseFloat(data.lat);
         const resultLon = parseFloat(data.lon);
         if (isNaN(resultLat) || isNaN(resultLon)) return;
+
+        // Idempotent: if a prior result is still on the map, remove it first.
+        // Multiple promise handlers can attach to the same in-flight fetch
+        // (one per hover); without this, each handler creates a new
+        // marker/popup and overwrites the reference, orphaning the old ones.
+        if (this._resultPopup) { this._resultPopup.remove(); this._resultPopup = null; }
+        if (this._resultMarker) { this._resultMarker.remove(); this._resultMarker = null; }
 
         // Bbox layer (under markers in z-order)
         if (Array.isArray(data.boundingbox) && data.boundingbox.length === 4) {
@@ -228,10 +248,6 @@ export class MapAttributionControl {
     _clearHover() {
         this._hoverActive = false;
 
-        if (this._fetchAbort) {
-            this._fetchAbort.abort();
-            this._fetchAbort = null;
-        }
         if (this._centerPopup) { this._centerPopup.remove(); this._centerPopup = null; }
         if (this._centerMarker) { this._centerMarker.remove(); this._centerMarker = null; }
         if (this._resultPopup) { this._resultPopup.remove(); this._resultPopup = null; }
@@ -276,6 +292,45 @@ export class MapAttributionControl {
     setLocation(locationName) {
         this._locationName = locationName;
         this._updateAttribution();
+    }
+
+    _ensureLocationLinkEl() {
+        if (this._locationLinkEl) return;
+
+        const a = document.createElement('a');
+        a.className = 'osm-attribution-link';
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.title = 'Edit on the OpenStreetMap Project';
+
+        const img = document.createElement('img');
+        img.src = 'https://upload.wikimedia.org/wikipedia/commons/b/b0/Openstreetmap_logo.svg';
+        img.alt = 'OSM';
+        img.width = 14;
+        img.height = 14;
+        img.style.cssText = 'display: inline-block; vertical-align: middle; margin-right: 3px;';
+
+        const strong = document.createElement('strong');
+
+        a.appendChild(img);
+        a.appendChild(strong);
+
+        this._locationLinkEl = a;
+        this._locationLinkTextEl = strong;
+    }
+
+    _updateLocationLinkEl() {
+        const center = this._map.getCenter();
+        const zoom = this._map.getZoom();
+        const lat = center.lat.toFixed(6);
+        const lng = center.lng.toFixed(6);
+        const zoomRounded = Math.round(zoom);
+
+        this._locationLinkEl.href = `https://www.openstreetmap.org/search?lat=${lat}&lon=${lng}&zoom=${zoomRounded}`;
+        this._locationLinkEl.dataset.lat = lat;
+        this._locationLinkEl.dataset.lon = lng;
+        this._locationLinkEl.dataset.zoom = String(zoomRounded);
+        this._locationLinkTextEl.textContent = this._locationName;
     }
 
     /**
@@ -434,19 +489,6 @@ export class MapAttributionControl {
             // Filter out empty attributions
             const validAttributions = Array.from(attributions).filter(attr => attr && attr.trim());
 
-            // Add location attribution at the beginning if available
-            if (this._locationName) {
-                const center = this._map.getCenter();
-                const zoom = this._map.getZoom();
-                const lat = center.lat.toFixed(6);
-                const lng = center.lng.toFixed(6);
-                const zoomRounded = Math.round(zoom);
-
-                const locationUrl = `https://www.openstreetmap.org/search?lat=${lat}&lon=${lng}&zoom=${zoomRounded}`;
-                const locationAttribution = `<a class="osm-attribution-link" data-lat="${lat}" data-lon="${lng}" data-zoom="${zoomRounded}" href="${locationUrl}" target="_blank" rel="noopener noreferrer" title="Edit on the OpenStreetMap Project"><img src="https://upload.wikimedia.org/wikipedia/commons/b/b0/Openstreetmap_logo.svg" alt="OSM" width="14" height="14" style="display: inline-block; vertical-align: middle; margin-right: 3px;"><strong>${this._locationName}</strong></a>`;
-                processed.add(locationAttribution);
-            }
-
             if (validAttributions.length === 0 && !this._locationName) {
                 this._container.innerHTML = '';
                 return;
@@ -474,7 +516,22 @@ export class MapAttributionControl {
                 }
             });
 
-            this._container.innerHTML = [...processed].join(' | ');
+            // Rebuild the static (source) attributions via innerHTML.
+            // The location link is a persistent DOM subtree (see _ensureLocationLinkEl)
+            // so its <img> isn't destroyed/recreated on every tile-load event —
+            // this prevents the OSM logo from flashing and from being refetched.
+            const staticHtml = [...processed].join(' | ');
+            this._container.innerHTML = staticHtml;
+
+            if (this._locationName) {
+                this._ensureLocationLinkEl();
+                this._updateLocationLinkEl();
+
+                if (staticHtml) {
+                    this._container.insertBefore(document.createTextNode(' | '), this._container.firstChild);
+                }
+                this._container.insertBefore(this._locationLinkEl, this._container.firstChild);
+            }
         } catch (error) {
             // Silently ignore errors during initial load when style isn't ready
             if (error.message !== 'Style is not done loading') {
