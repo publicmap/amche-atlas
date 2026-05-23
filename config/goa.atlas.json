@@ -2488,6 +2488,71 @@
       "tags": [
         "4.Government Publications"
       ],
+      "id": "polling-stations",
+      "description": "Polling station locations in Goa",
+      "title": "Polling Stations",
+      "type": "csv",
+      "initiallyChecked": false,
+      "style": {
+        "circle-color": [
+          "coalesce",
+          [
+            "get",
+            "fill-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#3b82f6"
+        ],
+        "circle-radius": 2,
+        "circle-stroke-color": [
+          "coalesce",
+          [
+            "get",
+            "stroke-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#1e40af"
+        ],
+        "circle-stroke-width": 4,
+        "text-field": [
+          "to-string",
+          [
+            "get",
+            "Polling Station Name"
+          ]
+        ]
+      },
+      "inspect": {
+        "id": "PC_AC_Part",
+        "label": "Polling Station Name",
+        "fields": [
+          "PC_AC_Part",
+          "Assembly Constitutency Name"
+        ],
+        "fieldTitles": [
+          "Ref ID",
+          "Assembly Constitutency Name"
+        ]
+      },
+      "url": "https://docs.google.com/spreadsheets/d/1aXvMgc6V2bNToyZPPgOY53My3piXK1e9RicHYboPcnI/export?format=csv&gid=1861433359",
+      "attribution": "Data from Google Sheets - <a href=\"https://docs.google.com/spreadsheets/d/1aXvMgc6V2bNToyZPPgOY53My3piXK1e9RicHYboPcnI/export?format=csv&gid=1861433359\" target=\"_blank\">View source</a>",
+      "bbox": [
+        73.7031448,
+        14.9409187,
+        74.2231735,
+        15.7955995
+      ]
+    },
+    {
+      "tags": [
+        "4.Government Publications"
+      ],
       "title": "Forest Map Of Goa 2007",
       "description": "Forest Survey Map Of Goa 2007 by Forest Department of Goa. Map shows administrative jurisdiction limits and divisions of the forest of Goa. Map also includes details of revenue village divisions (outlined red) and major roads (yellow). See <a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a>",
       "source": "<a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a>",
