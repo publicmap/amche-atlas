@@ -2971,6 +2971,36 @@
       "tags": [
         "historic"
       ],
+      "title": "Admiralty Chart No 492 Enseada da Agoada and Baia de Mormugao, Published 1884, New Edition 1942",
+      "description": "From: <a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_492_Enseada_da_Agoada_and_Baia_de_Mormugao,_Published_1884,_New_Edition_1942.jpg' target='_blank'>File:Admiralty_Chart_No_492_Enseada_da_Agoada_and_Baia_de_Mormugao,_Published_1884,_New_Edition_1942.jpg</a>",
+      "type": "tms",
+      "id": "1884-admiralty-chart",
+      "url": "https://warper.wmflabs.org/maps/tile/4759/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_492_Enseada_da_Agoada_and_Baia_de_Mormugao,_Published_1884,_New_Edition_1942.jpg' target='_blank'>File:Admiralty_Chart_No_492_Enseada_da_Agoada_and_Baia_de_Mormugao,_Published_1884,_New_Edition_1942.jpg</a> via <a href='https://warper.wmflabs.org/maps/4759' target='_blank'>MapWarper</a>",
+      "bbox": "73.738769,15.311888,73.9117588,15.5356252",
+      "initiallyChecked": false
+    },
+    {
+      "tags": [
+        "historic"
+      ],
       "title": "Plan of Mormugao (1840)",
       "description": "Map of Mormugão / drawn and offered to the Most Illustrious Mr. Adrião Acácio da Silvr.a Pinto by Infantry Captain Jozé Manoel de Carvalho e Souza. - 1840. - 1 drawing: Indian ink and red washes; 51 x 79 cm",
       "source": "https://commons.wikimedia.org/wiki/File:1840_Plan_of_Mormugao.jpg",

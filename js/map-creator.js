@@ -315,7 +315,7 @@ export class MapCreator {
         if (/\/\d+\/\d+\/\d+(\.(png|jpg|jpeg|webp))?($|\?)/i.test(url)) {
             return 'Raster Tiles';
         }
-        if (urlLower.includes('mapwarper.net/maps/')) {
+        if (urlLower.includes('mapwarper.net/maps/') || urlLower.includes('warper.wmflabs.org/maps/')) {
             return 'MapWarper';
         }
         return null;
@@ -496,7 +496,7 @@ export class MapCreator {
         if (urlLower.includes('{z}') && (urlLower.includes('.pbf') || urlLower.includes('.mvt'))) return true;
         if (urlLower.includes('{z}') && (urlLower.includes('.png') || urlLower.includes('.jpg'))) return true;
         if (/\/\d+\/\d+\/\d+(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i.test(url)) return true;
-        if (urlLower.includes('mapwarper.net/maps/')) return true;
+        if (urlLower.includes('mapwarper.net/maps/') || urlLower.includes('warper.wmflabs.org/maps/')) return true;
         if (urlLower.includes('vector.openstreetmap.org')) return true;
         if (urlLower.includes('earthengine.googleapis.com') && urlLower.includes('/tiles/')) return true;
         if (urlLower.startsWith('mapbox://')) return true;
