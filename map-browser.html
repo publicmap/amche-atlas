@@ -804,6 +804,7 @@
         let allLayers = [];
         let activeLayers = new Set();
         let atlasMetadata = new Map();
+        let atlasLayerReferences = new Map();
         let currentBounds = null;
         let layerDefaults = {};
         let previewMap = null;
@@ -854,6 +855,7 @@
                     allLayers = event.data.layers || [];
                     activeLayers = new Set(event.data.activeLayers || []);
                     atlasMetadata = new Map(Object.entries(event.data.atlasMetadata || {}));
+                    atlasLayerReferences = new Map(Object.entries(event.data.atlasLayerReferences || {}));
                     currentBounds = event.data.bounds;
                     mapboxAccessToken = event.data.mapboxToken;
                     layerDefaults = event.data.layerDefaults || {};
@@ -1892,14 +1894,35 @@
                 return;
             }
 
-            // Group layers by atlas
+            // Group layers by atlas using reference lists, so an atlas section
+            // shows every layer it references — including ones whose definition
+            // lives in another atlas (e.g. index references mapbox-streets).
+            const layerById = new Map();
+            allLayers.forEach(l => layerById.set(l.id, l));
+            const filteredLayerIds = new Set(layers.map(l => l.id));
+
             const byAtlas = {};
-            layers.forEach(layer => {
-                const atlasId = layer._sourceAtlas || 'unknown';
-                if (!byAtlas[atlasId]) {
-                    byAtlas[atlasId] = [];
+            atlasMetadata.forEach((_, atlasId) => {
+                const refs = atlasLayerReferences.get(atlasId) || [];
+                const atlasLayersList = refs
+                    .map(refId => layerById.get(refId))
+                    .filter(l => l && filteredLayerIds.has(l.id));
+                if (atlasLayersList.length > 0) {
+                    byAtlas[atlasId] = atlasLayersList;
                 }
-                byAtlas[atlasId].push(layer);
+            });
+
+            // Catch any filtered layers not referenced by any atlas (orphans),
+            // grouping them under their _sourceAtlas as a fallback.
+            const placedIds = new Set();
+            Object.values(byAtlas).forEach(arr => arr.forEach(l => placedIds.add(l.id)));
+            layers.forEach(layer => {
+                if (!placedIds.has(layer.id)) {
+                    const atlasId = layer._sourceAtlas || 'unknown';
+                    if (!byAtlas[atlasId]) byAtlas[atlasId] = [];
+                    byAtlas[atlasId].push(layer);
+                    placedIds.add(layer.id);
+                }
             });
 
             // Get all atlas IDs

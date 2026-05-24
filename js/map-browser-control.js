@@ -447,6 +447,18 @@ export class MapBrowserControl {
             atlasMetadata[atlasId] = metadata;
         });
 
+        const knownAtlases = new Set(window.layerRegistry._atlasMetadata.keys());
+        const atlasLayerReferences = {};
+        window.layerRegistry._atlasLayers.forEach((atlasLayerConfigs, atlasId) => {
+            atlasLayerReferences[atlasId] = atlasLayerConfigs.map(l => {
+                const layerId = l.id;
+                if (layerId && layerId.includes('-') && knownAtlases.has(layerId.split('-')[0])) {
+                    return layerId;
+                }
+                return `${atlasId}-${layerId}`;
+            });
+        });
+
         const bounds = this._map ? [
             this._map.getBounds().getWest(),
             this._map.getBounds().getSouth(),
@@ -462,6 +474,7 @@ export class MapBrowserControl {
             layers: layers,
             activeLayers: Array.from(activeLayers),
             atlasMetadata: atlasMetadata,
+            atlasLayerReferences: atlasLayerReferences,
             bounds: bounds,
             mapboxToken: window.amche?.MAPBOXGL_ACCESS_TOKEN || mapboxgl.accessToken,
             selectedAtlasId: atlasParam,
