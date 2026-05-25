@@ -13,7 +13,8 @@
             padding: 0;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f9fafb;
+            background: #111827;
+            color: #f3f4f6;
         }
 
         .tab-button {
@@ -21,7 +22,7 @@
         }
 
         .tab-button.active {
-            background: white;
+            background: #1f2937;
             border-bottom-color: transparent;
         }
 
@@ -49,7 +50,7 @@
             width: 40px;
             height: 40px;
             border-radius: 4px;
-            border: 2px solid #d1d5db;
+            border: 2px solid #4b5563;
             cursor: pointer;
         }
 
@@ -62,11 +63,116 @@
         }
 
         .section-box {
-            background: white;
-            border: 1px solid #e5e7eb;
+            background: #1f2937;
+            border: 1px solid #374151;
             border-radius: 8px;
             padding: 16px;
             margin-bottom: 16px;
+            color: #f3f4f6;
+        }
+
+        .section-box.is-disabled {
+            opacity: 0.55;
+            pointer-events: none;
+            position: relative;
+        }
+
+        .section-box h2,
+        .section-box h3,
+        .section-box h4,
+        .section-box label {
+            color: #f3f4f6;
+        }
+
+        .section-box .text-gray-500,
+        .section-box .text-gray-600,
+        .section-box .text-gray-700 {
+            color: #9ca3af !important;
+        }
+
+        .section-box input[type="text"],
+        .section-box input[type="url"],
+        .section-box textarea,
+        .section-box select {
+            background: #111827;
+            border: 1px solid #4b5563;
+            color: #f3f4f6;
+        }
+
+        .section-box input[type="text"]::placeholder,
+        .section-box input[type="url"]::placeholder,
+        .section-box textarea::placeholder {
+            color: #6b7280;
+        }
+
+        .section-box input[type="text"]:focus,
+        .section-box input[type="url"]:focus,
+        .section-box textarea:focus,
+        .section-box select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+
+        .section-box textarea[readonly] {
+            background: #0b1220;
+        }
+
+        .section-box .border-gray-200,
+        .section-box .border-gray-300 {
+            border-color: #374151 !important;
+        }
+
+        .section-box .bg-gray-50 {
+            background: #111827 !important;
+            color: #d1d5db !important;
+        }
+
+        .section-box code {
+            background: #111827;
+            color: #93c5fd;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .section-box a {
+            color: #60a5fa;
+        }
+
+        .section-box a:hover {
+            color: #93c5fd;
+        }
+
+        #add-to-map-btn:disabled {
+            background: #374151;
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .step-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #3b82f6;
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        .section-box.is-disabled .step-pill {
+            background: #4b5563;
+        }
+
+        .step-hint {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: -4px;
+            margin-bottom: 12px;
         }
 
         .scrollbar-thin::-webkit-scrollbar {
@@ -74,16 +180,16 @@
         }
 
         .scrollbar-thin::-webkit-scrollbar-track {
-            background: #f1f1f1;
+            background: #111827;
         }
 
         .scrollbar-thin::-webkit-scrollbar-thumb {
-            background: #888;
+            background: #4b5563;
             border-radius: 4px;
         }
 
         .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            background: #6b7280;
         }
 
         .format-chip,
@@ -207,41 +313,45 @@
     </style>
 </head>
 
-<body>
-    <div class="flex flex-col h-screen">
+<body class="bg-gray-900">
+    <div class="flex flex-col h-screen max-w-[720px] w-full mx-auto">
         <!-- Header -->
-        <div class="bg-gray-900 text-white px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+        <div class="px-4 py-3 flex items-center justify-between" style="background:#111827;border-bottom:1px solid #374151;">
             <div class="flex items-center gap-2">
                 <button id="back-btn" class="text-white hover:text-gray-300" title="Back to browser">
                     ← Back
                 </button>
-                <h1 class="text-lg font-bold">Create New Map Layer</h1>
+                <h1 class="text-lg font-bold text-white">Add a New Map Layer</h1>
             </div>
             <button id="close-btn" class="text-white hover:text-gray-300 text-2xl leading-none">&times;</button>
         </div>
 
         <!-- Content -->
-        <div class="flex-1 overflow-y-auto scrollbar-thin p-4">
-            <!-- Section 1: Load Data -->
+        <div class="flex-1 overflow-y-auto scrollbar-thin p-4" style="background:#111827;">
+            <!-- Section 1: Pick a Data Source -->
             <div class="section-box">
-                <h2 class="text-md font-bold mb-3">1. Load Data</h2>
+                <h2 class="text-md font-bold mb-1 flex items-center">
+                    <span class="step-pill">1</span>
+                    Choose your data source
+                </h2>
+                <p class="step-hint">Paste a link to your data, or upload a file from your computer.</p>
 
                 <!-- URL input + upload button -->
                 <div class="flex gap-2 mb-2">
                     <div class="relative flex-1">
                         <input type="text" id="url-input"
-                            placeholder="Paste URL to GeoJSON, CSV, KML, Vector/Raster tiles, MapWarper, WMS…"
-                            class="w-full px-3 py-2 pr-20 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            placeholder="Paste a link to GeoJSON, CSV, KML, tiles, MapWarper, WMS…"
+                            class="w-full px-3 py-2 pr-20 rounded">
                         <div class="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
                             <span id="url-validation" class="text-xs"></span>
-                            <button type="button" id="clear-url-btn" class="text-gray-400 hover:text-gray-600 hidden"
+                            <button type="button" id="clear-url-btn" class="text-gray-400 hover:text-gray-200 hidden"
                                 title="Clear">
                                 ✕
                             </button>
                         </div>
                     </div>
                     <button type="button" id="upload-file-btn"
-                        class="px-3 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded text-sm font-medium whitespace-nowrap flex items-center gap-1"
+                        class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium whitespace-nowrap flex items-center gap-1 border border-gray-600"
                         title="Upload a local file">
                         <span>📁</span> Upload File
                     </button>
@@ -250,42 +360,64 @@
                         class="hidden">
                 </div>
 
-                <div id="selected-file-info" class="hidden mb-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded text-xs flex items-center justify-between">
-                    <span><strong>File:</strong> <span id="selected-file-name"></span></span>
-                    <button type="button" id="clear-file-btn" class="text-gray-400 hover:text-gray-600" title="Clear">✕</button>
+                <div id="selected-file-info" class="hidden mb-2 px-3 py-2 rounded text-xs flex items-center justify-between"
+                    style="background:#111827;border:1px solid #374151;color:#d1d5db;">
+                    <span><strong class="text-white">File:</strong> <span id="selected-file-name"></span></span>
+                    <button type="button" id="clear-file-btn" class="text-gray-400 hover:text-gray-200" title="Clear">✕</button>
+                </div>
+
+                <!-- Notice: uploaded files are temporary -->
+                <div id="upload-temp-notice" class="hidden mb-3 p-3 rounded-lg"
+                    style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.35);">
+                    <div class="flex items-start gap-3">
+                        <span style="font-size:18px;line-height:1;">ℹ️</span>
+                        <div class="flex-1 text-sm" style="color:#dbeafe;">
+                            <div class="font-semibold mb-1" style="color:#bfdbfe;">Uploaded files stay in your browser only</div>
+                            <p style="color:#cbd5e1;line-height:1.5;">
+                                This file won't be saved anywhere — refreshing the page will lose it, and you can't share the resulting map with anyone else.
+                            </p>
+                            <p class="mt-2" style="color:#cbd5e1;line-height:1.5;">
+                                To create a <strong style="color:#bfdbfe;">shareable map</strong>, upload your file to
+                                <a href="https://bharatlas.com/preview" target="_blank" rel="noopener"
+                                    style="color:#93c5fd;text-decoration:underline;font-weight:600;">bharatlas.com/preview</a>,
+                                copy the download link it gives you, and paste that link into the box above.
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Georeferencing Notice (for image files) -->
-                <div id="georef-notice" class="hidden mb-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div id="georef-notice" class="hidden mb-3 p-4 rounded-lg"
+                    style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.4);">
                     <div class="flex items-start gap-3">
-                        <svg class="w-6 h-6 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor"
+                        <svg class="w-6 h-6 flex-shrink-0" style="color:#fbbf24;" fill="none" stroke="currentColor"
                             viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
                             </path>
                         </svg>
                         <div class="flex-1">
-                            <h4 class="font-semibold text-yellow-800 mb-1">Map image lacks georeferencing
+                            <h4 class="font-semibold mb-1" style="color:#fcd34d;">Map image lacks georeferencing
                                 information</h4>
-                            <p class="text-sm text-yellow-700 mb-3">
+                            <p class="text-sm mb-3" style="color:#fde68a;">
                                 <a href="https://mapwarper.net/maps/new" target="_blank"
-                                    class="font-medium underline hover:text-yellow-900">Upload your map to
+                                    class="font-medium underline" style="color:#fde68a;">Upload your map to
                                     mapwarper.net</a> first (free signup) to georeference the image with matching
                                 map control points. After rectification, import the mapwarper URL into Amche
                                 Atlas.
                             </p>
-                            <div class="text-sm">
-                                <strong class="text-yellow-800">Help resources:</strong>
-                                <ul class="mt-1 space-y-1 text-yellow-700">
+                            <div class="text-sm" style="color:#fde68a;">
+                                <strong style="color:#fcd34d;">Help resources:</strong>
+                                <ul class="mt-1 space-y-1">
                                     <li>
                                         📖 <a
                                             href="https://programminghistorian.org/en/lessons/introduction-map-warper"
-                                            target="_blank" class="underline hover:text-yellow-900">Introduction to
+                                            target="_blank" class="underline" style="color:#fde68a;">Introduction to
                                             Map Warper Tutorial</a>
                                     </li>
                                     <li>
                                         🎥 <a href="https://www.youtube.com/watch?v=EIZj67YgOXE" target="_blank"
-                                            class="underline hover:text-yellow-900">Video Tutorial on YouTube</a>
+                                            class="underline" style="color:#fde68a;">Video Tutorial on YouTube</a>
                                     </li>
                                 </ul>
                             </div>
@@ -293,12 +425,12 @@
                     </div>
                 </div>
 
-                <div class="text-xs text-gray-600 mb-2">
-                    Supported formats (click chip to try URL example):
+                <div class="text-xs mb-2" style="color:#9ca3af;">
+                    Supported formats (click a chip to try a sample URL):
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <button type="button"
-                        class="format-chip px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        class="format-chip px-2 py-1 bg-blue-900/40 hover:bg-blue-800/60 text-blue-200 rounded text-xs font-medium cursor-pointer transition-colors border border-blue-800/50"
                         data-format="geojson"
                         data-sample="https://gist.githubusercontent.com/planemad/e5ccc47bf2a1aa458a86d6839476f539/raw/goa-water-bodies.geojson"
                         data-tooltip="📍 GeoJSON
@@ -311,7 +443,7 @@ Click to try example URL">
                         GeoJSON
                     </button>
                     <button type="button"
-                        class="format-chip px-2 py-1 bg-green-100 hover:bg-green-200 text-green-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        class="format-chip px-2 py-1 bg-green-900/40 hover:bg-green-800/60 text-green-200 rounded text-xs font-medium cursor-pointer transition-colors border border-green-800/50"
                         data-format="csv"
                         data-sample="https://docs.google.com/spreadsheets/d/e/2PACX-1vRhTXMFezW8k996di0qKP7-9-0ro0djuEEtMPYDOMhXtNOiUK_25lv90AThy21X2PRPYI_st93CQVq2/pub?gid=1432085196&single=true&output=csv"
                         data-tooltip="📊 CSV (Tabular Data)
@@ -324,7 +456,7 @@ Click to try Google Sheets example">
                         CSV
                     </button>
                     <button type="button"
-                        class="format-chip px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        class="format-chip px-2 py-1 bg-purple-900/40 hover:bg-purple-800/60 text-purple-200 rounded text-xs font-medium cursor-pointer transition-colors border border-purple-800/50"
                         data-format="kml"
                         data-sample="https://files.worldwind.arc.nasa.gov/artifactory/web/0.9.0/examples/data/KML_Samples.kml"
                         data-tooltip="🌍 KML (Google Earth)
@@ -337,7 +469,7 @@ Click to try NASA KML samples">
                         KML
                     </button>
                     <button type="button"
-                        class="format-chip px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        class="format-chip px-2 py-1 bg-orange-900/40 hover:bg-orange-800/60 text-orange-200 rounded text-xs font-medium cursor-pointer transition-colors border border-orange-800/50"
                         data-format="vector-tiles"
                         data-sample="https://tiles.stadiamaps.com/data/openmaptiles/{z}/{x}/{y}.pbf"
                         data-tooltip="🔷 Vector Tiles
@@ -349,7 +481,7 @@ Click to try Stadia Maps example">
                         Vector Tiles
                     </button>
                     <button type="button"
-                        class="format-chip px-2 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        class="format-chip px-2 py-1 bg-yellow-900/40 hover:bg-yellow-800/60 text-yellow-200 rounded text-xs font-medium cursor-pointer transition-colors border border-yellow-800/50"
                         data-format="raster-tiles" data-sample="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                         data-tooltip="🗺️ Raster Tiles (TMS/XYZ)
 Tiled images (satellite, maps)
@@ -360,7 +492,7 @@ Click to try OpenStreetMap example">
                         Raster Tiles
                     </button>
                     <button type="button"
-                        class="format-chip px-2 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        class="format-chip px-2 py-1 bg-red-900/40 hover:bg-red-800/60 text-red-200 rounded text-xs font-medium cursor-pointer transition-colors border border-red-800/50"
                         data-format="mapwarper" data-sample="https://mapwarper.net/maps/95676"
                         data-tooltip="🗺️ MapWarper
 Georeferenced historic maps
@@ -371,7 +503,7 @@ Click to try example map">
                         MapWarper
                     </button>
                     <button type="button"
-                        class="format-chip px-2 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        class="format-chip px-2 py-1 bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 rounded text-xs font-medium cursor-pointer transition-colors border border-indigo-800/50"
                         data-format="wms"
                         data-sample="http://14.139.123.73:8080/geoserver/wms?service=WMS&version=1.3.0&request=GetMap&layers=nbss_geoserver:Goa_LUP&styles=&format=image/png&transparent=true"
                         data-tooltip="🌐 WMS (Web Map Service)
@@ -383,7 +515,7 @@ Click to try GeoServer example">
                         WMS
                     </button>
                     <button type="button"
-                        class="format-chip px-2 py-1 bg-teal-100 hover:bg-teal-200 text-teal-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        class="format-chip px-2 py-1 bg-teal-900/40 hover:bg-teal-800/60 text-teal-200 rounded text-xs font-medium cursor-pointer transition-colors border border-teal-800/50"
                         data-format="atlas-json" data-sample="https://jsonkeeper.com/b/E576V"
                         data-tooltip="📋 Amche Atlas JSON
 Complete layer configuration
@@ -394,7 +526,7 @@ Click to try JSONKeeper example">
                         Amche Atlas JSON
                     </button>
                     <button type="button"
-                        class="format-chip px-2 py-1 bg-pink-100 hover:bg-pink-200 text-pink-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        class="format-chip px-2 py-1 bg-pink-900/40 hover:bg-pink-800/60 text-pink-200 rounded text-xs font-medium cursor-pointer transition-colors border border-pink-800/50"
                         data-format="bharatlas" data-sample="https://bharatlas.com/c/nL7zNStsW3"
                         data-tooltip="🇮🇳 Bharatlas Community
 Community-shared geospatial data
@@ -406,7 +538,7 @@ URL formats:
 Click to try example">
                         Bharatlas
                     </button>
-                    <span class="format-info px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs font-medium"
+                    <span class="format-info px-2 py-1 bg-teal-900/30 text-teal-300 rounded text-xs font-medium border border-teal-800/40"
                         data-tooltip="📄 GeoJSON Lines (NDJSON)
 Newline-delimited GeoJSON features
 One GeoJSON Feature per line
@@ -414,7 +546,7 @@ One GeoJSON Feature per line
 File upload only: .geojsonl, .ndjson, .jsonl">
                         GeoJSONL
                     </span>
-                    <span class="format-info px-2 py-1 bg-amber-50 text-amber-700 rounded text-xs font-medium"
+                    <span class="format-info px-2 py-1 bg-amber-900/30 text-amber-300 rounded text-xs font-medium border border-amber-800/40"
                         data-tooltip="📦 GeoPackage (GPKG)
 OGC SQLite-based spatial format
 Supports: Points, Lines, Polygons
@@ -422,7 +554,7 @@ Supports: Points, Lines, Polygons
 File upload only: .gpkg">
                         GPKG
                     </span>
-                    <span class="format-info px-2 py-1 bg-rose-50 text-rose-700 rounded text-xs font-medium"
+                    <span class="format-info px-2 py-1 bg-rose-900/30 text-rose-300 rounded text-xs font-medium border border-rose-800/40"
                         data-tooltip="🗺️ Shapefile (Zipped)
 ESRI shapefile in a ZIP archive
 Must contain .shp and .dbf files
@@ -433,26 +565,28 @@ File upload only: .zip containing shapefile">
                 </div>
 
                 <button id="load-data-btn"
-                    class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                    Load Data
+                    class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold transition-colors">
+                    Load Data →
                 </button>
 
                 <!-- Data Preview (GeoJSON only) -->
                 <details class="mt-4" id="data-preview-details" style="display: none;">
-                    <summary class="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900 py-2">
+                    <summary class="cursor-pointer text-sm font-medium py-2" style="color:#d1d5db;">
                         <span id="preview-summary">Data Preview</span>
                     </summary>
                     <div class="mt-2">
                         <textarea id="geojson-editor" rows="10"
                             placeholder='{"type": "FeatureCollection", "features": []}'
-                            class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-2"></textarea>
+                            class="w-full px-3 py-2 rounded font-mono text-xs mb-2"></textarea>
                         <div class="flex gap-2">
                             <button type="button" id="preview-geojson-io-btn"
-                                class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
+                                class="flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 text-sm transition-colors"
+                                style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
                                 <span>↗</span> Preview in GeoJSON.io
                             </button>
                             <button type="button" id="download-geojson-btn"
-                                class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center justify-center gap-2">
+                                class="flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 text-sm transition-colors"
+                                style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
                                 <span>⬇</span> Download GeoJSON
                             </button>
                         </div>
@@ -461,8 +595,12 @@ File upload only: .zip containing shapefile">
             </div>
 
             <!-- Section 2: Layer Settings -->
-            <div class="section-box" id="settings-section" style="display: none;">
-                <h2 class="text-md font-bold mb-3">2. Layer Settings</h2>
+            <div class="section-box is-disabled" id="settings-section">
+                <h2 class="text-md font-bold mb-1 flex items-center">
+                    <span class="step-pill">2</span>
+                    Customize your layer
+                </h2>
+                <p class="step-hint" id="settings-step-hint">Load data above to fill in the details.</p>
 
                 <!-- Layer Info Section -->
                 <div>
@@ -640,11 +778,14 @@ File upload only: .zip containing shapefile">
         </div>
 
         <!-- Footer -->
-        <div class="bg-white border-t border-gray-300 px-4 py-3 flex justify-end gap-2">
-            <button id="cancel-btn" class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100">
+        <div class="px-4 py-3 flex justify-end gap-2"
+            style="background:#111827;border-top:1px solid #374151;">
+            <button id="cancel-btn"
+                class="px-4 py-2 rounded text-sm transition-colors"
+                style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
                 Cancel
             </button>
-            <button id="add-to-map-btn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" disabled>
+            <button id="add-to-map-btn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold text-sm" disabled>
                 Add Map Layer
             </button>
         </div>
@@ -655,6 +796,17 @@ File upload only: .zip containing shapefile">
 
         const creator = new MapCreator();
         creator.init();
+
+        // Bridge: legacy show()/hide() of #settings-section → enable/disable visual state.
+        // The section is always visible now; .is-disabled controls the "load data first" look.
+        const settingsSection = document.getElementById('settings-section');
+        const stepHint = document.getElementById('settings-step-hint');
+        new MutationObserver(() => {
+            const hidden = settingsSection.style.display === 'none';
+            settingsSection.classList.toggle('is-disabled', hidden);
+            if (stepHint) stepHint.style.display = hidden ? '' : 'none';
+            settingsSection.style.display = '';
+        }).observe(settingsSection, { attributes: true, attributeFilter: ['style'] });
 
         // Easter egg: Convert 'google' keyword to Google Maps tiles
         const urlInput = document.getElementById('url-input');
@@ -674,9 +826,10 @@ File upload only: .zip containing shapefile">
             }
         });
 
-        // Show georeferencing notice for image files
+        // Show georeferencing notice for image files & temp-upload notice for any file
         const fileInput = document.getElementById('file-input');
         const georefNotice = document.getElementById('georef-notice');
+        const tempNotice = document.getElementById('upload-temp-notice');
 
         fileInput.addEventListener('change', function (e) {
             if (this.files.length > 0) {
@@ -689,9 +842,16 @@ File upload only: .zip containing shapefile">
                 } else {
                     georefNotice.classList.add('hidden');
                 }
+                tempNotice.classList.remove('hidden');
             } else {
                 georefNotice.classList.add('hidden');
+                tempNotice.classList.add('hidden');
             }
+        });
+
+        // Hide temp notice when the user clears the selected file via the inline ✕
+        document.getElementById('clear-file-btn').addEventListener('click', () => {
+            tempNotice.classList.add('hidden');
         });
     </script>
 </body>
