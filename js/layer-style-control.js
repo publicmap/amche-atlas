@@ -123,7 +123,26 @@ export class LayerStyleControl {
     }
 
     /**
-     * Collect style properties from map layers
+     * Extract the variant prefix from a generated map layer ID.
+     * Variant layers are suffixed with `--<prefix>` (see MapboxAPI._getVariantSuffix).
+     */
+    _extractVariantPrefix(mapLayerId) {
+        const idx = mapLayerId.lastIndexOf('--');
+        return idx >= 0 ? mapLayerId.substring(idx + 2) : '';
+    }
+
+    /**
+     * Build the dictionary key used to dedupe rows in the inspector table.
+     * Base variant uses the bare property; variants use `<prefix>/<property>`,
+     * matching the syntax in `config.style`.
+     */
+    _variantKey(variantPrefix, property) {
+        return variantPrefix ? `${variantPrefix}/${property}` : property;
+    }
+
+    /**
+     * Collect style properties from map layers, keyed by variant so that
+     * the same property (e.g. line-color) shows up once per variant.
      */
     _collectStyleProperties(layerIds, config) {
         const properties = {};
@@ -137,6 +156,7 @@ export class LayerStyleControl {
             if (!layer) return;
 
             const layerType = layer.type;
+            const variantPrefix = this._extractVariantPrefix(mapLayerId);
 
             // Collect paint properties
             if (layer.paint) {
@@ -146,13 +166,16 @@ export class LayerStyleControl {
 
                         // Skip complex expressions that can't be edited with simple controls
                         if (this._isEditableValue(value)) {
-                            properties[prop] = {
+                            const key = this._variantKey(variantPrefix, prop);
+                            properties[key] = {
                                 value: value,
+                                property: prop,
+                                variantPrefix: variantPrefix,
                                 type: 'paint',
                                 layerType: layerType,
                                 mapLayerId: mapLayerId
                             };
-                            debugInfo.collected.push({ prop, value, type: 'paint' });
+                            debugInfo.collected.push({ key, value, type: 'paint' });
                         } else {
                             debugInfo.filtered.push({ prop, value, type: 'paint', reason: 'not editable' });
                         }
@@ -163,17 +186,20 @@ export class LayerStyleControl {
             // Add common paint properties from config.style if not already present
             if (config.style) {
                 commonProperties.paint[layerType]?.forEach(prop => {
-                    if (!properties[prop] && config.style[prop] !== undefined) {
-                        const value = config.style[prop];
+                    const configKey = this._variantKey(variantPrefix, prop);
+                    if (!properties[configKey] && config.style[configKey] !== undefined) {
+                        const value = config.style[configKey];
                         if (this._isEditableValue(value)) {
-                            properties[prop] = {
+                            properties[configKey] = {
                                 value: value,
+                                property: prop,
+                                variantPrefix: variantPrefix,
                                 type: 'paint',
                                 layerType: layerType,
                                 mapLayerId: mapLayerId,
                                 fromConfig: true
                             };
-                            debugInfo.collected.push({ prop, value, type: 'paint', source: 'config' });
+                            debugInfo.collected.push({ key: configKey, value, type: 'paint', source: 'config' });
                         }
                     }
                 });
@@ -187,13 +213,16 @@ export class LayerStyleControl {
 
                         // Skip complex expressions that can't be edited with simple controls
                         if (this._isEditableValue(value)) {
-                            properties[prop] = {
+                            const key = this._variantKey(variantPrefix, prop);
+                            properties[key] = {
                                 value: value,
+                                property: prop,
+                                variantPrefix: variantPrefix,
                                 type: 'layout',
                                 layerType: layerType,
                                 mapLayerId: mapLayerId
                             };
-                            debugInfo.collected.push({ prop, value, type: 'layout' });
+                            debugInfo.collected.push({ key, value, type: 'layout' });
                         } else {
                             debugInfo.filtered.push({ prop, value, type: 'layout', reason: 'not editable' });
                         }
@@ -204,17 +233,20 @@ export class LayerStyleControl {
             // Add common layout properties from config.style if not already present
             if (config.style) {
                 commonProperties.layout[layerType]?.forEach(prop => {
-                    if (!properties[prop] && config.style[prop] !== undefined) {
-                        const value = config.style[prop];
+                    const configKey = this._variantKey(variantPrefix, prop);
+                    if (!properties[configKey] && config.style[configKey] !== undefined) {
+                        const value = config.style[configKey];
                         if (this._isEditableValue(value)) {
-                            properties[prop] = {
+                            properties[configKey] = {
                                 value: value,
+                                property: prop,
+                                variantPrefix: variantPrefix,
                                 type: 'layout',
                                 layerType: layerType,
                                 mapLayerId: mapLayerId,
                                 fromConfig: true
                             };
-                            debugInfo.collected.push({ prop, value, type: 'layout', source: 'config' });
+                            debugInfo.collected.push({ key: configKey, value, type: 'layout', source: 'config' });
                         }
                     }
                 });
@@ -283,7 +315,9 @@ export class LayerStyleControl {
     }
 
     /**
-     * Create style properties table
+     * Create style properties table. Rows are grouped by variant prefix —
+     * each variant gets a sub-header so the user can tell which style pass
+     * a property belongs to.
      */
     _createStyleTable(layerId, config, layerIds, styleProperties) {
         const table = document.createElement('table');
@@ -295,19 +329,54 @@ export class LayerStyleControl {
 
         const tbody = document.createElement('tbody');
 
-        // Sort properties alphabetically
-        const sortedProps = Object.keys(styleProperties).sort();
+        // Group properties by variant prefix
+        const byVariant = new Map();
+        Object.entries(styleProperties).forEach(([key, propInfo]) => {
+            const prefix = propInfo.variantPrefix || '';
+            if (!byVariant.has(prefix)) byVariant.set(prefix, []);
+            byVariant.get(prefix).push({ key, propInfo });
+        });
 
-        sortedProps.forEach(property => {
-            const propInfo = styleProperties[property];
-            const row = this._createPropertyRow(
-                layerId,
-                config,
-                property,
-                propInfo,
-                layerIds
-            );
-            tbody.appendChild(row);
+        // Render base variant first, then named variants sorted alphabetically
+        const orderedPrefixes = Array.from(byVariant.keys()).sort((a, b) => {
+            if (a === '') return -1;
+            if (b === '') return 1;
+            return a.localeCompare(b);
+        });
+        const showHeaders = byVariant.size > 1;
+
+        orderedPrefixes.forEach(prefix => {
+            if (showHeaders) {
+                const headerRow = document.createElement('tr');
+                const headerCell = document.createElement('td');
+                headerCell.colSpan = 2;
+                headerCell.textContent = prefix === '' ? 'base' : prefix;
+                headerCell.style.cssText = `
+                    padding: 6px 6px 4px;
+                    font-size: 10px;
+                    font-weight: 600;
+                    color: #6b7280;
+                    text-transform: uppercase;
+                    letter-spacing: 0.04em;
+                    background: #f3f4f6;
+                `;
+                headerRow.appendChild(headerCell);
+                tbody.appendChild(headerRow);
+            }
+
+            const entries = byVariant.get(prefix);
+            entries.sort((a, b) => a.propInfo.property.localeCompare(b.propInfo.property));
+
+            entries.forEach(({ key, propInfo }) => {
+                const row = this._createPropertyRow(
+                    layerId,
+                    config,
+                    key,
+                    propInfo,
+                    layerIds
+                );
+                tbody.appendChild(row);
+            });
         });
 
         table.appendChild(tbody);
@@ -315,9 +384,12 @@ export class LayerStyleControl {
     }
 
     /**
-     * Create a table row for a style property
+     * Create a table row for a style property. `propertyKey` is the variant-
+     * qualified key used in config.style (e.g. "overlay/line-color"); the
+     * underlying property name lives on propInfo.property.
      */
-    _createPropertyRow(layerId, config, property, propInfo, layerIds) {
+    _createPropertyRow(layerId, config, propertyKey, propInfo, layerIds) {
+        const property = propInfo.property || propertyKey;
         const row = document.createElement('tr');
         row.style.cssText = `
             border-bottom: 1px solid #f3f4f6;
@@ -720,10 +792,14 @@ export class LayerStyleControl {
     }
 
     /**
-     * Update property on map layers
+     * Update property on map layers. Only updates layers belonging to the
+     * same variant as the property being edited.
      */
     _updateProperty(layerId, config, property, propInfo, layerIds, value) {
-        layerIds.forEach(mapLayerId => {
+        const variantPrefix = propInfo.variantPrefix || '';
+        const targetLayers = layerIds.filter(id => this._extractVariantPrefix(id) === variantPrefix);
+
+        targetLayers.forEach(mapLayerId => {
             const layer = this._map.getLayer(mapLayerId);
             if (!layer) return;
 
@@ -738,9 +814,10 @@ export class LayerStyleControl {
             }
         });
 
-        // Update config to persist changes
+        // Persist with the variant-qualified key so the prefix survives round-trips
         if (!config.style) config.style = {};
-        config.style[property] = value;
+        const configKey = variantPrefix ? `${variantPrefix}/${property}` : property;
+        config.style[configKey] = value;
 
         // Trigger URL update if available
         if (window.urlManager) {

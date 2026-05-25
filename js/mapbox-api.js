@@ -290,6 +290,67 @@ export class MapboxAPI {
     }
 
     /**
+     * Split a style object with optional "prefix/property" keys into ordered variants.
+     *
+     * Keys may be plain (e.g. "line-color") or prefixed (e.g. "overlay/line-color").
+     * Each unique prefix becomes a separate variant that creates its own map layer
+     * sharing the same source, allowing multi-pass cartography (e.g. casing + centerline).
+     *
+     * Order: keys are iterated in reverse so the first prefix encountered (= the last
+     * one defined in the config) ends up on top. Mapbox renders later-added layers
+     * on top, so we return variants in render order — index 0 is at the bottom.
+     *
+     * Example input:
+     *   { "overlay/line-color": "white", "overlay/line-width": 2,
+     *     "line-color": "purple", "line-width": 1 }
+     *
+     * Example output (rendered bottom → top):
+     *   [{ prefix: "",        style: { "line-color": "purple", "line-width": 1 } },
+     *    { prefix: "overlay", style: { "line-color": "white",  "line-width": 2 } }]
+     */
+    _parseStyleVariants(style) {
+        if (!style || typeof style !== 'object') {
+            return [{ prefix: '', style: {} }];
+        }
+
+        const order = []; // Order in which unique prefixes are encountered (reverse iter)
+        const byPrefix = new Map(); // prefix → un-prefixed style object
+        const keys = Object.keys(style);
+
+        for (let i = keys.length - 1; i >= 0; i--) {
+            const key = keys[i];
+            const slashIdx = key.indexOf('/');
+            const prefix = slashIdx > 0 ? key.substring(0, slashIdx) : '';
+            const prop = slashIdx > 0 ? key.substring(slashIdx + 1) : key;
+
+            if (!byPrefix.has(prefix)) {
+                byPrefix.set(prefix, {});
+                order.push(prefix);
+            }
+            byPrefix.get(prefix)[prop] = style[key];
+        }
+
+        return order.map(prefix => ({ prefix, style: byPrefix.get(prefix) }));
+    }
+
+    /**
+     * Get the ID suffix used to disambiguate map layers for a style variant.
+     * Base variant (empty prefix) returns '' so existing layer IDs are preserved.
+     */
+    _getVariantSuffix(prefix) {
+        return prefix ? `--${prefix}` : '';
+    }
+
+    /**
+     * Get all variant prefixes (including '' for base) declared in a config's style.
+     * Returns ['' ] when the config has no style or no prefixed keys.
+     */
+    _getVariantPrefixes(config) {
+        if (!config || !config.style) return [''];
+        return this._parseStyleVariants(config.style).map(v => v.prefix);
+    }
+
+    /**
      * Initialize comprehensive mapping of Mapbox GL style properties
      */
     _initializeStylePropertyMapping() {
@@ -586,140 +647,157 @@ export class MapboxAPI {
         // Get default styles for checking what layer types should be created
         const defaultStyles = this._defaultStyles.vector || {};
 
-        // Check if user has explicitly defined any styles
-        const userHasFillStyles = config.style && (config.style['fill-color'] || config.style['fill-opacity']);
-        const userHasLineStyles = config.style && (config.style['line-color'] || config.style['line-width']);
-        const userHasTextStyles = config.style && config.style['text-field'];
-        const userHasCircleStyles = config.style && (config.style['circle-radius'] || config.style['circle-color']);
-        const userHasFillExtrusionStyles = config.style && (
-            config.style['fill-extrusion-height'] !== undefined ||
-            config.style['fill-extrusion-color'] !== undefined ||
-            config.style['fill-extrusion-opacity'] !== undefined
-        );
+        // Split the style object into one or more variants based on "prefix/prop" keys.
+        // Each variant becomes its own set of map layers sharing the same source.
+        const variants = this._parseStyleVariants(config.style);
 
-        // If user has line styles but no fill, don't apply default fill (circle properties are decorative, not indicative of fill intent)
-        const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles;
+        for (const variant of variants) {
+            const variantStyle = variant.style;
+            const variantSuffix = this._getVariantSuffix(variant.prefix);
+            // Only the base variant gets defaults applied; secondary variants
+            // are pure overlays driven by the properties the user supplied.
+            const isBaseVariant = variant.prefix === '';
 
-        // Check if fill layer should be created
-        // If user only has line styles or fill-extrusion styles, don't create fill layer even if defaults exist
-        const hasFillStyles = !userHasFillExtrusionStyles && (userHasFillStyles ||
-            (!userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity'])));
+            // Check if user has explicitly defined any styles
+            const userHasFillStyles = variantStyle['fill-color'] || variantStyle['fill-opacity'];
+            const userHasLineStyles = variantStyle['line-color'] || variantStyle['line-width'];
+            const userHasTextStyles = variantStyle['text-field'];
+            const userHasCircleStyles = variantStyle['circle-radius'] || variantStyle['circle-color'];
+            const userHasFillExtrusionStyles =
+                variantStyle['fill-extrusion-height'] !== undefined ||
+                variantStyle['fill-extrusion-color'] !== undefined ||
+                variantStyle['fill-extrusion-opacity'] !== undefined;
 
-        // Check if line layer should be created (user styles or defaults)
-        const hasLineStyles = userHasLineStyles ||
-            (defaultStyles.line && (defaultStyles.line['line-color'] || defaultStyles.line['line-width']));
+            // If user has line styles but no fill, don't apply default fill (circle properties are decorative, not indicative of fill intent)
+            const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles;
 
-        // Check if text layer should be created (user styles or defaults)
-        const hasTextStyles = userHasTextStyles ||
-            (defaultStyles.text && defaultStyles.text['text-field']);
+            // Check if fill layer should be created
+            // If user only has line styles or fill-extrusion styles, don't create fill layer even if defaults exist
+            const hasFillStyles = !userHasFillExtrusionStyles && (userHasFillStyles ||
+                (isBaseVariant && !userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity'])));
 
-        // Check if circle layer should be created (only if user explicitly defines circle properties)
-        const hasCircleStyles = userHasCircleStyles;
+            // Check if line layer should be created (user styles or defaults)
+            const hasLineStyles = userHasLineStyles ||
+                (isBaseVariant && defaultStyles.line && (defaultStyles.line['line-color'] || defaultStyles.line['line-width']));
 
-        // Add fill-extrusion layer if extrusion properties are defined
-        if (userHasFillExtrusionStyles) {
-            const extrusionStyle = this._filterStyleForLayerType(config.style, 'fill-extrusion');
+            // Check if text layer should be created (user styles or defaults)
+            const hasTextStyles = userHasTextStyles ||
+                (isBaseVariant && defaultStyles.text && defaultStyles.text['text-field']);
 
-            const layerConfig = this._createLayerConfig({
-                id: `vector-layer-${groupId}`,
-                groupId: groupId,
-                type: 'fill-extrusion',
-                source: sourceId,
-                'source-layer': config.sourceLayer || 'default',
-                style: extrusionStyle,
-                filter: config.filter,
-                visible
-            }, 'fill-extrusion');
+            // Check if circle layer should be created (only if user explicitly defines circle properties)
+            const hasCircleStyles = userHasCircleStyles;
 
-            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
-        }
+            // Add fill-extrusion layer if extrusion properties are defined
+            if (userHasFillExtrusionStyles) {
+                const extrusionStyle = this._filterStyleForLayerType(variantStyle, 'fill-extrusion');
 
-        // Add fill layer
-        if (hasFillStyles) {
-            // Filter style to only include fill-related properties
-            const fillStyle = this._filterStyleForLayerType(config.style, 'fill');
+                const layerConfig = this._createLayerConfig({
+                    id: `vector-layer-${groupId}${variantSuffix}`,
+                    groupId: groupId,
+                    type: 'fill-extrusion',
+                    source: sourceId,
+                    'source-layer': config.sourceLayer || 'default',
+                    style: extrusionStyle,
+                    filter: config.filter,
+                    visible,
+                    applyDefaults: isBaseVariant
+                }, 'fill-extrusion');
 
-            const layerConfig = this._createLayerConfig({
-                id: `vector-layer-${groupId}`,
-                groupId: groupId,
-                type: 'fill',
-                source: sourceId,
-                'source-layer': config.sourceLayer || 'default',
-                style: fillStyle,
-                filter: config.filter,
-                visible
-            }, 'fill');
-
-            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
-        }
-
-        // Add line layer
-        if (hasLineStyles) {
-            // Filter style to only include line-related properties
-            const lineStyle = this._filterStyleForLayerType(config.style, 'line');
-
-            // Use feature-state for line-offset so hover/selection effects are instant
-            if (!lineStyle['line-offset']) {
-                lineStyle['line-offset'] = ['case',
-                    ['boolean', ['feature-state', 'selected'], false], -1,
-                    ['boolean', ['feature-state', 'hover'], false], 1,
-                    0
-                ];
+                this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
             }
 
-            const layerConfig = this._createLayerConfig({
-                id: `vector-layer-${groupId}-outline`,
-                groupId: groupId,
-                type: 'line',
-                source: sourceId,
-                'source-layer': config.sourceLayer || 'default',
-                style: lineStyle,
-                filter: config.filter,
-                visible
-            }, 'line');
+            // Add fill layer
+            if (hasFillStyles) {
+                // Filter style to only include fill-related properties
+                const fillStyle = this._filterStyleForLayerType(variantStyle, 'fill');
 
-            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'line', config, this._orderedGroups));
-        }
+                const layerConfig = this._createLayerConfig({
+                    id: `vector-layer-${groupId}${variantSuffix}`,
+                    groupId: groupId,
+                    type: 'fill',
+                    source: sourceId,
+                    'source-layer': config.sourceLayer || 'default',
+                    style: fillStyle,
+                    filter: config.filter,
+                    visible,
+                    applyDefaults: isBaseVariant
+                }, 'fill');
 
-        // Add circle layer if circle properties are defined
-        if (hasCircleStyles) {
-            // Filter style to only include circle-related properties
-            const circleStyle = this._filterStyleForLayerType(config.style, 'circle');
+                this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
+            }
 
-            const layerConfig = this._createLayerConfig({
-                id: `vector-layer-${groupId}-circle`,
-                groupId: groupId,
-                type: 'circle',
-                source: sourceId,
-                'source-layer': config.sourceLayer || 'default',
-                style: circleStyle,
-                filter: config.filter,
-                visible
-            }, 'circle');
+            // Add line layer
+            if (hasLineStyles) {
+                // Filter style to only include line-related properties
+                const lineStyle = this._filterStyleForLayerType(variantStyle, 'line');
 
-            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'circle', config, this._orderedGroups));
-        }
+                // Use feature-state for line-offset so hover/selection effects are instant
+                // (base variant only — secondary variants should not impose interaction offsets)
+                if (isBaseVariant && !lineStyle['line-offset']) {
+                    lineStyle['line-offset'] = ['case',
+                        ['boolean', ['feature-state', 'selected'], false], -1,
+                        ['boolean', ['feature-state', 'hover'], false], 1,
+                        0
+                    ];
+                }
 
-        // Add text layer
-        if (hasTextStyles) {
-            // Filter style to only include symbol/text-related properties
-            let symbolStyle = this._filterStyleForLayerType(config.style, 'symbol');
+                const layerConfig = this._createLayerConfig({
+                    id: `vector-layer-${groupId}-outline${variantSuffix}`,
+                    groupId: groupId,
+                    type: 'line',
+                    source: sourceId,
+                    'source-layer': config.sourceLayer || 'default',
+                    style: lineStyle,
+                    filter: config.filter,
+                    visible,
+                    applyDefaults: isBaseVariant
+                }, 'line');
 
-            // Prepare custom icon images if present
-            symbolStyle = await this._prepareSymbolLayerIcons(symbolStyle);
+                this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'line', config, this._orderedGroups));
+            }
 
-            const layerConfig = this._createLayerConfig({
-                id: `vector-layer-${groupId}-text`,
-                groupId: groupId,
-                type: 'symbol',
-                source: sourceId,
-                'source-layer': config.sourceLayer || 'default',
-                style: symbolStyle,
-                filter: config.filter,
-                visible
-            }, 'symbol');
+            // Add circle layer if circle properties are defined
+            if (hasCircleStyles) {
+                // Filter style to only include circle-related properties
+                const circleStyle = this._filterStyleForLayerType(variantStyle, 'circle');
 
-            this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));
+                const layerConfig = this._createLayerConfig({
+                    id: `vector-layer-${groupId}-circle${variantSuffix}`,
+                    groupId: groupId,
+                    type: 'circle',
+                    source: sourceId,
+                    'source-layer': config.sourceLayer || 'default',
+                    style: circleStyle,
+                    filter: config.filter,
+                    visible,
+                    applyDefaults: isBaseVariant
+                }, 'circle');
+
+                this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'circle', config, this._orderedGroups));
+            }
+
+            // Add text layer
+            if (hasTextStyles) {
+                // Filter style to only include symbol/text-related properties
+                let symbolStyle = this._filterStyleForLayerType(variantStyle, 'symbol');
+
+                // Prepare custom icon images if present
+                symbolStyle = await this._prepareSymbolLayerIcons(symbolStyle);
+
+                const layerConfig = this._createLayerConfig({
+                    id: `vector-layer-${groupId}-text${variantSuffix}`,
+                    groupId: groupId,
+                    type: 'symbol',
+                    source: sourceId,
+                    'source-layer': config.sourceLayer || 'default',
+                    style: symbolStyle,
+                    filter: config.filter,
+                    visible,
+                    applyDefaults: isBaseVariant
+                }, 'symbol');
+
+                this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));
+            }
         }
     }
 
@@ -730,17 +808,20 @@ export class MapboxAPI {
             this._stopBlinking(groupId, config);
         }
 
-        const layers = [
-            `vector-layer-${groupId}`,
-            `vector-layer-${groupId}-outline`,
-            `vector-layer-${groupId}-circle`,
-            `vector-layer-${groupId}-text`
-        ];
+        this._getVariantPrefixes(config).forEach(prefix => {
+            const suffix = this._getVariantSuffix(prefix);
+            const layers = [
+                `vector-layer-${groupId}${suffix}`,
+                `vector-layer-${groupId}-outline${suffix}`,
+                `vector-layer-${groupId}-circle${suffix}`,
+                `vector-layer-${groupId}-text${suffix}`
+            ];
 
-        layers.forEach(layerId => {
-            if (this._map.getLayer(layerId)) {
-                this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
-            }
+            layers.forEach(layerId => {
+                if (this._map.getLayer(layerId)) {
+                    this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+                }
+            });
         });
 
         return true;
@@ -750,18 +831,21 @@ export class MapboxAPI {
         this._stopBlinking(groupId, config);
 
         const sourceId = `vector-${groupId}`;
-        const layers = [
-            `vector-layer-${groupId}`,
-            `vector-layer-${groupId}-outline`,
-            `vector-layer-${groupId}-circle`,
-            `vector-layer-${groupId}-text`
-        ];
 
-        // Remove layers
-        layers.forEach(layerId => {
-            if (this._map.getLayer(layerId)) {
-                this._map.removeLayer(layerId);
-            }
+        this._getVariantPrefixes(config).forEach(prefix => {
+            const suffix = this._getVariantSuffix(prefix);
+            const layers = [
+                `vector-layer-${groupId}${suffix}`,
+                `vector-layer-${groupId}-outline${suffix}`,
+                `vector-layer-${groupId}-circle${suffix}`,
+                `vector-layer-${groupId}-text${suffix}`
+            ];
+
+            layers.forEach(layerId => {
+                if (this._map.getLayer(layerId)) {
+                    this._map.removeLayer(layerId);
+                }
+            });
         });
 
         // Remove source
@@ -778,20 +862,28 @@ export class MapboxAPI {
             ? opacity * config.opacity
             : opacity;
 
-        if (this._map.getLayer(`vector-layer-${groupId}`)) {
-            const fillLayer = this._map.getLayer(`vector-layer-${groupId}`);
-            const fillOpacityProp = fillLayer.type === 'fill-extrusion' ? 'fill-extrusion-opacity' : 'fill-opacity';
-            this._map.setPaintProperty(`vector-layer-${groupId}`, fillOpacityProp, finalOpacity);
-        }
-        if (this._map.getLayer(`vector-layer-${groupId}-outline`)) {
-            this._map.setPaintProperty(`vector-layer-${groupId}-outline`, 'line-opacity', finalOpacity);
-        }
-        if (this._map.getLayer(`vector-layer-${groupId}-circle`)) {
-            this._map.setPaintProperty(`vector-layer-${groupId}-circle`, 'circle-opacity', finalOpacity);
-        }
-        if (this._map.getLayer(`vector-layer-${groupId}-text`)) {
-            this._map.setPaintProperty(`vector-layer-${groupId}-text`, 'text-opacity', finalOpacity);
-        }
+        this._getVariantPrefixes(config).forEach(prefix => {
+            const suffix = this._getVariantSuffix(prefix);
+            const fillId = `vector-layer-${groupId}${suffix}`;
+            const outlineId = `vector-layer-${groupId}-outline${suffix}`;
+            const circleId = `vector-layer-${groupId}-circle${suffix}`;
+            const textId = `vector-layer-${groupId}-text${suffix}`;
+
+            const fillLayer = this._map.getLayer(fillId);
+            if (fillLayer) {
+                const fillOpacityProp = fillLayer.type === 'fill-extrusion' ? 'fill-extrusion-opacity' : 'fill-opacity';
+                this._map.setPaintProperty(fillId, fillOpacityProp, finalOpacity);
+            }
+            if (this._map.getLayer(outlineId)) {
+                this._map.setPaintProperty(outlineId, 'line-opacity', finalOpacity);
+            }
+            if (this._map.getLayer(circleId)) {
+                this._map.setPaintProperty(circleId, 'circle-opacity', finalOpacity);
+            }
+            if (this._map.getLayer(textId)) {
+                this._map.setPaintProperty(textId, 'text-opacity', finalOpacity);
+            }
+        });
         return true;
     }
 
@@ -1658,135 +1750,154 @@ export class MapboxAPI {
             this._setupBlinking(groupId, config);
         }
 
-        const idSuffix = suffix ? `-${suffix}` : '';
+        const segregateSuffix = suffix ? `-${suffix}` : '';
         // Get default styles for checking what layer types should be created
         const defaultStyles = this._defaultStyles.vector || {};
-
-        // Check if user has explicitly defined any styles
-        const userHasFillStyles = config.style && (config.style['fill-color'] || config.style['fill-opacity']);
-        const userHasLineStyles = config.style && (config.style['line-color'] || config.style['line-width']);
-        const userHasTextStyles = config.style && config.style['text-field'];
-        const userHasCircleStyles = config.style && (config.style['circle-radius'] || config.style['circle-color']);
-        const userHasIconStyles = config.style && config.style['icon-image'];
-        const userHasFillExtrusionStyles = config.style && (
-            config.style['fill-extrusion-height'] !== undefined ||
-            config.style['fill-extrusion-color'] !== undefined ||
-            config.style['fill-extrusion-opacity'] !== undefined
-        );
-
-        // If user has line styles but no fill, don't apply default fill (circle/icon properties are decorative, not indicative of fill intent)
-        const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles;
-
-        // Check if fill layer should be created (user styles or defaults)
-        // If user only has line styles or fill-extrusion styles, don't create fill layer even if defaults exist
-        const hasFillStyles = !userHasFillExtrusionStyles && (userHasFillStyles ||
-            (!userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity'])));
-
-        // Check if line layer should be created (user styles or defaults)
-        const hasLineStyles = userHasLineStyles ||
-            (defaultStyles.line && (defaultStyles.line['line-color'] || defaultStyles.line['line-width']));
-
-        // Check if text layer should be created (user styles or defaults)
-        const hasTextStyles = userHasTextStyles ||
-            (defaultStyles.text && defaultStyles.text['text-field']);
-
-        // Check if circle layer should be created (only if user explicitly defines circle properties)
-        const hasCircleStyles = userHasCircleStyles;
 
         // Common filter for non-clustered points if clustering is enabled
         const unclusteredFilter = config.clustered ? ['!', ['has', 'point_count']] : null;
 
-        // Add fill-extrusion layer if extrusion properties are defined
-        if (userHasFillExtrusionStyles) {
-            const extrusionStyle = this._filterStyleForLayerType(config.style, 'fill-extrusion');
+        // Split the style into variants based on "prefix/prop" keys so each prefix
+        // becomes its own map layer set sharing this source.
+        const variants = this._parseStyleVariants(config.style);
 
-            const extrusionLayerConfig = this._createLayerConfig({
-                id: `${sourceId}-fill${idSuffix}`,
-                groupId: groupId,
-                type: 'fill-extrusion',
-                source: sourceId,
-                style: extrusionStyle,
-                visible,
-                ...(unclusteredFilter && { filter: unclusteredFilter })
-            }, 'fill-extrusion');
+        for (const variant of variants) {
+            const variantStyle = variant.style;
+            const variantSuffix = this._getVariantSuffix(variant.prefix);
+            const idSuffix = `${segregateSuffix}${variantSuffix}`;
+            const isBaseVariant = variant.prefix === '';
 
-            this._addLayerWithSlot(extrusionLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
+            // Check if user has explicitly defined any styles
+            const userHasFillStyles = variantStyle['fill-color'] || variantStyle['fill-opacity'];
+            const userHasLineStyles = variantStyle['line-color'] || variantStyle['line-width'];
+            const userHasTextStyles = variantStyle['text-field'];
+            const userHasCircleStyles = variantStyle['circle-radius'] || variantStyle['circle-color'];
+            const userHasIconStyles = variantStyle['icon-image'];
+            const userHasFillExtrusionStyles =
+                variantStyle['fill-extrusion-height'] !== undefined ||
+                variantStyle['fill-extrusion-color'] !== undefined ||
+                variantStyle['fill-extrusion-opacity'] !== undefined;
+
+            // If user has line styles but no fill, don't apply default fill (circle/icon properties are decorative, not indicative of fill intent)
+            const userOnlyHasLineStyles = userHasLineStyles && !userHasFillStyles;
+
+            // Check if fill layer should be created (user styles or defaults — defaults only for base variant)
+            // If user only has line styles or fill-extrusion styles, don't create fill layer even if defaults exist
+            const hasFillStyles = !userHasFillExtrusionStyles && (userHasFillStyles ||
+                (isBaseVariant && !userOnlyHasLineStyles && defaultStyles.fill && (defaultStyles.fill['fill-color'] || defaultStyles.fill['fill-opacity'])));
+
+            // Check if line layer should be created (user styles or defaults)
+            const hasLineStyles = userHasLineStyles ||
+                (isBaseVariant && defaultStyles.line && (defaultStyles.line['line-color'] || defaultStyles.line['line-width']));
+
+            // Check if text layer should be created (user styles or defaults)
+            const hasTextStyles = userHasTextStyles ||
+                (isBaseVariant && defaultStyles.text && defaultStyles.text['text-field']);
+
+            // Check if circle layer should be created (only if user explicitly defines circle properties)
+            const hasCircleStyles = userHasCircleStyles;
+
+            // Add fill-extrusion layer if extrusion properties are defined
+            if (userHasFillExtrusionStyles) {
+                const extrusionStyle = this._filterStyleForLayerType(variantStyle, 'fill-extrusion');
+
+                const extrusionLayerConfig = this._createLayerConfig({
+                    id: `${sourceId}-fill${idSuffix}`,
+                    groupId: groupId,
+                    type: 'fill-extrusion',
+                    source: sourceId,
+                    style: extrusionStyle,
+                    visible,
+                    applyDefaults: isBaseVariant,
+                    ...(unclusteredFilter && { filter: unclusteredFilter })
+                }, 'fill-extrusion');
+
+                this._addLayerWithSlot(extrusionLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
+            }
+
+            // Add fill layer
+            if (hasFillStyles) {
+                // Filter style to only include fill-related properties
+                const fillStyle = this._filterStyleForLayerType(variantStyle, 'fill');
+
+                const fillLayerConfig = this._createLayerConfig({
+                    id: `${sourceId}-fill${idSuffix}`,
+                    groupId: groupId,
+                    type: 'fill',
+                    source: sourceId,
+                    style: fillStyle,
+                    visible,
+                    applyDefaults: isBaseVariant,
+                    ...(unclusteredFilter && { filter: unclusteredFilter })
+                }, 'fill');
+
+                this._addLayerWithSlot(fillLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
+            }
+
+            // Add line layer
+            if (hasLineStyles) {
+                // Filter style to only include line-related properties
+                const lineStyle = this._filterStyleForLayerType(variantStyle, 'line');
+
+                const lineLayerConfig = this._createLayerConfig({
+                    id: `${sourceId}-line${idSuffix}`,
+                    groupId: groupId,
+                    type: 'line',
+                    source: sourceId,
+                    style: lineStyle,
+                    visible,
+                    applyDefaults: isBaseVariant,
+                    ...(unclusteredFilter && { filter: unclusteredFilter })
+                }, 'line');
+
+                this._addLayerWithSlot(lineLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'line', config, this._orderedGroups));
+            }
+
+            // Add circle layer if circle properties are defined
+            if (hasCircleStyles) {
+                // Filter style to only include circle-related properties
+                const circleStyle = this._filterStyleForLayerType(variantStyle, 'circle');
+
+                const circleLayerConfig = this._createLayerConfig({
+                    id: `${sourceId}-circle${idSuffix}`,
+                    groupId: groupId,
+                    type: 'circle',
+                    source: sourceId,
+                    style: circleStyle,
+                    visible,
+                    applyDefaults: isBaseVariant,
+                    ...(unclusteredFilter && { filter: unclusteredFilter })
+                }, 'circle');
+
+                this._addLayerWithSlot(circleLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'circle', config, this._orderedGroups));
+            }
+
+            // Add text or icon layer if symbol properties are defined
+            if (hasTextStyles || userHasIconStyles) {
+                // Filter style to only include symbol/text-related properties
+                let symbolStyle = this._filterStyleForLayerType(variantStyle, 'symbol');
+
+                // Prepare custom icon images if present (handles both simple strings and expressions)
+                symbolStyle = await this._prepareSymbolLayerIcons(symbolStyle);
+
+                const symbolLayerConfig = this._createLayerConfig({
+                    id: `${sourceId}-symbol${idSuffix}`,
+                    groupId: groupId,
+                    type: 'symbol',
+                    source: sourceId,
+                    style: symbolStyle,
+                    visible,
+                    applyDefaults: isBaseVariant,
+                    ...(unclusteredFilter && { filter: unclusteredFilter })
+                }, 'symbol');
+
+                this._addLayerWithSlot(symbolLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));
+            }
         }
 
-        // Add fill layer
-        if (hasFillStyles) {
-            // Filter style to only include fill-related properties
-            const fillStyle = this._filterStyleForLayerType(config.style, 'fill');
-
-            const fillLayerConfig = this._createLayerConfig({
-                id: `${sourceId}-fill${idSuffix}`,
-                groupId: groupId,
-                type: 'fill',
-                source: sourceId,
-                style: fillStyle,
-                visible,
-                ...(unclusteredFilter && { filter: unclusteredFilter })
-            }, 'fill');
-
-            this._addLayerWithSlot(fillLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
-        }
-
-        // Add line layer
-        if (hasLineStyles) {
-            // Filter style to only include line-related properties
-            const lineStyle = this._filterStyleForLayerType(config.style, 'line');
-
-            const lineLayerConfig = this._createLayerConfig({
-                id: `${sourceId}-line${idSuffix}`,
-                groupId: groupId,
-                type: 'line',
-                source: sourceId,
-                style: lineStyle,
-                visible,
-                ...(unclusteredFilter && { filter: unclusteredFilter })
-            }, 'line');
-
-            this._addLayerWithSlot(lineLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'line', config, this._orderedGroups));
-        }
-
-        // Add circle layer if circle properties are defined
-        if (hasCircleStyles) {
-            // Filter style to only include circle-related properties
-            const circleStyle = this._filterStyleForLayerType(config.style, 'circle');
-
-            const circleLayerConfig = this._createLayerConfig({
-                id: `${sourceId}-circle${idSuffix}`,
-                groupId: groupId,
-                type: 'circle',
-                source: sourceId,
-                style: circleStyle,
-                visible,
-                ...(unclusteredFilter && { filter: unclusteredFilter })
-            }, 'circle');
-
-            this._addLayerWithSlot(circleLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'circle', config, this._orderedGroups));
-        }
-
-        // Add text or icon layer if symbol properties are defined
-        if (hasTextStyles || userHasIconStyles) {
-            // Filter style to only include symbol/text-related properties
-            let symbolStyle = this._filterStyleForLayerType(config.style, 'symbol');
-
-            // Prepare custom icon images if present (handles both simple strings and expressions)
-            symbolStyle = await this._prepareSymbolLayerIcons(symbolStyle);
-
-            const symbolLayerConfig = this._createLayerConfig({
-                id: `${sourceId}-symbol${idSuffix}`,
-                groupId: groupId,
-                type: 'symbol',
-                source: sourceId,
-                style: symbolStyle,
-                visible,
-                ...(unclusteredFilter && { filter: unclusteredFilter })
-            }, 'symbol');
-
-            this._addLayerWithSlot(symbolLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));
-        }
+        // Restore idSuffix used below (for cluster layers) to the segregate suffix only —
+        // cluster layers are not per-variant.
+        const idSuffix = segregateSuffix;
 
         // Add cluster layers if enabled
         if (config.clustered) {
@@ -1848,25 +1959,30 @@ export class MapboxAPI {
             this._stopBlinking(groupId, config);
         }
 
+        const variantPrefixes = this._getVariantPrefixes(config);
+
         if (config.clusterSeparateBy) {
             const cache = this._layerCache.get(groupId);
             if (cache && cache.subSources) {
                 cache.subSources.forEach(sourceId => {
-                    const suffix = sourceId.replace(`geojson-${groupId}-`, '');
-
-                    const layers = [
-                        `${sourceId}-fill-${suffix}`,
-                        `${sourceId}-line-${suffix}`,
-                        `${sourceId}-label-${suffix}`,
-                        `${sourceId}-symbol-${suffix}`,
-                        `${sourceId}-circle-${suffix}`,
-                        `${sourceId}-clusters-${suffix}`,
-                        `${sourceId}-cluster-count-${suffix}`
-                    ];
-                    layers.forEach(layerId => {
-                        if (this._map.getLayer(layerId)) {
-                            this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
-                        }
+                    const segregateSuffix = sourceId.replace(`geojson-${groupId}-`, '');
+                    variantPrefixes.forEach(prefix => {
+                        const variantSuffix = this._getVariantSuffix(prefix);
+                        const idSuffix = `-${segregateSuffix}${variantSuffix}`;
+                        const layers = [
+                            `${sourceId}-fill${idSuffix}`,
+                            `${sourceId}-line${idSuffix}`,
+                            `${sourceId}-label${idSuffix}`,
+                            `${sourceId}-symbol${idSuffix}`,
+                            `${sourceId}-circle${idSuffix}`,
+                            `${sourceId}-clusters${idSuffix}`,
+                            `${sourceId}-cluster-count${idSuffix}`
+                        ];
+                        layers.forEach(layerId => {
+                            if (this._map.getLayer(layerId)) {
+                                this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+                            }
+                        });
                     });
                 });
             }
@@ -1874,20 +1990,23 @@ export class MapboxAPI {
         }
 
         const sourceId = `geojson-${groupId}`;
-        const layers = [
-            `${sourceId}-fill`,
-            `${sourceId}-line`,
-            `${sourceId}-label`,
-            `${sourceId}-symbol`,
-            `${sourceId}-circle`,
-            `${sourceId}-clusters`,
-            `${sourceId}-cluster-count`
-        ];
+        variantPrefixes.forEach(prefix => {
+            const variantSuffix = this._getVariantSuffix(prefix);
+            const layers = [
+                `${sourceId}-fill${variantSuffix}`,
+                `${sourceId}-line${variantSuffix}`,
+                `${sourceId}-label${variantSuffix}`,
+                `${sourceId}-symbol${variantSuffix}`,
+                `${sourceId}-circle${variantSuffix}`,
+                `${sourceId}-clusters${variantSuffix}`,
+                `${sourceId}-cluster-count${variantSuffix}`
+            ];
 
-        layers.forEach(layerId => {
-            if (this._map.getLayer(layerId)) {
-                this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
-            }
+            layers.forEach(layerId => {
+                if (this._map.getLayer(layerId)) {
+                    this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+                }
+            });
         });
 
         if (visible && config.refresh && config.url && !this._refreshTimers.has(groupId)) {
@@ -1908,24 +2027,30 @@ export class MapboxAPI {
             this._refreshTimers.delete(groupId);
         }
 
+        const variantPrefixes = this._getVariantPrefixes(config);
+
         if (config.clusterSeparateBy) {
             const cache = this._layerCache.get(groupId);
             if (cache && cache.subSources) {
                 cache.subSources.forEach(sourceId => {
-                    const suffix = sourceId.replace(`geojson-${groupId}-`, '');
-                    const layers = [
-                        `${sourceId}-fill-${suffix}`,
-                        `${sourceId}-line-${suffix}`,
-                        `${sourceId}-label-${suffix}`,
-                        `${sourceId}-symbol-${suffix}`,
-                        `${sourceId}-circle-${suffix}`,
-                        `${sourceId}-clusters-${suffix}`,
-                        `${sourceId}-cluster-count-${suffix}`
-                    ];
-                    layers.forEach(layerId => {
-                        if (this._map.getLayer(layerId)) {
-                            this._map.removeLayer(layerId);
-                        }
+                    const segregateSuffix = sourceId.replace(`geojson-${groupId}-`, '');
+                    variantPrefixes.forEach(prefix => {
+                        const variantSuffix = this._getVariantSuffix(prefix);
+                        const idSuffix = `-${segregateSuffix}${variantSuffix}`;
+                        const layers = [
+                            `${sourceId}-fill${idSuffix}`,
+                            `${sourceId}-line${idSuffix}`,
+                            `${sourceId}-label${idSuffix}`,
+                            `${sourceId}-symbol${idSuffix}`,
+                            `${sourceId}-circle${idSuffix}`,
+                            `${sourceId}-clusters${idSuffix}`,
+                            `${sourceId}-cluster-count${idSuffix}`
+                        ];
+                        layers.forEach(layerId => {
+                            if (this._map.getLayer(layerId)) {
+                                this._map.removeLayer(layerId);
+                            }
+                        });
                     });
                     if (this._map.getSource(sourceId)) {
                         this._map.removeSource(sourceId);
@@ -1939,20 +2064,23 @@ export class MapboxAPI {
         }
 
         const sourceId = `geojson-${groupId}`;
-        const layers = [
-            `${sourceId}-fill`,
-            `${sourceId}-line`,
-            `${sourceId}-label`,
-            `${sourceId}-symbol`,
-            `${sourceId}-circle`,
-            `${sourceId}-clusters`,
-            `${sourceId}-cluster-count`
-        ];
+        variantPrefixes.forEach(prefix => {
+            const variantSuffix = this._getVariantSuffix(prefix);
+            const layers = [
+                `${sourceId}-fill${variantSuffix}`,
+                `${sourceId}-line${variantSuffix}`,
+                `${sourceId}-label${variantSuffix}`,
+                `${sourceId}-symbol${variantSuffix}`,
+                `${sourceId}-circle${variantSuffix}`,
+                `${sourceId}-clusters${variantSuffix}`,
+                `${sourceId}-cluster-count${variantSuffix}`
+            ];
 
-        layers.forEach(layerId => {
-            if (this._map.getLayer(layerId)) {
-                this._map.removeLayer(layerId);
-            }
+            layers.forEach(layerId => {
+                if (this._map.getLayer(layerId)) {
+                    this._map.removeLayer(layerId);
+                }
+            });
         });
 
         if (this._map.getSource(sourceId)) {
@@ -1968,58 +2096,62 @@ export class MapboxAPI {
             ? opacity * config.opacity
             : opacity;
 
+        const variantPrefixes = this._getVariantPrefixes(config);
+        const setOp = (layer, prop, val) => {
+            if (this._map.getLayer(layer)) this._map.setPaintProperty(layer, prop, val);
+        };
+
         if (config.clusterSeparateBy) {
             const cache = this._layerCache.get(groupId);
             if (cache && cache.subSources) {
                 cache.subSources.forEach(sourceId => {
-                    const suffix = sourceId.replace(`geojson-${groupId}-`, '');
-                    // Helper to set opacity safely
-                    const setOp = (layer, prop, val) => {
-                        if (this._map.getLayer(layer)) this._map.setPaintProperty(layer, prop, val);
-                    };
-
-                    setOp(`${sourceId}-fill-${suffix}`, 'fill-opacity', finalOpacity * 0.5);
-                    setOp(`${sourceId}-line-${suffix}`, 'line-opacity', finalOpacity);
-                    setOp(`${sourceId}-label-${suffix}`, 'text-opacity', finalOpacity);
-                    setOp(`${sourceId}-symbol-${suffix}`, 'icon-opacity', finalOpacity);
-                    setOp(`${sourceId}-symbol-${suffix}`, 'text-opacity', finalOpacity);
-                    setOp(`${sourceId}-circle-${suffix}`, 'circle-opacity', finalOpacity);
-                    setOp(`${sourceId}-clusters-${suffix}`, 'circle-opacity', finalOpacity);
-                    setOp(`${sourceId}-cluster-count-${suffix}`, 'text-opacity', finalOpacity);
+                    const segregateSuffix = sourceId.replace(`geojson-${groupId}-`, '');
+                    variantPrefixes.forEach(prefix => {
+                        const variantSuffix = this._getVariantSuffix(prefix);
+                        const idSuffix = `-${segregateSuffix}${variantSuffix}`;
+                        setOp(`${sourceId}-fill${idSuffix}`, 'fill-opacity', finalOpacity * 0.5);
+                        setOp(`${sourceId}-line${idSuffix}`, 'line-opacity', finalOpacity);
+                        setOp(`${sourceId}-label${idSuffix}`, 'text-opacity', finalOpacity);
+                        setOp(`${sourceId}-symbol${idSuffix}`, 'icon-opacity', finalOpacity);
+                        setOp(`${sourceId}-symbol${idSuffix}`, 'text-opacity', finalOpacity);
+                        setOp(`${sourceId}-circle${idSuffix}`, 'circle-opacity', finalOpacity);
+                        setOp(`${sourceId}-clusters${idSuffix}`, 'circle-opacity', finalOpacity);
+                        setOp(`${sourceId}-cluster-count${idSuffix}`, 'text-opacity', finalOpacity);
+                    });
                 });
             }
             return true;
         }
 
         const sourceId = `geojson-${groupId}`;
+        variantPrefixes.forEach(prefix => {
+            const variantSuffix = this._getVariantSuffix(prefix);
+            const fillId = `${sourceId}-fill${variantSuffix}`;
+            const lineId = `${sourceId}-line${variantSuffix}`;
+            const labelId = `${sourceId}-label${variantSuffix}`;
+            const symbolId = `${sourceId}-symbol${variantSuffix}`;
+            const circleId = `${sourceId}-circle${variantSuffix}`;
+            const clustersId = `${sourceId}-clusters${variantSuffix}`;
+            const clusterCountId = `${sourceId}-cluster-count${variantSuffix}`;
 
-        if (this._map.getLayer(`${sourceId}-fill`)) {
-            const fillLayer = this._map.getLayer(`${sourceId}-fill`);
-            if (fillLayer.type === 'fill-extrusion') {
-                this._map.setPaintProperty(`${sourceId}-fill`, 'fill-extrusion-opacity', finalOpacity);
-            } else {
-                this._map.setPaintProperty(`${sourceId}-fill`, 'fill-opacity', finalOpacity * 0.5);
+            const fillLayer = this._map.getLayer(fillId);
+            if (fillLayer) {
+                if (fillLayer.type === 'fill-extrusion') {
+                    this._map.setPaintProperty(fillId, 'fill-extrusion-opacity', finalOpacity);
+                } else {
+                    this._map.setPaintProperty(fillId, 'fill-opacity', finalOpacity * 0.5);
+                }
             }
-        }
-        if (this._map.getLayer(`${sourceId}-line`)) {
-            this._map.setPaintProperty(`${sourceId}-line`, 'line-opacity', finalOpacity);
-        }
-        if (this._map.getLayer(`${sourceId}-label`)) {
-            this._map.setPaintProperty(`${sourceId}-label`, 'text-opacity', finalOpacity);
-        }
-        if (this._map.getLayer(`${sourceId}-symbol`)) {
-            this._map.setPaintProperty(`${sourceId}-symbol`, 'icon-opacity', finalOpacity);
-            this._map.setPaintProperty(`${sourceId}-symbol`, 'text-opacity', finalOpacity);
-        }
-        if (this._map.getLayer(`${sourceId}-circle`)) {
-            this._map.setPaintProperty(`${sourceId}-circle`, 'circle-opacity', finalOpacity);
-        }
-        if (this._map.getLayer(`${sourceId}-clusters`)) {
-            this._map.setPaintProperty(`${sourceId}-clusters`, 'circle-opacity', finalOpacity);
-        }
-        if (this._map.getLayer(`${sourceId}-cluster-count`)) {
-            this._map.setPaintProperty(`${sourceId}-cluster-count`, 'text-opacity', finalOpacity);
-        }
+            setOp(lineId, 'line-opacity', finalOpacity);
+            setOp(labelId, 'text-opacity', finalOpacity);
+            if (this._map.getLayer(symbolId)) {
+                this._map.setPaintProperty(symbolId, 'icon-opacity', finalOpacity);
+                this._map.setPaintProperty(symbolId, 'text-opacity', finalOpacity);
+            }
+            setOp(circleId, 'circle-opacity', finalOpacity);
+            setOp(clustersId, 'circle-opacity', finalOpacity);
+            setOp(clusterCountId, 'text-opacity', finalOpacity);
+        });
 
         return true;
     }
@@ -2184,20 +2316,23 @@ export class MapboxAPI {
         }
 
         const sourceId = `csv-${groupId}`;
-        const layers = [
-            `${sourceId}-fill`,
-            `${sourceId}-line`,
-            `${sourceId}-label`,
-            `${sourceId}-symbol`,
-            `${sourceId}-circle`,
-            `${sourceId}-clusters`,
-            `${sourceId}-cluster-count`
-        ];
+        this._getVariantPrefixes(config).forEach(prefix => {
+            const variantSuffix = this._getVariantSuffix(prefix);
+            const layers = [
+                `${sourceId}-fill${variantSuffix}`,
+                `${sourceId}-line${variantSuffix}`,
+                `${sourceId}-label${variantSuffix}`,
+                `${sourceId}-symbol${variantSuffix}`,
+                `${sourceId}-circle${variantSuffix}`,
+                `${sourceId}-clusters${variantSuffix}`,
+                `${sourceId}-cluster-count${variantSuffix}`
+            ];
 
-        layers.forEach(layerId => {
-            if (this._map.getLayer(layerId)) {
-                this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
-            }
+            layers.forEach(layerId => {
+                if (this._map.getLayer(layerId)) {
+                    this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+                }
+            });
         });
 
         if (visible && config.refresh && config.url && !this._refreshTimers.has(groupId)) {
@@ -2214,20 +2349,23 @@ export class MapboxAPI {
         this._stopBlinking(groupId, config);
 
         const sourceId = `csv-${groupId}`;
-        const layers = [
-            `${sourceId}-fill`,
-            `${sourceId}-line`,
-            `${sourceId}-label`,
-            `${sourceId}-symbol`,
-            `${sourceId}-circle`,
-            `${sourceId}-clusters`,
-            `${sourceId}-cluster-count`
-        ];
+        this._getVariantPrefixes(config).forEach(prefix => {
+            const variantSuffix = this._getVariantSuffix(prefix);
+            const layers = [
+                `${sourceId}-fill${variantSuffix}`,
+                `${sourceId}-line${variantSuffix}`,
+                `${sourceId}-label${variantSuffix}`,
+                `${sourceId}-symbol${variantSuffix}`,
+                `${sourceId}-circle${variantSuffix}`,
+                `${sourceId}-clusters${variantSuffix}`,
+                `${sourceId}-cluster-count${variantSuffix}`
+            ];
 
-        layers.forEach(layerId => {
-            if (this._map.getLayer(layerId)) {
-                this._map.removeLayer(layerId);
-            }
+            layers.forEach(layerId => {
+                if (this._map.getLayer(layerId)) {
+                    this._map.removeLayer(layerId);
+                }
+            });
         });
 
         if (this._map.getSource(sourceId)) {
@@ -2719,6 +2857,8 @@ export class MapboxAPI {
      * @returns {Array} - Array of layer IDs
      */
     getLayerGroupIds(groupId, config) {
+        const variantPrefixes = this._getVariantPrefixes(config);
+
         switch (config.type) {
             case 'style':
                 if (config.layers) {
@@ -2731,12 +2871,15 @@ export class MapboxAPI {
                 }
                 return [];
             case 'vector':
-                return [
-                    `vector-layer-${groupId}`,
-                    `vector-layer-${groupId}-outline`,
-                    `vector-layer-${groupId}-circle`,
-                    `vector-layer-${groupId}-text`
-                ].filter(id => this._map.getLayer(id));
+                return variantPrefixes.flatMap(prefix => {
+                    const suffix = this._getVariantSuffix(prefix);
+                    return [
+                        `vector-layer-${groupId}${suffix}`,
+                        `vector-layer-${groupId}-outline${suffix}`,
+                        `vector-layer-${groupId}-circle${suffix}`,
+                        `vector-layer-${groupId}-text${suffix}`
+                    ];
+                }).filter(id => this._map.getLayer(id));
             case 'tms':
                 return [`tms-layer-${groupId}`].filter(id => this._map.getLayer(id));
             case 'cog':
@@ -2745,39 +2888,59 @@ export class MapboxAPI {
                 return [`wmts-layer-${groupId}`].filter(id => this._map.getLayer(id));
             case 'wms':
                 return [`wms-layer-${groupId}`].filter(id => this._map.getLayer(id));
-            case 'geojson':
+            case 'geojson': {
                 const sourceId = `geojson-${groupId}`;
-                const layers = [
-                    `${sourceId}-fill`,
-                    `${sourceId}-line`,
-                    `${sourceId}-label`,
-                    `${sourceId}-symbol`,
-                    `${sourceId}-circle`,
-                    `${sourceId}-clusters`,
-                    `${sourceId}-cluster-count`
-                ];
 
                 if (config.clusterSeparateBy) {
                     const cache = this._layerCache.get(groupId);
                     if (cache && cache.subSources) {
                         return cache.subSources.flatMap(subSourceId => {
-                            const suffix = subSourceId.replace(`geojson-${groupId}-`, '');
-                            return [
-                                `${subSourceId}-fill-${suffix}`,
-                                `${subSourceId}-line-${suffix}`,
-                                `${subSourceId}-label-${suffix}`,
-                                `${subSourceId}-symbol-${suffix}`,
-                                `${subSourceId}-circle-${suffix}`,
-                                `${subSourceId}-clusters-${suffix}`,
-                                `${subSourceId}-cluster-count-${suffix}`
-                            ];
+                            const segregateSuffix = subSourceId.replace(`geojson-${groupId}-`, '');
+                            return variantPrefixes.flatMap(prefix => {
+                                const variantSuffix = this._getVariantSuffix(prefix);
+                                const idSuffix = `-${segregateSuffix}${variantSuffix}`;
+                                return [
+                                    `${subSourceId}-fill${idSuffix}`,
+                                    `${subSourceId}-line${idSuffix}`,
+                                    `${subSourceId}-label${idSuffix}`,
+                                    `${subSourceId}-symbol${idSuffix}`,
+                                    `${subSourceId}-circle${idSuffix}`,
+                                    `${subSourceId}-clusters${idSuffix}`,
+                                    `${subSourceId}-cluster-count${idSuffix}`
+                                ];
+                            });
                         }).filter(id => this._map.getLayer(id));
                     }
                 }
 
-                return layers.filter(id => this._map.getLayer(id));
-            case 'csv':
-                return [`csv-${groupId}-circle`].filter(id => this._map.getLayer(id));
+                return variantPrefixes.flatMap(prefix => {
+                    const variantSuffix = this._getVariantSuffix(prefix);
+                    return [
+                        `${sourceId}-fill${variantSuffix}`,
+                        `${sourceId}-line${variantSuffix}`,
+                        `${sourceId}-label${variantSuffix}`,
+                        `${sourceId}-symbol${variantSuffix}`,
+                        `${sourceId}-circle${variantSuffix}`,
+                        `${sourceId}-clusters${variantSuffix}`,
+                        `${sourceId}-cluster-count${variantSuffix}`
+                    ];
+                }).filter(id => this._map.getLayer(id));
+            }
+            case 'csv': {
+                const sourceId = `csv-${groupId}`;
+                return variantPrefixes.flatMap(prefix => {
+                    const variantSuffix = this._getVariantSuffix(prefix);
+                    return [
+                        `${sourceId}-fill${variantSuffix}`,
+                        `${sourceId}-line${variantSuffix}`,
+                        `${sourceId}-label${variantSuffix}`,
+                        `${sourceId}-symbol${variantSuffix}`,
+                        `${sourceId}-circle${variantSuffix}`,
+                        `${sourceId}-clusters${variantSuffix}`,
+                        `${sourceId}-cluster-count${variantSuffix}`
+                    ];
+                }).filter(id => this._map.getLayer(id));
+            }
             case 'img':
             case 'raster-style-layer':
                 return [config.styleLayer || groupId];
@@ -2965,8 +3128,10 @@ export class MapboxAPI {
      * @returns {Object} - Layer configuration with separated paint/layout
      */
     _createLayerConfig(config, layerType) {
-        // Get default styles for this layer type
-        const defaultStyles = this._getDefaultStylesForLayerType(layerType);
+        // Secondary style variants are pure overlays — they should not inherit
+        // defaults from `_defaults.json` (only the base variant does).
+        const applyDefaults = config.applyDefaults !== false;
+        const defaultStyles = applyDefaults ? this._getDefaultStylesForLayerType(layerType) : {};
 
         // Intelligently merge user styles with defaults (preserving feature-state logic)
         const mergedStyles = this._intelligentStyleMerge(config.style || {}, defaultStyles);

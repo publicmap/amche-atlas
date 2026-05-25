@@ -475,6 +475,18 @@
                             Cadastral Plot Boundaries
                         </label>
                         <label class="flex items-center text-xs text-gray-600">
+                            <input type="checkbox" id="osm-roads-toggle" onchange="toggleOsmRoadsLayer()" class="mr-2">
+                            OSM Roads
+                        </label>
+                        <label class="flex items-center text-xs text-gray-600">
+                            <input type="checkbox" id="osm-mapnik-toggle" onchange="toggleOsmMapnikLayer()" class="mr-2">
+                            OSM Mapnik
+                        </label>
+                        <label class="flex items-center text-xs text-gray-600">
+                            <input type="checkbox" id="mapbox-satellite-toggle" checked onchange="toggleMapboxSatelliteLayer()" class="mr-2">
+                            Mapbox Satellite
+                        </label>
+                        <label class="flex items-center text-xs text-gray-600">
                             <input type="checkbox" id="warped-map-toggle" checked onchange="toggleWarpedMap()"
                                 class="mr-2">
                             Warped Map
@@ -858,10 +870,19 @@
                 }
             });
 
-            // Initialize reference map
+            // Initialize reference map with a blank style so basemap rasters are toggleable
             referenceMap = new mapboxgl.Map({
                 container: 'reference-map',
-                style: 'mapbox://styles/mapbox/satellite-v9',
+                style: {
+                    version: 8,
+                    sources: {},
+                    glyphs: 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf',
+                    layers: [{
+                        id: 'background',
+                        type: 'background',
+                        paint: { 'background-color': '#aab7c0' }
+                    }]
+                },
                 center: [74.0, 15.3],
                 zoom: 10,
                 hash: true
@@ -876,8 +897,139 @@
 
             document.getElementById('geocoder').appendChild(geocoder.onAdd(referenceMap));
 
-            // Add village, cadastral and local body layers to reference map when it loads
+            // Add basemap and overlay layers to reference map when it loads
             referenceMap.on('load', () => {
+                // Mapbox Satellite raster basemap (default on)
+                referenceMap.addSource('mapbox-satellite-source', {
+                    type: 'raster',
+                    url: 'mapbox://mapbox.satellite',
+                    tileSize: 256
+                });
+
+                referenceMap.addLayer({
+                    id: 'mapbox-satellite-layer',
+                    type: 'raster',
+                    source: 'mapbox-satellite-source'
+                });
+
+                // OSM Mapnik raster overlay (default off, sits above satellite)
+                referenceMap.addSource('osm-mapnik-source', {
+                    type: 'raster',
+                    tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                    tileSize: 256,
+                    maxzoom: 19,
+                    attribution: '© OpenStreetMap contributors'
+                });
+
+                referenceMap.addLayer({
+                    id: 'osm-mapnik-layer',
+                    type: 'raster',
+                    source: 'osm-mapnik-source',
+                    layout: { 'visibility': 'none' },
+                    paint: {
+                        'raster-opacity': [
+                            'interpolate', ['linear'], ['zoom'],
+                            6, 0.9, 14, 0.8, 18, 0.7, 18.5, 0.9, 19, 0
+                        ]
+                    }
+                });
+
+                // Add OSM Roads vector source
+                referenceMap.addSource('osm-roads-source', {
+                    type: 'vector',
+                    tiles: ['https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt'],
+                    maxzoom: 14,
+                    attribution: '© OpenStreetMap contributors'
+                });
+
+                const osmRoadsFilter = [
+                    'match', ['get', 'kind'],
+                    ['pedestrian', 'footway', 'path', 'track', 'rail', 'narrow_gauge', 'light_rail', 'subway'],
+                    false, true
+                ];
+
+                referenceMap.addLayer({
+                    id: 'osm-roads-outline',
+                    type: 'line',
+                    source: 'osm-roads-source',
+                    'source-layer': 'streets',
+                    filter: osmRoadsFilter,
+                    layout: { 'visibility': 'none' },
+                    paint: {
+                        'line-color': [
+                            'match', ['get', 'kind'],
+                            ['motorway', 'trunk'], '#111',
+                            ['primary', 'secondary'], '#222',
+                            ['tertiary'], '#333',
+                            ['residential', 'living_street', 'unclassified', 'service'], '#555',
+                            ['track'], 'red',
+                            'black'
+                        ],
+                        'line-width': [
+                            'interpolate', ['linear'], ['zoom'],
+                            8, ['match', ['get', 'kind'],
+                                ['motorway'], 2, ['trunk'], 1, ['primary'], 0.5,
+                                ['secondary'], 0.2, ['tertiary'], 0.1,
+                                ['residential', 'unclassified'], 0, 0],
+                            12, ['match', ['get', 'kind'],
+                                ['motorway'], 5, ['trunk'], 3, ['primary'], 3,
+                                ['secondary'], 3, ['tertiary'], 2,
+                                ['residential', 'unclassified'], 1.5, 1]
+                        ]
+                    }
+                });
+
+                referenceMap.addLayer({
+                    id: 'osm-roads-fill',
+                    type: 'line',
+                    source: 'osm-roads-source',
+                    'source-layer': 'streets',
+                    filter: osmRoadsFilter,
+                    layout: { 'visibility': 'none' },
+                    paint: {
+                        'line-color': [
+                            'match', ['get', 'kind'],
+                            ['motorway', 'trunk'], '#fff',
+                            ['primary', 'secondary'], '#eee',
+                            ['tertiary'], '#ddd',
+                            ['residential', 'living_street', 'unclassified', 'service'], '#ccc',
+                            ['track'], '#aaa',
+                            '#fff'
+                        ],
+                        'line-width': [
+                            'interpolate', ['linear'], ['zoom'],
+                            10, ['match', ['get', 'kind'],
+                                ['motorway'], 2, ['trunk'], 1, ['primary'], 0.5,
+                                ['secondary'], 0.2, ['tertiary'], 0.1,
+                                ['residential', 'unclassified'], 0, 0],
+                            15, ['match', ['get', 'kind'],
+                                ['motorway'], 5, ['trunk'], 3, ['primary'], 3,
+                                ['secondary'], 3, ['tertiary'], 2,
+                                ['residential', 'unclassified'], 1.5, 1]
+                        ]
+                    }
+                });
+
+                referenceMap.addLayer({
+                    id: 'osm-roads-labels',
+                    type: 'symbol',
+                    source: 'osm-roads-source',
+                    'source-layer': 'street_labels',
+                    filter: osmRoadsFilter,
+                    layout: {
+                        'visibility': 'none',
+                        'text-field': ['get', 'name'],
+                        'text-font': ['Open Sans SemiBold'],
+                        'text-size': 12,
+                        'symbol-placement': 'line'
+                    },
+                    paint: {
+                        'text-color': '#222',
+                        'text-halo-color': '#fff',
+                        'text-halo-width': 2
+                    }
+                });
+
                 // Add village source
                 referenceMap.addSource('village-source', {
                     type: 'vector',
@@ -1382,7 +1534,9 @@
                 [
                     'village-fill', 'village-lines', 'village-labels',
                     'cadastral-layer', 'cadastral-labels',
-                    'local-body-lines', 'local-body-labels'
+                    'local-body-lines', 'local-body-labels',
+                    'osm-mapnik-layer',
+                    'osm-roads-outline', 'osm-roads-fill', 'osm-roads-labels'
                 ].forEach(id => {
                     if (referenceMap.getLayer(id)) referenceMap.setLayoutProperty(id, 'visibility', 'none');
                 });
@@ -1407,6 +1561,12 @@
                 });
                 ['local-body-lines', 'local-body-labels'].forEach(id => {
                     if (referenceMap.getLayer(id)) referenceMap.setLayoutProperty(id, 'visibility', vis('local-body-toggle'));
+                });
+                if (referenceMap.getLayer('osm-mapnik-layer')) {
+                    referenceMap.setLayoutProperty('osm-mapnik-layer', 'visibility', vis('osm-mapnik-toggle'));
+                }
+                ['osm-roads-outline', 'osm-roads-fill', 'osm-roads-labels'].forEach(id => {
+                    if (referenceMap.getLayer(id)) referenceMap.setLayoutProperty(id, 'visibility', vis('osm-roads-toggle'));
                 });
             }
 
@@ -2891,6 +3051,29 @@
             if (referenceMap.getLayer('local-body-labels')) {
                 referenceMap.setLayoutProperty('local-body-labels', 'visibility', isVisible ? 'visible' : 'none');
             }
+        }
+
+        function toggleOsmMapnikLayer() {
+            const isVisible = document.getElementById('osm-mapnik-toggle').checked;
+            if (referenceMap.getLayer('osm-mapnik-layer')) {
+                referenceMap.setLayoutProperty('osm-mapnik-layer', 'visibility', isVisible ? 'visible' : 'none');
+            }
+        }
+
+        function toggleMapboxSatelliteLayer() {
+            const isVisible = document.getElementById('mapbox-satellite-toggle').checked;
+            if (referenceMap.getLayer('mapbox-satellite-layer')) {
+                referenceMap.setLayoutProperty('mapbox-satellite-layer', 'visibility', isVisible ? 'visible' : 'none');
+            }
+        }
+
+        function toggleOsmRoadsLayer() {
+            const isVisible = document.getElementById('osm-roads-toggle').checked;
+            ['osm-roads-outline', 'osm-roads-fill', 'osm-roads-labels'].forEach(id => {
+                if (referenceMap.getLayer(id)) {
+                    referenceMap.setLayoutProperty(id, 'visibility', isVisible ? 'visible' : 'none');
+                }
+            });
         }
 
         function showCenterModal() {

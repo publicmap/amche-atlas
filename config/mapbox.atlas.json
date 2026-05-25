@@ -44,6 +44,13 @@
       "url": "mapbox://mapbox.mapbox-streets-v8",
       "sourceLayer": "admin",
       "style": {
+        "overlay/line-color": "white",
+        "overlay/line-width": 1,
+        "overlay/line-dasharray": [
+          1,
+          3,
+          1
+        ],
         "line-color": "purple",
         "line-width": [
           "interpolate",
@@ -68,7 +75,7 @@
             0.8,
             0.2
           ],
-          14,
+          15,
           [
             "match",
             [
@@ -80,12 +87,12 @@
             1,
             8,
             2,
-            6,
-            4
+            4,
+            2
           ]
-        ]
+        ],
+        "line-opacity": 0.5
       },
-      "line-opacity": 0.5,
       "inspect": false,
       "initiallyChecked": true
     },

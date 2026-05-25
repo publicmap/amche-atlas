@@ -229,7 +229,7 @@ Available on all layer types unless noted otherwise.
 | `attribution` | string | HTML allowed. Shown in the bottom-right attribution control while the layer is visible. |
 | `initiallyChecked` | boolean | If `true`, the layer is on at first load (unless `?layers=` overrides). |
 | `opacity` | number | 0–1 multiplier applied on top of any `style` opacity. |
-| `style` | object | Mapbox GL paint/layout properties. See `config/_defaults.json` for the cascade. |
+| `style` | object | Mapbox GL paint/layout properties. See `config/_defaults.json` for the cascade. Keys may be prefixed with `<name>/` to create additional style passes from the same source — see [Multi-pass style variants](#multi-pass-style-variants). |
 | `minzoom`, `maxzoom` | number | Standard Mapbox source zoom range. |
 | `inspect` | object | Configures the feature popup. See [Inspect Configuration](#inspect-configuration). Set to `false`/`null` to disable interactivity. |
 
@@ -248,6 +248,33 @@ Available on all layer types unless noted otherwise.
 - `title` — header text for the popup.
 - `label` — property whose value is shown as the popup heading.
 - `fields` — properties listed in the popup body.
+
+#### Multi-pass style variants
+
+A `style` object may contain prefixed keys of the form `<variant>/<property>` (e.g. `"overlay/line-width": 2`). Each unique prefix creates an **additional map layer** from the same source — useful for multi-pass cartography like cased roads or shadow + halo text.
+
+- **Supported on**: `vector`, `geojson`, `csv` (any type that renders its `style` via the GL paint/layout pipeline).
+- **Sharing**: all variants share one source, one `filter`, one `sourceLayer`, and the same `minzoom`/`maxzoom`.
+- **Defaults**: only the base (unprefixed) variant inherits from `_defaults.json`. Secondary variants render exactly the properties you supply.
+- **Render order**: variants are rendered in the **reverse** of the order their keys are encountered, so the variant whose last key appears earliest in the JSON ends up **on top**. A simple way to read it: in the JSON, write the topmost layer first.
+
+Example — a cased line (white centerline over a purple casing):
+
+```json
+{
+  "id": "admin-boundaries",
+  "type": "vector",
+  "sourceLayer": "admin",
+  "style": {
+    "overlay/line-color": "white",
+    "overlay/line-width": 2,
+    "line-color": "purple",
+    "line-width": ["interpolate", ["linear"], ["zoom"], 3, 4, 10, 8]
+  }
+}
+```
+
+This produces two line layers from the single `admin` source-layer: the wider purple line is added first (bottom), then the narrower white `overlay` line on top. Toggling the layer in the UI shows/hides both passes together.
 
 ---
 

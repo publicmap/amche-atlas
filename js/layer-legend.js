@@ -103,9 +103,103 @@ export class LayerLegend {
     }
 
     /**
-     * Parse style object into legend items
+     * Split a style object on "prefix/property" keys into ordered variants.
+     * Mirrors MapboxAPI._parseStyleVariants so the legend draws what the map
+     * actually renders. The first prefix encountered in reverse iteration is
+     * the bottom-most variant; later entries draw on top.
+     */
+    static _parseStyleVariants(style) {
+        if (!style || typeof style !== 'object') return [{ prefix: '', style: {} }];
+        const order = [];
+        const byPrefix = new Map();
+        const keys = Object.keys(style);
+        for (let i = keys.length - 1; i >= 0; i--) {
+            const key = keys[i];
+            const slashIdx = key.indexOf('/');
+            const prefix = slashIdx > 0 ? key.substring(0, slashIdx) : '';
+            const prop = slashIdx > 0 ? key.substring(slashIdx + 1) : key;
+            if (!byPrefix.has(prefix)) {
+                byPrefix.set(prefix, {});
+                order.push(prefix);
+            }
+            byPrefix.get(prefix)[prop] = style[key];
+        }
+        return order.map(prefix => ({ prefix, style: byPrefix.get(prefix) }));
+    }
+
+    /**
+     * Build the rendering pass for a given geometry type from a variant's style.
+     * Returns null when this variant doesn't contribute to that geometry type.
+     */
+    static _buildOverlayPass(variantStyle, type) {
+        if (type === 'line' || type === 'line-circle') {
+            if (variantStyle['line-color'] === undefined && variantStyle['line-width'] === undefined) return null;
+            return {
+                color: this._getValue(variantStyle['line-color'], null),
+                width: this._getValue(variantStyle['line-width'], null),
+                opacity: this._getValue(variantStyle['line-opacity'], 1),
+                dasharray: this._getValue(variantStyle['line-dasharray'], null),
+                offset: this._getValue(variantStyle['line-offset'], 0)
+            };
+        }
+        if (type === 'circle') {
+            if (variantStyle['circle-color'] === undefined && variantStyle['circle-radius'] === undefined) return null;
+            return {
+                color: this._getValue(variantStyle['circle-color'], null),
+                radius: this._getValue(variantStyle['circle-radius'], null),
+                opacity: this._getValue(variantStyle['circle-opacity'], 0.9),
+                strokeColor: this._getValue(variantStyle['circle-stroke-color'], null),
+                strokeWidth: this._getValue(variantStyle['circle-stroke-width'], null)
+            };
+        }
+        if (type === 'fill') {
+            if (variantStyle['fill-color'] === undefined && variantStyle['line-color'] === undefined) return null;
+            return {
+                fillColor: this._getValue(variantStyle['fill-color'], null),
+                fillOpacity: this._getValue(variantStyle['fill-opacity'], null),
+                strokeColor: this._getValue(variantStyle['line-color'], null),
+                strokeWidth: this._getValue(variantStyle['line-width'], null)
+            };
+        }
+        return null;
+    }
+
+    /**
+     * Parse style object into legend items. The base (unprefixed) variant
+     * drives which items are generated; any prefixed variants are attached
+     * as additional rendering passes (`overlays`) on each item so cased /
+     * multi-pass cartography shows up correctly in the legend swatch.
      */
     static _parseStyleToLegendItems(style) {
+        const variants = this._parseStyleVariants(style);
+        const baseStyle = variants.find(v => v.prefix === '')?.style || {};
+        const overlayVariants = variants.filter(v => v.prefix !== '');
+
+        const items = this._buildBaseItems(baseStyle);
+
+        if (items.length > 0 && overlayVariants.length > 0) {
+            items.forEach(item => {
+                const overlays = overlayVariants
+                    .map(v => this._buildOverlayPass(v.style, item.type))
+                    .filter(Boolean);
+                if (overlays.length > 0) item.overlays = overlays;
+            });
+        }
+
+        const textSize = this._getValue(style['text-size'], null);
+        if (typeof textSize === 'number') {
+            items.forEach(item => { item.labelSize = textSize; });
+        }
+
+        return items;
+    }
+
+    /**
+     * Build legend items from the base (unprefixed) variant only. Match-
+     * expression expansion via _extractVariants still runs against this
+     * style so per-branch rows are preserved.
+     */
+    static _buildBaseItems(style) {
         const items = [];
         const hasLine = !!style['line-color'];
         const hasCircle = !!(style['circle-radius'] || style['circle-color']);
@@ -163,11 +257,6 @@ export class LayerLegend {
                     opacity: this._getValue(style['circle-opacity'], 0.9)
                 });
             }
-        }
-
-        const textSize = this._getValue(style['text-size'], null);
-        if (typeof textSize === 'number') {
-            items.forEach(item => { item.labelSize = textSize; });
         }
 
         return items;
@@ -266,7 +355,9 @@ export class LayerLegend {
     }
 
     /**
-     * Create visual symbol for legend item
+     * Create visual symbol for legend item. Renders the base symbol, then
+     * any `item.overlays` (prefixed-variant passes) stacked on top in the
+     * order they should appear visually.
      */
     static _createSymbol(item) {
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -275,60 +366,120 @@ export class LayerLegend {
         svg.style.display = 'block';
 
         if (item.type === 'circle') {
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('cx', '20');
-            circle.setAttribute('cy', '20');
-            circle.setAttribute('r', Math.min(item.radius || 6, 12));
-            circle.setAttribute('fill', item.color);
-            circle.setAttribute('opacity', item.opacity || 0.9);
-            circle.setAttribute('stroke', item.strokeColor || 'rgba(0,0,0,0.2)');
-            circle.setAttribute('stroke-width', item.strokeWidth || 1);
-            svg.appendChild(circle);
+            const baseR = Math.min(item.radius || 6, 12);
+            svg.appendChild(this._buildCircle({
+                cx: 20,
+                cy: 20,
+                r: baseR,
+                fill: item.color,
+                opacity: item.opacity || 0.9,
+                stroke: item.strokeColor || 'rgba(0,0,0,0.2)',
+                strokeWidth: item.strokeWidth || 1
+            }));
+            (item.overlays || []).forEach(pass => {
+                const r = pass.radius != null ? Math.min(pass.radius, 12) : baseR;
+                svg.appendChild(this._buildCircle({
+                    cx: 20,
+                    cy: 20,
+                    r,
+                    fill: pass.color || item.color,
+                    opacity: pass.opacity || 0.9,
+                    stroke: pass.strokeColor || 'transparent',
+                    strokeWidth: pass.strokeWidth || 0
+                }));
+            });
         } else if (item.type === 'line' || item.type === 'line-circle') {
             const scaledOffset = Math.max(-8, Math.min(8, (item.offset || 0) * 2));
             const lineY = 20 - scaledOffset;
 
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line.setAttribute('x1', '5');
-            line.setAttribute('y1', lineY);
-            line.setAttribute('x2', '35');
-            line.setAttribute('y2', lineY);
-            line.setAttribute('stroke', item.color);
-            line.setAttribute('stroke-width', Math.min(item.width || 2, 4));
-            line.setAttribute('opacity', item.opacity || 1);
-            if (item.dasharray) {
-                line.setAttribute('stroke-dasharray', item.dasharray);
-            }
-            svg.appendChild(line);
+            svg.appendChild(this._buildLine({
+                y: lineY,
+                stroke: item.color,
+                width: Math.min(item.width || 2, 4),
+                opacity: item.opacity || 1,
+                dasharray: item.dasharray
+            }));
+
+            (item.overlays || []).forEach(pass => {
+                if (!pass.color && pass.width == null) return;
+                const passOffset = Math.max(-8, Math.min(8, (pass.offset || 0) * 2));
+                svg.appendChild(this._buildLine({
+                    y: lineY - passOffset,
+                    stroke: pass.color || item.color,
+                    width: pass.width != null ? Math.min(pass.width, 4) : Math.min(item.width || 2, 4),
+                    opacity: pass.opacity || 1,
+                    dasharray: pass.dasharray
+                }));
+            });
 
             if (item.type === 'line-circle' && item.circleRadius > 0) {
                 const r = Math.min(Math.max(item.circleRadius, 3), 8);
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', '20');
-                circle.setAttribute('cy', lineY);
-                circle.setAttribute('r', r);
-                circle.setAttribute('fill', item.circleColor || item.color);
-                circle.setAttribute('opacity', item.circleOpacity || 0.9);
-                if (item.circleStrokeColor && item.circleStrokeWidth > 0) {
-                    circle.setAttribute('stroke', item.circleStrokeColor);
-                    circle.setAttribute('stroke-width', item.circleStrokeWidth);
-                }
-                svg.appendChild(circle);
+                svg.appendChild(this._buildCircle({
+                    cx: 20,
+                    cy: lineY,
+                    r,
+                    fill: item.circleColor || item.color,
+                    opacity: item.circleOpacity || 0.9,
+                    stroke: (item.circleStrokeColor && item.circleStrokeWidth > 0) ? item.circleStrokeColor : 'transparent',
+                    strokeWidth: item.circleStrokeWidth || 0
+                }));
             }
         } else if (item.type === 'fill') {
-            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('x', '8');
-            rect.setAttribute('y', '8');
-            rect.setAttribute('width', '24');
-            rect.setAttribute('height', '24');
-            rect.setAttribute('fill', item.fillColor);
-            rect.setAttribute('fill-opacity', item.fillOpacity || 0.5);
-            rect.setAttribute('stroke', item.strokeColor || '#1e40af');
-            rect.setAttribute('stroke-width', item.strokeWidth || 2);
-            svg.appendChild(rect);
+            svg.appendChild(this._buildRect({
+                fill: item.fillColor,
+                fillOpacity: item.fillOpacity || 0.5,
+                stroke: item.strokeColor || '#1e40af',
+                strokeWidth: item.strokeWidth || 2
+            }));
+            (item.overlays || []).forEach(pass => {
+                svg.appendChild(this._buildRect({
+                    fill: pass.fillColor || 'transparent',
+                    fillOpacity: pass.fillOpacity != null ? pass.fillOpacity : 0,
+                    stroke: pass.strokeColor || 'transparent',
+                    strokeWidth: pass.strokeWidth || 0
+                }));
+            });
         }
 
         return svg;
+    }
+
+    static _buildLine({ y, stroke, width, opacity, dasharray }) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', '5');
+        line.setAttribute('y1', y);
+        line.setAttribute('x2', '35');
+        line.setAttribute('y2', y);
+        line.setAttribute('stroke', stroke);
+        line.setAttribute('stroke-width', width);
+        line.setAttribute('opacity', opacity);
+        if (dasharray) line.setAttribute('stroke-dasharray', dasharray);
+        return line;
+    }
+
+    static _buildCircle({ cx, cy, r, fill, opacity, stroke, strokeWidth }) {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', cx);
+        circle.setAttribute('cy', cy);
+        circle.setAttribute('r', r);
+        circle.setAttribute('fill', fill);
+        circle.setAttribute('opacity', opacity);
+        circle.setAttribute('stroke', stroke);
+        circle.setAttribute('stroke-width', strokeWidth);
+        return circle;
+    }
+
+    static _buildRect({ fill, fillOpacity, stroke, strokeWidth }) {
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', '8');
+        rect.setAttribute('y', '8');
+        rect.setAttribute('width', '24');
+        rect.setAttribute('height', '24');
+        rect.setAttribute('fill', fill);
+        rect.setAttribute('fill-opacity', fillOpacity);
+        rect.setAttribute('stroke', stroke);
+        rect.setAttribute('stroke-width', strokeWidth);
+        return rect;
     }
 
     /**

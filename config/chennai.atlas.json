@@ -264,6 +264,34 @@
       }
     },
     {
+      "title": "Greater Chennai Police Jurisdiction Map - 2025",
+      "description": "From https://data.opencity.in",
+      "type": "tms",
+      "id": "police-jurisdiction",
+      "url": "https://mapwarper.net/maps/tile/107084/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://drive.google.com/file/d/1rvdJJXqMu7AYOKGZVsIYffZlQEoJe3NS/view' target='_blank'>https://drive.google.com/file/d/1rvdJJXqMu7AYOKGZVsIYffZlQEoJe3NS/view</a> via <a href='https://mapwarper.net/maps/107084' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/107084/thumb/GREATER_CHENNAI_TRAFFIC_POLICE_JURISDICTION_MAP_SUB-DIVISION_8x5_ft-2.png",
+      "bbox": "80.122987,12.8935792,80.3184772,13.1957522",
+      "initiallyChecked": false
+    },
+    {
       "title": "Madras contour map 1918",
       "description": "Lanchester, H.V. (1918). Town planning in Madras. A review of the conditions and requirements of city improvement and development in the Madras Presidency. London: Constable & Company Limited.",
       "source": "<a href='https://commons.wikimedia.org/wiki/File:Madras_contour_map.jpg' target='_blank'>File:Madras_contour_map.jpg</a>",
