@@ -3716,11 +3716,17 @@
             ).length;
             const enoughPoints = completeCount >= 3;
 
-            syncBtn.textContent = 'Sync Points';
-            syncBtn.disabled = !enoughPoints;
-            syncBtn.className = enoughPoints
-                ? 'flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm cursor-pointer'
-                : 'flex-1 px-3 py-2 bg-gray-300 text-gray-500 rounded text-sm cursor-not-allowed';
+            if (pointsSynced && enoughPoints) {
+                syncBtn.textContent = 'Synced';
+                syncBtn.disabled = true;
+                syncBtn.className = 'flex-1 px-3 py-2 bg-gray-300 text-gray-500 rounded text-sm cursor-not-allowed';
+            } else {
+                syncBtn.textContent = 'Sync Points';
+                syncBtn.disabled = !enoughPoints;
+                syncBtn.className = enoughPoints
+                    ? 'flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm cursor-pointer'
+                    : 'flex-1 px-3 py-2 bg-gray-300 text-gray-500 rounded text-sm cursor-not-allowed';
+            }
 
             const canWarp = pointsSynced && enoughPoints;
             warpBtn.textContent = 'Warp';
