@@ -98,7 +98,8 @@ export class MapCreator {
                     'Raster Tiles': 'raster-tiles',
                     'MapWarper': 'mapwarper',
                     'Amche Atlas JSON': 'atlas-json',
-                    'WMS': 'wms'
+                    'WMS': 'wms',
+                    'Bharatlas': 'bharatlas'
                 };
                 const formatKey = formatMap[validFormat];
                 if (formatKey) {
@@ -176,7 +177,7 @@ export class MapCreator {
             this.updateConfigPreview();
         });
 
-        $('#layer-id, #layer-description').on('input', () => {
+        $('#layer-id, #layer-description, #layer-attribution').on('input', () => {
             this.updateConfigPreview();
         });
 
@@ -273,6 +274,9 @@ export class MapCreator {
     detectUrlFormat(url) {
         const urlLower = url.toLowerCase();
 
+        if (this.isBharatlasUrl(url)) {
+            return 'Bharatlas';
+        }
         if (this.isWMSUrl(url)) {
             return 'WMS';
         }
@@ -319,6 +323,132 @@ export class MapCreator {
             return 'MapWarper';
         }
         return null;
+    }
+
+    isBharatlasUrl(url) {
+        if (!url) return false;
+        const urlLower = url.toLowerCase();
+        if (!urlLower.includes('bharatlas.com')) return false;
+        if (/bharatlas\.com\/c\/[a-z0-9]+/i.test(url)) return true;
+        if (/bharatlas\.com\/api\/r2\/community\/[a-z0-9]+\//i.test(url)) return true;
+        return false;
+    }
+
+    parseBharatlasUrl(url) {
+        const communityMatch = url.match(/bharatlas\.com\/c\/([A-Za-z0-9]+)/i);
+        if (communityMatch) {
+            return { communityId: communityMatch[1], pageUrl: `https://bharatlas.com/c/${communityMatch[1]}`, geojsonUrl: null };
+        }
+        const apiMatch = url.match(/bharatlas\.com\/api\/r2\/community\/([A-Za-z0-9]+)\/([^?#]+)/i);
+        if (apiMatch) {
+            return {
+                communityId: apiMatch[1],
+                pageUrl: `https://bharatlas.com/c/${apiMatch[1]}`,
+                geojsonUrl: url
+            };
+        }
+        return null;
+    }
+
+    parseBharatlasPage(html, fallbackPageUrl) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        const titleEl = doc.querySelector('h2');
+        const descEl = doc.querySelector('p.desc');
+        const title = titleEl ? titleEl.textContent.trim() : '';
+        const description = descEl ? descEl.textContent.trim() : '';
+
+        let geojsonUrl = null;
+        const downloadLink = doc.querySelector('.actions a[download], .actions a.btn[href*="/api/"]');
+        if (downloadLink) {
+            const href = downloadLink.getAttribute('href');
+            geojsonUrl = href.startsWith('http') ? href : `https://bharatlas.com${href}`;
+        }
+
+        let sourceText = '';
+        let sourceUrl = '';
+        let attributionText = '';
+        const dts = doc.querySelectorAll('dl.kv dt');
+        dts.forEach(dt => {
+            const label = (dt.textContent || '').trim().toLowerCase();
+            const dd = dt.nextElementSibling;
+            if (!dd) return;
+            if (label === 'source') {
+                const a = dd.querySelector('a');
+                if (a) {
+                    sourceUrl = a.getAttribute('href') || '';
+                    sourceText = (a.textContent || '').trim();
+                } else {
+                    sourceText = (dd.textContent || '').trim();
+                }
+            } else if (label === 'attribution') {
+                attributionText = (dd.textContent || '').trim();
+            }
+        });
+
+        return {
+            title,
+            description,
+            geojsonUrl,
+            sourceText,
+            sourceUrl,
+            attributionText,
+            pageUrl: fallbackPageUrl
+        };
+    }
+
+    buildBharatlasAttribution(meta) {
+        const label = meta.attributionText || meta.sourceText || 'Source';
+        const labelPart = meta.sourceUrl
+            ? `<a href='${meta.sourceUrl}'>${label}</a>`
+            : label;
+        const viaPart = meta.pageUrl
+            ? ` via <a href='${meta.pageUrl}'>bharatlas community</a>`
+            : '';
+        return `${labelPart}${viaPart}`;
+    }
+
+    async handleBharatlasImport(url) {
+        const parsed = this.parseBharatlasUrl(url);
+        if (!parsed) {
+            throw new Error('Unrecognized bharatlas URL');
+        }
+
+        const pageResp = await fetch(parsed.pageUrl);
+        if (!pageResp.ok) {
+            throw new Error(`Could not fetch bharatlas page (${pageResp.status})`);
+        }
+        const html = await pageResp.text();
+        const meta = this.parseBharatlasPage(html, parsed.pageUrl);
+
+        const geojsonUrl = parsed.geojsonUrl || meta.geojsonUrl;
+        if (!geojsonUrl) {
+            throw new Error('Could not find GeoJSON download URL on bharatlas page');
+        }
+        meta.geojsonUrl = geojsonUrl;
+
+        const geojsonResp = await fetch(geojsonUrl);
+        if (!geojsonResp.ok) {
+            throw new Error(`Could not fetch bharatlas GeoJSON (${geojsonResp.status})`);
+        }
+        const geojson = await geojsonResp.json();
+
+        this.processGeoJSON(geojson, geojsonUrl);
+
+        if (meta.title) {
+            $('#layer-title').val(meta.title);
+            $('#layer-id').val(this.generateId(meta.title));
+        }
+        if (meta.description) {
+            $('#layer-description').val(meta.description);
+        }
+        const attribution = this.buildBharatlasAttribution(meta);
+        if (attribution) {
+            $('#layer-attribution').val(attribution);
+        }
+
+        this.updateConfigPreview();
     }
 
     isWMSUrl(url) {
@@ -484,6 +614,7 @@ export class MapCreator {
             return false;
         }
 
+        if (this.isBharatlasUrl(url)) return true;
         if (this.isWMSUrl(url)) return true;
         if (this.isCSVUrl(url)) return true;
         if (urlLower.includes('jsonkeeper.com/b/')) return true;
@@ -517,6 +648,11 @@ export class MapCreator {
         this.setLoadingState('loading');
 
         try {
+            if (this.isBharatlasUrl(url)) {
+                await this.handleBharatlasImport(url);
+                return;
+            }
+
             if (url.includes('jsonkeeper.com/b/') || url.toLowerCase().endsWith('.json')) {
                 const response = await fetch(url);
                 const data = await response.json();
@@ -1010,6 +1146,7 @@ export class MapCreator {
         $('#layer-id').val(config.id || this.generateId(title));
         $('#layer-type').val(config.type || 'tms');
         $('#layer-description').val(config.description || '');
+        $('#layer-attribution').val(config.attribution || '');
 
         this.updateTileConfigPreview(config);
         $('#add-to-map-btn').prop('disabled', false);
@@ -1192,6 +1329,7 @@ export class MapCreator {
         const title = $('#layer-title').val().trim() || 'Custom Layer';
         const layerId = $('#layer-id').val().trim() || this.generateId(title);
         const description = $('#layer-description').val().trim();
+        const attribution = $('#layer-attribution').val().trim();
         const fillColor = $('#fill-color').val();
         const strokeColor = $('#stroke-color').val();
         const strokeWidth = $('#stroke-width').val();
@@ -1239,6 +1377,10 @@ export class MapCreator {
             config.description = description;
         }
 
+        if (attribution) {
+            config.attribution = attribution;
+        }
+
         if (bbox) {
             config.bbox = bbox;
         }
@@ -1254,6 +1396,7 @@ export class MapCreator {
         const title = $('#layer-title').val().trim() || 'Custom CSV Layer';
         const layerId = $('#layer-id').val().trim() || this.generateId(title);
         const description = $('#layer-description').val().trim();
+        const attribution = $('#layer-attribution').val().trim();
         const fillColor = $('#fill-color').val();
         const strokeColor = $('#stroke-color').val();
         const strokeWidth = $('#stroke-width').val();
@@ -1302,6 +1445,10 @@ export class MapCreator {
             config.description = description;
         }
 
+        if (attribution) {
+            config.attribution = attribution;
+        }
+
         if (bbox) {
             config.bbox = bbox;
         }
@@ -1318,17 +1465,22 @@ export class MapCreator {
         const layerId = $('#layer-id').val().trim() || baseConfig.id || this.generateId(title);
         const layerType = $('#layer-type').val() || baseConfig.type;
         const description = $('#layer-description').val().trim() || baseConfig.description;
+        const attribution = $('#layer-attribution').val().trim() || baseConfig.attribution;
 
         const config = {
             ...baseConfig,
             id: layerId,
             title: title,
             type: layerType,
-            description: description
+            description: description,
+            attribution: attribution
         };
 
         if (!description) {
             delete config.description;
+        }
+        if (!attribution) {
+            delete config.attribution;
         }
 
         this.currentData = config;

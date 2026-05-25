@@ -393,6 +393,19 @@ URL format: .json or jsonkeeper.com/b/[ID]
 Click to try JSONKeeper example">
                         Amche Atlas JSON
                     </button>
+                    <button type="button"
+                        class="format-chip px-2 py-1 bg-pink-100 hover:bg-pink-200 text-pink-800 rounded text-xs font-medium cursor-pointer transition-colors"
+                        data-format="bharatlas" data-sample="https://bharatlas.com/c/nL7zNStsW3"
+                        data-tooltip="🇮🇳 Bharatlas Community
+Community-shared geospatial data
+Auto-fills title, description, attribution
+
+URL formats:
+  https://bharatlas.com/c/[ID]
+  https://bharatlas.com/api/r2/community/[ID]/[FILE].geojson
+Click to try example">
+                        Bharatlas
+                    </button>
                     <span class="format-info px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs font-medium"
                         data-tooltip="📄 GeoJSON Lines (NDJSON)
 Newline-delimited GeoJSON features
@@ -486,6 +499,12 @@ File upload only: .zip containing shapefile">
                     <div class="mb-4">
                         <label class="block text-sm font-medium mb-2">Description</label>
                         <textarea id="layer-description" rows="2" placeholder="Optional description"
+                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Attribution</label>
+                        <textarea id="layer-attribution" rows="2" placeholder="Optional attribution (HTML allowed)"
                             class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
                     </div>
 

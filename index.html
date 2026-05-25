@@ -333,14 +333,20 @@
                     border-radius: 10px;
                     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
                 ">
-                <div style="
+                <a href="#" id="splash-brand-link" style="
                     font-size: 1.5rem;
                     color: white;
                     font-weight: 700;
                     line-height: 1;
                     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                ">amche.in</div>
+                    text-decoration: none;
+                    transition: opacity 0.2s;
+                " onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">amche.in</a>
+                <a href="https://github.com/publicmap/amche-atlas/commits/dev" target="_blank" id="splash-dev-badge"
+                    class="hidden px-2 py-1 bg-yellow-600 text-xs font-semibold rounded"
+                    style="text-decoration: none; color: inherit; transition: opacity 0.2s;"
+                    onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">DEV</a>
             </div>
 
             <!-- Description -->
@@ -464,8 +470,7 @@
                     <div id="splash-atlas-state" style="display: none;">
                         <div id="splash-located-text"
                             style="display: none; align-items: center; gap: 6px; color: #10b981; font-size: 0.85rem; margin-bottom: 10px;">
-                            <svg style="width:14px;height:14px;flex-shrink:0;" fill="currentColor"
-                                viewBox="0 0 20 20">
+                            <svg style="width:14px;height:14px;flex-shrink:0;" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd"
                                     d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                                     clip-rule="evenodd" />
@@ -1175,16 +1180,16 @@
 
         <!-- Right: Logo + Hamburger -->
         <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <a href="https://github.com/publicmap/amche-atlas/commits/dev" target="_blank" id="dev-badge"
-                class="hidden px-2 py-1 bg-yellow-600 text-xs font-semibold rounded"
-                style="text-decoration: none; color: inherit; transition: opacity 0.2s;"
-                onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">DEV</a>
             <a href="#" id="nav-brand-link" class="nav-brand flex items-center gap-2 flex-shrink-0"
                 style="text-decoration: none; color: inherit; transition: opacity 0.2s;"
                 onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
                 <span class="nav-title font-semibold tracking-tight hidden sm:inline">amche.in</span>
                 <img src="assets/img/icon-192x192.png" alt="amche.in" class="nav-logo rounded">
             </a>
+            <a href="https://github.com/publicmap/amche-atlas/commits/dev" target="_blank" id="dev-badge"
+                class="hidden px-2 py-1 bg-yellow-600 text-xs font-semibold rounded"
+                style="text-decoration: none; color: inherit; transition: opacity 0.2s;"
+                onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">DEV</a>
             <button id="nav-menu-trigger"
                 class="flex items-center justify-center bg-transparent border-0 text-white p-2 transition-opacity hover:opacity-80"
                 aria-label="Open navigation menu">
@@ -1316,6 +1321,10 @@
                 if (devBadge) {
                     devBadge.classList.remove('hidden');
                 }
+                const splashDevBadge = document.getElementById('splash-dev-badge');
+                if (splashDevBadge) {
+                    splashDevBadge.classList.remove('hidden');
+                }
             }
 
             trigger.addEventListener('click', openMenu);
@@ -1370,6 +1379,14 @@
                 navBrandLink.addEventListener('click', function (e) {
                     e.preventDefault();
                     // Navigate to home page (triggers full page reload with clean state)
+                    window.location.href = '/';
+                });
+            }
+
+            const splashBrandLink = document.getElementById('splash-brand-link');
+            if (splashBrandLink) {
+                splashBrandLink.addEventListener('click', function (e) {
+                    e.preventDefault();
                     window.location.href = '/';
                 });
             }
