@@ -1094,7 +1094,8 @@ export class MapCreator {
 
         if (csvUrl.includes('docs.google.com/spreadsheets')) {
             $('#layer-title').val('Google Sheet CSV');
-            $('#layer-description').val(`Data from Google Sheets - <a href="${csvUrl}" target="_blank">View source</a>`);
+            $('#layer-description').val(`Data from Google Sheets - <a href='${csvUrl}' target='_blank'>View source</a>`);
+            $('#layer-attribution').val(`<a href='${csvUrl}' target='_blank'>Google Sheets</a>`);
         }
 
         this.updateConfigPreview();
@@ -1130,7 +1131,8 @@ export class MapCreator {
 
         if (csvUrl.includes('docs.google.com/spreadsheets')) {
             $('#layer-title').val('Google Sheet CSV');
-            $('#layer-description').val(`Data from Google Sheets - <a href="${csvUrl}" target="_blank">View source</a>`);
+            $('#layer-description').val(`Data from Google Sheets - <a href='${csvUrl}' target='_blank'>View source</a>`);
+            $('#layer-attribution').val(`<a href='${csvUrl}' target='_blank'>Google Sheets</a>`);
         }
 
         $('#add-to-map-btn').prop('disabled', true);

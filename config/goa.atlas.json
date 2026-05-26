@@ -2271,39 +2271,6 @@
       "initiallyChecked": false
     },
     {
-      "tags": [
-        "3.Regulatory"
-      ],
-      "title": "Portuguese Goa Map of Mining Concessions",
-      "description": "Carta das concessos mineira do distrito do Goa showing all the Portuguese era mining leases in Goa.<br> Obtained via RTI by Goa Foundation. See <a href='https://www.scribd.com/document/64058213/maps-goa'>Goa Foundation</a> for more details.",
-      "source": "",
-      "date": "",
-      "type": "tms",
-      "id": "mining-leases-map",
-      "url": "https://mapwarper.net/maps/tile/98680/{z}/{x}/{y}.png",
-      "style": {
-        "raster-opacity": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          6,
-          0.95,
-          18,
-          0.8,
-          19,
-          0.3
-        ]
-      },
-      "attribution": "<a href='https://mapwarper.net/maps/98680'>MapWarper</a>",
-      "headerImage": "https://mapwarper.net/uploads/98680/thumb/carta_mining.png",
-      "bbox": "73.6444309,14.9127963,74.3573385,15.8364441",
-      "initiallyChecked": false
-    },
-    {
       "title": "Zonation Map of Protected Areas ",
       "description": "WLS zonation plans from respective management plans sourced from Goa Forest Department.",
       "source": "https://forest.goa.gov.in/sites/default/files/2025-09/Management-Plan-of-Madei-Widllife-Sanctuary.pdf",
@@ -2467,6 +2434,67 @@
       "headerImage": "https://mapwarper.net/uploads/95676/thumb/Proposed_TR_Map__1_.png",
       "bbox": "73.9288025,15.2009539,74.4074284,15.7801554",
       "initiallyChecked": false
+    },
+    {
+      "id": "mapusa-68-trees",
+      "title": "Mapusa 68 Trees Project",
+      "type": "csv",
+      "initiallyChecked": false,
+      "style": {
+        "circle-color": [
+          "coalesce",
+          [
+            "get",
+            "fill-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#3b82f6"
+        ],
+        "circle-radius": [
+          "coalesce",
+          [
+            "get",
+            "size"
+          ],
+          2
+        ],
+        "circle-stroke-color": [
+          "coalesce",
+          [
+            "get",
+            "stroke-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "green"
+        ],
+        "circle-stroke-width": 2,
+        "text-field": [
+          "to-string",
+          [
+            "get",
+            "ref"
+          ]
+        ]
+      },
+      "inspect": {
+        "id": "@id",
+        "title": "Tree ID",
+        "label": "ref"
+      },
+      "url": "https://docs.google.com/spreadsheets/d/14G6zp3r-h5tEnvrle4EZIxA5dUz-lmG4Kn24Ikp0-Zs/export?format=csv&gid=0",
+      "description": "Location of 68 trees planted by citizen volunteers in Mapusa. Data from Google Sheets - <a href='https://docs.google.com/spreadsheets/d/14G6zp3r-h5tEnvrle4EZIxA5dUz-lmG4Kn24Ikp0-Zs/export?format=csv&gid=0' target='_blank'>View source</a>",
+      "bbox": [
+        73.8053115,
+        15.5857869,
+        73.808836,
+        15.5886267
+      ]
     },
     {
       "tags": [
@@ -3154,8 +3182,7 @@
         ]
       },
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Map_of_the_island_of_Goa_in_India_and_its_bordering_lands_1747.jpg' target='_blank'>File:Map_of_the_island_of_Goa_in_India_and_its_bordering_lands_1747.jpg</a> via <a href='https://warper.wmflabs.org/maps/10015' target='_blank'>MapWarper</a>",
-      "bbox": "73.6870942,14.8508877,74.5514717,16.0163983",
-      "initiallyChecked": true
+      "bbox": "73.6870942,14.8508877,74.5514717,16.0163983"
     }
   ]
 }
