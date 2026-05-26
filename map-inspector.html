@@ -512,6 +512,7 @@
         let pendingNewSelections = new Set(); // Layers with new selections in current batch
         let currentBounds = null; // Current map bounds [west, south, east, north]
         let parentUrlSearchParams = null; // URL search params from parent window
+        let hoverClearTimeoutId = null; // Pending clear so brief gaps between cards don't flash the isolation off
 
         // Make LayerThumbnail available globally
         window.LayerThumbnail = LayerThumbnail;
@@ -1163,6 +1164,13 @@
                 if (_draggedCard) return;
                 if (expandedLayerId === layer.id) return; // already isolated via expansion
 
+                // Cancel any pending clear from a previous card's mouseleave
+                // so the isolation hands off smoothly without a flash.
+                if (hoverClearTimeoutId) {
+                    clearTimeout(hoverClearTimeoutId);
+                    hoverClearTimeoutId = null;
+                }
+
                 window.parent.postMessage({
                     type: 'hover-isolate-layer',
                     layerId: layer.id,
@@ -1176,17 +1184,23 @@
                 if (!isolateEnabled) return;
                 if (expandedLayerId === layer.id) return;
 
-                window.parent.postMessage({
-                    type: 'clear-hover-layer-isolation'
-                }, '*');
+                // Debounce the clear — gaps between cards (margins, list
+                // boundaries) trigger mouseleave even when the cursor is
+                // headed for the next card. Cancelled in mouseenter above.
+                if (hoverClearTimeoutId) clearTimeout(hoverClearTimeoutId);
+                hoverClearTimeoutId = setTimeout(() => {
+                    hoverClearTimeoutId = null;
 
-                // Restore visual state: dim back to the expanded layer's isolation
-                // if one is active, otherwise clear all dimming.
-                if (expandedLayerId) {
-                    reapplyVisualIsolationIfNeeded();
-                } else {
-                    clearVisualIsolation();
-                }
+                    window.parent.postMessage({
+                        type: 'clear-hover-layer-isolation'
+                    }, '*');
+
+                    if (expandedLayerId) {
+                        reapplyVisualIsolationIfNeeded();
+                    } else {
+                        clearVisualIsolation();
+                    }
+                }, 80);
             });
         }
 
