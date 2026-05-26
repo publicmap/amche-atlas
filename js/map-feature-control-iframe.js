@@ -1445,8 +1445,13 @@ export class MapFeatureControl {
             this._stateManager.clearLayerSelections(actualLayerId);
         }
 
-        // Clear layer isolation to ensure remaining layers are visible
-        this._clearLayerIsolation();
+        // Clear both hover and persistent isolation. The user typically hovers the
+        // layer card (setting _hoverIsolation) and then clicks remove, so we must
+        // reset both states — _clearLayerIsolation alone bails out when hover is
+        // active and leaves sibling layers hidden after removal.
+        this._hoverIsolation = null;
+        this._persistentIsolation = null;
+        this._applyClearIsolation();
 
         const groupElement = mapLayerControl._sourceControls[groupIndex];
         if (!groupElement) {
