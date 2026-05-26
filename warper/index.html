@@ -3828,7 +3828,13 @@
                 const warpResult = await mapwarperAPI.warpMap(warpBaseUrl, warpMapId, warpMethod);
                 const warpStatus = warpResult?.data?.attributes?.status;
 
-                // Rectify is usually synchronous — check response status before polling
+                // warp! is synchronous server-side and resets status to :available
+                // on GDAL failure. Anything other than warping/warped/published
+                // after the rectify response means the warp already failed —
+                // don't bother polling.
+                if (warpStatus === 'available' || warpStatus === 'unloaded') {
+                    throw new Error(`Server rejected warp (status: ${warpStatus}). Check GCPs and try again.`);
+                }
                 if (warpStatus !== 'warped' && warpStatus !== 'published') {
                     let elapsed = 0;
                     while (elapsed < 60000) {
@@ -3837,6 +3843,9 @@
                         setWarpBtn(`Warping… ${Math.round(elapsed / 1000)}s`, 'bg-yellow-500 cursor-not-allowed');
                         const status = await mapwarperAPI.getMapStatus(warpBaseUrl, warpMapId);
                         if (status === 'warped' || status === 'published') break;
+                        if (status === 'available' || status === 'unloaded') {
+                            throw new Error(`Server rejected warp (status: ${status}). Check GCPs and try again.`);
+                        }
                     }
                     if (elapsed >= 60000) throw new Error('Warp timed out after 60s');
                 }

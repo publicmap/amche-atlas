@@ -226,10 +226,19 @@ class MapwarperAPI {
     }
 
     async warpMap(baseUrl, mapId, warpType = 'auto') {
+        // Upstream MapWarper API v1 bug: api/v1/maps_controller#rectify calls
+        // `@map.warp! transform_option, resample_option, use_mask` but the method
+        // signature is `warp!(resample_option, transform_option, use_mask)`. The
+        // values land in swapped slots, and the slot that ends up as a single
+        // gdalwarp arg never gets `.split` — so any mapping with an embedded space
+        // (p1 → " -order 1 ", p2, p3) is passed to gdalwarp as one literal arg
+        // and fails. Only "auto" (empty) and "tps" (single token) survive.
+        // Coerce p1/p2/p3 to "auto" so gdalwarp auto-picks the polynomial order.
+        const safeWarpType = (warpType === 'tps' || warpType === 'auto') ? warpType : 'auto';
         const body = new URLSearchParams({
             use_mask: 'true',
             format: 'json',
-            transform_options: warpType,
+            transform_options: safeWarpType,
             resample_options: 'near'
         });
         const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}/rectify`, {
