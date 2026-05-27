@@ -99,7 +99,8 @@ export class MapCreator {
                     'MapWarper': 'mapwarper',
                     'Amche Atlas JSON': 'atlas-json',
                     'WMS': 'wms',
-                    'Bharatlas': 'bharatlas'
+                    'Bharatlas': 'bharatlas',
+                    'Overpass': 'overpass'
                 };
                 const formatKey = formatMap[validFormat];
                 if (formatKey) {
@@ -198,7 +199,34 @@ export class MapCreator {
             const sampleUrl = $chip.data('sample');
             if (!sampleUrl) return;
             this.clearSelectedFile();
+
+            if ($chip.data('format') === 'overpass') {
+                this.showOverpassSection();
+                $('#overpass-query').val(this.getSampleOverpassQuery()).trigger('input').focus();
+                $('.format-chip').removeClass('active-format');
+                $chip.addClass('active-format');
+                return;
+            }
+
             $('#url-input').val(sampleUrl).trigger('input').focus();
+        });
+
+        $('#overpass-query').on('input', () => {
+            clearTimeout(this._overpassDebounce);
+            const text = $('#overpass-query').val().trim();
+            if (!text) {
+                $('#overpass-status').text('');
+                return;
+            }
+            this._overpassDebounce = setTimeout(() => {
+                this.handleOverpassImport(text);
+            }, 800);
+        });
+
+        $('#overpass-clear-btn').on('click', () => {
+            $('#overpass-query').val('');
+            $('#overpass-status').text('');
+            this.hideOverpassSection();
         });
 
         $('#feature-id-field, #feature-name-field').on('change', () => {
@@ -274,6 +302,9 @@ export class MapCreator {
     detectUrlFormat(url) {
         const urlLower = url.toLowerCase();
 
+        if (this.isOverpassShareUrl(url)) {
+            return 'Overpass';
+        }
         if (this.isBharatlasUrl(url)) {
             return 'Bharatlas';
         }
@@ -492,6 +523,162 @@ export class MapCreator {
         };
     }
 
+    isOverpassShareUrl(url) {
+        if (!url) return false;
+        return /^https?:\/\/overpass-turbo\.eu\/s\/[A-Za-z0-9_-]+\/?$/i.test(url.trim());
+    }
+
+    parseOverpassShareId(url) {
+        const m = url.trim().match(/overpass-turbo\.eu\/s\/([A-Za-z0-9_-]+)/i);
+        return m ? m[1] : null;
+    }
+
+    looksLikeOverpassQuery(text) {
+        if (!text) return false;
+        const t = text.trim();
+        if (t.length < 4) return false;
+        // Strong signals — any one of these and we treat it as Overpass QL.
+        if (/\[out\s*:/i.test(t)) return true;
+        if (/\bout\s+(body|geom|skel|center|count|meta|tags|ids)\b/i.test(t)) return true;
+        if (/\{\{\s*bbox\s*\}\}/.test(t)) return true;
+        if (/\bnwr\s*\[/i.test(t)) return true;
+        if (/\b(node|way|relation|rel)\s*\[["']/i.test(t)) return true;
+        if (/\[\s*bbox\s*:/i.test(t)) return true;
+        return false;
+    }
+
+    extractOverpassQuery(text) {
+        // Strip leading/trailing whitespace; the loader will inject [out:json]
+        // if no settings block is present, so we can pass the body through.
+        // Replace bbox forms that Overpass-Turbo uses but our loader doesn't
+        // recognize. Turbo accepts a literal "{{bbox}}" expansion at runtime;
+        // we use the same placeholder, so no rewrite is needed.
+        let q = String(text).trim();
+        // Normalize CRLF -> LF for cleaner storage in the URL config preview.
+        q = q.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        return q;
+    }
+
+    getSampleOverpassQuery() {
+        return [
+            '[out:json][timeout:25];',
+            '// Cafés in the current viewport',
+            'nwr["amenity"="cafe"]({{bbox}});',
+            'out geom;'
+        ].join('\n');
+    }
+
+    showOverpassSection() {
+        $('#overpass-section').removeClass('hidden');
+        $('#data-preview-details').hide();
+    }
+
+    hideOverpassSection() {
+        $('#overpass-section').addClass('hidden');
+    }
+
+    async resolveOverpassShareUrl(url) {
+        // Browsers cannot read cross-origin redirect Location headers (the
+        // response becomes opaqueredirect), so we route through a same-origin
+        // dev-server middleware at /api/overpass-share that does the resolve
+        // server-side. In production (static GitHub Pages) this endpoint won't
+        // exist — surface a clear error telling the user to paste the QL
+        // query directly into the textarea.
+        const id = this.parseOverpassShareId(url);
+        if (!id) throw new Error('Invalid Overpass Turbo share URL');
+
+        $('#overpass-status').text('Resolving share URL…');
+
+        const response = await fetch(`/api/overpass-share?id=${encodeURIComponent(id)}`, {
+            cache: 'no-store'
+        });
+
+        if (response.status === 404) {
+            throw new Error('Share URL resolution requires the dev server. Open this URL in overpass-turbo.eu and paste the query text here instead.');
+        }
+        if (!response.ok) {
+            const body = await response.text().catch(() => '');
+            throw new Error(`Could not resolve share URL (HTTP ${response.status}). ${body}`);
+        }
+
+        const data = await response.json();
+        if (!data.query) {
+            throw new Error(data.error || 'Empty response from resolver');
+        }
+        return data.query;
+    }
+
+    createOverpassConfig(query, sourceUrl) {
+        // Derive a default title from a "// comment", an amenity tag, or fall back.
+        let title = 'OSM Overpass Layer';
+        const commentMatch = query.match(/\/\/\s*(.+?)$/m);
+        if (commentMatch) {
+            title = commentMatch[1].trim();
+        } else {
+            const tagMatch = query.match(/\[\s*["']?(amenity|highway|natural|landuse|tourism|leisure|shop)["']?\s*=\s*["']?([\w:-]+)/i);
+            if (tagMatch) title = `${tagMatch[2]} (${tagMatch[1]})`;
+        }
+
+        const id = this.generateId(title) || 'osm-overpass-layer';
+
+        return {
+            id,
+            title,
+            type: 'overpass',
+            query,
+            minzoom: 13,
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> via <a href="https://overpass-api.de/">Overpass API</a>',
+            style: {
+                'circle-color': '#10b981',
+                'circle-radius': 5,
+                'circle-stroke-color': '#fff',
+                'circle-stroke-width': 1,
+                'line-color': '#10b981',
+                'line-width': 2,
+                'fill-color': 'rgba(16,185,129,0.25)'
+            },
+            inspect: {
+                id: 'id',
+                title: title,
+                label: 'name'
+            },
+            _sourceUrl: sourceUrl || undefined
+        };
+    }
+
+    async handleOverpassImport(input) {
+        const raw = String(input || '').trim();
+        if (!raw) return;
+
+        this.showOverpassSection();
+
+        try {
+            let query;
+            let sourceUrl;
+            if (this.isOverpassShareUrl(raw)) {
+                sourceUrl = raw;
+                query = await this.resolveOverpassShareUrl(raw);
+                $('#overpass-query').val(query);
+            } else if (this.looksLikeOverpassQuery(raw)) {
+                query = this.extractOverpassQuery(raw);
+            } else {
+                $('#overpass-status').html('<span style="color:#fca5a5;">Not a recognized Overpass query or share URL.</span>');
+                return;
+            }
+
+            const config = this.createOverpassConfig(query, sourceUrl);
+            this.currentLayerType = 'overpass';
+            this.currentData = config;
+            this.currentDataSource = sourceUrl || null;
+            $('#overpass-status').html(`<span style="color:#a7f3d0;">✓ Query loaded. Click <strong>Add Map Layer</strong> to add it.</span>`);
+            this.showTileLayerSuccess(config);
+        } catch (error) {
+            console.error('[MapCreator] Overpass import failed:', error);
+            $('#overpass-status').html(`<span style="color:#fca5a5;">${error.message}</span>`);
+            this.setLoadingState('error');
+        }
+    }
+
     setupColorPickers() {
         $('#fill-color-preview').css('background-color', '#3b82f6');
         $('#stroke-color-preview').css('background-color', '#1e40af');
@@ -507,11 +694,15 @@ export class MapCreator {
         const url = $('#url-input').val().trim();
         const fileInput = $('#file-input')[0];
         const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+        const overpassText = $('#overpass-query').val().trim();
+        const overpassSectionOpen = !$('#overpass-section').hasClass('hidden');
 
         if (url) {
             this.handleURLImport();
         } else if (hasFile) {
             this.handleFileUpload({ target: fileInput });
+        } else if (overpassSectionOpen && overpassText) {
+            this.handleOverpassImport(overpassText);
         } else {
             alert('Paste a URL or upload a file to load data');
         }
@@ -614,6 +805,7 @@ export class MapCreator {
             return false;
         }
 
+        if (this.isOverpassShareUrl(url)) return true;
         if (this.isBharatlasUrl(url)) return true;
         if (this.isWMSUrl(url)) return true;
         if (this.isCSVUrl(url)) return true;
@@ -648,6 +840,12 @@ export class MapCreator {
         this.setLoadingState('loading');
 
         try {
+            if (this.isOverpassShareUrl(url)) {
+                await this.handleOverpassImport(url);
+                this.setLoadingState('success');
+                return;
+            }
+
             if (this.isBharatlasUrl(url)) {
                 await this.handleBharatlasImport(url);
                 return;

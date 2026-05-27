@@ -55,6 +55,59 @@ export default defineConfig({
   },
 
   plugins: [
+    // Dev-only resolver for overpass-turbo.eu/s/<id> share URLs.
+    // The browser can't read cross-origin redirect Location headers
+    // (opaqueredirect), so the map-creator UI calls /api/overpass-share?id=<id>
+    // and we resolve it here with fetch+redirect:manual.
+    {
+      name: 'overpass-share-resolver',
+      configureServer(server) {
+        server.middlewares.use('/api/overpass-share', async (req, res) => {
+          try {
+            const u = new URL(req.url, 'http://localhost');
+            const id = u.searchParams.get('id') || '';
+            if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: 'Invalid id' }));
+              return;
+            }
+
+            const upstream = await fetch(`https://overpass-turbo.eu/s/${id}`, { redirect: 'manual' });
+            const location = upstream.headers.get('location');
+            if (!location) {
+              res.statusCode = 502;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: 'No redirect Location from overpass-turbo' }));
+              return;
+            }
+
+            const params = new URL(location).searchParams;
+            const query = params.get('Q');
+            if (!query) {
+              res.statusCode = 502;
+              res.setHeader('Content-Type', 'application/json');
+              const hasLegacy = params.has('q');
+              res.end(JSON.stringify({
+                error: hasLegacy
+                  ? 'This is a legacy Overpass Turbo share URL (?q=). Open it in overpass-turbo.eu, copy the query, and paste it directly.'
+                  : 'Could not extract query from redirect'
+              }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+            res.end(JSON.stringify({ query }));
+          } catch (err) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: String(err && err.message || err) }));
+          }
+        });
+      }
+    },
     viteStaticCopy({
       targets: [
         // Static dirs referenced by absolute URL paths from HTML/JS.

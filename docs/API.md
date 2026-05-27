@@ -220,7 +220,7 @@ Available on all layer types unless noted otherwise.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | string | Unique identifier referenced from URLs and other configs. **Required** for all types except inline `style` layers. |
-| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `csv`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
+| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `csv`, `overpass`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
 | `title` | string | Display name in the layer control. |
 | `description` | string | HTML allowed; shown in the layer info panel. |
 | `tags` | string[] | Used to group layers in the UI. Prefix with `N.` (e.g. `"1.Development Plans"`) to control sort order. |
@@ -476,6 +476,53 @@ CSV with one row per point. Latitude / longitude columns are **auto-detected** b
   }
 }
 ```
+
+### `overpass` — OpenStreetMap Overpass API
+
+Live OSM data fetched from an [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) endpoint using a user-supplied Overpass QL query. The response is converted to GeoJSON via [`osmtogeojson`](https://github.com/tyrasd/osmtogeojson) (loaded as ESM from jsdelivr) and rendered through the standard GeoJSON pipeline — so `style`, `inspect`, `clustered`, and `opacity` work identically to a `geojson` layer.
+
+The layer refetches on map `moveend` (debounced 750ms). A bbox-containment cache skips the network call when the current viewport already lies inside a previously-fetched (buffered) bbox, and merges results across fetches deduped by OSM ID, so panning around the same area is free.
+
+`feature.id` is set by `osmtogeojson` to the canonical `"node/123"` / `"way/456"` / `"relation/789"` form, which works directly with `?selected=<layerId>:<featureId>` deep links.
+
+| Field | Notes |
+|---|---|
+| `query` | Overpass QL query. **Required.** Supports placeholders `{{bbox}}` (south,west,north,east — Overpass order), `{{center}}` (lat,lng), `{{zoom}}`. If the query does not begin with a setting block (`[...]`), `[out:json][timeout:N];` is auto-prepended. If you write your own settings block, **you must include `[out:json]`** — other output formats cannot be parsed. |
+| `endpoint` | Overpass API endpoint. Default: `https://overpass-api.de/api/interpreter`. Use a mirror (e.g. `https://overpass.kumi.systems/api/interpreter`) or self-hosted instance for higher rate limits. |
+| `minzoom` | Below this zoom, the layer makes no requests and shows no data. Use to avoid expensive worldwide queries. Recommended ≥ 12 for point queries, ≥ 10 for areas. |
+| `bboxBuffer` | Multiplier applied to the viewport bbox before fetching, so small pans don't trigger refetches. Default `1.5` (50% extra on each axis). |
+| `timeout` | Overpass `[timeout:N]` seconds, used only when the header is auto-prepended. Default `25`. |
+| `maxFeatures` | Hard cap on features kept from a single response. Default `5000`. Excess features are dropped with a console warning. |
+| `debounce` | Milliseconds to wait after `moveend` before issuing a fetch. Default `750`. |
+| `style`, `inspect`, `clustered`, `attribution` | Same semantics as the `geojson` type. |
+
+```json
+{
+  "id": "osm-cafes",
+  "type": "overpass",
+  "title": "Cafés (OSM)",
+  "query": "nwr[\"amenity\"=\"cafe\"]({{bbox}}); out geom;",
+  "minzoom": 13,
+  "attribution": "© OpenStreetMap contributors (via Overpass API)",
+  "style": {
+    "circle-color": "#e11d48",
+    "circle-radius": 5,
+    "circle-stroke-color": "#fff",
+    "circle-stroke-width": 1
+  },
+  "inspect": {
+    "id": "id",
+    "title": "Café",
+    "label": "name",
+    "fields": ["cuisine", "opening_hours", "website"]
+  }
+}
+```
+
+**Notes:**
+- Overpass is shared infrastructure with strict rate limits. Pick a high `minzoom` and a narrow query (specific tags + bbox) before deploying.
+- The default endpoint supports CORS; no proxy is needed.
+- HTTP errors and timeouts are logged to the console; the layer keeps any features already loaded.
 
 ### `img` — Single image overlay
 

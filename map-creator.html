@@ -538,6 +538,18 @@ URL formats:
 Click to try example">
                         Bharatlas
                     </button>
+                    <button type="button"
+                        class="format-chip px-2 py-1 bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-200 rounded text-xs font-medium cursor-pointer transition-colors border border-emerald-800/50"
+                        data-format="overpass" data-sample="https://overpass-turbo.eu/s/2qIp"
+                        data-tooltip="🛰️ Overpass (OpenStreetMap)
+Live OSM data via Overpass API
+Paste an overpass-turbo.eu share URL above,
+or paste a query into the box that appears below.
+
+Supports: {{bbox}} placeholder for viewport
+Click to load a sample query">
+                        Overpass
+                    </button>
                     <span class="format-info px-2 py-1 bg-teal-900/30 text-teal-300 rounded text-xs font-medium border border-teal-800/40"
                         data-tooltip="📄 GeoJSON Lines (NDJSON)
 Newline-delimited GeoJSON features
@@ -562,6 +574,29 @@ Must contain .shp and .dbf files
 File upload only: .zip containing shapefile">
                         Shapefile
                     </span>
+                </div>
+
+                <div id="overpass-section" class="hidden mt-3 p-3 rounded-lg"
+                    style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.35);">
+                    <div class="flex items-center justify-between mb-2">
+                        <label for="overpass-query" class="text-sm font-semibold" style="color:#a7f3d0;">
+                            Overpass QL Query
+                        </label>
+                        <button type="button" id="overpass-clear-btn" class="text-xs hover:underline"
+                            style="color:#6ee7b7;">Clear</button>
+                    </div>
+                    <p class="text-xs mb-2" style="color:#a7f3d0;">
+                        Paste a query directly, or paste an
+                        <code style="background:#0b1220;color:#93c5fd;padding:1px 5px;border-radius:3px;">overpass-turbo.eu/s/&lt;id&gt;</code>
+                        URL into the field above to auto-resolve. Use
+                        <code style="background:#0b1220;color:#93c5fd;padding:1px 5px;border-radius:3px;">{{bbox}}</code>
+                        to query the current map viewport.
+                    </p>
+                    <textarea id="overpass-query" rows="8"
+                        placeholder='[out:json][timeout:25];&#10;nwr["amenity"="cafe"]({{bbox}});&#10;out geom;'
+                        class="w-full px-3 py-2 rounded font-mono text-xs"
+                        style="background:#0b1220;border:1px solid #374151;color:#f3f4f6;"></textarea>
+                    <div id="overpass-status" class="text-xs mt-2" style="color:#9ca3af;"></div>
                 </div>
 
                 <button id="load-data-btn"
@@ -629,6 +664,7 @@ File upload only: .zip containing shapefile">
                             <option value="vector">Vector Tiles - Tiled vector data (.pbf/.mvt)</option>
                             <option value="tms">Raster Tiles - Tiled images (TMS/XYZ)</option>
                             <option value="style">Style - Uses existing Mapbox style sources</option>
+                            <option value="overpass">Overpass - Live OSM data via Overpass API</option>
                             <option value="atlas">Atlas - Atlas configuration</option>
                         </select>
                         <div class="text-xs text-gray-500 mt-1">Data format type (auto-detected from source)</div>

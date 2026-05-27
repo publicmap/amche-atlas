@@ -6,6 +6,7 @@ import { LayerOrderManager } from './layer-order-manager.js';
 import { DataUtils, GeoUtils } from './map-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
+import { OverpassLoader } from './overpass-loader.js';
 
 const COG_PROVIDER_URL = new URL('./cog-tile-provider.js', import.meta.url).href;
 let _cogProviderRegistered = false;
@@ -29,6 +30,7 @@ export class MapboxAPI {
         this._blinkTimers = new Map(); // Cache for blink timers
         this._eventListeners = new Map(); // Cache for event listeners
         this._timeBasedLayers = new Map(); // Cache for layers with time parameters
+        this._overpassLoaders = new Map(); // OverpassLoader instances keyed by groupId
 
         // Initialize style property mapping for different layer types
         this._stylePropertyMapping = this._initializeStylePropertyMapping();
@@ -409,6 +411,8 @@ export class MapboxAPI {
                     return this._createCOGLayer(groupId, config, visible);
                 case 'geojson':
                     return this._createGeoJSONLayer(groupId, config, visible);
+                case 'overpass':
+                    return this._createOverpassLayer(groupId, config, visible);
                 case 'csv':
                     return this._createCSVLayer(groupId, config, visible);
                 case 'img':
@@ -459,6 +463,8 @@ export class MapboxAPI {
                     return this._updateCOGLayerVisibility(groupId, config, visible);
                 case 'geojson':
                     return this._updateGeoJSONLayerVisibility(groupId, config, visible);
+                case 'overpass':
+                    return this._updateOverpassLayerVisibility(groupId, config, visible);
                 case 'csv':
                     return this._updateCSVLayerVisibility(groupId, config, visible);
                 case 'img':
@@ -511,6 +517,8 @@ export class MapboxAPI {
                     return this._removeCOGLayer(groupId, config);
                 case 'geojson':
                     return this._removeGeoJSONLayer(groupId, config);
+                case 'overpass':
+                    return this._removeOverpassLayer(groupId, config);
                 case 'csv':
                     return this._removeCSVLayer(groupId, config);
                 case 'img':
@@ -548,6 +556,8 @@ export class MapboxAPI {
                 case 'cog':
                     return this._updateCOGLayerOpacity(groupId, config, opacity);
                 case 'geojson':
+                    return this._updateGeoJSONLayerOpacity(groupId, config, opacity);
+                case 'overpass':
                     return this._updateGeoJSONLayerOpacity(groupId, config, opacity);
                 case 'img':
                     return this._updateImageLayerOpacity(groupId, config, opacity);
@@ -2156,6 +2166,69 @@ export class MapboxAPI {
         return true;
     }
 
+    // Overpass layer methods — delegate rendering to the GeoJSON pipeline,
+    // own only the OverpassLoader lifecycle.
+    async _createOverpassLayer(groupId, config, visible) {
+        const sourceId = `geojson-${groupId}`;
+
+        if (!this._map.getSource(sourceId) && visible) {
+            this._map.addSource(sourceId, {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: [] },
+                ...(config.attribution ? { attribution: config.attribution } : {})
+            });
+            await this._addGeoJSONLayers(groupId, config, sourceId, visible);
+        }
+
+        this._startOverpassLoader(groupId, config, visible);
+        return true;
+    }
+
+    _updateOverpassLayerVisibility(groupId, config, visible) {
+        const sourceId = `geojson-${groupId}`;
+
+        if (visible && !this._map.getSource(sourceId)) {
+            return this._createOverpassLayer(groupId, config, visible);
+        }
+
+        this._updateGeoJSONLayerVisibility(groupId, config, visible);
+        this._startOverpassLoader(groupId, config, visible);
+        return true;
+    }
+
+    _removeOverpassLayer(groupId, config) {
+        const loader = this._overpassLoaders.get(groupId);
+        if (loader) {
+            loader.destroy();
+            this._overpassLoaders.delete(groupId);
+        }
+        return this._removeGeoJSONLayer(groupId, config);
+    }
+
+    _startOverpassLoader(groupId, config, visible) {
+        let loader = this._overpassLoaders.get(groupId);
+
+        if (!visible) {
+            if (loader) loader.stop();
+            return;
+        }
+
+        if (!loader) {
+            const sourceId = `geojson-${groupId}`;
+            loader = new OverpassLoader({
+                map: this._map,
+                groupId,
+                config,
+                onData: (geojson) => {
+                    const source = this._map.getSource(sourceId);
+                    if (source) source.setData(geojson);
+                }
+            });
+            this._overpassLoaders.set(groupId, loader);
+        }
+        loader.start();
+    }
+
     /**
      * Update GeoJSON layer data dynamically
      * @param {string} groupId - Layer group identifier
@@ -2888,6 +2961,7 @@ export class MapboxAPI {
                 return [`wmts-layer-${groupId}`].filter(id => this._map.getLayer(id));
             case 'wms':
                 return [`wms-layer-${groupId}`].filter(id => this._map.getLayer(id));
+            case 'overpass':
             case 'geojson': {
                 const sourceId = `geojson-${groupId}`;
 

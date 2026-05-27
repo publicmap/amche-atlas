@@ -525,6 +525,26 @@
       }
     },
     {
+      "id": "food",
+      "type": "overpass",
+      "title": "Restaurants and Cafes",
+      "query": "[out:json][timeout:25];  (   nwr[amenity=cafe]({{bbox}});   nwr[amenity=restaurant]({{bbox}}); );  out geom;",
+      "minzoom": 10,
+      "style": {
+        "circle-color": "#e11d48",
+        "circle-radius": 4
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Name",
+        "label": "name",
+        "fields": [
+          "cuisine",
+          "opening_hours"
+        ]
+      }
+    },
+    {
       "title": "Motorable Roads Outline",
       "description": "Road network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",

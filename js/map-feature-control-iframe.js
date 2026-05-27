@@ -1948,6 +1948,10 @@ export class MapFeatureControl {
                 return layerId;
             }
 
+            if (layerConfig.type === 'overpass' && actualLayerId.startsWith(`geojson-${layerId}-`)) {
+                return layerId;
+            }
+
             if (layerConfig.type === 'csv' && actualLayerId.startsWith(`csv-${layerId}-`)) {
                 return layerId;
             }
