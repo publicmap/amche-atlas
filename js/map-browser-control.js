@@ -232,6 +232,12 @@ export class MapBrowserControl {
                     this._iframe.contentWindow.postMessage(msg, '*', transfer);
                     this._pendingFileData = null;
                 }
+                // Send the parent's current bounds so previews that depend on
+                // a viewport bbox (e.g. Overpass {{bbox}}) can fire without
+                // requiring the user to pan first.
+                if (this._map && this._iframe && this._iframe.contentWindow) {
+                    this._onMapMove();
+                }
             }
 
             if (event.data.type === 'return-to-browser') {

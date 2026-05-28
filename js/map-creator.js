@@ -20,6 +20,10 @@ export class MapCreator {
 
     setupMessageListener() {
         window.addEventListener('message', async (event) => {
+            if (event.data.type === 'bounds-update' && Array.isArray(event.data.bounds)) {
+                this._parentBounds = event.data.bounds;
+                return;
+            }
             if (event.data.type === 'load-file-data') {
                 const { fileName, content, arrayBuffer } = event.data;
                 const ext = fileName.split('.').pop().toLowerCase();
@@ -646,7 +650,7 @@ export class MapCreator {
         };
     }
 
-    async handleOverpassImport(input) {
+    async handleOverpassImport(input, { withPreview = false } = {}) {
         const raw = String(input || '').trim();
         if (!raw) return;
 
@@ -670,12 +674,78 @@ export class MapCreator {
             this.currentLayerType = 'overpass';
             this.currentData = config;
             this.currentDataSource = sourceUrl || null;
-            $('#overpass-status').html(`<span style="color:#a7f3d0;">✓ Query loaded. Click <strong>Add Map Layer</strong> to add it.</span>`);
             this.showTileLayerSuccess(config);
+
+            if (withPreview) {
+                await this.previewOverpassData(query, config);
+            } else {
+                $('#overpass-status').html(`<span style="color:#a7f3d0;">✓ Query loaded. Click <strong>Load Data →</strong> to preview, or <strong>Add Map Layer</strong> to add it.</span>`);
+            }
         } catch (error) {
             console.error('[MapCreator] Overpass import failed:', error);
             $('#overpass-status').html(`<span style="color:#fca5a5;">${error.message}</span>`);
             this.setLoadingState('error');
+        }
+    }
+
+    async previewOverpassData(query, config) {
+        if (!this._parentBounds || this._parentBounds.length !== 4) {
+            $('#overpass-status').html('<span style="color:#fbbf24;">⚠ Pan the parent map under this panel once so a viewport bbox is available, then click Load Data again.</span>');
+            return;
+        }
+        $('#overpass-status').html('<span style="color:#a7f3d0;">Fetching preview from Overpass…</span>');
+
+        try {
+            const [w, s, e, n] = this._parentBounds;
+            let q = String(query)
+                .replace(/\{\{\s*bbox\s*\}\}/g, `${s},${w},${n},${e}`)
+                .replace(/\{\{\s*center\s*\}\}/g, `${(s + n) / 2},${(w + e) / 2}`);
+            // Only inject [out:json][timeout:N]; if the query has no [out:...]
+            // setting block at all. Looking for the literal "[out:" anywhere
+            // is enough — Overpass QL puts all settings inside [...] blocks.
+            // Checking only the leading char misses queries that start with a
+            // /* ... */ comment (the overpass-turbo wizard format).
+            if (!/\[\s*out\s*:/i.test(q)) {
+                q = `[out:json][timeout:25];${q}`;
+            }
+
+            const resp = await fetch('https://overpass-api.de/api/interpreter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'data=' + encodeURIComponent(q)
+            });
+            if (!resp.ok) {
+                if (resp.status === 429 || resp.status === 504) {
+                    throw new Error(`Overpass is rate-limiting (HTTP ${resp.status}). Wait a moment and try again.`);
+                }
+                throw new Error(`Overpass HTTP ${resp.status}`);
+            }
+            const osmJson = await resp.json();
+
+            const { default: osmtogeojson } = await import('https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0-beta.5/+esm');
+            const geojson = osmtogeojson(osmJson);
+            const features = geojson.features || [];
+            if (features.length === 0) {
+                $('#overpass-status').html('<span style="color:#fbbf24;">⚠ Query returned no features in the current viewport.</span>');
+                return;
+            }
+
+            const bbox = this.calculateBBox(geojson);
+            const geometryType = this.detectGeometryType(geojson);
+
+            window.parent.postMessage({
+                type: 'creator-preview',
+                geojson,
+                style: config.style,
+                geometryType,
+                bbox,
+                fitBounds: false
+            }, '*');
+
+            $('#overpass-status').html(`<span style="color:#a7f3d0;">✓ Previewing ${features.length} feature${features.length === 1 ? '' : 's'}. Click <strong>Add Map Layer</strong> to add it.</span>`);
+        } catch (error) {
+            console.error('[MapCreator] Overpass preview failed:', error);
+            $('#overpass-status').html(`<span style="color:#fca5a5;">Preview failed: ${error.message}</span>`);
         }
     }
 
@@ -702,7 +772,7 @@ export class MapCreator {
         } else if (hasFile) {
             this.handleFileUpload({ target: fileInput });
         } else if (overpassSectionOpen && overpassText) {
-            this.handleOverpassImport(overpassText);
+            this.handleOverpassImport(overpassText, { withPreview: true });
         } else {
             alert('Paste a URL or upload a file to load data');
         }
@@ -841,7 +911,7 @@ export class MapCreator {
 
         try {
             if (this.isOverpassShareUrl(url)) {
-                await this.handleOverpassImport(url);
+                await this.handleOverpassImport(url, { withPreview: true });
                 this.setLoadingState('success');
                 return;
             }
@@ -1339,7 +1409,11 @@ export class MapCreator {
 
     showTileLayerSuccess(config) {
         $('#data-preview-details').hide();
-        $('#settings-section').show();
+        // .show() is a no-op when the element wasn't hidden via inline style,
+        // so the MutationObserver bridge never fires. Remove the disabled
+        // class directly so the form is interactive.
+        $('#settings-section').show().removeClass('is-disabled');
+        $('#settings-step-hint').hide();
 
         const title = config.title || 'Tile Layer';
         $('#layer-title').val(title);

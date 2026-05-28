@@ -138,7 +138,11 @@ export class OverpassLoader {
         let query = (this._config.query || '').trim();
         if (!query) return '';
 
-        if (!/^\s*\[/.test(query)) {
+        // Only inject [out:json][timeout:N]; if the query has no [out:...]
+        // setting block at all. Overpass-turbo wizard queries start with a
+        // /* ... */ comment, so checking only the leading character would
+        // double-inject and produce malformed QL.
+        if (!/\[\s*out\s*:/i.test(query)) {
             query = `[out:json][timeout:${this._timeout}];${query}`;
         }
 
