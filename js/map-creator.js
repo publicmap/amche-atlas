@@ -583,26 +583,23 @@ export class MapCreator {
 
     async resolveOverpassShareUrl(url) {
         // Browsers cannot read cross-origin redirect Location headers (the
-        // response becomes opaqueredirect), so we route through a same-origin
-        // dev-server middleware at /api/overpass-share that does the resolve
-        // server-side. In production (static GitHub Pages) this endpoint won't
-        // exist — surface a clear error telling the user to paste the QL
-        // query directly into the textarea.
+        // response becomes opaqueredirect), so we route through the Railway-
+        // hosted proxy server which resolves the redirect server-side and
+        // returns the underlying Overpass QL query.
         const id = this.parseOverpassShareId(url);
         if (!id) throw new Error('Invalid Overpass Turbo share URL');
 
         $('#overpass-status').text('Resolving share URL…');
 
-        const response = await fetch(`/api/overpass-share?id=${encodeURIComponent(id)}`, {
-            cache: 'no-store'
-        });
+        const response = await fetch(`https://amche-atlas-production.up.railway.app/overpass-share?id=${encodeURIComponent(id)}`);
 
-        if (response.status === 404) {
-            throw new Error('Share URL resolution requires the dev server. Open this URL in overpass-turbo.eu and paste the query text here instead.');
-        }
         if (!response.ok) {
-            const body = await response.text().catch(() => '');
-            throw new Error(`Could not resolve share URL (HTTP ${response.status}). ${body}`);
+            let errMsg = `HTTP ${response.status}`;
+            try {
+                const errBody = await response.json();
+                if (errBody.error) errMsg = errBody.error;
+            } catch (_) { /* ignore */ }
+            throw new Error(`Could not resolve share URL: ${errMsg}. Open the URL in overpass-turbo.eu and paste the query text here instead.`);
         }
 
         const data = await response.json();

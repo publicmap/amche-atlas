@@ -2746,6 +2746,23 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "4.Land"
+      ],
+      "title": "Taleigao Base Land Rate Map (May 2026)",
+      "description": "Map showing base land rate categories in Taleigao Village, Tiswadi Talk, Goa.\n\nFor details see https://dn721908.ca.archive.org/0/items/in.goa.egaz.2627-8.SI/2627-8-SI-EOG-1.pdf",
+      "type": "tms",
+      "id": "2026-taleigao-base-land-rate",
+      "url": "https://mapwarper.net/maps/tile/107207/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": 1
+      },
+      "attribution": "<a href='https://dn721908.ca.archive.org/0/items/in.goa.egaz.2627-8.SI/2627-8-SI-EOG-1.pdf' target='_blank'>https://dn721908.ca.archive.org/0/items/in.goa.egaz.2627-8.SI/2627-8-SI-EOG-1.pdf</a> via <a href='https://mapwarper.net/maps/107207' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/107207/thumb/https_dn721908.ca.archive.org_0_items_in.goa.egaz.2627-8.SI_2627-8-SI-EOG-1.png",
+      "bbox": "73.7974475,15.4306391,73.8416473,15.4967975",
+      "initiallyChecked": false
+    },
+    {
       "title": "Henrique's Hand Drawn Map of Quitla",
       "description": "Hand drawn map of Quitla village in Aldona Panchayat surveyed by Henrique T.A.S Fernandes between 1960-1970.",
       "date": "1970",

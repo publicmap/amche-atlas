@@ -112,6 +112,44 @@ app.get('/proxy', async (req, res) => {
     }
 });
 
+app.get('/overpass-share', async (req, res) => {
+    const id = String(req.query.id || '');
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+        return res.status(400).json({ error: 'Invalid id' });
+    }
+
+    try {
+        console.log(`[OverpassShare] Resolving https://overpass-turbo.eu/s/${id}`);
+        const upstream = await fetch(`https://overpass-turbo.eu/s/${id}`, {
+            redirect: 'manual',
+            signal: AbortSignal.timeout(10000)
+        });
+
+        const location = upstream.headers.get('location');
+        if (!location) {
+            console.error(`[OverpassShare] No Location header (status ${upstream.status})`);
+            return res.status(502).json({ error: 'No redirect Location from overpass-turbo' });
+        }
+
+        const params = new URL(location).searchParams;
+        const query = params.get('Q');
+        if (!query) {
+            const hasLegacy = params.has('q');
+            return res.status(502).json({
+                error: hasLegacy
+                    ? 'This is a legacy Overpass Turbo share URL (?q=). Open it in overpass-turbo.eu, copy the query, and paste it directly.'
+                    : 'Could not extract query from redirect'
+            });
+        }
+
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.json({ query });
+    } catch (error) {
+        console.error('[OverpassShare] Error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 const mahaSession = { cookies: null, expires: 0 };
 
 function extractSetCookies(headers) {

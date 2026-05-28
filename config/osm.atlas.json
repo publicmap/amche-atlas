@@ -528,6 +528,7 @@
       "id": "food",
       "type": "overpass",
       "title": "Restaurants and Cafes",
+      "description": "Cafes and Restaurants from OpenStreetMap",
       "query": "[out:json][timeout:25];  (   nwr[amenity=cafe]({{bbox}});   nwr[amenity=restaurant]({{bbox}}); );  out geom;",
       "minzoom": 10,
       "style": {
