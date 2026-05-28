@@ -704,15 +704,17 @@ export class URLManager {
                 params.push('atlas=' + encodeURIComponent(currentAtlas));
             }
 
-            // Add layers parameter if present - this is the key fix for pretty URLs
+            // Add layers parameter if present - this is the key fix for pretty URLs.
+            // Encode only chars that would break the query string: `#` (fragment delimiter,
+            // would truncate the URL — common in hex colors) and `&` (param separator).
+            // Everything else is left readable.
             if (layersParam) {
-                // Don't URL-encode the layers parameter to keep it readable
-                params.push('layers=' + layersParam);
+                params.push('layers=' + layersParam.replace(/#/g, '%23').replace(/&/g, '%26'));
             } else if (options.updateLayers !== true) {
                 // If we're not explicitly updating layers, preserve the current layers parameter as-is
                 const currentLayersParam = urlParams.get('layers');
                 if (currentLayersParam) {
-                    params.push('layers=' + currentLayersParam);
+                    params.push('layers=' + currentLayersParam.replace(/#/g, '%23').replace(/&/g, '%26'));
                 }
             }
 

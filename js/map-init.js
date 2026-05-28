@@ -365,9 +365,10 @@ export class MapInitializer {
                         params.push(otherParamsString);
                     }
 
-                    // Add layers parameter without URL encoding to keep it readable
+                    // Add layers parameter without URL encoding to keep it readable,
+                    // but escape `#` (fragment delimiter — appears in hex colors) and `&` (param separator).
                     if (minifiedLayersParam) {
-                        params.push('layers=' + minifiedLayersParam);
+                        params.push('layers=' + minifiedLayersParam.replace(/#/g, '%23').replace(/&/g, '%26'));
                     }
 
                     // Build the final URL
@@ -550,11 +551,13 @@ export class MapInitializer {
 
                 let newUrl = baseUrl;
                 if (newLayersParam) {
-                    // Only add layers parameter if there are valid layers
+                    // Encode `#` (would be misread as fragment delimiter; e.g. hex colors)
+                    // and `&` (param separator) — keep everything else readable.
+                    const safeLayersParam = newLayersParam.replace(/#/g, '%23').replace(/&/g, '%26');
                     if (otherParams.toString()) {
-                        newUrl += '?' + otherParams.toString() + '&layers=' + newLayersParam;
+                        newUrl += '?' + otherParams.toString() + '&layers=' + safeLayersParam;
                     } else {
-                        newUrl += '?layers=' + newLayersParam;
+                        newUrl += '?layers=' + safeLayersParam;
                     }
                 } else {
                     // No valid layers left, just add other parameters if any
@@ -584,8 +587,9 @@ export class MapInitializer {
 
             for (const [key, value] of params.entries()) {
                 if (key === 'layers') {
-                    // Keep layers parameter unencoded for readability
-                    prettyParams.push(`${key}=${value}`);
+                    // Keep layers parameter unencoded for readability, but escape `#`
+                    // (fragment delimiter — present in hex colors) and `&` (param separator).
+                    prettyParams.push(`${key}=${value.replace(/#/g, '%23').replace(/&/g, '%26')}`);
                 } else {
                     // For other parameters, we can allow minimal encoding if needed
                     prettyParams.push(`${key}=${value}`);

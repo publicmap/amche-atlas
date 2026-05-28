@@ -260,9 +260,9 @@ export class MapWarperAPI {
         const mosaicName = mosaicData.name || `Mosaic ${mosaicId}`;
         let attributionText = mosaicName;
         if (mosaicData.source_uri && mosaicData.source_uri.trim()) {
-            attributionText = `${mosaicName} - <a href="${mosaicData.source_uri}" target="_blank">Source</a>`;
+            attributionText = `${mosaicName} - <a href='${mosaicData.source_uri}' target='_blank'>Source</a>`;
         }
-        config.attribution = `<a href="${baseUrl}/layers/${mosaicId}" target="_blank">${attributionText}</a>`;
+        config.attribution = `<a href='${baseUrl}/layers/${mosaicId}' target='_blank'>${attributionText}</a>`;
 
         if (mosaicData.maps_count !== undefined && mosaicData.maps_count > 0) {
             const mapsInfo = `<em>Contains ${mosaicData.maps_count} georeferenced map${mosaicData.maps_count !== 1 ? 's' : ''}</em>`;

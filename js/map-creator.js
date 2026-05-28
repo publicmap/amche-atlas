@@ -612,26 +612,41 @@ export class MapCreator {
         return data.query;
     }
 
+    extractOverpassWizardSearch(query) {
+        // Overpass-Turbo wizard queries embed the original search string in a
+        // leading /* */ block, between curly (or straight) quotes:
+        //   The original search was:
+        //   “cafe”
+        const m = query.match(/original search was:\s*\n\s*[“"']([^”"'\n]+)[”"']/i);
+        return m ? m[1].trim() : null;
+    }
+
     createOverpassConfig(query, sourceUrl) {
-        // Derive a default title from a "// comment", an amenity tag, or fall back.
-        let title = 'OSM Overpass Layer';
-        const commentMatch = query.match(/\/\/\s*(.+?)$/m);
-        if (commentMatch) {
-            title = commentMatch[1].trim();
-        } else {
-            const tagMatch = query.match(/\[\s*["']?(amenity|highway|natural|landuse|tourism|leisure|shop)["']?\s*=\s*["']?([\w:-]+)/i);
-            if (tagMatch) title = `${tagMatch[2]} (${tagMatch[1]})`;
+        const id = `overpass-${Math.floor(Math.random() * 90) + 10}`;
+        const title = 'OSM Overpass API Query';
+
+        const wizardSearch = this.extractOverpassWizardSearch(query);
+        let description = 'Live OpenStreetMap features fetched from the Overpass API; refreshes as the viewport changes.';
+        if (wizardSearch) {
+            description = `Live OSM features matching <code>${wizardSearch}</code>, fetched from the Overpass API as the viewport changes.`;
+        }
+        if (sourceUrl) {
+            description += ` Source query: <a href='${sourceUrl}' target='_blank'>${sourceUrl}</a>.`;
         }
 
-        const id = this.generateId(title) || 'osm-overpass-layer';
+        const viaLink = sourceUrl
+            ? `<a href='${sourceUrl}'>Overpass Turbo</a>`
+            : `<a href='https://overpass-api.de/'>Overpass API</a>`;
+        const attribution = `© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a> via ${viaLink}`;
 
         return {
             id,
             title,
             type: 'overpass',
+            description,
             query,
             minzoom: 13,
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> via <a href="https://overpass-api.de/">Overpass API</a>',
+            attribution,
             style: {
                 'circle-color': '#10b981',
                 'circle-radius': 5,
@@ -643,7 +658,7 @@ export class MapCreator {
             },
             inspect: {
                 id: 'id',
-                title: title,
+                title: wizardSearch || 'OSM Feature',
                 label: 'name'
             },
             _sourceUrl: sourceUrl || undefined
