@@ -107,7 +107,7 @@
     },
     {
       "id": "mapbox-streets",
-      "initiallyChecked": true
+      "initiallyChecked": false
     },
     {
       "id": "osm-mapnik",
