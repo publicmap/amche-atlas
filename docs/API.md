@@ -232,6 +232,51 @@ Available on all layer types unless noted otherwise.
 | `style` | object | Mapbox GL paint/layout properties. See `config/_defaults.json` for the cascade. Keys may be prefixed with `<name>/` to create additional style passes from the same source — see [Multi-pass style variants](#multi-pass-style-variants). |
 | `minzoom`, `maxzoom` | number | Standard Mapbox source zoom range. |
 | `inspect` | object | Configures the feature popup. See [Inspect Configuration](#inspect-configuration). Set to `false`/`null` to disable interactivity. |
+| `stylePreset` | string | Name of a preset declared at atlas-level under `stylePresets`. See [Atlas-level style and inspect defaults](#atlas-level-style-and-inspect-defaults). |
+
+#### Atlas-level style and inspect defaults
+
+A `style` and/or `inspect` object can be declared at the **atlas** level, alongside `name`, `layers`, etc. Every layer in the atlas inherits these as defaults, so identical styling does not have to be repeated on each layer.
+
+An atlas may also declare a `stylePresets` dictionary — a named lookup that a layer opts into via `stylePreset: "<name>"`. Each preset entry may carry `style`, `inspect`, or both.
+
+Resolution order (later wins, shallow-merged per top-level key):
+
+1. Atlas-level `style` / `inspect`
+2. Preset `style` / `inspect` (when the layer sets `stylePreset`)
+3. Layer-level `style` / `inspect`
+
+Setting `inspect: false`/`null` on a layer still disables interactivity (the inspect cascade is skipped). The merge is shallow — a layer's `style.line-color` replaces just that one key; a layer's `inspect.fields` replaces the entire array.
+
+```json
+{
+  "name": "Environmental Approvals India",
+  "style": {
+    "line-color": "crimson",
+    "line-width": 4,
+    "fill-color": "crimson",
+    "fill-opacity": 0.1
+  },
+  "inspect": {
+    "id": "Proposal Number",
+    "title": "Organization Name",
+    "label": "Organization Name",
+    "fields": ["Project Category", "Project Name", "Project Description"]
+  },
+  "stylePresets": {
+    "highlighted": {
+      "style": { "line-width": 8, "line-color": "#fbbf24" }
+    }
+  },
+  "layers": [
+    { "id": "approvals-goa",         "type": "vector", "url": "...", "sourceLayer": "projects_30" },
+    { "id": "approvals-maharashtra", "type": "vector", "url": "...", "sourceLayer": "projects_27", "stylePreset": "highlighted" },
+    { "id": "approvals-karnataka",   "type": "vector", "url": "...", "sourceLayer": "projects_29", "style": { "line-width": 6 } }
+  ]
+}
+```
+
+Goa renders with the atlas defaults, Maharashtra with the `highlighted` preset on top of the defaults, and Karnataka with the defaults plus a per-layer `line-width` override.
 
 #### Inspect Configuration
 
@@ -275,6 +320,71 @@ Example — a cased line (white centerline over a purple casing):
 ```
 
 This produces two line layers from the single `admin` source-layer: the wider purple line is added first (bottom), then the narrower white `overlay` line on top. Toggling the layer in the UI shows/hides both passes together.
+
+#### Custom Cartography
+
+A layer's `style` object is merged on top of the per-type defaults in [`config/_defaults.json`](../config/_defaults.json) → `layer.style.<type>`. Only the keys you set are overridden — everything else (hover/selected feature-state, zoom interpolations, text halos, circle strokes) is inherited. Set a property to `null` to remove an inherited default entirely.
+
+The defaults define behavior for three feature states that you should preserve when overriding paints:
+
+- **`hover`** — set on the feature the cursor is over.
+- **`selected`** — set on features picked via click or the `?selected=` URL parameter.
+- Neither state — the resting style.
+
+If you write a flat `"fill-color": "crimson"`, you lose the yellow hover/selected highlight that ships in `_defaults.json`. To keep interactivity, wrap your color in the same `case` pattern the defaults use:
+
+```json
+"fill-color": [
+  "case",
+  ["boolean", ["feature-state", "selected"], false], "rgba(255, 255, 0, 0.5)",
+  ["boolean", ["feature-state", "hover"], false],    "rgba(255, 255, 0, 0.8)",
+  "crimson"
+]
+```
+
+##### Targeting fill styles by geometry type (mixed line + polygon layers)
+
+When a single source carries both `LineString` and `Polygon` features (common in OSM, cadastral, and Overpass data), an unconditional `fill-color` paints a colored rectangle behind every linear feature's bounding box. Gate the fill on `geometry-type` so it only renders on polygons, and drop opacity to `0` on everything else:
+
+```json
+"style": {
+  "fill-color": [
+    "case",
+    ["==", ["geometry-type"], "Polygon"], "crimson",
+    "transparent"
+  ],
+  "fill-opacity": [
+    "case",
+    ["==", ["geometry-type"], "Polygon"], 0.1,
+    0
+  ],
+  "line-color": "crimson",
+  "line-width": 2
+}
+```
+
+Lines render through the `line-*` paint properties as usual; the geometry-type guard only suppresses the spurious polygon fill on linear features.
+
+##### Common style recipes
+
+- **Choropleth fill** — drive `fill-color` off a property with `interpolate` or `step`:
+  ```json
+  "fill-color": ["interpolate", ["linear"], ["get", "population"],
+    0, "#fee5d9", 10000, "#fcae91", 100000, "#fb6a4a", 1000000, "#a50f15"]
+  ```
+- **Data-driven circle radius** (CSV / point GeoJSON):
+  ```json
+  "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3, 16, 12],
+  "circle-color": ["case", [">", ["get", "Capacity"], 500], "#e11d48", "#3887be"]
+  ```
+- **Labels from a property** — override just the text field, keep the default halo/size cascade:
+  ```json
+  "text-field": ["to-string", ["get", "survey_no"]]
+  ```
+- **Remove a default** — pass `null` to drop an inherited property entirely:
+  ```json
+  "text-halo-color": null
+  ```
 
 ---
 
