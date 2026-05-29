@@ -31,7 +31,8 @@
     "ncr",
     "maharashtra",
     "telangana",
-    "kerala"
+    "kerala",
+    "parivesh"
   ],
   "geojson": {
     "type": "FeatureCollection",
@@ -82,10 +83,11 @@
       "geojson": null,
       "attribution": "<a href='https://amche.in'>Amche.in Atlas</a>",
       "style": {
-        "circle-radius": 5,
+        "circle-radius": 2,
         "circle-color": "black",
-        "circle-stroke-width": 2,
+        "circle-stroke-width": 1,
         "circle-stroke-color": "white",
+        "text-halo-width": 0,
         "text-size": 14,
         "text-font": [
           "Open Sans Regular"

@@ -517,7 +517,10 @@ export class MapInitializer {
                         }
                     }
                 } else {
-                    validLayers.push(layerConfig);
+                    // Full-definition layer in the active atlas — apply atlas-level
+                    // style/inspect/stylePresets cascade. (Bare references in the
+                    // branch above already get the cascade via the registry entry.)
+                    validLayers.push(layerRegistry.applyAtlasCascade(layerConfig, atlasId));
                 }
             }
 

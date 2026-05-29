@@ -1,0 +1,503 @@
+{
+  "name": "Environmental Approvals India",
+  "areaOfInterest": "India",
+  "description": "Environmental clearance applications for projects across Indian states and union territories, sourced from <a href='https://parivesh.nic.in/'>Parivesh</a>. Data collected by the <a href='https://datameet.org'>Datameet</a> community and processed by <a href='https://github.com/ramSeraph/india-environmental-approvals'>ramSeraph/india-environmental-approvals</a>.",
+  "headerImage": "assets/map-layers/india/map-layer-soi.png",
+  "version": "0.1.0",
+  "url": "https://github.com/publicmap/amche-goa/blob/main/config/environmental-approvals.atlas.json",
+  "color": "crimson",
+  "map": {
+    "bounds": [
+      [
+        68,
+        6
+      ],
+      [
+        97,
+        36
+      ]
+    ],
+    "center": [
+      79,
+      22
+    ],
+    "zoom": 4
+  },
+  "style": {
+    "fill-color": [
+      "case",
+      [
+        "==",
+        [
+          "geometry-type"
+        ],
+        "Polygon"
+      ],
+      "crimson",
+      "transparent"
+    ],
+    "fill-opacity": [
+      "case",
+      [
+        "==",
+        [
+          "geometry-type"
+        ],
+        "Polygon"
+      ],
+      0.1,
+      0
+    ],
+    "line-color": "crimson",
+    "line-width": 2,
+    "circle-color": "white",
+    "circle-radius": 1,
+    "circle-stroke-color": "crimson",
+    "circle-stroke-width": 0.5
+  },
+  "inspect": {
+    "id": "Proposal Number",
+    "title": "Organization Name",
+    "label": "Organization Name",
+    "fields": [
+      "Project Category",
+      "Project Name",
+      "Project Description"
+    ]
+  },
+  "layers": [
+    {
+      "id": "env-approvals-jammu-and-kashmir",
+      "type": "vector",
+      "title": "Jammu and Kashmir",
+      "tags": [
+        "1.North"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/jammu-and-kashmir/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_1",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-himachal-pradesh",
+      "type": "vector",
+      "title": "Himachal Pradesh",
+      "tags": [
+        "1.North"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/himachal-pradesh/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_2",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-punjab",
+      "type": "vector",
+      "title": "Punjab",
+      "tags": [
+        "1.North"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/punjab/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_3",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-chandigarh",
+      "type": "vector",
+      "title": "Chandigarh",
+      "tags": [
+        "1.North"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/chandigarh/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_4",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-uttarakhand",
+      "type": "vector",
+      "title": "Uttarakhand",
+      "tags": [
+        "1.North"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/uttarakhand/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_5",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-haryana",
+      "type": "vector",
+      "title": "Haryana",
+      "tags": [
+        "1.North"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/haryana/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_6",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-delhi",
+      "type": "vector",
+      "title": "Delhi",
+      "tags": [
+        "1.North"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/delhi/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_7",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-rajasthan",
+      "type": "vector",
+      "title": "Rajasthan",
+      "tags": [
+        "1.North"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/rajasthan/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_8",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-ladakh",
+      "type": "vector",
+      "title": "Ladakh",
+      "tags": [
+        "1.North"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/ladakh/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_37",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-uttar-pradesh",
+      "type": "vector",
+      "title": "Uttar Pradesh",
+      "tags": [
+        "2.Central"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/uttar-pradesh/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_9",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-madhya-pradesh",
+      "type": "vector",
+      "title": "Madhya Pradesh",
+      "tags": [
+        "2.Central"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/madhya-pradesh/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_23",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-chhattisgarh",
+      "type": "vector",
+      "title": "Chhattisgarh",
+      "tags": [
+        "2.Central"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/chhattisgarh/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_22",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-bihar",
+      "type": "vector",
+      "title": "Bihar",
+      "tags": [
+        "3.East"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/bihar/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_10",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-jharkhand",
+      "type": "vector",
+      "title": "Jharkhand",
+      "tags": [
+        "3.East"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/jharkhand/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_20",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-odisha",
+      "type": "vector",
+      "title": "Odisha",
+      "tags": [
+        "3.East"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/odisha/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_21",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-west-bengal",
+      "type": "vector",
+      "title": "West Bengal",
+      "tags": [
+        "3.East"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/west-bengal/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_19",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-sikkim",
+      "type": "vector",
+      "title": "Sikkim",
+      "tags": [
+        "3.East"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/sikkim/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_11",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-arunachal-pradesh",
+      "type": "vector",
+      "title": "Arunachal Pradesh",
+      "tags": [
+        "4.Northeast"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/arunachal-pradesh/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_12",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-nagaland",
+      "type": "vector",
+      "title": "Nagaland",
+      "tags": [
+        "4.Northeast"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/nagaland/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_13",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-manipur",
+      "type": "vector",
+      "title": "Manipur",
+      "tags": [
+        "4.Northeast"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/manipur/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_14",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-mizoram",
+      "type": "vector",
+      "title": "Mizoram",
+      "tags": [
+        "4.Northeast"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/mizoram/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_15",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-tripura",
+      "type": "vector",
+      "title": "Tripura",
+      "tags": [
+        "4.Northeast"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/tripura/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_16",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-meghalaya",
+      "type": "vector",
+      "title": "Meghalaya",
+      "tags": [
+        "4.Northeast"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/meghalaya/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_17",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-assam",
+      "type": "vector",
+      "title": "Assam",
+      "tags": [
+        "4.Northeast"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/assam/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_18",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-gujarat",
+      "type": "vector",
+      "title": "Gujarat",
+      "tags": [
+        "5.West"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/gujarat/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_24",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-maharashtra",
+      "type": "vector",
+      "title": "Maharashtra",
+      "tags": [
+        "5.West"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/maharashtra/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_27",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-goa",
+      "type": "vector",
+      "title": "Goa",
+      "tags": [
+        "5.West"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/goa/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_30",
+      "maxzoom": 17,
+      "initiallyChecked": true,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-dnh-dd",
+      "type": "vector",
+      "title": "Dadra and Nagar Haveli and Daman and Diu",
+      "tags": [
+        "5.West"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/the-dadra-and-nagar-haveli-and-daman-and-diu/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_38",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-andhra-pradesh",
+      "type": "vector",
+      "title": "Andhra Pradesh",
+      "tags": [
+        "6.South"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/andhra-pradesh/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_28",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-karnataka",
+      "type": "vector",
+      "title": "Karnataka",
+      "tags": [
+        "6.South"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/karnataka/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_29",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-kerala",
+      "type": "vector",
+      "title": "Kerala",
+      "tags": [
+        "6.South"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/kerala/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_32",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-tamil-nadu",
+      "type": "vector",
+      "title": "Tamil Nadu",
+      "tags": [
+        "6.South"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/tamil-nadu/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_33",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-telangana",
+      "type": "vector",
+      "title": "Telangana",
+      "tags": [
+        "6.South"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/telangana/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_36",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-puducherry",
+      "type": "vector",
+      "title": "Puducherry",
+      "tags": [
+        "6.South"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/puducherry/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_34",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-andaman-nicobar",
+      "type": "vector",
+      "title": "Andaman and Nicobar Islands",
+      "tags": [
+        "6.South"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/andaman-and-nicobar-islands/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_35",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    },
+    {
+      "id": "env-approvals-lakshadweep",
+      "type": "vector",
+      "title": "Lakshadweep",
+      "tags": [
+        "6.South"
+      ],
+      "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/lakshadweep/parivesh/{z}/{x}/{y}.pbf",
+      "sourceLayer": "projects_31",
+      "maxzoom": 17,
+      "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
+    }
+  ]
+}

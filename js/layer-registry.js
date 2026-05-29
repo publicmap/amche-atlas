@@ -88,7 +88,13 @@ export class LayerRegistry {
                     description: config.description || '',
                     bbox: this._extractBbox(config),
                     tags: config.tags || [],
-                    headerImage: config.headerImage || null
+                    headerImage: config.headerImage || null,
+                    // Atlas-level style/inspect defaults cascaded to every layer in this atlas
+                    // (see _resolveLayer). `stylePresets` is a named-preset dictionary that layers
+                    // may opt into via `stylePreset: "<name>"`.
+                    style: config.style || null,
+                    inspect: config.inspect || null,
+                    stylePresets: config.stylePresets || null
                 });
 
                 if (config.layers && Array.isArray(config.layers)) {
@@ -250,6 +256,9 @@ export class LayerRegistry {
             ...metadata,
             tags: metadata.tags || (config && config.tags) || [],
             headerImage: metadata.headerImage || (config && config.headerImage) || null,
+            style: metadata.style || (config && config.style) || null,
+            inspect: metadata.inspect || (config && config.inspect) || null,
+            stylePresets: metadata.stylePresets || (config && config.stylePresets) || null,
             isImported: true
         });
 
@@ -461,7 +470,17 @@ export class LayerRegistry {
     }
 
     /**
-     * Resolve a layer (cascade atlas headerImage to layer, but NOT tags)
+     * Resolve a layer (cascade atlas-level headerImage / style / inspect / stylePresets,
+     * but NOT tags) onto the layer config.
+     *
+     * Cascade order for `style` and `inspect` (later wins; all shallow-merged):
+     *   1. Atlas-level `style` / `inspect` (applied to every layer in the atlas)
+     *   2. Named preset from atlas `stylePresets["<name>"]` (if layer sets `stylePreset`)
+     *   3. Per-layer `style` / `inspect`
+     *
+     * A preset entry may carry both `style` and `inspect` keys, and either is optional.
+     * Setting `inspect: false`/`null` on a layer disables interactivity and skips the
+     * inspect cascade entirely.
      */
     _resolveLayer(layer, atlasId) {
         const atlasMetadata = this._atlasMetadata.get(atlasId);
@@ -485,7 +504,54 @@ export class LayerRegistry {
             resolvedLayer.headerImage = atlasMetadata.headerImage;
         }
 
+        if (isCompleteDefinition) {
+            // Resolve named style preset, if any
+            let preset = null;
+            if (resolvedLayer.stylePreset) {
+                preset = atlasMetadata.stylePresets && atlasMetadata.stylePresets[resolvedLayer.stylePreset];
+                if (!preset) {
+                    console.warn(`[LayerRegistry] Unknown stylePreset "${resolvedLayer.stylePreset}" referenced by layer "${resolvedLayer.id}" in atlas "${atlasId}"`);
+                }
+            }
+
+            // Cascade style: atlas defaults < preset < layer
+            const atlasStyle = atlasMetadata.style;
+            const presetStyle = preset && preset.style;
+            if (atlasStyle || presetStyle) {
+                resolvedLayer.style = {
+                    ...(atlasStyle || {}),
+                    ...(presetStyle || {}),
+                    ...(resolvedLayer.style || {})
+                };
+            }
+
+            // Cascade inspect: atlas defaults < preset < layer.
+            // Skip when layer explicitly disables inspect with `false`/`null`.
+            if (resolvedLayer.inspect !== false && resolvedLayer.inspect !== null) {
+                const atlasInspect = atlasMetadata.inspect;
+                const presetInspect = preset && preset.inspect;
+                if (atlasInspect || presetInspect) {
+                    resolvedLayer.inspect = {
+                        ...(atlasInspect || {}),
+                        ...(presetInspect || {}),
+                        ...(resolvedLayer.inspect || {})
+                    };
+                }
+            }
+        }
+
         return resolvedLayer;
+    }
+
+    /**
+     * Apply the atlas-level cascade (headerImage, style, inspect, stylePresets)
+     * to a layer config. Used by map-init for fully-defined layers loaded
+     * directly from the active atlas, which don't pass through getLayer().
+     * The bare-reference path (id-only layers) already gets the cascade via
+     * the registry entry built in _doInitialize().
+     */
+    applyAtlasCascade(layer, atlasId) {
+        return this._resolveLayer(layer, atlasId);
     }
 
     /**

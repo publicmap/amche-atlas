@@ -13,9 +13,12 @@ export class LayerThumbnail {
      * @returns {HTMLElement} Thumbnail element
      */
     static generate(layer, size = 80, options = {}) {
-        const { isInView = true, layerDefaults = {} } = options;
+        const { isInView = true, layerDefaults = {}, interactive = true, title = null } = options;
         const container = document.createElement('div');
         container.className = 'layer-thumbnail';
+        if (title) {
+            container.title = title;
+        }
         container.style.cssText = `
             width: ${size}px;
             height: ${size}px;
@@ -187,7 +190,7 @@ export class LayerThumbnail {
             container.appendChild(liveBadge);
         }
 
-        container.style.cursor = 'pointer';
+        container.style.cursor = interactive ? 'pointer' : 'inherit';
 
         container.addEventListener('mouseenter', () => {
             typeLabel.style.opacity = '0.9';
@@ -208,25 +211,29 @@ export class LayerThumbnail {
             }
         });
 
-        container.addEventListener('click', (e) => {
-            e.stopPropagation();
-            console.log('[LayerThumbnail] Clicked thumbnail for layer:', layer.id, 'isInView:', isInView);
-            if (!isInView) {
-                // Zoom to layer if out of view
-                console.log('[LayerThumbnail] Sending zoom-to-layer message for:', layer.id);
-                window.parent.postMessage({
-                    type: 'zoom-to-layer',
-                    layerId: layer.id
-                }, '*');
-            } else {
-                // Open layer info if in view
-                console.log('[LayerThumbnail] Sending open-layer-info message for:', layer.id);
-                window.parent.postMessage({
-                    type: 'open-layer-info',
-                    layer: layer
-                }, '*');
-            }
-        });
+        // When non-interactive, let clicks bubble to the surrounding row/group
+        // (e.g. collapsed group previews use clicks to expand the group)
+        if (interactive) {
+            container.addEventListener('click', (e) => {
+                e.stopPropagation();
+                console.log('[LayerThumbnail] Clicked thumbnail for layer:', layer.id, 'isInView:', isInView);
+                if (!isInView) {
+                    // Zoom to layer if out of view
+                    console.log('[LayerThumbnail] Sending zoom-to-layer message for:', layer.id);
+                    window.parent.postMessage({
+                        type: 'zoom-to-layer',
+                        layerId: layer.id
+                    }, '*');
+                } else {
+                    // Open layer info if in view
+                    console.log('[LayerThumbnail] Sending open-layer-info message for:', layer.id);
+                    window.parent.postMessage({
+                        type: 'open-layer-info',
+                        layer: layer
+                    }, '*');
+                }
+            });
+        }
 
         return container;
     }
