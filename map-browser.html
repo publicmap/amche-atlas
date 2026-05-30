@@ -883,6 +883,7 @@
         let activeLayers = new Set();
         let atlasMetadata = new Map();
         let atlasLayerReferences = new Map();
+        let atlasInitiallyChecked = new Map(); // atlasId -> [layerId] flagged initiallyChecked in config
         let currentBounds = null;
         let layerDefaults = {};
         let previewMap = null;
@@ -897,6 +898,7 @@
         let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
         let loadingLayers = new Set(); // Track layers currently loading
+        let atlasVisibilityStash = new Map(); // atlasId -> [layerId] previously visible before hide-all
         let expandedTreeNodes = new Map(); // Track expanded tree nodes per atlas
         let showMoreNodes = new Map(); // Track which nodes should show hidden non-matching layers
         let visibilityFilter = 'all'; // Filter layers by visibility: 'all' | 'visible' | 'hidden'
@@ -935,6 +937,7 @@
                     activeLayers = new Set(event.data.activeLayers || []);
                     atlasMetadata = new Map(Object.entries(event.data.atlasMetadata || {}));
                     atlasLayerReferences = new Map(Object.entries(event.data.atlasLayerReferences || {}));
+                    atlasInitiallyChecked = new Map(Object.entries(event.data.atlasInitiallyChecked || {}));
                     currentBounds = event.data.bounds;
                     mapboxAccessToken = event.data.mapboxToken;
                     layerDefaults = event.data.layerDefaults || {};
@@ -1500,6 +1503,13 @@
                         title: layer.title || layer.id
                     });
                     $layerThumb.append(thumbnail);
+
+                    // Hovering a thumbnail previews that layer's bbox / geojson on the map
+                    $layerThumb.on('mouseenter', function () {
+                        window.parent.postMessage({ type: 'layer-preview', layerId: layer.id }, '*');
+                    }).on('mouseleave', function () {
+                        window.parent.postMessage({ type: 'layer-clear-preview' }, '*');
+                    });
 
                     // Clicks bubble up to the group header so the whole row expands the group
                     $layersContainer.append($layerThumb);
@@ -2085,9 +2095,16 @@
             // Group visibility eye toggle (first column) - toggles all layers in this atlas
             $header.attr('data-group-layers', atlasLayers.map(l => l.id).join(','));
             const $atlasEye = createEyeToggle(groupEyeState(atlasLayers), function () {
-                toggleGroupLayers(atlasLayers);
+                toggleAtlasLayers(atlasId, atlasLayers);
             });
             $header.prepend($atlasEye);
+
+            // Hovering an atlas row previews its bbox and boundary geojson on the map
+            $header.on('mouseenter', function () {
+                window.parent.postMessage({ type: 'atlas-preview', atlasId: atlasId }, '*');
+            }).on('mouseleave', function () {
+                window.parent.postMessage({ type: 'atlas-clear-preview' }, '*');
+            });
 
             $collapsed.append($header);
 
@@ -2209,6 +2226,32 @@
                     toggleLayer(l.id);
                 }
             });
+            updateGroupEyes();
+        }
+
+        // Toggle visibility for an entire atlas without ever turning every layer on at once.
+        // - Nothing visible: restore the previously-visible set if stashed, else show only
+        //   initiallyChecked layers (avoids enabling an unexpectedly large set of layers).
+        // - Some visible: stash the currently-visible set and hide all.
+        function toggleAtlasLayers(atlasId, atlasLayers) {
+            const visible = atlasLayers.filter(l => activeLayers.has(l.id));
+
+            if (visible.length > 0) {
+                // Stash currently visible layers so they can be restored, then hide all.
+                atlasVisibilityStash.set(atlasId, visible.map(l => l.id));
+                visible.forEach(l => toggleLayer(l.id));
+            } else {
+                // Restore previously visible layers, falling back to initiallyChecked defaults.
+                const present = new Set(atlasLayers.map(l => l.id));
+                const stashed = (atlasVisibilityStash.get(atlasId) || []).filter(id => present.has(id));
+                const defaults = (atlasInitiallyChecked.get(atlasId) || []).filter(id => present.has(id));
+                let toShow = stashed.length ? stashed : defaults;
+
+                toShow.forEach(id => {
+                    if (!activeLayers.has(id)) toggleLayer(id);
+                });
+            }
+
             updateGroupEyes();
         }
 
@@ -2334,6 +2377,13 @@
                     $meta.text(cleanDesc);
                 });
             }
+
+            // Hovering a layer row previews its bbox / geojson on the map
+            $layerPreview.on('mouseenter', function () {
+                window.parent.postMessage({ type: 'layer-preview', layerId: layer.id }, '*');
+            }).on('mouseleave', function () {
+                window.parent.postMessage({ type: 'layer-clear-preview' }, '*');
+            });
 
             $leafItems.append($layerPreview);
         }

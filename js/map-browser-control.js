@@ -278,6 +278,18 @@ export class MapBrowserControl {
             if (event.data.type === 'creator-clear-preview') {
                 this._clearCreatorPreview();
             }
+
+            if (event.data.type === 'atlas-preview') {
+                this._handleAtlasPreview(event.data.atlasId);
+            }
+
+            if (event.data.type === 'layer-preview') {
+                this._handleLayerPreview(event.data.layerId);
+            }
+
+            if (event.data.type === 'atlas-clear-preview' || event.data.type === 'layer-clear-preview') {
+                this._clearPreview();
+            }
         });
 
         window.addEventListener('layer-toggled', () => {
@@ -455,14 +467,19 @@ export class MapBrowserControl {
 
         const knownAtlases = new Set(window.layerRegistry._atlasMetadata.keys());
         const atlasLayerReferences = {};
+        const atlasInitiallyChecked = {};
         window.layerRegistry._atlasLayers.forEach((atlasLayerConfigs, atlasId) => {
-            atlasLayerReferences[atlasId] = atlasLayerConfigs.map(l => {
+            const resolveId = (l) => {
                 const layerId = l.id;
                 if (layerId && layerId.includes('-') && knownAtlases.has(layerId.split('-')[0])) {
                     return layerId;
                 }
                 return `${atlasId}-${layerId}`;
-            });
+            };
+            atlasLayerReferences[atlasId] = atlasLayerConfigs.map(resolveId);
+            atlasInitiallyChecked[atlasId] = atlasLayerConfigs
+                .filter(l => l.initiallyChecked === true)
+                .map(resolveId);
         });
 
         const bounds = this._map ? [
@@ -481,6 +498,7 @@ export class MapBrowserControl {
             activeLayers: Array.from(activeLayers),
             atlasMetadata: atlasMetadata,
             atlasLayerReferences: atlasLayerReferences,
+            atlasInitiallyChecked: atlasInitiallyChecked,
             bounds: bounds,
             mapboxToken: window.amche?.MAPBOXGL_ACCESS_TOKEN || mapboxgl.accessToken,
             selectedAtlasId: atlasParam,
@@ -1149,6 +1167,199 @@ export class MapBrowserControl {
             if (this._map.getLayer(id)) this._map.removeLayer(id);
         });
         if (this._map.getSource(sourceId)) this._map.removeSource(sourceId);
+    }
+
+    // Build a bbox rectangle Feature from [west, south, east, north], or null.
+    _bboxFeature(bbox) {
+        if (!Array.isArray(bbox) || bbox.length !== 4) return null;
+        const [west, south, east, north] = bbox;
+        return {
+            type: 'Feature',
+            properties: { __bbox: true },
+            geometry: {
+                type: 'Polygon',
+                coordinates: [[
+                    [west, north], [east, north], [east, south], [west, south], [west, north]
+                ]]
+            }
+        };
+    }
+
+    // Normalize any GeoJSON value into an array of Features.
+    _geojsonToFeatures(geojson) {
+        if (!geojson) return [];
+        if (geojson.type === 'FeatureCollection' && Array.isArray(geojson.features)) {
+            return geojson.features;
+        }
+        if (geojson.type === 'Feature') return [geojson];
+        if (geojson.type) return [{ type: 'Feature', properties: {}, geometry: geojson }];
+        return [];
+    }
+
+    // Shared ephemeral hover-preview renderer. Draws shape features (fill + outline)
+    // and, separately, a dashed bbox rectangle. Used by both atlas and layer hover.
+    _renderPreview(features, bbox, color) {
+        if (!this._map) return;
+        color = color || '#2563eb';
+
+        const bboxFeature = this._bboxFeature(bbox);
+        const shapeFeatures = (features && features.length) ? features : (bboxFeature ? [bboxFeature] : []);
+        if (shapeFeatures.length === 0) return;
+
+        const sourceId = '__hover_preview__';
+        const bboxSourceId = '__hover_preview_bbox__';
+        const fillId = '__hover_preview_fill__';
+        const lineId = '__hover_preview_line__';
+        const bboxLineId = '__hover_preview_bbox_line__';
+
+        const setSource = (id, data) => {
+            const src = this._map.getSource(id);
+            if (src) {
+                src.setData(data);
+            } else {
+                this._map.addSource(id, { type: 'geojson', data });
+            }
+        };
+
+        setSource(sourceId, { type: 'FeatureCollection', features: shapeFeatures });
+        setSource(bboxSourceId, { type: 'FeatureCollection', features: bboxFeature ? [bboxFeature] : [] });
+
+        if (!this._map.getLayer(fillId)) {
+            this._map.addLayer({
+                id: fillId,
+                type: 'fill',
+                source: sourceId,
+                filter: ['any', ['==', ['geometry-type'], 'Polygon'], ['==', ['geometry-type'], 'MultiPolygon']],
+                paint: { 'fill-color': color, 'fill-opacity': 0.15 }
+            });
+        } else {
+            this._map.setPaintProperty(fillId, 'fill-color', color);
+        }
+
+        if (!this._map.getLayer(lineId)) {
+            this._map.addLayer({
+                id: lineId,
+                type: 'line',
+                source: sourceId,
+                paint: { 'line-color': color, 'line-width': 2.5, 'line-opacity': 0.9 }
+            });
+        } else {
+            this._map.setPaintProperty(lineId, 'line-color', color);
+        }
+
+        // Circle layer so point geojson layers (markers) are visible too.
+        const circleId = '__hover_preview_circle__';
+        if (!this._map.getLayer(circleId)) {
+            this._map.addLayer({
+                id: circleId,
+                type: 'circle',
+                source: sourceId,
+                filter: ['any', ['==', ['geometry-type'], 'Point'], ['==', ['geometry-type'], 'MultiPoint']],
+                paint: { 'circle-color': color, 'circle-radius': 4, 'circle-opacity': 0.7, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1 }
+            });
+        } else {
+            this._map.setPaintProperty(circleId, 'circle-color', color);
+        }
+
+        if (!this._map.getLayer(bboxLineId)) {
+            this._map.addLayer({
+                id: bboxLineId,
+                type: 'line',
+                source: bboxSourceId,
+                paint: { 'line-color': color, 'line-width': 1, 'line-opacity': 0.6, 'line-dasharray': [2, 2] }
+            });
+        } else {
+            this._map.setPaintProperty(bboxLineId, 'line-color', color);
+        }
+    }
+
+    _handleAtlasPreview(atlasId) {
+        if (!this._map || !atlasId || !window.layerRegistry) return;
+        this._previewToken = (this._previewToken || 0) + 1;
+
+        const metadata = window.layerRegistry.getAtlasMetadata(atlasId);
+        if (!metadata) return;
+
+        const features = this._geojsonToFeatures(metadata.geojson);
+        this._renderPreview(features, metadata.bbox, metadata.color || '#2563eb');
+    }
+
+    _handleLayerPreview(layerId) {
+        if (!this._map || !layerId || !window.layerRegistry) return;
+
+        // Bump the token so a slow geojson fetch that resolves after the user has
+        // moved on to another row (or left) is ignored.
+        const token = (this._previewToken || 0) + 1;
+        this._previewToken = token;
+
+        const layer = window.layerRegistry.getLayer(layerId);
+        if (!layer) return;
+
+        const atlasMeta = layer._sourceAtlas ? window.layerRegistry.getAtlasMetadata(layer._sourceAtlas) : null;
+        const color = layer.color || (atlasMeta && atlasMeta.color) || '#2563eb';
+        const ownBbox = (Array.isArray(layer.bbox) && layer.bbox.length === 4) ? layer.bbox
+            : (Array.isArray(layer.bounds) && layer.bounds.length === 4) ? layer.bounds : null;
+
+        // Inline geojson data, if the layer carries it.
+        const inline = layer.data && typeof layer.data === 'object' ? layer.data : (layer.geojson || null);
+        const inlineFeatures = this._geojsonToFeatures(inline);
+
+        if (inlineFeatures.length > 0) {
+            this._renderPreview(inlineFeatures, ownBbox, color);
+            return;
+        }
+
+        // Draw whatever we have immediately (own bbox, else atlas extent), then
+        // upgrade to the real shape once the geojson fetch resolves.
+        const fallbackBbox = ownBbox || (atlasMeta && atlasMeta.bbox) || null;
+        const fallbackFeatures = (!ownBbox && atlasMeta) ? this._geojsonToFeatures(atlasMeta.geojson) : [];
+        this._renderPreview(fallbackFeatures, fallbackBbox, color);
+
+        // For geojson layers, fetch (and cache) the data to preview the true shape.
+        if (layer.type === 'geojson' && layer.url) {
+            this._fetchLayerGeojson(layer.url).then(geojson => {
+                if (this._previewToken !== token) return; // stale hover
+                const features = this._geojsonToFeatures(geojson);
+                if (features.length > 0) this._renderPreview(features, ownBbox, color);
+            }).catch(() => { /* leave the bbox fallback in place */ });
+        }
+    }
+
+    _fetchLayerGeojson(url) {
+        if (!this._geojsonCache) this._geojsonCache = new Map();
+        if (this._geojsonCache.has(url)) {
+            return Promise.resolve(this._geojsonCache.get(url));
+        }
+        const promise = fetch(url)
+            .then(res => {
+                const ct = res.headers.get('content-type') || '';
+                // Only parse JSON; KML/other formats are skipped (bbox fallback stays).
+                if (!res.ok || (!ct.includes('json') && !url.toLowerCase().endsWith('.geojson') && !url.toLowerCase().endsWith('.json'))) {
+                    return null;
+                }
+                return res.json().catch(() => null);
+            })
+            .then(geojson => {
+                this._geojsonCache.set(url, geojson);
+                return geojson;
+            })
+            .catch(() => {
+                this._geojsonCache.set(url, null);
+                return null;
+            });
+        this._geojsonCache.set(url, promise);
+        return Promise.resolve(promise);
+    }
+
+    _clearPreview() {
+        if (!this._map) return;
+        this._previewToken = (this._previewToken || 0) + 1;
+        ['__hover_preview_fill__', '__hover_preview_line__', '__hover_preview_circle__', '__hover_preview_bbox_line__'].forEach(id => {
+            if (this._map.getLayer(id)) this._map.removeLayer(id);
+        });
+        ['__hover_preview__', '__hover_preview_bbox__'].forEach(id => {
+            if (this._map.getSource(id)) this._map.removeSource(id);
+        });
     }
 
     _handleUpdateAtlasParam(atlasId) {

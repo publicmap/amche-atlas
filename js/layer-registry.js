@@ -87,6 +87,7 @@ export class LayerRegistry {
                     areaOfInterest: config.areaOfInterest || '',
                     description: config.description || '',
                     bbox: this._extractBbox(config),
+                    geojson: config.geojson || null,
                     tags: config.tags || [],
                     headerImage: config.headerImage || null,
                     // Atlas-level style/inspect defaults cascaded to every layer in this atlas
@@ -254,6 +255,7 @@ export class LayerRegistry {
     markImportedAtlas(atlasId, metadata, config = null) {
         this._atlasMetadata.set(atlasId, {
             ...metadata,
+            geojson: metadata.geojson || (config && config.geojson) || null,
             tags: metadata.tags || (config && config.tags) || [],
             headerImage: metadata.headerImage || (config && config.headerImage) || null,
             style: metadata.style || (config && config.style) || null,
