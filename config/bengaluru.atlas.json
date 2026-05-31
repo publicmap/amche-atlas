@@ -92,6 +92,34 @@
       "bbox": "77.5513094,12.9604601,77.6099516,12.999266"
     },
     {
+      "title": "1965 Tourist Map Of Bangalore",
+      "description": "This separately issued plan of Bengaluru, Bangalore on the map, was issued by the Tourist Office of the Indian Goverment to promote the city as a tourist destination. It shows the main roads and an abbreviated layout of the city.",
+      "type": "tms",
+      "id": "1965-tourist-map",
+      "url": "https://mapwarper.net/maps/tile/107328/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://www.themaphouse.com/artworks/262244-indian-government-bangalore-city-area-1965-c/' target='_blank'>themaphouse.com</a> via <a href='https://mapwarper.net/maps/107328' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/107328/thumb/themaphouse-indian-government-bangalore-city-area-1965-c.jpg.png",
+      "bbox": "77.5146551,12.8494866,77.6989152,13.0899945",
+      "initiallyChecked": false
+    },
+    {
       "title": "Bangalore Survey Map (1940)",
       "description": "Surveyed 1935-36",
       "type": "tms",
