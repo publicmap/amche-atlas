@@ -367,7 +367,7 @@
 
         .atlas-collapsed-layer {
             display: grid;
-            grid-template-columns: 24px 40px 1fr auto;
+            grid-template-columns: 28px 40px 1fr auto;
             align-items: center;
             gap: 8px;
             font-size: 12px;
@@ -378,45 +378,73 @@
             border-radius: 4px;
         }
 
-        /* Figma-style visibility eye toggle (first column of layers and groups) */
+        /* Visibility eye toggle (first column of layers and groups) -
+           a distinct square button so the primary action is an obvious, high-contrast target */
         .layer-eye-toggle {
-            width: 24px;
-            height: 24px;
+            width: 28px;
+            height: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border: none;
-            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.04);
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: 5px;
             flex-shrink: 0;
             padding: 0;
-            color: #6b7280;
-            transition: color 0.15s, background 0.15s, opacity 0.15s;
+            color: #9ca3af;
+            transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
         }
 
         .layer-eye-toggle:hover {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.4);
             color: #f3f4f6;
         }
 
+        .layer-eye-toggle:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.6);
+        }
+
+        /* Visible: solid amber fill with dark icon for unambiguous high contrast */
         .layer-eye-toggle.eye-on {
-            color: #3b82f6;
+            background: #f59e0b;
+            border-color: #f59e0b;
+            color: #1f2937;
         }
 
+        .layer-eye-toggle.eye-on:hover {
+            background: #fbbf24;
+            border-color: #fbbf24;
+            color: #1f2937;
+        }
+
+        /* Partially visible: amber outline + tint (already legible, kept) */
         .layer-eye-toggle.eye-partial {
-            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.18);
+            border-color: #f59e0b;
+            color: #fbbf24;
         }
 
+        .layer-eye-toggle.eye-partial:hover {
+            background: rgba(245, 158, 11, 0.28);
+            border-color: #fbbf24;
+            color: #fcd34d;
+        }
+
+        /* Hidden: muted but still clearly an outlined target */
         .layer-eye-toggle.eye-off {
-            color: #6b7280;
-            opacity: 0.45;
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.18);
+            color: #9ca3af;
         }
 
         .atlas-collapsed-layer:hover .layer-eye-toggle.eye-off,
         .tree-node-header:hover .layer-eye-toggle.eye-off,
         .atlas-collapsed-header:hover .layer-eye-toggle.eye-off {
-            opacity: 1;
+            color: #f3f4f6;
+            border-color: rgba(255, 255, 255, 0.4);
         }
 
         .atlas-collapsed-layer:hover {

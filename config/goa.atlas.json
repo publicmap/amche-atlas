@@ -2902,12 +2902,43 @@
     },
     {
       "tags": [
+        "Draft Development Plans"
+      ],
+      "title": "Draft Mapusa Town Planning Scheme Phase 1",
+      "description": "Proposal for Phase 1 Draft notification https://goaprintingpress.gov.in/downloads/2324/2324-50-SIII-EOG-1.pdf",
+      "type": "tms",
+      "id": "draft-mapusa-tps",
+      "url": "https://mapwarper.net/maps/tile/107309/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://mapwarper.net/maps/107309' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/107309/thumb/6116199095442542411.png",
+      "bbox": "73.7986298,15.5741004,73.823407,15.5932236",
+      "initiallyChecked": false
+    },
+    {
+      "tags": [
         "2.Development Plans"
       ],
       "title": "3.Outline Development Plan 2011",
       "description": "Outline Development Plan 2011 prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a>",
       "headerImage": "https://mapwarper.net/uploads/91643/thumb/2008_Final_Panaji_ODP-2011.png",
-      "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
+      "legendImage": "assets/map-layers/goa/legend-odp.jpg",
       "type": "tms",
       "id": "2011-outline-plan",
       "url": "https://mapwarper.net/mosaics/tile/2151/{z}/{x}/{y}.png",
@@ -2962,6 +2993,36 @@
       },
       "attribution": "© MapWarper - <a href=\"https://warper.wmflabs.org/maps/9009#Rectify_tab\" target=\"_blank\">View Original</a>",
       "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/1888_Plan_of_Nova_Goa_%28Panjim%29.jpg/120px-1888_Plan_of_Nova_Goa_%28Panjim%29.jpg",
+      "initiallyChecked": false
+    },
+    {
+      "tags": [
+        "historic"
+      ],
+      "title": "Mapusa SOI Toposheet 1991",
+      "type": "tms",
+      "id": "1991-soi-mapusa",
+      "url": "https://mapwarper.net/maps/tile/86484/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://mapwarper.net/maps/86484' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/86484/thumb/4_Mapusa_SOI_Toposheet_1991.png",
+      "bbox": "73.7389406,15.4920666,73.8849907,15.6355595",
       "initiallyChecked": false
     },
     {

@@ -3287,6 +3287,15 @@
       "attribution": "<a href='https://bhuvan.nrsc.gov.in/ngmaps?mode=Terrain#3.65/22.91/82.78'>NRSC/ISRO Bhuvan</a>",
       "maxzoom": 19,
       "initiallyChecked": true
+    },
+    {
+      "id": "corona",
+      "title": "Corona Satellite Imagery (1965-1980))",
+      "type": "wms",
+      "url": "https://bhuvanmaps.nrsc.gov.in/ras2mapcache?styles=&bbox=8219732.273674715,1748879.2071648315,8220955.266127277,1750102.199617397&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=Corono_Sat_Data",
+      "tileSize": 256,
+      "maxzoom": 18,
+      "attribution": "https://bhuvanmaps.nrsc.gov.in/ras2mapcache"
     }
   ]
 }
