@@ -11,7 +11,8 @@ export class ButtonExternalMapLinks {
         this._closeButton = null;
         this._searchInput = null;
         this._clearSearchButton = null;
-        this._expandedCards = new Set();
+        this._tagsBar = null;
+        this._activeTag = null;
 
         this._pinnedLat = null;
         this._pinnedLng = null;
@@ -71,6 +72,7 @@ export class ButtonExternalMapLinks {
         this._closeButton = null;
         this._searchInput = null;
         this._clearSearchButton = null;
+        this._tagsBar = null;
     }
 
     _createModal() {
@@ -108,44 +110,64 @@ export class ButtonExternalMapLinks {
                     margin-bottom: 12px;
                     padding-left: 4px;
                 }
-                .map-links-tag-group {
-                    margin-bottom: 16px;
+                .map-links-tags-bar {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    padding: 0 0 14px 0;
                 }
-                .map-links-tag-label {
+                .map-links-tag-chip {
                     font-size: 11px;
                     font-weight: 600;
                     color: #9ca3af;
-                    text-transform: capitalize;
-                    padding: 0 4px 6px;
+                    background: #1f2937;
+                    border: 1px solid #374151;
+                    border-radius: 999px;
+                    padding: 4px 12px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    white-space: nowrap;
+                }
+                .map-links-tag-chip:hover {
+                    color: #f3f4f6;
+                    border-color: #4b5563;
+                }
+                .map-links-tag-chip.active {
+                    color: #ffffff;
+                    background: #3b82f6;
+                    border-color: #3b82f6;
                 }
                 .map-links-grid {
                     display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+                    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
                     gap: 8px;
                 }
                 .map-link-card {
                     position: relative;
                     background: #1f2937;
                     border: 1px solid #374151;
-                    border-radius: 6px;
-                    padding: 8px;
+                    border-radius: 8px;
+                    padding: 12px 8px;
                     cursor: pointer;
-                    transition: all 0.2s ease;
-                    display: grid;
-                    grid-template-columns: 40px 1fr auto;
+                    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+                    display: flex;
+                    flex-direction: column;
                     align-items: center;
-                    gap: 10px;
-                    opacity: 0.9;
+                    gap: 8px;
+                    text-align: center;
+                    text-decoration: none;
+                    min-height: 96px;
                 }
                 .map-link-card:hover {
                     background: #374151;
-                    opacity: 1;
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                    border-color: #4b5563;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
                 }
                 .map-link-icon, .map-link-text-icon {
                     width: 40px;
                     height: 40px;
-                    border-radius: 6px;
+                    border-radius: 8px;
                     object-fit: contain;
                     flex-shrink: 0;
                 }
@@ -161,113 +183,62 @@ export class ButtonExternalMapLinks {
                     word-wrap: break-word;
                     line-height: 1.1;
                 }
-                .map-link-content {
-                    flex: 1;
-                    min-width: 0;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 2px;
-                    text-align: left;
-                    align-items: flex-start;
-                }
                 .map-link-name {
                     color: #f3f4f6;
                     font-weight: 500;
                     font-size: 12px;
                     line-height: 1.3;
-                    text-align: left;
-                    width: 100%;
-                }
-                .map-link-meta {
-                    color: #9ca3af;
-                    font-size: 11px;
-                    line-height: 1.4;
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
                     overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                    text-align: left;
-                    width: 100%;
                 }
-                .map-link-actions {
-                    display: flex;
-                    gap: 4px;
+                .map-link-open-hint {
+                    position: absolute;
+                    top: 6px;
+                    right: 6px;
+                    color: #9ca3af;
                     opacity: 0;
-                    transition: opacity 0.2s;
+                    transition: opacity 0.15s ease;
                 }
-                .map-link-card:hover .map-link-actions {
+                .map-link-card:hover .map-link-open-hint {
                     opacity: 1;
                 }
-                .map-link-visit-btn-icon {
-                    width: 28px;
-                    height: 28px;
-                    border-radius: 4px;
-                    background: #6b7280;
-                    color: white;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    text-decoration: none;
-                    transition: all 0.2s;
-                    flex-shrink: 0;
-                }
-                .map-link-visit-btn-icon:hover {
-                    background: #4b5563;
-                    transform: scale(1.05);
-                }
-                .map-link-card-expanded {
-                    position: relative;
-                    background: #1f2937;
-                    border: 1px solid #4b5563;
-                    border-radius: 6px;
-                    z-index: 10;
-                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-                }
-                .map-link-card-container {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 12px;
-                    padding: 12px;
-                }
-                .map-link-card-header {
-                    display: grid;
-                    grid-template-columns: 40px 1fr;
-                    align-items: center;
-                    gap: 10px;
-                    cursor: pointer;
-                    padding-bottom: 12px;
-                    border-bottom: 1px solid #374151;
-                }
-                .map-link-expanded-body {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 12px;
-                }
-                .map-link-description {
+                .map-link-tooltip {
+                    position: absolute;
+                    bottom: calc(100% + 8px);
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 240px;
+                    max-width: 70vw;
+                    background: #0b1220;
+                    border: 1px solid #374151;
+                    border-radius: 8px;
+                    padding: 10px 12px;
                     color: #d1d5db;
-                    font-size: 12px;
-                    line-height: 1.6;
-                    margin: 0;
+                    font-size: 11px;
+                    font-weight: 400;
+                    line-height: 1.55;
+                    text-align: left;
+                    opacity: 0;
+                    visibility: hidden;
+                    pointer-events: none;
+                    transition: opacity 0.15s ease, visibility 0.15s ease;
+                    z-index: 60;
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
                 }
-                .map-link-card-expanded .map-link-actions {
+                .map-link-tooltip::after {
+                    content: '';
+                    position: absolute;
+                    top: 100%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    border: 6px solid transparent;
+                    border-top-color: #0b1220;
+                }
+                .map-link-card:hover .map-link-tooltip {
                     opacity: 1;
-                }
-                .map-link-visit-btn {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
-                    background: #3b82f6;
-                    color: white;
-                    padding: 8px 16px;
-                    border-radius: 6px;
-                    text-decoration: none;
-                    font-size: 12px;
-                    font-weight: 600;
-                    transition: background 0.2s;
-                    cursor: pointer;
-                }
-                .map-link-visit-btn:hover {
-                    background: #2563eb;
-                    transform: scale(1.02);
+                    visibility: visible;
                 }
             </style>
         `;
@@ -308,6 +279,7 @@ export class ButtonExternalMapLinks {
                                 onmouseout="this.style.color='#9ca3af'">✕</button>
                     </div>
                 </div>
+                <div class="map-links-tags-bar"></div>
                 <div class="map-links-coords-bar" style="display:flex;align-items:center;gap:8px;padding:4px 0 12px 0;"></div>
                 <div class="map-links-container"></div>
                 <sl-button slot="footer" variant="neutral" id="${this.modalId}-close" class="map-links-btn">Close</sl-button>
@@ -320,6 +292,17 @@ export class ButtonExternalMapLinks {
         this._closeButton = document.getElementById(`${this.modalId}-close`);
         this._searchInput = document.getElementById(`${this.modalId}-search`);
         this._clearSearchButton = document.getElementById(`${this.modalId}-clear-search`);
+        this._tagsBar = this._modal.querySelector('.map-links-tags-bar');
+
+        if (this._tagsBar) {
+            this._tagsBar.addEventListener('click', (e) => {
+                const chip = e.target.closest('[data-tag]');
+                if (!chip) return;
+                const tag = chip.dataset.tag;
+                this._activeTag = (tag === '__all__') ? null : tag;
+                this._showModal();
+            });
+        }
 
         if (this._closeButton) {
             this._closeButton.addEventListener('click', this._handleCloseClick);
@@ -405,9 +388,14 @@ export class ButtonExternalMapLinks {
         const links = this._generateNavigationLinks(lat, lng, zoom);
         const searchTerm = this._searchInput ? this._searchInput.value.toLowerCase().trim() : '';
 
+        this._renderTagChips(links);
+
         let filteredLinks = links;
+        if (this._activeTag) {
+            filteredLinks = filteredLinks.filter(link => (link.tags || []).includes(this._activeTag));
+        }
         if (searchTerm) {
-            filteredLinks = links.filter(link => this._matchesSearch(link, searchTerm))
+            filteredLinks = filteredLinks.filter(link => this._matchesSearch(link, searchTerm))
                 .sort((a, b) => this._getSearchPriority(a, searchTerm) - this._getSearchPriority(b, searchTerm));
         }
 
@@ -415,40 +403,21 @@ export class ButtonExternalMapLinks {
         const globalLinks = filteredLinks.filter(link => link.category === 'global');
 
         if (filteredLinks.length === 0) {
+            const reason = searchTerm ? `matching "${searchTerm}"` : `tagged "${this._activeTag}"`;
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
-                    <p style="font-size: 14px;">No services found matching "${searchTerm}"</p>
+                    <p style="font-size: 14px;">No services found ${reason}</p>
                 </div>
             `;
         } else {
-            const renderSection = (sectionLinks, title) => {
-                const byTag = {};
-                sectionLinks.forEach(link => {
-                    const tagString = (link.tags && link.tags.length > 0)
-                        ? link.tags.join('/')
-                        : 'Uncategorized';
-                    if (!byTag[tagString]) {
-                        byTag[tagString] = [];
-                    }
-                    byTag[tagString].push(link);
-                });
-
-                const tagStrings = Object.keys(byTag).sort();
-
-                return `
-                    <div class="map-links-section">
-                        <h3 class="map-links-section-title">${title}</h3>
-                        ${tagStrings.map(tagString => `
-                            <div class="map-links-tag-group">
-                                <div class="map-links-tag-label">${tagString}</div>
-                                <div class="map-links-grid">
-                                    ${byTag[tagString].map(link => this._createLinkCard(link)).join('')}
-                                </div>
-                            </div>
-                        `).join('')}
+            const renderSection = (sectionLinks, title) => `
+                <div class="map-links-section">
+                    <h3 class="map-links-section-title">${title}</h3>
+                    <div class="map-links-grid">
+                        ${sectionLinks.map(link => this._createLinkCard(link)).join('')}
                     </div>
-                `;
-            };
+                </div>
+            `;
 
             container.innerHTML = `
                 ${goaLinks.length > 0 ? renderSection(goaLinks, 'India') : ''}
@@ -456,32 +425,20 @@ export class ButtonExternalMapLinks {
             `;
         }
 
-        container.addEventListener('click', (e) => {
-            if (e.target.closest('a')) {
-                return;
-            }
-
-            const expandTarget = e.target.closest('[data-action="expand"]');
-            const collapseTarget = e.target.closest('[data-action="collapse"]');
-            const card = e.target.closest('[data-link-id]');
-
-            if (expandTarget && card) {
-                const linkId = card.dataset.linkId;
-                if (linkId) {
-                    this._expandedCards.clear();
-                    this._expandedCards.add(linkId);
-                    this._showModal();
-                }
-            } else if (collapseTarget && card) {
-                const linkId = card.dataset.linkId;
-                if (linkId) {
-                    this._expandedCards.delete(linkId);
-                    this._showModal();
-                }
-            }
-        });
-
         this._modal.show();
+    }
+
+    _renderTagChips(links) {
+        if (!this._tagsBar) return;
+
+        const tags = [...new Set(links.flatMap(link => link.tags || []))].sort();
+        const chip = (tag, label) =>
+            `<button class="map-links-tag-chip${(this._activeTag === tag || (tag === null && !this._activeTag)) ? ' active' : ''}" data-tag="${tag ?? '__all__'}">${label}</button>`;
+
+        this._tagsBar.innerHTML = [
+            chip(null, 'All'),
+            ...tags.map(tag => chip(tag, tag))
+        ].join('');
     }
 
     _matchesSearch(link, term) {
@@ -504,8 +461,6 @@ export class ButtonExternalMapLinks {
     }
 
     _createLinkCard(link) {
-        const isExpanded = this._expandedCards.has(link.id);
-
         let thumbnailHTML;
         if (link.icon) {
             // Check if icon is HTML or image URL
@@ -528,48 +483,14 @@ export class ButtonExternalMapLinks {
             thumbnailHTML = `<div class="map-link-text-icon" style="font-size: ${fontSize};">${defaultText}</div>`;
         }
 
-        const shortDesc = link.description
-            ? link.description.substring(0, 80) + (link.description.length > 80 ? '...' : '')
-            : '';
-
-        if (isExpanded) {
-            return `
-                <div class="map-link-card-expanded" data-link-id="${link.id}">
-                    <div class="map-link-card-container">
-                        <div class="map-link-card-header" data-action="collapse">
-                            ${thumbnailHTML}
-                            <div class="map-link-content">
-                                <div class="map-link-name">${link.name}</div>
-                            </div>
-                        </div>
-                        <div class="map-link-expanded-body">
-                            <p class="map-link-description">${link.description || ''}</p>
-                            <div class="map-link-actions">
-                                <a href="${link.url}" target="_blank" rel="noopener noreferrer" class="map-link-visit-btn">
-                                    <sl-icon name="box-arrow-up-right" style="font-size: 14px;"></sl-icon>
-                                    <span>Open Location</span>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        } else {
-            return `
-                <div class="map-link-card" data-link-id="${link.id}">
-                    ${thumbnailHTML}
-                    <div class="map-link-content" data-action="expand">
-                        <div class="map-link-name">${link.name}</div>
-                        <div class="map-link-meta">${shortDesc}</div>
-                    </div>
-                    <div class="map-link-actions">
-                        <a href="${link.url}" target="_blank" rel="noopener noreferrer" class="map-link-visit-btn-icon" title="Open Location" onclick="event.stopPropagation();">
-                            <sl-icon name="box-arrow-up-right" style="font-size: 14px;"></sl-icon>
-                        </a>
-                    </div>
-                </div>
-            `;
-        }
+        return `
+            <a href="${link.url}" target="_blank" rel="noopener noreferrer" class="map-link-card" data-link-id="${link.id}" title="${link.name}">
+                <sl-icon name="box-arrow-up-right" class="map-link-open-hint" style="font-size: 13px;"></sl-icon>
+                ${thumbnailHTML}
+                <div class="map-link-name">${link.name}</div>
+                ${link.description ? `<div class="map-link-tooltip">${link.description}</div>` : ''}
+            </a>
+        `;
     }
 
     _generateNavigationLinks(lat, lng, zoom) {
@@ -705,6 +626,15 @@ export class ButtonExternalMapLinks {
                 category: 'global',
                 description: 'USGS/NASA Landsat program explorer with 50+ years of continuous Earth observation imagery at 30m resolution. Access multispectral data from Landsat 1-9, create custom band combinations, analyze vegetation health, and track land cover changes since 1972.',
                 tags: ['Satellite', 'Archive']
+            },
+            {
+                id: 'shademap',
+                icon: 'https://shademap.app/favicon-32x32.png',
+                name: 'ShadeMap',
+                url: `https://shademap.app/@${lat},${lng},${zoom}z,${Date.now()}t,0b,0p,0m`,
+                category: 'global',
+                description: 'Sun and shadow simulator that visualizes how shadows from terrain and buildings move across the landscape throughout the day and year. Useful for solar exposure analysis, planning, and understanding sunlight patterns at any location and time.',
+                tags: ['Sun', 'Shadow', 'Analysis']
             },
             {
                 id: 'zoom-earth',
