@@ -705,7 +705,7 @@
         "line-width": 2
       },
       "inspect": {
-        "title": "Name",
+        "title": "Assembly Constituency",
         "label": "ac_name",
         "id": "OBJECTID",
         "fields": [
@@ -720,7 +720,8 @@
           "District",
           "State"
         ]
-      }
+      },
+      "initiallyChecked": true
     },
     {
       "title": "Parliamentary Constituencies",
@@ -1297,7 +1298,6 @@
         ]
       },
       "bbox": "74.558,13.862,74.988,14.251",
-      "initiallyChecked": true,
       "description": "Map of Eco-Sensitive Zone of Shravati Wildlife Sanctuary along with latitude and longitude and prominent locations from <a href='https://archive.org/details/in.gazette.central.e.2019-08-05.210456/page/n37/mode/2up'>Gazette of India - Extraordinary, 2019-08-05, Part II-Section 3-Sub-Section(ii)</a>",
       "attribution": "<a href='https://archive.org/details/in.gazette.central.e.2019-08-05.210456/page/n37/mode/2up'>2019-08-05 MoEFCC Notification</a> via <a href='https://editor.allmaps.org/mask?url=https%3A%2F%2Fiiif.archive.org%2Fiiif%2Fin.gazette.central.e.2019-08-05.210456%2Fmanifest.json&image=https%3A%2F%2Fiiif.archive.org%2Fimage%2Fiiif%2F3%2Fin.gazette.central.e.2019-08-05.210456%252F210456_jp2.zip%252F210456_jp2%252F210456_0016.jp2'>Allmaps</a>"
     },
@@ -1554,7 +1554,7 @@
       "sourceLayer": "Bhuvan_ASI_Boundaries",
       "maxzoom": 13,
       "attribution": "Source: <a href='https://bhuvan.nrsc.gov.in/' target='_blank' rel='noopener noreferrer'>BHuvan/ASI</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
-      "initiallyChecked": false,
+      "initiallyChecked": true,
       "style": {
         "text-field": [
           "step",
@@ -3269,8 +3269,7 @@
       "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
       "proxyReferer": "https://bhuvan.nrsc.gov.in/",
       "attribution": "<a href='https://bhuvan.nrsc.gov.in/ngmaps?mode=Hybrid#3.65/22.91/82.78'>NRSC/ISRO Bhuvan</a>",
-      "maxzoom": 19,
-      "initiallyChecked": true
+      "maxzoom": 19
     },
     {
       "tags": [
@@ -3285,8 +3284,7 @@
       "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
       "proxyReferer": "https://bhuvan.nrsc.gov.in/",
       "attribution": "<a href='https://bhuvan.nrsc.gov.in/ngmaps?mode=Terrain#3.65/22.91/82.78'>NRSC/ISRO Bhuvan</a>",
-      "maxzoom": 19,
-      "initiallyChecked": true
+      "maxzoom": 19
     },
     {
       "id": "corona",

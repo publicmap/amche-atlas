@@ -160,6 +160,82 @@
             border-bottom: 1px solid #374151;
         }
 
+        .explorer-header {
+            background: #111827;
+            padding: 14px 12px 12px;
+            border-bottom: 1px solid #374151;
+        }
+
+        .explorer-title {
+            margin: 0 0 10px;
+            color: #f3f4f6;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .explorer-title sl-icon {
+            color: #3b82f6;
+            font-size: 20px;
+        }
+
+        .atlas-select-wrap {
+            position: relative;
+        }
+
+        .atlas-select-wrap .select-leading-icon,
+        .atlas-select-wrap .select-trailing-icon {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.55);
+            pointer-events: none;
+        }
+
+        .atlas-select-wrap .select-leading-icon {
+            left: 10px;
+            font-size: 15px;
+        }
+
+        .atlas-select-wrap .select-trailing-icon {
+            right: 10px;
+            font-size: 14px;
+        }
+
+        .atlas-select {
+            width: 100%;
+            appearance: none;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.05);
+            color: #f3f4f6;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 6px;
+            padding: 9px 34px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+
+        .atlas-select:hover {
+            border-color: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .atlas-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+
+        .atlas-select option {
+            background: #1f2937;
+            color: #f3f4f6;
+        }
+
         .filter-section {
             background: #1f2937;
             color: white;
@@ -314,19 +390,58 @@
             padding: 6px 8px;
         }
 
-        .atlas-header-image {
-            width: 100%;
-            height: auto;
-            max-height: 120px;
-            object-fit: cover;
-            border-radius: 0;
-            margin: 0;
-            display: block;
+        .atlas-collapsed-header:hover {
+            background-color: #374151;
+            border-radius: 4px;
         }
 
-        .atlas-collapsed-header:hover {
-            background: #374151;
-            border-radius: 4px;
+        /* Top row wraps eye + icon + title + actions so the expanded layout can
+           drop the full description onto its own line below it */
+        .atlas-header-top-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            min-width: 0;
+        }
+
+        /* Atlas row with a header image: paint it scaled-to-fill and centered,
+           in both the collapsed and expanded states */
+        .atlas-collapsed-header.has-bg {
+            position: relative;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* Darkening overlay keeps the row text legible over the image */
+        .atlas-collapsed-header.has-bg::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(17, 24, 39, 0.55), rgba(17, 24, 39, 0.88));
+            pointer-events: none;
+        }
+
+        .atlas-collapsed-header.has-bg > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Expanded atlas row: stack the header content vertically so the full
+           description can sit on its own line below the top row */
+        .atlas-collapsed-header.expanded {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            padding: 12px;
+        }
+
+        .atlas-description-full {
+            color: #e5e7eb;
+            font-size: 12px;
+            line-height: 1.5;
+            font-weight: 400;
         }
 
         .atlas-expand-icon {
@@ -810,7 +925,7 @@
         }
 
         .atlas-collapsed-header.has-active-children {
-            background: rgba(59, 130, 246, 0.1);
+            background-color: rgba(59, 130, 246, 0.1);
         }
 
         @keyframes spin {
@@ -826,6 +941,19 @@
 
 <body class="bg-gray-900">
     <div class="flex flex-col h-screen max-w-[600px] w-full" style="margin: 0 auto;">
+        <!-- Atlas Explorer Header -->
+        <div class="explorer-header">
+            <h1 class="explorer-title">
+                <sl-icon name="globe-americas"></sl-icon>
+                Atlas Explorer
+            </h1>
+            <div class="atlas-select-wrap">
+                <sl-icon name="collection" class="select-leading-icon"></sl-icon>
+                <select id="atlas-select" class="atlas-select" aria-label="Select atlas"></select>
+                <sl-icon name="chevron-down" class="select-trailing-icon"></sl-icon>
+            </div>
+        </div>
+
         <!-- Search Section -->
         <div class="search-section" style="background: #1f2937; padding: 10px 12px; border-bottom: 1px solid #374151;">
             <!-- Search Row -->
@@ -985,6 +1113,7 @@
                         }
                     }
 
+                    populateAtlasSelect();
                     initializePreviewMap();
                     renderLayers();
                     drawBboxes();
@@ -1213,6 +1342,19 @@
             });
 
 
+            // Atlas dropdown - synced to the ?atlas URL param.
+            // Changing the atlas switches context: the previous atlas's visible
+            // layers are hidden and the new atlas's initiallyChecked layers shown.
+            $('#atlas-select').on('change', function () {
+                const newAtlasId = $(this).val();
+                // No atlas selected yet means the index atlas is the effective context
+                const previousAtlasId = window.selectedAtlasId || 'index';
+                const metadata = newAtlasId ? atlasMetadata.get(newAtlasId) : null;
+
+                switchAtlasContext(previousAtlasId, newAtlasId);
+                selectAtlas(newAtlasId, metadata?.name || newAtlasId);
+            });
+
             $('#add-new-map-link').on('click', function () {
                 window.parent.postMessage({ type: 'open-creator' }, '*');
             });
@@ -1235,9 +1377,35 @@
             });
         }
 
+        // Populate the atlas dropdown from atlas metadata, sorted alphabetically by name.
+        // Synced to the ?atlas URL param via selectAtlas().
+        function populateAtlasSelect() {
+            const $select = $('#atlas-select');
+            if (!$select.length) return;
+
+            $select.empty();
+
+            const entries = Array.from(atlasMetadata.entries())
+                .sort((a, b) => (a[1].name || a[0]).localeCompare(b[1].name || b[0]));
+
+            entries.forEach(([atlasId, metadata]) => {
+                $select.append($('<option>', {
+                    value: atlasId,
+                    text: metadata.name || atlasId
+                }));
+            });
+
+            // Fall back to the index atlas when nothing else is selected
+            $select.val(window.selectedAtlasId || 'index');
+        }
+
         // Select atlas (expand it in the list)
         function selectAtlas(atlasId, atlasName, skipURLUpdate = false) {
             window.selectedAtlasId = atlasId;
+
+            // Keep the dropdown in sync when selection changes from elsewhere,
+            // defaulting to the index atlas when nothing is selected
+            $('#atlas-select').val(atlasId || 'index');
 
             // Update label text based on selected atlas
             if (atlasId && atlasMetadata.has(atlasId)) {
@@ -1951,9 +2119,10 @@
                 id: `atlas-${atlasId}`
             });
 
+            const headerHasBg = !!atlasData.headerImage;
             const $header = $('<div>', {
-                class: 'atlas-collapsed-header' + (hasActiveChildren ? ' has-active-children' : ''),
-                style: 'cursor: pointer;',
+                class: 'atlas-collapsed-header' + (hasActiveChildren ? ' has-active-children' : '') + (isExpanded ? ' expanded' : '') + (headerHasBg ? ' has-bg' : ''),
+                style: 'cursor: pointer;' + (headerHasBg ? ` background-image: url("${atlasData.headerImage}");` : ''),
                 click: function (e) {
                     // Don't toggle if clicking on links or buttons
                     if ($(e.target).closest('a, button').length) return;
@@ -1987,12 +2156,18 @@
                 }
             });
 
+            // Top row: holds the eye, expand icon, title and action buttons. The
+            // expanded layout renders the full description on its own line below it.
+            const $topRow = $('<div>', {
+                class: 'atlas-header-top-row'
+            });
+
             // Expand/collapse icon
             const $expandIcon = $('<span>', {
                 class: 'atlas-expand-icon',
                 text: isExpanded ? '▼' : '▶'
             });
-            $header.append($expandIcon);
+            $topRow.append($expandIcon);
 
             // Atlas name and description container
             const $titleContainer = $('<div>', {
@@ -2001,9 +2176,16 @@
 
             // Atlas name badge
             const $nameBadge = $('<span>', {
-                style: `background: ${atlasData.color || '#6b7280'}; color: white; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; flex-shrink: 0;`,
-                text: atlasData.name || atlasId
+                style: `background: ${atlasData.color || '#6b7280'}; color: white; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;`
             });
+            if (atlasData.icon) {
+                $('<img>', {
+                    src: atlasData.icon,
+                    alt: '',
+                    style: 'height: 14px; width: auto; display: block; flex-shrink: 0;'
+                }).appendTo($nameBadge);
+            }
+            $('<span>', { text: atlasData.name || atlasId }).appendTo($nameBadge);
             $titleContainer.append($nameBadge);
 
             // Atlas-level tags (if available)
@@ -2017,8 +2199,9 @@
                 });
             }
 
-            // Atlas description (if available)
-            if (atlasData.description) {
+            // Atlas description — inline & truncated when collapsed. When expanded
+            // the full description is rendered on its own line below the top row.
+            if (atlasData.description && !isExpanded) {
                 const $description = $('<span>', {
                     style: 'color: #9ca3af; font-size: 11px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;',
                     text: atlasData.description.replace(/<[^>]*>/g, '').substring(0, 100)
@@ -2026,7 +2209,7 @@
                 $titleContainer.append($description);
             }
 
-            $header.append($titleContainer);
+            $topRow.append($titleContainer);
 
             // Only show zoom and link buttons when atlas is expanded
             if (isExpanded) {
@@ -2065,7 +2248,7 @@
                     }).on('mouseleave', function () {
                         $(this).css('background', '#dc2626');
                     });
-                    $header.append($removeAllBtn);
+                    $topRow.append($removeAllBtn);
                 }
 
                 // Zoom button (if atlas has bbox)
@@ -2101,7 +2284,7 @@
                     }).on('mouseleave', function () {
                         $(this).css('background', '#4b5563');
                     });
-                    $header.append($zoomBtn);
+                    $topRow.append($zoomBtn);
                 }
 
                 // Config link
@@ -2117,7 +2300,7 @@
                     mouseenter: function () { $(this).css('opacity', 1); },
                     mouseleave: function () { $(this).css('opacity', 0.6); }
                 });
-                $header.append($configLink);
+                $topRow.append($configLink);
             }
 
             // Group visibility eye toggle (first column) - toggles all layers in this atlas
@@ -2125,7 +2308,18 @@
             const $atlasEye = createEyeToggle(groupEyeState(atlasLayers), function () {
                 toggleAtlasLayers(atlasId, atlasLayers);
             });
-            $header.prepend($atlasEye);
+            $topRow.prepend($atlasEye);
+
+            $header.append($topRow);
+
+            // Expanded layout: render the full atlas description on its own line
+            if (isExpanded && atlasData.description) {
+                const $descriptionFull = $('<div>', {
+                    class: 'atlas-description-full',
+                    text: atlasData.description.replace(/<[^>]*>/g, '')
+                });
+                $header.append($descriptionFull);
+            }
 
             // Hovering an atlas row previews its bbox and boundary geojson on the map
             $header.on('mouseenter', function () {
@@ -2135,20 +2329,6 @@
             });
 
             $collapsed.append($header);
-
-            // Add header image if available
-            if (atlasData.headerImage) {
-                const $headerImage = $('<img>', {
-                    src: atlasData.headerImage,
-                    alt: atlasData.name || atlasId,
-                    class: 'atlas-header-image',
-                    error: function () {
-                        // Hide image if it fails to load
-                        $(this).hide();
-                    }
-                });
-                $collapsed.append($headerImage);
-            }
 
             const $layersContainer = $('<div>', {
                 class: 'atlas-collapsed-layers'
@@ -2257,6 +2437,32 @@
             updateGroupEyes();
         }
 
+        // Switch context to a new atlas: hide the previous atlas's currently-visible
+        // layers and show the new atlas's initiallyChecked layers. Layers that should
+        // stay on for the new atlas are left untouched to avoid needless toggling.
+        function switchAtlasContext(previousAtlasId, newAtlasId) {
+            const newDefaults = new Set(newAtlasId ? (atlasInitiallyChecked.get(newAtlasId) || []) : []);
+
+            if (previousAtlasId) {
+                const prevRefs = atlasLayerReferences.get(previousAtlasId) || [];
+                prevRefs.forEach(id => {
+                    if (activeLayers.has(id) && !newDefaults.has(id)) {
+                        toggleLayer(id);
+                    }
+                });
+                // Drop any stashed visibility so the old context doesn't bleed back in
+                atlasVisibilityStash.delete(previousAtlasId);
+            }
+
+            newDefaults.forEach(id => {
+                if (!activeLayers.has(id)) {
+                    toggleLayer(id);
+                }
+            });
+
+            updateGroupEyes();
+        }
+
         // Toggle visibility for an entire atlas without ever turning every layer on at once.
         // - Nothing visible: restore the previously-visible set if stashed, else show only
         //   initiallyChecked layers (avoids enabling an unexpectedly large set of layers).
@@ -2288,7 +2494,7 @@
             $('[data-group-layers]').each(function () {
                 const ids = ($(this).attr('data-group-layers') || '').split(',').filter(Boolean);
                 const state = groupEyeState(ids.map(id => ({ id })));
-                setEyeState($(this).children('.layer-eye-toggle').first(), state);
+                setEyeState($(this).find('.layer-eye-toggle').first(), state);
                 $(this).toggleClass('has-active-children', state !== 'eye-off');
             });
         }

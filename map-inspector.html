@@ -134,6 +134,16 @@
             font-weight: 600;
             color: white;
             flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .atlas-badge img {
+            height: 10px;
+            width: auto;
+            display: block;
+            flex-shrink: 0;
         }
 
         .info-button {
@@ -1498,11 +1508,14 @@
             if (atlasMetadata.name) {
                 const $badge = $('<span>', {
                     class: 'atlas-badge',
-                    text: atlasMetadata.name,
                     css: {
                         backgroundColor: atlasMetadata.color || '#2563eb'
                     }
                 });
+                if (atlasMetadata.icon) {
+                    $('<img>', { src: atlasMetadata.icon, alt: '' }).appendTo($badge);
+                }
+                $('<span>', { text: atlasMetadata.name }).appendTo($badge);
                 $headerRow.append($badge);
             }
 
@@ -2080,11 +2093,14 @@
             if (atlasMetadata.name) {
                 const $badge = $('<span>', {
                     class: 'atlas-badge',
-                    text: atlasMetadata.name,
                     css: {
                         backgroundColor: atlasMetadata.color || '#2563eb'
                     }
                 });
+                if (atlasMetadata.icon) {
+                    $('<img>', { src: atlasMetadata.icon, alt: '' }).appendTo($badge);
+                }
+                $('<span>', { text: atlasMetadata.name }).appendTo($badge);
                 $header.append($badge);
             }
 

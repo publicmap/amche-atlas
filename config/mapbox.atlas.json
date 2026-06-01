@@ -1,6 +1,7 @@
 {
   "name": "Mapbox",
   "headerImage": "assets/map-layers/mapbox/map-layer-mapbox-streets.png",
+  "icon": "https://upload.wikimedia.org/wikipedia/commons/1/1f/Mapbox_logo_2019.svg",
   "areaOfInterest": "Global",
   "description": "Global vector basemaps from Mapbox.com",
   "version": "0.1.0",

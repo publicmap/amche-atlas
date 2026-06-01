@@ -89,6 +89,7 @@ export class LayerRegistry {
                     bbox: this._extractBbox(config),
                     geojson: config.geojson || null,
                     tags: config.tags || [],
+                    icon: config.icon || null,
                     headerImage: config.headerImage || null,
                     // Atlas-level style/inspect defaults cascaded to every layer in this atlas
                     // (see _resolveLayer). `stylePresets` is a named-preset dictionary that layers
@@ -257,6 +258,7 @@ export class LayerRegistry {
             ...metadata,
             geojson: metadata.geojson || (config && config.geojson) || null,
             tags: metadata.tags || (config && config.tags) || [],
+            icon: metadata.icon || (config && config.icon) || null,
             headerImage: metadata.headerImage || (config && config.headerImage) || null,
             style: metadata.style || (config && config.style) || null,
             inspect: metadata.inspect || (config && config.inspect) || null,
@@ -472,8 +474,8 @@ export class LayerRegistry {
     }
 
     /**
-     * Resolve a layer (cascade atlas-level headerImage / style / inspect / stylePresets,
-     * but NOT tags) onto the layer config.
+     * Resolve a layer (cascade atlas-level style / inspect / stylePresets,
+     * but NOT headerImage or tags) onto the layer config.
      *
      * Cascade order for `style` and `inspect` (later wins; all shallow-merged):
      *   1. Atlas-level `style` / `inspect` (applied to every layer in the atlas)
@@ -501,10 +503,8 @@ export class LayerRegistry {
         // They are displayed as badges in the atlas header only
         // Layers only use explicitly defined tags
 
-        // Cascade atlas headerImage to layers if they don't have one
-        if (isCompleteDefinition && atlasMetadata.headerImage && !resolvedLayer.headerImage) {
-            resolvedLayer.headerImage = atlasMetadata.headerImage;
-        }
+        // Note: Atlas-level headerImage is NOT cascaded to layers
+        // Layers only use their own explicitly defined headerImage
 
         if (isCompleteDefinition) {
             // Resolve named style preset, if any
@@ -546,7 +546,7 @@ export class LayerRegistry {
     }
 
     /**
-     * Apply the atlas-level cascade (headerImage, style, inspect, stylePresets)
+     * Apply the atlas-level cascade (style, inspect, stylePresets)
      * to a layer config. Used by map-init for fully-defined layers loaded
      * directly from the active atlas, which don't pass through getLayer().
      * The bare-reference path (id-only layers) already gets the cascade via
