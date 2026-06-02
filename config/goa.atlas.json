@@ -54,79 +54,6 @@
   "layers": [
     {
       "tags": [
-        "disaster",
-        "live"
-      ],
-      "title": "Live Fire Trucks",
-      "description": "Live locations of fire trucks from the Directorate of Fire Emergency Services. Location updated every 5 minutes from <a href='https://github.com/publicmap/goa-fire-trucks-geojson/'>Goa Fire Trucks API</a>.",
-      "type": "geojson",
-      "id": "firetrucks",
-      "url": "https://raw.githubusercontent.com/publicmap/goa-fire-trucks-geojson/refs/heads/data/data/goa-fire-trucks.geojson",
-      "refresh": 30000,
-      "attribution": "<a href='https://dfes.goa.gov.in/dashboard/'>Directorate of Fire & Emergency Services, Govt. of Goa</a>",
-      "style": {
-        "circle-radius": 6,
-        "circle-color": [
-          "match",
-          [
-            "get",
-            "Status"
-          ],
-          "RUNNING",
-          "green",
-          "IDLE",
-          "yellow",
-          "STOP",
-          "red",
-          "INACTIVE",
-          "grey",
-          "black"
-        ],
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#ffffff",
-        "text-font": [
-          "Open Sans Regular"
-        ],
-        "text-field": [
-          "step",
-          [
-            "zoom"
-          ],
-          "",
-          7,
-          [
-            "to-string",
-            [
-              "get",
-              "POI"
-            ]
-          ]
-        ]
-      },
-      "inspect": {
-        "id": "Vehicle_No",
-        "title": "Current Location",
-        "label": "Location",
-        "fields": [
-          "Status",
-          "Vehicle_No",
-          "Branch",
-          "POI",
-          "Speed",
-          "Datetime"
-        ],
-        "fieldTitles": [
-          "Status",
-          "Vehicle No",
-          "Station",
-          "Location",
-          "Speed",
-          "Last Updated"
-        ]
-      }
-    },
-    {
-      "tags": [
         "amenity"
       ],
       "title": "Schools",
@@ -235,7 +162,7 @@
     },
     {
       "tags": [
-        "3.Regulatory",
+        "6.Regulatory",
         "slope"
       ],
       "id": "slope",
@@ -536,7 +463,7 @@
     },
     {
       "tags": [
-        "3.Regulatory",
+        "6.Regulatory",
         "slope"
       ],
       "title": "Plots with No Development Slopes",
@@ -728,7 +655,7 @@
     },
     {
       "tags": [
-        "3.regulatory"
+        "6.Regulatory"
       ],
       "id": "39a-landuse-change",
       "title": "Landuse Zone Changes (Under Section 39A)",
@@ -963,7 +890,7 @@
     },
     {
       "tags": [
-        "3.Regulatory"
+        "6.Regulatory"
       ],
       "id": "bhunaksha-communidade",
       "title": "Communidade Lands (Bhunaksha)",
@@ -1006,7 +933,7 @@
     },
     {
       "tags": [
-        "3.Regulatory"
+        "6.Regulatory"
       ],
       "id": "bhunaksha-government",
       "title": "Government Lands (Bhunaksha)",
@@ -1030,7 +957,7 @@
     },
     {
       "tags": [
-        "3.Regulatory"
+        "6.Regulatory"
       ],
       "id": "bhunaksha-tenanted",
       "title": "Tenanted Lands (Bhunaksha)",
@@ -1054,7 +981,7 @@
     },
     {
       "tags": [
-        "3.Regulatory"
+        "6.Regulatory"
       ],
       "id": "communidade-plots",
       "title": "Communidade Land",
@@ -1076,7 +1003,7 @@
     },
     {
       "tags": [
-        "3.Regulatory"
+        "6.Regulatory"
       ],
       "title": "Notified Private Forests",
       "description": "Private forests identified by Thomas and Arujao expert committees",
@@ -1104,7 +1031,7 @@
     },
     {
       "tags": [
-        "3.Regulatory",
+        "6.Regulatory",
         "wetland"
       ],
       "title": "Notified Wetlands",
@@ -1117,7 +1044,7 @@
     },
     {
       "tags": [
-        "3.Regulatory",
+        "6.Regulatory",
         "wetland"
       ],
       "id": "notified-wetland-plots",
@@ -1288,8 +1215,8 @@
     },
     {
       "tags": [
-        "3.Regulatory",
-        "coastal Zone"
+        "3.Coastal Zone Plans",
+        "CZMP 2019 (Draft)"
       ],
       "title": "Bund Sluice Gates",
       "description": "Sluice gates for notified bunds existing before 1991 from Goa CZMP. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a>",
@@ -1331,8 +1258,8 @@
     },
     {
       "tags": [
-        "3.Regulatory",
-        "coastal zone"
+        "3.Coastal Zone Plans",
+        "Community Plan"
       ],
       "title": "Aldona Community CZMP",
       "description": "Prepared by Diana, Aldona Village.",
@@ -1363,8 +1290,8 @@
     },
     {
       "tags": [
-        "3.Regulatory",
-        "coastal zone"
+        "3.Coastal Zone Plans",
+        "CZMP 2019 (Draft)"
       ],
       "title": "Draft Goa CZMP 2019 Khazan Bunds",
       "description": "Khazan bunds priort to 1991 from Goa WRD. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a>",
@@ -1444,8 +1371,7 @@
     },
     {
       "tags": [
-        "3.Regulatory",
-        "coastal zone"
+        "3.Coastal Zone Plans"
       ],
       "title": "Tidal hazard Lines",
       "description": "Coastal lines demarcating the high tide line (HTL), low tide line (LTL) and composite hazard line. The primary purpose of the composite hazard line is to identify hazard zones along the coastline that reflects a potential danger and risk to people and their property. The hazard line is part of <a href='https://en.wikipedia.org/wiki/Integrated_coastal_zone_management'>Integrated coastal zone management</a> and is required per <a href='https://mczma.gov.in/sites/default/files/MoEF%20CZMP%20Guidelines%20OM%2026-6-2019.pdf'>required for CZMP 2019 maps</a>. This hazard line been prepared for the coastlines of India by <a href='https://surveyofindia.gov.in/documents/integrated-coastal-hazard-zone-mapping.pdf'>Survey of India</a> as a 0.5 meter contour line extending upto 7km inland at 1:10k scale to be used in CZMP 2019 maps. The line is an estimation of the highest tide level forecasted over the next 100 years. See <a href='https://moef.gov.in/uploads/2019/10/Climate-Change-and-the-Vulnerable-Indian-Coast_compressed.pdf'>Hazard line for the coast of India and its implications in coastal management (pg.29), MoEFCC</a> for the methods of delianation of the hazard line. This includes collection and presentation of data, identifying flood lines over the last 40 years (which includes sea level rise impacts), and a prediction of erosion to take place over the next 100 years and digital photogrammetric processing of high resolution Aerial photography data.",
@@ -1556,8 +1482,8 @@
     },
     {
       "tags": [
-        "3.Regulatory",
-        "coastal zone"
+        "3.Coastal Zone Plans",
+        "CZMP 2019 (Draft)"
       ],
       "id": "2019-czmp-khazan",
       "title": "Draft Goa CZMP 2019 Khazan Lands",
@@ -1600,7 +1526,7 @@
     },
     {
       "tags": [
-        "3.Regulatory",
+        "6.Regulatory",
         "mining"
       ],
       "title": "Mining lease auction blocks",
@@ -2271,7 +2197,7 @@
     },
     {
       "tags": [
-        "3.Regulatory"
+        "6.Regulatory"
       ],
       "title": "Portuguese Goa Map of Mining Concessions",
       "description": "Carta das concessos mineira do distrito do Goa showing all the Portuguese era mining leases in Goa.<br> Obtained via RTI by Goa Foundation. See <a href='https://www.scribd.com/document/64058213/maps-goa'>Goa Foundation</a> for more details.",
@@ -2825,8 +2751,8 @@
     },
     {
       "tags": [
-        "3.Regulatory",
-        "coastal zone"
+        "3.Coastal Zone Plans",
+        "CZMP 2019 (Draft)"
       ],
       "title": "Draft Goa CZMP 2019 Coastal Landuse Map (1:25K)",
       "headerImage": "assets/map-layers/goa/czmp.jpg",
@@ -2856,8 +2782,8 @@
     },
     {
       "tags": [
-        "3.Regulatory",
-        "coastal zone"
+        "3.Coastal Zone Plans",
+        "CZMP 2019 (Draft)"
       ],
       "title": "Draft Goa CZMP 2019 (1:4K)",
       "headerImage": "assets/map-layers/goa/czmp.jpg",
@@ -2887,10 +2813,9 @@
     },
     {
       "tags": [
-        "3.Regulatory",
-        "coastal zone"
+        "3.Coastal Zone Plans"
       ],
-      "title": "Goa CZMP 2011",
+      "title": "Notified Goa CZMP 2011",
       "description": "Coastal Zone Management Plan 2011. Plotwise details of structures existing between 1991-2006 within the CRZ is available in <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>this report</a>.",
       "headerImage": "assets/map-layers/goa/czmp.jpg",
       "legendImage": "assets/map-layers/goa/2011-czmp-legend.png",
@@ -2903,7 +2828,7 @@
       "tags": [
         "2.Development Plans"
       ],
-      "title": "Regional Development Plan for Goa 2021",
+      "title": "1.Regional Development Plan for Goa 2021",
       "description": "Regional landuse plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
       "headerImage": "https://mapwarper.net/uploads/74193/thumb/siolim-marna.png",
       "legendImage": "assets/map-layers/goa/legend-rdp.jpg",

@@ -190,7 +190,10 @@
 
         .atlas-hero-inner {
             position: relative;
-            z-index: 1;
+            /* Above the layer-list rows (which use z-index:1 for header-image
+               content, and z-index:10 on preview-layer hover) so the hoisted
+               atlas-switcher dropdown isn't painted over by the list below. */
+            z-index: 30;
             padding: 14px 14px 13px;
         }
 
@@ -405,6 +408,16 @@
             margin-left: auto;
         }
 
+        /* Filter row moved into the hero: visibility toggle + search, sitting
+           below the meta row so it reads as part of the selected-atlas header */
+        .atlas-hero-filter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            margin-top: 13px;
+        }
+
         .filter-section {
             background: #1f2937;
             color: white;
@@ -430,11 +443,7 @@
                 gap: 8px !important;
             }
 
-            .search-section {
-                padding: 8px !important;
-            }
-
-            .search-section .flex {
+            .atlas-hero-filter {
                 gap: 4px !important;
             }
         }
@@ -1215,20 +1224,16 @@
         <!-- Selected Atlas Header (dynamically rendered from the active atlas) -->
         <div class="explorer-header" id="explorer-header">
             <div id="atlas-hero"></div>
-            <!-- Kept in the DOM for atlas-switching logic; the visible switcher is
-                 the per-atlas [Select] buttons in the list below. -->
-            <select id="atlas-select" aria-label="Select atlas" style="display: none;"></select>
-        </div>
-
-        <!-- Search Section -->
-        <div class="search-section" style="background: #1f2937; padding: 10px 12px; border-bottom: 1px solid #374151;">
-            <!-- Search Row -->
-            <div class="flex items-center gap-2" style="min-width: 0;">
-                <!-- Visibility Filter Toggle (off = all, on = visible only) -->
+            <!-- Layer filter row (visibility toggle + name search). Lives here as a
+                 persistent element so its event handlers survive, and is moved into
+                 the atlas hero by renderExplorerHeader so it reads as part of the
+                 selected-atlas header. -->
+            <div id="layer-filter-row" class="atlas-hero-filter">
+                <!-- Visibility Filter Toggle (off = all maps, on = visible maps only) -->
                 <button id="visibility-filter" class="vis-filter-toggle" type="button"
                     title="Show visible maps only" aria-pressed="false">
                     <sl-icon name="eye"></sl-icon>
-                    <span>Visible</span>
+                    <span>All</span>
                 </button>
                 <!-- Search Input -->
                 <div class="relative flex-1 min-w-0">
@@ -1244,7 +1249,9 @@
                     </button>
                 </div>
             </div>
-
+            <!-- Kept in the DOM for atlas-switching logic; the visible switcher is
+                 the per-atlas [Select] buttons in the list below. -->
+            <select id="atlas-select" aria-label="Select atlas" style="display: none;"></select>
         </div>
 
         <!-- Results Section -->
@@ -1395,6 +1402,7 @@
                 if (event.data.type === 'active-layers-update') {
                     activeLayers = new Set(event.data.activeLayers || []);
                     updateActiveStates();
+                    updateResetToggleButton();
                 }
 
                 if (event.data.type === 'layer-loaded') {
@@ -1605,6 +1613,7 @@
                 visibilityFilter = visibilityFilter === 'visible' ? 'all' : 'visible';
                 const isOn = visibilityFilter === 'visible';
                 $(this).toggleClass('active', isOn).attr('aria-pressed', isOn);
+                $(this).find('span').text(isOn ? 'Visible Only' : 'All');
                 showMoreNodes.clear();
                 renderLayers();
             });
@@ -1721,6 +1730,64 @@
             if (url && /^https?:\/\//i.test(url)) return url;
             if (/^https?:\/\//i.test(atlasId)) return atlasId;
             return `https://raw.githubusercontent.com/publicmap/amche-atlas/refs/heads/dev/config/${atlasId}.atlas.json`;
+        }
+
+        // Default visible layers for an atlas: its own initiallyChecked layers,
+        // followed by the index atlas's initiallyChecked layers (common base layers
+        // like selection / admin lines / satellite), de-duplicated and atlas-first.
+        // Mirrors the initial-load merge in map-init.js so Reset View restores the
+        // same set the page shows on first load of ?atlas=<id>. IDs are the resolved
+        // (atlas-prefixed) ids sent by the parent; callers normalize as needed.
+        function getAtlasDefaultLayers(atlasId) {
+            const atlasLayers = atlasInitiallyChecked.get(atlasId) || [];
+            const indexLayers = atlasInitiallyChecked.get('index') || [];
+            if (atlasId === 'index') return [...indexLayers];
+            return [...atlasLayers, ...indexLayers.filter(id => !atlasLayers.includes(id))];
+        }
+
+        // Currently selected atlas, falling back to the index atlas.
+        function getEffectiveAtlasId() {
+            const id = window.selectedAtlasId;
+            return (id && atlasMetadata.has(id)) ? id : 'index';
+        }
+
+        // Strip a known-atlas prefix from a layer id (goa-local-body -> local-body),
+        // so prefixed and unprefixed forms of the same layer compare equal.
+        function baseLayerId(id) {
+            const prefix = id.split('-')[0];
+            return atlasMetadata.has(prefix) ? id.slice(prefix.length + 1) : id;
+        }
+
+        // Base ids of the layers the hide-all / show-default toggle acts on: the
+        // selected atlas's own layers, excluding the index atlas's base layers
+        // (selection / admin lines / satellite) so those are never touched. When
+        // the index atlas itself is selected, its layers are the scope.
+        function getAtlasToggleScope(atlasId) {
+            const atlasBase = new Set((atlasLayerReferences.get(atlasId) || []).map(baseLayerId));
+            if (atlasId === 'index') return atlasBase;
+            const indexBase = new Set((atlasLayerReferences.get('index') || []).map(baseLayerId));
+            indexBase.forEach(b => atlasBase.delete(b));
+            return atlasBase;
+        }
+
+        // Sync the reset/visibility toggle button to the current state. State is
+        // scoped to the selected atlas's own layers (index base layers excluded):
+        // when any of them is visible it offers "Hide all maps"; otherwise it
+        // offers "Show default maps". Safe to call whenever activeLayers changes.
+        function updateResetToggleButton() {
+            const $btn = $('#reset-toggle-btn');
+            if (!$btn.length) return;
+            const scope = getAtlasToggleScope(getEffectiveAtlasId());
+            const anyVisible = Array.from(activeLayers).some(id => scope.has(baseLayerId(id)));
+            if (anyVisible) {
+                $btn.attr('data-mode', 'hide')
+                    .attr('title', 'Hide all maps from this atlas')
+                    .html('<sl-icon name="eye-slash"></sl-icon><span>Hide all maps</span>');
+            } else {
+                $btn.attr('data-mode', 'show')
+                    .attr('title', 'Show the default maps for this atlas')
+                    .html('<sl-icon name="arrow-counterclockwise"></sl-icon><span>Show default maps</span>');
+            }
         }
 
         // Count of distinct map layers an atlas references.
@@ -1867,34 +1934,65 @@
             // doubles as the config link (right).
             const $meta = $('<div>', { class: 'atlas-hero-meta' });
 
-            // Reset View — restores the atlas's initially-checked layers and its
-            // configured map position.
+            // Reset/visibility toggle — flips between hiding all of this atlas's
+            // maps and restoring its default maps. Scoped to the selected atlas's
+            // own layers: the index atlas's base layers (selection / admin lines /
+            // satellite) are never toggled. The label is kept in sync by
+            // updateResetToggleButton().
             const $reset = $('<button>', {
+                id: 'reset-toggle-btn',
                 class: 'atlas-hero-action',
-                type: 'button',
-                title: 'Reset to the initial layers and map view',
-                html: '<sl-icon name="arrow-counterclockwise"></sl-icon><span>Reset View</span>'
+                type: 'button'
             });
             $reset.on('click', function (e) {
                 e.stopPropagation();
-                const defaultLayers = (atlasInitiallyChecked.get(effectiveId) || []);
-                const defaultSet = new Set(defaultLayers);
-                Array.from(activeLayers).forEach(id => {
-                    if (!defaultSet.has(id)) {
-                        window.parent.postMessage({ type: 'layer-toggle', layerId: id, active: false }, '*');
-                    }
-                });
-                defaultLayers.forEach(id => {
-                    if (!activeLayers.has(id)) {
-                        window.parent.postMessage({ type: 'layer-toggle', layerId: id, active: true }, '*');
-                    }
-                });
-                $('.atlas-hero-action.zoom-active').removeClass('zoom-active');
-                window.parent.postMessage({
-                    type: 'reset-view',
-                    map: atlasData.map || null,
-                    bounds: atlasData.bbox || null
-                }, '*');
+                // Limit the operation to this atlas's own layers (index excluded).
+                // activeLayers can hold both an unprefixed id (local-body) and its
+                // atlas-prefixed form (goa-local-body) for the same layer, so the
+                // diff is done on a normalized base id to avoid acting on a layer
+                // twice via its duplicate prefixed entry.
+                const scope = getAtlasToggleScope(effectiveId);
+                const inScope = (id) => scope.has(baseLayerId(id));
+
+                if ($reset.attr('data-mode') === 'hide') {
+                    // Hide all maps — turn off this atlas's currently visible layers.
+                    const handledOff = new Set();
+                    Array.from(activeLayers).forEach(id => {
+                        const base = baseLayerId(id);
+                        if (inScope(id) && !handledOff.has(base)) {
+                            handledOff.add(base);
+                            window.parent.postMessage({ type: 'layer-toggle', layerId: id, active: false }, '*');
+                            activeLayers.delete(id);
+                        }
+                    });
+                } else {
+                    // Show default maps — restore this atlas's initiallyChecked layers
+                    // (index base layers are left as they are).
+                    const defaultLayers = (atlasInitiallyChecked.get(effectiveId) || [])
+                        .filter(inScope);
+                    const defaultBaseSet = new Set(defaultLayers.map(baseLayerId));
+                    const activeBaseSet = new Set(Array.from(activeLayers).map(baseLayerId));
+
+                    // Turn off this atlas's active non-default layers (once per base id).
+                    const handledOff = new Set();
+                    Array.from(activeLayers).forEach(id => {
+                        const base = baseLayerId(id);
+                        if (inScope(id) && !defaultBaseSet.has(base) && !handledOff.has(base)) {
+                            handledOff.add(base);
+                            window.parent.postMessage({ type: 'layer-toggle', layerId: id, active: false }, '*');
+                            activeLayers.delete(id);
+                        }
+                    });
+                    // Turn on defaults that aren't already active in either form.
+                    defaultLayers.forEach(id => {
+                        if (!activeBaseSet.has(baseLayerId(id))) {
+                            window.parent.postMessage({ type: 'layer-toggle', layerId: id, active: true }, '*');
+                            activeLayers.add(id);
+                        }
+                    });
+                }
+                updateResetToggleButton();
+                updateActiveStates();
             });
             $meta.append($reset);
 
@@ -1911,7 +2009,7 @@
                     e.stopPropagation();
                     const turningOn = !$zoom.hasClass('zoom-active');
                     if (turningOn) {
-                        const defaultLayers = (atlasInitiallyChecked.get(effectiveId) || []);
+                        const defaultLayers = getAtlasDefaultLayers(effectiveId);
                         defaultLayers.forEach(id => {
                             if (!activeLayers.has(id)) {
                                 window.parent.postMessage({ type: 'layer-toggle', layerId: id, active: true }, '*');
@@ -1965,8 +2063,16 @@
 
             $inner.append($meta);
 
+            // Move the persistent layer filter row (visibility toggle + search) into
+            // the hero. detach() preserves its event handlers across re-renders.
+            const $filterRow = $('#layer-filter-row').detach();
+            if ($filterRow.length) $inner.append($filterRow);
+
             $hero.append($inner);
             $host.empty().append($hero);
+
+            // Set the reset/visibility toggle label for the current state.
+            updateResetToggleButton();
         }
 
         // Check if layer is a global/world layer
@@ -2890,10 +2996,11 @@
         }
 
         // Switch context to a new atlas: hide the previous atlas's currently-visible
-        // layers and show the new atlas's initiallyChecked layers. Layers that should
-        // stay on for the new atlas are left untouched to avoid needless toggling.
+        // layers and show the new atlas's default layers (its own initiallyChecked
+        // layers plus the index atlas's common base layers). Layers that should stay
+        // on for the new atlas are left untouched to avoid needless toggling.
         function switchAtlasContext(previousAtlasId, newAtlasId) {
-            const newDefaults = new Set(newAtlasId ? (atlasInitiallyChecked.get(newAtlasId) || []) : []);
+            const newDefaults = new Set(newAtlasId ? getAtlasDefaultLayers(newAtlasId) : []);
 
             if (previousAtlasId) {
                 const prevRefs = atlasLayerReferences.get(previousAtlasId) || [];
