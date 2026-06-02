@@ -1,6 +1,7 @@
 {
   "name": "Goa",
   "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/BeachFun.jpg/330px-BeachFun.jpg",
+  "attribution": "Header image: <a href='https://commons.wikimedia.org/wiki/File:BeachFun.jpg'>BeachFun</a> via Wikimedia Commons.",
   "areaOfInterest": "Goa, India",
   "description": "Atlas of Goa curated by the <a href='https://github.com/publicmap/amche-atlas/issues'>Amche Atlas community</a> ",
   "version": "0.1.0",
@@ -1288,7 +1289,7 @@
     {
       "tags": [
         "3.Regulatory",
-        "Coastal Zone"
+        "coastal Zone"
       ],
       "title": "Bund Sluice Gates",
       "description": "Sluice gates for notified bunds existing before 1991 from Goa CZMP. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a>",

@@ -262,6 +262,10 @@ export class MapBrowserControl {
                 this._handleZoomToBounds(event.data.bounds, event.data.toggle);
             }
 
+            if (event.data.type === 'reset-view') {
+                this._handleResetView(event.data.map, event.data.bounds);
+            }
+
             if (event.data.type === 'zoom-to-layer') {
                 console.log('[MapBrowserControl] Received zoom-to-layer message for:', event.data.layerId);
                 this._handleZoomToLayer(event.data.layerId);
@@ -813,6 +817,30 @@ export class MapBrowserControl {
             maxZoom: 16,
             duration: 1000
         });
+    }
+
+    // Reset the map camera to an atlas's initial view. Prefers the atlas's
+    // configured map center/zoom; falls back to fitting its bbox.
+    _handleResetView(mapConfig, bounds) {
+        if (!this._map) return;
+
+        // A reset invalidates any pending zoom-toggle "return to" state.
+        this._zoomToggle = null;
+
+        if (mapConfig && Array.isArray(mapConfig.center)) {
+            this._map.flyTo({
+                center: mapConfig.center,
+                zoom: mapConfig.zoom != null ? mapConfig.zoom : this._map.getZoom(),
+                bearing: mapConfig.bearing || 0,
+                pitch: mapConfig.pitch || 0,
+                duration: 1000
+            });
+            return;
+        }
+
+        if (bounds) {
+            this._handleZoomToBounds(bounds, false);
+        }
     }
 
     _handleZoomToLayer(layerId) {

@@ -194,17 +194,30 @@
             padding: 14px 14px 13px;
         }
 
-        /* Top-right hero controls: attribution (i) + close (x) */
-        .atlas-hero-controls {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            z-index: 3;
-            display: flex;
+        /* Inline attribution (i) shown after the description */
+        .atlas-hero-attr-btn {
+            display: inline-flex;
             align-items: center;
-            gap: 6px;
+            justify-content: center;
+            vertical-align: middle;
+            margin-left: 5px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: #93c5fd;
+            cursor: pointer;
+            padding: 0;
+            font-size: 13px;
+            transition: color 0.15s;
         }
 
+        .atlas-hero-attr-btn:hover {
+            color: #bfdbfe;
+        }
+
+        /* Close (x) control, aligned with the atlas title dropdown in the title row */
         .atlas-hero-ctrl-btn {
             width: 26px;
             height: 26px;
@@ -257,7 +270,6 @@
             align-items: center;
             gap: 10px;
             min-width: 0;
-            padding-right: 60px;
         }
 
         /* The title doubles as an atlas-switcher dropdown trigger */
@@ -272,18 +284,19 @@
             gap: 10px;
             width: 100%;
             min-width: 0;
-            background: transparent;
-            border: none;
-            padding: 2px 4px 2px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            padding: 6px 10px;
             margin: 0;
             cursor: pointer;
             border-radius: 6px;
             text-align: left;
-            transition: background 0.15s;
+            transition: background 0.15s, border-color 0.15s;
         }
 
         .atlas-hero-title-btn:hover {
-            background: rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.5);
         }
 
         .atlas-hero-title-chevron {
@@ -354,33 +367,8 @@
             margin-top: 13px;
         }
 
-        .atlas-hero-count {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 12px;
-            font-weight: 500;
-            color: #cbd5e1;
-            white-space: nowrap;
-            background: transparent;
-            border: none;
-            padding: 0;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: color 0.15s;
-        }
-
-        .atlas-hero-count:hover {
-            color: #fff;
-            text-decoration: underline;
-        }
-
-        .atlas-hero-count sl-icon {
-            font-size: 14px;
-            color: #9ca3af;
-        }
-
-        /* Shared neutral outline style for hero action buttons (Zoom, Config) */
+        /* Borderless text-style hero action buttons (Reset View, Zoom, Config). The dropdown
+           title carries the only outline so it reads as the primary control. */
         .atlas-hero-action {
             display: inline-flex;
             align-items: center;
@@ -389,26 +377,24 @@
             font-size: 11px;
             font-weight: 600;
             text-decoration: none;
-            padding: 5px 10px;
+            padding: 5px 8px;
             border-radius: 5px;
-            border: 1px solid rgba(255, 255, 255, 0.16);
+            border: none;
             background: transparent;
             cursor: pointer;
-            transition: color 0.15s, background 0.15s, border-color 0.15s;
+            transition: color 0.15s, background 0.15s;
             white-space: nowrap;
         }
 
         .atlas-hero-action:hover {
             color: #fff;
             background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.35);
         }
 
         /* Active (toggled-on) zoom state */
         .atlas-hero-action.zoom-active {
             color: #fff;
             background: rgba(255, 255, 255, 0.14);
-            border-color: rgba(255, 255, 255, 0.45);
         }
 
         .atlas-hero-action sl-icon {
@@ -555,6 +541,61 @@
             padding: 12px 12px 8px;
             background: #111827;
             text-transform: capitalize;
+        }
+
+        /* Section separators in the results list (Nearby Maps / World Maps / Other Atlases) */
+        .browser-section-header {
+            font-size: 11px;
+            font-weight: 600;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 14px 12px 6px;
+            background: #111827;
+            border-top: 1px solid #374151;
+        }
+
+        .browser-section-header.collapsible {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            border-left: none;
+            border-right: none;
+            border-bottom: none;
+            cursor: pointer;
+            text-align: left;
+            transition: color 0.15s;
+        }
+
+        .browser-section-header.collapsible:hover {
+            color: #f3f4f6;
+        }
+
+        .browser-section-header .sect-chevron {
+            font-size: 9px;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+
+        .browser-section-header.collapsible.expanded .sect-chevron {
+            transform: rotate(90deg);
+        }
+
+        .browser-section-header .sect-count {
+            background: #374151;
+            color: #d1d5db;
+            border-radius: 3px;
+            padding: 1px 6px;
+            font-size: 10px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* Selected-atlas layer list shown directly under the filter, no atlas header */
+        .selected-atlas-layers {
+            background: #1f2937;
+            border-bottom: 1px solid black;
         }
 
         .atlas-collapsed {
@@ -1283,6 +1324,7 @@
         let expandedTreeNodes = new Map(); // Track expanded tree nodes per atlas
         let showMoreNodes = new Map(); // Track which nodes should show hidden non-matching layers
         let visibilityFilter = 'all'; // Filter layers by visibility: 'all' | 'visible' | 'hidden'
+        let otherAtlasesExpanded = false; // Collapsed "Other Atlases" (out-of-view) section state
 
         // Make LayerThumbnail available globally for use in functions
         window.LayerThumbnail = LayerThumbnail;
@@ -1670,9 +1712,14 @@
         }
 
         // Resolve the raw config URL for an atlas (null for imported atlases that
-        // have no backing file in the repo).
+        // have no backing file in the repo). External/cross-repo atlases store the
+        // absolute source URL the config was fetched from in metadata.url — use that
+        // directly instead of assuming a file under the publicmap repo.
         function getAtlasConfigUrl(atlasId, atlasData) {
             if (!atlasId || (atlasData && atlasData.isImported)) return null;
+            const url = atlasData && atlasData.url;
+            if (url && /^https?:\/\//i.test(url)) return url;
+            if (/^https?:\/\//i.test(atlasId)) return atlasId;
             return `https://raw.githubusercontent.com/publicmap/amche-atlas/refs/heads/dev/config/${atlasId}.atlas.json`;
         }
 
@@ -1701,8 +1748,9 @@
         }
 
         // Build the rich header for the currently selected atlas: an atlas-switcher
-        // title dropdown, HTML description, clickable layer count (scrolls the list),
-        // a Zoom toggle, a config link, plus header-image attribution + close controls.
+        // title dropdown with an inline close button, an HTML description with a
+        // clickable (i) that reveals the atlas attribution, a Reset View button,
+        // a Zoom toggle, and a config link that doubles as the layer count.
         function renderExplorerHeader(atlasId) {
             const $host = $('#atlas-hero');
             if (!$host.length) return;
@@ -1718,38 +1766,11 @@
                     (atlasData.headerImage ? ` background-image: url("${atlasData.headerImage}");` : '')
             });
 
-            // Top-right controls: attribution (i) (only with an image + attribution)
-            // and a close button that toggles the browser panel off.
-            const $controls = $('<div>', { class: 'atlas-hero-controls' });
-            if (atlasData.headerImage && atlasData.attribution) {
-                const $attrBtn = $('<button>', {
-                    class: 'atlas-hero-ctrl-btn',
-                    type: 'button',
-                    title: 'Image attribution',
-                    html: '<sl-icon name="info-lg"></sl-icon>'
-                });
-                $attrBtn.on('click', function (e) {
-                    e.stopPropagation();
-                    $hero.find('.atlas-hero-attribution').toggle();
-                });
-                $controls.append($attrBtn);
-            }
-            const $closeBtn = $('<button>', {
-                class: 'atlas-hero-ctrl-btn close',
-                type: 'button',
-                title: 'Close',
-                html: '<sl-icon name="x-lg"></sl-icon>'
-            });
-            $closeBtn.on('click', function (e) {
-                e.stopPropagation();
-                window.parent.postMessage({ type: 'close-browser' }, '*');
-            });
-            $controls.append($closeBtn);
-            $hero.append($controls);
-
             const $inner = $('<div>', { class: 'atlas-hero-inner' });
 
-            // Title row: icon + name rendered as an atlas-switcher dropdown trigger
+            // Title row: icon + name rendered as an atlas-switcher dropdown trigger,
+            // with the close button sitting at the end so it lines up vertically
+            // with the dropdown.
             const $titleRow = $('<div>', { class: 'atlas-hero-title-row' });
 
             const $dropdown = $('<sl-dropdown>', {
@@ -1792,34 +1813,90 @@
             $dropdown.append($menu);
 
             $titleRow.append($dropdown);
+
+            // Close button — lives in the title row so it sits vertically centered
+            // against the atlas dropdown trigger.
+            const $closeBtn = $('<button>', {
+                class: 'atlas-hero-ctrl-btn close',
+                type: 'button',
+                title: 'Close',
+                html: '<sl-icon name="x-lg"></sl-icon>'
+            });
+            $closeBtn.on('click', function (e) {
+                e.stopPropagation();
+                window.parent.postMessage({ type: 'close-browser' }, '*');
+            });
+            $titleRow.append($closeBtn);
+
             $inner.append($titleRow);
 
-            // Description (rendered as HTML so embedded links work)
-            if (atlasData.description) {
-                const $desc = $('<div>', { class: 'atlas-hero-desc' }).html(atlasData.description);
-                $desc.find('a').attr({ target: '_blank', rel: 'noopener noreferrer' });
+            // Description (rendered as HTML so embedded links work). When the atlas
+            // carries an attribution, append a clickable (i) that toggles the
+            // attribution caption below.
+            if (atlasData.description || atlasData.attribution) {
+                const $desc = $('<div>', { class: 'atlas-hero-desc' });
+                if (atlasData.description) {
+                    $desc.html(atlasData.description);
+                    $desc.find('a').attr({ target: '_blank', rel: 'noopener noreferrer' });
+                }
+                if (atlasData.attribution) {
+                    const $attrBtn = $('<button>', {
+                        class: 'atlas-hero-attr-btn',
+                        type: 'button',
+                        title: 'Attribution & sources',
+                        html: '<sl-icon name="info-circle"></sl-icon>'
+                    });
+                    $attrBtn.on('click', function (e) {
+                        e.stopPropagation();
+                        $hero.find('.atlas-hero-attribution').toggle();
+                    });
+                    $desc.append($attrBtn);
+                }
                 $inner.append($desc);
             }
 
-            // Meta row: layer count (scrolls list) + zoom toggle + config link
+            // Attribution caption (hidden until the (i) button is clicked)
+            if (atlasData.attribution) {
+                const $attr = $('<div>', { class: 'atlas-hero-attribution', style: 'display: none;' })
+                    .html(atlasData.attribution);
+                $attr.find('a').attr({ target: '_blank', rel: 'noopener noreferrer' });
+                $inner.append($attr);
+            }
+
+            // Meta row: Reset View + Zoom toggle (left) and the layer count, which
+            // doubles as the config link (right).
             const $meta = $('<div>', { class: 'atlas-hero-meta' });
 
-            const $count = $('<button>', {
-                class: 'atlas-hero-count',
+            // Reset View — restores the atlas's initially-checked layers and its
+            // configured map position.
+            const $reset = $('<button>', {
+                class: 'atlas-hero-action',
                 type: 'button',
-                title: 'Scroll to these layers',
-                html: `<sl-icon name="stack"></sl-icon><span>${layerCount} map layer${layerCount === 1 ? '' : 's'}</span>`
+                title: 'Reset to the initial layers and map view',
+                html: '<sl-icon name="arrow-counterclockwise"></sl-icon><span>Reset View</span>'
             });
-            $count.on('click', function (e) {
+            $reset.on('click', function (e) {
                 e.stopPropagation();
-                expandedAtlasId = effectiveId;
-                userCollapsedAll = false;
-                renderLayers();
-                setTimeout(() => {
-                    document.getElementById(`atlas-${effectiveId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 100);
+                const defaultLayers = (atlasInitiallyChecked.get(effectiveId) || []);
+                const defaultSet = new Set(defaultLayers);
+                Array.from(activeLayers).forEach(id => {
+                    if (!defaultSet.has(id)) {
+                        window.parent.postMessage({ type: 'layer-toggle', layerId: id, active: false }, '*');
+                    }
+                });
+                defaultLayers.forEach(id => {
+                    if (!activeLayers.has(id)) {
+                        window.parent.postMessage({ type: 'layer-toggle', layerId: id, active: true }, '*');
+                    }
+                });
+                $('.atlas-hero-action.zoom-active').removeClass('zoom-active');
+                window.parent.postMessage({
+                    type: 'reset-view',
+                    map: atlasData.map || null,
+                    bounds: atlasData.bbox || null
+                }, '*');
             });
-            $meta.append($count);
+            $meta.append($reset);
 
             // Zoom button — toggles between the atlas bounds and the map view that
             // was active before the first click. Hovering previews the bbox.
@@ -1853,6 +1930,10 @@
                 $meta.append($zoom);
             }
 
+            // Layer count doubling as the config link: shows "N map layers" and
+            // opens the raw atlas config. For imported atlases with no backing
+            // config file, it instead scrolls the list to this atlas's layers.
+            const layerLabel = `${layerCount} map layer${layerCount === 1 ? '' : 's'}`;
             const configUrl = getAtlasConfigUrl(effectiveId, atlasData);
             if (configUrl) {
                 $('<a>', {
@@ -1861,19 +1942,28 @@
                     target: '_blank',
                     rel: 'noopener noreferrer',
                     title: 'View raw atlas config',
-                    html: '<sl-icon name="filetype-json"></sl-icon><span>Config</span>'
+                    html: `<sl-icon name="stack"></sl-icon><span>${layerLabel}</span>`
                 }).appendTo($meta);
+            } else {
+                const $count = $('<button>', {
+                    class: 'atlas-hero-action right',
+                    type: 'button',
+                    title: 'Scroll to these layers',
+                    html: `<sl-icon name="stack"></sl-icon><span>${layerLabel}</span>`
+                });
+                $count.on('click', function (e) {
+                    e.stopPropagation();
+                    expandedAtlasId = effectiveId;
+                    userCollapsedAll = false;
+                    renderLayers();
+                    setTimeout(() => {
+                        document.getElementById(`atlas-${effectiveId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                });
+                $meta.append($count);
             }
 
             $inner.append($meta);
-
-            // Attribution caption (hidden until the (i) button is clicked)
-            if (atlasData.headerImage && atlasData.attribution) {
-                const $attr = $('<div>', { class: 'atlas-hero-attribution', style: 'display: none;' })
-                    .html(atlasData.attribution);
-                $attr.find('a').attr({ target: '_blank', rel: 'noopener noreferrer' });
-                $inner.append($attr);
-            }
 
             $hero.append($inner);
             $host.empty().append($hero);
@@ -2420,114 +2510,143 @@
             // Determine which atlases should be expanded based on search
             const atlasIdsWithResults = new Set(atlasIds);
 
-            // Separate atlases into in-view and out-of-view
-            const inViewAtlasIds = [];
-            const outOfViewAtlasIds = [];
+            // The selected atlas (falling back to index) is rendered first, headerless,
+            // directly under the filter — the hero header above already names it.
+            const selectedId = (window.selectedAtlasId && byAtlas[window.selectedAtlasId])
+                ? window.selectedAtlasId
+                : (byAtlas['index'] ? 'index' : null);
+
+            // Classify the remaining atlases (selected is never duplicated):
+            //   World Maps   — global/world-context atlases
+            //   Nearby Maps  — non-global atlases with layers in the current view
+            //   Other Atlases — non-global atlases out of view (collapsed section)
+            const nearbyIds = [];
+            const worldIds = [];
+            const otherIds = [];
 
             atlasIds.forEach(atlasId => {
-                const atlasLayers = byAtlas[atlasId];
-                const hasInViewLayers = atlasLayers.some(layer => isInView(layer));
-
-                if (hasInViewLayers) {
-                    inViewAtlasIds.push(atlasId);
+                if (atlasId === selectedId) return;
+                const atlasData = atlasMetadata.get(atlasId) || {};
+                if (isGlobalAtlas(atlasId, atlasData)) {
+                    worldIds.push(atlasId);
+                } else if (byAtlas[atlasId].some(layer => isInView(layer))) {
+                    nearbyIds.push(atlasId);
                 } else {
-                    outOfViewAtlasIds.push(atlasId);
+                    otherIds.push(atlasId);
                 }
             });
 
-            // Sort atlases by bbox size (ascending) - smaller/local first
-            const sortAtlasesBySize = (a, b) => {
-                const areaA = calculateAtlasBboxArea(a);
-                const areaB = calculateAtlasBboxArea(b);
-
-                if (areaA === Infinity && areaB === Infinity) return 0;
-                if (areaA === Infinity) return 1;
-                if (areaB === Infinity) return -1;
-
-                return areaA - areaB;
-            };
-
-            // Sort in-view atlases by size (smallest first)
-            inViewAtlasIds.sort(sortAtlasesBySize);
-
-            // Sort out-of-view atlases by size and distance from current view
-            outOfViewAtlasIds.sort((a, b) => {
-                // First compare by size
-                const sizeComparison = sortAtlasesBySize(a, b);
-                if (sizeComparison !== 0) return sizeComparison;
-
-                // If same size, compare by distance from current bounds
+            // Proximity sort: nearest to the current view first, ties broken by smaller area
+            const sortByProximity = (a, b) => {
                 const distA = calculateAtlasDistanceFromView(a);
                 const distB = calculateAtlasDistanceFromView(b);
-                return distA - distB;
+                if (distA !== distB) return distA - distB;
+                return calculateAtlasBboxArea(a) - calculateAtlasBboxArea(b);
+            };
+            nearbyIds.sort(sortByProximity);
+            otherIds.sort(sortByProximity);
+            worldIds.sort((a, b) => (atlasMetadata.get(a)?.name || a)
+                .localeCompare(atlasMetadata.get(b)?.name || b));
+
+            // 1. Selected atlas layers — directly under the filter, no atlas header
+            if (selectedId) {
+                renderSelectedAtlasLayers(selectedId, atlasMetadata.get(selectedId) || {},
+                    byAtlas[selectedId], $grid, searchTerm);
+            }
+
+            const renderGroup = (ids) => ids.forEach(atlasId => {
+                renderAtlasCollapsed(atlasId, atlasMetadata.get(atlasId) || {},
+                    byAtlas[atlasId], $grid, searchTerm, atlasIdsWithResults);
             });
 
-            // Extract index atlas if present (it should always be first)
-            const indexAtlasInView = inViewAtlasIds.indexOf('index');
-            const indexAtlasOutOfView = outOfViewAtlasIds.indexOf('index');
-
-            let indexAtlasId = null;
-            if (indexAtlasInView !== -1) {
-                indexAtlasId = 'index';
-                inViewAtlasIds.splice(indexAtlasInView, 1);
-            } else if (indexAtlasOutOfView !== -1) {
-                indexAtlasId = 'index';
-                outOfViewAtlasIds.splice(indexAtlasOutOfView, 1);
+            // 2. Nearby Maps
+            if (nearbyIds.length > 0) {
+                $grid.append(createSectionHeader('Nearby Maps'));
+                renderGroup(nearbyIds);
             }
 
-            // Combine: index first (if exists), then in-view, then out-of-view
-            const orderedAtlasIds = indexAtlasId
-                ? [indexAtlasId, ...inViewAtlasIds, ...outOfViewAtlasIds]
-                : [...inViewAtlasIds, ...outOfViewAtlasIds];
-
-            // Only expand first atlas on very first render (not set by user action)
-            // Check if this is initial page load by seeing if expandedAtlasId was never set
-            if (expandedAtlasId === null && orderedAtlasIds.length > 0 && !userCollapsedAll && typeof window.hasInitiallyExpanded === 'undefined') {
-                expandedAtlasId = orderedAtlasIds[0];
-                window.hasInitiallyExpanded = true;
+            // 3. World Maps
+            if (worldIds.length > 0) {
+                $grid.append(createSectionHeader('World Maps'));
+                renderGroup(worldIds);
             }
 
-            // If a specific atlas is selected, ensure it's expanded ONLY on initial load (before user interaction)
-            if (window.selectedAtlasId && orderedAtlasIds.includes(window.selectedAtlasId) && !userManuallyExpandedAtlas && !userHasInteractedWithAtlas) {
-                expandedAtlasId = window.selectedAtlasId;
+            // 4. Other Atlases (out of view) — collapsed by default, auto-open while
+            // searching or filtering by visibility so matches aren't hidden.
+            if (otherIds.length > 0) {
+                const expanded = otherAtlasesExpanded || !!searchTerm || visibilityFilter !== 'all';
+                $grid.append(createCollapsibleSectionHeader('Other Atlases', otherIds.length, expanded, function () {
+                    otherAtlasesExpanded = !otherAtlasesExpanded;
+                    renderLayers();
+                }));
+                if (expanded) renderGroup(otherIds);
+            }
+        }
+
+        // Whether an atlas represents global/world context (no localized bounds).
+        function isGlobalAtlas(atlasId, atlasData) {
+            const name = (atlasData?.name || atlasId || '').toLowerCase();
+            if (name.includes('world') || name.includes('global') ||
+                name.includes('mapbox') || name.includes('osm') || name.includes('nasa')) {
+                return true;
+            }
+            if (!atlasData || !atlasData.bbox) return true;
+            const parsed = MapUtils.parseBbox(atlasData.bbox);
+            if (parsed) {
+                const [west, south, east, north] = parsed;
+                if (west <= -170 && east >= 170 && south <= -80 && north >= 80) return true;
+            }
+            return false;
+        }
+
+        // Plain section separator (Nearby Maps / World Maps)
+        function createSectionHeader(label) {
+            return $('<div>', { class: 'browser-section-header', text: label });
+        }
+
+        // Collapsible section separator with a count badge (Other Atlases)
+        function createCollapsibleSectionHeader(label, count, expanded, onToggle) {
+            const $header = $('<button>', {
+                type: 'button',
+                class: 'browser-section-header collapsible' + (expanded ? ' expanded' : ''),
+                html: `<span class="sect-chevron">▶</span><span class="sect-count">${count}</span><span>${label}</span>`
+            });
+            $header.on('click', function (e) {
+                e.stopPropagation();
+                onToggle();
+            });
+            return $header;
+        }
+
+        // Render the selected atlas's layer tree directly into the grid, with no
+        // collapsible atlas header (the hero header above already represents it).
+        function renderSelectedAtlasLayers(atlasId, atlasData, atlasLayers, $grid, searchTerm = '') {
+            // Auto-expand the tree to reveal active layers, once per atlas.
+            if (typeof window.atlasesAutoExpanded === 'undefined') {
+                window.atlasesAutoExpanded = new Set();
+            }
+            if (!window.atlasesAutoExpanded.has(atlasId)) {
+                autoExpandToActiveLayers(atlasId);
+                window.atlasesAutoExpanded.add(atlasId);
             }
 
-            // Render index atlas first if it exists
-            if (indexAtlasId && byAtlas[indexAtlasId]) {
-                const atlasData = atlasMetadata.get(indexAtlasId) || {};
-                const atlasLayers = byAtlas[indexAtlasId];
-                renderAtlasCollapsed(indexAtlasId, atlasData, atlasLayers, $grid, searchTerm, atlasIdsWithResults);
-
-                // Add separator after index atlas if there are other atlases
-                if (inViewAtlasIds.length > 0 || outOfViewAtlasIds.length > 0) {
-                    const $separator = $('<div>', {
-                        style: 'margin: 8px 0; padding: 4px 12px; background: #111827; border-top: 1px solid #374151; border-bottom: 1px solid #374151;'
-                    });
-                    $grid.append($separator);
-                }
-            }
-
-            // Render in-view atlas groups
-            inViewAtlasIds.forEach(atlasId => {
-                const atlasData = atlasMetadata.get(atlasId) || {};
-                const atlasLayers = byAtlas[atlasId];
-                renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid, searchTerm, atlasIdsWithResults);
+            const $container = $('<div>', {
+                class: 'selected-atlas-layers',
+                id: `atlas-${atlasId}`,
+                style: `border-left: 3px solid ${atlasData.color || '#6b7280'};`
             });
 
-            // Add separator between in-view and out-of-view if both exist
-            if (inViewAtlasIds.length > 0 && outOfViewAtlasIds.length > 0) {
-                const $separator = $('<div>', {
-                    style: 'margin: 16px 0; padding: 8px 12px; background: #1f2937; border-radius: 4px; text-align: center; color: #9ca3af; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;',
-                    text: 'Other Collections'
-                });
-                $grid.append($separator);
-            }
+            const $layersContainer = $('<div>', { class: 'atlas-collapsed-layers' });
+            renderAtlasLayerTree(atlasId, atlasData, atlasLayers, $layersContainer, searchTerm);
+            $container.append($layersContainer);
+            $grid.append($container);
+        }
 
-            // Render out-of-view atlas groups
-            outOfViewAtlasIds.forEach(atlasId => {
-                const atlasData = atlasMetadata.get(atlasId) || {};
-                const atlasLayers = byAtlas[atlasId];
-                renderAtlasCollapsed(atlasId, atlasData, atlasLayers, $grid, searchTerm, atlasIdsWithResults);
+        // Build the tag tree for an atlas and render its root nodes into a container.
+        function renderAtlasLayerTree(atlasId, atlasData, atlasLayers, $container, searchTerm = '') {
+            const tagTree = buildTagTree(atlasLayers);
+            Object.keys(tagTree.children).sort().forEach(childName => {
+                renderTreeNode(atlasId, atlasData, tagTree.children[childName], [childName], $container, searchTerm);
             });
         }
 
@@ -2675,15 +2794,7 @@
                 class: 'atlas-collapsed-layers'
             });
 
-            // Build tree structure from layers
-            const tagTree = buildTagTree(atlasLayers);
-
-            // Render root level children (sorted alphabetically)
-            const rootChildNames = Object.keys(tagTree.children).sort();
-            rootChildNames.forEach(childName => {
-                const childNode = tagTree.children[childName];
-                renderTreeNode(atlasId, atlasData, childNode, [childName], $layersContainer, searchTerm);
-            });
+            renderAtlasLayerTree(atlasId, atlasData, atlasLayers, $layersContainer, searchTerm);
 
             // Only show layers if expanded
             if (isExpanded) {

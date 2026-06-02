@@ -106,6 +106,10 @@ export class LayerRegistry {
                     // atlases, local config/<id>.atlas.json otherwise). Lets other modules
                     // re-fetch the correct source instead of assuming a local file.
                     url: url || `config/${atlasId}.atlas.json`,
+                    // True for cross-repo atlases referenced by full URL in index's
+                    // `atlases` array. Used to exclude them from location-based
+                    // ?atlas auto-detection (see SplashScreenManager).
+                    isExternal: !!url && (url.startsWith('http://') || url.startsWith('https://')),
                     color: config.color || '#2563eb', // Default to blue if not specified
                     name: config.name || atlasId,
                     map: config.map || null,

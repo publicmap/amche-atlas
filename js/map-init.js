@@ -19,7 +19,11 @@ export class MapInitializer {
     // (see js/splash-screen-manager.js: findBestAtlasForLocation +
     // applyLocationBasedAtlas). It writes `?atlas=…` to the URL before
     // loadConfiguration() reads URL state below, so map-init has no need
-    // to duplicate that logic.
+    // to duplicate that logic. Only LOCAL atlases are candidates for that
+    // auto-detection — external (cross-repo) atlases, flagged
+    // `isExternal` in the registry, are excluded so they're never
+    // auto-selected just because the user falls inside their bbox; they
+    // load only when explicitly requested via `?atlas=<id|url>`.
 
     // Function to load configuration
     static async loadConfiguration() {
