@@ -647,6 +647,9 @@ export class MapMarkerManager {
 
             popupElement.addEventListener('mouseleave', () => {
                 this._setMarkerFeaturesHoverState(markerId, false);
+                // Keep the popup open while the note form is in use so typed text isn't lost.
+                const noteForm = popupElement.querySelector('.add-note-form');
+                if (noteForm && noteForm.style.display !== 'none') return;
                 this._closePopup(markerId);
             });
         }
@@ -1027,6 +1030,68 @@ export class MapMarkerManager {
                             transition: all 0.2s;
                         " title="Open Layer Inspector"><sl-icon name="layers" style="font-size: 12px;"></sl-icon></button>
                     </div>
+                    <button class="add-note-btn" style="
+                        background: #16a34a;
+                        border: none;
+                        color: #fff;
+                        padding: 4px 8px;
+                        border-radius: 3px;
+                        cursor: pointer;
+                        font-size: 10px;
+                        font-weight: 600;
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                        flex-shrink: 0;
+                        transition: all 0.2s;
+                    " title="Add a note at this location"><sl-icon name="plus-lg" style="font-size: 12px;"></sl-icon>Add Note</button>
+                </div>
+
+                <div class="add-note-form" style="display:none;padding:6px;border-top:1px solid #334155;background:#111827;">
+                    <textarea class="note-text" placeholder="Write a note for this location..." rows="2" style="
+                        width:100%;
+                        box-sizing:border-box;
+                        background:#0a0a0a;
+                        color:#e2e8f0;
+                        border:1px solid #334155;
+                        border-radius:3px;
+                        padding:5px 6px;
+                        font-size:11px;
+                        font-family:inherit;
+                        resize:vertical;
+                    "></textarea>
+                    <select class="note-layer-select" style="
+                        width:100%;
+                        margin-top:5px;
+                        background:#0a0a0a;
+                        color:#e2e8f0;
+                        border:1px solid #334155;
+                        border-radius:3px;
+                        padding:4px 6px;
+                        font-size:11px;
+                    "></select>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+                        <button class="note-save-btn" style="
+                            background:#16a34a;
+                            border:none;
+                            color:#fff;
+                            padding:4px 12px;
+                            border-radius:3px;
+                            cursor:pointer;
+                            font-size:11px;
+                            font-weight:600;
+                        ">Save</button>
+                        <button class="note-cancel-btn" style="
+                            background:#334155;
+                            border:none;
+                            color:#cbd5e1;
+                            padding:4px 10px;
+                            border-radius:3px;
+                            cursor:pointer;
+                            font-size:11px;
+                        ">Cancel</button>
+                        <span class="note-status" style="font-size:10px;color:#94a3b8;flex:1;"></span>
+                    </div>
                 </div>
             </div>
         `;
@@ -1402,6 +1467,107 @@ export class MapMarkerManager {
             });
         });
 
+        this._attachAddNoteListeners(popup, markerData);
+    }
+
+    _attachAddNoteListeners(popup, markerData) {
+        const addBtn = popup.querySelector('.add-note-btn');
+        const form = popup.querySelector('.add-note-form');
+        if (!addBtn || !form) return;
+
+        const select = form.querySelector('.note-layer-select');
+        const textarea = form.querySelector('.note-text');
+        const saveBtn = form.querySelector('.note-save-btn');
+        const cancelBtn = form.querySelector('.note-cancel-btn');
+        const status = form.querySelector('.note-status');
+
+        const csvLayers = (window.layerControl?._state?.groups || [])
+            .filter(g => g.type === 'csv' && g.url);
+
+        addBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isHidden = form.style.display === 'none';
+            if (isHidden && csvLayers.length === 0) {
+                status.textContent = 'No editable CSV layers loaded.';
+                form.style.display = 'block';
+                select.innerHTML = '<option disabled selected>No CSV layers available</option>';
+                saveBtn.disabled = true;
+                return;
+            }
+            if (isHidden && select.options.length === 0) {
+                csvLayers.forEach(layer => {
+                    const option = document.createElement('option');
+                    option.value = layer.id;
+                    option.textContent = layer.title || layer.id;
+                    select.appendChild(option);
+                });
+            }
+            form.style.display = isHidden ? 'block' : 'none';
+            if (isHidden) textarea.focus();
+        });
+
+        cancelBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            form.style.display = 'none';
+            status.textContent = '';
+        });
+
+        // Keep clicks inside the form from bubbling to feature/marker handlers
+        form.addEventListener('click', (e) => e.stopPropagation());
+
+        saveBtn?.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const notes = (textarea.value || '').trim();
+            const layerId = select.value;
+            const layerConfig = csvLayers.find(l => l.id === layerId);
+
+            if (!notes) {
+                status.textContent = 'Enter a note first.';
+                return;
+            }
+            if (!layerConfig) {
+                status.textContent = 'Select a layer to save to.';
+                return;
+            }
+
+            const saveUrl = layerConfig.saveUrl || window.GOOGLE_SHEETS_SAVE_URL;
+            if (!saveUrl) {
+                status.textContent = 'This layer is read-only (no saveUrl configured).';
+                return;
+            }
+
+            saveBtn.disabled = true;
+            status.textContent = 'Saving…';
+
+            try {
+                const { appendRow } = await import('./google-sheets-writer.js');
+                await appendRow({
+                    saveUrl,
+                    url: layerConfig.url,
+                    values: {
+                        latitude: markerData.lngLat.lat,
+                        longitude: markerData.lngLat.lng,
+                        notes,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+
+                status.textContent = 'Saved ✓';
+                textarea.value = '';
+                setTimeout(() => { form.style.display = 'none'; status.textContent = ''; }, 1500);
+
+                // Reflect the new row on the map once Sheets propagates the edit.
+                const api = this._mapboxAPI || window.layerControl?._mapboxAPI;
+                if (api?.refreshLayerNow) {
+                    setTimeout(() => api.refreshLayerNow(layerId, layerConfig), 2000);
+                }
+            } catch (error) {
+                console.error('[MapMarkerManager] Failed to save note:', error);
+                status.textContent = error.message || 'Save failed.';
+            } finally {
+                saveBtn.disabled = false;
+            }
+        });
     }
 
     _closePopup(markerId) {

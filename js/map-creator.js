@@ -237,6 +237,15 @@ export class MapCreator {
             this.updateConfigPreview();
         });
 
+        $('#enable-save-notes').on('change', (e) => {
+            $('#save-notes-details').toggle(e.target.checked);
+            this.updateConfigPreview();
+        });
+
+        $('#save-url-input').on('input', () => {
+            this.updateConfigPreview();
+        });
+
         $('#inspect-fields-list').on('change', 'input[type="checkbox"]', () => {
             this.updateConfigPreview();
         });
@@ -1397,7 +1406,8 @@ export class MapCreator {
         this.currentDataSource = csvUrl;
         this.currentLayerType = 'csv';
 
-        $('#settings-section').show();
+        $('#settings-section').show().removeClass('is-disabled');
+        $('#settings-step-hint').hide();
         $('#data-preview-details').show();
 
         const fields = rows.length > 0 ? Object.keys(rows[0]) : [];
@@ -1510,7 +1520,10 @@ export class MapCreator {
     }
 
     showConfigSection() {
-        $('#settings-section').show();
+        // .show() is a no-op when the section wasn't hidden via inline style, so the
+        // MutationObserver bridge never fires — clear the disabled state directly.
+        $('#settings-section').show().removeClass('is-disabled');
+        $('#settings-step-hint').hide();
         if (!$('#layer-title').val()) {
             const defaultTitle = this.generateDefaultTitle();
             $('#layer-title').val(defaultTitle);
@@ -1743,7 +1756,24 @@ export class MapCreator {
             config.style['text-field'] = ['to-string', ['get', nameField]];
         }
 
+        // Save-notes write-back (Google Sheets only)
+        const csvUrl = this.currentData?.csvUrl;
+        const isGoogleSheet = typeof csvUrl === 'string' && csvUrl.includes('docs.google.com/spreadsheets');
+        const saveUrl = $('#save-url-input').val().trim();
+        if (isGoogleSheet && $('#enable-save-notes').is(':checked') && saveUrl) {
+            config.saveUrl = saveUrl;
+        }
+
         return config;
+    }
+
+    updateSaveNotesVisibility() {
+        const csvUrl = this.currentData?.csvUrl;
+        const isGoogleSheet = this.currentLayerType === 'csv' &&
+            typeof csvUrl === 'string' &&
+            csvUrl.includes('docs.google.com/spreadsheets');
+        const section = document.getElementById('save-notes-section');
+        if (section) section.style.display = isGoogleSheet ? '' : 'none';
     }
 
     updateTileConfigPreview(baseConfig) {
@@ -1775,6 +1805,8 @@ export class MapCreator {
 
     updateConfigPreview() {
         let config;
+
+        this.updateSaveNotesVisibility();
 
         if (this.currentLayerType === 'csv') {
             config = this.generateCSVLayerConfig();

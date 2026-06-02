@@ -109,6 +109,62 @@
       "initiallyChecked": true
     },
     {
+      "id": "notes",
+      "title": "Map Notes",
+      "type": "csv",
+      "style": {
+        "circle-color": [
+          "coalesce",
+          [
+            "get",
+            "fill-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#3b82f6"
+        ],
+        "circle-radius": 4,
+        "circle-stroke-color": [
+          "coalesce",
+          [
+            "get",
+            "stroke-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#1e40af"
+        ],
+        "circle-stroke-width": 2,
+        "text-field": [
+          "to-string",
+          [
+            "get",
+            "latitude"
+          ]
+        ]
+      },
+      "inspect": {
+        "id": "latitude",
+        "title": "Notes",
+        "label": "notes",
+        "fields": [
+          "notes"
+        ],
+        "fieldTitles": [
+          "Notes"
+        ]
+      },
+      "url": "https://docs.google.com/spreadsheets/d/1pcRVucZJuvE6LHXsZOzOE2-5H6BRvR_vlVhMGhlTqhg/export?format=csv&gid=0",
+      "saveUrl": "https://script.google.com/macros/s/AKfycbxxPTcPGMRwiLD_OKmEgwmVaLViGtCqrPjEIWNC0QYPhZS7mAw0FgR8Dc88ipzvcxE-/exec",
+      "description": "Data from Google Sheets - <a href='https://docs.google.com/spreadsheets/d/1pcRVucZJuvE6LHXsZOzOE2-5H6BRvR_vlVhMGhlTqhg/export?format=csv&gid=0' target='_blank'>View source</a>",
+      "attribution": "<a href='https://docs.google.com/spreadsheets/d/1pcRVucZJuvE6LHXsZOzOE2-5H6BRvR_vlVhMGhlTqhg/export?format=csv&gid=0' target='_blank'>Google Sheets</a>",
+      "initiallyChecked": true
+    },
+    {
       "id": "mapbox-streets",
       "initiallyChecked": false
     },

@@ -572,6 +572,7 @@ CSV with one row per point. Latitude / longitude columns are **auto-detected** b
 | `refresh` | Polling interval in milliseconds. |
 | `style` | Mapbox circle/symbol properties (same as GeoJSON). |
 | `inspect` | Popup configuration. |
+| `saveUrl` | Deployed Google Apps Script web app URL (`…/exec`). Enables the **Add Note** button in the selection-marker popup, which appends a row (`latitude`, `longitude`, `notes`/`Notes`, `timestamp`/`Timestamp`) to the underlying Google Sheet. See **Writing notes back to a Google Sheet** below. |
 
 ```json
 {
@@ -586,6 +587,99 @@ CSV with one row per point. Latitude / longitude columns are **auto-detected** b
   }
 }
 ```
+
+#### Writing notes back to a Google Sheet
+
+A `csv` layer backed by a Google Sheet can opt into the **Add Note** button in the selection-marker popup: click any point, write a note, pick the layer, and **Save** appends a row to the sheet with `latitude`, `longitude`, `notes`, and `timestamp` columns.
+
+Writes go through a small **Google Apps Script web app** that you deploy on your own sheet — there is no shared backend and **no end-user sign-in**. The deployed script runs as *you* (the sheet owner) and appends the row, so any visitor can add a note without authenticating and without an "unverified app" warning. Each sheet has its own script URL, configured per-layer as `saveUrl`.
+
+The browser only needs the `saveUrl`; column mapping and the append happen inside the script. The script targets the tab matching the layer URL's `gid` (falling back to the active sheet) and maps values onto columns by header name, case-insensitively: `latitude`/`lat`, `longitude`/`lng`/`lon`, `notes`/`note`/`comment`, `timestamp`/`time`/`date`. Any value with no matching column is appended at the end so nothing is silently dropped.
+
+**Step 1 — Add the script to your sheet.** Open your Google Sheet → **Extensions → Apps Script**, delete the placeholder, and paste:
+
+```javascript
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Target the tab matching the layer's gid; fall back to the active sheet.
+    var sheet = null;
+    if (data.gid !== undefined && data.gid !== '') {
+      var sheets = ss.getSheets();
+      for (var i = 0; i < sheets.length; i++) {
+        if (String(sheets[i].getSheetId()) === String(data.gid)) { sheet = sheets[i]; break; }
+      }
+    }
+    if (!sheet) sheet = ss.getActiveSheet();
+
+    var aliases = {
+      latitude:  ['latitude', 'lat'],
+      longitude: ['longitude', 'lng', 'lon', 'long'],
+      notes:     ['notes', 'note', 'comment', 'comments', 'description'],
+      timestamp: ['timestamp', 'time', 'date', 'datetime', 'created']
+    };
+
+    var headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
+    var row = new Array(headers.length).fill('');
+    var placed = {};
+    headers.forEach(function (h, i) {
+      var key = String(h).trim().toLowerCase();
+      for (var field in aliases) {
+        if (!placed[field] && aliases[field].indexOf(key) !== -1) {
+          row[i] = data[field] != null ? data[field] : '';
+          placed[field] = true;
+          break;
+        }
+      }
+    });
+    for (var field in aliases) {
+      if (!placed[field]) row.push(data[field] != null ? data[field] : '');
+    }
+
+    sheet.appendRow(row);
+    return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: String(err) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet() {
+  return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+```
+
+**Step 2 — Deploy it.** In the Apps Script editor: **Deploy → New deployment → ⚙ → Web app**.
+- **Execute as:** *Me*
+- **Who has access:** *Anyone* — **not** "Anyone with Google account" (that forces sign-in and returns `401`/CORS errors to the browser).
+- **Deploy**, approve the one-time authorization prompt (this is you authorizing your *own* script — visitors never see it), and copy the **Web app URL** (ends in `/exec`).
+
+Then verify it's public: open the `/exec` URL in an **incognito** tab. It should return `{"status":"ok"}` (from `doGet`). If you get a Google sign-in page instead, the access setting is wrong.
+
+> Editing the script later requires **Deploy → Manage deployments → Edit → New version** for changes to take effect. The `/exec` URL stays the same.
+>
+> If the `/exec` URL still forces login after setting "Anyone", the owner is likely a **Google Workspace** account whose admin blocks public web apps — use a personal `@gmail.com` account or have the admin allow anonymous web-app publishing.
+
+**Step 3 — Add `saveUrl` to your layer.** Keep `url` as the read-only CSV export and add `saveUrl`:
+
+```json
+{
+  "id": "community-notes",
+  "type": "csv",
+  "title": "Community Notes",
+  "url": "https://docs.google.com/spreadsheets/d/<id>/export?format=csv&gid=<gid>",
+  "saveUrl": "https://script.google.com/macros/s/AKfyc.../exec",
+  "inspect": { "fields": ["notes", "timestamp"], "fieldTitles": ["Notes", "Time"] }
+}
+```
+
+Your sheet should have a header row including (at least) `latitude`, `longitude`, `notes`, and `timestamp` columns. After a successful save the layer refreshes (~2s) so the new point appears — note Google's CSV export can lag a few seconds behind the edit.
+
+The client side is implemented in `js/google-sheets-writer.js`; the popup UI lives in `js/map-marker-manager.js`. Without `saveUrl`, a sheet layer stays read-only and the **Add Note → Save** action reports that the layer is read-only.
 
 ### `overpass` — OpenStreetMap Overpass API
 
