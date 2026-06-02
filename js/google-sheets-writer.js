@@ -16,11 +16,24 @@ export function extractGid(url) {
 }
 
 /**
+ * Snapshot the current map context (the live ?atlas and ?layers URL params),
+ * so a saved note records which map / layers were visible when it was added.
+ * @returns {{ atlas: string, layers: string }}
+ */
+export function captureMapContext() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        atlas: params.get('atlas') || '',
+        layers: params.get('layers') || ''
+    };
+}
+
+/**
  * Append a row to a Google Sheet through its Apps Script web app.
  * @param {Object} opts
  * @param {string} opts.saveUrl - Deployed Apps Script web app URL (…/exec)
  * @param {string} [opts.url] - The layer's CSV url; its gid selects the target tab
- * @param {Object} opts.values - { latitude, longitude, notes, timestamp }
+ * @param {Object} opts.values - { latitude, longitude, notes, timestamp, atlas, layers }
  */
 export async function appendRow({ saveUrl, url, values }) {
     if (!saveUrl) {

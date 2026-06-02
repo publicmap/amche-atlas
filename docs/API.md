@@ -572,7 +572,7 @@ CSV with one row per point. Latitude / longitude columns are **auto-detected** b
 | `refresh` | Polling interval in milliseconds. |
 | `style` | Mapbox circle/symbol properties (same as GeoJSON). |
 | `inspect` | Popup configuration. |
-| `saveUrl` | Deployed Google Apps Script web app URL (`…/exec`). Enables the **Add Note** button in the selection-marker popup, which appends a row (`latitude`, `longitude`, `notes`/`Notes`, `timestamp`/`Timestamp`) to the underlying Google Sheet. See **Writing notes back to a Google Sheet** below. |
+| `saveUrl` | Deployed Google Apps Script web app URL (`…/exec`). Enables the **Add Note** button in the selection-marker popup, which appends a row (`latitude`, `longitude`, `notes`/`Notes`, `timestamp`/`Timestamp`, plus `atlas`/`layers` for map context) to the underlying Google Sheet. See **Writing notes back to a Google Sheet** below. |
 
 ```json
 {
@@ -590,11 +590,11 @@ CSV with one row per point. Latitude / longitude columns are **auto-detected** b
 
 #### Writing notes back to a Google Sheet
 
-A `csv` layer backed by a Google Sheet can opt into the **Add Note** button in the selection-marker popup: click any point, write a note, pick the layer, and **Save** appends a row to the sheet with `latitude`, `longitude`, `notes`, and `timestamp` columns.
+A `csv` layer backed by a Google Sheet can opt into the **Add Note** button in the selection-marker popup: click any point, write a note, pick the layer, and **Save** appends a row to the sheet with `latitude`, `longitude`, `notes`, and `timestamp` columns, plus `atlas` and `layers` capturing the map context (the live `?atlas` and `?layers` URL parameters) when the note was added.
 
 Writes go through a small **Google Apps Script web app** that you deploy on your own sheet — there is no shared backend and **no end-user sign-in**. The deployed script runs as *you* (the sheet owner) and appends the row, so any visitor can add a note without authenticating and without an "unverified app" warning. Each sheet has its own script URL, configured per-layer as `saveUrl`.
 
-The browser only needs the `saveUrl`; column mapping and the append happen inside the script. The script targets the tab matching the layer URL's `gid` (falling back to the active sheet) and maps values onto columns by header name, case-insensitively: `latitude`/`lat`, `longitude`/`lng`/`lon`, `notes`/`note`/`comment`, `timestamp`/`time`/`date`. Any value with no matching column is appended at the end so nothing is silently dropped.
+The browser only needs the `saveUrl`; column mapping and the append happen inside the script. The script targets the tab matching the layer URL's `gid` (falling back to the active sheet) and maps values onto columns by header name, case-insensitively: `latitude`/`lat`, `longitude`/`lng`/`lon`, `notes`/`note`/`comment`, `timestamp`/`time`/`date`, `atlas`, `layers`. If the sheet is missing a column for any of these fields, the script adds a labelled header column for it on the first write, so nothing is silently dropped.
 
 **Step 1 — Add the script to your sheet.** Open your Google Sheet → **Extensions → Apps Script**, delete the placeholder, and paste:
 
@@ -618,24 +618,41 @@ function doPost(e) {
       latitude:  ['latitude', 'lat'],
       longitude: ['longitude', 'lng', 'lon', 'long'],
       notes:     ['notes', 'note', 'comment', 'comments', 'description'],
-      timestamp: ['timestamp', 'time', 'date', 'datetime', 'created']
+      timestamp: ['timestamp', 'time', 'date', 'datetime', 'created'],
+      atlas:     ['atlas'],
+      layers:    ['layers', 'layer']
     };
 
-    var headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
-    var row = new Array(headers.length).fill('');
+    var lastCol = sheet.getLastColumn();
+    var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
     var placed = {};
+    var colOf = {};
     headers.forEach(function (h, i) {
       var key = String(h).trim().toLowerCase();
       for (var field in aliases) {
         if (!placed[field] && aliases[field].indexOf(key) !== -1) {
-          row[i] = data[field] != null ? data[field] : '';
+          colOf[field] = i;
           placed[field] = true;
           break;
         }
       }
     });
+
+    // Add a labelled header column for any required field the sheet is missing.
+    var added = false;
     for (var field in aliases) {
-      if (!placed[field]) row.push(data[field] != null ? data[field] : '');
+      if (!placed[field]) {
+        headers.push(field);
+        colOf[field] = headers.length - 1;
+        placed[field] = true;
+        added = true;
+      }
+    }
+    if (added) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+    var row = new Array(headers.length).fill('');
+    for (var field in aliases) {
+      row[colOf[field]] = data[field] != null ? data[field] : '';
     }
 
     sheet.appendRow(row);
@@ -677,7 +694,7 @@ Then verify it's public: open the `/exec` URL in an **incognito** tab. It should
 }
 ```
 
-Your sheet should have a header row including (at least) `latitude`, `longitude`, `notes`, and `timestamp` columns. After a successful save the layer refreshes (~2s) so the new point appears — note Google's CSV export can lag a few seconds behind the edit.
+Ideally your sheet has a header row with `latitude`, `longitude`, `notes`, `timestamp`, `atlas`, and `layers` columns, but you don't have to create them — the script adds any missing column (labelled with the field name) on the first write. After a successful save the layer refreshes (~2s) so the new point appears — note Google's CSV export can lag a few seconds behind the edit.
 
 The client side is implemented in `js/google-sheets-writer.js`; the popup UI lives in `js/map-marker-manager.js`. Without `saveUrl`, a sheet layer stays read-only and the **Add Note → Save** action reports that the layer is read-only.
 

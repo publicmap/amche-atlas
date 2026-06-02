@@ -748,7 +748,7 @@ File upload only: .zip containing shapefile">
                     </label>
                     <div class="text-xs text-gray-500 mt-1" style="margin-left: 24px;">
                         Adds an <strong>Add Note</strong> button to the map popup so anyone can append a row
-                        (latitude, longitude, notes, timestamp) to your sheet — no sign-in required.
+                        (latitude, longitude, notes, timestamp, plus the current atlas &amp; layers) to your sheet — no sign-in required.
                     </div>
 
                     <div id="save-notes-details" class="mt-3" style="display: none;">
@@ -756,8 +756,10 @@ File upload only: .zip containing shapefile">
                             style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.35);color:#cbd5e1;line-height:1.6;">
                             <div class="font-semibold mb-2" style="color:#bfdbfe;">One-time setup on your Google Sheet</div>
                             <ol class="list-decimal pl-4 space-y-1">
-                                <li>Open your sheet and make sure the first row has columns named
-                                    <code>latitude</code>, <code>longitude</code>, <code>notes</code>, and <code>timestamp</code>.</li>
+                                <li>Open your sheet. Ideally the first row has columns named
+                                    <code>latitude</code>, <code>longitude</code>, <code>notes</code>, <code>timestamp</code>,
+                                    <code>atlas</code>, and <code>layers</code> — but you don't have to add them,
+                                    the script creates any missing column on the first save.</li>
                                 <li>Go to <strong>Extensions → Apps Script</strong>, delete any placeholder code, and paste the script below.</li>
                                 <li>Click <strong>Deploy → New deployment → Web app</strong>. Set
                                     <strong>Execute as: Me</strong> and <strong>Who has access: Anyone</strong>
@@ -964,24 +966,41 @@ File upload only: .zip containing shapefile">
       latitude:  ['latitude', 'lat'],
       longitude: ['longitude', 'lng', 'lon', 'long'],
       notes:     ['notes', 'note', 'comment', 'comments', 'description'],
-      timestamp: ['timestamp', 'time', 'date', 'datetime', 'created']
+      timestamp: ['timestamp', 'time', 'date', 'datetime', 'created'],
+      atlas:     ['atlas'],
+      layers:    ['layers', 'layer']
     };
 
-    var headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
-    var row = new Array(headers.length).fill('');
+    var lastCol = sheet.getLastColumn();
+    var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
     var placed = {};
+    var colOf = {};
     headers.forEach(function (h, i) {
       var key = String(h).trim().toLowerCase();
       for (var field in aliases) {
         if (!placed[field] && aliases[field].indexOf(key) !== -1) {
-          row[i] = data[field] != null ? data[field] : '';
+          colOf[field] = i;
           placed[field] = true;
           break;
         }
       }
     });
+
+    // Add a labelled header column for any required field the sheet is missing.
+    var added = false;
     for (var field in aliases) {
-      if (!placed[field]) row.push(data[field] != null ? data[field] : '');
+      if (!placed[field]) {
+        headers.push(field);
+        colOf[field] = headers.length - 1;
+        placed[field] = true;
+        added = true;
+      }
+    }
+    if (added) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+    var row = new Array(headers.length).fill('');
+    for (var field in aliases) {
+      row[colOf[field]] = data[field] != null ? data[field] : '';
     }
 
     sheet.appendRow(row);

@@ -1541,7 +1541,7 @@ export class MapMarkerManager {
             status.textContent = 'Saving…';
 
             try {
-                const { appendRow } = await import('./google-sheets-writer.js');
+                const { appendRow, captureMapContext } = await import('./google-sheets-writer.js');
                 await appendRow({
                     saveUrl,
                     url: layerConfig.url,
@@ -1549,7 +1549,8 @@ export class MapMarkerManager {
                         latitude: markerData.lngLat.lat,
                         longitude: markerData.lngLat.lng,
                         notes,
-                        timestamp: new Date().toISOString()
+                        timestamp: new Date().toISOString(),
+                        ...captureMapContext()
                     }
                 });
 
