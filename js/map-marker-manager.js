@@ -1481,16 +1481,17 @@ export class MapMarkerManager {
         const cancelBtn = form.querySelector('.note-cancel-btn');
         const status = form.querySelector('.note-status');
 
+        // Only layers configured for write-back (a saveUrl, or a global default) can receive notes.
         const csvLayers = (window.layerControl?._state?.groups || [])
-            .filter(g => g.type === 'csv' && g.url);
+            .filter(g => g.type === 'csv' && (g.saveUrl || window.GOOGLE_SHEETS_SAVE_URL));
 
         addBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const isHidden = form.style.display === 'none';
             if (isHidden && csvLayers.length === 0) {
-                status.textContent = 'No editable CSV layers loaded.';
+                status.textContent = 'No sheets are set up to save notes.';
                 form.style.display = 'block';
-                select.innerHTML = '<option disabled selected>No CSV layers available</option>';
+                select.innerHTML = '<option disabled selected>No writable layers available</option>';
                 saveBtn.disabled = true;
                 return;
             }
