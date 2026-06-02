@@ -26,36 +26,51 @@ export class LayerRegistry {
     }
 
     async _doInitialize() {
-        // Load all atlas configurations
-        let atlasConfigs = [window.amche.DEFAULT_ATLAS.slice(window.amche.DEFAULT_ATLAS.indexOf('config/') + 7, window.amche.DEFAULT_ATLAS.indexOf('.atlas.json'))];
+        // Build the list of atlas entries to load. Each entry is normalized to
+        // { atlasId, url, baseUrl }:
+        //   - Local atlases are referenced by short id and loaded from config/<id>.atlas.json
+        //   - External atlases are referenced by full URL; their id is derived from the filename
+        //     and their layers' relative URLs are resolved against the file's base URL.
+        const indexAtlasId = window.amche.DEFAULT_ATLAS.slice(window.amche.DEFAULT_ATLAS.indexOf('config/') + 7, window.amche.DEFAULT_ATLAS.indexOf('.atlas.json'));
+        const atlasEntries = [{ atlasId: indexAtlasId, url: window.amche.DEFAULT_ATLAS, baseUrl: null }];
+
         const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
         if (indexResponse.ok) {
             const indexConfig = await indexResponse.json();
             if (indexConfig.atlases && Array.isArray(indexConfig.atlases)) {
-                atlasConfigs = atlasConfigs.concat(indexConfig.atlases);
+                indexConfig.atlases.forEach(entry => {
+                    const parsed = this._parseAtlasEntry(entry);
+                    if (parsed) atlasEntries.push(parsed);
+                });
             }
         }
 
         // Create a Set for fast lookup of known atlas IDs
-        const knownAtlases = new Set(atlasConfigs);
+        const knownAtlases = new Set(atlasEntries.map(e => e.atlasId));
 
         // Load all atlas configurations in parallel
-        const atlasPromises = atlasConfigs.map(async (atlasId) => {
+        const atlasPromises = atlasEntries.map(async ({ atlasId, url, baseUrl }) => {
+            const isExternal = !!url && (url.startsWith('http://') || url.startsWith('https://'));
             try {
-                const response = await fetch(`config/${atlasId}.atlas.json`);
+                const fetchUrl = url || `config/${atlasId}.atlas.json`;
+                const response = await fetch(fetchUrl);
                 if (response.ok) {
-                    // Check Content-Type to ensure we're getting JSON, not HTML (e.g., 404 page)
-                    const contentType = response.headers.get('content-type') || '';
-                    if (!contentType.includes('application/json') && !contentType.includes('text/json')) {
-                        return {
-                            atlasId,
-                            error: `Invalid content type: ${contentType} (expected JSON)`,
-                            success: false
-                        };
+                    // Check Content-Type to ensure we're getting JSON, not HTML (e.g., 404 page).
+                    // Skip for external URLs since hosts like raw.githubusercontent.com serve
+                    // .json files as text/plain.
+                    if (!isExternal) {
+                        const contentType = response.headers.get('content-type') || '';
+                        if (!contentType.includes('application/json') && !contentType.includes('text/json')) {
+                            return {
+                                atlasId,
+                                error: `Invalid content type: ${contentType} (expected JSON)`,
+                                success: false
+                            };
+                        }
                     }
 
                     const config = await response.json();
-                    return { atlasId, config, success: true };
+                    return { atlasId, config, baseUrl, success: true };
                 } else {
                     return { atlasId, error: `HTTP ${response.status}`, success: false };
                 }
@@ -75,10 +90,15 @@ export class LayerRegistry {
         // Wait for all atlas fetches to complete (whether successful or not)
         const atlasResults = await Promise.allSettled(atlasPromises);
 
+        // Cross-atlas references that carry their own overrides (e.g. goa referencing
+        // `india-district` with a custom title/style). Collected during registration and
+        // resolved after all atlases load, since the base definition may load later.
+        const crossAtlasOverrides = [];
+
         // Process all successfully loaded atlas configurations
         for (const result of atlasResults) {
             if (result.status === 'fulfilled' && result.value.success) {
-                const { atlasId, config } = result.value;
+                const { atlasId, config, baseUrl } = result.value;
 
                 // Store atlas metadata (color, name, etc.)
                 this._atlasMetadata.set(atlasId, {
@@ -105,6 +125,10 @@ export class LayerRegistry {
                     // Register each layer with appropriate ID
                     config.layers.forEach(layer => {
                         const resolvedLayer = this._resolveLayer(layer, atlasId);
+                        // Resolve relative URLs in external atlas layers against the source base URL
+                        if (resolvedLayer && baseUrl) {
+                            this._resolveRelativeUrls(resolvedLayer, baseUrl);
+                        }
                         if (resolvedLayer) {
                             // Check if the layer ID already has an atlas prefix
                             const layerId = resolvedLayer.id;
@@ -126,6 +150,17 @@ export class LayerRegistry {
                             } else {
                                 // No dash, definitely not prefixed
                                 prefixedId = `${atlasId}-${layerId}`;
+                            }
+
+                            // A reference to a layer owned by another atlas that also
+                            // carries overrides: register a per-atlas variant keyed
+                            // `<atlas>-<prefixedId>` that cascades the overrides over the
+                            // base definition (mirrors map-init's runtime merge). Resolved
+                            // after all atlases load. Bare references (id only) fall through
+                            // to the shared-entry logic below.
+                            if (sourceAtlas !== atlasId && this._hasLayerOverrides(layer)) {
+                                crossAtlasOverrides.push({ atlasId, prefixedId, override: resolvedLayer });
+                                return;
                             }
 
                             // Check if layer is already in registry
@@ -181,6 +216,9 @@ export class LayerRegistry {
 
         // After all atlases are loaded, resolve cross-atlas references
         this._resolveCrossAtlasReferences();
+
+        // Apply per-atlas overrides on top of their (now-loaded) base definitions
+        this._applyCrossAtlasOverrides(crossAtlasOverrides);
 
         // Create consolidated index of atlas to layer IDs
         const layerIndex = {};
@@ -241,6 +279,45 @@ export class LayerRegistry {
     }
 
     /**
+     * Whether a layer config carries definition overrides beyond instance-level
+     * settings. Used to distinguish a bare cross-atlas reference (`{id}`) from one
+     * that customizes the referenced layer (title, style, tags, …).
+     */
+    _hasLayerOverrides(layer) {
+        const INSTANCE_ONLY = new Set(['id', 'initiallyChecked', 'opacity']);
+        return Object.keys(layer).some(key => !INSTANCE_ONLY.has(key));
+    }
+
+    /**
+     * Register per-atlas variants for cross-atlas references that carry overrides.
+     * The variant is keyed `<atlas>-<basePrefixedId>` and merges the overrides over
+     * the base definition, with `_sourceAtlas` set to the referencing atlas so it
+     * surfaces under that atlas (e.g. in the browser). Top-level shallow merge mirrors
+     * map-init's runtime merge, so the variant matches what the map actually renders.
+     * The base entry is left untouched, so the owning atlas is unaffected.
+     */
+    _applyCrossAtlasOverrides(overrides) {
+        for (const { atlasId, prefixedId, override } of overrides) {
+            const base = this._registry.get(prefixedId);
+            if (!base) {
+                console.debug(`[LayerRegistry] Cross-atlas override ${atlasId}-${prefixedId} skipped: base layer ${prefixedId} not found`);
+                continue;
+            }
+            const variantId = `${atlasId}-${prefixedId}`;
+            this._registry.set(variantId, {
+                ...base,
+                ...override,
+                id: prefixedId,
+                _sourceAtlas: atlasId,
+                _prefixedId: variantId,
+                _originalId: prefixedId,
+                _baseAtlas: base._sourceAtlas,
+                _crossAtlasOverride: true
+            });
+        }
+    }
+
+    /**
      * Set the current active atlas
      */
     setCurrentAtlas(atlasId) {
@@ -293,6 +370,32 @@ export class LayerRegistry {
                 }
             });
         }
+    }
+
+    /**
+     * Normalize an atlas reference from index.atlas.json's `atlases` array into
+     * { atlasId, url, baseUrl }.
+     *   - A short id (e.g. "goa") → loaded from config/goa.atlas.json
+     *   - A full URL (e.g. "https://.../dfes-dmp.atlas.json") → loaded directly,
+     *     with the atlas id derived from the filename and baseUrl set for
+     *     resolving the config's relative layer URLs.
+     * @param {string} entry - Atlas reference
+     * @returns {{atlasId: string, url: string|null, baseUrl: string|null}|null}
+     */
+    _parseAtlasEntry(entry) {
+        if (!entry || typeof entry !== 'string') return null;
+
+        if (entry.startsWith('http://') || entry.startsWith('https://')) {
+            const filename = entry.split('/').pop().split('?')[0] || '';
+            const atlasId = filename.replace(/\.atlas\.json$/i, '').replace(/\.json$/i, '');
+            if (!atlasId) {
+                console.warn('[LayerRegistry] Could not derive atlas id from URL:', entry);
+                return null;
+            }
+            return { atlasId, url: entry, baseUrl: this._getBaseUrl(entry) };
+        }
+
+        return { atlasId: entry, url: null, baseUrl: null };
     }
 
     /**

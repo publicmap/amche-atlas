@@ -13,7 +13,10 @@ export class LayerThumbnail {
      * @returns {HTMLElement} Thumbnail element
      */
     static generate(layer, size = 80, options = {}) {
-        const { isInView = true, layerDefaults = {}, interactive = true, title = null } = options;
+        const { isInView = true, layerDefaults = {}, interactive = true, title = null, useHeaderImage = true } = options;
+        // headerImage is rendered as the card's header banner by callers like the
+        // inspector, so they can opt out of repeating it as the thumbnail background.
+        const headerImage = useHeaderImage ? layer.headerImage : null;
         const container = document.createElement('div');
         container.className = 'layer-thumbnail';
         if (title) {
@@ -31,8 +34,8 @@ export class LayerThumbnail {
         `;
 
         // Set background image if available
-        if (layer.headerImage) {
-            container.style.backgroundImage = `url('${layer.headerImage}')`;
+        if (headerImage) {
+            container.style.backgroundImage = `url('${headerImage}')`;
             container.style.backgroundSize = 'cover';
             container.style.backgroundPosition = 'center';
             container.style.backgroundColor = '#f3f4f6';
@@ -62,7 +65,7 @@ export class LayerThumbnail {
             if (overlay) {
                 container.appendChild(overlay);
             }
-        } else if (!layer.headerImage) {
+        } else if (!headerImage) {
             // No style and no background - show default
             const svg = this._generateDefaultThumbnail(layer, size);
             container.appendChild(svg);

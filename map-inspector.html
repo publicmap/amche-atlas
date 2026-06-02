@@ -1392,7 +1392,8 @@
             if (overlayCollapsed && overlayMaps.length > 0) {
                 overlayMaps.slice(0, 8).forEach(layer => {
                     const thumbnail = window.LayerThumbnail.generate(layer, 20, {
-                        isInView: isInView(layer)
+                        isInView: isInView(layer),
+                        useHeaderImage: false
                     });
                     thumbnail.style.flexShrink = '0';
                     thumbnail.style.borderRadius = '2px';
@@ -1419,7 +1420,8 @@
             if (basemapCollapsed && baseMaps.length > 0) {
                 baseMaps.slice(0, 8).forEach(layer => {
                     const thumbnail = window.LayerThumbnail.generate(layer, 20, {
-                        isInView: isInView(layer)
+                        isInView: isInView(layer),
+                        useHeaderImage: false
                     });
                     thumbnail.style.flexShrink = '0';
                     thumbnail.style.borderRadius = '2px';
@@ -1484,7 +1486,8 @@
 
             // Thumbnail
             const thumbnail = window.LayerThumbnail.generate(layerConfig, 32, {
-                isInView: isInView(layerConfig)
+                isInView: isInView(layerConfig),
+                useHeaderImage: false
             });
             thumbnail.style.margin = '0';
             thumbnail.style.borderRadius = '3px';
@@ -2071,7 +2074,8 @@
 
             // Thumbnail
             const thumbnail = window.LayerThumbnail.generate(layer, 32, {
-                isInView: isInView(layer)
+                isInView: isInView(layer),
+                useHeaderImage: false
             });
             thumbnail.style.margin = '0';
             thumbnail.style.borderRadius = '3px';

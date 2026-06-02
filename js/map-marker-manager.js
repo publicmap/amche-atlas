@@ -695,8 +695,9 @@ export class MapMarkerManager {
                 const layerConfig = this._stateManager.getLayerConfig(layerId);
                 const atlasMetadata = window.layerRegistry?._atlasMetadata?.get(layerConfig?._sourceAtlas);
                 const headerImage = layerConfig?.headerImage || atlasMetadata?.headerImage || null;
-                const layerConfigWithHeader = headerImage ? { ...layerConfig, headerImage } : layerConfig;
-                const thumbnail = LayerThumbnail.generate(layerConfigWithHeader, 32);
+                // headerImage is shown as the faint card backdrop below, so the thumbnail
+                // stays symbology-only (consistent with the inspector cards).
+                const thumbnail = LayerThumbnail.generate(layerConfig, 32, { useHeaderImage: false });
                 if (thumbnail) {
                     thumbnail.style.borderRadius = '3px';
                     thumbnail.style.margin = '0';
