@@ -162,78 +162,261 @@
 
         .explorer-header {
             background: #111827;
-            padding: 14px 12px 12px;
             border-bottom: 1px solid #374151;
         }
 
-        .explorer-title {
-            margin: 0 0 10px;
-            color: #f3f4f6;
-            font-size: 20px;
-            font-weight: 700;
-            letter-spacing: -0.01em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .explorer-title sl-icon {
-            color: #3b82f6;
-            font-size: 20px;
-        }
-
-        .atlas-select-wrap {
+        /* Selected-atlas hero. The atlas color is used only as a left accent
+           border (the name badge no longer fills with it). */
+        .atlas-hero {
             position: relative;
+            overflow: hidden;
+            border-left: 4px solid var(--atlas-color, #6b7280);
+            background: #111827;
         }
 
-        .atlas-select-wrap .select-leading-icon,
-        .atlas-select-wrap .select-trailing-icon {
+        .atlas-hero.has-image {
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Darkening gradient keeps hero text legible over the header image */
+        .atlas-hero.has-image::before {
+            content: '';
             position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            color: rgba(255, 255, 255, 0.55);
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(17, 24, 39, 0.62), rgba(17, 24, 39, 0.93));
             pointer-events: none;
         }
 
-        .atlas-select-wrap .select-leading-icon {
-            left: 10px;
-            font-size: 15px;
+        .atlas-hero-inner {
+            position: relative;
+            z-index: 1;
+            padding: 14px 14px 13px;
         }
 
-        .atlas-select-wrap .select-trailing-icon {
-            right: 10px;
-            font-size: 14px;
+        /* Top-right hero controls: attribution (i) + close (x) */
+        .atlas-hero-controls {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        .atlas-select {
-            width: 100%;
-            appearance: none;
-            -webkit-appearance: none;
-            background: rgba(255, 255, 255, 0.05);
-            color: #f3f4f6;
+        .atlas-hero-ctrl-btn {
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
             border: 1px solid rgba(255, 255, 255, 0.25);
-            border-radius: 6px;
-            padding: 9px 34px;
-            font-size: 14px;
-            font-weight: 500;
+            background: rgba(17, 24, 39, 0.55);
+            color: rgba(255, 255, 255, 0.8);
             cursor: pointer;
-            transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+            padding: 0;
+            font-size: 13px;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            backdrop-filter: blur(2px);
         }
 
-        .atlas-select:hover {
-            border-color: rgba(255, 255, 255, 0.4);
+        .atlas-hero-ctrl-btn:hover {
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .atlas-hero-ctrl-btn.close:hover {
+            background: #dc2626;
+            border-color: #dc2626;
+        }
+
+        /* Attribution caption revealed by the (i) button, over the header image */
+        .atlas-hero-attribution {
+            position: relative;
+            z-index: 2;
+            margin-top: 10px;
+            padding: 7px 10px;
+            background: rgba(0, 0, 0, 0.45);
+            border-left: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 4px;
+            color: #e5e7eb;
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .atlas-hero-attribution a {
+            color: #93c5fd;
+            text-decoration: underline;
+        }
+
+        .atlas-hero-title-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            padding-right: 60px;
+        }
+
+        /* The title doubles as an atlas-switcher dropdown trigger */
+        .atlas-title-dropdown {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .atlas-hero-title-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            min-width: 0;
+            background: transparent;
+            border: none;
+            padding: 2px 4px 2px 0;
+            margin: 0;
+            cursor: pointer;
+            border-radius: 6px;
+            text-align: left;
+            transition: background 0.15s;
+        }
+
+        .atlas-hero-title-btn:hover {
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .atlas-hero-title-chevron {
+            flex-shrink: 0;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            transition: transform 0.2s, color 0.15s;
+        }
+
+        .atlas-hero-title-btn:hover .atlas-hero-title-chevron {
+            color: #fff;
+        }
+
+        .atlas-title-dropdown[open] .atlas-hero-title-chevron {
+            transform: rotate(180deg);
+        }
+
+        .atlas-menu-icon {
+            width: 18px;
+            height: 18px;
+            object-fit: contain;
+            vertical-align: middle;
+            margin-right: 2px;
+        }
+
+        .atlas-hero-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 7px;
+            object-fit: contain;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 3px;
+            box-sizing: border-box;
+        }
+
+        .atlas-hero-title {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            color: #f9fafb;
+            letter-spacing: -0.01em;
+            line-height: 1.15;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .atlas-hero-desc {
+            color: #d1d5db;
+            font-size: 12px;
+            line-height: 1.5;
+            margin-top: 9px;
+        }
+
+        .atlas-hero-desc a {
+            color: #93c5fd;
+            text-decoration: underline;
+        }
+
+        .atlas-hero-desc a:hover {
+            color: #bfdbfe;
+        }
+
+        .atlas-hero-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 13px;
+        }
+
+        .atlas-hero-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #cbd5e1;
+            white-space: nowrap;
+            background: transparent;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: color 0.15s;
+        }
+
+        .atlas-hero-count:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+
+        .atlas-hero-count sl-icon {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        /* Shared neutral outline style for hero action buttons (Zoom, Config) */
+        .atlas-hero-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 11px;
+            font-weight: 600;
+            text-decoration: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: transparent;
+            cursor: pointer;
+            transition: color 0.15s, background 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+
+        .atlas-hero-action:hover {
+            color: #fff;
             background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.35);
         }
 
-        .atlas-select:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        /* Active (toggled-on) zoom state */
+        .atlas-hero-action.zoom-active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.45);
         }
 
-        .atlas-select option {
-            background: #1f2937;
-            color: #f3f4f6;
+        .atlas-hero-action sl-icon {
+            font-size: 12px;
+        }
+
+        .atlas-hero-action.right {
+            margin-left: auto;
         }
 
         .filter-section {
@@ -393,6 +576,53 @@
         .atlas-collapsed-header:hover {
             background-color: #374151;
             border-radius: 4px;
+        }
+
+        /* [Select] button on atlas rows — appears on hover so users can switch
+           the active atlas without the dropdown */
+        .atlas-select-btn {
+            flex-shrink: 0;
+            background: rgba(59, 130, 246, 0.15);
+            color: #93c5fd;
+            border: 1px solid rgba(59, 130, 246, 0.45);
+            border-radius: 5px;
+            padding: 4px 11px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+        }
+
+        .atlas-collapsed-header:hover .atlas-select-btn,
+        .atlas-select-btn:focus-visible {
+            opacity: 1;
+        }
+
+        .atlas-select-btn:hover {
+            background: #3b82f6;
+            color: #fff;
+            border-color: #3b82f6;
+        }
+
+        /* Static chip marking the currently selected atlas */
+        .atlas-selected-chip {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(16, 185, 129, 0.15);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 5px;
+            padding: 3px 9px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .atlas-selected-chip sl-icon {
+            font-size: 12px;
         }
 
         /* Top row wraps eye + icon + title + actions so the expanded layout can
@@ -941,17 +1171,12 @@
 
 <body class="bg-gray-900">
     <div class="flex flex-col h-screen max-w-[600px] w-full" style="margin: 0 auto;">
-        <!-- Atlas Explorer Header -->
-        <div class="explorer-header">
-            <h1 class="explorer-title">
-                <sl-icon name="globe-americas"></sl-icon>
-                Atlas Explorer
-            </h1>
-            <div class="atlas-select-wrap">
-                <sl-icon name="collection" class="select-leading-icon"></sl-icon>
-                <select id="atlas-select" class="atlas-select" aria-label="Select atlas"></select>
-                <sl-icon name="chevron-down" class="select-trailing-icon"></sl-icon>
-            </div>
+        <!-- Selected Atlas Header (dynamically rendered from the active atlas) -->
+        <div class="explorer-header" id="explorer-header">
+            <div id="atlas-hero"></div>
+            <!-- Kept in the DOM for atlas-switching logic; the visible switcher is
+                 the per-atlas [Select] buttons in the list below. -->
+            <select id="atlas-select" aria-label="Select atlas" style="display: none;"></select>
         </div>
 
         <!-- Search Section -->
@@ -1114,6 +1339,7 @@
                     }
 
                     populateAtlasSelect();
+                    renderExplorerHeader(window.selectedAtlasId);
                     initializePreviewMap();
                     renderLayers();
                     drawBboxes();
@@ -1421,6 +1647,7 @@
                 userManuallyExpandedAtlas = false;
             }
 
+            renderExplorerHeader(atlasId);
             renderLayers();
 
             // Notify parent to update URL with atlas parameter (unless this is from URL initialization)
@@ -1440,6 +1667,216 @@
                     });
                 }, 200);
             }
+        }
+
+        // Resolve the raw config URL for an atlas (null for imported atlases that
+        // have no backing file in the repo).
+        function getAtlasConfigUrl(atlasId, atlasData) {
+            if (!atlasId || (atlasData && atlasData.isImported)) return null;
+            return `https://raw.githubusercontent.com/publicmap/amche-atlas/refs/heads/dev/config/${atlasId}.atlas.json`;
+        }
+
+        // Count of distinct map layers an atlas references.
+        function getAtlasLayerCount(atlasId) {
+            const refs = atlasLayerReferences.get(atlasId);
+            if (refs && refs.length) return new Set(refs).size;
+            // Fallback: layers whose source is this atlas
+            return allLayers.filter(l => l._sourceAtlas === atlasId).length;
+        }
+
+        // Switch the active atlas the same way the (hidden) dropdown does:
+        // hide the previous context's layers, show the new atlas's defaults,
+        // then select + expand it. Used by the per-atlas [Select] buttons.
+        function changeAtlasSelection(newAtlasId) {
+            if (!newAtlasId || newAtlasId === window.selectedAtlasId) {
+                // Already selected — just make sure it's expanded and scrolled into view
+                selectAtlas(newAtlasId, atlasMetadata.get(newAtlasId)?.name || newAtlasId);
+                return;
+            }
+            const previousAtlasId = window.selectedAtlasId || 'index';
+            const metadata = atlasMetadata.get(newAtlasId);
+            userHasInteractedWithAtlas = true;
+            switchAtlasContext(previousAtlasId, newAtlasId);
+            selectAtlas(newAtlasId, metadata?.name || newAtlasId);
+        }
+
+        // Build the rich header for the currently selected atlas: an atlas-switcher
+        // title dropdown, HTML description, clickable layer count (scrolls the list),
+        // a Zoom toggle, a config link, plus header-image attribution + close controls.
+        function renderExplorerHeader(atlasId) {
+            const $host = $('#atlas-hero');
+            if (!$host.length) return;
+
+            const effectiveId = (atlasId && atlasMetadata.has(atlasId)) ? atlasId : 'index';
+            const atlasData = atlasMetadata.get(effectiveId) || {};
+            const color = atlasData.color || '#6b7280';
+            const layerCount = getAtlasLayerCount(effectiveId);
+
+            const $hero = $('<div>', {
+                class: 'atlas-hero' + (atlasData.headerImage ? ' has-image' : ''),
+                style: `--atlas-color: ${color};` +
+                    (atlasData.headerImage ? ` background-image: url("${atlasData.headerImage}");` : '')
+            });
+
+            // Top-right controls: attribution (i) (only with an image + attribution)
+            // and a close button that toggles the browser panel off.
+            const $controls = $('<div>', { class: 'atlas-hero-controls' });
+            if (atlasData.headerImage && atlasData.attribution) {
+                const $attrBtn = $('<button>', {
+                    class: 'atlas-hero-ctrl-btn',
+                    type: 'button',
+                    title: 'Image attribution',
+                    html: '<sl-icon name="info-lg"></sl-icon>'
+                });
+                $attrBtn.on('click', function (e) {
+                    e.stopPropagation();
+                    $hero.find('.atlas-hero-attribution').toggle();
+                });
+                $controls.append($attrBtn);
+            }
+            const $closeBtn = $('<button>', {
+                class: 'atlas-hero-ctrl-btn close',
+                type: 'button',
+                title: 'Close',
+                html: '<sl-icon name="x-lg"></sl-icon>'
+            });
+            $closeBtn.on('click', function (e) {
+                e.stopPropagation();
+                window.parent.postMessage({ type: 'close-browser' }, '*');
+            });
+            $controls.append($closeBtn);
+            $hero.append($controls);
+
+            const $inner = $('<div>', { class: 'atlas-hero-inner' });
+
+            // Title row: icon + name rendered as an atlas-switcher dropdown trigger
+            const $titleRow = $('<div>', { class: 'atlas-hero-title-row' });
+
+            const $dropdown = $('<sl-dropdown>', {
+                class: 'atlas-title-dropdown',
+                placement: 'bottom-start',
+                distance: '4',
+                'hoist': true
+            });
+
+            const $trigger = $('<button>', {
+                slot: 'trigger',
+                class: 'atlas-hero-title-btn',
+                type: 'button',
+                title: 'Switch atlas'
+            });
+            if (atlasData.icon) {
+                $('<img>', { class: 'atlas-hero-icon', src: atlasData.icon, alt: '' }).appendTo($trigger);
+            }
+            $('<h1>', { class: 'atlas-hero-title', text: atlasData.name || effectiveId }).appendTo($trigger);
+            $('<sl-icon>', { class: 'atlas-hero-title-chevron', name: 'chevron-down' }).appendTo($trigger);
+            $dropdown.append($trigger);
+
+            // Menu of all atlases (alphabetical), current one checked
+            const $menu = $('<sl-menu>');
+            Array.from(atlasMetadata.entries())
+                .sort((a, b) => (a[1].name || a[0]).localeCompare(b[1].name || b[0]))
+                .forEach(([id, meta]) => {
+                    const $item = $('<sl-menu-item>', { value: id, type: 'checkbox' });
+                    if (id === effectiveId) $item.attr('checked', true);
+                    if (meta.icon) {
+                        $('<img>', { slot: 'prefix', class: 'atlas-menu-icon', src: meta.icon, alt: '' }).appendTo($item);
+                    }
+                    $item.append(document.createTextNode(meta.name || id));
+                    $menu.append($item);
+                });
+            $menu.on('sl-select', function (e) {
+                const id = e.detail.item.value;
+                if (id) changeAtlasSelection(id);
+            });
+            $dropdown.append($menu);
+
+            $titleRow.append($dropdown);
+            $inner.append($titleRow);
+
+            // Description (rendered as HTML so embedded links work)
+            if (atlasData.description) {
+                const $desc = $('<div>', { class: 'atlas-hero-desc' }).html(atlasData.description);
+                $desc.find('a').attr({ target: '_blank', rel: 'noopener noreferrer' });
+                $inner.append($desc);
+            }
+
+            // Meta row: layer count (scrolls list) + zoom toggle + config link
+            const $meta = $('<div>', { class: 'atlas-hero-meta' });
+
+            const $count = $('<button>', {
+                class: 'atlas-hero-count',
+                type: 'button',
+                title: 'Scroll to these layers',
+                html: `<sl-icon name="stack"></sl-icon><span>${layerCount} map layer${layerCount === 1 ? '' : 's'}</span>`
+            });
+            $count.on('click', function (e) {
+                e.stopPropagation();
+                expandedAtlasId = effectiveId;
+                userCollapsedAll = false;
+                renderLayers();
+                setTimeout(() => {
+                    document.getElementById(`atlas-${effectiveId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            });
+            $meta.append($count);
+
+            // Zoom button — toggles between the atlas bounds and the map view that
+            // was active before the first click. Hovering previews the bbox.
+            if (atlasData.bbox) {
+                const $zoom = $('<button>', {
+                    class: 'atlas-hero-action',
+                    type: 'button',
+                    title: 'Zoom to atlas bounds (click again to return)',
+                    html: '<sl-icon name="arrows-fullscreen"></sl-icon><span>Zoom</span>'
+                });
+                $zoom.on('click', function (e) {
+                    e.stopPropagation();
+                    const turningOn = !$zoom.hasClass('zoom-active');
+                    if (turningOn) {
+                        const defaultLayers = (atlasInitiallyChecked.get(effectiveId) || []);
+                        defaultLayers.forEach(id => {
+                            if (!activeLayers.has(id)) {
+                                window.parent.postMessage({ type: 'layer-toggle', layerId: id, active: true }, '*');
+                            }
+                        });
+                    }
+                    $('.atlas-hero-action.zoom-active').removeClass('zoom-active');
+                    $zoom.toggleClass('zoom-active', turningOn);
+                    window.parent.postMessage({ type: 'zoom-to-bounds', bounds: atlasData.bbox, toggle: true }, '*');
+                });
+                $zoom.on('mouseenter', function () {
+                    window.parent.postMessage({ type: 'atlas-preview', atlasId: effectiveId }, '*');
+                }).on('mouseleave', function () {
+                    window.parent.postMessage({ type: 'atlas-clear-preview' }, '*');
+                });
+                $meta.append($zoom);
+            }
+
+            const configUrl = getAtlasConfigUrl(effectiveId, atlasData);
+            if (configUrl) {
+                $('<a>', {
+                    class: 'atlas-hero-action right',
+                    href: configUrl,
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                    title: 'View raw atlas config',
+                    html: '<sl-icon name="filetype-json"></sl-icon><span>Config</span>'
+                }).appendTo($meta);
+            }
+
+            $inner.append($meta);
+
+            // Attribution caption (hidden until the (i) button is clicked)
+            if (atlasData.headerImage && atlasData.attribution) {
+                const $attr = $('<div>', { class: 'atlas-hero-attribution', style: 'display: none;' })
+                    .html(atlasData.attribution);
+                $attr.find('a').attr({ target: '_blank', rel: 'noopener noreferrer' });
+                $inner.append($attr);
+            }
+
+            $hero.append($inner);
+            $host.empty().append($hero);
         }
 
         // Check if layer is a global/world layer
@@ -2116,7 +2553,8 @@
 
             const $collapsed = $('<div>', {
                 class: 'atlas-collapsed',
-                id: `atlas-${atlasId}`
+                id: `atlas-${atlasId}`,
+                style: `border-left: 3px solid ${atlasData.color || '#6b7280'};`
             });
 
             const headerHasBg = !!atlasData.headerImage;
@@ -2169,138 +2607,50 @@
             });
             $topRow.append($expandIcon);
 
-            // Atlas name and description container
+            // Atlas name + icon. The atlas color is shown as the row's left accent
+            // border (set on $collapsed), not as a filled badge. Rich metadata
+            // (description, tags, count, zoom, config) lives in the hero header for
+            // whichever atlas is selected, so the row stays minimal.
             const $titleContainer = $('<div>', {
-                style: 'flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; overflow: hidden;'
+                style: 'flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; overflow: hidden;'
             });
 
-            // Atlas name badge
-            const $nameBadge = $('<span>', {
-                style: `background: ${atlasData.color || '#6b7280'}; color: white; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;`
-            });
             if (atlasData.icon) {
                 $('<img>', {
                     src: atlasData.icon,
                     alt: '',
-                    style: 'height: 14px; width: auto; display: block; flex-shrink: 0;'
-                }).appendTo($nameBadge);
-            }
-            $('<span>', { text: atlasData.name || atlasId }).appendTo($nameBadge);
-            $titleContainer.append($nameBadge);
-
-            // Atlas-level tags (if available)
-            if (atlasData.tags && Array.isArray(atlasData.tags) && atlasData.tags.length > 0) {
-                atlasData.tags.forEach(tag => {
-                    const $tagBadge = $('<span>', {
-                        style: 'background: #374151; color: #d1d5db; padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 600; text-transform: uppercase; white-space: nowrap; flex-shrink: 0; letter-spacing: 0.5px;',
-                        text: tag
-                    });
-                    $titleContainer.append($tagBadge);
-                });
+                    style: 'height: 16px; width: auto; display: block; flex-shrink: 0;'
+                }).appendTo($titleContainer);
             }
 
-            // Atlas description — inline & truncated when collapsed. When expanded
-            // the full description is rendered on its own line below the top row.
-            if (atlasData.description && !isExpanded) {
-                const $description = $('<span>', {
-                    style: 'color: #9ca3af; font-size: 11px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;',
-                    text: atlasData.description.replace(/<[^>]*>/g, '').substring(0, 100)
-                });
-                $titleContainer.append($description);
-            }
+            $('<span>', {
+                style: 'color: #f3f4f6; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;',
+                text: atlasData.name || atlasId
+            }).appendTo($titleContainer);
 
             $topRow.append($titleContainer);
 
-            // Only show zoom and link buttons when atlas is expanded
-            if (isExpanded) {
-                // Count active layers from this atlas
-                const activeAtlasLayers = atlasLayers.filter(layer => activeLayers.has(layer.id));
-                const activeCount = activeAtlasLayers.length;
-
-                // Remove All button (if 2+ layers are active)
-                if (activeCount >= 2) {
-                    const $removeAllBtn = $('<button>', {
-                        html: '✕ Remove All',
-                        title: `Remove all ${activeCount} layers from this atlas`,
-                        style: 'background: #dc2626; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; transition: background 0.2s; margin-right: 4px; font-weight: 600;',
-                        click: function (e) {
-                            e.stopPropagation();
-                            // Remove all active layers from this atlas
-                            activeAtlasLayers.forEach(layer => {
-                                // Optimistically update local state
-                                activeLayers.delete(layer.id);
-                                loadingLayers.delete(layer.id);
-
-                                // Notify parent
-                                window.parent.postMessage({
-                                    type: 'layer-toggle',
-                                    layerId: layer.id,
-                                    active: false
-                                }, '*');
-                            });
-
-                            // Re-render to hide the button immediately
-                            renderLayers();
-                        }
-                    });
-                    $removeAllBtn.on('mouseenter', function () {
-                        $(this).css('background', '#b91c1c');
-                    }).on('mouseleave', function () {
-                        $(this).css('background', '#dc2626');
-                    });
-                    $topRow.append($removeAllBtn);
-                }
-
-                // Zoom button (if atlas has bbox)
-                if (atlasData.bbox) {
-                    const $zoomBtn = $('<button>', {
-                        html: '🔍',
-                        title: 'Zoom to atlas and add default layers',
-                        style: 'background: #4b5563; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.2s; margin-right: 4px;',
-                        click: function (e) {
-                            e.stopPropagation();
-
-                            // Add default layers (initiallyChecked: true) from this atlas
-                            const defaultLayers = atlasLayers.filter(layer => layer.initiallyChecked === true);
-                            defaultLayers.forEach(layer => {
-                                if (!activeLayers.has(layer.id)) {
-                                    window.parent.postMessage({
-                                        type: 'layer-toggle',
-                                        layerId: layer.id,
-                                        active: true
-                                    }, '*');
-                                }
-                            });
-
-                            // Zoom to atlas bounds
-                            window.parent.postMessage({
-                                type: 'zoom-to-bounds',
-                                bounds: atlasData.bbox
-                            }, '*');
-                        }
-                    });
-                    $zoomBtn.on('mouseenter', function () {
-                        $(this).css('background', '#6b7280');
-                    }).on('mouseleave', function () {
-                        $(this).css('background', '#4b5563');
-                    });
-                    $topRow.append($zoomBtn);
-                }
-
-                // Config link
-                const configUrl = `https://raw.githubusercontent.com/publicmap/amche-atlas/refs/heads/dev/config/${atlasId}.atlas.json`;
-                const $configLink = $('<a>', {
-                    href: configUrl,
-                    target: '_blank',
-                    rel: 'noopener noreferrer',
-                    html: '🔗',
-                    title: 'View config file',
-                    style: 'text-decoration: none; opacity: 0.6; transition: opacity 0.2s;',
-                    click: function (e) { e.stopPropagation(); },
-                    mouseenter: function () { $(this).css('opacity', 1); },
-                    mouseleave: function () { $(this).css('opacity', 0.6); }
+            // [Select] — make this the active atlas (updates the hero header above).
+            // Shown on row hover, except for the atlas that is already selected,
+            // which shows a static "Selected" chip instead.
+            const isSelectedAtlas = (window.selectedAtlasId || 'index') === atlasId;
+            if (isSelectedAtlas) {
+                $('<span>', {
+                    class: 'atlas-selected-chip',
+                    html: '<sl-icon name="check-lg"></sl-icon><span>Selected</span>'
+                }).appendTo($topRow);
+            } else {
+                const $selectBtn = $('<button>', {
+                    class: 'atlas-select-btn',
+                    type: 'button',
+                    title: 'Make this the selected atlas',
+                    text: 'Select',
+                    click: function (e) {
+                        e.stopPropagation();
+                        changeAtlasSelection(atlasId);
+                    }
                 });
-                $topRow.append($configLink);
+                $topRow.append($selectBtn);
             }
 
             // Group visibility eye toggle (first column) - toggles all layers in this atlas
@@ -2311,15 +2661,6 @@
             $topRow.prepend($atlasEye);
 
             $header.append($topRow);
-
-            // Expanded layout: render the full atlas description on its own line
-            if (isExpanded && atlasData.description) {
-                const $descriptionFull = $('<div>', {
-                    class: 'atlas-description-full',
-                    text: atlasData.description.replace(/<[^>]*>/g, '')
-                });
-                $header.append($descriptionFull);
-            }
 
             // Hovering an atlas row previews its bbox and boundary geojson on the map
             $header.on('mouseenter', function () {

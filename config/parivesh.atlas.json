@@ -1,8 +1,9 @@
 {
   "name": "Environmental Approvals India",
   "areaOfInterest": "India",
-  "description": "Environmental clearance applications for projects across Indian states and union territories, sourced from <a href='https://parivesh.nic.in/'>Parivesh</a>. Data collected by the <a href='https://datameet.org'>Datameet</a> community and processed by <a href='https://github.com/ramSeraph/india-environmental-approvals'>ramSeraph/india-environmental-approvals</a>.",
-  "headerImage": "assets/map-layers/india/map-layer-soi.png",
+  "description": "Environmental clearance applications for projects across Indian states and union territories, sourced from <a href='https://parivesh.nic.in/'>Parivesh</a>. Data collected by the <a href='https://datameet.org'>Datameet</a> community and processed by <a href='https://github.com/ramSeraph/india-environmental-approvals'>india-environmental-approvals</a>.",
+  "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Air_pollution3.jpg/330px-Air_pollution3.jpg",
+  "attribution": "<a href='https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Air_pollution3.jpg/330px-Air_pollution3.jpg'>CC Janak Bhatta</a>",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/environmental-approvals.atlas.json",
   "color": "crimson",

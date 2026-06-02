@@ -32,7 +32,8 @@
     "maharashtra",
     "telangana",
     "kerala",
-    "parivesh"
+    "parivesh",
+    "https://raw.githubusercontent.com/alansaviolobo/dfes-dmp/refs/heads/main/config/dfes-dmp.atlas.json"
   ],
   "geojson": {
     "type": "FeatureCollection",

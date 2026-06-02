@@ -259,7 +259,7 @@ export class MapBrowserControl {
             }
 
             if (event.data.type === 'zoom-to-bounds') {
-                this._handleZoomToBounds(event.data.bounds);
+                this._handleZoomToBounds(event.data.bounds, event.data.toggle);
             }
 
             if (event.data.type === 'zoom-to-layer') {
@@ -767,7 +767,7 @@ export class MapBrowserControl {
         }
     }
 
-    _handleZoomToBounds(bounds) {
+    _handleZoomToBounds(bounds, toggle = false) {
         if (!this._map || !bounds) return;
 
         // Parse bbox if it's a string "minLng,minLat,maxLng,maxLat"
@@ -784,6 +784,28 @@ export class MapBrowserControl {
         }
 
         if (!bbox) return;
+
+        // Toggle mode: a second click on the same target restores the map view
+        // that was active before the first zoom.
+        if (toggle) {
+            const targetKey = JSON.stringify(bbox);
+            const prev = this._zoomToggle;
+            if (prev && prev.targetKey === targetKey) {
+                // Restore the previous camera and clear the stored state
+                this._map.fitBounds(prev.prevBounds, {
+                    padding: { top: 50, bottom: 50, left: 50, right: 50 },
+                    duration: 1000
+                });
+                this._zoomToggle = null;
+                return;
+            }
+            // Remember where we were so the next click can return here
+            const b = this._map.getBounds();
+            this._zoomToggle = {
+                targetKey,
+                prevBounds: [[b.getWest(), b.getSouth()], [b.getEast(), b.getNorth()]]
+            };
+        }
 
         // Zoom to bounds
         this._map.fitBounds(bbox, {

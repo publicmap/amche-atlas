@@ -545,6 +545,14 @@ export class ButtonExternalMapLinks {
                 tags: ['Basemap', 'Navigation', 'Open Data']
             },
             {
+                id: 'urbanistmap',
+                name: 'UrbanistMap',
+                url: `https://urbanistmap.org/#map=${zoom}/${lat}/${lng}`,
+                category: 'global',
+                description: 'Minimalist basemap focused on urban form, transit networks, and the built environment. Clean cartography highlighting streets, rail, and density patterns for urban planning and analysis.',
+                tags: ['Basemap', 'Urban', 'Transit']
+            },
+            {
                 id: 'osm-spyglass',
                 icon: 'https://spyglass.jochentopf.com/img/spyglass.svg',
                 name: 'OSM SpyGlass',
