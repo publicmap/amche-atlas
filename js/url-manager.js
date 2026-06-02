@@ -237,8 +237,10 @@ export class URLManager {
                     if (group.opacity !== undefined && group.opacity !== 1) {
                         layerObj.opacity = group.opacity;
                     }
-                    // Include geojson if it exists and has features
-                    if (group.geojson && group.geojson.features && group.geojson.features.length > 0) {
+                    // Include geojson if it exists and has features. The selection layer is
+                    // excluded here — its markers are carried in the compact `markers=` param
+                    // instead of inlining a full FeatureCollection (see serializeMarkersForURL).
+                    if (group.id !== 'selection' && group.geojson && group.geojson.features && group.geojson.features.length > 0) {
                         layerObj.geojson = group.geojson;
                     }
                     activeLayers.push(layerObj);
@@ -430,6 +432,7 @@ export class URLManager {
         let soundParam = null;
         let exportParam = null;
         let selectedParam = null;
+        let markersParam = null;
 
         // Handle layers parameter
         if (options.updateLayers === true) {
@@ -667,6 +670,18 @@ export class URLManager {
             }
         }
 
+        // Handle selection markers parameter (compact form of the selection layer geojson).
+        // Marker changes arrive via updateLayers (marker manager) or updateSelections.
+        if (options.updateLayers === true || options.updateSelections === true) {
+            const newMarkersParam = this.serializeMarkersForURL();
+            const currentMarkersParam = urlParams.get('markers') || '';
+
+            if (newMarkersParam !== currentMarkersParam) {
+                markersParam = newMarkersParam;
+                hasChanges = true;
+            }
+        }
+
         // Update URL if there are changes
         if (hasChanges) {
             // Create a pretty, readable URL without URL encoding
@@ -690,6 +705,7 @@ export class URLManager {
             otherParams.delete('sound');
             otherParams.delete('export');
             otherParams.delete('selected');
+            otherParams.delete('markers');
 
             // Add other parameters first (these will be URL-encoded by URLSearchParams)
             const otherParamsString = otherParams.toString();
@@ -801,6 +817,17 @@ export class URLManager {
                 }
             }
 
+            // Add selection markers parameter (compact selection layer geojson).
+            // markersParam === '' means cleared (omit); null means unchanged (preserve existing).
+            if (markersParam !== null && markersParam !== '') {
+                params.push('markers=' + markersParam);
+            } else if (markersParam === null) {
+                const currentMarkersParam = urlParams.get('markers');
+                if (currentMarkersParam) {
+                    params.push('markers=' + currentMarkersParam);
+                }
+            }
+
             // Build the final pretty URL
             let newUrl = baseUrl;
             if (params.length > 0) {
@@ -894,6 +921,80 @@ export class URLManager {
     }
 
     /**
+     * Serialize the selection layer's markers into a compact `markers=` param.
+     * Format: lng,lat:layerId~featureId,layerId~featureId|<next marker>...
+     * This replaces inlining the full selection GeoJSON inside the `layers=` param.
+     */
+    serializeMarkersForURL() {
+        const selectionLayer = window.layerControl?._state?.groups?.find(g => g.id === 'selection');
+        const features = selectionLayer?.geojson?.features;
+        if (!features || features.length === 0) {
+            return '';
+        }
+
+        const round = (n) => parseFloat(Number(n).toFixed(6));
+
+        const markers = [];
+        features.forEach(feature => {
+            if (feature?.geometry?.type !== 'Point') return;
+            const refs = feature.properties?.features;
+            if (!Array.isArray(refs) || refs.length === 0) return;
+
+            const [lng, lat] = feature.geometry.coordinates;
+            const refsStr = refs.map(ref => `${ref.layerId}~${ref.featureId}`).join(',');
+            markers.push(`${round(lng)},${round(lat)}:${refsStr}`);
+        });
+
+        return markers.join('|');
+    }
+
+    /**
+     * Parse a compact `markers=` param back into a selection-layer FeatureCollection.
+     * Inverse of serializeMarkersForURL. The `name`/`featureCount` display fields are
+     * recomputed during restoration, so they are omitted from the URL.
+     */
+    parseMarkersFromURL(markersParam) {
+        const geojson = { type: 'FeatureCollection', features: [] };
+        if (!markersParam) {
+            return geojson;
+        }
+
+        markersParam.split('|').forEach((markerStr, index) => {
+            const colonIndex = markerStr.indexOf(':');
+            if (colonIndex === -1) return;
+
+            const coordsStr = markerStr.substring(0, colonIndex);
+            const refsStr = markerStr.substring(colonIndex + 1);
+
+            const [lng, lat] = coordsStr.split(',').map(parseFloat);
+            if (isNaN(lng) || isNaN(lat)) return;
+
+            const featureRefs = refsStr.split(',').map(refStr => {
+                const tildeIndex = refStr.indexOf('~');
+                if (tildeIndex === -1) return null;
+                return {
+                    layerId: refStr.substring(0, tildeIndex),
+                    featureId: refStr.substring(tildeIndex + 1)
+                };
+            }).filter(Boolean);
+
+            if (featureRefs.length === 0) return;
+
+            geojson.features.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [lng, lat] },
+                properties: {
+                    id: `marker-url-${index}`,
+                    featureCount: featureRefs.length,
+                    features: featureRefs
+                }
+            });
+        });
+
+        return geojson;
+    }
+
+    /**
      * Update URL when layers change
      */
     onLayersChanged() {
@@ -918,10 +1019,11 @@ export class URLManager {
         const bearingParam = urlParams.get('bearing');
         const pitchParam = urlParams.get('pitch');
         const selectedParam = urlParams.get('selected');
+        const markersParam = urlParams.get('markers');
         const hasLocationClick = urlParams.has('selected') && selectedParam === '';
         const zoomToParam = urlParams.get('zoomTo');
 
-        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !hasLocationClick && !zoomToParam) {
+        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !hasLocationClick && !zoomToParam) {
             return false;
         }
 
@@ -1039,24 +1141,41 @@ export class URLManager {
             if (hasLocationClick && window.location.hash) {
                 applied = true;
                 await this.applyLocationClickFromURL();
-            } else if (selectedParam && this.stateManager) {
+            } else if ((markersParam || selectedParam) && this.stateManager) {
                 applied = true;
 
-                // First, try to restore markers from selection layer GeoJSON if available
                 let markersRestored = false;
-                if (window.featureControl?._markerManager) {
+                const markerManager = window.featureControl?._markerManager;
+
+                if (markerManager) {
                     try {
-                        markersRestored = await window.featureControl._markerManager.restoreMarkersFromSelectionLayer();
-                        if (markersRestored) {
-                            console.log('[URL API] Successfully restored markers from selection layer');
+                        if (markersParam) {
+                            // Preferred path: rebuild the selection layer geojson from the
+                            // compact `markers=` param, then restore markers + selections from it.
+                            const selectionGeojson = this.parseMarkersFromURL(markersParam);
+                            const selectionGroup = window.layerControl?._state?.groups?.find(g => g.id === 'selection');
+                            if (selectionGroup) {
+                                selectionGroup.geojson = selectionGeojson;
+                            }
+                            markersRestored = await markerManager.restoreMarkersFromSelectionLayer();
+                            if (markersRestored) {
+                                console.log('[URL API] Successfully restored markers from markers parameter');
+                            }
+                        } else {
+                            // Backward compatibility: older shared URLs inlined the selection
+                            // geojson in the layers= param, which is already on the layer group.
+                            markersRestored = await markerManager.restoreMarkersFromSelectionLayer();
+                            if (markersRestored) {
+                                console.log('[URL API] Successfully restored markers from inline selection layer geojson');
+                            }
                         }
                     } catch (error) {
-                        console.warn('[URL API] Error restoring markers from selection layer:', error);
+                        console.warn('[URL API] Error restoring markers:', error);
                     }
                 }
 
-                // If markers were not restored from selection layer, fall back to selected parameter
-                if (!markersRestored) {
+                // If markers were not restored, fall back to the selected= parameter
+                if (!markersRestored && selectedParam) {
                     console.log('[URL API] Restoring selections from selected parameter');
                     await this.applySelectionsFromURL(selectedParam);
                 }
