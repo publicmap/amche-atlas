@@ -143,7 +143,13 @@ export class SplashScreenManager {
                     atlasConfig = await response.json();
                     atlasId = 'imported';
                 } else {
-                    const response = await fetch(`config/${atlasParam}.atlas.json`);
+                    // Short-id atlas: resolve via the registry, which knows whether the
+                    // id maps to a local config/<id>.atlas.json or an external URL (e.g.
+                    // a cross-repo atlas like dfes-dmp). Fetching the local path blindly
+                    // returns the SPA's index.html for external atlases → JSON parse error.
+                    const meta = window.layerRegistry?.getAtlasMetadata?.(atlasParam);
+                    const fetchUrl = meta?.url || `config/${atlasParam}.atlas.json`;
+                    const response = await fetch(fetchUrl);
                     atlasConfig = await response.json();
                     atlasId = atlasParam;
                 }
@@ -406,7 +412,9 @@ export class SplashScreenManager {
 
     async loadAtlasById(atlasId) {
         try {
-            const response = await fetch(`config/${atlasId}.atlas.json`);
+            const meta = window.layerRegistry?.getAtlasMetadata?.(atlasId);
+            const fetchUrl = meta?.url || `config/${atlasId}.atlas.json`;
+            const response = await fetch(fetchUrl);
             const config = await response.json();
             this.state.atlas = this._atlasFromConfig(atlasId, config);
             this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];

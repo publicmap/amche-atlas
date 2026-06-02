@@ -126,7 +126,6 @@
     },
     {
       "tags": [
-        "basemap",
         "amenity"
       ],
       "title": "Schools",
@@ -1328,6 +1327,38 @@
         "label": "Name"
       },
       "headerImage": "https://api-main-432878571563.europe-west4.run.app/maps/f7c37496-7c7d-484d-8339-bcb0f2e39c4b/thumbnail"
+    },
+    {
+      "tags": [
+        "3.Regulatory",
+        "coastal zone"
+      ],
+      "title": "Aldona Community CZMP",
+      "description": "Prepared by Diana, Aldona Village.",
+      "type": "tms",
+      "id": "2019-aldona-community-czmp",
+      "url": "https://mapwarper.net/maps/tile/107414/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://drive.google.com/drive/u/1/folders/1TiKKrdqHg9gk89JhEVbkh05wlY_1o8u_' target='_blank'>https://drive.google.com/drive/u/1/folders/1TiKKrdqHg9gk89JhEVbkh05wlY_1o8u_</a> via <a href='https://mapwarper.net/maps/107414' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/107414/thumb/Aldona_CZMP.png",
+      "bbox": "73.857226,15.5518636,73.905981,15.6208893",
+      "initiallyChecked": false
     },
     {
       "tags": [

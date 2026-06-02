@@ -220,7 +220,11 @@ export class MapInitializer {
                 atlasId = 'imported'; // Mark as imported atlas
                 isImportedAtlas = true; // Flag as imported
             } else {
-                configPath = `config/${configParam}.atlas.json`; // Treat as local file
+                // Resolve via the registry so cross-repo atlases (referenced by short
+                // id in index.atlas.json's `atlases` array, e.g. dfes-dmp) load from
+                // their external URL. Fetching config/<id>.atlas.json blindly returns
+                // the SPA's index.html for those → JSON parse error.
+                configPath = layerRegistry.getAtlasMetadata(configParam)?.url || `config/${configParam}.atlas.json`;
                 atlasId = configParam; // Use the config name as atlas ID
             }
         }

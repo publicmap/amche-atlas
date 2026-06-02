@@ -70,7 +70,7 @@ export class LayerRegistry {
                     }
 
                     const config = await response.json();
-                    return { atlasId, config, baseUrl, success: true };
+                    return { atlasId, config, baseUrl, url: fetchUrl, success: true };
                 } else {
                     return { atlasId, error: `HTTP ${response.status}`, success: false };
                 }
@@ -98,12 +98,17 @@ export class LayerRegistry {
         // Process all successfully loaded atlas configurations
         for (const result of atlasResults) {
             if (result.status === 'fulfilled' && result.value.success) {
-                const { atlasId, config, baseUrl } = result.value;
+                const { atlasId, config, baseUrl, url } = result.value;
 
                 // Store atlas metadata (color, name, etc.)
                 this._atlasMetadata.set(atlasId, {
+                    // Resolved URL the config was loaded from (external URL for cross-repo
+                    // atlases, local config/<id>.atlas.json otherwise). Lets other modules
+                    // re-fetch the correct source instead of assuming a local file.
+                    url: url || `config/${atlasId}.atlas.json`,
                     color: config.color || '#2563eb', // Default to blue if not specified
                     name: config.name || atlasId,
+                    map: config.map || null,
                     areaOfInterest: config.areaOfInterest || '',
                     description: config.description || '',
                     bbox: this._extractBbox(config),
