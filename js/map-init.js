@@ -4,6 +4,7 @@ import { MapLayerControl } from './map-layer-controls.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
+import { prewarmCadastral } from './cadastral-search.js';
 import { MapExportControl } from './map-export-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
@@ -1134,6 +1135,9 @@ export class MapInitializer {
             window.featureStateManager = featureStateManager;
             window.searchControl = searchControl;
 
+            // Pre-warm the cadastral parquet in the background so the first user
+            // search doesn't pay the cold-start download cost.
+            prewarmCadastral();
         };
 
         // Wait for style to load before setting up search

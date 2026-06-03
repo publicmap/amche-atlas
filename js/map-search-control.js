@@ -1,6 +1,8 @@
+import { queryCadastralPlots, parseCadastralQuery } from './cadastral-search.js'
+
 /**
- * MapSearchControl - A class to handle Mapbox search box functionality
- * with support for coordinate search and local layer suggestions
+ * MapSearchControl - Mapbox search with coordinate search and Goa cadastral
+ * plot search (village + survey) via statewide parquet, not viewport vector tiles.
  */
 export class MapSearchControl {
     /**
@@ -35,6 +37,8 @@ export class MapSearchControl {
         // Suggestion markers management
         this.suggestionMarkers = []; // Array to track markers for each local suggestion
         this.hoveredMarkerIndex = -1; // Track which marker is currently being hovered
+
+        this._pendingCadastralQuery = null;
 
         // Feature state manager reference (will be set externally)
         this.featureStateManager = null;
@@ -74,7 +78,6 @@ export class MapSearchControl {
         // Set up clear button monitoring
         this.setupClearButtonMonitoring();
 
-        // Add map moveend listener to refresh search results when viewport changes
         this.map.on('moveend', this.handleMapMoveEnd.bind(this));
 
         // Monitor for changes to update aria-expanded when suggestions appear/disappear
@@ -354,19 +357,33 @@ export class MapSearchControl {
      * @param {Array} coordinates - [longitude, latitude]
      * @param {string} title - Title for the marker popup
      */
+    _escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     addSearchMarker(coordinates, title) {
-        // Remove existing marker first
         this.removeSearchMarker();
 
-        // Create a new marker with a popup
+        const popup = new mapboxgl.Popup({
+            className: 'search-result-popup',
+            anchor: 'bottom',
+            offset: 28,
+            closeButton: true,
+            maxWidth: '320px',
+        }).setHTML(`<p class="search-result-popup__title">${this._escapeHtml(title)}</p>`);
+        popup.on('close', () => this.removeSearchMarker());
+
         this.searchMarker = new mapboxgl.Marker({
-            color: '#ff6b6b', // Red color to distinguish from other markers
+            color: '#ff6b6b',
             scale: 1.2
         })
             .setLngLat(coordinates)
-            .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`<div><strong>${title}</strong></div>`))
+            .setPopup(popup)
             .addTo(this.map);
-
     }
 
     /**
@@ -619,73 +636,10 @@ export class MapSearchControl {
             : base;
     }
 
-    /**
-     * Handle map moveend events to refresh search results for current viewport
-     */
     handleMapMoveEnd() {
-        // Only refresh if we have an active search query that's not a coordinate
-        if (this.hasActiveSearch && this.currentQuery && !this.isCoordinateInput && this.currentQuery.length > 0) {
-            this.searchBox.setAttribute('proximity', this._getMapProximity());
-            this.searchBox.setAttribute('types', this._getSearchTypes());
-
-            // Re-query local suggestions with the new viewport
-            const newLocalSuggestions = this.queryLocalCadastralSuggestions(this.currentQuery);
-
-            // Only update if suggestions have changed
-            if (this.haveSuggestionsChanged(this.localSuggestions, newLocalSuggestions)) {
-
-                this.localSuggestions = newLocalSuggestions;
-
-                // Clear existing markers and UI
-                this.clearSuggestionMarkers();
-
-                if (this.localSuggestions.length > 0) {
-                    // Create new markers and update UI
-                    this.createSuggestionMarkers();
-                    this.showSuggestionMarkers();
-
-                    // Re-inject suggestions into UI
-                    if (this.injectionTimeout) {
-                        clearTimeout(this.injectionTimeout);
-                    }
-
-                    this.injectionTimeout = setTimeout(() => {
-                        this.injectLocalSuggestionsIntoUI();
-                    }, 100);
-                } else {
-                    // Clear UI if no suggestions in current viewport
-                    this.clearInjectedSuggestions();
-                }
-            }
-        }
-    }
-
-    /**
-     * Check if two suggestion arrays are different
-     * @param {Array} oldSuggestions - Previous suggestions
-     * @param {Array} newSuggestions - New suggestions
-     * @returns {boolean} True if suggestions have changed
-     */
-    haveSuggestionsChanged(oldSuggestions, newSuggestions) {
-        if (oldSuggestions.length !== newSuggestions.length) {
-            return true;
-        }
-
-        // Compare feature IDs to detect changes
-        const oldIds = new Set(oldSuggestions.map(s => s.properties._featureId));
-        const newIds = new Set(newSuggestions.map(s => s.properties._featureId));
-
-        if (oldIds.size !== newIds.size) {
-            return true;
-        }
-
-        for (const id of oldIds) {
-            if (!newIds.has(id)) {
-                return true;
-            }
-        }
-
-        return false;
+        if (!this.hasActiveSearch || !this.currentQuery || this.isCoordinateInput) return;
+        this.searchBox.setAttribute('proximity', this._getMapProximity());
+        this.searchBox.setAttribute('types', this._getSearchTypes());
     }
 
     /**
@@ -865,35 +819,35 @@ export class MapSearchControl {
 
             this.removeSearchMarker();
 
-            this.localSuggestions = this.queryLocalCadastralSuggestions(query);
-
-            if (this.localSuggestions.length > 0) {
-                this.createSuggestionMarkers();
-
-                if (this.injectionTimeout) {
-                    clearTimeout(this.injectionTimeout);
-                }
-
-                this.injectionTimeout = setTimeout(() => {
-                    this.injectLocalSuggestionsIntoUI();
-                    this.showSuggestionMarkers();
-                    this.fitToContextWithAllSuggestions();
-                }, 300);
-
-                setTimeout(() => {
-                    if (this.suggestionMarkers.length > 0) {
-                        const visibleCount = this.suggestionMarkers.filter(m => m.visible).length;
-                        if (visibleCount === 0) {
-                            this.showSuggestionMarkers();
-                            this.fitToContextWithAllSuggestions();
-                        }
-                    }
-                }, 100);
-
+            const cadastralParsed = parseCadastralQuery(query);
+            if (cadastralParsed) {
+                this.startCadastralParquetSearch(query, cadastralParsed);
             } else {
+                this._pendingCadastralQuery = null;
+                this.localSuggestions = [];
                 this.clearSuggestionMarkers();
+                this.clearInjectedSuggestions();
             }
         }
+    }
+
+    startCadastralParquetSearch(query, parsed) {
+        this._pendingCadastralQuery = query;
+        this.localSuggestions = [];
+        this.clearSuggestionMarkers();
+
+        queryCadastralPlots(parsed.village, parsed.surveyRaw)
+            .then(features => {
+                if (this._pendingCadastralQuery !== query) return;
+                this.localSuggestions = features;
+                if (!features.length) return;
+
+                this.lastInjectedQuery = '';
+                this.createSuggestionMarkers();
+                clearTimeout(this.injectionTimeout);
+                this.scheduleCadastralSuggestionInjection();
+            })
+            .catch(err => console.error('[cadastral]', err));
     }
 
     /**
@@ -921,20 +875,12 @@ export class MapSearchControl {
             return false;
         }
 
-        // If we have local suggestions, re-inject them after Mapbox updates
-        if (!this.isCoordinateInput && this.localSuggestions.length > 0) {
-            // Clear any existing timeout
-            if (this.injectionTimeout) {
-                clearTimeout(this.injectionTimeout);
-            }
+        if (this.isCoordinateInput) return;
 
-            // Reset the injection tracking since Mapbox just updated
-            this.lastInjectedQuery = '';
-
-            // Re-inject after a short delay
-            this.injectionTimeout = setTimeout(() => {
-                this.injectLocalSuggestionsIntoUI();
-            }, 100);
+        const cadastralParsed = parseCadastralQuery(this.currentQuery);
+        if (cadastralParsed && this.localSuggestions.length > 0) {
+            clearTimeout(this.injectionTimeout);
+            this.scheduleCadastralSuggestionInjection();
         }
     }
 
@@ -963,32 +909,11 @@ export class MapSearchControl {
                     duration: 2000
                 });
 
-                if (this.featureStateManager && feature.properties._featureId) {
+                if (this.featureStateManager) {
                     this.featureStateManager.clearAllSelections();
-
-                    this.featureStateManager.selectedFeatureId = feature.properties._featureId;
-                    this.featureStateManager.selectedSourceId = 'vector-plots';
-                    this.featureStateManager.selectedSourceLayer = 'Onemapgoa_GA_Cadastrals_Mar2026';
-
-                    try {
-                        this.map.setFeatureState(
-                            {
-                                source: 'vector-plots',
-                                sourceLayer: 'Onemapgoa_GA_Cadastrals_Mar2026',
-                                id: feature.properties._featureId
-                            },
-                            { selected: true }
-                        );
-                    } catch (error) {
-                        console.error('Error setting feature state:', error);
-                    }
                 }
 
-                // Clear the injection state to allow future searches
                 this.resetSearchState();
-
-                // Optionally highlight the plot (if you want to add visual feedback)
-                this.highlightCadastralPlot(feature.properties._originalProperties);
             } else {
                 // Regular search result or coordinate
                 this.addSearchMarker(coordinates, feature.properties.name || feature.properties.place_name || 'Search Result');
@@ -1000,222 +925,6 @@ export class MapSearchControl {
                 });
             }
         }
-    }
-
-    /**
-     * Highlight a cadastral plot on the map (optional visual feedback)
-     * @param {Object} plotProperties - The original plot properties
-     */
-    highlightCadastralPlot(plotProperties) {
-        try {
-        } catch (error) {
-            console.error('Error highlighting cadastral plot:', error);
-        }
-    }
-
-    /**
-     * Query local cadastral layer for plot suggestions
-     * @param {string} query - The search query
-     * @returns {Array} Array of matching plot suggestions
-     */
-    queryLocalCadastralSuggestions(query) {
-        if (!query || query.length < 1) {
-            return [];
-        }
-
-        try {
-            const bounds = this.map.getBounds();
-
-            const features = this.map.querySourceFeatures('vector-plots', {
-                sourceLayer: 'Onemapgoa_GA_Cadastrals_Mar2026',
-                filter: ['has', 'plot']
-            });
-
-            const featuresInBounds = features.filter(feature => {
-                const center = this.getFeatureCenter(feature);
-                if (!center || center.length < 2) return false;
-
-                const [lng, lat] = center;
-                return bounds.contains([lng, lat]);
-            });
-
-            const matchingFeatures = featuresInBounds.filter(feature => {
-                const plotValue = feature.properties.plot;
-                if (!plotValue) return false;
-
-                const plotString = String(plotValue).toLowerCase();
-                const queryLower = query.toLowerCase();
-
-                const isMatch = plotString.startsWith(queryLower);
-
-                return isMatch;
-            });
-
-            const uniqueFeatures = [];
-            const seenLocations = new Set();
-
-            for (const feature of matchingFeatures) {
-                const plotValue = feature.properties.plot;
-                const lname = feature.properties.lname || '';
-                const villagenam = feature.properties.villagenam || '';
-
-                const locationKey = `${plotValue}|${villagenam}|${lname}`;
-
-                if (!seenLocations.has(locationKey)) {
-                    seenLocations.add(locationKey);
-                    uniqueFeatures.push(feature);
-
-                    if (uniqueFeatures.length >= 5) break;
-                }
-            }
-
-            // Convert to suggestion format and limit results
-            const suggestions = uniqueFeatures
-                .map(feature => {
-                    const plotValue = feature.properties.plot;
-                    const lname = feature.properties.lname || ''; // Place name
-                    const villagenam = feature.properties.villagenam || ''; // Village/locality name
-                    const center = this.getFeatureCenter(feature);
-                    const featureId = feature.properties.id || feature.id; // Get the feature ID
-
-                    // Build a descriptive location string
-                    let locationParts = [];
-                    if (villagenam) locationParts.push(villagenam);
-                    if (lname && lname !== villagenam) locationParts.push(lname);
-                    locationParts.push('Goa'); // Always add Goa
-
-                    const locationString = locationParts.join(', ');
-                    const fullDescription = locationParts.length > 1 ?
-                        `Plot ${plotValue}, ${locationString}` :
-                        `Plot ${plotValue}, Cadastral Survey, Goa`;
-
-                    return {
-                        type: 'Feature',
-                        geometry: {
-                            type: 'Point',
-                            coordinates: center
-                        },
-                        properties: {
-                            name: `Plot ${plotValue}`,
-                            place_name: fullDescription,
-                            place_type: ['cadastral', 'plot'],
-                            text: `Plot ${plotValue}`,
-                            full_address: fullDescription,
-                            context: [
-                                {
-                                    id: 'cadastral',
-                                    text: 'Cadastral Survey'
-                                },
-                                ...(villagenam ? [{
-                                    id: 'locality',
-                                    text: villagenam
-                                }] : []),
-                                ...(lname && lname !== villagenam ? [{
-                                    id: 'place',
-                                    text: lname
-                                }] : []),
-                                {
-                                    id: 'region',
-                                    text: 'Goa'
-                                }
-                            ],
-                            // Store location info for display
-                            _locationString: locationString,
-                            // Store original feature properties for potential use
-                            _originalProperties: feature.properties,
-                            // Store the feature ID for selection state management
-                            _featureId: featureId,
-                            // Mark as local suggestion
-                            _isLocalSuggestion: true
-                        }
-                    };
-                });
-
-            return suggestions;
-        } catch (error) {
-            console.error('Error querying local cadastral suggestions:', error);
-            return [];
-        }
-    }
-
-    /**
-     * Get the center point of a feature
-     * @param {Object} feature - GeoJSON feature
-     * @returns {Array} [longitude, latitude]
-     */
-    getFeatureCenter(feature) {
-        if (!feature.geometry) return [0, 0];
-
-        switch (feature.geometry.type) {
-            case 'Point':
-                return feature.geometry.coordinates;
-
-            case 'Polygon':
-            case 'MultiPolygon':
-                // Calculate centroid of polygon
-                return this.calculatePolygonCentroid(feature.geometry);
-
-            case 'LineString':
-            case 'MultiLineString':
-                // Get midpoint of line
-                return this.calculateLineMidpoint(feature.geometry);
-
-            default:
-                return [0, 0];
-        }
-    }
-
-    /**
-     * Calculate the centroid of a polygon
-     * @param {Object} geometry - Polygon or MultiPolygon geometry
-     * @returns {Array} [longitude, latitude]
-     */
-    calculatePolygonCentroid(geometry) {
-        let coordinates;
-
-        if (geometry.type === 'Polygon') {
-            coordinates = geometry.coordinates[0]; // Use exterior ring
-        } else if (geometry.type === 'MultiPolygon') {
-            coordinates = geometry.coordinates[0][0]; // Use first polygon's exterior ring
-        } else {
-            return [0, 0];
-        }
-
-        // Calculate centroid using simple average of coordinates
-        let x = 0, y = 0, count = 0;
-
-        for (const coord of coordinates) {
-            if (Array.isArray(coord) && coord.length >= 2) {
-                x += coord[0];
-                y += coord[1];
-                count++;
-            }
-        }
-
-        return count > 0 ? [x / count, y / count] : [0, 0];
-    }
-
-    /**
-     * Calculate the midpoint of a line
-     * @param {Object} geometry - LineString or MultiLineString geometry
-     * @returns {Array} [longitude, latitude]
-     */
-    calculateLineMidpoint(geometry) {
-        let coordinates;
-
-        if (geometry.type === 'LineString') {
-            coordinates = geometry.coordinates;
-        } else if (geometry.type === 'MultiLineString') {
-            coordinates = geometry.coordinates[0]; // Use first line
-        } else {
-            return [0, 0];
-        }
-
-        if (coordinates.length === 0) return [0, 0];
-
-        // Return midpoint
-        const midIndex = Math.floor(coordinates.length / 2);
-        return coordinates[midIndex];
     }
 
     /**
@@ -1258,6 +967,19 @@ export class MapSearchControl {
             this.clearButtonObserver.disconnect();
             this.clearButtonObserver = null;
         }
+    }
+
+    scheduleCadastralSuggestionInjection() {
+        const delays = [0, 100, 300, 600, 1500, 3000];
+        delays.forEach(delay => {
+            setTimeout(() => {
+                if (this._pendingCadastralQuery !== this.currentQuery) return;
+                this.lastInjectedQuery = '';
+                this.injectLocalSuggestionsIntoUI();
+                this.showSuggestionMarkers();
+                this.fitToContextWithAllSuggestions();
+            }, delay);
+        });
     }
 
     /**
@@ -1342,14 +1064,17 @@ export class MapSearchControl {
             // Remove any previously injected local suggestions
             $resultsList.find('.local-suggestion').remove();
 
-            const existingSuggestions = $resultsList.find('[role="option"]');
-            const existingCount = existingSuggestions.length;
+            const hasCadastralPlots = this.localSuggestions.some(
+                s => s.properties._isCadastralParquet
+            );
 
-            if (existingCount > 5) {
-                existingSuggestions.slice(5).remove();
+            let mapboxOptions = $resultsList.find('[role="option"]:not(.local-suggestion)');
+            if (hasCadastralPlots && mapboxOptions.length > 1) {
+                mapboxOptions.slice(1).remove();
+                mapboxOptions = $resultsList.find('[role="option"]:not(.local-suggestion)');
             }
 
-            const remainingMapboxSuggestions = $resultsList.find('[role="option"]').length;
+            const remainingMapboxSuggestions = mapboxOptions.length;
             const localSuggestionsToAdd = Math.min(5, this.localSuggestions.length);
             const totalCount = remainingMapboxSuggestions + localSuggestionsToAdd;
 
@@ -1364,10 +1089,11 @@ export class MapSearchControl {
                 const suggestionIndex = index; // Local suggestions will be at positions 0, 1, 2, etc.
                 const plotName = suggestion.properties.name;
                 const plotDesc = suggestion.properties.place_name;
+                const isCadastralPlot = suggestion.properties._isCadastralParquet;
 
                 // Create the suggestion HTML with robust styling
                 const suggestionHtml = `
-                    <div class="mbx09bc48e7--Suggestion local-suggestion"
+                    <div class="mbx09bc48e7--Suggestion local-suggestion${isCadastralPlot ? ' cadastral-plot-suggestion' : ''}"
                          role="option"
                          tabindex="-1"
                          id="mbx09bc48e7-ResultsList-${suggestionIndex}"
