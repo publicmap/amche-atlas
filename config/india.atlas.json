@@ -1,7 +1,7 @@
 {
   "name": "India",
   "areaOfInterest": "India",
-  "headerImage": "assets/map-layers/india/map-layer-soi.png",
+  "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Peacock_Plumage.jpg/330px-Peacock_Plumage.jpg",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/india.atlas.json",
   "color": "#f97316",
@@ -171,8 +171,7 @@
     },
     {
       "tags": [
-        "boundaries",
-        "postal"
+        "2.Boundaries"
       ],
       "id": "pincodes",
       "title": "Pincode Boundaries",
@@ -335,6 +334,9 @@
       }
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "id": "village",
       "title": "Village Boundaries",
       "description": "Revenue village boundaries with <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory</a> attributes.",
@@ -428,6 +430,9 @@
       }
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "id": "block",
       "title": "Block Boundaries",
       "description": "Block boundaries with <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory</a> attributes.",
@@ -469,6 +474,9 @@
       "initiallyChecked": true
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "id": "municipal-wards",
       "title": "Municipal Ward Boundaries",
       "description": "Ward boundaries for Panaji Municipal Corporation and Municipal Councils (partial coverage)",
@@ -589,7 +597,7 @@
     },
     {
       "tags": [
-        "basemap"
+        "2.Boundaries"
       ],
       "title": "District Boundaries",
       "description": "Districts of India",
@@ -640,7 +648,7 @@
     },
     {
       "tags": [
-        "boundaries"
+        "2.Boundaries"
       ],
       "title": "State Boundaries",
       "description": "LGD_States",
@@ -675,6 +683,9 @@
       "initiallyChecked": true
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "title": "Assembly Constituencies",
       "description": "Members of Legislative Assembly (MLA) constituencies.",
       "type": "vector",
@@ -726,6 +737,9 @@
       "initiallyChecked": true
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "title": "Parliamentary Constituencies",
       "description": "Members of Parliament (MP) constituencies",
       "type": "vector",
@@ -781,59 +795,6 @@
         "fieldTitles": [
           "District",
           "State"
-        ]
-      }
-    },
-    {
-      "title": "Parivesh Environmental Clearance",
-      "description": "Applications for environmental clearance from parivesh",
-      "type": "vector",
-      "id": "parivesh",
-      "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=4f70a9fe-8324-4643-8823-e11cdf93c324",
-      "sourceLayer": "vector",
-      "maxzoom": 8,
-      "attribution": "<a href='https://environmentclearance.nic.in/'>Parivesh, Ministry of Environment,Forest and Climate Change,Government of India</a> - Collected by <a href='https://datameet.org'>Datameet Community</a> via <a href='https://github.com/datameet/parivesh-geojson'>MapHub</a>",
-      "style": {
-        "text-field": [
-          "get",
-          "Organization Name"
-        ],
-        "text-halo-color": "crimson",
-        "line-color": "crimson",
-        "line-width": 4,
-        "fill-color": [
-          "case",
-          [
-            "==",
-            [
-              "geometry-type"
-            ],
-            "Polygon"
-          ],
-          "crimson",
-          "transparent"
-        ],
-        "fill-opacity": [
-          "case",
-          [
-            "==",
-            [
-              "geometry-type"
-            ],
-            "Polygon"
-          ],
-          0.1,
-          0
-        ]
-      },
-      "inspect": {
-        "id": "Proposal Number",
-        "title": "Organization Name",
-        "label": "Organization Name",
-        "fields": [
-          "Project Category",
-          "Project Name",
-          "Project Description"
         ]
       }
     },
@@ -1012,6 +973,9 @@
       }
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "id": "watersheds",
       "title": "Watershed Boundaries",
       "description": "Watershed Boundaries",
@@ -1044,6 +1008,9 @@
       }
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "id": "micro-watersheds",
       "title": "Micro Watershed Atlas of India",
       "description": "Micro Watershed Atlas with <a href='https://slusi.da.gov.in/mwa.pdf'>micro watershed code</a>",
@@ -1305,9 +1272,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
-        "coastal zone"
+        "3.Coastal Zone"
       ],
       "title": "Coastal Regulation Zone Lines",
       "description": "Regulatory lines for Coastal Regulation Zones",
@@ -1356,9 +1321,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
-        "coastal zone"
+        "3.Coastal Zone"
       ],
       "title": "Coastal Regulation Zones",
       "description": "Coastal Regulation Zones",
@@ -1435,9 +1398,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
-        "coastal zone"
+        "3.Coastal Zone"
       ],
       "id": "crz-1a",
       "title": "CZMP 2011 Protected Areas",
@@ -1668,6 +1629,9 @@
       }
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "title": "Mining Leases",
       "description": "Major mining lease boundaries",
       "type": "vector",
@@ -3263,8 +3227,7 @@
       "title": "Bhuvan Satellite Imagery",
       "description": "High-resolution satellite imagery from ISRO Bhuvan",
       "tags": [
-        "basemap",
-        "satellite"
+        "1.Imagery"
       ],
       "type": "wms",
       "url": "https://bhuvan-ras1.nrsc.gov.in/tilecache/tilecache.py?service=WMS&version=1.1.1&request=GetMap&layers=bhuvan_ocm_wbase&styles=&format=image/jpeg&transparent=false",
@@ -3275,8 +3238,7 @@
     },
     {
       "tags": [
-        "basemap",
-        "physical"
+        "1.Imagery"
       ],
       "id": "bhuvan-terrain",
       "title": "Bhuvan Physical Terrain",
@@ -3289,6 +3251,9 @@
       "maxzoom": 19
     },
     {
+      "tags": [
+        "1.Imagery"
+      ],
       "id": "corona",
       "title": "CORONA Satellite Imagery 12.9m (1965-1980))",
       "type": "wms",

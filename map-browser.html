@@ -174,9 +174,19 @@
             background: #111827;
         }
 
-        .atlas-hero.has-image {
+        /* Header image lives on its own absolutely-positioned layer so it can be
+           transform-scaled (zoomed) on scroll without disturbing the gradient or
+           hero content. Clipped by .atlas-hero's overflow:hidden. */
+        .atlas-hero-bg {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
             background-size: cover;
             background-position: center;
+            transform: scale(var(--hero-zoom, 1)) translate(var(--hero-pan-x, 0), var(--hero-pan-y, 0));
+            transform-origin: center;
+            will-change: transform;
+            transition: transform 0.12s ease-out;
         }
 
         /* Darkening gradient keeps hero text legible over the header image */
@@ -184,6 +194,7 @@
             content: '';
             position: absolute;
             inset: 0;
+            z-index: 1;
             background: linear-gradient(to bottom, rgba(17, 24, 39, 0.62), rgba(17, 24, 39, 0.93));
             pointer-events: none;
         }
@@ -1342,6 +1353,7 @@
         $(document).ready(function () {
             setupMessageListener();
             setupEventListeners();
+            setupHeroZoomOnScroll();
             requestLayerData();
 
             // Auto-focus search input when browser opens for first time
@@ -1353,6 +1365,33 @@
                 }
             }, 300);
         });
+
+        // Zoom the atlas header image as the layer list scrolls, for a subtle
+        // depth/parallax cue. Driven off #layer-container's scrollTop and applied
+        // as a transform scale on the .atlas-hero-bg layer (rAF-throttled).
+        function setupHeroZoomOnScroll() {
+            const container = document.getElementById('layer-container');
+            if (!container) return;
+            let ticking = false;
+            const apply = () => {
+                ticking = false;
+                const bg = document.querySelector('.atlas-hero-bg');
+                if (!bg) return;
+                // Ramp scale from 1 to ~1.35 over the first 400px of scroll, with a
+                // matching diagonal pan toward the top-left. Pan stays within the
+                // scaled overflow margin so the image edges never show.
+                const t = Math.min(Math.max(container.scrollTop, 0) / 400, 1);
+                bg.style.setProperty('--hero-zoom', (1 + t * 0.35).toFixed(3));
+                bg.style.setProperty('--hero-pan-x', (t * -8).toFixed(2) + '%');
+                bg.style.setProperty('--hero-pan-y', (t * -10).toFixed(2) + '%');
+            };
+            container.addEventListener('scroll', () => {
+                if (!ticking) {
+                    ticking = true;
+                    requestAnimationFrame(apply);
+                }
+            }, { passive: true });
+        }
 
         // Request layer data from parent
         function requestLayerData() {
@@ -1840,9 +1879,16 @@
 
             const $hero = $('<div>', {
                 class: 'atlas-hero' + (atlasData.headerImage ? ' has-image' : ''),
-                style: `--atlas-color: ${color};` +
-                    (atlasData.headerImage ? ` background-image: url("${atlasData.headerImage}");` : '')
+                style: `--atlas-color: ${color};`
             });
+
+            // Header image on its own layer so it can be zoomed on scroll.
+            if (atlasData.headerImage) {
+                $('<div>', {
+                    class: 'atlas-hero-bg',
+                    style: `background-image: url("${atlasData.headerImage}");`
+                }).appendTo($hero);
+            }
 
             const $inner = $('<div>', { class: 'atlas-hero-inner' });
 
