@@ -169,6 +169,11 @@ export class MapMarkerManager {
     }
 
     _handleSelection(data) {
+        // Selections restored from a shared URL already had their markers created by
+        // restoreMarkersFromSelectionLayer; this event only notifies the inspector, so
+        // don't re-create the markers here.
+        if (data.fromMarkerRestore) return;
+
         const features = data.selectedFeatures || [data];
         const lngLat = features[0]?.lngLat;
 
@@ -1804,6 +1809,7 @@ export class MapMarkerManager {
         await this._waitForLayersReady(Array.from(layerIds));
         await this._waitForMapIdle();
 
+        const allRestoredFeatures = [];
         for (const feature of features) {
             if (feature.geometry.type !== 'Point') continue;
 
@@ -1824,11 +1830,37 @@ export class MapMarkerManager {
 
             if (restoredFeatures.length > 0) {
                 this.addMarker(lngLat, restoredFeatures, { showPopup: false });
+                allRestoredFeatures.push(...restoredFeatures);
             }
         }
 
         if (this._markers.size > 0) {
             this._stateManager._updateLineSortKeys();
+        }
+
+        // Notify the inspector iframe (and other listeners) of the restored selections so
+        // the status bar with the Clear / Add / Zoom buttons shows. The markers are already
+        // created above, so the fromMarkerRestore flag tells _handleSelection not to re-add
+        // them — mirrors the event sequence in UrlManager.applySelectionsFromURL.
+        if (allRestoredFeatures.length > 0) {
+            for (const { feature, featureId, layerId, lngLat } of allRestoredFeatures) {
+                await this._stateManager._executeInspectionHandler(feature, layerId, lngLat);
+                this._stateManager._emitStateChange('feature-click', {
+                    feature,
+                    featureId,
+                    layerId,
+                    lngLat,
+                    fromURL: true,
+                    fromMarkerRestore: true
+                });
+            }
+
+            this._stateManager._emitStateChange('feature-click-multiple', {
+                selectedFeatures: allRestoredFeatures,
+                clearedFeatures: [],
+                fromURL: true,
+                fromMarkerRestore: true
+            });
         }
 
         return true;

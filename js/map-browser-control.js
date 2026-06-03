@@ -16,6 +16,81 @@ export class MapBrowserControl {
         this._isOpen = false;
         this._pendingFileData = null;
         this._setupMessageListener();
+        this._setupViewHistory();
+    }
+
+    // Track recent map-view URLs so the browser's "Previous View" button can step
+    // back through them. The app rewrites the URL with history.replaceState (no
+    // browser-history entry), so we keep our own stack in sessionStorage — it
+    // survives the full-page reload used to restore a previous view. Holds the
+    // current view plus up to 10 prior ones (most recent last).
+    static get VIEW_HISTORY_KEY() { return 'amche_view_history'; }
+    static get VIEW_HISTORY_MAX() { return 11; }
+
+    _loadViewHistory() {
+        try {
+            const raw = sessionStorage.getItem(MapBrowserControl.VIEW_HISTORY_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    _saveViewHistory(history) {
+        try {
+            sessionStorage.setItem(MapBrowserControl.VIEW_HISTORY_KEY, JSON.stringify(history));
+        } catch (e) { /* sessionStorage unavailable — Previous View just won't persist */ }
+    }
+
+    _setupViewHistory() {
+        // Seed with the URL the page loaded at.
+        this._recordView();
+        // Every URLManager rewrite dispatches `urlUpdated`; record the new URL.
+        window.addEventListener('urlUpdated', () => this._recordView());
+    }
+
+    _recordView() {
+        const href = window.location.href;
+        const history = this._loadViewHistory();
+        if (history[history.length - 1] === href) return; // no change
+        history.push(href);
+        while (history.length > MapBrowserControl.VIEW_HISTORY_MAX) history.shift();
+        this._saveViewHistory(history);
+        this._notifyViewHistory();
+    }
+
+    _notifyViewHistory() {
+        if (!this._iframe || !this._iframe.contentWindow) return;
+        this._iframe.contentWindow.postMessage({
+            type: 'view-history-update',
+            canGoBack: this._canGoBackView()
+        }, '*');
+    }
+
+    // Whether there's a restorable prior view. The very first (initial page-load)
+    // entry is treated as a non-restorable baseline, so we need a distinct entry
+    // beyond it once the current view is set aside.
+    _canGoBackView() {
+        const current = window.location.href;
+        const history = this._loadViewHistory();
+        while (history.length && history[history.length - 1] === current) history.pop();
+        return history.length > 1;
+    }
+
+    // Step the map back to the most recent distinct prior view. Drops the current
+    // URL (and any duplicates of it) off the stack, then reloads at the previous
+    // one — a reload cleanly re-applies every URL param (layers, camera, terrain…).
+    // The first stored entry is never restored: it's the bare initial-load URL and
+    // navigating to it reboots the whole site.
+    _handlePreviousView() {
+        const current = window.location.href;
+        const history = this._loadViewHistory();
+        while (history.length && history[history.length - 1] === current) history.pop();
+        if (history.length <= 1) return; // only the ignored baseline view remains
+        const target = history.pop();
+        this._saveViewHistory(history);
+        window.location.href = target;
     }
 
     onAdd(map) {
@@ -262,6 +337,10 @@ export class MapBrowserControl {
                 this._handleZoomToBounds(event.data.bounds, event.data.toggle);
             }
 
+            if (event.data.type === 'previous-view') {
+                this._handlePreviousView();
+            }
+
             if (event.data.type === 'reset-view') {
                 this._handleResetView(event.data.map, event.data.bounds);
             }
@@ -506,7 +585,8 @@ export class MapBrowserControl {
             bounds: bounds,
             mapboxToken: window.amche?.MAPBOXGL_ACCESS_TOKEN || mapboxgl.accessToken,
             selectedAtlasId: atlasParam,
-            layerDefaults: window.layerControl?._defaultStyles || {}
+            layerDefaults: window.layerControl?._defaultStyles || {},
+            viewCanGoBack: this._canGoBackView()
         }, '*');
     }
 

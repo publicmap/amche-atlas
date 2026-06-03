@@ -445,13 +445,12 @@ export class MapFeatureStateManager extends EventTarget {
             const featureId = this._getFeatureId(feature);
             const compositeKey = this._getCompositeKey(layerId, featureId);
 
-            // If already selected, keep it selected (don't toggle)
-            // Only clear buttons should remove selections
-            if (this._selectedFeatures.has(compositeKey)) {
-                return;
-            }
+            // If already selected, keep it selected (don't toggle) but still update
+            // the click location so a marker is created at the new point. Only clear
+            // buttons should remove selections.
+            const alreadySelected = this._selectedFeatures.has(compositeKey);
 
-            // Update feature state
+            // Update feature state (refreshes lngLat for re-clicks on the same feature)
             this._updateFeatureState(compositeKey, {
                 feature,
                 layerId,
@@ -460,11 +459,16 @@ export class MapFeatureStateManager extends EventTarget {
                 timestamp: Date.now()
             });
 
-            // Add to selected features set
-            this._selectedFeatures.add(compositeKey);
+            if (!alreadySelected) {
+                // Add to selected features set
+                this._selectedFeatures.add(compositeKey);
 
-            // Set mapbox feature state for visual feedback on all related layers
-            this._setMapboxFeatureStateAllLayers(featureId, layerId, { selected: true });
+                // Set mapbox feature state for visual feedback on all related layers
+                this._setMapboxFeatureStateAllLayers(featureId, layerId, { selected: true });
+
+                // Execute inspection handlers if configured
+                this._executeInspectionHandler(feature, layerId, lngLat);
+            }
 
             newSelections.push({
                 featureId,
@@ -472,9 +476,6 @@ export class MapFeatureStateManager extends EventTarget {
                 feature,
                 lngLat
             });
-
-            // Execute inspection handlers if configured
-            this._executeInspectionHandler(feature, layerId, lngLat);
         });
 
         // Update line layer sort keys for z-ordering

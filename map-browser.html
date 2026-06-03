@@ -703,7 +703,7 @@
             pointer-events: none;
         }
 
-        .atlas-collapsed-header.has-bg > * {
+        .atlas-collapsed-header.has-bg>* {
             position: relative;
             z-index: 1;
         }
@@ -1070,7 +1070,7 @@
             transition: transform 0.2s;
         }
 
-        .tree-node.expanded > .tree-node-header .tree-expand-icon {
+        .tree-node.expanded>.tree-node-header .tree-expand-icon {
             transform: rotate(90deg);
         }
 
@@ -1102,7 +1102,7 @@
             margin-top: 0;
         }
 
-        .tree-node.expanded > .tree-node-children {
+        .tree-node.expanded>.tree-node-children {
             display: block;
         }
 
@@ -1212,6 +1212,7 @@
             from {
                 transform: rotate(0deg);
             }
+
             to {
                 transform: rotate(360deg);
             }
@@ -1230,8 +1231,8 @@
                  selected-atlas header. -->
             <div id="layer-filter-row" class="atlas-hero-filter">
                 <!-- Visibility Filter Toggle (off = all maps, on = visible maps only) -->
-                <button id="visibility-filter" class="vis-filter-toggle" type="button"
-                    title="Show visible maps only" aria-pressed="false">
+                <button id="visibility-filter" class="vis-filter-toggle" type="button" title="Show visible maps only"
+                    aria-pressed="false">
                     <sl-icon name="eye"></sl-icon>
                     <span>All</span>
                 </button>
@@ -1242,8 +1243,7 @@
                     <input type="text" id="search-input" placeholder="Filter by map name"
                         class="search-input w-full rounded text-sm"
                         style="padding: 8px 32px 8px 32px; font-size: 14px;" />
-                    <button id="clear-search-btn"
-                        class="absolute right-2 top-1/2 -translate-y-1/2"
+                    <button id="clear-search-btn" class="absolute right-2 top-1/2 -translate-y-1/2"
                         style="display: none; background: transparent; border: none; color: rgba(255,255,255,0.6); cursor: pointer; padding: 2px;">
                         ✕
                     </button>
@@ -1266,7 +1266,8 @@
         <!-- Sticky Footer -->
         <div class="browser-footer"
             style="background: #111827; border-top: 1px solid #374151; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0;">
-            <div id="footer-stats" style="color: #9ca3af; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <div id="footer-stats"
+                style="color: #9ca3af; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 Loading maps...
             </div>
             <button id="add-new-map-link"
@@ -1332,6 +1333,7 @@
         let showMoreNodes = new Map(); // Track which nodes should show hidden non-matching layers
         let visibilityFilter = 'all'; // Filter layers by visibility: 'all' | 'visible' | 'hidden'
         let otherAtlasesExpanded = false; // Collapsed "Other Atlases" (out-of-view) section state
+        let canGoBackView = false; // Whether a previous map view exists to step back to
 
         // Make LayerThumbnail available globally for use in functions
         window.LayerThumbnail = LayerThumbnail;
@@ -1371,6 +1373,7 @@
                     currentBounds = event.data.bounds;
                     mapboxAccessToken = event.data.mapboxToken;
                     layerDefaults = event.data.layerDefaults || {};
+                    canGoBackView = !!event.data.viewCanGoBack;
 
                     // Check for atlas selection from URL parameter first
                     if (event.data.selectedAtlasId && atlasMetadata.has(event.data.selectedAtlasId)) {
@@ -1474,6 +1477,11 @@
                     }
 
                     renderLayers();
+                }
+
+                if (event.data.type === 'view-history-update') {
+                    canGoBackView = !!event.data.canGoBack;
+                    $('#prev-view-btn').toggle(canGoBackView);
                 }
 
                 if (event.data.type === 'focus-search') {
@@ -1630,6 +1638,7 @@
 
                 switchAtlasContext(previousAtlasId, newAtlasId);
                 selectAtlas(newAtlasId, metadata?.name || newAtlasId);
+                recenterMapToAtlasIfNeeded(newAtlasId);
             });
 
             $('#add-new-map-link').on('click', function () {
@@ -1805,6 +1814,7 @@
             if (!newAtlasId || newAtlasId === window.selectedAtlasId) {
                 // Already selected — just make sure it's expanded and scrolled into view
                 selectAtlas(newAtlasId, atlasMetadata.get(newAtlasId)?.name || newAtlasId);
+                recenterMapToAtlasIfNeeded(newAtlasId);
                 return;
             }
             const previousAtlasId = window.selectedAtlasId || 'index';
@@ -1812,6 +1822,7 @@
             userHasInteractedWithAtlas = true;
             switchAtlasContext(previousAtlasId, newAtlasId);
             selectAtlas(newAtlasId, metadata?.name || newAtlasId);
+            recenterMapToAtlasIfNeeded(newAtlasId);
         }
 
         // Build the rich header for the currently selected atlas: an atlas-switcher
@@ -1860,11 +1871,20 @@
             $('<sl-icon>', { class: 'atlas-hero-title-chevron', name: 'chevron-down' }).appendTo($trigger);
             $dropdown.append($trigger);
 
-            // Menu of all atlases (alphabetical), current one checked
+            // Menu of all atlases, split into those overlapping the current map view
+            // and those elsewhere, so nearby atlases are easy to find. Each bucket is
+            // alphabetical; the current atlas is checked. The buckets are rebuilt every
+            // time the dropdown opens (see sl-show below) so they reflect the live view
+            // even after the user has panned the map.
             const $menu = $('<sl-menu>');
-            Array.from(atlasMetadata.entries())
-                .sort((a, b) => (a[1].name || a[0]).localeCompare(b[1].name || b[0]))
-                .forEach(([id, meta]) => {
+            const buildAtlasMenu = () => {
+                $menu.empty();
+                const sortedAtlases = Array.from(atlasMetadata.entries())
+                    .sort((a, b) => (a[1].name || a[0]).localeCompare(b[1].name || b[0]));
+                const inViewAtlases = sortedAtlases.filter(([id]) => isAtlasInView(id));
+                const otherAtlases = sortedAtlases.filter(([id]) => !isAtlasInView(id));
+
+                const appendAtlasItem = ([id, meta]) => {
                     const $item = $('<sl-menu-item>', { value: id, type: 'checkbox' });
                     if (id === effectiveId) $item.attr('checked', true);
                     if (meta.icon) {
@@ -1872,7 +1892,20 @@
                     }
                     $item.append(document.createTextNode(meta.name || id));
                     $menu.append($item);
-                });
+                };
+
+                if (inViewAtlases.length) {
+                    $('<sl-menu-label>').text('Choose a nearby atlas to explore:').appendTo($menu);
+                    inViewAtlases.forEach(appendAtlasItem);
+                }
+                if (otherAtlases.length) {
+                    if (inViewAtlases.length) $('<sl-divider>').appendTo($menu);
+                    $('<sl-menu-label>').text('More atlases not in view:').appendTo($menu);
+                    otherAtlases.forEach(appendAtlasItem);
+                }
+            };
+            buildAtlasMenu();
+            $dropdown.on('sl-show', buildAtlasMenu);
             $menu.on('sl-select', function (e) {
                 const id = e.detail.item.value;
                 if (id) changeAtlasSelection(id);
@@ -2028,6 +2061,22 @@
                 $meta.append($zoom);
             }
 
+            // Previous View — steps the map camera back through recent URL states
+            // (up to the last 10 changes). Hidden when there's no prior view to restore.
+            const $prevView = $('<button>', {
+                id: 'prev-view-btn',
+                class: 'atlas-hero-action',
+                type: 'button',
+                title: 'Go to previous map view',
+                html: '<sl-icon name="clock-history"></sl-icon><span>Previous View</span>'
+            });
+            $prevView.on('click', function (e) {
+                e.stopPropagation();
+                window.parent.postMessage({ type: 'previous-view' }, '*');
+            });
+            $meta.append($prevView);
+            $prevView.toggle(canGoBackView);
+
             // Layer count doubling as the config link: shows "N map layers" and
             // opens the raw atlas config. For imported atlases with no backing
             // config file, it instead scrolls the list to this atlas's layers.
@@ -2138,6 +2187,33 @@
                 }
             }
             return MapUtils.isLayerInView(layer, currentBounds);
+        }
+
+        // True when an atlas's extent overlaps the current map view. Atlases with
+        // no known extent (no bbox/geojson) are treated as in-view so they're never
+        // hidden from the "nearby" bucket or trigger an unwanted recenter.
+        function isAtlasInView(atlasId) {
+            if (!currentBounds) return true;
+            const atlasData = atlasMetadata.get(atlasId);
+            if (!atlasData || (!atlasData.bbox && !atlasData.geojson)) return true;
+            // A stable id keyed on the atlas lets MapUtils cache the parsed geometry.
+            const probe = { id: `atlas-view-probe:${atlasId}`, bbox: atlasData.bbox, geojson: atlasData.geojson };
+            return MapUtils.isLayerInView(probe, currentBounds);
+        }
+
+        // When switching to an atlas whose extent lies outside the current map view,
+        // move the parent map to the atlas's configured center/zoom (falling back to
+        // fitting its bbox) so the newly selected atlas is actually on screen. Atlases
+        // already in view are left untouched so the user keeps their current camera.
+        function recenterMapToAtlasIfNeeded(atlasId) {
+            const atlasData = atlasMetadata.get(atlasId);
+            if (!atlasData || isAtlasInView(atlasId)) return;
+            if (!atlasData.map && !atlasData.bbox) return;
+            window.parent.postMessage({
+                type: 'reset-view',
+                map: atlasData.map || null,
+                bounds: atlasData.bbox || null
+            }, '*');
         }
 
         // Calculate atlas bbox area
@@ -2413,7 +2489,7 @@
             // Node header
             const $header = $('<div>', {
                 class: 'tree-node-header' + (hasActive ? ' has-active-children' : ''),
-                click: function(e) {
+                click: function (e) {
                     e.stopPropagation();
                     toggleTreeNode(atlasId, pathParts);
                 }
@@ -2542,15 +2618,15 @@
                             class: 'atlas-collapsed-more',
                             style: 'cursor: pointer; padding: 8px; margin-top: 8px; background: #374151; border-radius: 4px; text-align: center; transition: background 0.2s;',
                             text: `[${nonMatchingLayers.length} more...]`,
-                            click: function(e) {
+                            click: function (e) {
                                 e.stopPropagation();
                                 showMoreNodes.set(showMoreKey, true);
                                 renderLayers();
                             }
                         });
-                        $moreSection.on('mouseenter', function() {
+                        $moreSection.on('mouseenter', function () {
                             $(this).css('background', '#4b5563');
-                        }).on('mouseleave', function() {
+                        }).on('mouseleave', function () {
                             $(this).css('background', '#374151');
                         });
                         $leafItems.append($moreSection);

@@ -441,30 +441,32 @@
           "get",
           "block_name"
         ],
-        "text-color": "white",
-        "text-size": 13,
+        "fill-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          "rgba(0, 0, 0, 0)",
+          12,
+          "rgba(0, 0, 0, 0.1)"
+        ],
         "line-color": "black",
         "line-width": 1.5
       },
       "inspect": {
-        "title": "Village",
-        "label": "vilnam_soi",
+        "title": "Block",
+        "label": "block_name",
         "id": "OBJECTID",
         "fields": [
-          "vil_lgd",
-          "gp_name",
-          "block_name",
-          "sdtname",
-          "dtname"
-        ],
-        "fieldTitles": [
-          "Village Code",
-          "Gram Panchayat",
-          "Block",
-          "Sub District",
-          "District"
+          "district",
+          "state"
         ]
-      }
+      },
+      "initiallyChecked": true
     },
     {
       "id": "municipal-wards",
@@ -3288,12 +3290,13 @@
     },
     {
       "id": "corona",
-      "title": "Corona Satellite Imagery (1965-1980))",
+      "title": "CORONA Satellite Imagery 12.9m (1965-1980))",
       "type": "wms",
       "url": "https://bhuvanmaps.nrsc.gov.in/ras2mapcache?styles=&bbox=8219732.273674715,1748879.2071648315,8220955.266127277,1750102.199617397&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=Corono_Sat_Data",
       "tileSize": 256,
       "maxzoom": 18,
-      "attribution": "https://bhuvanmaps.nrsc.gov.in/ras2mapcache"
+      "description": "Imagery captured by US <a href='https://en.wikipedia.org/wiki/CORONA_(satellite)'>CORONA</a> series fo spy satellites between 1965-1980.",
+      "attribution": "CORONA via <a href='https://bhuvanmaps.nrsc.gov.in/ras2mapcache'>Bhuvan</a>"
     }
   ]
 }
