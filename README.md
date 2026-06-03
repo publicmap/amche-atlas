@@ -61,6 +61,7 @@ The various map layers are sourced from available open data published by governm
 **State Level**
 - [Bhunaksha, Directorate of Settlement & Land Records, Government of Goa](https://bhunaksha.goa.gov.in/bhunaksha/)
   - Cadastral plot boundaries
+  - Statewide plot search by village + survey number — see [docs/CADASTRAL-SEARCH.md](docs/CADASTRAL-SEARCH.md)
 - [Town & Country Planning Department, Government of Goa (TCP)](https://tcp.goa.gov.in/)
   - Regional Plan for Goa 2021
 - [Department of Water Resources, Government of Goa](https://goawrd.gov.in/)
