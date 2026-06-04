@@ -191,7 +191,8 @@ export class MapMarkerManager {
             this.clearAllMarkers();
         }
 
-        this.addMarker(lngLat, features, { showPopup: !isAddMode });
+        // Don't auto-open the popup; let the user click the marker for details.
+        this.addMarker(lngLat, features, { showPopup: false });
     }
 
     _handleEmptyMapClick(data) {
@@ -210,8 +211,9 @@ export class MapMarkerManager {
             this.clearAllMarkers();
         }
 
-        // Create marker with empty features array (will show layer info only)
-        this.addMarker(lngLat, [], { showPopup: !isAddMode });
+        // Create marker with empty features array (will show layer info only).
+        // Don't auto-open the popup; let the user click the marker for details.
+        this.addMarker(lngLat, [], { showPopup: false });
     }
 
     _handleBatchHover(data) {
@@ -572,6 +574,40 @@ export class MapMarkerManager {
             e.stopPropagation();
             this._toggleMarkerPopup(markerId);
         });
+
+        // Add a close 'x' to clear this marker directly
+        const contentEl = el.querySelector('.marker-content');
+        if (contentEl) {
+            const closeBtn = document.createElement('span');
+            closeBtn.className = 'marker-close-btn';
+            closeBtn.innerHTML = '<sl-icon name="x" style="font-size:12px;color:white;"></sl-icon>';
+            closeBtn.title = 'Clear this marker';
+            closeBtn.style.cssText = `
+                margin-left: 5px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background: rgba(255,255,255,0.2);
+                cursor: pointer;
+                flex-shrink: 0;
+                transition: background 0.2s;
+            `;
+            closeBtn.addEventListener('mouseenter', () => {
+                closeBtn.style.background = 'rgba(255,255,255,0.4)';
+            });
+            closeBtn.addEventListener('mouseleave', () => {
+                closeBtn.style.background = 'rgba(255,255,255,0.2)';
+            });
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._starredMarkers.delete(markerId);
+                this.removeMarker(markerId);
+            });
+            contentEl.appendChild(closeBtn);
+        }
 
         // Hover to highlight features on map
         el.addEventListener('mouseenter', () => {
