@@ -636,6 +636,41 @@ main {
     width: auto !important;
 }
 
+/* Hide the empty MapboxDraw control group used by the measure control */
+.mapboxgl-ctrl-group:empty {
+    display: none !important;
+}
+
+/* Measure control: single toggle that expands to reveal the draw/clear tools */
+.maplibregl-measures .measure-tools button svg {
+    width: 100%;
+    height: 100%;
+}
+
+.maplibregl-measures .measure-toggle-btn sl-icon {
+    color: #333;
+}
+
+/* Toggled-on state: black background with the brand yellow icon */
+.maplibregl-measures .measure-toggle-btn.active {
+    background-color: #000 !important;
+}
+
+.maplibregl-measures .measure-toggle-btn.active sl-icon {
+    color: #f4cb00;
+}
+
+/* Separator lines between the expanded sub-tool buttons */
+.maplibregl-measures .measure-tools button {
+    border-top: 1px solid #ddd;
+}
+
+/* The currently active draw mode highlights its icon in the brand yellow */
+.maplibregl-measures .measure-tools button.active svg,
+.maplibregl-measures .measure-tools button.active svg path {
+    fill: #f4cb00 !important;
+}
+
 /* Only apply white background to non-geolocation buttons */
 .mapboxgl-ctrl-group button:not(.geolocation-btn-header) {
     background-color: white;
