@@ -6,6 +6,7 @@ import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
 import { MapExportControl } from './map-export-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
+import { MeasureControl } from './map-measure-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
 import { MapAttributionControl } from './map-attribution-control.js';
@@ -841,6 +842,12 @@ export class MapInitializer {
             map.addControl(window.externalMapLinksControl, 'bottom-right');
             map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: true }));
             map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
+            // Added after ScaleControl so it stacks above it (bottom corners
+            // insert each new control above the previous one).
+            if (typeof MapboxDraw !== 'undefined') {
+                window.measureControl = new MeasureControl();
+                map.addControl(window.measureControl, 'bottom-left');
+            }
 
             // Resolve the full config now that the map and all chrome controls
             // are in place. loadConfiguration() awaits the (already in-flight)
