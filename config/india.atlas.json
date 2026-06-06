@@ -799,6 +799,38 @@
       }
     },
     {
+      "title": "PMGSY Habitations",
+      "description": "PMGSY_Habitations",
+      "type": "vector",
+      "id": "pmgsy-habitations",
+      "url": "https://indianopenmaps.com/habitations/pmgsy/{z}/{x}/{y}.pbf",
+      "sourceLayer": "PMGSY_Habitations",
+      "minzoom": 0,
+      "maxzoom": 9,
+      "attribution": "Source: <a href='https://geosadak-pmgsy.nic.in/OpenData' target='_blank' rel='noopener noreferrer'>PMGSY</a>",
+      "style": {
+        "text-field": [
+          "get",
+          "HAB_NAME"
+        ],
+        "circle-radius": 2
+      },
+      "inspect": {
+        "id": "HAB_ID",
+        "title": "Habitation",
+        "label": "HAB_NAME",
+        "fields": [
+          "TOT_POPULA"
+        ],
+        "fieldTitles": [
+          "Population"
+        ]
+      }
+    },
+    {
+      "tags": [
+        "Hydrology"
+      ],
       "title": "Wetlands",
       "description": "Wetlands and low lying estuarine areas classified from remote sensing imagery. For methodological details, see <a href='https://vedas.sac.gov.in/static/downloads/atlas/Wetlands/NWIA_Goa_Atlas.pdf'>2009 National Wetland Atlas of Goa, Space Applications Centre, ISRO / Ministry of Environment and Forests</a>.",
       "type": "vector",
@@ -877,6 +909,9 @@
       }
     },
     {
+      "tags": [
+        "Hydrology"
+      ],
       "title": "Rivers",
       "description": "Rivers and streams with stream order",
       "type": "vector",
@@ -1052,6 +1087,9 @@
       }
     },
     {
+      "tags": [
+        "Environment and Forests"
+      ],
       "title": "Reserve Forests",
       "description": "Forest areas notified and protectedunder the <a href='http://nbaindia.org/uploaded/Biodiversityindia/Legal/3.%20Indian%20forest%20act.pdf'>Indian Forest Act, 1927</a>",
       "type": "vector",
@@ -1130,6 +1168,9 @@
       }
     },
     {
+      "tags": [
+        "Environment and Forests"
+      ],
       "title": "Eco Sensitive Zones",
       "description": "Eco Sensitive Zones as defined in the <a href='https://moef.gov.in/eco-sensitive-zone-esz'>National Environment Policy, MoEF</a>",
       "headerImage": "assets/map-layers/india/map-layer-esz.png",
@@ -1213,6 +1254,9 @@
       }
     },
     {
+      "tags": [
+        "Environment and Forests"
+      ],
       "title": "Wildlife Reserves and Corridors",
       "description": "National parks, wildlife sanctuaries and <a href='https://ntca.gov.in/assets/map-layers/uploads/Reports/corridor/connecting_tiger_populations.pdf'>tiger conservations corridors</a>",
       "type": "vector",
@@ -1242,8 +1286,35 @@
     },
     {
       "tags": [
-        "5.Notified Maps",
-        "MoEFCC"
+        "Environment and Forests"
+      ],
+      "title": "Western Ghats Eco-Sensitive Areas (WGEEP, 2011)",
+      "type": "tms",
+      "id": "wgeep-esa",
+      "url": "https://mapwarper.net/mosaics/tile/2377/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "description": "Map designating the entire Western Ghats as an Ecologically Sensitive Area (ESA) and dividing it into three zones (ESZ 1, 2, and 3) with varying levels of ecological sensitivity for the Western Ghats of India from the <a href='https://archive.org/details/ReportOfTheWesternGhatsEcologyExpertPanel'>Report of the Western Ghats Ecology Expert Panel (WGEEP, 2011)</a> headed by Prof. Madhav Gadgil.",
+      "attribution": "<a href='https://archive.org/details/ReportOfTheWesternGhatsEcologyExpertPanel'>WGEEP, MoEFCC</a> via <a href='https://mapwarper.net/layers/2377'>Mapwarper</a>"
+    },
+    {
+      "tags": [
+        "Environment and Forests"
       ],
       "title": "Shravati WLS Eco-Sensitive Zone",
       "type": "tms",
@@ -2637,8 +2708,7 @@
     },
     {
       "tags": [
-        "survey",
-        "geology"
+        "Geology"
       ],
       "title": "Geomorphological Lineaments",
       "description": "Geomorphological lineaments based on <a href='https://bhuvan-app1.nrsc.gov.in/2dresources/thematic/gm/gm.pdf'>genesis based classification schema</a>.",
@@ -2730,8 +2800,7 @@
     },
     {
       "tags": [
-        "survey",
-        "groundwater"
+        "Hydrology"
       ],
       "title": "Groundwater Prospects",
       "description": "Groundwater prospect maps prepared at 1:50k scale. Refer to the <a href='https://bhuvan-app1.nrsc.gov.in/gwis/docs/GW_Manual.pdf'>methodology</a> and <a href='https://www.nrsc.gov.in/sites/default/files/pdf/ebooks/RGNationalDrinkingWater_UserManual.pdf'>user manual</a> for more details. Check <a href'https://ingres.iith.ac.in/gecdataonline/gis/INDIA'>INDIA-Groundwater Resource Estimation System (IN-GRES)</a> for taluk level groundwater assessment reports.<br>View  <a href='https://www.cgwb.gov.in/old_website/GW-Assessment/GWR-2022-Reports%20State/Goa.pdf'>Dynamic Groundwater Report of Goa State 2022</a> | <a href='https://www.cgwb.gov.in/cgwbpnm/public/uploads/documents/1705640315968744698file.pdf'>2024</a>.",
@@ -2859,8 +2928,7 @@
     },
     {
       "tags": [
-        "survey",
-        "geology"
+        "Geology"
       ],
       "title": "Geomorphological Ecozones",
       "description": "Geomorphological landforms based on <a href='https://bhuvan-app1.nrsc.gov.in/2dresources/thematic/gm/gm.pdf'>genesis based classification schema</a>.",
@@ -3007,7 +3075,7 @@
     },
     {
       "title": "Proposed Port Layout of Galathea Bay ICTT",
-      "description": "Pg 387 of EIA\n\nFrom Mathematical modelling studies for the proposed development of Deep Sea Port July 2021\nat Galathea Bay in Great Nicobar Island",
+      "description": "Pg 387 of EIA for the proposed development of Deep Sea Port at Galathea Bay in Great Nicobar Island",
       "type": "tms",
       "id": "great-nicobar-port-plan",
       "url": "https://mapwarper.net/maps/tile/102839/{z}/{x}/{y}.png",
