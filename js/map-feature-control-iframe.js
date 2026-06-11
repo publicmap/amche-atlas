@@ -418,6 +418,8 @@ export class MapFeatureControl {
                 this._clearHoverLayerIsolation();
             } else if (event.data.type === 'update-layer-opacity') {
                 this._updateLayerOpacity(event.data.layerId, event.data.opacity);
+            } else if (event.data.type === 'toggle-compare') {
+                this._toggleCompare(event.data.layerId, event.data.enabled);
             } else if (event.data.type === 'zoom-to-layer') {
                 this._zoomToLayer(event.data.layerId);
             } else if (event.data.type === 'remove-layer') {
@@ -1316,6 +1318,291 @@ export class MapFeatureControl {
     }
 
     /**
+     * Toggle swipe-comparison for a layer. The main map (with all current
+     * layers) is the "before" side; a cloned map showing only the selected
+     * layer over the basemap is the "after" side. Only one layer may be
+     * compared at a time, so enabling a new one tears down the previous.
+     */
+    async _toggleCompare(layerId, enabled) {
+        if (enabled) {
+            await this._enableCompare(layerId);
+        } else if (this._compareLayerId === layerId) {
+            this._disableCompare();
+        }
+    }
+
+    /**
+     * Lazily load the mapbox-gl-compare plugin (attaches mapboxgl.Compare).
+     */
+    _loadCompareLib() {
+        if (window.mapboxgl && window.mapboxgl.Compare) return Promise.resolve();
+        if (this._compareLibPromise) return this._compareLibPromise;
+
+        this._compareLibPromise = new Promise((resolve, reject) => {
+            const cssHref = 'https://cdn.jsdelivr.net/npm/mapbox-gl-compare@0.4.2/dist/mapbox-gl-compare.css';
+            if (!document.querySelector(`link[href="${cssHref}"]`)) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = cssHref;
+                document.head.appendChild(link);
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mapbox-gl-compare@0.4.2/dist/mapbox-gl-compare.js';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load mapbox-gl-compare'));
+            document.head.appendChild(script);
+        });
+
+        return this._compareLibPromise;
+    }
+
+    /**
+     * Build the set of group IDs that are tagged as basemaps.
+     */
+    _getBasemapGroupIds() {
+        const ids = new Set();
+        if (window.layerControl && window.layerControl._state && window.layerControl._state.groups) {
+            window.layerControl._state.groups.forEach(group => {
+                if (Array.isArray(group.tags) && group.tags.includes('basemap')) {
+                    ids.add(group.id);
+                    if (group._prefixedId) ids.add(group._prefixedId);
+                }
+            });
+        }
+        return ids;
+    }
+
+    async _enableCompare(layerId) {
+        if (!this._map || !window.mapboxgl) return;
+
+        // Only one comparison at a time — tear down any existing one first.
+        if (this._compare) {
+            this._disableCompare();
+        }
+
+        // Claim the active slot before the (possibly async) lib load so a
+        // toggle-off or a switch to another layer mid-load can supersede us.
+        this._compareLayerId = layerId;
+
+        try {
+            await this._loadCompareLib();
+        } catch (e) {
+            console.error('[MapFeatureControl]', e);
+            this._notifyCompareDisabled();
+            return;
+        }
+
+        // Superseded while the lib was loading (toggled off or switched layer).
+        if (this._compareLayerId !== layerId) return;
+
+        const mainContainer = this._map.getContainer();
+        const parent = mainContainer.parentNode;
+        if (!parent) return;
+
+        // Build the "after" style: keep base style layers, basemap overlays and
+        // the selected layer's sublayers; drop every other overlay group.
+        const style = this._map.getStyle();
+        const basemapGroupIds = this._getBasemapGroupIds();
+        const keepLayer = (l) => {
+            const gid = l.metadata && l.metadata.groupId;
+            if (!gid) return true;
+            if (gid === layerId) return true;
+            return basemapGroupIds.has(gid);
+        };
+        const afterStyle = { ...style, layers: (style.layers || []).filter(keepLayer) };
+
+        // Create the "after" map container, overlaying the main map exactly.
+        const afterContainer = document.createElement('div');
+        afterContainer.className = 'compare-after-map';
+        afterContainer.style.cssText = 'position:absolute; top:0; bottom:0; left:0; right:0; z-index:1;';
+        // clip (used by mapbox-gl-compare) only applies to positioned elements.
+        this._compareMainPrevPosition = mainContainer.style.position;
+        mainContainer.style.position = 'absolute';
+        parent.appendChild(afterContainer);
+
+        const afterMap = new window.mapboxgl.Map({
+            container: afterContainer,
+            style: afterStyle,
+            center: this._map.getCenter(),
+            zoom: this._map.getZoom(),
+            bearing: this._map.getBearing(),
+            pitch: this._map.getPitch(),
+            interactive: true,
+            attributionControl: false
+        });
+
+        // Mirror the before map's 3D/terrain view state (terrain, fog, projection,
+        // field-of-view, wireframe) onto the after map once it has loaded. These
+        // aren't all carried by the cloned style — fov and the wireframe flag are
+        // runtime-only — so set them explicitly.
+        if (afterMap.loaded()) {
+            this._syncAfterMapView(afterMap);
+        } else {
+            afterMap.once('load', () => this._syncAfterMapView(afterMap));
+        }
+
+        this._compare = new window.mapboxgl.Compare(this._map, afterMap, parent, {});
+        this._afterMap = afterMap;
+        this._afterContainer = afterContainer;
+        this._compareLayerId = layerId;
+
+        // mapbox-gl-compare syncs camera (center/zoom/bearing/pitch) on move,
+        // but terrain-3d-control mutates terrain/fog/fov/wireframe directly on
+        // the before map with no event we can listen for. Register a callback
+        // so those changes re-sync onto the after map while compare is active.
+        if (window.terrain3DControl && window.terrain3DControl.setSyncCallback) {
+            window.terrain3DControl.setSyncCallback(() => {
+                if (this._afterMap) this._syncAfterMapView(this._afterMap);
+            });
+        }
+
+        // The layer now lives on the "after" map only — hide it on the main
+        // (before) map so it isn't shown on both sides. Restored on teardown.
+        const mapboxAPI = this._getMapboxAPI();
+        const layerData = this._getActiveLayersFromConfig().get(layerId);
+        if (mapboxAPI && layerData) {
+            this._compareHiddenConfig = layerData.config;
+            mapboxAPI.updateLayerGroupVisibility(layerId, layerData.config, false);
+        }
+
+        // The before map container is clipped by the compare swiper and the
+        // after map overlays it, so any UI living inside it (mapbox controls,
+        // inspector / 3D panels) would be clipped or painted over. Lift those
+        // overlays out into the comparison parent, above both maps and the
+        // swiper, and restore them on teardown. The canvas stays put.
+        this._compareLiftedNodes = [];
+        const liftNode = (node) => {
+            if (!node) return;
+            this._compareLiftedNodes.push({ node, parentNode: node.parentNode, zIndex: node.style.zIndex });
+            node.style.zIndex = '30';
+            parent.appendChild(node);
+        };
+        Array.from(mainContainer.children).forEach((child) => {
+            if (child.classList && child.classList.contains('mapboxgl-canvas-container')) return;
+            liftNode(child);
+        });
+
+        // Persist to URL and reflect the active state in the inspector UI.
+        if (window.urlManager) {
+            window.urlManager.updateCompareParam(layerId);
+        }
+        if (this._iframe && this._iframe.contentWindow) {
+            this._iframe.contentWindow.postMessage({ type: 'compare-enabled', layerId }, '*');
+        }
+    }
+
+    /**
+     * Copy the before map's terrain / 3D view state onto the after map. The
+     * cloned style carries terrain/fog/projection, but field-of-view and the
+     * wireframe debug flag (set directly on the map by terrain-3d-control) are
+     * runtime-only, so they must be applied explicitly.
+     */
+    _syncAfterMapView(afterMap) {
+        const src = this._map;
+        if (!src || !afterMap) return;
+
+        try {
+            afterMap.jumpTo({
+                center: src.getCenter(),
+                zoom: src.getZoom(),
+                bearing: src.getBearing(),
+                pitch: src.getPitch()
+            });
+
+            // Terrain (the DEM source is already present in the cloned style).
+            if (src.getTerrain) {
+                afterMap.setTerrain(src.getTerrain() || null);
+            }
+
+            // Fog.
+            if (src.getFog) {
+                afterMap.setFog(src.getFog() || null);
+            }
+
+            // Projection (e.g. globe vs mercator).
+            if (src.getProjection && afterMap.setProjection) {
+                afterMap.setProjection(src.getProjection());
+            }
+
+            // Field of view — terrain-3d-control sets transform._fov directly.
+            if (src.transform && afterMap.transform && typeof src.transform._fov === 'number') {
+                afterMap.transform._fov = src.transform._fov;
+                if (typeof afterMap.transform._calcMatrices === 'function') {
+                    afterMap.transform._calcMatrices();
+                }
+            }
+
+            // Terrain wireframe debug flag.
+            if (typeof src.showTerrainWireframe === 'boolean') {
+                afterMap.showTerrainWireframe = src.showTerrainWireframe;
+            }
+
+            afterMap.triggerRepaint();
+        } catch (e) {
+            console.warn('[MapFeatureControl] Error syncing compare view:', e);
+        }
+    }
+
+    _disableCompare() {
+        // Restore the layer that was hidden on the before map for comparison.
+        if (this._compareHiddenConfig) {
+            const mapboxAPI = this._getMapboxAPI();
+            if (mapboxAPI) {
+                mapboxAPI.updateLayerGroupVisibility(this._compareLayerId, this._compareHiddenConfig, true);
+            }
+            this._compareHiddenConfig = null;
+        }
+
+        // Clear the compare URL parameter.
+        if (this._compareLayerId && window.urlManager) {
+            window.urlManager.updateCompareParam(null);
+        }
+
+        // Stop mirroring terrain-3d-control changes onto the (now gone) after map.
+        if (window.terrain3DControl && window.terrain3DControl.setSyncCallback) {
+            window.terrain3DControl.setSyncCallback(null);
+        }
+
+        // Return any lifted UI overlays to the before map container.
+        if (this._compareLiftedNodes) {
+            this._compareLiftedNodes.forEach(({ node, parentNode, zIndex }) => {
+                node.style.zIndex = zIndex;
+                if (parentNode) parentNode.appendChild(node);
+            });
+            this._compareLiftedNodes = null;
+        }
+
+        if (this._compare) {
+            try { this._compare.remove(); } catch (e) { /* noop */ }
+            this._compare = null;
+        }
+        if (this._afterMap) {
+            try { this._afterMap.remove(); } catch (e) { /* noop */ }
+            this._afterMap = null;
+        }
+        if (this._afterContainer && this._afterContainer.parentNode) {
+            this._afterContainer.parentNode.removeChild(this._afterContainer);
+        }
+        this._afterContainer = null;
+
+        // Restore the main map container's position.
+        if (this._map && this._compareMainPrevPosition !== undefined) {
+            this._map.getContainer().style.position = this._compareMainPrevPosition;
+            this._compareMainPrevPosition = undefined;
+        }
+
+        this._compareLayerId = null;
+    }
+
+    _notifyCompareDisabled() {
+        this._compareLayerId = null;
+        if (this._iframe && this._iframe.contentWindow) {
+            this._iframe.contentWindow.postMessage({ type: 'compare-disabled' }, '*');
+        }
+    }
+
+    /**
      * Zoom to layer bounds
      */
     _zoomToLayer(layerId) {
@@ -1415,6 +1702,12 @@ export class MapFeatureControl {
         if (!mapLayerControl) {
             console.warn('[MapFeatureControl] Layer control not available');
             return;
+        }
+
+        // If this layer is being swipe-compared, tear that down first.
+        if (this._compareLayerId === layerId) {
+            this._disableCompare();
+            this._notifyCompareDisabled();
         }
 
         let groupIndex = mapLayerControl._state.groups.findIndex(g =>
@@ -1568,6 +1861,8 @@ export class MapFeatureControl {
      * Cleanup
      */
     _cleanup() {
+        this._disableCompare();
+
         if (this._stateChangeListener && this._stateManager) {
             this._stateManager.removeEventListener('state-change', this._stateChangeListener);
         }

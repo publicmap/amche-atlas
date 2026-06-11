@@ -30,7 +30,8 @@ export class Terrain3DControl {
         this._autoPitchAnimating = false;
         this._autoPitchUserOverrode = false;
         this._pitchBeforePanel = null;
-        
+        this._syncCallback = null; // Optional callback fired after visual updates (e.g. compare/swipe)
+
         // Audio visualization properties
         this._audioContext = null;
         this._analyser = null;
@@ -926,6 +927,7 @@ export class Terrain3DControl {
                     'exaggeration': this._exaggeration
                 });
                 this._updateURLParameter();
+                this._notifySync();
                 return;
             }
 
@@ -969,6 +971,8 @@ export class Terrain3DControl {
 
         // Update URL parameter
         this._updateURLParameter();
+
+        this._notifySync();
     }
 
     _removeExistingTerrainSources() {
@@ -1091,6 +1095,8 @@ export class Terrain3DControl {
 
         // Update URL parameter
         this._updateFogURLParameter();
+
+        this._notifySync();
     }
 
     _updateWireframe() {
@@ -1101,6 +1107,8 @@ export class Terrain3DControl {
 
         // Update URL parameter
         this._updateWireframeURLParameter();
+
+        this._notifySync();
     }
 
     _updateFov() {
@@ -1113,6 +1121,8 @@ export class Terrain3DControl {
 
         // Update URL parameter
         this._updateFovURLParameter();
+
+        this._notifySync();
     }
 
     _updateBearing() {
@@ -1131,6 +1141,23 @@ export class Terrain3DControl {
 
         // Update URL parameter
         this._updatePitchURLParameter();
+    }
+
+    // Register a callback fired after any terrain/fog/fov/wireframe update so
+    // external consumers (e.g. the compare/swipe after-map) can mirror state.
+    // Pass null to clear.
+    setSyncCallback(callback) {
+        this._syncCallback = typeof callback === 'function' ? callback : null;
+    }
+
+    _notifySync() {
+        if (this._syncCallback) {
+            try {
+                this._syncCallback();
+            } catch (error) {
+                console.warn('Error in terrain sync callback:', error);
+            }
+        }
     }
 
     _resetToDefaults() {

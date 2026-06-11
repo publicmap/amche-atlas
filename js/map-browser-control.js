@@ -627,7 +627,15 @@ export class MapBrowserControl {
         return active;
     }
 
-    _handleLayerToggle(layerId, active) {
+    _notifyLayerLoaded(layerId) {
+        if (!this._iframe || !this._iframe.contentWindow) return;
+        this._iframe.contentWindow.postMessage({
+            type: 'layer-loaded',
+            layerId: layerId
+        }, '*');
+    }
+
+    async _handleLayerToggle(layerId, active) {
         const mapLayerControl = window.layerControl;
         if (!mapLayerControl) {
             console.warn('[MapBrowser] Layer control not available');
@@ -676,6 +684,7 @@ export class MapBrowserControl {
                     mapLayerControl._addLayerDirectly(layerConfig).then(() => {
                         console.log('[MapBrowser] Layer added successfully:', layerId);
                         this._updateIframeActiveLayers();
+                        this._notifyLayerLoaded(layerId);
                     }).catch(err => {
                         console.error('[MapBrowser] Failed to add layer:', err);
                     });
@@ -707,8 +716,9 @@ export class MapBrowserControl {
             if (!checkbox.checked) {
                 checkbox.checked = true;
                 groupElement.show();
-                mapLayerControl._toggleLayerGroup(groupIndex, true);
+                await mapLayerControl._toggleLayerGroup(groupIndex, true);
             }
+            this._notifyLayerLoaded(layerId);
         } else {
             if (checkbox.checked) {
                 checkbox.checked = false;

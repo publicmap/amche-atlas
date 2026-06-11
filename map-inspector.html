@@ -512,6 +512,7 @@
         let layerRegistry = null;
         let expandedLayerId = null;
         let isolateEnabled = true;
+        let compareLayerId = null; // Layer currently swiped via mapbox-gl-compare (only one at a time)
         let highlightedLayerIds = new Set();
         let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
@@ -611,6 +612,35 @@
             }, '*');
         }
 
+        // Build a Compare (swipe) toggle button for a layer. Toggling compares the
+        // existing map (before) against this layer isolated on the basemap (after)
+        // via mapbox-gl-compare. Only one layer can be compared at a time.
+        function buildCompareButton(layerId) {
+            const isActive = compareLayerId === layerId;
+            const $btn = $('<button>', {
+                class: 'px-2 py-1 rounded flex items-center justify-center gap-1 text-white whitespace-nowrap',
+                html: `<sl-icon name="layout-split" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">${isActive ? 'Comparing' : 'Compare'}</span>`,
+                css: { 'background': isActive ? '#2563eb' : '#6b7280', 'transition': 'background 0.2s' },
+                click: function (e) {
+                    e.stopPropagation();
+                    const enabled = compareLayerId !== layerId;
+                    compareLayerId = enabled ? layerId : null;
+                    window.parent.postMessage({
+                        type: 'toggle-compare',
+                        layerId: layerId,
+                        enabled: enabled
+                    }, '*');
+                    renderLayers();
+                }
+            });
+            $btn.on('mouseenter', function () {
+                $(this).css('background', compareLayerId === layerId ? '#1d4ed8' : '#4b5563');
+            }).on('mouseleave', function () {
+                $(this).css('background', compareLayerId === layerId ? '#2563eb' : '#6b7280');
+            });
+            return $btn;
+        }
+
         // Setup message listener for parent communication
         window.addEventListener('message', function (event) {
             if (event.data.type === 'inspector-data') {
@@ -627,6 +657,20 @@
                 parentUrlSearchParams = event.data.urlSearchParams || null;
                 renderLayers();
                 reapplyVisualIsolationIfNeeded();
+            }
+
+            if (event.data.type === 'compare-enabled') {
+                if (compareLayerId !== event.data.layerId) {
+                    compareLayerId = event.data.layerId;
+                    renderLayers();
+                }
+            }
+
+            if (event.data.type === 'compare-disabled') {
+                if (compareLayerId !== null) {
+                    compareLayerId = null;
+                    renderLayers();
+                }
             }
 
             if (event.data.type === 'highlight-layers') {
@@ -1990,8 +2034,12 @@
                     $(this).css('background', '#dc2626');
                 });
 
+                // Compare (swipe) button
+                const $compareBtn = buildCompareButton(layerConfig.id);
+
                 // Assemble action bar
                 $actionBar.append($opacityBtn);
+                $actionBar.append($compareBtn);
                 if ($zoomBtn) $actionBar.append($zoomBtn);
                 $actionBar.append($removeBtn);
                 $expanded.append($actionBar);
@@ -2531,8 +2579,12 @@
                     $(this).css('background', '#dc2626');
                 });
 
+                // Compare (swipe) button
+                const $compareBtn = buildCompareButton(layer.id);
+
                 // Assemble action bar
                 $actionBar.append($opacityBtn);
+                $actionBar.append($compareBtn);
                 if ($zoomBtn) $actionBar.append($zoomBtn);
                 $actionBar.append($removeBtn);
                 $expanded.append($actionBar);

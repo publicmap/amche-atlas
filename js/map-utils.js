@@ -218,7 +218,10 @@ export class DataUtils {
             // - numbers
             // - ALREADY quoted strings
             // - objects/arrays ({ or [)
-            fixed = fixed.replace(/:\s*(?!(?:true|false|null|[-0-9]|\"|\'|\{|\[))([a-zA-Z0-9_\-\.\/]+?)\s*(?=[,}])/g, ':"$1"');
+            // The leading `"` requires the colon to be a key/value separator (every
+            // key is quoted by step 2), so colons *inside* an already-quoted value
+            // (e.g. "File:Map_..._1-250,000_...") are never matched and corrupted.
+            fixed = fixed.replace(/("\s*:\s*)(?!(?:true|false|null|[-0-9]|\"|\'|\{|\[))([a-zA-Z0-9_\-\.\/]+?)\s*(?=[,}])/g, '$1"$2"');
 
             return JSON.parse(fixed);
         } catch (error) {

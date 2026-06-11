@@ -104,6 +104,19 @@ Pre-populate the search query and trigger a location search.
 ?q=Cabo de Rama Fort
 ```
 
+### `compare`
+
+Enable swipe-comparison ([mapbox-gl-compare](https://github.com/mapbox/mapbox-gl-compare)) for a single layer. A vertical slider splits the map: the **before** side shows the existing map with all current layers, and the **after** side shows the named layer isolated over the basemap. The layer is hidden on the before side so it appears on only one side of the swipe. Only one layer can be compared at a time.
+
+The layer must also be loaded (via `?layers=` or the atlas config) for the comparison to appear.
+
+**Format:** `?compare=<layer-id>`
+
+**Example:**
+```
+?layers=goa-plots,goa-satellite&compare=goa-satellite
+```
+
 ### `terrain`
 
 Control 3D terrain visualization and exaggeration level.
@@ -832,7 +845,7 @@ All other parameters (`terrain`, `geolocate`, `q`, `selected`, etc.) are applied
 | `js/terrain-3d-control.js` | Calls `window.urlManager.updateTerrainParam()`, `updateAnimateParam()`, `updateFogParam()`, `updateWireframeParam()`, `updateTerrainSourceParam()`, `updateFovParam()`, `updateBearingParam()`, `updatePitchParam()`, `updateSoundParam()` when terrain state changes. |
 | `js/map-search-control.js` | Calls `window.urlManager.updateSearchParam()` when the search query changes. |
 | `js/map-export-control.js` | Calls `window.urlManager.updateExportParam()` when export settings change. |
-| `js/map-feature-control-iframe.js` | Calls `window.urlManager.updateURL({ updateSelections: true, updateLayers: true })` after feature selections change. Contains the map click handler that `applyLocationClickFromURL()` fires into. |
+| `js/map-feature-control-iframe.js` | Calls `window.urlManager.updateURL({ updateSelections: true, updateLayers: true })` after feature selections change. Calls `window.urlManager.updateCompareParam()` when swipe-comparison is toggled. Contains the map click handler that `applyLocationClickFromURL()` fires into. |
 | `js/map-layer-controls.js` | Calls `window.urlManager.onLayersChanged()` when layer visibility or opacity changes. |
 
 ### URL Write Flow
@@ -855,7 +868,7 @@ index.html loads
   → map-init.js loadConfiguration(): reads atlas + layers to build config object
   → map-init.js initializeMap(): creates Mapbox map, initializes controls
   → layersInitialized event fires
-  → url-manager.js applyURLParameters(): applies terrain, geolocate, q, selected, zoomTo
+  → url-manager.js applyURLParameters(): applies terrain, geolocate, q, selected, compare, zoomTo
 ```
 
 The `layersInitialized` event is the handoff point between Phase 1 and Phase 2.
