@@ -672,9 +672,10 @@ export class LayerRegistry {
      * Get a layer by ID, handling both prefixed and unprefixed IDs
      * @param {string} layerId - The layer ID (can be prefixed with atlas-)
      * @param {string} currentAtlas - The current atlas context (optional)
+     * @param {boolean} silent - Suppress the "not found" warning (for callers that have a fallback)
      * @returns {object|null} The layer configuration
      */
-    getLayer(layerId, currentAtlas = null) {
+    getLayer(layerId, currentAtlas = null, silent = false) {
         if (!layerId) return null;
 
         const contextAtlas = currentAtlas || this._currentAtlas;
@@ -690,7 +691,19 @@ export class LayerRegistry {
             return this._registry.get(layerId);
         }
 
-        console.warn(`[LayerRegistry] Layer not found: ${layerId} (context: ${contextAtlas})`);
+        // Finally, fall back to the index atlas for shared/system layers
+        // (e.g. 'selection', 'notes') that are defined once in index.atlas.json
+        // but referenced from every atlas context.
+        if (contextAtlas !== 'index') {
+            const indexId = `index-${layerId}`;
+            if (this._registry.has(indexId)) {
+                return this._registry.get(indexId);
+            }
+        }
+
+        if (!silent) {
+            console.warn(`[LayerRegistry] Layer not found: ${layerId} (context: ${contextAtlas})`);
+        }
         return null;
     }
 

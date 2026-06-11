@@ -462,12 +462,10 @@ export class MapInitializer {
                 if (layerConfig.id && !layerConfig.type) {
                     // Try to resolve the layer from the registry
                     // This handles both current atlas layers and cross-atlas references
-                    let resolvedLayer = layerRegistry.getLayer(layerConfig.id, atlasId);
-
-                    // If not found in primary registry, try index atlas as fallback (for system layers like 'selection')
-                    if (!resolvedLayer && atlasId !== 'index') {
-                        resolvedLayer = layerRegistry.getLayer(layerConfig.id, 'index');
-                    }
+                    // Silent: cross-config loading follows and the final outcome is
+                    // reported below, so suppress the premature "not found" warning.
+                    // getLayer already falls back to the index atlas for system layers.
+                    let resolvedLayer = layerRegistry.getLayer(layerConfig.id, atlasId, true);
 
                     // If still not found, try cross-config loading
                     if (!resolvedLayer) {

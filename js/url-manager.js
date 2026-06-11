@@ -433,6 +433,7 @@ export class URLManager {
         let exportParam = null;
         let selectedParam = null;
         let markersParam = null;
+        let compareParam = null;
 
         // Handle layers parameter
         if (options.updateLayers === true) {
@@ -659,6 +660,21 @@ export class URLManager {
             }
         }
 
+        // Handle compare parameter (layer currently swiped via mapbox-gl-compare)
+        if (options.compare !== undefined) {
+            const currentCompareParam = urlParams.get('compare');
+            if (options.compare) {
+                compareParam = options.compare;
+                if (currentCompareParam !== compareParam) {
+                    hasChanges = true;
+                }
+            } else {
+                if (currentCompareParam !== null) {
+                    hasChanges = true;
+                }
+            }
+        }
+
         // Handle selected features parameter
         if (options.updateSelections && this.stateManager) {
             const newSelectedParam = this.serializeSelectionsForURL();
@@ -706,6 +722,7 @@ export class URLManager {
             otherParams.delete('export');
             otherParams.delete('selected');
             otherParams.delete('markers');
+            otherParams.delete('compare');
 
             // Add other parameters first (these will be URL-encoded by URLSearchParams)
             const otherParamsString = otherParams.toString();
@@ -826,6 +843,12 @@ export class URLManager {
                 if (currentMarkersParam) {
                     params.push('markers=' + currentMarkersParam);
                 }
+            }
+
+            // Add compare parameter (either new or preserved from current URL)
+            const currentCompare = compareParam || (options.compare === undefined ? urlParams.get('compare') : null);
+            if (currentCompare) {
+                params.push('compare=' + encodeURIComponent(currentCompare));
             }
 
             // Build the final pretty URL
@@ -1020,10 +1043,11 @@ export class URLManager {
         const pitchParam = urlParams.get('pitch');
         const selectedParam = urlParams.get('selected');
         const markersParam = urlParams.get('markers');
+        const compareParam = urlParams.get('compare');
         const hasLocationClick = urlParams.has('selected') && selectedParam === '';
         const zoomToParam = urlParams.get('zoomTo');
 
-        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !hasLocationClick && !zoomToParam) {
+        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !hasLocationClick && !zoomToParam) {
             return false;
         }
 
@@ -1181,6 +1205,12 @@ export class URLManager {
                 }
             }
 
+            // Handle compare parameter - swipe-compare the given layer
+            if (compareParam) {
+                applied = true;
+                this.applyCompareFromURL(compareParam);
+            }
+
             // Handle zoomTo parameter - zoom to newly added layer
             const zoomToParam = urlParams.get('zoomTo');
             if (zoomToParam && this.mapLayerControl) {
@@ -1226,6 +1256,32 @@ export class URLManager {
         }
 
         return applied;
+    }
+
+    /**
+     * Toggle swipe-comparison for a layer named in the URL (?compare=<layer-id>).
+     * Waits until the feature control exists and the layer's sublayers are on the
+     * map before enabling, since the compare clone reads the live map style.
+     */
+    applyCompareFromURL(layerId, attempt = 0) {
+        const maxAttempts = 20; // ~6s at 300ms intervals
+
+        const layerOnMap = () => {
+            const style = this.map && this.map.getStyle && this.map.getStyle();
+            return !!(style && style.layers && style.layers.some(l => l.metadata && l.metadata.groupId === layerId));
+        };
+
+        if (window.featureControl && layerOnMap()) {
+            window.featureControl._toggleCompare(layerId, true);
+            return;
+        }
+
+        if (attempt >= maxAttempts) {
+            console.warn('[URL API] compare layer not available, giving up:', layerId);
+            return;
+        }
+
+        setTimeout(() => this.applyCompareFromURL(layerId, attempt + 1), 300);
     }
 
     async applySelectionsFromURL(selectedParam) {
@@ -1748,5 +1804,12 @@ export class URLManager {
      */
     updateExportParam(exportSettings) {
         this.updateURL({ export: exportSettings, updateLayers: false });
+    }
+
+    /**
+     * Update compare parameter in URL (pass null/'' to remove)
+     */
+    updateCompareParam(layerId) {
+        this.updateURL({ compare: layerId || null, updateLayers: false });
     }
 }
