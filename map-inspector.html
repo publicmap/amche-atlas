@@ -525,6 +525,45 @@
         let parentUrlSearchParams = null; // URL search params from parent window
         let hoverClearTimeoutId = null; // Pending clear so brief gaps between cards don't flash the isolation off
 
+        // Cache atlas-badge icons as inline data: URLs. renderLayers() tears
+        // down and rebuilds the whole card list, so each render recreates the
+        // icon <img>. Pointing a fresh <img> at the remote URL re-hits the
+        // network every time (HTTP cache is bypassed when DevTools "Disable
+        // cache" is on), and even a blob: object URL still logs a load per
+        // element. A data: URL is embedded in the markup itself: the browser
+        // renders it synchronously with no network entry and no load event,
+        // so once the first fetch resolves every later render is truly free.
+        const _atlasIconCache = new Map(); // url -> { dataUrl: string|null }
+        function appendAtlasIcon($badge, url) {
+            const img = new Image();
+            img.alt = '';
+
+            const entry = _atlasIconCache.get(url);
+            if (entry && entry.dataUrl) {
+                img.src = entry.dataUrl;
+            } else {
+                // Show the remote icon while we fetch an inlineable copy once.
+                img.src = url;
+                if (!entry) {
+                    _atlasIconCache.set(url, { dataUrl: null });
+                    fetch(url)
+                        .then(r => (r.ok ? r.blob() : Promise.reject()))
+                        .then(blob => new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        }))
+                        .then(dataUrl => {
+                            _atlasIconCache.get(url).dataUrl = dataUrl;
+                        })
+                        .catch(() => { /* keep falling back to the remote URL */ });
+                }
+            }
+
+            $badge.append(img);
+        }
+
         // Make LayerThumbnail available globally
         window.LayerThumbnail = LayerThumbnail;
 
@@ -788,12 +827,12 @@
                     hoveredFeatures.get(layerId).set(featureId, feature);
                 });
 
-                renderLayers();
+                renderLayers(false);
             }
 
             if (event.data.type === 'map-mouse-leave') {
                 hoveredFeatures.clear();
-                renderLayers();
+                renderLayers(false);
             }
 
             if (event.data.type === 'selection-cleared') {
@@ -829,7 +868,7 @@
 
             if (event.data.type === 'bounds-update') {
                 currentBounds = event.data.bounds || null;
-                renderLayers();
+                renderLayers(false);
             }
 
             if (event.data.type === 'add-selection-mode-changed') {
@@ -1259,7 +1298,41 @@
         }
 
         // Render all active layers
-        function renderLayers() {
+        // Signature of every input that affects the rendered card list. The
+        // panning request storm came from bounds-update and center-hover both
+        // calling renderLayers() on every moveend / mouse-track, which tore
+        // down and rebuilt the whole DOM (icons, thumbnails, controls) even
+        // when nothing visible changed. Hot paths skip the rebuild when this
+        // signature is unchanged. `force` callers (selection, layer-set, and
+        // content changes not captured here, e.g. async inspection HTML) always
+        // rebuild.
+        let lastRenderSignature = null;
+        function computeRenderSignature() {
+            const parts = [];
+            parts.push(activeLayers.map(l => l.id).join(','));
+            // currentBounds only feeds the per-layer "in view" indicator, so
+            // fold the resolved in-view flags in rather than the raw bounds:
+            // a pan that doesn't cross any layer's bbox edge changes nothing.
+            parts.push(activeLayers.map(l => (isInView(l) ? '1' : '0')).join(''));
+            parts.push([...selectedFeatures.keys()].sort().join(','));
+            const hovered = [];
+            hoveredFeatures.forEach((feats, layerId) => {
+                feats.forEach((_, featureId) => hovered.push(layerId + ':' + featureId));
+            });
+            parts.push(hovered.sort().join(','));
+            parts.push(String(expandedLayerId));
+            parts.push(String(compareLayerId));
+            return parts.join('|');
+        }
+
+        function renderLayers(force = true) {
+            const signature = computeRenderSignature();
+            if (!force && signature === lastRenderSignature) return;
+            lastRenderSignature = signature;
+            performRender();
+        }
+
+        function performRender() {
             // console.group('🔍 Inspector Layer Order Debug');
 
             const $overlayList = $('#overlay-list');
@@ -1560,7 +1633,7 @@
                     }
                 });
                 if (atlasMetadata.icon) {
-                    $('<img>', { src: atlasMetadata.icon, alt: '' }).appendTo($badge);
+                    appendAtlasIcon($badge, atlasMetadata.icon);
                 }
                 $('<span>', { text: atlasMetadata.name }).appendTo($badge);
                 $headerRow.append($badge);
@@ -2150,7 +2223,7 @@
                     }
                 });
                 if (atlasMetadata.icon) {
-                    $('<img>', { src: atlasMetadata.icon, alt: '' }).appendTo($badge);
+                    appendAtlasIcon($badge, atlasMetadata.icon);
                 }
                 $('<span>', { text: atlasMetadata.name }).appendTo($badge);
                 $header.append($badge);
