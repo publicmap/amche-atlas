@@ -2581,6 +2581,17 @@
                         });
                         $expanded.append($desc);
                     }
+
+                    // Attribution / source (when no features selected). A bare
+                    // URL is linkified; existing HTML/markup is passed through.
+                    if (layer.attribution) {
+                        const $attr = $('<div>', {
+                            class: 'text-gray-400 mb-2',
+                            css: { fontSize: '10px', lineHeight: '1.4', marginBottom: '8px', wordBreak: 'break-word' },
+                            html: 'Source: ' + processLinksForNewWindow(linkifyAttribution(layer.attribution))
+                        });
+                        $expanded.append($attr);
+                    }
                 }
 
                 // Action bar (appears AFTER features/description)
@@ -2850,6 +2861,18 @@
         }
 
         // Process HTML to ensure all links open in new window
+        // Turn a bare http(s) URL into an anchor. If the value already contains
+        // markup (e.g. an <a> tag or HTML), leave it untouched.
+        function linkifyAttribution(value) {
+            if (!value) return '';
+            if (/<[a-z][\s\S]*>/i.test(value)) return value;
+            if (/^https?:\/\/\S+$/i.test(value.trim())) {
+                const url = value.trim();
+                return `<a href="${url}">${url}</a>`;
+            }
+            return value;
+        }
+
         function processLinksForNewWindow(html) {
             if (!html) return '';
             const $temp = $('<div>').html(html);

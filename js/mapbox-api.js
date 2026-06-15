@@ -7,6 +7,7 @@ import { DataUtils, GeoUtils } from './map-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { OverpassLoader } from './overpass-loader.js';
+import ConfigManager from './config-manager.js';
 
 const COG_PROVIDER_URL = new URL('./cog-tile-provider.js', import.meta.url).href;
 let _cogProviderRegistered = false;
@@ -390,6 +391,12 @@ export class MapboxAPI {
     async createLayerGroup(groupId, config, options = {}) {
         try {
             const { visible = false, currentGroup = null } = options;
+
+            // Fill in fallback title/description/attribution derived from the
+            // layer type and source URL. This ensures a minimal config (e.g. an
+            // inline layer from the ?layers= URL param) still contributes
+            // attribution to the source, so it appears in the attribution bar.
+            config = ConfigManager.applyDefaultMetadata(config);
 
             // Register time-based layers
             if (config.urlTimeParam) {

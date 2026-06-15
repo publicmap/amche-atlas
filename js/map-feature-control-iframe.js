@@ -6,6 +6,7 @@
  */
 
 import { MapMarkerManager } from './map-marker-manager.js';
+import ConfigManager from './config-manager.js';
 
 export class MapFeatureControl {
     constructor() {
@@ -732,7 +733,11 @@ export class MapFeatureControl {
         const layerConfigs = [];
 
         for (const [layerId, layerData] of activeLayers.entries()) {
-            const config = { ...layerData.config };
+            // Fill in fallback title/description/attribution derived from the
+            // layer type and source URL so configs missing this metadata (e.g.
+            // a minimal inline layer passed via the ?layers= URL param) still
+            // display fully in the inspector.
+            const config = ConfigManager.applyDefaultMetadata({ ...layerData.config });
 
             // Always resolve tags from registry to ensure cascaded tags are included
             if (window.layerRegistry) {
