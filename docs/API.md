@@ -183,6 +183,87 @@ Select the terrain data source (default: `mapbox`).
 ?terrain=2&terrainSource=maptiler
 ```
 
+### `fov`
+
+Camera field of view for the 3D / terrain view.
+
+**Format:** `?fov=<value>`
+
+**Values:** `0.1` to `1.5` (default: `0.643`)
+
+**Example:**
+```
+?terrain=2&fov=0.8
+```
+
+### `bearing`
+
+Map rotation, in degrees clockwise from north.
+
+**Format:** `?bearing=<degrees>`
+
+**Example:**
+```
+?bearing=45
+```
+
+### `pitch`
+
+Map tilt, in degrees.
+
+**Format:** `?pitch=<degrees>`
+
+**Values:** `0` to `85`
+
+**Example:**
+```
+?pitch=60
+```
+
+### `sound`
+
+Enable the sound visualization layer.
+
+**Format:** `?sound=true`
+
+**Example:**
+```
+?sound=true
+```
+
+### `export`
+
+Restore export (print/image) settings serialized as a JSON object. Set automatically by the export control when you share a URL with export options open.
+
+**Format:** `?export=<json>`
+
+**Example:**
+```
+?export={"format":"a4","orientation":"landscape"}
+```
+
+### `markers`
+
+Compact encoding of the selection markers on the map. Set automatically when you select features and share the URL — it is the compact replacement for inlining the full selection GeoJSON in `layers`. Each marker is `lng,lat:layerId~featureId,layerId~featureId`, and multiple markers are joined with `|`.
+
+**Format:** `?markers=<lng>,<lat>:<layerId>~<featureId>,...|<next marker>...`
+
+**Example:**
+```
+?markers=73.8187,15.54845:goa-plots~12345
+```
+
+### `zoomTo`
+
+Zoom to a layer's bounding box on load, then remove the parameter from the URL. Used when a newly added layer should be framed on first view.
+
+**Format:** `?zoomTo=<layer-id>`
+
+**Example:**
+```
+?zoomTo=goa-plots
+```
+
 ## Complete Examples
 
 ### Basic Map with Layers

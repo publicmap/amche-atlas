@@ -4,6 +4,7 @@
  */
 
 import { LayerOrderManager } from './layer-order-manager.js';
+import { URL_API_PARAMS } from './url-api-params.js';
 
 export class URLManager {
     constructor(mapLayerControl, map) {
@@ -1046,6 +1047,19 @@ export class URLManager {
         const compareParam = urlParams.get('compare');
         const hasLocationClick = urlParams.has('selected') && selectedParam === '';
         const zoomToParam = urlParams.get('zoomTo');
+
+        // Debug: surface every supported URL API parameter present in the URL on
+        // load, so it's easy to confirm the URL API parsed as expected. URL_API_PARAMS
+        // is the single source of truth, kept in sync with the "## Parameters" section
+        // of docs/API.md by js/tests/url-api-docs.test.js.
+        const presentParams = {};
+        for (const key of URL_API_PARAMS) {
+            const value = urlParams.get(key);
+            if (value !== null) presentParams[key] = value;
+        }
+        if (Object.keys(presentParams).length > 0) {
+            console.log('[URL API] Parameters parsed on load:', presentParams);
+        }
 
         if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !hasLocationClick && !zoomToParam) {
             return false;
