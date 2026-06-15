@@ -321,14 +321,11 @@ export class MapInitializer {
         }
 
         // Parse layers from URL parameter if provided
-        console.log('🔍 Checking layersParam:', layersParam);
         if (layersParam) {
             const urlLayers = URLUtils.parseLayersFromUrl(layersParam);
-            console.log('🔍 Parsed URL layers:', urlLayers.map(l => l.id));
 
             // Set URL layers to be visible by default and maintain order
             if (urlLayers.length > 0) {
-                console.log('🔍 Processing', urlLayers.length, 'URL layers');
                 // Set initiallyChecked to true for all URL layers
                 const processedUrlLayers = urlLayers.map(layer => ({
                     ...layer,
@@ -395,8 +392,6 @@ export class MapInitializer {
 
                 // Keep layers in URL/visual order (first = top)
                 // The conversion to map rendering order will happen when layers are added to the map
-                console.log('🔍 Processing URL layers (keeping in visual order):');
-                console.log('  URL order:', processedUrlLayers.map(l => l.id));
 
                 // Build final layers array by merging with existing config
                 const finalLayers = [];
@@ -852,7 +847,6 @@ export class MapInitializer {
             // that previously blocked map creation.
             const config = await MapInitializer.loadConfiguration();
             const layers = config.layers || [];
-            console.log('🔍 Final layers for MapLayerControl:', layers.filter(l => l.initiallyChecked).map(l => l.id));
 
             // Hide loader and show controls
             document.getElementById('map-layer-filter').classList.remove('hidden');
