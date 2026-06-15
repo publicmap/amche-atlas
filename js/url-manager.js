@@ -1182,9 +1182,6 @@ export class URLManager {
                                 selectionGroup.geojson = selectionGeojson;
                             }
                             markersRestored = await markerManager.restoreMarkersFromSelectionLayer();
-                            if (markersRestored) {
-                                console.log('[URL API] Successfully restored markers from markers parameter');
-                            }
                         } else {
                             // Backward compatibility: older shared URLs inlined the selection
                             // geojson in the layers= param, which is already on the layer group.

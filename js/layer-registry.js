@@ -309,7 +309,6 @@ export class LayerRegistry {
         for (const { atlasId, prefixedId, override } of overrides) {
             const base = this._registry.get(prefixedId);
             if (!base) {
-                console.debug(`[LayerRegistry] Cross-atlas override ${atlasId}-${prefixedId} skipped: base layer ${prefixedId} not found`);
                 continue;
             }
             const variantId = `${atlasId}-${prefixedId}`;

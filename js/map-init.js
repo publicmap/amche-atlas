@@ -258,7 +258,6 @@ export class MapInitializer {
                         config.map = {};
                     }
                     config.map.style = indexConfig.map.style;
-                    console.log(`[MapInit] Atlas ${atlasId} inheriting map style from index:`, indexConfig.map.style);
                 }
             } catch (error) {
                 console.warn('[MapInit] Failed to load index atlas for style inheritance:', error);

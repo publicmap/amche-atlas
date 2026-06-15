@@ -1852,8 +1852,6 @@ export class MapMarkerManager {
             return false;
         }
 
-        console.log('[MarkerManager] Restoring', features.length, 'markers from selection layer');
-
         const layerIds = new Set();
         features.forEach(feature => {
             feature.properties.features.forEach(ref => layerIds.add(ref.layerId));

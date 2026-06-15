@@ -1470,8 +1470,6 @@
                     const feature = event.data.feature;
                     const featureId = event.data.featureId;
 
-                    console.log('[Browser] Feature selected:', layerId, featureId);
-
                     if (!selectedFeatures.has(layerId)) {
                         selectedFeatures.set(layerId, new Map());
                     }
@@ -1498,8 +1496,6 @@
                 if (event.data.type === 'feature-deselected') {
                     const layerId = event.data.layerId;
                     const featureId = event.data.featureId;
-
-                    console.log('[Browser] Feature deselected:', layerId, featureId);
 
                     if (selectedFeatures.has(layerId)) {
                         selectedFeatures.get(layerId).delete(featureId);

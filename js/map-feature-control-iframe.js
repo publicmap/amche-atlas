@@ -1084,23 +1084,31 @@ export class MapFeatureControl {
         if (!this._map) return false;
 
         try {
-            // For style layers, check the layer control's state
-            // Style layers control existing base style layers and don't create new layers
-            if (layerConfig.type === 'style') {
-                // Check if layer is in the visible state from layer control
-                if (window.layerControl && window.layerControl._sourceControls) {
-                    // Find the control element for this layer
-                    const groupIndex = window.layerControl._state.groups.findIndex(g => g.id === layerConfig.id);
-                    if (groupIndex !== -1) {
-                        const controlElement = window.layerControl._sourceControls[groupIndex];
-                        if (controlElement) {
-                            const checkbox = controlElement.querySelector('.toggle-switch input[type="checkbox"]');
-                            // Check actual checkbox state, not initiallyChecked
-                            return checkbox && checkbox.checked;
+            // The layer control checkbox is the authoritative signal for whether a
+            // layer is active. It is the same source of truth url-manager uses to
+            // build the `layers=` URL param, so consulting it here guarantees the
+            // inspector list always matches the URL. It also avoids false positives
+            // from the prefix-based map-layer matching below — a generic group id
+            // (e.g. "vector-layer") would otherwise match unrelated map layers like
+            // "vector-layer-osm-railways" and appear active when it isn't.
+            if (window.layerControl && window.layerControl._state && window.layerControl._sourceControls) {
+                const groupIndex = window.layerControl._state.groups.findIndex(g =>
+                    g.id === layerConfig.id || g._prefixedId === layerConfig.id
+                );
+                if (groupIndex !== -1) {
+                    const controlElement = window.layerControl._sourceControls[groupIndex];
+                    if (controlElement) {
+                        const checkbox = controlElement.querySelector('.toggle-switch input[type="checkbox"]');
+                        if (checkbox) {
+                            return checkbox.checked;
                         }
                     }
                 }
-                // Fallback: check if it has visible style layers
+            }
+
+            // For style layers without a resolvable control, fall back to checking
+            // whether the underlying base-style layers are visible.
+            if (layerConfig.type === 'style') {
                 return this._hasVisibleStyleLayers(layerConfig);
             }
 
