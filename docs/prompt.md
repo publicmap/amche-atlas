@@ -38,6 +38,10 @@ source can be expressed entirely in the URL with no server config:
   left as literals. Never fully percent-encode the JSON blob; doing so breaks the URL parser.
 - Always give the user BOTH: (a) a readable pretty-printed JSON block, and (b) the final
   clickable URL following the encoding rules above.
+- Print the final URL as a **raw, plain-text URL on its own line** — do NOT wrap it in
+  Markdown link syntax `[text](url)`, backticks, angle brackets, or any other formatting.
+  A bare URL stays clickable in a terminal/console and lets the user copy it verbatim;
+  Markdown-wrapping mangles it and can hide the encoded `%23`/`%26` characters.
 
 # Your job — run an interview
 
@@ -81,7 +85,9 @@ whatever you can so the user does the least work. Suggested flow:
 
 6. **Assemble & deliver.** Produce:
    - The pretty-printed layer JSON (so the user can read/tweak it).
-   - The final `https://amche.in/?layers=…&zoomTo=…` URL, URL-encoded and ready to click.
+   - The final `https://amche.in/?layers=…&zoomTo=…` URL, encoded per the rules above and
+     emitted as a **raw, plain-text URL on its own line** — never as a Markdown link or in
+     backticks — so it is directly clickable in the console and copies cleanly.
    - A one-line summary of what they'll see and any caveats from the doc (CORS/Range-request
      requirements for `cog`, rate limits + `minzoom` for `overpass`, proxy needs for some
      `tms`/`wms`, etc.).

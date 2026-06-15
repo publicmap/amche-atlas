@@ -571,7 +571,7 @@ export class MapMarkerManager {
         this._currentMarkerIndex = this._markers.size - 1;
 
         // Click to toggle popup
-        el.addEventListener('click', (e) => {
+        this._bindTap(el, (e) => {
             e.stopPropagation();
             this._toggleMarkerPopup(markerId);
         });
@@ -1155,6 +1155,24 @@ export class MapMarkerManager {
         `;
     }
 
+    /**
+     * Bind a tap handler that fires reliably on touch. The synthesized click
+     * after touchend is sometimes swallowed on mobile (see the marker close
+     * button), so on touch devices we also listen for touchend directly and
+     * preventDefault to stop the now-redundant click from double-firing.
+     * Desktop keeps plain click.
+     */
+    _bindTap(el, handler) {
+        if (!el) return;
+        el.addEventListener('click', handler);
+        if (this._isTouch) {
+            el.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                handler(e);
+            });
+        }
+    }
+
     _attachPopupEventListeners(markerId) {
         const markerData = this._markers.get(markerId);
         if (!markerData?.popup) return;
@@ -1162,11 +1180,11 @@ export class MapMarkerManager {
         const popup = markerData.popup.getElement();
         if (!popup) return;
 
-        popup.querySelector('.close-popup')?.addEventListener('click', () => {
+        this._bindTap(popup.querySelector('.close-popup'), () => {
             this._closePopup(markerId);
         });
 
-        popup.querySelector('.star-toggle')?.addEventListener('click', (e) => {
+        this._bindTap(popup.querySelector('.star-toggle'), (e) => {
             const btn = e.currentTarget;
             const isStarred = this._starredMarkers.has(markerId);
             if (isStarred) {
@@ -1182,20 +1200,20 @@ export class MapMarkerManager {
             }
         });
 
-        popup.querySelector('.coords-btn')?.addEventListener('click', (e) => {
+        this._bindTap(popup.querySelector('.coords-btn'), (e) => {
             e.stopPropagation();
             this._openExternalMapLinks(markerData.lngLat);
         });
 
-        popup.querySelector('.nav-prev')?.addEventListener('click', () => {
+        this._bindTap(popup.querySelector('.nav-prev'), () => {
             this._navigateMarker(-1);
         });
 
-        popup.querySelector('.nav-next')?.addEventListener('click', () => {
+        this._bindTap(popup.querySelector('.nav-next'), () => {
             this._navigateMarker(1);
         });
 
-        popup.querySelector('.open-browser')?.addEventListener('click', (e) => {
+        this._bindTap(popup.querySelector('.open-browser'), (e) => {
             e.stopPropagation();
 
             if (window.browserControl) {
@@ -1210,7 +1228,7 @@ export class MapMarkerManager {
             }, 100);
         });
 
-        popup.querySelector('.open-inspector')?.addEventListener('click', (e) => {
+        this._bindTap(popup.querySelector('.open-inspector'), (e) => {
             e.stopPropagation();
 
             if (window.featureControl) {
@@ -1225,7 +1243,7 @@ export class MapMarkerManager {
             }, 100);
         });
 
-        popup.querySelector('.show-more-layers')?.addEventListener('click', (e) => {
+        this._bindTap(popup.querySelector('.show-more-layers'), (e) => {
             e.stopPropagation();
             const btn = e.currentTarget;
             const container = popup.querySelector('.extra-layers-container');
@@ -1255,7 +1273,7 @@ export class MapMarkerManager {
                         thumbnail.style.borderRadius = '3px';
                         thumbnail.style.cursor = 'pointer';
                         thumbnail.style.margin = '0';
-                        thumbnail.addEventListener('click', (ev) => {
+                        this._bindTap(thumbnail, (ev) => {
                             ev.stopPropagation();
                             if (!isInView && window.layerControl) {
                                 window.layerControl._zoomToLayer(layer.id);
@@ -1271,7 +1289,7 @@ export class MapMarkerManager {
 
         // Layer info toggle [...] in expanded header
         popup.querySelectorAll('.layer-info-toggle').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            this._bindTap(btn, (e) => {
                 e.stopPropagation();
                 const panel = btn.closest('.feature-item-details').querySelector('.layer-info-panel');
                 if (!panel) return;
@@ -1296,7 +1314,7 @@ export class MapMarkerManager {
 
         // Zoom to feature button
         popup.querySelectorAll('.zoom-feature-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            this._bindTap(btn, (e) => {
                 e.stopPropagation();
                 const details = btn.closest('.feature-item-details');
                 if (!details) return;
@@ -1313,7 +1331,7 @@ export class MapMarkerManager {
 
         // Remove layer button
         popup.querySelectorAll('.remove-layer-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            this._bindTap(btn, (e) => {
                 e.stopPropagation();
                 const layerId = btn.dataset.layerId;
                 if (confirm(`Remove layer "${layerId}"?`)) {
@@ -1326,7 +1344,7 @@ export class MapMarkerManager {
 
         // Thumbnail click in feature header - open layer info, don't expand
         popup.querySelectorAll('.feature-header-thumbnail').forEach(thumbnailEl => {
-            thumbnailEl.addEventListener('click', (e) => {
+            this._bindTap(thumbnailEl, (e) => {
                 e.stopPropagation();
                 const layerId = thumbnailEl.dataset.layerId;
                 const layerConfig = this._stateManager.getLayerConfig(layerId);
@@ -1358,7 +1376,7 @@ export class MapMarkerManager {
 
         // Feature header click to expand/collapse
         popup.querySelectorAll('.feature-item-header').forEach(header => {
-            header.addEventListener('click', async (e) => {
+            this._bindTap(header, async (e) => {
                 const container = header.closest('.feature-item-container');
                 const details = container.querySelector('.feature-item-details');
                 const icon = header.querySelector('.expand-icon');
