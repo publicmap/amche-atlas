@@ -369,7 +369,7 @@ export class MapMarkerManager {
             .addTo(this._map);
 
         // Click to select
-        el.addEventListener('click', (e) => {
+        this._bindTap(el, (e) => {
             e.stopPropagation();
             // Trigger selection on these features
             this._stateManager.handleFeatureClicks(features.map(f => ({
@@ -1524,7 +1524,7 @@ export class MapMarkerManager {
 
         // Show more properties toggle
         popup.querySelectorAll('.show-all-props-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
+            this._bindTap(button, (e) => {
                 e.stopPropagation();
                 const details = button.closest('.feature-item-details');
                 const regularProps = details.querySelector('.properties-table');
@@ -1561,7 +1561,7 @@ export class MapMarkerManager {
         const csvLayers = (window.layerControl?._state?.groups || [])
             .filter(g => g.type === 'csv' && (g.saveUrl || window.GOOGLE_SHEETS_SAVE_URL));
 
-        addBtn.addEventListener('click', (e) => {
+        this._bindTap(addBtn, (e) => {
             e.stopPropagation();
             const isHidden = form.style.display === 'none';
             if (isHidden && csvLayers.length === 0) {
@@ -1583,7 +1583,7 @@ export class MapMarkerManager {
             if (isHidden) textarea.focus();
         });
 
-        cancelBtn?.addEventListener('click', (e) => {
+        this._bindTap(cancelBtn, (e) => {
             e.stopPropagation();
             form.style.display = 'none';
             status.textContent = '';
@@ -1592,7 +1592,7 @@ export class MapMarkerManager {
         // Keep clicks inside the form from bubbling to feature/marker handlers
         form.addEventListener('click', (e) => e.stopPropagation());
 
-        saveBtn?.addEventListener('click', async (e) => {
+        this._bindTap(saveBtn, async (e) => {
             e.stopPropagation();
             const notes = (textarea.value || '').trim();
             const layerId = select.value;
