@@ -21,6 +21,7 @@ export class MapMarkerManager {
         this._isProgrammaticZoom = false; // Track programmatic zooms
         this._selectionLayerId = 'selection'; // Layer ID for selection markers
         this._starredMarkers = new Set(); // Marker IDs that are starred (persist on new selection)
+        this._isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
         this._setupEventListeners();
         this._setupMapMovementTracking();
@@ -582,41 +583,56 @@ export class MapMarkerManager {
             closeBtn.className = 'marker-close-btn';
             closeBtn.innerHTML = '<sl-icon name="x" style="font-size:12px;color:white;"></sl-icon>';
             closeBtn.title = 'Clear this marker';
+            // Larger hit target on touch (the visible circle stays small via a
+            // transparent expanded tap area) so it's not a 14px target on mobile.
+            const closeSize = this._isTouch ? 22 : 14;
             closeBtn.style.cssText = `
                 margin-left: 5px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 14px;
-                height: 14px;
+                width: ${closeSize}px;
+                height: ${closeSize}px;
                 border-radius: 50%;
                 background: rgba(255,255,255,0.2);
                 cursor: pointer;
                 flex-shrink: 0;
                 transition: background 0.2s;
             `;
-            closeBtn.addEventListener('mouseenter', () => {
-                closeBtn.style.background = 'rgba(255,255,255,0.4)';
-            });
-            closeBtn.addEventListener('mouseleave', () => {
-                closeBtn.style.background = 'rgba(255,255,255,0.2)';
-            });
-            closeBtn.addEventListener('click', (e) => {
+            if (!this._isTouch) {
+                closeBtn.addEventListener('mouseenter', () => {
+                    closeBtn.style.background = 'rgba(255,255,255,0.4)';
+                });
+                closeBtn.addEventListener('mouseleave', () => {
+                    closeBtn.style.background = 'rgba(255,255,255,0.2)';
+                });
+            }
+            const handleCloseClick = (e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 this._starredMarkers.delete(markerId);
                 this.removeMarker(markerId);
-            });
+            };
+            closeBtn.addEventListener('click', handleCloseClick);
+            // On touch, also bind touchend so the close fires on first tap rather
+            // than waiting for the synthesized (and sometimes swallowed) click.
+            if (this._isTouch) {
+                closeBtn.addEventListener('touchend', handleCloseClick);
+            }
             contentEl.appendChild(closeBtn);
         }
 
-        // Hover to highlight features on map
-        el.addEventListener('mouseenter', () => {
-            this._setMarkerFeaturesHoverState(markerId, true);
-        });
+        // Hover to highlight features on map (desktop only — avoids synthetic
+        // touch hover events flickering feature state on mobile).
+        if (!this._isTouch) {
+            el.addEventListener('mouseenter', () => {
+                this._setMarkerFeaturesHoverState(markerId, true);
+            });
 
-        el.addEventListener('mouseleave', () => {
-            this._setMarkerFeaturesHoverState(markerId, false);
-        });
+            el.addEventListener('mouseleave', () => {
+                this._setMarkerFeaturesHoverState(markerId, false);
+            });
+        }
 
         if (showPopup) {
             this._showMarkerPopup(markerId);
@@ -679,9 +695,10 @@ export class MapMarkerManager {
 
         markerData.popup = popup;
 
-        // Add hover listeners to popup
+        // Add hover listeners to popup (desktop only — touch devices synthesize
+        // mouseenter/mouseleave on tap, which would close the popup unexpectedly).
         const popupElement = popup.getElement();
-        if (popupElement) {
+        if (popupElement && !this._isTouch) {
             popupElement.addEventListener('mouseenter', () => {
                 this._setMarkerFeaturesHoverState(markerId, true);
             });

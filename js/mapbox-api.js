@@ -3406,21 +3406,36 @@ export class MapboxAPI {
         const selectedIds = Array.from(selectedFeatureIds);
         const hoveredIds = Array.from(hoveredFeatureIds);
 
-        style.layers.forEach(layer => {
-            if (layer.type === 'line' && layer.id.includes('-outline')) {
-                const sortKeyExpression = [
-                    'case',
-                    ['in', ['id'], ['literal', selectedIds]], 3,
-                    ['in', ['id'], ['literal', hoveredIds]], 1,
-                    2
-                ];
+        // Skip when nothing changed — setLayoutProperty triggers a worker relayout
+        // of the line geometry, so re-applying an identical sort key is pure cost.
+        const signature = `${selectedIds.join(',')}|${hoveredIds.join(',')}`;
+        if (signature === this._lastSortKeySignature) return;
+        this._lastSortKeySignature = signature;
 
-                try {
-                    this._map.setLayoutProperty(layer.id, 'line-sort-key', sortKeyExpression);
-                } catch (error) {
-                    console.warn(`Failed to update sort key for ${layer.id}:`, error);
+        // Defer the relayout to the next frame. Changing line-sort-key forces
+        // Mapbox to re-tessellate every line-outline layer on the worker, which
+        // blocks the next WebGL repaint — on mobile this delays selection markers
+        // and the selection layer by ~1s. Deferring lets the selection visuals
+        // paint first; the z-ordering settles a frame later.
+        if (this._sortKeyRAF) cancelAnimationFrame(this._sortKeyRAF);
+        this._sortKeyRAF = requestAnimationFrame(() => {
+            this._sortKeyRAF = null;
+            style.layers.forEach(layer => {
+                if (layer.type === 'line' && layer.id.includes('-outline')) {
+                    const sortKeyExpression = [
+                        'case',
+                        ['in', ['id'], ['literal', selectedIds]], 3,
+                        ['in', ['id'], ['literal', hoveredIds]], 1,
+                        2
+                    ];
+
+                    try {
+                        this._map.setLayoutProperty(layer.id, 'line-sort-key', sortKeyExpression);
+                    } catch (error) {
+                        console.warn(`Failed to update sort key for ${layer.id}:`, error);
+                    }
                 }
-            }
+            });
         });
     }
 

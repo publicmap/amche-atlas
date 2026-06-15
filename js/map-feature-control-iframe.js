@@ -1952,7 +1952,13 @@ export class MapFeatureControl {
         this._map.on('click', (e) => {
             let interactiveFeatures = [];
             try {
-                let features = this._map.queryRenderedFeatures(e.point);
+                // Scope the query to interactive layers so clicks don't intersect
+                // every layer in the style (expensive on mobile). Fall back to an
+                // unscoped query if the layer list can't be resolved.
+                const queryableLayers = this._stateManager.getInteractiveRenderedLayerIds();
+                const queryOpts = queryableLayers.length ? { layers: queryableLayers } : undefined;
+
+                let features = this._map.queryRenderedFeatures(e.point, queryOpts);
 
                 if (!features.length) {
                     const bufferSize = 5;
@@ -1960,7 +1966,7 @@ export class MapFeatureControl {
                         [e.point.x - bufferSize, e.point.y - bufferSize],
                         [e.point.x + bufferSize, e.point.y + bufferSize]
                     ];
-                    const featuresInBuffer = this._map.queryRenderedFeatures(bbox);
+                    const featuresInBuffer = this._map.queryRenderedFeatures(bbox, queryOpts);
                     if (featuresInBuffer.length) {
                         features = [this._findClosestFeature(featuresInBuffer, e.point)];
                     }

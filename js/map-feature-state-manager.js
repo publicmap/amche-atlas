@@ -755,6 +755,23 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
+     * Get the actual style layer IDs for all interactive (non-raster) registered
+     * layers. Used to scope queryRenderedFeatures so clicks don't pay the cost of
+     * intersecting every layer in the style — significant on mobile GPUs.
+     * @returns {string[]} Array of style layer IDs (empty if none / unavailable)
+     */
+    getInteractiveRenderedLayerIds() {
+        if (!this._mapboxAPI) return [];
+        const ids = [];
+        this._registeredLayers.forEach((layerConfig) => {
+            if (this._isRasterLayer(layerConfig)) return;
+            if (layerConfig.inspect === false) return;
+            this._getMatchingLayerIds(layerConfig).forEach(id => ids.push(id));
+        });
+        return ids;
+    }
+
+    /**
      * Get features at the center of the map canvas
      * @returns {Array} Array of {feature, layerId} objects
      */
