@@ -1061,6 +1061,19 @@ export class URLManager {
             console.log('[URL API] Parameters parsed on load:', presentParams);
         }
 
+        // Surface query params that aren't part of the URL API so typos or
+        // unsupported params are visible rather than silently ignored. Note this
+        // reads the current URL, which startup (atlas/location auto-selection in
+        // splash-screen-manager.js) may already have rewritten — check that log too
+        // if a param you passed is missing here.
+        const unsupportedParams = {};
+        for (const [key, value] of urlParams.entries()) {
+            if (!URL_API_PARAMS.includes(key)) unsupportedParams[key] = value;
+        }
+        if (Object.keys(unsupportedParams).length > 0) {
+            console.warn('[URL API] Unsupported parameters ignored:', unsupportedParams);
+        }
+
         if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !hasLocationClick && !zoomToParam) {
             return false;
         }
