@@ -1915,19 +1915,68 @@ export class MapFeatureControl {
         let touchTimer = null;
         let touchStartPoint = null;
         let isLongPress = false;
+        let touchMoved = false;
+        let tapFallbackTimer = null;
+        let touchStartTarget = null;
+
+        // Tap debug logging — helps diagnose why taps don't open the inspector on
+        // mobile. Visible in remote/device consoles with the [TapDebug] prefix.
+        const tapLog = (label, extra = {}) => {
+            console.log(`[TapDebug] ${label}`, {
+                isTouchDevice: ('ontouchstart' in window) || navigator.maxTouchPoints > 0,
+                maxTouchPoints: navigator.maxTouchPoints,
+                ...extra
+            });
+        };
+        tapLog('handlers attached');
+
+        // Native DOM-level diagnostics on the map canvas. Mapbox synthesizes its
+        // own `click` from the browser's native DOM click; if the native click
+        // never fires we know the browser/terrain swallowed the tap, if it fires
+        // but the mapbox `click` (below) doesn't, mapbox swallowed it.
+        const canvasContainer = this._map.getCanvasContainer();
+        ['pointerdown', 'pointerup', 'click', 'touchend'].forEach(type => {
+            canvasContainer.addEventListener(type, (ev) => {
+                tapLog(`DOM ${type} on canvas`, {
+                    pointerType: ev.pointerType,
+                    target: ev.target?.className || ev.target?.tagName,
+                    defaultPrevented: ev.defaultPrevented
+                });
+            }, { capture: true, passive: true });
+        });
 
         // Touch start handler for long-press detection
         this._map.on('touchstart', (e) => {
-            if (!e.originalEvent.touches || e.originalEvent.touches.length !== 1) return;
+            tapLog('touchstart', {
+                touches: e.originalEvent.touches?.length,
+                point: e.point
+            });
+            if (!e.originalEvent.touches || e.originalEvent.touches.length !== 1) {
+                // Multi-touch gesture (pinch/rotate) — not a tap candidate.
+                touchStartPoint = null;
+                return;
+            }
 
             touchStartPoint = e.point;
+            touchStartTarget = e.originalEvent.target;
             isLongPress = false;
+            touchMoved = false;
+
+            // Start every tap from a clean add-mode state. Long-press sets the
+            // transient Cmd/Ctrl flag mid-gesture; resetting it here (rather than
+            // via timers tied to the previous gesture, which the next tap could
+            // cancel) guarantees a leftover long-press flag never keeps later
+            // taps stuck in add-mode (old markers never cleared). Explicit add
+            // mode lives in the marker manager's selectionMode and is preserved.
+            const explicitAddMode = this._markerManager?.getSelectionMode?.() === 'add';
+            this._stateManager._isCmdCtrlPressed = explicitAddMode;
 
             // Set timer for long press (500ms)
             touchTimer = setTimeout(() => {
                 isLongPress = true;
                 // Simulate Cmd/Ctrl press for long-press
                 this._stateManager._isCmdCtrlPressed = true;
+                tapLog('long-press detected -> add mode ON');
             }, 500);
         });
 
@@ -1939,6 +1988,8 @@ export class MapFeatureControl {
 
                 // Cancel if moved more than 10 pixels
                 if (dx > 10 || dy > 10) {
+                    tapLog('touchmove -> long-press cancelled (moved)', { dx, dy });
+                    touchMoved = true;
                     clearTimeout(touchTimer);
                     touchTimer = null;
                     isLongPress = false;
@@ -1947,66 +1998,58 @@ export class MapFeatureControl {
         });
 
         // Touch end handler - reset state
-        this._map.on('touchend', () => {
+        this._map.on('touchend', (e) => {
+            tapLog('touchend', {
+                isLongPress,
+                touchMoved,
+                remainingTouches: e.originalEvent.touches?.length
+            });
             if (touchTimer) {
                 clearTimeout(touchTimer);
                 touchTimer = null;
             }
-            // Reset Cmd/Ctrl state after a short delay
-            setTimeout(() => {
-                if (isLongPress) {
-                    this._stateManager._isCmdCtrlPressed = false;
-                    isLongPress = false;
-                }
-            }, 100);
+
+            // Tap-to-click fallback. Mapbox GL 3.23-rc suppresses the browser's
+            // native click on touch and synthesizes its own `click` via tap
+            // recognition — but with terrain enabled that synthesis never fires
+            // (verified: touchstart/touchend fire, no DOM or mapbox `click`
+            // follows), so the inspector/marker never opens on mobile. When this
+            // was a clean single-finger tap and no real `click` arrives shortly,
+            // run the selection logic ourselves from the tap point. The real
+            // `click` handler cancels this timer, so devices/builds where mapbox
+            // works never double-fire.
+            // Only synthesize for taps that landed on the map canvas itself.
+            // Taps on marker/popup/control overlays bubble up to mapbox's touch
+            // handler too, but those elements have their own click handlers — if
+            // we synthesized here we'd create a new selection instead of letting
+            // the marker toggle its popup.
+            const allFingersLifted = !e.originalEvent.touches || e.originalEvent.touches.length === 0;
+            const tappedCanvas = touchStartTarget === this._map.getCanvas();
+            if (!touchMoved && touchStartPoint && allFingersLifted && tappedCanvas) {
+                const tapPoint = touchStartPoint;
+                if (tapFallbackTimer) clearTimeout(tapFallbackTimer);
+                tapFallbackTimer = setTimeout(() => {
+                    tapFallbackTimer = null;
+                    const lngLat = this._map.unproject(tapPoint);
+                    tapLog('tap fallback -> processClick (mapbox click never fired)', { point: tapPoint, lngLat });
+                    // The long-press flag (set mid-gesture) is still active here so
+                    // a long-press tap adds to the selection; the next touchstart
+                    // resets it for the following tap.
+                    this._processClickAtPoint(tapPoint, lngLat);
+                }, 60);
+            }
         });
 
         // Click handler
         this._map.on('click', (e) => {
-            let interactiveFeatures = [];
-            try {
-                // Scope the query to interactive layers so clicks don't intersect
-                // every layer in the style (expensive on mobile). Fall back to an
-                // unscoped query if the layer list can't be resolved.
-                const queryableLayers = this._stateManager.getInteractiveRenderedLayerIds();
-                const queryOpts = queryableLayers.length ? { layers: queryableLayers } : undefined;
-
-                let features = this._map.queryRenderedFeatures(e.point, queryOpts);
-
-                if (!features.length) {
-                    const bufferSize = 5;
-                    const bbox = [
-                        [e.point.x - bufferSize, e.point.y - bufferSize],
-                        [e.point.x + bufferSize, e.point.y + bufferSize]
-                    ];
-                    const featuresInBuffer = this._map.queryRenderedFeatures(bbox, queryOpts);
-                    if (featuresInBuffer.length) {
-                        features = [this._findClosestFeature(featuresInBuffer, e.point)];
-                    }
-                }
-
-                features.forEach(feature => {
-                    const layerId = this._findLayerIdForFeature(feature);
-                    if (layerId && this._stateManager.isLayerInteractive(layerId)) {
-                        interactiveFeatures.push({ feature, layerId, lngLat: e.lngLat });
-                    }
-                });
-            } catch (error) {
-                if (error instanceof RangeError) {
-                    interactiveFeatures = this._stateManager.getFeaturesAtPoint(e.point, e.lngLat)
-                        .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
-                } else {
-                    console.error('[MapFeatureControl] Error querying rendered features on click:', error);
-                    throw error;
-                }
+            tapLog('click fired', { point: e.point, lngLat: e.lngLat });
+            // Real mapbox click arrived — cancel the touch fallback so we don't
+            // process the same tap twice.
+            if (tapFallbackTimer) {
+                clearTimeout(tapFallbackTimer);
+                tapFallbackTimer = null;
             }
-
-            if (interactiveFeatures.length > 0) {
-                this._stateManager.handleFeatureClicks(interactiveFeatures);
-            } else {
-                // Pass lngLat for empty map clicks to allow marker creation
-                this._stateManager.handleFeatureClicks([], e.lngLat);
-            }
+            this._processClickAtPoint(e.point, e.lngLat);
         });
 
         // Mousemove handler (skip on touch devices to avoid hover/selection conflicts)
@@ -2065,6 +2108,65 @@ export class MapFeatureControl {
         });
 
         this._globalHandlersAdded = true;
+    }
+
+    /**
+     * Query interactive features at a screen point and dispatch the selection.
+     * Shared by the mapbox `click` handler and the touch tap fallback so both
+     * paths behave identically.
+     * @param {{x:number,y:number}} point - screen point
+     * @param {{lng:number,lat:number}} lngLat - geographic coordinate
+     */
+    _processClickAtPoint(point, lngLat) {
+        let interactiveFeatures = [];
+        try {
+            // Scope the query to interactive layers so clicks don't intersect
+            // every layer in the style (expensive on mobile). Fall back to an
+            // unscoped query if the layer list can't be resolved.
+            const queryableLayers = this._stateManager.getInteractiveRenderedLayerIds();
+            const queryOpts = queryableLayers.length ? { layers: queryableLayers } : undefined;
+
+            let features = this._map.queryRenderedFeatures(point, queryOpts);
+
+            if (!features.length) {
+                const bufferSize = 5;
+                const bbox = [
+                    [point.x - bufferSize, point.y - bufferSize],
+                    [point.x + bufferSize, point.y + bufferSize]
+                ];
+                const featuresInBuffer = this._map.queryRenderedFeatures(bbox, queryOpts);
+                if (featuresInBuffer.length) {
+                    features = [this._findClosestFeature(featuresInBuffer, point)];
+                }
+            }
+
+            features.forEach(feature => {
+                const layerId = this._findLayerIdForFeature(feature);
+                if (layerId && this._stateManager.isLayerInteractive(layerId)) {
+                    interactiveFeatures.push({ feature, layerId, lngLat });
+                }
+            });
+        } catch (error) {
+            if (error instanceof RangeError) {
+                interactiveFeatures = this._stateManager.getFeaturesAtPoint(point, lngLat)
+                    .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
+            } else {
+                console.error('[MapFeatureControl] Error querying rendered features on click:', error);
+                throw error;
+            }
+        }
+
+        if (interactiveFeatures.length > 0) {
+            console.log('[TapDebug] processClick -> handleFeatureClicks (features)', {
+                count: interactiveFeatures.length,
+                layerIds: interactiveFeatures.map(f => f.layerId)
+            });
+            this._stateManager.handleFeatureClicks(interactiveFeatures);
+        } else {
+            // Pass lngLat for empty map clicks to allow marker creation
+            console.log('[TapDebug] processClick -> handleFeatureClicks (empty)', { lngLat });
+            this._stateManager.handleFeatureClicks([], lngLat);
+        }
     }
 
     /**

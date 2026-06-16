@@ -394,9 +394,15 @@ export class MapFeatureStateManager extends EventTarget {
      * @param {Object} lngLat - Click coordinates (optional, for empty area clicks)
      */
     handleFeatureClicks(clickedFeatures, lngLat = null) {
+        console.log('[TapDebug] stateManager.handleFeatureClicks', {
+            featureCount: clickedFeatures?.length || 0,
+            hasLngLat: !!lngLat,
+            isCmdCtrlPressed: this._isCmdCtrlPressed
+        });
         if (!clickedFeatures || clickedFeatures.length === 0) {
             // Click on empty area - emit event for marker creation with layer info
             if (lngLat) {
+                console.log('[TapDebug] emit empty-map-click', { lngLat });
                 this._emitStateChange('empty-map-click', {
                     lngLat,
                     timestamp: Date.now()
@@ -493,12 +499,14 @@ export class MapFeatureStateManager extends EventTarget {
         if (newSelections.length === 1) {
             // Single feature click
             const selection = newSelections[0];
+            console.log('[TapDebug] emit feature-click', { layerId: selection.layerId, featureId: selection.featureId });
             this._emitStateChange('feature-click', {
                 ...selection,
                 clearedFeatures
             });
         } else if (newSelections.length > 1) {
             // Multiple features clicked (overlapping)
+            console.log('[TapDebug] emit feature-click-multiple', { count: newSelections.length });
             this._emitStateChange('feature-click-multiple', {
                 selectedFeatures: newSelections,
                 clearedFeatures

@@ -38,6 +38,10 @@ export class MapMarkerManager {
         this._stateManager.addEventListener('state-change', (event) => {
             const { eventType, data } = event.detail;
 
+            if (eventType === 'feature-click' || eventType === 'feature-click-multiple' || eventType === 'empty-map-click') {
+                console.log('[TapDebug] markerManager received', { eventType, isTouch: this._isTouch });
+            }
+
             if (eventType === 'feature-click' || eventType === 'feature-click-multiple') {
                 this._handleSelection(data);
             }
@@ -178,7 +182,11 @@ export class MapMarkerManager {
         const features = data.selectedFeatures || [data];
         const lngLat = features[0]?.lngLat;
 
-        if (!lngLat) return;
+        if (!lngLat) {
+            console.log('[TapDebug] _handleSelection bail: no lngLat', { features });
+            return;
+        }
+        console.log('[TapDebug] _handleSelection -> addMarker', { lngLat, featureCount: features.length });
 
         // Clear hover marker and marker hover states on selection
         this._clearHoverMarker();
@@ -198,7 +206,11 @@ export class MapMarkerManager {
 
     _handleEmptyMapClick(data) {
         const { lngLat } = data;
-        if (!lngLat) return;
+        if (!lngLat) {
+            console.log('[TapDebug] _handleEmptyMapClick bail: no lngLat');
+            return;
+        }
+        console.log('[TapDebug] _handleEmptyMapClick -> addMarker', { lngLat });
 
         // Clear hover marker and marker hover states on selection
         this._clearHoverMarker();
@@ -369,7 +381,7 @@ export class MapMarkerManager {
             .addTo(this._map);
 
         // Click to select
-        this._bindTap(el, (e) => {
+        el.addEventListener('click', (e) => {
             e.stopPropagation();
             // Trigger selection on these features
             this._stateManager.handleFeatureClicks(features.map(f => ({
@@ -571,10 +583,19 @@ export class MapMarkerManager {
         this._currentMarkerIndex = this._markers.size - 1;
 
         // Click to toggle popup
-        this._bindTap(el, (e) => {
+        const handleMarkerToggle = (e) => {
             e.stopPropagation();
+            // On touch, prevent the synthesized click that follows touchend so we
+            // don't toggle twice (open then immediately close).
+            if (e.type === 'touchend') e.preventDefault();
             this._toggleMarkerPopup(markerId);
-        });
+        };
+        el.addEventListener('click', handleMarkerToggle);
+        // On touch, mapbox suppresses the native click within its container, so
+        // bind touchend too — same pattern as the close button below.
+        if (this._isTouch) {
+            el.addEventListener('touchend', handleMarkerToggle);
+        }
 
         // Add a close 'x' to clear this marker directly
         const contentEl = el.querySelector('.marker-content');
@@ -1155,24 +1176,6 @@ export class MapMarkerManager {
         `;
     }
 
-    /**
-     * Bind a tap handler that fires reliably on touch. The synthesized click
-     * after touchend is sometimes swallowed on mobile (see the marker close
-     * button), so on touch devices we also listen for touchend directly and
-     * preventDefault to stop the now-redundant click from double-firing.
-     * Desktop keeps plain click.
-     */
-    _bindTap(el, handler) {
-        if (!el) return;
-        el.addEventListener('click', handler);
-        if (this._isTouch) {
-            el.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                handler(e);
-            });
-        }
-    }
-
     _attachPopupEventListeners(markerId) {
         const markerData = this._markers.get(markerId);
         if (!markerData?.popup) return;
@@ -1180,11 +1183,11 @@ export class MapMarkerManager {
         const popup = markerData.popup.getElement();
         if (!popup) return;
 
-        this._bindTap(popup.querySelector('.close-popup'), () => {
+        popup.querySelector('.close-popup')?.addEventListener('click', () => {
             this._closePopup(markerId);
         });
 
-        this._bindTap(popup.querySelector('.star-toggle'), (e) => {
+        popup.querySelector('.star-toggle')?.addEventListener('click', (e) => {
             const btn = e.currentTarget;
             const isStarred = this._starredMarkers.has(markerId);
             if (isStarred) {
@@ -1200,20 +1203,20 @@ export class MapMarkerManager {
             }
         });
 
-        this._bindTap(popup.querySelector('.coords-btn'), (e) => {
+        popup.querySelector('.coords-btn')?.addEventListener('click', (e) => {
             e.stopPropagation();
             this._openExternalMapLinks(markerData.lngLat);
         });
 
-        this._bindTap(popup.querySelector('.nav-prev'), () => {
+        popup.querySelector('.nav-prev')?.addEventListener('click', () => {
             this._navigateMarker(-1);
         });
 
-        this._bindTap(popup.querySelector('.nav-next'), () => {
+        popup.querySelector('.nav-next')?.addEventListener('click', () => {
             this._navigateMarker(1);
         });
 
-        this._bindTap(popup.querySelector('.open-browser'), (e) => {
+        popup.querySelector('.open-browser')?.addEventListener('click', (e) => {
             e.stopPropagation();
 
             if (window.browserControl) {
@@ -1228,7 +1231,7 @@ export class MapMarkerManager {
             }, 100);
         });
 
-        this._bindTap(popup.querySelector('.open-inspector'), (e) => {
+        popup.querySelector('.open-inspector')?.addEventListener('click', (e) => {
             e.stopPropagation();
 
             if (window.featureControl) {
@@ -1243,7 +1246,7 @@ export class MapMarkerManager {
             }, 100);
         });
 
-        this._bindTap(popup.querySelector('.show-more-layers'), (e) => {
+        popup.querySelector('.show-more-layers')?.addEventListener('click', (e) => {
             e.stopPropagation();
             const btn = e.currentTarget;
             const container = popup.querySelector('.extra-layers-container');
@@ -1273,7 +1276,7 @@ export class MapMarkerManager {
                         thumbnail.style.borderRadius = '3px';
                         thumbnail.style.cursor = 'pointer';
                         thumbnail.style.margin = '0';
-                        this._bindTap(thumbnail, (ev) => {
+                        thumbnail.addEventListener('click', (ev) => {
                             ev.stopPropagation();
                             if (!isInView && window.layerControl) {
                                 window.layerControl._zoomToLayer(layer.id);
@@ -1289,7 +1292,7 @@ export class MapMarkerManager {
 
         // Layer info toggle [...] in expanded header
         popup.querySelectorAll('.layer-info-toggle').forEach(btn => {
-            this._bindTap(btn, (e) => {
+            btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const panel = btn.closest('.feature-item-details').querySelector('.layer-info-panel');
                 if (!panel) return;
@@ -1314,7 +1317,7 @@ export class MapMarkerManager {
 
         // Zoom to feature button
         popup.querySelectorAll('.zoom-feature-btn').forEach(btn => {
-            this._bindTap(btn, (e) => {
+            btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const details = btn.closest('.feature-item-details');
                 if (!details) return;
@@ -1331,7 +1334,7 @@ export class MapMarkerManager {
 
         // Remove layer button
         popup.querySelectorAll('.remove-layer-btn').forEach(btn => {
-            this._bindTap(btn, (e) => {
+            btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const layerId = btn.dataset.layerId;
                 if (confirm(`Remove layer "${layerId}"?`)) {
@@ -1344,7 +1347,7 @@ export class MapMarkerManager {
 
         // Thumbnail click in feature header - open layer info, don't expand
         popup.querySelectorAll('.feature-header-thumbnail').forEach(thumbnailEl => {
-            this._bindTap(thumbnailEl, (e) => {
+            thumbnailEl.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const layerId = thumbnailEl.dataset.layerId;
                 const layerConfig = this._stateManager.getLayerConfig(layerId);
@@ -1376,7 +1379,7 @@ export class MapMarkerManager {
 
         // Feature header click to expand/collapse
         popup.querySelectorAll('.feature-item-header').forEach(header => {
-            this._bindTap(header, async (e) => {
+            header.addEventListener('click', async (e) => {
                 const container = header.closest('.feature-item-container');
                 const details = container.querySelector('.feature-item-details');
                 const icon = header.querySelector('.expand-icon');
@@ -1524,7 +1527,7 @@ export class MapMarkerManager {
 
         // Show more properties toggle
         popup.querySelectorAll('.show-all-props-btn').forEach(button => {
-            this._bindTap(button, (e) => {
+            button.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const details = button.closest('.feature-item-details');
                 const regularProps = details.querySelector('.properties-table');
@@ -1561,7 +1564,7 @@ export class MapMarkerManager {
         const csvLayers = (window.layerControl?._state?.groups || [])
             .filter(g => g.type === 'csv' && (g.saveUrl || window.GOOGLE_SHEETS_SAVE_URL));
 
-        this._bindTap(addBtn, (e) => {
+        addBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const isHidden = form.style.display === 'none';
             if (isHidden && csvLayers.length === 0) {
@@ -1583,7 +1586,7 @@ export class MapMarkerManager {
             if (isHidden) textarea.focus();
         });
 
-        this._bindTap(cancelBtn, (e) => {
+        cancelBtn?.addEventListener('click', (e) => {
             e.stopPropagation();
             form.style.display = 'none';
             status.textContent = '';
@@ -1592,7 +1595,7 @@ export class MapMarkerManager {
         // Keep clicks inside the form from bubbling to feature/marker handlers
         form.addEventListener('click', (e) => e.stopPropagation());
 
-        this._bindTap(saveBtn, async (e) => {
+        saveBtn?.addEventListener('click', async (e) => {
             e.stopPropagation();
             const notes = (textarea.value || '').trim();
             const layerId = select.value;
@@ -1746,6 +1749,15 @@ export class MapMarkerManager {
     removeMarker(markerId) {
         const markerData = this._markers.get(markerId);
         if (!markerData) return;
+
+        // Drop the feature selections anchored at this marker so closing it also
+        // clears the highlight and the inspector entry (not just the marker dot).
+        // Other markers keep their own selections.
+        markerData.features.forEach(({ featureId, layerId }) => {
+            if (featureId && layerId) {
+                this._stateManager._deselectFeature(featureId, layerId);
+            }
+        });
 
         if (markerData.popup) {
             markerData.popup.remove();

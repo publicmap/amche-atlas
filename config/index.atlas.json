@@ -160,7 +160,7 @@
       },
       "url": "https://docs.google.com/spreadsheets/d/1pcRVucZJuvE6LHXsZOzOE2-5H6BRvR_vlVhMGhlTqhg/export?format=csv&gid=0",
       "saveUrl": "https://script.google.com/macros/s/AKfycbxxPTcPGMRwiLD_OKmEgwmVaLViGtCqrPjEIWNC0QYPhZS7mAw0FgR8Dc88ipzvcxE-/exec",
-      "description": "Data from Google Sheets - <a href='https://docs.google.com/spreadsheets/d/1pcRVucZJuvE6LHXsZOzOE2-5H6BRvR_vlVhMGhlTqhg/export?format=csv&gid=0' target='_blank'>View source</a>",
+      "description": "Data from <a href='https://docs.google.com/spreadsheets/d/1pcRVucZJuvE6LHXsZOzOE2-5H6BRvR_vlVhMGhlTqhg/edit?pli=1&gid=0#gid=0' target='_blank'>Google Sheet.</a>",
       "attribution": "<a href='https://docs.google.com/spreadsheets/d/1pcRVucZJuvE6LHXsZOzOE2-5H6BRvR_vlVhMGhlTqhg/export?format=csv&gid=0' target='_blank'>Google Sheets</a>",
       "initiallyChecked": true
     },

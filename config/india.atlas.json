@@ -115,7 +115,7 @@
           "base"
         ],
         "fill-extrusion-color": "#333",
-        "fill-extrusion-opacity": 0.7,
+        "fill-extrusion-opacity": 0.4,
         "line-opacity": 0,
         "line-join": "round",
         "line-width": 0,
