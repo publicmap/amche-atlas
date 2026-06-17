@@ -256,14 +256,15 @@ export class MapFeatureStateManager extends EventTarget {
      * @param {Array} hoveredFeatures - Array of {feature, layerId, lngLat} objects
      * @param {Object} globalLngLat - Global mouse coordinates
      */
-    handleFeatureHovers(hoveredFeatures, globalLngLat) {
-        // Don't update hover states during map movement (pan/zoom)
-        if (this._isMapMoving) {
+    handleFeatureHovers(hoveredFeatures, globalLngLat, allowDuringMove = false) {
+        // Don't update hover states during map movement (pan/zoom), unless this is a
+        // live center-hover query on touch which intentionally tracks the moving center.
+        if (this._isMapMoving && !allowDuringMove) {
             return;
         }
 
         if (!hoveredFeatures || hoveredFeatures.length === 0) {
-            this.handleMapMouseLeave();
+            this.handleMapMouseLeave(allowDuringMove);
             return;
         }
 
@@ -329,9 +330,10 @@ export class MapFeatureStateManager extends EventTarget {
     /**
      * Handle mouse leaving the map area
      */
-    handleMapMouseLeave() {
-        // Don't clear hover states during map movement
-        if (this._isMapMoving) {
+    handleMapMouseLeave(allowDuringMove = false) {
+        // Don't clear hover states during map movement, unless a live center-hover
+        // query on touch is driving updates while the map pans.
+        if (this._isMapMoving && !allowDuringMove) {
             return;
         }
 
@@ -854,7 +856,7 @@ export class MapFeatureStateManager extends EventTarget {
      * Trigger hover for features at the center of the map
      * Called when map moves or on keyboard navigation
      */
-    triggerCenterHover() {
+    triggerCenterHover(allowDuringMove = false) {
         const now = Date.now();
         if (now - this._lastCenterHoverUpdate < 100) {
             return;
@@ -864,9 +866,9 @@ export class MapFeatureStateManager extends EventTarget {
         const centerFeatures = this.getFeaturesAtCenter();
 
         if (centerFeatures.length > 0) {
-            this.handleFeatureHovers(centerFeatures, centerFeatures[0].lngLat);
+            this.handleFeatureHovers(centerFeatures, centerFeatures[0].lngLat, allowDuringMove);
         } else {
-            this.handleMapMouseLeave();
+            this.handleMapMouseLeave(allowDuringMove);
         }
     }
 

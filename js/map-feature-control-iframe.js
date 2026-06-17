@@ -1919,38 +1919,8 @@ export class MapFeatureControl {
         let tapFallbackTimer = null;
         let touchStartTarget = null;
 
-        // Tap debug logging — helps diagnose why taps don't open the inspector on
-        // mobile. Visible in remote/device consoles with the [TapDebug] prefix.
-        const tapLog = (label, extra = {}) => {
-            console.log(`[TapDebug] ${label}`, {
-                isTouchDevice: ('ontouchstart' in window) || navigator.maxTouchPoints > 0,
-                maxTouchPoints: navigator.maxTouchPoints,
-                ...extra
-            });
-        };
-        tapLog('handlers attached');
-
-        // Native DOM-level diagnostics on the map canvas. Mapbox synthesizes its
-        // own `click` from the browser's native DOM click; if the native click
-        // never fires we know the browser/terrain swallowed the tap, if it fires
-        // but the mapbox `click` (below) doesn't, mapbox swallowed it.
-        const canvasContainer = this._map.getCanvasContainer();
-        ['pointerdown', 'pointerup', 'click', 'touchend'].forEach(type => {
-            canvasContainer.addEventListener(type, (ev) => {
-                tapLog(`DOM ${type} on canvas`, {
-                    pointerType: ev.pointerType,
-                    target: ev.target?.className || ev.target?.tagName,
-                    defaultPrevented: ev.defaultPrevented
-                });
-            }, { capture: true, passive: true });
-        });
-
         // Touch start handler for long-press detection
         this._map.on('touchstart', (e) => {
-            tapLog('touchstart', {
-                touches: e.originalEvent.touches?.length,
-                point: e.point
-            });
             if (!e.originalEvent.touches || e.originalEvent.touches.length !== 1) {
                 // Multi-touch gesture (pinch/rotate) — not a tap candidate.
                 touchStartPoint = null;
@@ -1976,7 +1946,6 @@ export class MapFeatureControl {
                 isLongPress = true;
                 // Simulate Cmd/Ctrl press for long-press
                 this._stateManager._isCmdCtrlPressed = true;
-                tapLog('long-press detected -> add mode ON');
             }, 500);
         });
 
@@ -1988,7 +1957,6 @@ export class MapFeatureControl {
 
                 // Cancel if moved more than 10 pixels
                 if (dx > 10 || dy > 10) {
-                    tapLog('touchmove -> long-press cancelled (moved)', { dx, dy });
                     touchMoved = true;
                     clearTimeout(touchTimer);
                     touchTimer = null;
@@ -1999,11 +1967,6 @@ export class MapFeatureControl {
 
         // Touch end handler - reset state
         this._map.on('touchend', (e) => {
-            tapLog('touchend', {
-                isLongPress,
-                touchMoved,
-                remainingTouches: e.originalEvent.touches?.length
-            });
             if (touchTimer) {
                 clearTimeout(touchTimer);
                 touchTimer = null;
@@ -2031,7 +1994,6 @@ export class MapFeatureControl {
                 tapFallbackTimer = setTimeout(() => {
                     tapFallbackTimer = null;
                     const lngLat = this._map.unproject(tapPoint);
-                    tapLog('tap fallback -> processClick (mapbox click never fired)', { point: tapPoint, lngLat });
                     // The long-press flag (set mid-gesture) is still active here so
                     // a long-press tap adds to the selection; the next touchstart
                     // resets it for the following tap.
@@ -2042,7 +2004,6 @@ export class MapFeatureControl {
 
         // Click handler
         this._map.on('click', (e) => {
-            tapLog('click fired', { point: e.point, lngLat: e.lngLat });
             // Real mapbox click arrived — cancel the touch fallback so we don't
             // process the same tap twice.
             if (tapFallbackTimer) {
@@ -2088,14 +2049,23 @@ export class MapFeatureControl {
             }
         });
 
-        // Map move handler for center hover (keyboard navigation support)
+        // Map move handler for center hover.
         this._map.on('move', () => {
+            if (!this._stateManager.isCenterHoverEnabled()) return;
+
+            // Touch: live-query the center continuously during the pan (throttled
+            // inside triggerCenterHover) so the hover popup tracks the moving center,
+            // instead of only refreshing at moveend. allowDuringMove bypasses the
+            // state manager's movement guard.
+            if (isTouchDevice) {
+                this._stateManager.triggerCenterHover(true);
+                return;
+            }
+
+            // Desktop: keyboard-nav center hover only when the mouse is idle.
             const timeSinceMouseMove = Date.now() - this._lastMouseMoveTime;
             const isMouseInactive = timeSinceMouseMove > 500;
-
-            if (this._stateManager.isCenterHoverEnabled() &&
-                isMouseInactive &&
-                !this._isMapDragging) {
+            if (isMouseInactive && !this._isMapDragging) {
                 this._stateManager.triggerCenterHover();
             }
         });

@@ -247,6 +247,15 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* Prevent FOUC for elements hidden before Tailwind loads */
+        .hidden {
+            display: none !important;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
     </style>
 
     <!-- Application Scripts -->
@@ -348,8 +357,7 @@
                     transition: opacity 0.2s;
                 " onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">amche.in</a>
                 <a href="https://github.com/publicmap/amche-atlas/commits/dev" target="_blank" id="splash-dev-badge"
-                    class="hidden px-2 py-1 bg-yellow-600 text-xs font-semibold rounded"
-                    style="text-decoration: none; color: inherit; transition: opacity 0.2s;"
+                    style="display: none; padding: 4px 8px; background-color: #d97706; font-size: 0.75rem; font-weight: 600; border-radius: 4px; text-decoration: none; color: inherit; transition: opacity 0.2s;"
                     onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">DEV</a>
             </div>
 
@@ -363,7 +371,7 @@
                 text-align: center;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             ">Amche Atlas is a free digital library of public maps maintained by the <a
-                    href="https://openstreetmap.in/">OpenStreetMap India community</a> from Goa.</p>
+                    href="https://openstreetmap.in/" style="color: inherit;">OpenStreetMap India community</a> from Goa.</p>
 
             <!-- Info Links -->
             <div
@@ -1191,8 +1199,7 @@
                 <img src="assets/img/icon-192x192.png" alt="amche.in" class="nav-logo rounded">
             </a>
             <a href="https://github.com/publicmap/amche-atlas/commits/dev" target="_blank" id="dev-badge"
-                class="hidden px-2 py-1 bg-yellow-600 text-xs font-semibold rounded"
-                style="text-decoration: none; color: inherit; transition: opacity 0.2s;"
+                style="display: none; padding: 4px 8px; background-color: #d97706; font-size: 0.75rem; font-weight: 600; border-radius: 4px; text-decoration: none; color: inherit; transition: opacity 0.2s;"
                 onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">DEV</a>
             <button id="nav-menu-trigger"
                 class="flex items-center justify-center bg-transparent border-0 text-white p-2 transition-opacity hover:opacity-80"
@@ -1323,11 +1330,11 @@
             if (isLocalhost || isDevPath) {
                 const devBadge = document.getElementById('dev-badge');
                 if (devBadge) {
-                    devBadge.classList.remove('hidden');
+                    devBadge.style.display = 'inline-block';
                 }
                 const splashDevBadge = document.getElementById('splash-dev-badge');
                 if (splashDevBadge) {
-                    splashDevBadge.classList.remove('hidden');
+                    splashDevBadge.style.display = 'inline-block';
                 }
             }
 

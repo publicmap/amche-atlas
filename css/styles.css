@@ -5111,10 +5111,6 @@ sl-tab:hover::part(base) {
     cursor: pointer;
 }
 
-.selection-marker:hover .marker-content {
-    transform: scale(1.05);
-}
-
 .selection-popup .mapboxgl-popup-content {
     padding: 0 !important;
     border-radius: 8px !important;

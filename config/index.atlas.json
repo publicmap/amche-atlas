@@ -88,20 +88,7 @@
         "circle-color": "black",
         "circle-stroke-width": 1,
         "circle-stroke-color": "white",
-        "text-halo-width": 0,
-        "text-size": 14,
-        "text-font": [
-          "Open Sans Regular"
-        ],
-        "text-field": [
-          "get",
-          "name"
-        ],
-        "text-anchor": "top",
-        "text-offset": [
-          0,
-          0.3
-        ]
+        "text-field": ""
       },
       "inspect": {
         "id": "name"

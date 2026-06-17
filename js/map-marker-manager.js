@@ -21,6 +21,8 @@ export class MapMarkerManager {
         this._isProgrammaticZoom = false; // Track programmatic zooms
         this._selectionLayerId = 'selection'; // Layer ID for selection markers
         this._starredMarkers = new Set(); // Marker IDs that are starred (persist on new selection)
+        this._selectedBadges = new Set(); // Expanded (selected) feature badges
+        this._badgeViewSaved = null; // Camera state to restore when no badge is selected
         this._isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
         this._setupEventListeners();
@@ -230,8 +232,17 @@ export class MapMarkerManager {
     }
 
     _handleBatchHover(data) {
-        // Don't update hover markers during map movement (pan/zoom)
-        if (this._isMapMoving) {
+        // Don't update hover markers during map movement (pan/zoom) on desktop.
+        // On touch, center-hover live-queries during the pan so the hover popup
+        // tracks the moving center — allow it through.
+        if (this._isMapMoving && !this._isTouch) {
+            return;
+        }
+
+        // Pointer is over an existing inspect marker (buttons or badges) — those
+        // capture the interaction, so don't show a redundant hover popup.
+        if (this._pointerOverMarker) {
+            this._clearHoverMarker();
             return;
         }
 
@@ -251,144 +262,449 @@ export class MapMarkerManager {
             return;
         }
 
-        // Check if hovering over features that are already selected in a marker
-        const matchingMarker = this._findMarkerByFeatures(hoveredFeatures);
+        // Drop hovered features that already have an inspect marker — re-showing them
+        // in a hover popup is redundant.
+        const markedKeys = new Set();
+        this._markers.forEach(markerData => {
+            markerData.features.forEach(f => markedKeys.add(`${f.layerId}:${f.featureId}`));
+        });
+        const freshFeatures = hoveredFeatures.filter(f => !markedKeys.has(`${f.layerId}:${f.featureId}`));
 
-        if (matchingMarker) {
-            // Hovering over selected features - highlight the selection marker instead
+        if (freshFeatures.length === 0) {
+            // Everything under the cursor is already marked — highlight the marker
+            // instead of showing a redundant hover popup.
             this._clearHoverMarker();
-            this._setMarkerHoverState(matchingMarker.id, true);
-        } else {
-            // Hovering over different features - show hover marker
-            this._clearAllMarkerHoverStates();
-
-            // Extract labels from all hovered features
-            const labels = hoveredFeatures.map(f => {
-                const layerConfig = this._stateManager.getLayerConfig(f.layerId);
-                const inspectConfig = layerConfig?.inspect || {};
-                const labelField = inspectConfig.label || inspectConfig.id || 'id';
-                return f.feature.properties?.[labelField] || f.featureId;
-            });
-            const labelText = labels.join(', ');
-
-            this._showHoverMarker(lngLat, labelText, hoveredFeatures);
+            const matchingMarker = this._findMarkerByFeatures(hoveredFeatures);
+            if (matchingMarker) {
+                this._setMarkerHoverState(matchingMarker.id, true);
+            }
+            return;
         }
+
+        // Show hover popup only for the not-yet-marked features.
+        this._clearAllMarkerHoverStates();
+
+        const labels = freshFeatures.map(f => {
+            const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+            const inspectConfig = layerConfig?.inspect || {};
+            const labelField = inspectConfig.label || inspectConfig.id || 'id';
+            return f.feature.properties?.[labelField] || f.featureId;
+        });
+        const labelText = labels.join(', ');
+
+        this._showHoverMarker(lngLat, labelText, freshFeatures);
+    }
+
+    _truncateName(value, max = 10) {
+        const s = String(value ?? '');
+        return s.length > max ? `${s.slice(0, max)}...` : s;
+    }
+
+    _escapeAttr(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    _getBadgeLabelInfo(f) {
+        const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+        const inspectConfig = layerConfig?.inspect || {};
+        const labelField = inspectConfig.label || inspectConfig.id || 'id';
+        const value = f.feature?.properties?.[labelField] ?? f.featureId;
+        return { fieldName: inspectConfig.title || inspectConfig.label || labelField, value };
+    }
+
+    _createFeatureBadgeHTML(fieldName, value, index, f) {
+        const display = this._truncateName(value, 10);
+        const detailsHTML = f ? this._buildBadgeAttributeTable(f) : '';
+        return `
+            <div class="feature-badge" data-badge-index="${index}" title="${this._escapeAttr(value)}" style="
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                background: rgba(255, 255, 0, 0.9);
+                border: 1px solid rgba(255, 255, 0, 1);
+                border-radius: 8px;
+                padding: 2px 7px;
+                cursor: pointer;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+                transition: border-color 0.15s, background 0.15s, opacity 0.15s;
+                max-width: 240px;
+            ">
+                <div class="feature-badge-header" style="display: flex; flex-direction: row; align-items: center; gap: 4px; width: 100%;">
+                    <sl-icon class="badge-eye" name="eye" style="display: none; font-size: 12px; color: #6b7280; flex-shrink: 0; pointer-events: none;"></sl-icon>
+                    <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 0;">
+                        <span style="font-size: 8px; line-height: 1.1; font-weight: 600; color: #c2410c; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap;">${this._escapeAttr(fieldName)}</span>
+                        <span class="badge-value" data-full="${this._escapeAttr(value)}" data-short="${this._escapeAttr(display)}" style="font-size: 11px; line-height: 1.2; font-weight: 700; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this._escapeAttr(display)}</span>
+                    </div>
+                </div>
+                ${detailsHTML}
+            </div>
+        `;
+    }
+
+    /**
+     * Build the collapsible attribute table shown when a badge is selected.
+     * Mirrors the inspector's field-selection logic (inspect.fields / fieldTitles,
+     * falling back to all non-empty properties) but styled to match the yellow badge.
+     */
+    _buildBadgeAttributeTable(f) {
+        if (!f || !f.feature) return '';
+        const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+        const inspectConfig = layerConfig?.inspect || {};
+        const properties = f.feature.properties || {};
+        const fields = inspectConfig.fields || [];
+        const fieldTitles = inspectConfig.fieldTitles || [];
+
+        const buildRow = (label, value) =>
+            `<div style="display:flex;gap:6px;font-size:9px;line-height:1.25;padding:1px 0;border-bottom:1px solid rgba(0,0,0,0.1);">` +
+            `<div style="color:#78350f;min-width:54px;max-width:88px;font-weight:600;flex-shrink:0;word-break:break-word;">${this._escapeAttr(label)}</div>` +
+            `<div style="color:#1a1a1a;flex:1;word-break:break-word;white-space:pre-line;">${this._escapeAttr(value)}</div>` +
+            `</div>`;
+
+        const validEntries = Object.entries(properties).filter(([, v]) => v !== null && v !== undefined && v !== '');
+
+        let rows = [];
+        if (fields.length > 0) {
+            rows = fields.map((fieldName, i) => {
+                const value = properties[fieldName];
+                if (value !== null && value !== undefined && value !== '') {
+                    return buildRow(fieldTitles[i] || fieldName, value);
+                }
+                return '';
+            }).filter(Boolean);
+        } else {
+            rows = validEntries.map(([k, v]) => buildRow(k, v));
+        }
+
+        if (rows.length === 0) {
+            rows = [`<div style="font-size:9px;color:#78350f;padding:2px 0;">No attributes</div>`];
+        }
+
+        const footer = this._buildBadgeLayerFooter(f);
+
+        return `<div class="feature-badge-details" style="display:none;width:100%;margin-top:3px;border-top:1px solid rgba(0,0,0,0.2);padding-top:3px;max-height:180px;overflow-y:auto;">${rows.join('')}${footer}</div>`;
+    }
+
+    /**
+     * Footer for the expanded badge: layer thumbnail, atlas badge and layer name
+     * (mirrors the inspector's expanded-layer-header, restyled for the yellow badge).
+     */
+    _buildBadgeLayerFooter(f) {
+        const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+        if (!layerConfig) return '';
+
+        const thumbnail = LayerThumbnail.generate(layerConfig, 18, { useHeaderImage: false, interactive: false });
+        let thumbnailHTML = '';
+        if (thumbnail) {
+            thumbnail.style.borderRadius = '3px';
+            thumbnail.style.margin = '0';
+            thumbnailHTML = thumbnail.outerHTML;
+        }
+
+        let atlasBadge = '';
+        const atlasName = layerConfig._sourceAtlas;
+        const atlasMetadata = atlasName && window.layerRegistry?._atlasMetadata?.get(atlasName);
+        if (atlasMetadata) {
+            atlasBadge = `<span style="font-size:8px;padding:1px 5px;border-radius:3px;font-weight:600;color:white;background-color:${atlasMetadata.color || '#2563eb'};flex-shrink:0;">${this._escapeAttr(atlasMetadata.name)}</span>`;
+        }
+
+        const layerName = this._escapeAttr(layerConfig.title || f.layerId);
+
+        return `<div class="feature-badge-footer" style="display:flex;align-items:center;gap:4px;margin-top:4px;padding-top:3px;border-top:1px solid rgba(0,0,0,0.2);">` +
+            `${thumbnailHTML}${atlasBadge}` +
+            `<span style="font-size:9px;color:#1a1a1a;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${layerName}</span>` +
+            `</div>`;
+    }
+
+    _buildMarkerBadgesHTML(features, lngLat) {
+        if (features && features.length > 0) {
+            return features.map((f, i) => {
+                const { fieldName, value } = this._getBadgeLabelInfo(f);
+                return this._createFeatureBadgeHTML(fieldName, value, i, f);
+            }).join('');
+        }
+        // No features (empty map click) — show a single coordinates badge
+        const coords = `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
+        return `
+            <div class="feature-badge" data-badge-index="-1" style="
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                background: rgba(255, 255, 0, 0.9);
+                border: 1px solid rgba(255, 255, 0, 1);
+                border-radius: 8px;
+                padding: 3px 7px;
+                cursor: pointer;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+            ">
+                <sl-icon name="geo-alt" style="font-size: 11px; color: #000;"></sl-icon>
+                <span style="font-size: 11px; font-weight: 700; color: #000; white-space: nowrap;">${coords}</span>
+            </div>
+        `;
+    }
+
+    _openInspectorPanel() {
+        if (window.featureControl) {
+            const isVisible = window.featureControl._panel?.style.display !== 'none';
+            if (!isVisible) {
+                window.featureControl._showPanel();
+            }
+        }
+    }
+
+    _attachBadgeHandlers(el, features, lngLat, isHover) {
+        el.querySelectorAll('.feature-badge').forEach(badge => {
+            const idx = parseInt(badge.dataset.badgeIndex, 10);
+            const f = (idx >= 0 && features) ? features[idx] : null;
+            const valueSpan = badge.querySelector('.badge-value');
+            const details = badge.querySelector('.feature-badge-details');
+
+            // The badge lives inside a Mapbox marker element, so wheel events would
+            // bubble to the map's scroll-zoom handler. Capture them on the scrollable
+            // attribute table so it scrolls natively instead of zooming the map.
+            if (details) {
+                details.addEventListener('wheel', (e) => e.stopPropagation());
+                // On touch, stop touchmove from reaching the map's drag-pan handler.
+                details.addEventListener('touchmove', (e) => e.stopPropagation());
+                details.addEventListener('touchstart', (e) => e.stopPropagation());
+            }
+
+            const layerIsBasemap = () => {
+                const lc = f ? this._stateManager.getLayerConfig(f.layerId) : null;
+                return Array.isArray(lc?.tags) && lc.tags.includes('basemap');
+            };
+
+            if (!this._isTouch) {
+                badge.addEventListener('mouseenter', () => {
+                    badge.style.borderColor = '#000';
+                    badge.style.background = 'rgba(255, 255, 0, 1)';
+                    this._expandBadgeValue(valueSpan);
+                    // Dim the sibling badges to signal this layer is isolated.
+                    this._setSiblingBadgesDimmed(badge, true);
+                    if (f) {
+                        this._stateManager.setFeatureHoverState(f.layerId, f.featureId, true);
+                        // Mirror the inspector's hover isolation so hovering a badge dims sibling layers.
+                        window.postMessage({ type: 'hover-isolate-layer', layerId: f.layerId, isBasemap: layerIsBasemap() }, '*');
+                    }
+                });
+                badge.addEventListener('mouseleave', () => {
+                    if (!badge.classList.contains('badge-selected')) {
+                        badge.style.borderColor = 'rgba(255, 255, 0, 1)';
+                        badge.style.background = 'rgba(255, 255, 0, 0.9)';
+                        this._collapseBadgeValue(valueSpan);
+                    }
+                    // Restore sibling badges — isolation is cleared on mouseout.
+                    this._setSiblingBadgesDimmed(badge, false);
+                    if (f) {
+                        this._stateManager.setFeatureHoverState(f.layerId, f.featureId, false);
+                        window.postMessage({ type: 'clear-hover-layer-isolation' }, '*');
+                    }
+                });
+            }
+
+            const handler = (e) => {
+                e.stopPropagation();
+                if (e.type === 'touchend') e.preventDefault();
+                // Hover markers aren't selected yet — clicking promotes them to a selection
+                // marker (which rebuilds the badges), so just select and open the inspector.
+                if (isHover && f) {
+                    this._stateManager.handleFeatureClicks([{ ...f, lngLat }]);
+                    this._openInspectorPanel();
+                    return;
+                }
+                // Selection-marker badge: toggle the selected (expanded) state inline.
+                this._toggleBadgeSelected(badge, f);
+            };
+            badge.addEventListener('click', handler);
+            if (this._isTouch) badge.addEventListener('touchend', handler);
+        });
+    }
+
+    _expandBadgeValue(valueSpan) {
+        if (!valueSpan || !valueSpan.dataset.full) return;
+        valueSpan.textContent = valueSpan.dataset.full;
+        valueSpan.style.whiteSpace = 'normal';
+        valueSpan.style.overflow = 'visible';
+        valueSpan.style.textOverflow = 'clip';
+    }
+
+    _collapseBadgeValue(valueSpan) {
+        if (!valueSpan || !valueSpan.dataset.short) return;
+        valueSpan.textContent = valueSpan.dataset.short;
+        valueSpan.style.whiteSpace = 'nowrap';
+        valueSpan.style.overflow = 'hidden';
+        valueSpan.style.textOverflow = 'ellipsis';
+    }
+
+    /**
+     * Dim every badge in the marker except the hovered one, signalling that the
+     * hovered feature's layer is isolated. Restored on mouseout.
+     */
+    _setSiblingBadgesDimmed(badge, dimmed) {
+        const container = badge.parentElement;
+        if (!container) return;
+        container.querySelectorAll('.feature-badge').forEach(b => {
+            // Active badge always full opacity; siblings dim to 0.5 while isolating.
+            b.style.opacity = (b === badge || !dimmed) ? '1' : '0.5';
+        });
+    }
+
+    _setBadgeCollapsed(badge) {
+        badge.classList.remove('badge-selected');
+        const eye = badge.querySelector('.badge-eye');
+        const details = badge.querySelector('.feature-badge-details');
+        if (details) details.style.display = 'none';
+        if (eye) { eye.style.display = 'none'; eye.style.color = '#6b7280'; }
+        badge.style.borderColor = 'rgba(255, 255, 0, 1)';
+        badge.style.background = 'rgba(255, 255, 0, 0.9)';
+        this._collapseBadgeValue(badge.querySelector('.badge-value'));
+    }
+
+    _setBadgeSelected(badge) {
+        badge.classList.add('badge-selected');
+        const eye = badge.querySelector('.badge-eye');
+        const details = badge.querySelector('.feature-badge-details');
+        if (details) details.style.display = 'block';
+        if (eye) { eye.style.display = 'inline-flex'; eye.style.color = '#f97316'; }
+        badge.style.borderColor = '#000';
+        badge.style.background = 'rgba(255, 255, 0, 1)';
+        this._expandBadgeValue(badge.querySelector('.badge-value'));
+    }
+
+    /**
+     * Toggle a selection-marker badge between collapsed and selected (expanded) state.
+     * Selecting expands the attribute table, turns the eye orange, isolates the layer
+     * and zooms to fit the feature; deselecting collapses it, clears isolation and
+     * restores the view once no badge remains selected.
+     */
+    _toggleBadgeSelected(badge, f) {
+        const wasSelected = badge.classList.contains('badge-selected');
+
+        // Only one badge per marker stays expanded at a time (matches the popup).
+        // Collapse siblings without restoring the view — we're about to either
+        // select this badge or toggle it off, which handles the view itself.
+        const container = badge.parentElement;
+        if (container) {
+            container.querySelectorAll('.feature-badge.badge-selected').forEach(b => {
+                if (b !== badge) {
+                    this._setBadgeCollapsed(b);
+                    this._selectedBadges.delete(b);
+                }
+            });
+        }
+
+        if (wasSelected) {
+            this._deselectBadge(badge);
+        } else {
+            this._selectBadge(badge, f);
+        }
+    }
+
+    _selectBadge(badge, f) {
+        this._setBadgeSelected(badge);
+
+        const firstSelection = this._selectedBadges.size === 0;
+        this._selectedBadges.add(badge);
+
+        if (!f) return;
+
+        // On desktop, isolation is a hover-only effect (see the badge mouseenter/
+        // mouseleave handlers). Touch devices have no hover, so apply isolation on
+        // select instead; it persists until the badge is deselected / popup closed.
+        if (this._isTouch) {
+            const lc = this._stateManager.getLayerConfig(f.layerId);
+            const isBasemap = Array.isArray(lc?.tags) && lc.tags.includes('basemap');
+            window.postMessage({ type: 'clear-layer-isolation' }, '*');
+            window.postMessage({ type: 'isolate-layer', layerId: f.layerId, isBasemap }, '*');
+            this._setSiblingBadgesDimmed(badge, true);
+        }
+
+        // Save the current view the first time a badge is zoomed so we can restore
+        // it later, then zoom to fit the feature (same as the inspector's zoom button).
+        if (firstSelection) this._saveBadgeView();
+        if (f.feature) {
+            this._isProgrammaticZoom = true;
+            this._zoomToFeature(f.feature);
+            setTimeout(() => { this._isProgrammaticZoom = false; }, 1500);
+        }
+    }
+
+    _deselectBadge(badge) {
+        this._setBadgeCollapsed(badge);
+        this._selectedBadges.delete(badge);
+
+        // On touch, isolation/dimming were applied on select, so clear them here.
+        if (this._isTouch) {
+            window.postMessage({ type: 'clear-layer-isolation' }, '*');
+            this._setSiblingBadgesDimmed(badge, false);
+        }
+
+        // Restore the saved view once nothing is selected anymore.
+        if (this._selectedBadges.size === 0) this._restoreBadgeView();
+    }
+
+    _saveBadgeView() {
+        if (this._badgeViewSaved) return;
+        this._badgeViewSaved = {
+            center: this._map.getCenter(),
+            zoom: this._map.getZoom(),
+            bearing: this._map.getBearing(),
+            pitch: this._map.getPitch()
+        };
+    }
+
+    _restoreBadgeView() {
+        if (!this._badgeViewSaved) return;
+        const camera = this._badgeViewSaved;
+        this._badgeViewSaved = null;
+        this._isProgrammaticZoom = true;
+        this._map.flyTo({ ...camera, duration: 1000 });
+        setTimeout(() => { this._isProgrammaticZoom = false; }, 1500);
+    }
+
+    _blockMapHoverEvents(el) {
+        // Stop pointer-move events from bubbling to the map's canvas container, where
+        // Mapbox's mousemove handler runs queryRenderedFeatures and sets hover state
+        // on whatever feature sits beneath this marker. The marker (and its badges)
+        // should fully capture the pointer instead. mouseenter/leave still fire, so the
+        // marker's own intentional feature highlighting is unaffected.
+        ['mousemove', 'mouseover'].forEach(type => {
+            el.addEventListener(type, (e) => e.stopPropagation());
+        });
     }
 
     _showHoverMarker(lngLat, labelText, features) {
         // Remove existing hover marker
         this._clearHoverMarker();
 
-        const hasLabels = labelText.trim().length > 0;
-
         const el = document.createElement('div');
         el.className = 'hover-marker';
-        el.style.cssText = 'display: flex; flex-direction: column; align-items: center; pointer-events: auto; cursor: pointer; transform: none !important; transition: none !important;';
+        // Same layout as the selection marker: an action row on top and the feature
+        // badges below. The action row is kept as empty reserved space so the badges
+        // line up — the buttons only appear once the location is clicked (selected).
+        el.style.cssText = 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: auto; cursor: pointer; transform: none !important; transition: none !important;';
 
-        // Show label text if available, otherwise show geo-alt icon
-        if (hasLabels) {
-            el.innerHTML = `
-                <div class="marker-content" style="
-                    display: flex;
-                    align-items: center;
-                    background: #000;
-                    padding: 3px 6px;
-                    border-radius: 10px;
-                    border: 2px solid white;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-                    cursor: pointer;
-                    transition: background 0.2s;
-                ">
-                    <span style="
-                        font-size: 10px;
-                        font-weight: 700;
-                        color: white;
-                        line-height: 1;
-                        white-space: nowrap;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                        max-width: 120px;
-                    ">${labelText}</span>
-                </div>
-                <div style="
-                    width: 0;
-                    height: 0;
-                    border-left: 5px solid transparent;
-                    border-right: 5px solid transparent;
-                    border-top: 6px solid white;
-                    position: relative;
-                ">
-                    <div style="
-                        position: absolute;
-                        top: -8px;
-                        left: 50%;
-                        transform: translateX(-50%);
-                        width: 0;
-                        height: 0;
-                        border-left: 3px solid transparent;
-                        border-right: 3px solid transparent;
-                        border-top: 4px solid #000;
-                    "></div>
-                </div>
-            `;
-        } else {
-            el.innerHTML = `
-                <div class="marker-content" style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: #000;
-                    padding: 4px;
-                    border-radius: 10px;
-                    border: 2px solid white;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-                    cursor: pointer;
-                    transition: background 0.2s;
-                ">
-                    <sl-icon name="geo-alt" style="
-                        font-size: 12px;
-                        color: white;
-                    "></sl-icon>
-                </div>
-                <div style="
-                    width: 0;
-                    height: 0;
-                    border-left: 5px solid transparent;
-                    border-right: 5px solid transparent;
-                    border-top: 6px solid white;
-                    position: relative;
-                ">
-                    <div style="
-                        position: absolute;
-                        top: -8px;
-                        left: 50%;
-                        transform: translateX(-50%);
-                        width: 0;
-                        height: 0;
-                        border-left: 3px solid transparent;
-                        border-right: 3px solid transparent;
-                        border-top: 4px solid #000;
-                    "></div>
-                </div>
-            `;
-        }
+        const infoSize = this._isTouch ? 24 : 20;
+        el.innerHTML = `
+            <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; height: ${infoSize}px; flex-shrink: 0;"></div>
+            <div class="marker-content" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 240px;">
+                ${this._buildMarkerBadgesHTML(features, lngLat)}
+            </div>
+        `;
 
         const marker = new mapboxgl.Marker({
             element: el,
-            anchor: 'bottom'
+            anchor: 'top-left',
+            offset: [-(infoSize / 2), -(infoSize / 2)]
         })
             .setLngLat([lngLat.lng, lngLat.lat])
             .addTo(this._map);
 
-        // Click to select
-        el.addEventListener('click', (e) => {
-            e.stopPropagation();
-            // Trigger selection on these features
-            this._stateManager.handleFeatureClicks(features.map(f => ({
-                ...f,
-                lngLat
-            })));
-        });
+        this._attachBadgeHandlers(el, features, lngLat, true);
+        this._blockMapHoverEvents(el);
 
         this._hoverMarker = marker;
     }
@@ -442,13 +758,13 @@ export class MapMarkerManager {
         const contentEl = markerEl.querySelector('.marker-content');
         if (!contentEl) return;
 
-        if (isHovered) {
-            contentEl.style.transform = 'scale(1.1)';
-            contentEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
-        } else {
-            contentEl.style.transform = 'scale(1)';
-            contentEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
-        }
+        const badges = markerEl.querySelectorAll('.feature-badge');
+        badges.forEach(b => {
+            // Don't override the persistent styling of a selected (expanded) badge.
+            if (b.classList.contains('badge-selected')) return;
+            b.style.borderColor = isHovered ? '#000' : 'rgba(255, 255, 0, 1)';
+            b.style.background = isHovered ? 'rgba(255, 255, 0, 1)' : 'rgba(255, 255, 0, 0.9)';
+        });
     }
 
     _clearAllMarkerHoverStates() {
@@ -462,114 +778,33 @@ export class MapMarkerManager {
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
         const markerNumber = this._markers.size + 1;
 
-        // Extract labels from all features (or show location if no features)
-        const labels = features.length > 0 ? features.map(f => {
-            const layerConfig = this._stateManager.getLayerConfig(f.layerId);
-            const inspectConfig = layerConfig?.inspect || {};
-            const labelField = inspectConfig.label || inspectConfig.id || 'id';
-            return f.feature.properties?.[labelField] || f.featureId;
-        }) : [`${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`];
-        const labelText = labels.join(', ');
-        const hasLabels = labelText.trim().length > 0;
-
         const el = document.createElement('div');
         el.className = 'selection-marker';
-        el.style.cssText = 'display: flex; flex-direction: column; align-items: center;';
+        // Action row (info + zoom buttons) sits on top at the click point; feature
+        // badges stack below it, left-aligned to the buttons.
+        el.style.cssText = 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px;';
 
-        // Show label text if available, otherwise show geo-alt icon
-        if (hasLabels) {
-            el.innerHTML = `
-                <div class="marker-content" style="
-                    display: flex;
-                    align-items: center;
-                    background: #000;
-                    padding: 3px 6px;
-                    border-radius: 10px;
-                    border: 2px solid white;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                ">
-                    <span style="
-                        font-size: 11px;
-                        font-weight: 700;
-                        color: white;
-                        line-height: 1;
-                        white-space: nowrap;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                        max-width: 150px;
-                    ">${labelText}</span>
-                </div>
-                <div style="
-                    width: 0;
-                    height: 0;
-                    border-left: 6px solid transparent;
-                    border-right: 6px solid transparent;
-                    border-top: 8px solid white;
-                    position: relative;
-                ">
-                    <div style="
-                        position: absolute;
-                        top: -10px;
-                        left: 50%;
-                        transform: translateX(-50%);
-                        width: 0;
-                        height: 0;
-                        border-left: 4px solid transparent;
-                        border-right: 4px solid transparent;
-                        border-top: 6px solid #000;
-                    "></div>
-                </div>
-            `;
-        } else {
-            el.innerHTML = `
-                <div class="marker-content" style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: #000;
-                    padding: 4px;
-                    border-radius: 10px;
-                    border: 2px solid white;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                ">
-                    <sl-icon name="geo-alt" style="
-                        font-size: 12px;
-                        color: white;
-                    "></sl-icon>
-                </div>
-                <div style="
-                    width: 0;
-                    height: 0;
-                    border-left: 6px solid transparent;
-                    border-right: 6px solid transparent;
-                    border-top: 8px solid white;
-                    position: relative;
-                ">
-                    <div style="
-                        position: absolute;
-                        top: -10px;
-                        left: 50%;
-                        transform: translateX(-50%);
-                        width: 0;
-                        height: 0;
-                        border-left: 4px solid transparent;
-                        border-right: 4px solid transparent;
-                        border-top: 6px solid #000;
-                    "></div>
-                </div>
-            `;
-        }
+        el.innerHTML = `
+            <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0;"></div>
+            <div class="marker-content" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 240px;">
+                ${this._buildMarkerBadgesHTML(features, lngLat)}
+            </div>
+        `;
 
+        // Anchor so the info button is centered on the clicked location — clicking the
+        // same spot again hits the button and clears the marker (seamless toggle).
+        const infoSize = this._isTouch ? 24 : 20;
         const marker = new mapboxgl.Marker({
             element: el,
-            anchor: 'bottom'
+            anchor: 'top-left',
+            offset: [-(infoSize / 2), -(infoSize / 2)]
         })
             .setLngLat([lngLat.lng, lngLat.lat])
             .addTo(this._map);
+
+        // Clicking a badge opens the inspector; selection markers are already selected.
+        this._attachBadgeHandlers(el, features, lngLat, false);
+        this._blockMapHoverEvents(el);
 
         const markerData = {
             id: markerId,
@@ -597,35 +832,33 @@ export class MapMarkerManager {
             el.addEventListener('touchend', handleMarkerToggle);
         }
 
-        // Add a close 'x' to clear this marker directly
-        const contentEl = el.querySelector('.marker-content');
-        if (contentEl) {
+        // Info button at the click point — clicking it (i.e. clicking the same spot
+        // again) clears this marker, toggling the selection off.
+        const actionRow = el.querySelector('.marker-action-row');
+        if (actionRow) {
             const closeBtn = document.createElement('span');
             closeBtn.className = 'marker-close-btn';
-            closeBtn.innerHTML = '<sl-icon name="x" style="font-size:12px;color:white;"></sl-icon>';
+            closeBtn.innerHTML = `<sl-icon name="info-circle" style="font-size:${Math.round(infoSize * 0.7)}px;color:#fff;pointer-events:none;"></sl-icon>`;
             closeBtn.title = 'Clear this marker';
-            // Larger hit target on touch (the visible circle stays small via a
-            // transparent expanded tap area) so it's not a 14px target on mobile.
-            const closeSize = this._isTouch ? 22 : 14;
             closeBtn.style.cssText = `
-                margin-left: 5px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: ${closeSize}px;
-                height: ${closeSize}px;
+                width: ${infoSize}px;
+                height: ${infoSize}px;
                 border-radius: 50%;
-                background: rgba(255,255,255,0.2);
+                background: #f97316;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.35);
                 cursor: pointer;
                 flex-shrink: 0;
                 transition: background 0.2s;
             `;
             if (!this._isTouch) {
                 closeBtn.addEventListener('mouseenter', () => {
-                    closeBtn.style.background = 'rgba(255,255,255,0.4)';
+                    closeBtn.style.background = '#ea580c';
                 });
                 closeBtn.addEventListener('mouseleave', () => {
-                    closeBtn.style.background = 'rgba(255,255,255,0.2)';
+                    closeBtn.style.background = '#f97316';
                 });
             }
             const handleCloseClick = (e) => {
@@ -640,17 +873,61 @@ export class MapMarkerManager {
             if (this._isTouch) {
                 closeBtn.addEventListener('touchend', handleCloseClick);
             }
-            contentEl.appendChild(closeBtn);
+            actionRow.appendChild(closeBtn);
+
+            // Zoom button to the right of the info button — fits all selected features
+            // in view (same action as the inspector's zoom button).
+            const zoomBtn = document.createElement('span');
+            zoomBtn.className = 'marker-zoom-btn';
+            zoomBtn.innerHTML = `<sl-icon name="eye" style="font-size:${Math.round(infoSize * 0.7)}px;color:#fff;pointer-events:none;"></sl-icon>`;
+            zoomBtn.title = 'Fit all features in view';
+            zoomBtn.style.cssText = `
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: ${infoSize}px;
+                height: ${infoSize}px;
+                border-radius: 50%;
+                background: #6b7280;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+                cursor: pointer;
+                flex-shrink: 0;
+                transition: background 0.2s;
+            `;
+            if (!this._isTouch) {
+                zoomBtn.addEventListener('mouseenter', () => {
+                    zoomBtn.style.background = '#4b5563';
+                });
+                zoomBtn.addEventListener('mouseleave', () => {
+                    zoomBtn.style.background = '#6b7280';
+                });
+            }
+            const handleZoomClick = (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                window.postMessage({ type: 'zoom-to-selection' }, '*');
+            };
+            zoomBtn.addEventListener('click', handleZoomClick);
+            if (this._isTouch) {
+                zoomBtn.addEventListener('touchend', handleZoomClick);
+            }
+            actionRow.appendChild(zoomBtn);
         }
 
         // Hover to highlight features on map (desktop only — avoids synthetic
         // touch hover events flickering feature state on mobile).
         if (!this._isTouch) {
             el.addEventListener('mouseenter', () => {
+                // The marker (buttons + badges) sits over its own features; suppress
+                // the redundant hover popup while the pointer is anywhere over it,
+                // even where rounded corners/gaps would leak through to the map.
+                this._pointerOverMarker = true;
+                this._clearHoverMarker();
                 this._setMarkerFeaturesHoverState(markerId, true);
             });
 
             el.addEventListener('mouseleave', () => {
+                this._pointerOverMarker = false;
                 this._setMarkerFeaturesHoverState(markerId, false);
             });
         }
@@ -1750,6 +2027,9 @@ export class MapMarkerManager {
         const markerData = this._markers.get(markerId);
         if (!markerData) return;
 
+        // Deselect any expanded badges in this marker so the saved view is restored.
+        this._deselectMarkerBadges(markerData);
+
         // Drop the feature selections anchored at this marker so closing it also
         // clears the highlight and the inspector entry (not just the marker dot).
         // Other markers keep their own selections.
@@ -1776,6 +2056,7 @@ export class MapMarkerManager {
     clearAllMarkers() {
         this._markers.forEach((markerData, id) => {
             if (this._starredMarkers.has(id)) return;
+            this._deselectMarkerBadges(markerData);
             if (markerData.popup) {
                 markerData.popup.remove();
             }
@@ -1786,6 +2067,16 @@ export class MapMarkerManager {
 
         // Update selection layer
         this._updateSelectionLayer();
+    }
+
+    /**
+     * Deselect any expanded badges belonging to a marker (used on teardown) so
+     * isolation is cleared and the pre-zoom view is restored once nothing remains.
+     */
+    _deselectMarkerBadges(markerData) {
+        const markerEl = markerData.marker?.getElement?.();
+        if (!markerEl) return;
+        markerEl.querySelectorAll('.feature-badge.badge-selected').forEach(b => this._deselectBadge(b));
     }
 
     /**
