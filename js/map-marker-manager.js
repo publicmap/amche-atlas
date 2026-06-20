@@ -688,8 +688,14 @@ export class MapMarkerManager {
         el.style.cssText = 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: auto; cursor: pointer; transform: none !important; transition: none !important;';
 
         const infoSize = this._isTouch ? 24 : 20;
+        // On touch there is no cursor, so the map center is queried instead. Drop an info
+        // marker in the action row — its box is centred on the queried point (lngLat) —
+        // so the user can see exactly which point is being inspected.
+        const queryIcon = this._isTouch
+            ? `<span class="marker-query-eye" style="display:flex;align-items:center;justify-content:center;width:${infoSize}px;height:${infoSize}px;border-radius:50%;background:#6b7280;box-shadow:0 1px 4px rgba(0,0,0,0.35);flex-shrink:0;pointer-events:none;"><sl-icon name="info-circle" style="font-size:${Math.round(infoSize * 0.7)}px;color:#fff;pointer-events:none;"></sl-icon></span>`
+            : '';
         el.innerHTML = `
-            <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; height: ${infoSize}px; flex-shrink: 0;"></div>
+            <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; height: ${infoSize}px; flex-shrink: 0;">${queryIcon}</div>
             <div class="marker-content" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 240px;">
                 ${this._buildMarkerBadgesHTML(features, lngLat)}
             </div>
@@ -773,8 +779,25 @@ export class MapMarkerManager {
         });
     }
 
+    /**
+     * Drop duplicate features that share the same layer + feature id. queryRenderedFeatures
+     * returns a feature once per tile it intersects, so a feature straddling a tile boundary
+     * comes back multiple times and would otherwise render duplicate badges.
+     */
+    _dedupeFeatures(features) {
+        if (!Array.isArray(features)) return features;
+        const seen = new Set();
+        return features.filter(f => {
+            const key = `${f.layerId}:${f.featureId}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }
+
     addMarker(lngLat, features, options = {}) {
         const { showPopup = true } = options;
+        features = this._dedupeFeatures(features);
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
         const markerNumber = this._markers.size + 1;
 

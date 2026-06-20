@@ -337,6 +337,167 @@
       "tags": [
         "2.Boundaries"
       ],
+      "id": "municipal-wards",
+      "title": "Municipal Ward Boundaries",
+      "description": "Municipal ward boundaries from Swachh Bharat Mission GIS",
+      "type": "vector",
+      "url": "https://indianopenmaps.fly.dev/not-so-open/urban/wards/sbm/{z}/{x}/{y}.pbf",
+      "sourceLayer": "SBM_Wards",
+      "maxzoom": 12,
+      "attribution": "<a href='https://sbm-g-esriindia1.hub.arcgis.com/'>Swachh Bharat Mission GIS</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "style": {
+        "text-field": [
+          "match",
+          [
+            "get",
+            "ulbname"
+          ],
+          [
+            "Municipal Corporation Of Greater Mumbai",
+            "Municipal Corporation Of Mumbai",
+            "Municipal Corporation Greater Mumbai",
+            "Municipal Corporation Of Grater Mumbai",
+            "Canacona"
+          ],
+          [
+            "get",
+            "wardname"
+          ],
+          [
+            "get",
+            "wardcode"
+          ]
+        ],
+        "text-color": "white",
+        "text-halo-color": "purple",
+        "text-size": 13,
+        "fill-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          16,
+          "rgba(0, 0, 0, 0.05)",
+          18,
+          "rgba(0, 0, 0, 0.1)"
+        ],
+        "line-color": "hsl(278, 82%, 57%)",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            4,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            4,
+            1
+          ],
+          18,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            6,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            5,
+            0.5
+          ]
+        ]
+      },
+      "inspect": {
+        "title": "Ward Name",
+        "label": "wardname",
+        "id": "objectid",
+        "fields": [
+          "wardcode",
+          "ulbname"
+        ],
+        "fieldTitles": [
+          "Ward Code",
+          "Urban Local Body"
+        ]
+      }
+    },
+    {
+      "tags": [
+        "2.Boundaries"
+      ],
+      "id": "local-body",
+      "title": "Local Body Boundaries",
+      "description": "Local Body boundaries with <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory</a> attributes.",
+      "type": "vector",
+      "url": "https://indianopenmaps.fly.dev/not-so-open/panchayats/lgd/{z}/{x}/{y}.pbf ",
+      "sourceLayer": "LGD_Panchayats",
+      "maxzoom": 10,
+      "attribution": "<a href='https://mapservice.gov.in/gismapservice/rest/services/BharatMapService/Village_Boundary/MapServer/0'>NIC Bharatmaps GIS</a>, <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory, Ministry of Panchayati Raj</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "style": {
+        "text-field": [
+          "get",
+          "gpname"
+        ],
+        "text-color": "purple",
+        "fill-color": "rgba(0, 0, 0, 0.1)",
+        "line-color": "purple"
+      },
+      "inspect": {
+        "title": "Local Body",
+        "label": "gp_name",
+        "id": "OBJECTID",
+        "fields": [
+          "blkname",
+          "sdtname",
+          "dtname",
+          "stname"
+        ],
+        "fieldTitles": [
+          "Block",
+          "Sub District",
+          "District",
+          "State"
+        ]
+      }
+    },
+    {
+      "tags": [
+        "2.Boundaries"
+      ],
       "id": "village",
       "title": "Village Boundaries",
       "description": "Revenue village boundaries with <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory</a> attributes.",
@@ -477,128 +638,6 @@
       "tags": [
         "2.Boundaries"
       ],
-      "id": "municipal-wards",
-      "title": "Municipal Ward Boundaries",
-      "description": "Ward boundaries for Panaji Municipal Corporation and Municipal Councils (partial coverage)",
-      "type": "vector",
-      "url": "https://indianopenmaps.fly.dev/not-so-open/urban/wards/sbm/{z}/{x}/{y}.pbf",
-      "sourceLayer": "SBM_Wards",
-      "maxzoom": 12,
-      "attribution": "<a href='https://sbm-g-esriindia1.hub.arcgis.com/'>Swachh Bharat Mission GIS</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
-      "style": {
-        "text-field": [
-          "match",
-          [
-            "get",
-            "ulbname"
-          ],
-          [
-            "Municipal Corporation Of Greater Mumbai",
-            "Municipal Corporation Of Mumbai",
-            "Municipal Corporation Greater Mumbai",
-            "Municipal Corporation Of Grater Mumbai",
-            "Canacona"
-          ],
-          [
-            "get",
-            "wardname"
-          ],
-          [
-            "get",
-            "wardcode"
-          ]
-        ],
-        "text-color": "white",
-        "text-halo-color": "purple",
-        "text-size": 13,
-        "fill-color": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          16,
-          "rgba(0, 0, 0, 0.05)",
-          18,
-          "rgba(0, 0, 0, 0.1)"
-        ],
-        "line-color": "hsl(278, 82%, 57%)",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          12,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            4,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            4,
-            1
-          ],
-          18,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            6,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            5,
-            0.5
-          ]
-        ]
-      },
-      "inspect": {
-        "title": "Ward Name",
-        "label": "wardname",
-        "id": "objectid",
-        "fields": [
-          "wardcode",
-          "ulbname"
-        ],
-        "fieldTitles": [
-          "Ward Code",
-          "Urban Local Body"
-        ]
-      }
-    },
-    {
-      "tags": [
-        "2.Boundaries"
-      ],
       "title": "District Boundaries",
       "description": "Districts of India",
       "type": "vector",
@@ -734,7 +773,7 @@
           "State"
         ]
       },
-      "initiallyChecked": true
+      "initiallyChecked": false
     },
     {
       "tags": [
@@ -1005,6 +1044,33 @@
           "Basin Code",
           "Stream Order"
         ]
+      }
+    },
+    {
+      "tags": [
+        "Water"
+      ],
+      "title": "Irrigation Canals",
+      "description": "Irrigation Canals",
+      "type": "vector",
+      "id": "canals",
+      "url": "https://indianopenmaps.fly.dev/not-so-open/irrigation/canal-names/bharatmaps/{z}/{x}/{y}.pbf",
+      "sourceLayer": "Bharatmaps_Canals_with_names",
+      "maxzoom": 10,
+      "attribution": "<a href='https://bharatmaps.gov.in' target='_blank' rel='noopener noreferrer'>Bharatmaps</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "style": {
+        "line-color": "blue",
+        "line-opacity": 1,
+        "line-width": 1,
+        "text-field": [
+          "get",
+          "canname"
+        ]
+      },
+      "inspect": {
+        "id": "objectid",
+        "title": "Canal Name",
+        "label": "canname"
       }
     },
     {
@@ -1588,7 +1654,6 @@
       "sourceLayer": "Bhuvan_ASI_Boundaries",
       "maxzoom": 13,
       "attribution": "Source: <a href='https://bhuvan.nrsc.gov.in/' target='_blank' rel='noopener noreferrer'>BHuvan/ASI</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
-      "initiallyChecked": true,
       "style": {
         "text-field": [
           "step",

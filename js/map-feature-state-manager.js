@@ -67,6 +67,9 @@ export class MapFeatureStateManager extends EventTarget {
         // Center-point hover tracking
         this._centerHoverEnabled = false;
         this._lastCenterHoverUpdate = 0;
+        // Signature of the currently-applied hovered feature set, used to dedupe
+        // repeated hovers over the same feature (desktop mousemove fires continuously).
+        this._lastHoverSignature = null;
 
         // Device detection for hover behavior
         this._isTouchDevice = this._detectTouchDevice();
@@ -268,6 +271,21 @@ export class MapFeatureStateManager extends EventTarget {
             return;
         }
 
+        // Dedupe repeated hovers over the same feature set. On desktop `mousemove`
+        // fires continuously while the cursor sits over one feature; without this
+        // guard every tick tears down and re-applies the hover state (and rebuilds
+        // the hover popup downstream), making the highlight and popup flicker. Touch
+        // avoids this naturally via the throttled center-hover. Skip the guard for
+        // live center-hover during a pan (allowDuringMove), where the popup must keep
+        // tracking the moving center even when the underlying feature is unchanged.
+        const signature = hoveredFeatures
+            .map(({ feature, layerId }) => `${layerId}:${this._getFeatureId(feature)}`)
+            .sort()
+            .join('|');
+        if (!allowDuringMove && signature === this._lastHoverSignature) {
+            return;
+        }
+
         // Clear all existing hover states first
         this._clearAllHover();
 
@@ -305,6 +323,9 @@ export class MapFeatureStateManager extends EventTarget {
 
         // Update line layer sort keys for z-ordering
         this._updateLineSortKeys();
+
+        // Remember the applied set so identical follow-up hovers are skipped above.
+        this._lastHoverSignature = signature;
 
         // Emit batch hover event for more efficient UI updates
         this._emitStateChange('features-batch-hover', {
@@ -367,6 +388,9 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _clearAllHover() {
         const clearedFeatures = [];
+
+        // Invalidate the dedupe signature so re-hovering the same feature re-applies.
+        this._lastHoverSignature = null;
 
         this._featureStates.forEach((featureState, compositeKey) => {
             if (featureState.isHovered) {
@@ -1252,6 +1276,10 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _clearLayerHover(layerId) {
         const clearedFeatures = [];
+
+        // A layer's hover was cleared independently; invalidate the dedupe signature
+        // so the next hover re-applies the full set rather than being skipped.
+        this._lastHoverSignature = null;
 
         this._featureStates.forEach((featureState, compositeKey) => {
             if (featureState.layerId === layerId && featureState.isHovered) {

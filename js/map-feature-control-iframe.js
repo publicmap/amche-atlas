@@ -2023,12 +2023,19 @@ export class MapFeatureControl {
             });
         }
 
-        // Mouse leave handlers
-        this._map.on('mouseleave', () => {
+        // Mouse leave handlers. The hover popup/marker is rendered as a sibling of the
+        // map canvas, so moving the pointer onto it fires the canvas's `mouseout` even
+        // though the pointer never left the map. Treating that as a real leave clears
+        // the hover state and removes the marker, which drops the pointer back onto the
+        // canvas and re-triggers hover — an endless flicker loop. Ignore leaves whose
+        // related target is one of our own overlays so hover stays stable.
+        this._map.on('mouseleave', (e) => {
+            if (this._isPointerEnteringOwnOverlay(e)) return;
             this._stateManager.handleMapMouseLeave();
         });
 
-        this._map.on('mouseout', () => {
+        this._map.on('mouseout', (e) => {
+            if (this._isPointerEnteringOwnOverlay(e)) return;
             this._stateManager.handleMapMouseLeave();
         });
 
@@ -2225,6 +2232,18 @@ export class MapFeatureControl {
 
         this._updateCursor(interactiveFeatures.length > 0);
         this._stateManager.handleFeatureHovers(interactiveFeatures, e.lngLat);
+    }
+
+    /**
+     * True when a map mouseleave/mouseout is actually the pointer moving onto one of
+     * our own map overlays (hover marker, selection marker, or popup) rather than
+     * leaving the map. Used to suppress the hover-clear flicker loop those overlays
+     * would otherwise cause when they sit under the cursor.
+     */
+    _isPointerEnteringOwnOverlay(e) {
+        const related = e?.originalEvent?.relatedTarget;
+        if (!related || typeof related.closest !== 'function') return false;
+        return !!related.closest('.hover-marker, .selection-marker, .mapboxgl-popup');
     }
 
     /**
