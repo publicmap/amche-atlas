@@ -482,12 +482,18 @@ export class MapMarkerManager {
                     badge.style.borderColor = '#000';
                     badge.style.background = 'rgba(255, 255, 0, 1)';
                     this._expandBadgeValue(valueSpan);
-                    // Dim the sibling badges to signal this layer is isolated.
-                    this._setSiblingBadgesDimmed(badge, true);
+                    // Isolation (sibling dimming + layer isolation) is reserved for
+                    // clicked selection markers; hover popups only highlight the badge.
+                    if (!isHover) {
+                        // Dim the sibling badges to signal this layer is isolated.
+                        this._setSiblingBadgesDimmed(badge, true);
+                    }
                     if (f) {
                         this._stateManager.setFeatureHoverState(f.layerId, f.featureId, true);
-                        // Mirror the inspector's hover isolation so hovering a badge dims sibling layers.
-                        window.postMessage({ type: 'hover-isolate-layer', layerId: f.layerId, isBasemap: layerIsBasemap() }, '*');
+                        if (!isHover) {
+                            // Mirror the inspector's hover isolation so hovering a badge dims sibling layers.
+                            window.postMessage({ type: 'hover-isolate-layer', layerId: f.layerId, isBasemap: layerIsBasemap() }, '*');
+                        }
                     }
                 });
                 badge.addEventListener('mouseleave', () => {
@@ -496,11 +502,15 @@ export class MapMarkerManager {
                         badge.style.background = 'rgba(255, 255, 0, 0.9)';
                         this._collapseBadgeValue(valueSpan);
                     }
-                    // Restore sibling badges — isolation is cleared on mouseout.
-                    this._setSiblingBadgesDimmed(badge, false);
+                    if (!isHover) {
+                        // Restore sibling badges — isolation is cleared on mouseout.
+                        this._setSiblingBadgesDimmed(badge, false);
+                    }
                     if (f) {
                         this._stateManager.setFeatureHoverState(f.layerId, f.featureId, false);
-                        window.postMessage({ type: 'clear-hover-layer-isolation' }, '*');
+                        if (!isHover) {
+                            window.postMessage({ type: 'clear-hover-layer-isolation' }, '*');
+                        }
                     }
                 });
             }
@@ -685,7 +695,12 @@ export class MapMarkerManager {
         // Same layout as the selection marker: an action row on top and the feature
         // badges below. The action row is kept as empty reserved space so the badges
         // line up — the buttons only appear once the location is clicked (selected).
-        el.style.cssText = 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: auto; cursor: pointer; transform: none !important; transition: none !important;';
+        // The hover popup is purely a visual label: pointer-events are disabled so the
+        // mouse passes straight through to the map, letting Mapbox keep updating hover
+        // state on features beneath the popup. Clicking the underlying feature still
+        // selects it (the map's own click handler queries and selects), which rebuilds
+        // this as an interactive selection marker.
+        el.style.cssText = 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none; cursor: pointer; transform: none !important; transition: none !important;';
 
         const infoSize = this._isTouch ? 24 : 20;
         // On touch there is no cursor, so the map center is queried instead. Drop an info
@@ -709,8 +724,8 @@ export class MapMarkerManager {
             .setLngLat([lngLat.lng, lngLat.lat])
             .addTo(this._map);
 
-        this._attachBadgeHandlers(el, features, lngLat, true);
-        this._blockMapHoverEvents(el);
+        // No badge handlers or hover-blocking for the hover popup — it is pointer-events:
+        // none, so all interaction passes through to the map beneath it.
 
         this._hoverMarker = marker;
     }

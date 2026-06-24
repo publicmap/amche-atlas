@@ -1050,6 +1050,45 @@
       "tags": [
         "Water"
       ],
+      "title": "Dams",
+      "description": "Bharatmaps_Dams",
+      "type": "vector",
+      "id": "dams",
+      "url": "https://indianopenmaps.com/not-so-open/irrigation/dams/bharatmaps/{z}/{x}/{y}.pbf",
+      "sourceLayer": "Bharatmaps_Dams",
+      "maxzoom": 3,
+      "attribution": "Source: <a href='https://bharatmaps.gov.in' target='_blank' rel='noopener noreferrer'>Bharatmaps</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "style": {
+        "circle-color": "#0084f7",
+        "circle-opacity": 1,
+        "circle-radius": 4,
+        "text-field": [
+          "get",
+          "dm_name"
+        ]
+      },
+      "inspect": {
+        "id": "objectid",
+        "title": "Dam Name",
+        "label": "dm_name",
+        "fields": [
+          "rivcode",
+          "dm_ncity",
+          "dm_cmp_yr",
+          "dam_vol"
+        ],
+        "fieldTitles": [
+          "River",
+          "Nearest City",
+          "Year Completed",
+          "Capacity (km³)"
+        ]
+      }
+    },
+    {
+      "tags": [
+        "Water"
+      ],
       "title": "Irrigation Canals",
       "description": "Irrigation Canals",
       "type": "vector",

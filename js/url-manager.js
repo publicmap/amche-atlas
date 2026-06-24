@@ -57,9 +57,29 @@ export class URLManager {
      * Uses normalized IDs (without atlas prefix for current atlas layers)
      */
     layerToURL(layer) {
-        // If the layer has an _originalJson property and no opacity override, use it to preserve the original formatting
-        if (layer._originalJson && layer.opacity === undefined && !layer.geojson) {
-            return layer._originalJson;
+        // If the layer has an _originalJson property, preserve it — merging in any
+        // opacity override so custom URL layers don't lose their type/url/style/etc.
+        if (layer._originalJson && !layer.geojson) {
+            if (layer.opacity === undefined) {
+                return layer._originalJson;
+            }
+            // Parse the single-quote JSON (_originalJson uses ' instead of "),
+            // update opacity, then re-serialize in the same format.
+            try {
+                const asDoubleQuote = layer._originalJson
+                    .replace(/\\'/g, '')
+                    .replace(/'/g, '"')
+                    .replace(//g, "'");
+                const parsed = JSON.parse(asDoubleQuote);
+                if (layer.opacity !== 1) {
+                    parsed.opacity = layer.opacity;
+                } else {
+                    delete parsed.opacity;
+                }
+                return JSON.stringify(parsed).replace(/'/g, "\\'").replace(/"/g, "'");
+            } catch (e) {
+                // Fallthrough to generic serialization if parse fails
+            }
         }
 
         // Use normalized ID if available (removes current atlas prefix)

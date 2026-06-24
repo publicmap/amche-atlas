@@ -1325,7 +1325,7 @@ export class MapFeatureControl {
 
             // Update URL if urlManager is available
             if (window.urlManager) {
-                window.urlManager.updateURL();
+                window.urlManager.updateURL({ updateLayers: true });
             }
         }
     }
