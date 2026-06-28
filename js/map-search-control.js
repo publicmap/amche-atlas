@@ -390,21 +390,34 @@ export class MapSearchControl {
      * Update the search box input value
      * @param {string} value - The value to set in the search box
      */
-    updateSearchBoxInput(value) {
+    updateSearchBoxInput(value, { silent = false } = {}) {
         try {
-            // Try to find the input element in the search box
             const searchBoxInput = this.searchBox.shadowRoot?.querySelector('input') ||
                 this.searchBox.querySelector('input');
 
             if (searchBoxInput) {
                 searchBoxInput.value = value;
 
-                const inputEvent = new Event('input', { bubbles: true });
-                searchBoxInput.dispatchEvent(inputEvent);
+                if (!silent) {
+                    const inputEvent = new Event('input', { bubbles: true });
+                    searchBoxInput.dispatchEvent(inputEvent);
+                }
             }
         } catch (error) {
             console.error('Error updating search box input:', error);
         }
+    }
+
+    suppressSuggestions() {
+        const input = this.searchBox.querySelector('input')
+        if (!input) return
+        const resultsId = input.getAttribute('aria-controls')
+        const resultsEl = resultsId
+            ? document.getElementById(resultsId)
+            : this.searchBox.querySelector('[class*="Results"]')
+        if (resultsEl) resultsEl.setAttribute('aria-hidden', 'true')
+        input.setAttribute('aria-expanded', 'false')
+        input.blur()
     }
 
     /**
@@ -819,7 +832,9 @@ export class MapSearchControl {
 
             this.removeSearchMarker();
 
-            const cadastralParsed = isCadastralSearchEnabled() ? parseCadastralQuery(query) : null;
+            const cadastralParsed = isCadastralSearchEnabled() && !window.cadastralSearchUI?.isActive()
+                ? parseCadastralQuery(query)
+                : null;
             if (cadastralParsed) {
                 this.startCadastralParquetSearch(query, cadastralParsed);
             } else {
@@ -877,7 +892,9 @@ export class MapSearchControl {
 
         if (this.isCoordinateInput) return;
 
-        const cadastralParsed = isCadastralSearchEnabled() ? parseCadastralQuery(this.currentQuery) : null;
+        const cadastralParsed = isCadastralSearchEnabled() && !window.cadastralSearchUI?.isActive()
+            ? parseCadastralQuery(this.currentQuery)
+            : null;
         if (cadastralParsed && this.localSuggestions.length > 0) {
             clearTimeout(this.injectionTimeout);
             this.scheduleCadastralSuggestionInjection();
@@ -896,7 +913,8 @@ export class MapSearchControl {
             const isLocalSuggestion = feature.properties && feature.properties._isLocalSuggestion;
 
             if (isLocalSuggestion) {
-                this.updateSearchBoxInput(feature.properties.name);
+                // Set value silently (no input event) so Mapbox doesn't fetch suggestions
+                this.updateSearchBoxInput(feature.properties.name, { silent: true });
 
                 // Add a marker at the location
                 this.addSearchMarker(coordinates, feature.properties.name);

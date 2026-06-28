@@ -4,7 +4,8 @@ import { MapLayerControl } from './map-layer-controls.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
-import { configureCadastralSearch, prewarmCadastral } from './cadastral-search.js';
+import { configureCadastralSearch, prewarmCadastral, isCadastralSearchEnabled } from './cadastral-search.js';
+import { initCadastralSearchUI } from './cadastral-search-ui.js';
 import { MapExportControl } from './map-export-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
 import { MeasureControl } from './map-measure-control.js';
@@ -272,6 +273,7 @@ export class MapInitializer {
         if (config.cadastralSearch?.parquetUrl && config.cadastralSearch?.villagesUrl) {
             configureCadastralSearch(config.cadastralSearch);
             prewarmCadastral();
+            MapInitializer._ensureCadastralSearchUI();
         }
 
         // Mark as imported atlas if loaded via URL
@@ -1128,12 +1130,28 @@ export class MapInitializer {
     }
 
     static _configureCadastralForCurrentAtlas() {
-        const atlasId = window.layerRegistry?.getCurrentAtlas?.() || window.layerRegistry?._currentAtlas;
-        const cadastralSearch = window.layerRegistry?.getAtlasMetadata(atlasId)?.cadastralSearch;
+        const registry = window.layerRegistry;
+        if (!registry) return;
+
+        const atlasId = registry.getCurrentAtlas?.() || registry._currentAtlas;
+        let cadastralSearch = registry.getAtlasMetadata(atlasId)?.cadastralSearch;
+
+        if (!cadastralSearch) {
+            const urlAtlas = URLUtils.getUrlParameter('atlas');
+            if (urlAtlas && urlAtlas !== 'index') {
+                cadastralSearch = registry.getAtlasMetadata(urlAtlas)?.cadastralSearch;
+            }
+        }
+
         if (cadastralSearch?.parquetUrl && cadastralSearch?.villagesUrl) {
             configureCadastralSearch(cadastralSearch);
             prewarmCadastral();
         }
+    }
+
+    static _ensureCadastralSearchUI() {
+        if (!window.searchControl || !window.map || !isCadastralSearchEnabled()) return;
+        initCadastralSearchUI(window.map, window.searchControl);
     }
 
     // Initialize search box with enhanced functionality
@@ -1153,6 +1171,7 @@ export class MapInitializer {
             window.searchControl = searchControl;
 
             MapInitializer._configureCadastralForCurrentAtlas();
+            MapInitializer._ensureCadastralSearchUI();
         };
 
         if (window.map) {

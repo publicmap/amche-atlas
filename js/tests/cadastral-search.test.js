@@ -3,6 +3,8 @@ import {
     parseSurveyQuery,
     normalizeSurveySegment,
     scoreSurveyMatch,
+    villageEntryKey,
+    parseVillageEntryKey,
 } from '../cadastral-search.js'
 
 describe('parseSurveyQuery', () => {
@@ -78,6 +80,13 @@ describe('scoreSurveyMatch', () => {
     it('rejects non-matching survey prefix', () => {
         const parsed = parseSurveyQuery('2')
         expect(scoreSurveyMatch({ survey: '1', subdiv: '1' }, parsed)).toBeNull()
+    })
+})
+
+describe('villageEntryKey', () => {
+    it('round-trips village and taluka', () => {
+        const key = villageEntryKey({ village: 'Verlem', taluka: 'SANGUEM' })
+        expect(parseVillageEntryKey(key)).toEqual({ village: 'Verlem', taluka: 'SANGUEM' })
     })
 })
 

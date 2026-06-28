@@ -6,15 +6,14 @@ There is **no backend** — lookup runs in the browser against a pre-built Parqu
 
 ## User experience
 
-The existing Mapbox search control is extended; there is no separate “Go to” modal.
+When the search box is focused on the Goa atlas, a **plot search row** appears above it:
 
-| User types | Parquet queried? | What appears |
-| ---------- | ---------------- | ------------ |
-| `verlem` | No | Mapbox places only |
-| `verlem 1` | Yes | Cadastral plot suggestions (then Mapbox below) |
-| `verlem 1/2-A` | Yes | Narrower plot matches |
+- **Village** — searchable dropdown (426 villages), defaulting to the village at map centre when cadastral plots are visible (zoom ≥ 13)
+- **Survey no.** — type a survey/subdiv (e.g. `1`, `1/`, `1/1`) without typing the village name
 
-Cadastral suggestions use labels like **Verlem — Survey 1/2-A — SANGUEM** (village, survey/subdiv, taluka). Selecting a result flies the map to the plot centroid at zoom 18.
+Results appear in a dedicated dropdown below the search stack. Selecting a result flies the map to the plot centroid at zoom 18.
+
+The main Mapbox search box remains for place names, coordinates, and URLs. Free-text `village + survey` in the main box still works when the plot row is not active.
 
 Survey strings are normalised so `1/2-A`, `1 2-A`, and `1-2A` all match the same plots.
 
@@ -48,7 +47,8 @@ flowchart TD
 | File | Role |
 | ---- | ---- |
 | `js/cadastral-search.js` | Configurable URLs, parquet init, village fuzzy match, plot query |
-| `js/map-search-control.js` | Triggers parquet search when input matches cadastral pattern |
+| `js/cadastral-search-ui.js` | Village dropdown + survey input, results panel, map-centre village detection |
+| `js/map-search-control.js` | Mapbox/coordinate search; plot fly-to on result select |
 | `js/map-init.js` | Configures and pre-warms cadastral search when atlas defines `cadastralSearch` |
 | `config/goa.atlas.json` | `cadastralSearch.parquetUrl` and `cadastralSearch.villagesUrl` |
 
