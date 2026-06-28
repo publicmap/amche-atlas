@@ -120,15 +120,11 @@ git tag v1.x.x && git push origin main --tags
 
 **Parse** (frontend): village name followed by a digit — `^([a-zA-Z\s]+?)\s+([\d].*)$`
 
-**Survey normalisation:**
-
-```javascript
-const surveyNorm = surveyRaw.replace(/[^a-z0-9]/gi, '').toLowerCase()
-```
+**Survey matching:** the query is split on `/` into separate survey and subdiv segments (e.g. `1/2-A` → survey `1`, subdiv `2a`). Each segment is matched against its own parquet column — not concatenated into one string.
 
 **Village matching:** prefix on `villages.json`, else Levenshtein ≤ 1 (query length ≤ 4) or ≤ 2.
 
-**Parquet read:** for each candidate village, row groups are selected using Parquet `village` column min/max statistics, then rows are filtered in JS for exact village name and normalised survey prefix. At most 5 results are returned.
+**Parquet read:** for each candidate village, row groups are selected using Parquet `village` column min/max statistics, then rows are filtered and ranked in JS. Up to 200 candidates are scored; exact survey match ranks highest, shorter survey numbers beat longer prefix matches (`1` beats `101`), exact subdiv beats subdiv prefix (`1/1` beats `1/11`). At most 5 results are returned.
 
 Duplicate village names across talukas (e.g. Verlem in Sanguem and Quepem) appear as separate suggestions distinguished by taluka in the label.
 
@@ -141,7 +137,7 @@ Duplicate village names across talukas (e.g. Verlem in Sanguem and Quepem) appea
 
 ## Testing
 
-1. Open Goa atlas (`?atlas=goa`) — Network tab should fetch parquet/villages from jsDelivr after map load.
+1. Open Goa atlas (`?atlas=goa`) — Network tab should fetch parquet/villages from GitHub raw after map load.
 2. Search box: type `Verlem 1/2` — cadastral suggestions appear above Mapbox results.
 3. Select a suggestion — map flies to plot, zoom 18.
 4. Typo test: `verlam 1/2` should still match Verlem plots.

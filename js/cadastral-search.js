@@ -111,25 +111,80 @@ export function formatCadastralLabel({ village, taluka, survey, subdiv }) {
     return `${village} — ${surveyPart} — ${taluka}`
 }
 
+export function normalizeSurveySegment(str) {
+    return String(str ?? '').replace(/[^a-z0-9]/gi, '').toLowerCase()
+}
+
+export function parseSurveyQuery(raw) {
+    const trimmed = raw.trim()
+    const slashIdx = trimmed.indexOf('/')
+
+    if (slashIdx === -1) {
+        return {
+            surveyPrefix: normalizeSurveySegment(trimmed),
+            subdivPrefix: null,
+            hasSubdiv: false,
+        }
+    }
+
+    return {
+        surveyPrefix: normalizeSurveySegment(trimmed.slice(0, slashIdx)),
+        subdivPrefix: normalizeSurveySegment(trimmed.slice(slashIdx + 1)),
+        hasSubdiv: true,
+    }
+}
+
+export function scoreSurveyMatch(row, parsed) {
+    const rowSurvey = normalizeSurveySegment(row.survey)
+    const rowSubdiv = normalizeSurveySegment(row.subdiv)
+    const { surveyPrefix, subdivPrefix, hasSubdiv } = parsed
+
+    if (!surveyPrefix || !rowSurvey.startsWith(surveyPrefix)) return null
+    if (hasSubdiv && !rowSubdiv.startsWith(subdivPrefix ?? '')) return null
+
+    let score = 0
+
+    if (rowSurvey === surveyPrefix) score += 1000
+    else score -= rowSurvey.length * 100
+
+    if (hasSubdiv) {
+        if (rowSubdiv === subdivPrefix) score += 500
+        else score -= rowSubdiv.length * 10
+    } else if (rowSubdiv) {
+        score -= rowSubdiv.length * 5
+    } else {
+        score += 50
+    }
+
+    return score
+}
+
+function sortSurveyMatches(a, b) {
+    if (b.score !== a.score) return b.score - a.score
+
+    const surveyA = normalizeSurveySegment(a.row.survey)
+    const surveyB = normalizeSurveySegment(b.row.survey)
+    if (surveyA.length !== surveyB.length) return surveyA.length - surveyB.length
+    if (surveyA !== surveyB) return surveyA.localeCompare(surveyB)
+
+    return normalizeSurveySegment(a.row.subdiv).localeCompare(normalizeSurveySegment(b.row.subdiv))
+}
+
 export async function queryCadastralPlots(villagePart, surveyRaw, limit = 5) {
     if (!isCadastralSearchEnabled()) return []
     await lazyInit()
 
-    const surveyNorm = surveyRaw.replace(/[^a-z0-9]/gi, '').toLowerCase()
+    const parsed = parseSurveyQuery(surveyRaw)
     const candidates = findMatchingVillages(villagePart)
-    if (!candidates.length) return []
+    if (!candidates.length || !parsed.surveyPrefix) return []
 
-    const results = []
+    const matches = []
 
     for (const candidate of candidates) {
-        if (results.length >= limit) break
-
         const candidateLower = candidate.village.toLowerCase()
         const ranges = getMatchingRowGroupRanges(candidate.village)
 
         for (const range of ranges) {
-            if (results.length >= limit) break
-
             const rows = await parquetReadObjects({
                 file: parquetFile,
                 compressors,
@@ -139,16 +194,18 @@ export async function queryCadastralPlots(villagePart, surveyRaw, limit = 5) {
             })
 
             for (const row of rows) {
-                if (results.length >= limit) break
                 if (row.village.toLowerCase() !== candidateLower) continue
-                const rowNorm = (row.survey + (row.subdiv || '')).replace(/[^a-z0-9]/gi, '').toLowerCase()
-                if (!rowNorm.startsWith(surveyNorm)) continue
-                results.push(row)
+
+                const score = scoreSurveyMatch(row, parsed)
+                if (score === null) continue
+                matches.push({ row, score })
             }
         }
     }
 
-    return results.map(r => ({
+    matches.sort(sortSurveyMatches)
+
+    return matches.slice(0, limit).map(({ row: r }) => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [r.lon, r.lat] },
         properties: {

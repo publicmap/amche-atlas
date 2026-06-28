@@ -1084,9 +1084,9 @@ export class MapSearchControl {
             }
             $resultsList.show();
 
-            // Create HTML for each local suggestion
-            this.localSuggestions.slice(0, localSuggestionsToAdd).forEach((suggestion, index) => {
-                const suggestionIndex = index; // Local suggestions will be at positions 0, 1, 2, etc.
+            const batch = this.localSuggestions.slice(0, localSuggestionsToAdd)
+            for (let index = batch.length - 1; index >= 0; index--) {
+                const suggestion = batch[index]
                 const plotName = suggestion.properties.name;
                 const plotDesc = suggestion.properties.place_name;
                 const isCadastralPlot = suggestion.properties._isCadastralParquet;
@@ -1096,10 +1096,10 @@ export class MapSearchControl {
                     <div class="mbx09bc48e7--Suggestion local-suggestion${isCadastralPlot ? ' cadastral-plot-suggestion' : ''}"
                          role="option"
                          tabindex="-1"
-                         id="mbx09bc48e7-ResultsList-${suggestionIndex}"
-                         aria-posinset="${suggestionIndex + 1}"
+                         id="mbx09bc48e7-ResultsList-${index}"
+                         aria-posinset="${index + 1}"
                          aria-setsize="${totalCount}"
-                         data-suggestion-index="${suggestionIndex}"
+                         data-suggestion-index="${index}"
                          data-local-index="${index}"
                          data-local-suggestion="true"
                          style="
@@ -1122,7 +1122,7 @@ export class MapSearchControl {
 
                 // Insert at the beginning (before Mapbox suggestions)
                 $resultsList.prepend(suggestionHtml);
-            });
+            }
 
             // Update aria-setsize for all suggestions
             $resultsList.find('[role="option"]').each((index, element) => {
