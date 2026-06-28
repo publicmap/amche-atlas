@@ -7,6 +7,7 @@ import { DataUtils, GeoUtils } from './map-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { OverpassLoader } from './overpass-loader.js';
+import ConfigManager from './config-manager.js';
 
 const COG_PROVIDER_URL = new URL('./cog-tile-provider.js', import.meta.url).href;
 let _cogProviderRegistered = false;
@@ -390,6 +391,12 @@ export class MapboxAPI {
     async createLayerGroup(groupId, config, options = {}) {
         try {
             const { visible = false, currentGroup = null } = options;
+
+            // Fill in fallback title/description/attribution derived from the
+            // layer type and source URL. This ensures a minimal config (e.g. an
+            // inline layer from the ?layers= URL param) still contributes
+            // attribution to the source, so it appears in the attribution bar.
+            config = ConfigManager.applyDefaultMetadata(config);
 
             // Register time-based layers
             if (config.urlTimeParam) {
@@ -3406,21 +3413,36 @@ export class MapboxAPI {
         const selectedIds = Array.from(selectedFeatureIds);
         const hoveredIds = Array.from(hoveredFeatureIds);
 
-        style.layers.forEach(layer => {
-            if (layer.type === 'line' && layer.id.includes('-outline')) {
-                const sortKeyExpression = [
-                    'case',
-                    ['in', ['id'], ['literal', selectedIds]], 3,
-                    ['in', ['id'], ['literal', hoveredIds]], 1,
-                    2
-                ];
+        // Skip when nothing changed — setLayoutProperty triggers a worker relayout
+        // of the line geometry, so re-applying an identical sort key is pure cost.
+        const signature = `${selectedIds.join(',')}|${hoveredIds.join(',')}`;
+        if (signature === this._lastSortKeySignature) return;
+        this._lastSortKeySignature = signature;
 
-                try {
-                    this._map.setLayoutProperty(layer.id, 'line-sort-key', sortKeyExpression);
-                } catch (error) {
-                    console.warn(`Failed to update sort key for ${layer.id}:`, error);
+        // Defer the relayout to the next frame. Changing line-sort-key forces
+        // Mapbox to re-tessellate every line-outline layer on the worker, which
+        // blocks the next WebGL repaint — on mobile this delays selection markers
+        // and the selection layer by ~1s. Deferring lets the selection visuals
+        // paint first; the z-ordering settles a frame later.
+        if (this._sortKeyRAF) cancelAnimationFrame(this._sortKeyRAF);
+        this._sortKeyRAF = requestAnimationFrame(() => {
+            this._sortKeyRAF = null;
+            style.layers.forEach(layer => {
+                if (layer.type === 'line' && layer.id.includes('-outline')) {
+                    const sortKeyExpression = [
+                        'case',
+                        ['in', ['id'], ['literal', selectedIds]], 3,
+                        ['in', ['id'], ['literal', hoveredIds]], 1,
+                        2
+                    ];
+
+                    try {
+                        this._map.setLayoutProperty(layer.id, 'line-sort-key', sortKeyExpression);
+                    } catch (error) {
+                        console.warn(`Failed to update sort key for ${layer.id}:`, error);
+                    }
                 }
-            }
+            });
         });
     }
 

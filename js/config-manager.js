@@ -546,6 +546,8 @@ export const LAYER_SPECIFICATIONS = {
  * - validateLayerConfig(config): Validate config and return errors/warnings
  * - getLayerDocumentation(type): Get human-readable documentation for type
  * - generateLayerTemplate(type): Generate minimal config template for type
+ * - getDefaultMetadata(config): Derive fallback title/description/attribution
+ * - applyDefaultMetadata(config): Return config with missing metadata filled in
  *
  * USAGE:
  * ------
@@ -665,6 +667,39 @@ export class ConfigManager {
         });
 
         return template;
+    }
+
+    static getLayerSourceUrl(config) {
+        return config?.url || null;
+    }
+
+    static getDefaultMetadata(config) {
+        const spec = this.getLayerSpec(config?.type);
+        const typeName = spec?.name || 'Layer';
+        const source = this.getLayerSourceUrl(config);
+
+        const defaults = {};
+
+        if (!config?.title) {
+            defaults.title = typeName;
+        }
+
+        if (!config?.description) {
+            defaults.description = source
+                ? `${typeName} from ${source}`
+                : typeName;
+        }
+
+        if (!config?.attribution && source) {
+            defaults.attribution = source;
+        }
+
+        return defaults;
+    }
+
+    static applyDefaultMetadata(config) {
+        if (!config) return config;
+        return { ...config, ...this.getDefaultMetadata(config) };
     }
 }
 

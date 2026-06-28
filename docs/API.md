@@ -104,6 +104,19 @@ Pre-populate the search query and trigger a location search.
 ?q=Cabo de Rama Fort
 ```
 
+### `compare`
+
+Enable swipe-comparison ([mapbox-gl-compare](https://github.com/mapbox/mapbox-gl-compare)) for a single layer. A vertical slider splits the map: the **before** side shows the existing map with all current layers, and the **after** side shows the named layer isolated over the basemap. The layer is hidden on the before side so it appears on only one side of the swipe. Only one layer can be compared at a time.
+
+The layer must also be loaded (via `?layers=` or the atlas config) for the comparison to appear.
+
+**Format:** `?compare=<layer-id>`
+
+**Example:**
+```
+?layers=goa-plots,goa-satellite&compare=goa-satellite
+```
+
 ### `terrain`
 
 Control 3D terrain visualization and exaggeration level.
@@ -168,6 +181,87 @@ Select the terrain data source (default: `mapbox`).
 **Example:**
 ```
 ?terrain=2&terrainSource=maptiler
+```
+
+### `fov`
+
+Camera field of view for the 3D / terrain view.
+
+**Format:** `?fov=<value>`
+
+**Values:** `0.1` to `1.5` (default: `0.643`)
+
+**Example:**
+```
+?terrain=2&fov=0.8
+```
+
+### `bearing`
+
+Map rotation, in degrees clockwise from north.
+
+**Format:** `?bearing=<degrees>`
+
+**Example:**
+```
+?bearing=45
+```
+
+### `pitch`
+
+Map tilt, in degrees.
+
+**Format:** `?pitch=<degrees>`
+
+**Values:** `0` to `85`
+
+**Example:**
+```
+?pitch=60
+```
+
+### `sound`
+
+Enable the sound visualization layer.
+
+**Format:** `?sound=true`
+
+**Example:**
+```
+?sound=true
+```
+
+### `export`
+
+Restore export (print/image) settings serialized as a JSON object. Set automatically by the export control when you share a URL with export options open.
+
+**Format:** `?export=<json>`
+
+**Example:**
+```
+?export={"format":"a4","orientation":"landscape"}
+```
+
+### `markers`
+
+Compact encoding of the selection markers on the map. Set automatically when you select features and share the URL — it is the compact replacement for inlining the full selection GeoJSON in `layers`. Each marker is `lng,lat:layerId~featureId,layerId~featureId`, and multiple markers are joined with `|`.
+
+**Format:** `?markers=<lng>,<lat>:<layerId>~<featureId>,...|<next marker>...`
+
+**Example:**
+```
+?markers=73.8187,15.54845:goa-plots~12345
+```
+
+### `zoomTo`
+
+Zoom to a layer's bounding box on load, then remove the parameter from the URL. Used when a newly added layer should be framed on first view.
+
+**Format:** `?zoomTo=<layer-id>`
+
+**Example:**
+```
+?zoomTo=goa-plots
 ```
 
 ## Complete Examples
@@ -832,7 +926,7 @@ All other parameters (`terrain`, `geolocate`, `q`, `selected`, etc.) are applied
 | `js/terrain-3d-control.js` | Calls `window.urlManager.updateTerrainParam()`, `updateAnimateParam()`, `updateFogParam()`, `updateWireframeParam()`, `updateTerrainSourceParam()`, `updateFovParam()`, `updateBearingParam()`, `updatePitchParam()`, `updateSoundParam()` when terrain state changes. |
 | `js/map-search-control.js` | Calls `window.urlManager.updateSearchParam()` when the search query changes. |
 | `js/map-export-control.js` | Calls `window.urlManager.updateExportParam()` when export settings change. |
-| `js/map-feature-control-iframe.js` | Calls `window.urlManager.updateURL({ updateSelections: true, updateLayers: true })` after feature selections change. Contains the map click handler that `applyLocationClickFromURL()` fires into. |
+| `js/map-feature-control-iframe.js` | Calls `window.urlManager.updateURL({ updateSelections: true, updateLayers: true })` after feature selections change. Calls `window.urlManager.updateCompareParam()` when swipe-comparison is toggled. Contains the map click handler that `applyLocationClickFromURL()` fires into. |
 | `js/map-layer-controls.js` | Calls `window.urlManager.onLayersChanged()` when layer visibility or opacity changes. |
 
 ### URL Write Flow
@@ -855,7 +949,7 @@ index.html loads
   → map-init.js loadConfiguration(): reads atlas + layers to build config object
   → map-init.js initializeMap(): creates Mapbox map, initializes controls
   → layersInitialized event fires
-  → url-manager.js applyURLParameters(): applies terrain, geolocate, q, selected, zoomTo
+  → url-manager.js applyURLParameters(): applies terrain, geolocate, q, selected, compare, zoomTo
 ```
 
 The `layersInitialized` event is the handoff point between Phase 1 and Phase 2.

@@ -63,7 +63,16 @@
     "fields": [
       "Project Category",
       "Project Name",
-      "Project Description"
+      "Project Description",
+      "Project Land Requirement (Hectares)",
+      "Total Cost (Lakhs)",
+      "Proposal Type",
+      "Application Date",
+      "Last Visible Status",
+      "Description",
+      "Village",
+      "Organization Street",
+      "proposal_url"
     ]
   },
   "layers": [

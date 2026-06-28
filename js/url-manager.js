@@ -4,6 +4,7 @@
  */
 
 import { LayerOrderManager } from './layer-order-manager.js';
+import { URL_API_PARAMS } from './url-api-params.js';
 
 export class URLManager {
     constructor(mapLayerControl, map) {
@@ -433,6 +434,7 @@ export class URLManager {
         let exportParam = null;
         let selectedParam = null;
         let markersParam = null;
+        let compareParam = null;
 
         // Handle layers parameter
         if (options.updateLayers === true) {
@@ -659,6 +661,21 @@ export class URLManager {
             }
         }
 
+        // Handle compare parameter (layer currently swiped via mapbox-gl-compare)
+        if (options.compare !== undefined) {
+            const currentCompareParam = urlParams.get('compare');
+            if (options.compare) {
+                compareParam = options.compare;
+                if (currentCompareParam !== compareParam) {
+                    hasChanges = true;
+                }
+            } else {
+                if (currentCompareParam !== null) {
+                    hasChanges = true;
+                }
+            }
+        }
+
         // Handle selected features parameter
         if (options.updateSelections && this.stateManager) {
             const newSelectedParam = this.serializeSelectionsForURL();
@@ -706,6 +723,7 @@ export class URLManager {
             otherParams.delete('export');
             otherParams.delete('selected');
             otherParams.delete('markers');
+            otherParams.delete('compare');
 
             // Add other parameters first (these will be URL-encoded by URLSearchParams)
             const otherParamsString = otherParams.toString();
@@ -826,6 +844,12 @@ export class URLManager {
                 if (currentMarkersParam) {
                     params.push('markers=' + currentMarkersParam);
                 }
+            }
+
+            // Add compare parameter (either new or preserved from current URL)
+            const currentCompare = compareParam || (options.compare === undefined ? urlParams.get('compare') : null);
+            if (currentCompare) {
+                params.push('compare=' + encodeURIComponent(currentCompare));
             }
 
             // Build the final pretty URL
@@ -1020,10 +1044,37 @@ export class URLManager {
         const pitchParam = urlParams.get('pitch');
         const selectedParam = urlParams.get('selected');
         const markersParam = urlParams.get('markers');
+        const compareParam = urlParams.get('compare');
         const hasLocationClick = urlParams.has('selected') && selectedParam === '';
         const zoomToParam = urlParams.get('zoomTo');
 
-        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !hasLocationClick && !zoomToParam) {
+        // Debug: surface every supported URL API parameter present in the URL on
+        // load, so it's easy to confirm the URL API parsed as expected. URL_API_PARAMS
+        // is the single source of truth, kept in sync with the "## Parameters" section
+        // of docs/API.md by js/tests/url-api-docs.test.js.
+        const presentParams = {};
+        for (const key of URL_API_PARAMS) {
+            const value = urlParams.get(key);
+            if (value !== null) presentParams[key] = value;
+        }
+        if (Object.keys(presentParams).length > 0) {
+            console.log('[URL API] Parameters parsed on load:', presentParams);
+        }
+
+        // Surface query params that aren't part of the URL API so typos or
+        // unsupported params are visible rather than silently ignored. Note this
+        // reads the current URL, which startup (atlas/location auto-selection in
+        // splash-screen-manager.js) may already have rewritten — check that log too
+        // if a param you passed is missing here.
+        const unsupportedParams = {};
+        for (const [key, value] of urlParams.entries()) {
+            if (!URL_API_PARAMS.includes(key)) unsupportedParams[key] = value;
+        }
+        if (Object.keys(unsupportedParams).length > 0) {
+            console.warn('[URL API] Unsupported parameters ignored:', unsupportedParams);
+        }
+
+        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !hasLocationClick && !zoomToParam) {
             return false;
         }
 
@@ -1158,9 +1209,6 @@ export class URLManager {
                                 selectionGroup.geojson = selectionGeojson;
                             }
                             markersRestored = await markerManager.restoreMarkersFromSelectionLayer();
-                            if (markersRestored) {
-                                console.log('[URL API] Successfully restored markers from markers parameter');
-                            }
                         } else {
                             // Backward compatibility: older shared URLs inlined the selection
                             // geojson in the layers= param, which is already on the layer group.
@@ -1179,6 +1227,12 @@ export class URLManager {
                     console.log('[URL API] Restoring selections from selected parameter');
                     await this.applySelectionsFromURL(selectedParam);
                 }
+            }
+
+            // Handle compare parameter - swipe-compare the given layer
+            if (compareParam) {
+                applied = true;
+                this.applyCompareFromURL(compareParam);
             }
 
             // Handle zoomTo parameter - zoom to newly added layer
@@ -1226,6 +1280,32 @@ export class URLManager {
         }
 
         return applied;
+    }
+
+    /**
+     * Toggle swipe-comparison for a layer named in the URL (?compare=<layer-id>).
+     * Waits until the feature control exists and the layer's sublayers are on the
+     * map before enabling, since the compare clone reads the live map style.
+     */
+    applyCompareFromURL(layerId, attempt = 0) {
+        const maxAttempts = 20; // ~6s at 300ms intervals
+
+        const layerOnMap = () => {
+            const style = this.map && this.map.getStyle && this.map.getStyle();
+            return !!(style && style.layers && style.layers.some(l => l.metadata && l.metadata.groupId === layerId));
+        };
+
+        if (window.featureControl && layerOnMap()) {
+            window.featureControl._toggleCompare(layerId, true);
+            return;
+        }
+
+        if (attempt >= maxAttempts) {
+            console.warn('[URL API] compare layer not available, giving up:', layerId);
+            return;
+        }
+
+        setTimeout(() => this.applyCompareFromURL(layerId, attempt + 1), 300);
     }
 
     async applySelectionsFromURL(selectedParam) {
@@ -1748,5 +1828,12 @@ export class URLManager {
      */
     updateExportParam(exportSettings) {
         this.updateURL({ export: exportSettings, updateLayers: false });
+    }
+
+    /**
+     * Update compare parameter in URL (pass null/'' to remove)
+     */
+    updateCompareParam(layerId) {
+        this.updateURL({ compare: layerId || null, updateLayers: false });
     }
 }

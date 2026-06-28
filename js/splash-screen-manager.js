@@ -110,6 +110,8 @@ export class SplashScreenManager {
         if (atlasParam) {
             this.state.locationSource = 'atlas';
             this.state.manualAtlasSelection = true;
+        } else if (layersParam) {
+            this.state.locationSource = 'atlas';
         } else if (hashLocation) {
             this.state.locationSource = 'url';
             this.state.locationData = hashLocation;
@@ -408,6 +410,21 @@ export class SplashScreenManager {
         const layersParam = layerIds.length ? `&layers=${layerIds.join(',')}` : '';
         const hash = `#${hashZoom}/${lat.toFixed(6)}/${lng.toFixed(6)}`;
         const newUrl = `${window.location.pathname}?atlas=${bestAtlasId}${layersParam}&geolocate=true${hash}`;
+
+        // Debug: this rebuilds the URL from the detected atlas, which discards or
+        // replaces whatever URL-API params the visitor arrived with (e.g. an inline
+        // `layers={...}` custom layer or a `q=` search). Surface those so a dropped
+        // param isn't silently lost — see docs/API.md.
+        const prevParams = new URLSearchParams(window.location.search);
+        const nextParams = new URLSearchParams(newUrl.split('?')[1] || '');
+        const discarded = [];
+        for (const [key, value] of prevParams.entries()) {
+            if (nextParams.get(key) !== value) discarded.push(`${key}=${value}`);
+        }
+        if (discarded.length) {
+            console.warn(`[SplashScreen] Location-based atlas "${bestAtlasId}" (${source}) override discarded URL params:`, discarded);
+        }
+
         window.history.replaceState({}, '', newUrl);
 
         await this.loadAtlasById(bestAtlasId);

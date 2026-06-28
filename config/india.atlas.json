@@ -1,7 +1,7 @@
 {
   "name": "India",
   "areaOfInterest": "India",
-  "headerImage": "assets/map-layers/india/map-layer-soi.png",
+  "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Peacock_Plumage.jpg/330px-Peacock_Plumage.jpg",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/india.atlas.json",
   "color": "#f97316",
@@ -115,7 +115,7 @@
           "base"
         ],
         "fill-extrusion-color": "#333",
-        "fill-extrusion-opacity": 0.7,
+        "fill-extrusion-opacity": 0.4,
         "line-opacity": 0,
         "line-join": "round",
         "line-width": 0,
@@ -171,8 +171,7 @@
     },
     {
       "tags": [
-        "boundaries",
-        "postal"
+        "2.Boundaries"
       ],
       "id": "pincodes",
       "title": "Pincode Boundaries",
@@ -335,6 +334,9 @@
       }
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "id": "village",
       "title": "Village Boundaries",
       "description": "Revenue village boundaries with <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory</a> attributes.",
@@ -428,6 +430,9 @@
       }
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "id": "block",
       "title": "Block Boundaries",
       "description": "Block boundaries with <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory</a> attributes.",
@@ -441,32 +446,37 @@
           "get",
           "block_name"
         ],
-        "text-color": "white",
-        "text-size": 13,
+        "fill-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          "rgba(0, 0, 0, 0)",
+          12,
+          "rgba(0, 0, 0, 0.1)"
+        ],
         "line-color": "black",
         "line-width": 1.5
       },
       "inspect": {
-        "title": "Village",
-        "label": "vilnam_soi",
+        "title": "Block",
+        "label": "block_name",
         "id": "OBJECTID",
         "fields": [
-          "vil_lgd",
-          "gp_name",
-          "block_name",
-          "sdtname",
-          "dtname"
-        ],
-        "fieldTitles": [
-          "Village Code",
-          "Gram Panchayat",
-          "Block",
-          "Sub District",
-          "District"
+          "district",
+          "state"
         ]
-      }
+      },
+      "initiallyChecked": true
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "id": "municipal-wards",
       "title": "Municipal Ward Boundaries",
       "description": "Ward boundaries for Panaji Municipal Corporation and Municipal Councils (partial coverage)",
@@ -587,7 +597,7 @@
     },
     {
       "tags": [
-        "basemap"
+        "2.Boundaries"
       ],
       "title": "District Boundaries",
       "description": "Districts of India",
@@ -638,7 +648,7 @@
     },
     {
       "tags": [
-        "boundaries"
+        "2.Boundaries"
       ],
       "title": "State Boundaries",
       "description": "LGD_States",
@@ -673,6 +683,9 @@
       "initiallyChecked": true
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "title": "Assembly Constituencies",
       "description": "Members of Legislative Assembly (MLA) constituencies.",
       "type": "vector",
@@ -724,6 +737,9 @@
       "initiallyChecked": true
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "title": "Parliamentary Constituencies",
       "description": "Members of Parliament (MP) constituencies",
       "type": "vector",
@@ -783,59 +799,38 @@
       }
     },
     {
-      "title": "Parivesh Environmental Clearance",
-      "description": "Applications for environmental clearance from parivesh",
+      "title": "PMGSY Habitations",
+      "description": "PMGSY_Habitations",
       "type": "vector",
-      "id": "parivesh",
-      "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=4f70a9fe-8324-4643-8823-e11cdf93c324",
-      "sourceLayer": "vector",
-      "maxzoom": 8,
-      "attribution": "<a href='https://environmentclearance.nic.in/'>Parivesh, Ministry of Environment,Forest and Climate Change,Government of India</a> - Collected by <a href='https://datameet.org'>Datameet Community</a> via <a href='https://github.com/datameet/parivesh-geojson'>MapHub</a>",
+      "id": "pmgsy-habitations",
+      "url": "https://indianopenmaps.com/habitations/pmgsy/{z}/{x}/{y}.pbf",
+      "sourceLayer": "PMGSY_Habitations",
+      "minzoom": 0,
+      "maxzoom": 9,
+      "attribution": "Source: <a href='https://geosadak-pmgsy.nic.in/OpenData' target='_blank' rel='noopener noreferrer'>PMGSY</a>",
       "style": {
         "text-field": [
           "get",
-          "Organization Name"
+          "HAB_NAME"
         ],
-        "text-halo-color": "crimson",
-        "line-color": "crimson",
-        "line-width": 4,
-        "fill-color": [
-          "case",
-          [
-            "==",
-            [
-              "geometry-type"
-            ],
-            "Polygon"
-          ],
-          "crimson",
-          "transparent"
-        ],
-        "fill-opacity": [
-          "case",
-          [
-            "==",
-            [
-              "geometry-type"
-            ],
-            "Polygon"
-          ],
-          0.1,
-          0
-        ]
+        "circle-radius": 2
       },
       "inspect": {
-        "id": "Proposal Number",
-        "title": "Organization Name",
-        "label": "Organization Name",
+        "id": "HAB_ID",
+        "title": "Habitation",
+        "label": "HAB_NAME",
         "fields": [
-          "Project Category",
-          "Project Name",
-          "Project Description"
+          "TOT_POPULA"
+        ],
+        "fieldTitles": [
+          "Population"
         ]
       }
     },
     {
+      "tags": [
+        "Hydrology"
+      ],
       "title": "Wetlands",
       "description": "Wetlands and low lying estuarine areas classified from remote sensing imagery. For methodological details, see <a href='https://vedas.sac.gov.in/static/downloads/atlas/Wetlands/NWIA_Goa_Atlas.pdf'>2009 National Wetland Atlas of Goa, Space Applications Centre, ISRO / Ministry of Environment and Forests</a>.",
       "type": "vector",
@@ -914,6 +909,9 @@
       }
     },
     {
+      "tags": [
+        "Hydrology"
+      ],
       "title": "Rivers",
       "description": "Rivers and streams with stream order",
       "type": "vector",
@@ -1010,6 +1008,9 @@
       }
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "id": "watersheds",
       "title": "Watershed Boundaries",
       "description": "Watershed Boundaries",
@@ -1042,6 +1043,9 @@
       }
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "id": "micro-watersheds",
       "title": "Micro Watershed Atlas of India",
       "description": "Micro Watershed Atlas with <a href='https://slusi.da.gov.in/mwa.pdf'>micro watershed code</a>",
@@ -1083,6 +1087,9 @@
       }
     },
     {
+      "tags": [
+        "Environment and Forests"
+      ],
       "title": "Reserve Forests",
       "description": "Forest areas notified and protectedunder the <a href='http://nbaindia.org/uploaded/Biodiversityindia/Legal/3.%20Indian%20forest%20act.pdf'>Indian Forest Act, 1927</a>",
       "type": "vector",
@@ -1161,6 +1168,9 @@
       }
     },
     {
+      "tags": [
+        "Environment and Forests"
+      ],
       "title": "Eco Sensitive Zones",
       "description": "Eco Sensitive Zones as defined in the <a href='https://moef.gov.in/eco-sensitive-zone-esz'>National Environment Policy, MoEF</a>",
       "headerImage": "assets/map-layers/india/map-layer-esz.png",
@@ -1244,6 +1254,9 @@
       }
     },
     {
+      "tags": [
+        "Environment and Forests"
+      ],
       "title": "Wildlife Reserves and Corridors",
       "description": "National parks, wildlife sanctuaries and <a href='https://ntca.gov.in/assets/map-layers/uploads/Reports/corridor/connecting_tiger_populations.pdf'>tiger conservations corridors</a>",
       "type": "vector",
@@ -1273,8 +1286,35 @@
     },
     {
       "tags": [
-        "5.Notified Maps",
-        "MoEFCC"
+        "Environment and Forests"
+      ],
+      "title": "Western Ghats Eco-Sensitive Areas (WGEEP, 2011)",
+      "type": "tms",
+      "id": "wgeep-esa",
+      "url": "https://mapwarper.net/mosaics/tile/2377/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "description": "Map designating the entire Western Ghats as an Ecologically Sensitive Area (ESA) and dividing it into three zones (ESZ 1, 2, and 3) with varying levels of ecological sensitivity for the Western Ghats of India from the <a href='https://archive.org/details/ReportOfTheWesternGhatsEcologyExpertPanel'>Report of the Western Ghats Ecology Expert Panel (WGEEP, 2011)</a> headed by Prof. Madhav Gadgil.",
+      "attribution": "<a href='https://archive.org/details/ReportOfTheWesternGhatsEcologyExpertPanel'>WGEEP, MoEFCC</a> via <a href='https://mapwarper.net/layers/2377'>Mapwarper</a>"
+    },
+    {
+      "tags": [
+        "Environment and Forests"
       ],
       "title": "Shravati WLS Eco-Sensitive Zone",
       "type": "tms",
@@ -1303,9 +1343,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
-        "coastal zone"
+        "3.Coastal Zone"
       ],
       "title": "Coastal Regulation Zone Lines",
       "description": "Regulatory lines for Coastal Regulation Zones",
@@ -1354,9 +1392,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
-        "coastal zone"
+        "3.Coastal Zone"
       ],
       "title": "Coastal Regulation Zones",
       "description": "Coastal Regulation Zones",
@@ -1433,9 +1469,7 @@
     },
     {
       "tags": [
-        "3",
-        "regulatory",
-        "coastal zone"
+        "3.Coastal Zone"
       ],
       "id": "crz-1a",
       "title": "CZMP 2011 Protected Areas",
@@ -1666,6 +1700,9 @@
       }
     },
     {
+      "tags": [
+        "2.Boundaries"
+      ],
       "title": "Mining Leases",
       "description": "Major mining lease boundaries",
       "type": "vector",
@@ -2671,8 +2708,7 @@
     },
     {
       "tags": [
-        "survey",
-        "geology"
+        "Geology"
       ],
       "title": "Geomorphological Lineaments",
       "description": "Geomorphological lineaments based on <a href='https://bhuvan-app1.nrsc.gov.in/2dresources/thematic/gm/gm.pdf'>genesis based classification schema</a>.",
@@ -2764,8 +2800,7 @@
     },
     {
       "tags": [
-        "survey",
-        "groundwater"
+        "Hydrology"
       ],
       "title": "Groundwater Prospects",
       "description": "Groundwater prospect maps prepared at 1:50k scale. Refer to the <a href='https://bhuvan-app1.nrsc.gov.in/gwis/docs/GW_Manual.pdf'>methodology</a> and <a href='https://www.nrsc.gov.in/sites/default/files/pdf/ebooks/RGNationalDrinkingWater_UserManual.pdf'>user manual</a> for more details. Check <a href'https://ingres.iith.ac.in/gecdataonline/gis/INDIA'>INDIA-Groundwater Resource Estimation System (IN-GRES)</a> for taluk level groundwater assessment reports.<br>View  <a href='https://www.cgwb.gov.in/old_website/GW-Assessment/GWR-2022-Reports%20State/Goa.pdf'>Dynamic Groundwater Report of Goa State 2022</a> | <a href='https://www.cgwb.gov.in/cgwbpnm/public/uploads/documents/1705640315968744698file.pdf'>2024</a>.",
@@ -2893,8 +2928,7 @@
     },
     {
       "tags": [
-        "survey",
-        "geology"
+        "Geology"
       ],
       "title": "Geomorphological Ecozones",
       "description": "Geomorphological landforms based on <a href='https://bhuvan-app1.nrsc.gov.in/2dresources/thematic/gm/gm.pdf'>genesis based classification schema</a>.",
@@ -3041,7 +3075,7 @@
     },
     {
       "title": "Proposed Port Layout of Galathea Bay ICTT",
-      "description": "Pg 387 of EIA\n\nFrom Mathematical modelling studies for the proposed development of Deep Sea Port July 2021\nat Galathea Bay in Great Nicobar Island",
+      "description": "Pg 387 of EIA for the proposed development of Deep Sea Port at Galathea Bay in Great Nicobar Island",
       "type": "tms",
       "id": "great-nicobar-port-plan",
       "url": "https://mapwarper.net/maps/tile/102839/{z}/{x}/{y}.png",
@@ -3137,7 +3171,7 @@
       "headerImage": "https://bhukosh.gsi.gov.in/Bhukosh/images/NLSM.png",
       "legendImage": "https://bhukosh.gsi.gov.in/arcgis/services/Landslide/NLSM/MapServer/WMSServer?request=GetLegendGraphic%26version=1.3.0%26format=image/png%26layer=5",
       "type": "wms",
-      "id": "gsi-nlsm",
+      "id": "gsi-landslide",
       "url": "https://bhukosh.gsi.gov.in/arcgis/services/Landslide/NLSM/MapServer/WMSServer?type4portal=WMS&SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=0,2,3,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,21,24&FORMAT=image%2Fpng&WIDTH=1275&HEIGHT=775&BBOX=8208232.124329313,1746630.5071529609,8232596.427578078,1761440.18167672&CRS=EPSG%3A3857&STYLES=,,,,,,,,,,,,,,,,,,,&TRANSPARENT=TRUE",
       "maxzoom": 12,
       "attribution": "<a href='https://www.gsi.gov.in/webcenter/portal/OCBIS/pageQuickLinks/pageNLSM' target='_blank'>National Landslide Susceptibility Mapping (NLSM), Geological Survey Of India</a> via <a href='https://bhukosh.gsi.gov.in/Bhukosh/MapViewer.aspx' target='_blank'>Bhukosh</a>"
@@ -3156,6 +3190,34 @@
       "url": "https://bhukosh.gsi.gov.in/arcgis/services/Marine/Marine_Geology/MapServer/WMSServer?type4portal=WMS&SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=0,2,4,5,6,7,8&FORMAT=image%2Fpng&WIDTH=1275&HEIGHT=775&BBOX=7.302116383789734,68.47464354531868,12.747703894063509,77.43351332028521&CRS=EPSG%3A4326&STYLES=,,,,,,&TRANSPARENT=TRUE",
       "maxzoom": 12,
       "attribution": "<a href='https://www.gsi.gov.in/webcenter/portal/OCBIS/pageQuickLinks/pageNLSM' target='_blank'>National Landslide Susceptibility Mapping (NLSM), Geological Survey Of India</a> via <a href='https://bhukosh.gsi.gov.in/Bhukosh/MapViewer.aspx' target='_blank'>Bhukosh</a>"
+    },
+    {
+      "title": "Railway Map Of India 2025 (1:3.5M)",
+      "description": "Railway information corrected upto 31st March 2025.",
+      "type": "tms",
+      "id": "soi-2025-railway",
+      "url": "https://mapwarper.net/maps/tile/107806/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://surveyofindia.gov.in/UserFiles/files/RAILWAY%203_5M_ENG_25_31stEdn2025.pdf' target='_blank'>https://surveyofindia.gov.in/UserFiles/files/RAILWAY%203_5M_ENG_25_31stEdn2025.pdf</a> via <a href='https://mapwarper.net/maps/107806' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/107806/thumb/RAILWAY_3_5M_ENG_25_31stEdn2025.png",
+      "bbox": "65.3782764,2.3725089,99.3278618,38.3625613",
+      "initiallyChecked": false
     },
     {
       "title": "Vengurla to Cape Comorin Admiralty Chart (1914)",
@@ -3261,8 +3323,7 @@
       "title": "Bhuvan Satellite Imagery",
       "description": "High-resolution satellite imagery from ISRO Bhuvan",
       "tags": [
-        "basemap",
-        "satellite"
+        "1.Imagery"
       ],
       "type": "wms",
       "url": "https://bhuvan-ras1.nrsc.gov.in/tilecache/tilecache.py?service=WMS&version=1.1.1&request=GetMap&layers=bhuvan_ocm_wbase&styles=&format=image/jpeg&transparent=false",
@@ -3273,8 +3334,7 @@
     },
     {
       "tags": [
-        "basemap",
-        "physical"
+        "1.Imagery"
       ],
       "id": "bhuvan-terrain",
       "title": "Bhuvan Physical Terrain",
@@ -3287,13 +3347,17 @@
       "maxzoom": 19
     },
     {
+      "tags": [
+        "1.Imagery"
+      ],
       "id": "corona",
-      "title": "Corona Satellite Imagery (1965-1980))",
+      "title": "CORONA Satellite Imagery 12.9m (1965-1980))",
       "type": "wms",
       "url": "https://bhuvanmaps.nrsc.gov.in/ras2mapcache?styles=&bbox=8219732.273674715,1748879.2071648315,8220955.266127277,1750102.199617397&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=Corono_Sat_Data",
       "tileSize": 256,
       "maxzoom": 18,
-      "attribution": "https://bhuvanmaps.nrsc.gov.in/ras2mapcache"
+      "description": "Imagery captured by US <a href='https://en.wikipedia.org/wiki/CORONA_(satellite)'>CORONA</a> series fo spy satellites between 1965-1980.",
+      "attribution": "CORONA via <a href='https://bhuvanmaps.nrsc.gov.in/ras2mapcache'>Bhuvan</a>"
     }
   ]
 }

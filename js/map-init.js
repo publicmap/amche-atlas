@@ -260,7 +260,6 @@ export class MapInitializer {
                         config.map = {};
                     }
                     config.map.style = indexConfig.map.style;
-                    console.log(`[MapInit] Atlas ${atlasId} inheriting map style from index:`, indexConfig.map.style);
                 }
             } catch (error) {
                 console.warn('[MapInit] Failed to load index atlas for style inheritance:', error);
@@ -330,14 +329,11 @@ export class MapInitializer {
         }
 
         // Parse layers from URL parameter if provided
-        console.log('🔍 Checking layersParam:', layersParam);
         if (layersParam) {
             const urlLayers = URLUtils.parseLayersFromUrl(layersParam);
-            console.log('🔍 Parsed URL layers:', urlLayers.map(l => l.id));
 
             // Set URL layers to be visible by default and maintain order
             if (urlLayers.length > 0) {
-                console.log('🔍 Processing', urlLayers.length, 'URL layers');
                 // Set initiallyChecked to true for all URL layers
                 const processedUrlLayers = urlLayers.map(layer => ({
                     ...layer,
@@ -404,8 +400,6 @@ export class MapInitializer {
 
                 // Keep layers in URL/visual order (first = top)
                 // The conversion to map rendering order will happen when layers are added to the map
-                console.log('🔍 Processing URL layers (keeping in visual order):');
-                console.log('  URL order:', processedUrlLayers.map(l => l.id));
 
                 // Build final layers array by merging with existing config
                 const finalLayers = [];
@@ -470,12 +464,10 @@ export class MapInitializer {
                 if (layerConfig.id && !layerConfig.type) {
                     // Try to resolve the layer from the registry
                     // This handles both current atlas layers and cross-atlas references
-                    let resolvedLayer = layerRegistry.getLayer(layerConfig.id, atlasId);
-
-                    // If not found in primary registry, try index atlas as fallback (for system layers like 'selection')
-                    if (!resolvedLayer && atlasId !== 'index') {
-                        resolvedLayer = layerRegistry.getLayer(layerConfig.id, 'index');
-                    }
+                    // Silent: cross-config loading follows and the final outcome is
+                    // reported below, so suppress the premature "not found" warning.
+                    // getLayer already falls back to the index atlas for system layers.
+                    let resolvedLayer = layerRegistry.getLayer(layerConfig.id, atlasId, true);
 
                     // If still not found, try cross-config loading
                     if (!resolvedLayer) {
@@ -863,7 +855,6 @@ export class MapInitializer {
             // that previously blocked map creation.
             const config = await MapInitializer.loadConfiguration();
             const layers = config.layers || [];
-            console.log('🔍 Final layers for MapLayerControl:', layers.filter(l => l.initiallyChecked).map(l => l.id));
 
             // Hide loader and show controls
             document.getElementById('map-layer-filter').classList.remove('hidden');

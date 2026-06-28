@@ -6,6 +6,7 @@
  */
 
 import { MapMarkerManager } from './map-marker-manager.js';
+import ConfigManager from './config-manager.js';
 
 export class MapFeatureControl {
     constructor() {
@@ -418,6 +419,8 @@ export class MapFeatureControl {
                 this._clearHoverLayerIsolation();
             } else if (event.data.type === 'update-layer-opacity') {
                 this._updateLayerOpacity(event.data.layerId, event.data.opacity);
+            } else if (event.data.type === 'toggle-compare') {
+                this._toggleCompare(event.data.layerId, event.data.enabled);
             } else if (event.data.type === 'zoom-to-layer') {
                 this._zoomToLayer(event.data.layerId);
             } else if (event.data.type === 'remove-layer') {
@@ -730,7 +733,11 @@ export class MapFeatureControl {
         const layerConfigs = [];
 
         for (const [layerId, layerData] of activeLayers.entries()) {
-            const config = { ...layerData.config };
+            // Fill in fallback title/description/attribution derived from the
+            // layer type and source URL so configs missing this metadata (e.g.
+            // a minimal inline layer passed via the ?layers= URL param) still
+            // display fully in the inspector.
+            const config = ConfigManager.applyDefaultMetadata({ ...layerData.config });
 
             // Always resolve tags from registry to ensure cascaded tags are included
             if (window.layerRegistry) {
@@ -1082,23 +1089,31 @@ export class MapFeatureControl {
         if (!this._map) return false;
 
         try {
-            // For style layers, check the layer control's state
-            // Style layers control existing base style layers and don't create new layers
-            if (layerConfig.type === 'style') {
-                // Check if layer is in the visible state from layer control
-                if (window.layerControl && window.layerControl._sourceControls) {
-                    // Find the control element for this layer
-                    const groupIndex = window.layerControl._state.groups.findIndex(g => g.id === layerConfig.id);
-                    if (groupIndex !== -1) {
-                        const controlElement = window.layerControl._sourceControls[groupIndex];
-                        if (controlElement) {
-                            const checkbox = controlElement.querySelector('.toggle-switch input[type="checkbox"]');
-                            // Check actual checkbox state, not initiallyChecked
-                            return checkbox && checkbox.checked;
+            // The layer control checkbox is the authoritative signal for whether a
+            // layer is active. It is the same source of truth url-manager uses to
+            // build the `layers=` URL param, so consulting it here guarantees the
+            // inspector list always matches the URL. It also avoids false positives
+            // from the prefix-based map-layer matching below — a generic group id
+            // (e.g. "vector-layer") would otherwise match unrelated map layers like
+            // "vector-layer-osm-railways" and appear active when it isn't.
+            if (window.layerControl && window.layerControl._state && window.layerControl._sourceControls) {
+                const groupIndex = window.layerControl._state.groups.findIndex(g =>
+                    g.id === layerConfig.id || g._prefixedId === layerConfig.id
+                );
+                if (groupIndex !== -1) {
+                    const controlElement = window.layerControl._sourceControls[groupIndex];
+                    if (controlElement) {
+                        const checkbox = controlElement.querySelector('.toggle-switch input[type="checkbox"]');
+                        if (checkbox) {
+                            return checkbox.checked;
                         }
                     }
                 }
-                // Fallback: check if it has visible style layers
+            }
+
+            // For style layers without a resolvable control, fall back to checking
+            // whether the underlying base-style layers are visible.
+            if (layerConfig.type === 'style') {
                 return this._hasVisibleStyleLayers(layerConfig);
             }
 
@@ -1316,6 +1331,291 @@ export class MapFeatureControl {
     }
 
     /**
+     * Toggle swipe-comparison for a layer. The main map (with all current
+     * layers) is the "before" side; a cloned map showing only the selected
+     * layer over the basemap is the "after" side. Only one layer may be
+     * compared at a time, so enabling a new one tears down the previous.
+     */
+    async _toggleCompare(layerId, enabled) {
+        if (enabled) {
+            await this._enableCompare(layerId);
+        } else if (this._compareLayerId === layerId) {
+            this._disableCompare();
+        }
+    }
+
+    /**
+     * Lazily load the mapbox-gl-compare plugin (attaches mapboxgl.Compare).
+     */
+    _loadCompareLib() {
+        if (window.mapboxgl && window.mapboxgl.Compare) return Promise.resolve();
+        if (this._compareLibPromise) return this._compareLibPromise;
+
+        this._compareLibPromise = new Promise((resolve, reject) => {
+            const cssHref = 'https://cdn.jsdelivr.net/npm/mapbox-gl-compare@0.4.2/dist/mapbox-gl-compare.css';
+            if (!document.querySelector(`link[href="${cssHref}"]`)) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = cssHref;
+                document.head.appendChild(link);
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mapbox-gl-compare@0.4.2/dist/mapbox-gl-compare.js';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load mapbox-gl-compare'));
+            document.head.appendChild(script);
+        });
+
+        return this._compareLibPromise;
+    }
+
+    /**
+     * Build the set of group IDs that are tagged as basemaps.
+     */
+    _getBasemapGroupIds() {
+        const ids = new Set();
+        if (window.layerControl && window.layerControl._state && window.layerControl._state.groups) {
+            window.layerControl._state.groups.forEach(group => {
+                if (Array.isArray(group.tags) && group.tags.includes('basemap')) {
+                    ids.add(group.id);
+                    if (group._prefixedId) ids.add(group._prefixedId);
+                }
+            });
+        }
+        return ids;
+    }
+
+    async _enableCompare(layerId) {
+        if (!this._map || !window.mapboxgl) return;
+
+        // Only one comparison at a time — tear down any existing one first.
+        if (this._compare) {
+            this._disableCompare();
+        }
+
+        // Claim the active slot before the (possibly async) lib load so a
+        // toggle-off or a switch to another layer mid-load can supersede us.
+        this._compareLayerId = layerId;
+
+        try {
+            await this._loadCompareLib();
+        } catch (e) {
+            console.error('[MapFeatureControl]', e);
+            this._notifyCompareDisabled();
+            return;
+        }
+
+        // Superseded while the lib was loading (toggled off or switched layer).
+        if (this._compareLayerId !== layerId) return;
+
+        const mainContainer = this._map.getContainer();
+        const parent = mainContainer.parentNode;
+        if (!parent) return;
+
+        // Build the "after" style: keep base style layers, basemap overlays and
+        // the selected layer's sublayers; drop every other overlay group.
+        const style = this._map.getStyle();
+        const basemapGroupIds = this._getBasemapGroupIds();
+        const keepLayer = (l) => {
+            const gid = l.metadata && l.metadata.groupId;
+            if (!gid) return true;
+            if (gid === layerId) return true;
+            return basemapGroupIds.has(gid);
+        };
+        const afterStyle = { ...style, layers: (style.layers || []).filter(keepLayer) };
+
+        // Create the "after" map container, overlaying the main map exactly.
+        const afterContainer = document.createElement('div');
+        afterContainer.className = 'compare-after-map';
+        afterContainer.style.cssText = 'position:absolute; top:0; bottom:0; left:0; right:0; z-index:1;';
+        // clip (used by mapbox-gl-compare) only applies to positioned elements.
+        this._compareMainPrevPosition = mainContainer.style.position;
+        mainContainer.style.position = 'absolute';
+        parent.appendChild(afterContainer);
+
+        const afterMap = new window.mapboxgl.Map({
+            container: afterContainer,
+            style: afterStyle,
+            center: this._map.getCenter(),
+            zoom: this._map.getZoom(),
+            bearing: this._map.getBearing(),
+            pitch: this._map.getPitch(),
+            interactive: true,
+            attributionControl: false
+        });
+
+        // Mirror the before map's 3D/terrain view state (terrain, fog, projection,
+        // field-of-view, wireframe) onto the after map once it has loaded. These
+        // aren't all carried by the cloned style — fov and the wireframe flag are
+        // runtime-only — so set them explicitly.
+        if (afterMap.loaded()) {
+            this._syncAfterMapView(afterMap);
+        } else {
+            afterMap.once('load', () => this._syncAfterMapView(afterMap));
+        }
+
+        this._compare = new window.mapboxgl.Compare(this._map, afterMap, parent, {});
+        this._afterMap = afterMap;
+        this._afterContainer = afterContainer;
+        this._compareLayerId = layerId;
+
+        // mapbox-gl-compare syncs camera (center/zoom/bearing/pitch) on move,
+        // but terrain-3d-control mutates terrain/fog/fov/wireframe directly on
+        // the before map with no event we can listen for. Register a callback
+        // so those changes re-sync onto the after map while compare is active.
+        if (window.terrain3DControl && window.terrain3DControl.setSyncCallback) {
+            window.terrain3DControl.setSyncCallback(() => {
+                if (this._afterMap) this._syncAfterMapView(this._afterMap);
+            });
+        }
+
+        // The layer now lives on the "after" map only — hide it on the main
+        // (before) map so it isn't shown on both sides. Restored on teardown.
+        const mapboxAPI = this._getMapboxAPI();
+        const layerData = this._getActiveLayersFromConfig().get(layerId);
+        if (mapboxAPI && layerData) {
+            this._compareHiddenConfig = layerData.config;
+            mapboxAPI.updateLayerGroupVisibility(layerId, layerData.config, false);
+        }
+
+        // The before map container is clipped by the compare swiper and the
+        // after map overlays it, so any UI living inside it (mapbox controls,
+        // inspector / 3D panels) would be clipped or painted over. Lift those
+        // overlays out into the comparison parent, above both maps and the
+        // swiper, and restore them on teardown. The canvas stays put.
+        this._compareLiftedNodes = [];
+        const liftNode = (node) => {
+            if (!node) return;
+            this._compareLiftedNodes.push({ node, parentNode: node.parentNode, zIndex: node.style.zIndex });
+            node.style.zIndex = '30';
+            parent.appendChild(node);
+        };
+        Array.from(mainContainer.children).forEach((child) => {
+            if (child.classList && child.classList.contains('mapboxgl-canvas-container')) return;
+            liftNode(child);
+        });
+
+        // Persist to URL and reflect the active state in the inspector UI.
+        if (window.urlManager) {
+            window.urlManager.updateCompareParam(layerId);
+        }
+        if (this._iframe && this._iframe.contentWindow) {
+            this._iframe.contentWindow.postMessage({ type: 'compare-enabled', layerId }, '*');
+        }
+    }
+
+    /**
+     * Copy the before map's terrain / 3D view state onto the after map. The
+     * cloned style carries terrain/fog/projection, but field-of-view and the
+     * wireframe debug flag (set directly on the map by terrain-3d-control) are
+     * runtime-only, so they must be applied explicitly.
+     */
+    _syncAfterMapView(afterMap) {
+        const src = this._map;
+        if (!src || !afterMap) return;
+
+        try {
+            afterMap.jumpTo({
+                center: src.getCenter(),
+                zoom: src.getZoom(),
+                bearing: src.getBearing(),
+                pitch: src.getPitch()
+            });
+
+            // Terrain (the DEM source is already present in the cloned style).
+            if (src.getTerrain) {
+                afterMap.setTerrain(src.getTerrain() || null);
+            }
+
+            // Fog.
+            if (src.getFog) {
+                afterMap.setFog(src.getFog() || null);
+            }
+
+            // Projection (e.g. globe vs mercator).
+            if (src.getProjection && afterMap.setProjection) {
+                afterMap.setProjection(src.getProjection());
+            }
+
+            // Field of view — terrain-3d-control sets transform._fov directly.
+            if (src.transform && afterMap.transform && typeof src.transform._fov === 'number') {
+                afterMap.transform._fov = src.transform._fov;
+                if (typeof afterMap.transform._calcMatrices === 'function') {
+                    afterMap.transform._calcMatrices();
+                }
+            }
+
+            // Terrain wireframe debug flag.
+            if (typeof src.showTerrainWireframe === 'boolean') {
+                afterMap.showTerrainWireframe = src.showTerrainWireframe;
+            }
+
+            afterMap.triggerRepaint();
+        } catch (e) {
+            console.warn('[MapFeatureControl] Error syncing compare view:', e);
+        }
+    }
+
+    _disableCompare() {
+        // Restore the layer that was hidden on the before map for comparison.
+        if (this._compareHiddenConfig) {
+            const mapboxAPI = this._getMapboxAPI();
+            if (mapboxAPI) {
+                mapboxAPI.updateLayerGroupVisibility(this._compareLayerId, this._compareHiddenConfig, true);
+            }
+            this._compareHiddenConfig = null;
+        }
+
+        // Clear the compare URL parameter.
+        if (this._compareLayerId && window.urlManager) {
+            window.urlManager.updateCompareParam(null);
+        }
+
+        // Stop mirroring terrain-3d-control changes onto the (now gone) after map.
+        if (window.terrain3DControl && window.terrain3DControl.setSyncCallback) {
+            window.terrain3DControl.setSyncCallback(null);
+        }
+
+        // Return any lifted UI overlays to the before map container.
+        if (this._compareLiftedNodes) {
+            this._compareLiftedNodes.forEach(({ node, parentNode, zIndex }) => {
+                node.style.zIndex = zIndex;
+                if (parentNode) parentNode.appendChild(node);
+            });
+            this._compareLiftedNodes = null;
+        }
+
+        if (this._compare) {
+            try { this._compare.remove(); } catch (e) { /* noop */ }
+            this._compare = null;
+        }
+        if (this._afterMap) {
+            try { this._afterMap.remove(); } catch (e) { /* noop */ }
+            this._afterMap = null;
+        }
+        if (this._afterContainer && this._afterContainer.parentNode) {
+            this._afterContainer.parentNode.removeChild(this._afterContainer);
+        }
+        this._afterContainer = null;
+
+        // Restore the main map container's position.
+        if (this._map && this._compareMainPrevPosition !== undefined) {
+            this._map.getContainer().style.position = this._compareMainPrevPosition;
+            this._compareMainPrevPosition = undefined;
+        }
+
+        this._compareLayerId = null;
+    }
+
+    _notifyCompareDisabled() {
+        this._compareLayerId = null;
+        if (this._iframe && this._iframe.contentWindow) {
+            this._iframe.contentWindow.postMessage({ type: 'compare-disabled' }, '*');
+        }
+    }
+
+    /**
      * Zoom to layer bounds
      */
     _zoomToLayer(layerId) {
@@ -1415,6 +1715,12 @@ export class MapFeatureControl {
         if (!mapLayerControl) {
             console.warn('[MapFeatureControl] Layer control not available');
             return;
+        }
+
+        // If this layer is being swipe-compared, tear that down first.
+        if (this._compareLayerId === layerId) {
+            this._disableCompare();
+            this._notifyCompareDisabled();
         }
 
         let groupIndex = mapLayerControl._state.groups.findIndex(g =>
@@ -1568,6 +1874,8 @@ export class MapFeatureControl {
      * Cleanup
      */
     _cleanup() {
+        this._disableCompare();
+
         if (this._stateChangeListener && this._stateManager) {
             this._stateManager.removeEventListener('state-change', this._stateChangeListener);
         }
@@ -1607,19 +1915,68 @@ export class MapFeatureControl {
         let touchTimer = null;
         let touchStartPoint = null;
         let isLongPress = false;
+        let touchMoved = false;
+        let tapFallbackTimer = null;
+        let touchStartTarget = null;
+
+        // Tap debug logging — helps diagnose why taps don't open the inspector on
+        // mobile. Visible in remote/device consoles with the [TapDebug] prefix.
+        const tapLog = (label, extra = {}) => {
+            console.log(`[TapDebug] ${label}`, {
+                isTouchDevice: ('ontouchstart' in window) || navigator.maxTouchPoints > 0,
+                maxTouchPoints: navigator.maxTouchPoints,
+                ...extra
+            });
+        };
+        tapLog('handlers attached');
+
+        // Native DOM-level diagnostics on the map canvas. Mapbox synthesizes its
+        // own `click` from the browser's native DOM click; if the native click
+        // never fires we know the browser/terrain swallowed the tap, if it fires
+        // but the mapbox `click` (below) doesn't, mapbox swallowed it.
+        const canvasContainer = this._map.getCanvasContainer();
+        ['pointerdown', 'pointerup', 'click', 'touchend'].forEach(type => {
+            canvasContainer.addEventListener(type, (ev) => {
+                tapLog(`DOM ${type} on canvas`, {
+                    pointerType: ev.pointerType,
+                    target: ev.target?.className || ev.target?.tagName,
+                    defaultPrevented: ev.defaultPrevented
+                });
+            }, { capture: true, passive: true });
+        });
 
         // Touch start handler for long-press detection
         this._map.on('touchstart', (e) => {
-            if (!e.originalEvent.touches || e.originalEvent.touches.length !== 1) return;
+            tapLog('touchstart', {
+                touches: e.originalEvent.touches?.length,
+                point: e.point
+            });
+            if (!e.originalEvent.touches || e.originalEvent.touches.length !== 1) {
+                // Multi-touch gesture (pinch/rotate) — not a tap candidate.
+                touchStartPoint = null;
+                return;
+            }
 
             touchStartPoint = e.point;
+            touchStartTarget = e.originalEvent.target;
             isLongPress = false;
+            touchMoved = false;
+
+            // Start every tap from a clean add-mode state. Long-press sets the
+            // transient Cmd/Ctrl flag mid-gesture; resetting it here (rather than
+            // via timers tied to the previous gesture, which the next tap could
+            // cancel) guarantees a leftover long-press flag never keeps later
+            // taps stuck in add-mode (old markers never cleared). Explicit add
+            // mode lives in the marker manager's selectionMode and is preserved.
+            const explicitAddMode = this._markerManager?.getSelectionMode?.() === 'add';
+            this._stateManager._isCmdCtrlPressed = explicitAddMode;
 
             // Set timer for long press (500ms)
             touchTimer = setTimeout(() => {
                 isLongPress = true;
                 // Simulate Cmd/Ctrl press for long-press
                 this._stateManager._isCmdCtrlPressed = true;
+                tapLog('long-press detected -> add mode ON');
             }, 500);
         });
 
@@ -1631,6 +1988,8 @@ export class MapFeatureControl {
 
                 // Cancel if moved more than 10 pixels
                 if (dx > 10 || dy > 10) {
+                    tapLog('touchmove -> long-press cancelled (moved)', { dx, dy });
+                    touchMoved = true;
                     clearTimeout(touchTimer);
                     touchTimer = null;
                     isLongPress = false;
@@ -1639,60 +1998,58 @@ export class MapFeatureControl {
         });
 
         // Touch end handler - reset state
-        this._map.on('touchend', () => {
+        this._map.on('touchend', (e) => {
+            tapLog('touchend', {
+                isLongPress,
+                touchMoved,
+                remainingTouches: e.originalEvent.touches?.length
+            });
             if (touchTimer) {
                 clearTimeout(touchTimer);
                 touchTimer = null;
             }
-            // Reset Cmd/Ctrl state after a short delay
-            setTimeout(() => {
-                if (isLongPress) {
-                    this._stateManager._isCmdCtrlPressed = false;
-                    isLongPress = false;
-                }
-            }, 100);
+
+            // Tap-to-click fallback. Mapbox GL 3.23-rc suppresses the browser's
+            // native click on touch and synthesizes its own `click` via tap
+            // recognition — but with terrain enabled that synthesis never fires
+            // (verified: touchstart/touchend fire, no DOM or mapbox `click`
+            // follows), so the inspector/marker never opens on mobile. When this
+            // was a clean single-finger tap and no real `click` arrives shortly,
+            // run the selection logic ourselves from the tap point. The real
+            // `click` handler cancels this timer, so devices/builds where mapbox
+            // works never double-fire.
+            // Only synthesize for taps that landed on the map canvas itself.
+            // Taps on marker/popup/control overlays bubble up to mapbox's touch
+            // handler too, but those elements have their own click handlers — if
+            // we synthesized here we'd create a new selection instead of letting
+            // the marker toggle its popup.
+            const allFingersLifted = !e.originalEvent.touches || e.originalEvent.touches.length === 0;
+            const tappedCanvas = touchStartTarget === this._map.getCanvas();
+            if (!touchMoved && touchStartPoint && allFingersLifted && tappedCanvas) {
+                const tapPoint = touchStartPoint;
+                if (tapFallbackTimer) clearTimeout(tapFallbackTimer);
+                tapFallbackTimer = setTimeout(() => {
+                    tapFallbackTimer = null;
+                    const lngLat = this._map.unproject(tapPoint);
+                    tapLog('tap fallback -> processClick (mapbox click never fired)', { point: tapPoint, lngLat });
+                    // The long-press flag (set mid-gesture) is still active here so
+                    // a long-press tap adds to the selection; the next touchstart
+                    // resets it for the following tap.
+                    this._processClickAtPoint(tapPoint, lngLat);
+                }, 60);
+            }
         });
 
         // Click handler
         this._map.on('click', (e) => {
-            let interactiveFeatures = [];
-            try {
-                let features = this._map.queryRenderedFeatures(e.point);
-
-                if (!features.length) {
-                    const bufferSize = 5;
-                    const bbox = [
-                        [e.point.x - bufferSize, e.point.y - bufferSize],
-                        [e.point.x + bufferSize, e.point.y + bufferSize]
-                    ];
-                    const featuresInBuffer = this._map.queryRenderedFeatures(bbox);
-                    if (featuresInBuffer.length) {
-                        features = [this._findClosestFeature(featuresInBuffer, e.point)];
-                    }
-                }
-
-                features.forEach(feature => {
-                    const layerId = this._findLayerIdForFeature(feature);
-                    if (layerId && this._stateManager.isLayerInteractive(layerId)) {
-                        interactiveFeatures.push({ feature, layerId, lngLat: e.lngLat });
-                    }
-                });
-            } catch (error) {
-                if (error instanceof RangeError) {
-                    interactiveFeatures = this._stateManager.getFeaturesAtPoint(e.point, e.lngLat)
-                        .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
-                } else {
-                    console.error('[MapFeatureControl] Error querying rendered features on click:', error);
-                    throw error;
-                }
+            tapLog('click fired', { point: e.point, lngLat: e.lngLat });
+            // Real mapbox click arrived — cancel the touch fallback so we don't
+            // process the same tap twice.
+            if (tapFallbackTimer) {
+                clearTimeout(tapFallbackTimer);
+                tapFallbackTimer = null;
             }
-
-            if (interactiveFeatures.length > 0) {
-                this._stateManager.handleFeatureClicks(interactiveFeatures);
-            } else {
-                // Pass lngLat for empty map clicks to allow marker creation
-                this._stateManager.handleFeatureClicks([], e.lngLat);
-            }
+            this._processClickAtPoint(e.point, e.lngLat);
         });
 
         // Mousemove handler (skip on touch devices to avoid hover/selection conflicts)
@@ -1751,6 +2108,65 @@ export class MapFeatureControl {
         });
 
         this._globalHandlersAdded = true;
+    }
+
+    /**
+     * Query interactive features at a screen point and dispatch the selection.
+     * Shared by the mapbox `click` handler and the touch tap fallback so both
+     * paths behave identically.
+     * @param {{x:number,y:number}} point - screen point
+     * @param {{lng:number,lat:number}} lngLat - geographic coordinate
+     */
+    _processClickAtPoint(point, lngLat) {
+        let interactiveFeatures = [];
+        try {
+            // Scope the query to interactive layers so clicks don't intersect
+            // every layer in the style (expensive on mobile). Fall back to an
+            // unscoped query if the layer list can't be resolved.
+            const queryableLayers = this._stateManager.getInteractiveRenderedLayerIds();
+            const queryOpts = queryableLayers.length ? { layers: queryableLayers } : undefined;
+
+            let features = this._map.queryRenderedFeatures(point, queryOpts);
+
+            if (!features.length) {
+                const bufferSize = 5;
+                const bbox = [
+                    [point.x - bufferSize, point.y - bufferSize],
+                    [point.x + bufferSize, point.y + bufferSize]
+                ];
+                const featuresInBuffer = this._map.queryRenderedFeatures(bbox, queryOpts);
+                if (featuresInBuffer.length) {
+                    features = [this._findClosestFeature(featuresInBuffer, point)];
+                }
+            }
+
+            features.forEach(feature => {
+                const layerId = this._findLayerIdForFeature(feature);
+                if (layerId && this._stateManager.isLayerInteractive(layerId)) {
+                    interactiveFeatures.push({ feature, layerId, lngLat });
+                }
+            });
+        } catch (error) {
+            if (error instanceof RangeError) {
+                interactiveFeatures = this._stateManager.getFeaturesAtPoint(point, lngLat)
+                    .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
+            } else {
+                console.error('[MapFeatureControl] Error querying rendered features on click:', error);
+                throw error;
+            }
+        }
+
+        if (interactiveFeatures.length > 0) {
+            console.log('[TapDebug] processClick -> handleFeatureClicks (features)', {
+                count: interactiveFeatures.length,
+                layerIds: interactiveFeatures.map(f => f.layerId)
+            });
+            this._stateManager.handleFeatureClicks(interactiveFeatures);
+        } else {
+            // Pass lngLat for empty map clicks to allow marker creation
+            console.log('[TapDebug] processClick -> handleFeatureClicks (empty)', { lngLat });
+            this._stateManager.handleFeatureClicks([], lngLat);
+        }
     }
 
     /**

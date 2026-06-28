@@ -51,7 +51,7 @@
       "title": "Slum Clusters 2015",
       "description": "Informal settlements in Mumbai as per 2015.",
       "type": "vector",
-      "id": "vector-layer",
+      "id": "mumbai-slum-clusters",
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=03f1d864-8e66-490b-b770-4ef18865901b",
       "minzoom": 0,
       "maxzoom": 15,

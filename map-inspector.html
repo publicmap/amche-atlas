@@ -512,6 +512,7 @@
         let layerRegistry = null;
         let expandedLayerId = null;
         let isolateEnabled = true;
+        let compareLayerId = null; // Layer currently swiped via mapbox-gl-compare (only one at a time)
         let highlightedLayerIds = new Set();
         let selectedFeatures = new Map(); // layerId -> Map<featureId, feature>
         let featureCustomHTML = new Map(); // layerId -> Map<featureId, HTML>
@@ -523,6 +524,45 @@
         let currentBounds = null; // Current map bounds [west, south, east, north]
         let parentUrlSearchParams = null; // URL search params from parent window
         let hoverClearTimeoutId = null; // Pending clear so brief gaps between cards don't flash the isolation off
+
+        // Cache atlas-badge icons as inline data: URLs. renderLayers() tears
+        // down and rebuilds the whole card list, so each render recreates the
+        // icon <img>. Pointing a fresh <img> at the remote URL re-hits the
+        // network every time (HTTP cache is bypassed when DevTools "Disable
+        // cache" is on), and even a blob: object URL still logs a load per
+        // element. A data: URL is embedded in the markup itself: the browser
+        // renders it synchronously with no network entry and no load event,
+        // so once the first fetch resolves every later render is truly free.
+        const _atlasIconCache = new Map(); // url -> { dataUrl: string|null }
+        function appendAtlasIcon($badge, url) {
+            const img = new Image();
+            img.alt = '';
+
+            const entry = _atlasIconCache.get(url);
+            if (entry && entry.dataUrl) {
+                img.src = entry.dataUrl;
+            } else {
+                // Show the remote icon while we fetch an inlineable copy once.
+                img.src = url;
+                if (!entry) {
+                    _atlasIconCache.set(url, { dataUrl: null });
+                    fetch(url)
+                        .then(r => (r.ok ? r.blob() : Promise.reject()))
+                        .then(blob => new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        }))
+                        .then(dataUrl => {
+                            _atlasIconCache.get(url).dataUrl = dataUrl;
+                        })
+                        .catch(() => { /* keep falling back to the remote URL */ });
+                }
+            }
+
+            $badge.append(img);
+        }
 
         // Make LayerThumbnail available globally
         window.LayerThumbnail = LayerThumbnail;
@@ -611,6 +651,35 @@
             }, '*');
         }
 
+        // Build a Compare (swipe) toggle button for a layer. Toggling compares the
+        // existing map (before) against this layer isolated on the basemap (after)
+        // via mapbox-gl-compare. Only one layer can be compared at a time.
+        function buildCompareButton(layerId) {
+            const isActive = compareLayerId === layerId;
+            const $btn = $('<button>', {
+                class: 'px-2 py-1 rounded flex items-center justify-center gap-1 text-white whitespace-nowrap',
+                html: `<sl-icon name="layout-split" style="font-size: 11px;"></sl-icon><span style="font-size: 10px;">${isActive ? 'Comparing' : 'Compare'}</span>`,
+                css: { 'background': isActive ? '#2563eb' : '#6b7280', 'transition': 'background 0.2s' },
+                click: function (e) {
+                    e.stopPropagation();
+                    const enabled = compareLayerId !== layerId;
+                    compareLayerId = enabled ? layerId : null;
+                    window.parent.postMessage({
+                        type: 'toggle-compare',
+                        layerId: layerId,
+                        enabled: enabled
+                    }, '*');
+                    renderLayers();
+                }
+            });
+            $btn.on('mouseenter', function () {
+                $(this).css('background', compareLayerId === layerId ? '#1d4ed8' : '#4b5563');
+            }).on('mouseleave', function () {
+                $(this).css('background', compareLayerId === layerId ? '#2563eb' : '#6b7280');
+            });
+            return $btn;
+        }
+
         // Setup message listener for parent communication
         window.addEventListener('message', function (event) {
             if (event.data.type === 'inspector-data') {
@@ -627,6 +696,20 @@
                 parentUrlSearchParams = event.data.urlSearchParams || null;
                 renderLayers();
                 reapplyVisualIsolationIfNeeded();
+            }
+
+            if (event.data.type === 'compare-enabled') {
+                if (compareLayerId !== event.data.layerId) {
+                    compareLayerId = event.data.layerId;
+                    renderLayers();
+                }
+            }
+
+            if (event.data.type === 'compare-disabled') {
+                if (compareLayerId !== null) {
+                    compareLayerId = null;
+                    renderLayers();
+                }
             }
 
             if (event.data.type === 'highlight-layers') {
@@ -744,12 +827,12 @@
                     hoveredFeatures.get(layerId).set(featureId, feature);
                 });
 
-                renderLayers();
+                renderLayers(false);
             }
 
             if (event.data.type === 'map-mouse-leave') {
                 hoveredFeatures.clear();
-                renderLayers();
+                renderLayers(false);
             }
 
             if (event.data.type === 'selection-cleared') {
@@ -785,7 +868,7 @@
 
             if (event.data.type === 'bounds-update') {
                 currentBounds = event.data.bounds || null;
-                renderLayers();
+                renderLayers(false);
             }
 
             if (event.data.type === 'add-selection-mode-changed') {
@@ -1215,7 +1298,41 @@
         }
 
         // Render all active layers
-        function renderLayers() {
+        // Signature of every input that affects the rendered card list. The
+        // panning request storm came from bounds-update and center-hover both
+        // calling renderLayers() on every moveend / mouse-track, which tore
+        // down and rebuilt the whole DOM (icons, thumbnails, controls) even
+        // when nothing visible changed. Hot paths skip the rebuild when this
+        // signature is unchanged. `force` callers (selection, layer-set, and
+        // content changes not captured here, e.g. async inspection HTML) always
+        // rebuild.
+        let lastRenderSignature = null;
+        function computeRenderSignature() {
+            const parts = [];
+            parts.push(activeLayers.map(l => l.id).join(','));
+            // currentBounds only feeds the per-layer "in view" indicator, so
+            // fold the resolved in-view flags in rather than the raw bounds:
+            // a pan that doesn't cross any layer's bbox edge changes nothing.
+            parts.push(activeLayers.map(l => (isInView(l) ? '1' : '0')).join(''));
+            parts.push([...selectedFeatures.keys()].sort().join(','));
+            const hovered = [];
+            hoveredFeatures.forEach((feats, layerId) => {
+                feats.forEach((_, featureId) => hovered.push(layerId + ':' + featureId));
+            });
+            parts.push(hovered.sort().join(','));
+            parts.push(String(expandedLayerId));
+            parts.push(String(compareLayerId));
+            return parts.join('|');
+        }
+
+        function renderLayers(force = true) {
+            const signature = computeRenderSignature();
+            if (!force && signature === lastRenderSignature) return;
+            lastRenderSignature = signature;
+            performRender();
+        }
+
+        function performRender() {
             // console.group('🔍 Inspector Layer Order Debug');
 
             const $overlayList = $('#overlay-list');
@@ -1516,7 +1633,7 @@
                     }
                 });
                 if (atlasMetadata.icon) {
-                    $('<img>', { src: atlasMetadata.icon, alt: '' }).appendTo($badge);
+                    appendAtlasIcon($badge, atlasMetadata.icon);
                 }
                 $('<span>', { text: atlasMetadata.name }).appendTo($badge);
                 $headerRow.append($badge);
@@ -1990,8 +2107,12 @@
                     $(this).css('background', '#dc2626');
                 });
 
+                // Compare (swipe) button
+                const $compareBtn = buildCompareButton(layerConfig.id);
+
                 // Assemble action bar
                 $actionBar.append($opacityBtn);
+                $actionBar.append($compareBtn);
                 if ($zoomBtn) $actionBar.append($zoomBtn);
                 $actionBar.append($removeBtn);
                 $expanded.append($actionBar);
@@ -2102,7 +2223,7 @@
                     }
                 });
                 if (atlasMetadata.icon) {
-                    $('<img>', { src: atlasMetadata.icon, alt: '' }).appendTo($badge);
+                    appendAtlasIcon($badge, atlasMetadata.icon);
                 }
                 $('<span>', { text: atlasMetadata.name }).appendTo($badge);
                 $header.append($badge);
@@ -2460,6 +2581,17 @@
                         });
                         $expanded.append($desc);
                     }
+
+                    // Attribution / source (when no features selected). A bare
+                    // URL is linkified; existing HTML/markup is passed through.
+                    if (layer.attribution) {
+                        const $attr = $('<div>', {
+                            class: 'text-gray-400 mb-2',
+                            css: { fontSize: '10px', lineHeight: '1.4', marginBottom: '8px', wordBreak: 'break-word' },
+                            html: 'Source: ' + processLinksForNewWindow(linkifyAttribution(layer.attribution))
+                        });
+                        $expanded.append($attr);
+                    }
                 }
 
                 // Action bar (appears AFTER features/description)
@@ -2531,8 +2663,12 @@
                     $(this).css('background', '#dc2626');
                 });
 
+                // Compare (swipe) button
+                const $compareBtn = buildCompareButton(layer.id);
+
                 // Assemble action bar
                 $actionBar.append($opacityBtn);
+                $actionBar.append($compareBtn);
                 if ($zoomBtn) $actionBar.append($zoomBtn);
                 $actionBar.append($removeBtn);
                 $expanded.append($actionBar);
@@ -2725,6 +2861,18 @@
         }
 
         // Process HTML to ensure all links open in new window
+        // Turn a bare http(s) URL into an anchor. If the value already contains
+        // markup (e.g. an <a> tag or HTML), leave it untouched.
+        function linkifyAttribution(value) {
+            if (!value) return '';
+            if (/<[a-z][\s\S]*>/i.test(value)) return value;
+            if (/^https?:\/\/\S+$/i.test(value.trim())) {
+                const url = value.trim();
+                return `<a href="${url}">${url}</a>`;
+            }
+            return value;
+        }
+
         function processLinksForNewWindow(html) {
             if (!html) return '';
             const $temp = $('<div>').html(html);

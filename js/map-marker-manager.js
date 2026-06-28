@@ -21,6 +21,7 @@ export class MapMarkerManager {
         this._isProgrammaticZoom = false; // Track programmatic zooms
         this._selectionLayerId = 'selection'; // Layer ID for selection markers
         this._starredMarkers = new Set(); // Marker IDs that are starred (persist on new selection)
+        this._isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
         this._setupEventListeners();
         this._setupMapMovementTracking();
@@ -36,6 +37,10 @@ export class MapMarkerManager {
     _setupEventListeners() {
         this._stateManager.addEventListener('state-change', (event) => {
             const { eventType, data } = event.detail;
+
+            if (eventType === 'feature-click' || eventType === 'feature-click-multiple' || eventType === 'empty-map-click') {
+                console.log('[TapDebug] markerManager received', { eventType, isTouch: this._isTouch });
+            }
 
             if (eventType === 'feature-click' || eventType === 'feature-click-multiple') {
                 this._handleSelection(data);
@@ -169,10 +174,19 @@ export class MapMarkerManager {
     }
 
     _handleSelection(data) {
+        // Selections restored from a shared URL already had their markers created by
+        // restoreMarkersFromSelectionLayer; this event only notifies the inspector, so
+        // don't re-create the markers here.
+        if (data.fromMarkerRestore) return;
+
         const features = data.selectedFeatures || [data];
         const lngLat = features[0]?.lngLat;
 
-        if (!lngLat) return;
+        if (!lngLat) {
+            console.log('[TapDebug] _handleSelection bail: no lngLat', { features });
+            return;
+        }
+        console.log('[TapDebug] _handleSelection -> addMarker', { lngLat, featureCount: features.length });
 
         // Clear hover marker and marker hover states on selection
         this._clearHoverMarker();
@@ -192,7 +206,11 @@ export class MapMarkerManager {
 
     _handleEmptyMapClick(data) {
         const { lngLat } = data;
-        if (!lngLat) return;
+        if (!lngLat) {
+            console.log('[TapDebug] _handleEmptyMapClick bail: no lngLat');
+            return;
+        }
+        console.log('[TapDebug] _handleEmptyMapClick -> addMarker', { lngLat });
 
         // Clear hover marker and marker hover states on selection
         this._clearHoverMarker();
@@ -565,10 +583,19 @@ export class MapMarkerManager {
         this._currentMarkerIndex = this._markers.size - 1;
 
         // Click to toggle popup
-        el.addEventListener('click', (e) => {
+        const handleMarkerToggle = (e) => {
             e.stopPropagation();
+            // On touch, prevent the synthesized click that follows touchend so we
+            // don't toggle twice (open then immediately close).
+            if (e.type === 'touchend') e.preventDefault();
             this._toggleMarkerPopup(markerId);
-        });
+        };
+        el.addEventListener('click', handleMarkerToggle);
+        // On touch, mapbox suppresses the native click within its container, so
+        // bind touchend too — same pattern as the close button below.
+        if (this._isTouch) {
+            el.addEventListener('touchend', handleMarkerToggle);
+        }
 
         // Add a close 'x' to clear this marker directly
         const contentEl = el.querySelector('.marker-content');
@@ -577,41 +604,56 @@ export class MapMarkerManager {
             closeBtn.className = 'marker-close-btn';
             closeBtn.innerHTML = '<sl-icon name="x" style="font-size:12px;color:white;"></sl-icon>';
             closeBtn.title = 'Clear this marker';
+            // Larger hit target on touch (the visible circle stays small via a
+            // transparent expanded tap area) so it's not a 14px target on mobile.
+            const closeSize = this._isTouch ? 22 : 14;
             closeBtn.style.cssText = `
                 margin-left: 5px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 14px;
-                height: 14px;
+                width: ${closeSize}px;
+                height: ${closeSize}px;
                 border-radius: 50%;
                 background: rgba(255,255,255,0.2);
                 cursor: pointer;
                 flex-shrink: 0;
                 transition: background 0.2s;
             `;
-            closeBtn.addEventListener('mouseenter', () => {
-                closeBtn.style.background = 'rgba(255,255,255,0.4)';
-            });
-            closeBtn.addEventListener('mouseleave', () => {
-                closeBtn.style.background = 'rgba(255,255,255,0.2)';
-            });
-            closeBtn.addEventListener('click', (e) => {
+            if (!this._isTouch) {
+                closeBtn.addEventListener('mouseenter', () => {
+                    closeBtn.style.background = 'rgba(255,255,255,0.4)';
+                });
+                closeBtn.addEventListener('mouseleave', () => {
+                    closeBtn.style.background = 'rgba(255,255,255,0.2)';
+                });
+            }
+            const handleCloseClick = (e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 this._starredMarkers.delete(markerId);
                 this.removeMarker(markerId);
-            });
+            };
+            closeBtn.addEventListener('click', handleCloseClick);
+            // On touch, also bind touchend so the close fires on first tap rather
+            // than waiting for the synthesized (and sometimes swallowed) click.
+            if (this._isTouch) {
+                closeBtn.addEventListener('touchend', handleCloseClick);
+            }
             contentEl.appendChild(closeBtn);
         }
 
-        // Hover to highlight features on map
-        el.addEventListener('mouseenter', () => {
-            this._setMarkerFeaturesHoverState(markerId, true);
-        });
+        // Hover to highlight features on map (desktop only — avoids synthetic
+        // touch hover events flickering feature state on mobile).
+        if (!this._isTouch) {
+            el.addEventListener('mouseenter', () => {
+                this._setMarkerFeaturesHoverState(markerId, true);
+            });
 
-        el.addEventListener('mouseleave', () => {
-            this._setMarkerFeaturesHoverState(markerId, false);
-        });
+            el.addEventListener('mouseleave', () => {
+                this._setMarkerFeaturesHoverState(markerId, false);
+            });
+        }
 
         if (showPopup) {
             this._showMarkerPopup(markerId);
@@ -674,9 +716,10 @@ export class MapMarkerManager {
 
         markerData.popup = popup;
 
-        // Add hover listeners to popup
+        // Add hover listeners to popup (desktop only — touch devices synthesize
+        // mouseenter/mouseleave on tap, which would close the popup unexpectedly).
         const popupElement = popup.getElement();
-        if (popupElement) {
+        if (popupElement && !this._isTouch) {
             popupElement.addEventListener('mouseenter', () => {
                 this._setMarkerFeaturesHoverState(markerId, true);
             });
@@ -1707,6 +1750,15 @@ export class MapMarkerManager {
         const markerData = this._markers.get(markerId);
         if (!markerData) return;
 
+        // Drop the feature selections anchored at this marker so closing it also
+        // clears the highlight and the inspector entry (not just the marker dot).
+        // Other markers keep their own selections.
+        markerData.features.forEach(({ featureId, layerId }) => {
+            if (featureId && layerId) {
+                this._stateManager._deselectFeature(featureId, layerId);
+            }
+        });
+
         if (markerData.popup) {
             markerData.popup.remove();
         }
@@ -1830,8 +1882,6 @@ export class MapMarkerManager {
             return false;
         }
 
-        console.log('[MarkerManager] Restoring', features.length, 'markers from selection layer');
-
         const layerIds = new Set();
         features.forEach(feature => {
             feature.properties.features.forEach(ref => layerIds.add(ref.layerId));
@@ -1840,6 +1890,7 @@ export class MapMarkerManager {
         await this._waitForLayersReady(Array.from(layerIds));
         await this._waitForMapIdle();
 
+        const allRestoredFeatures = [];
         for (const feature of features) {
             if (feature.geometry.type !== 'Point') continue;
 
@@ -1860,11 +1911,37 @@ export class MapMarkerManager {
 
             if (restoredFeatures.length > 0) {
                 this.addMarker(lngLat, restoredFeatures, { showPopup: false });
+                allRestoredFeatures.push(...restoredFeatures);
             }
         }
 
         if (this._markers.size > 0) {
             this._stateManager._updateLineSortKeys();
+        }
+
+        // Notify the inspector iframe (and other listeners) of the restored selections so
+        // the status bar with the Clear / Add / Zoom buttons shows. The markers are already
+        // created above, so the fromMarkerRestore flag tells _handleSelection not to re-add
+        // them — mirrors the event sequence in UrlManager.applySelectionsFromURL.
+        if (allRestoredFeatures.length > 0) {
+            for (const { feature, featureId, layerId, lngLat } of allRestoredFeatures) {
+                await this._stateManager._executeInspectionHandler(feature, layerId, lngLat);
+                this._stateManager._emitStateChange('feature-click', {
+                    feature,
+                    featureId,
+                    layerId,
+                    lngLat,
+                    fromURL: true,
+                    fromMarkerRestore: true
+                });
+            }
+
+            this._stateManager._emitStateChange('feature-click-multiple', {
+                selectedFeatures: allRestoredFeatures,
+                clearedFeatures: [],
+                fromURL: true,
+                fromMarkerRestore: true
+            });
         }
 
         return true;

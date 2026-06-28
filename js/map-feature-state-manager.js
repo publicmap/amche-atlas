@@ -19,6 +19,8 @@ export class MapFeatureStateManager extends EventTarget {
         this._retryAttempts = new Map(); // layerId -> retry count
         this._maxRetries = 10;
         this._retryDelay = 2000; // 2 seconds
+        this._setupComplete = new Set(); // layerIds whose events have been set up
+        this._pendingSetup = new Set(); // layerIds whose style layers haven't appeared yet
         this._eventListenerRefs = new Map(); // Store event listener references for cleanup
         this._featureControl = null; // Reference to feature control for inspect mode checking
         this._handlerResultsCache = new Map(); // Cache for handler execution results: compositeKey -> HTML
@@ -150,7 +152,11 @@ export class MapFeatureStateManager extends EventTarget {
             return;
         }
 
-        // Set up layer events with retry mechanism for vector layers
+        // Mark pending until the layer's style layers actually appear on the map,
+        // then set up events. Remote sources (vector/geojson/csv) often load after
+        // registration, so the event-driven sweep finishes the job later.
+        this._pendingSetup.add(layerId);
+        this._setupComplete.delete(layerId);
         this._setupLayerEventsWithRetry(layerConfig);
 
         // Emit registration event
@@ -179,8 +185,10 @@ export class MapFeatureStateManager extends EventTarget {
         // Remove from registered layers
         this._registeredLayers.delete(layerId);
 
-        // Remove retry attempts
+        // Remove retry attempts and setup tracking
         this._retryAttempts.delete(layerId);
+        this._pendingSetup.delete(layerId);
+        this._setupComplete.delete(layerId);
 
         // Layer unregistered successfully
 
@@ -386,9 +394,15 @@ export class MapFeatureStateManager extends EventTarget {
      * @param {Object} lngLat - Click coordinates (optional, for empty area clicks)
      */
     handleFeatureClicks(clickedFeatures, lngLat = null) {
+        console.log('[TapDebug] stateManager.handleFeatureClicks', {
+            featureCount: clickedFeatures?.length || 0,
+            hasLngLat: !!lngLat,
+            isCmdCtrlPressed: this._isCmdCtrlPressed
+        });
         if (!clickedFeatures || clickedFeatures.length === 0) {
             // Click on empty area - emit event for marker creation with layer info
             if (lngLat) {
+                console.log('[TapDebug] emit empty-map-click', { lngLat });
                 this._emitStateChange('empty-map-click', {
                     lngLat,
                     timestamp: Date.now()
@@ -445,13 +459,12 @@ export class MapFeatureStateManager extends EventTarget {
             const featureId = this._getFeatureId(feature);
             const compositeKey = this._getCompositeKey(layerId, featureId);
 
-            // If already selected, keep it selected (don't toggle)
-            // Only clear buttons should remove selections
-            if (this._selectedFeatures.has(compositeKey)) {
-                return;
-            }
+            // If already selected, keep it selected (don't toggle) but still update
+            // the click location so a marker is created at the new point. Only clear
+            // buttons should remove selections.
+            const alreadySelected = this._selectedFeatures.has(compositeKey);
 
-            // Update feature state
+            // Update feature state (refreshes lngLat for re-clicks on the same feature)
             this._updateFeatureState(compositeKey, {
                 feature,
                 layerId,
@@ -460,11 +473,16 @@ export class MapFeatureStateManager extends EventTarget {
                 timestamp: Date.now()
             });
 
-            // Add to selected features set
-            this._selectedFeatures.add(compositeKey);
+            if (!alreadySelected) {
+                // Add to selected features set
+                this._selectedFeatures.add(compositeKey);
 
-            // Set mapbox feature state for visual feedback on all related layers
-            this._setMapboxFeatureStateAllLayers(featureId, layerId, { selected: true });
+                // Set mapbox feature state for visual feedback on all related layers
+                this._setMapboxFeatureStateAllLayers(featureId, layerId, { selected: true });
+
+                // Execute inspection handlers if configured
+                this._executeInspectionHandler(feature, layerId, lngLat);
+            }
 
             newSelections.push({
                 featureId,
@@ -472,9 +490,6 @@ export class MapFeatureStateManager extends EventTarget {
                 feature,
                 lngLat
             });
-
-            // Execute inspection handlers if configured
-            this._executeInspectionHandler(feature, layerId, lngLat);
         });
 
         // Update line layer sort keys for z-ordering
@@ -484,12 +499,14 @@ export class MapFeatureStateManager extends EventTarget {
         if (newSelections.length === 1) {
             // Single feature click
             const selection = newSelections[0];
+            console.log('[TapDebug] emit feature-click', { layerId: selection.layerId, featureId: selection.featureId });
             this._emitStateChange('feature-click', {
                 ...selection,
                 clearedFeatures
             });
         } else if (newSelections.length > 1) {
             // Multiple features clicked (overlapping)
+            console.log('[TapDebug] emit feature-click-multiple', { count: newSelections.length });
             this._emitStateChange('feature-click-multiple', {
                 selectedFeatures: newSelections,
                 clearedFeatures
@@ -754,6 +771,23 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
+     * Get the actual style layer IDs for all interactive (non-raster) registered
+     * layers. Used to scope queryRenderedFeatures so clicks don't pay the cost of
+     * intersecting every layer in the style — significant on mobile GPUs.
+     * @returns {string[]} Array of style layer IDs (empty if none / unavailable)
+     */
+    getInteractiveRenderedLayerIds() {
+        if (!this._mapboxAPI) return [];
+        const ids = [];
+        this._registeredLayers.forEach((layerConfig) => {
+            if (this._isRasterLayer(layerConfig)) return;
+            if (layerConfig.inspect === false) return;
+            this._getMatchingLayerIds(layerConfig).forEach(id => ids.push(id));
+        });
+        return ids;
+    }
+
+    /**
      * Get features at the center of the map canvas
      * @returns {Array} Array of {feature, layerId} objects
      */
@@ -950,48 +984,87 @@ export class MapFeatureStateManager extends EventTarget {
      * Set up layer events with retry mechanism for robustness
      */
     _setupLayerEventsWithRetry(layerConfig, retryCount = 0) {
-        const success = this._setupLayerEvents(layerConfig);
-
-        if (!success && retryCount < this._maxRetries) {
-            // Immediate retry for first few attempts
-            if (retryCount < 3) {
-                setTimeout(() => {
-                    this._setupLayerEventsWithRetry(layerConfig, retryCount + 1);
-                }, 100 * (retryCount + 1)); // Exponential backoff: 100ms, 200ms, 300ms
-            } else {
-                // Longer term retry for persistent issues
-                this._setupLongTermRetry(layerConfig);
-            }
-        } else if (!success) {
-            console.warn(`[StateManager] Failed to setup events for ${layerConfig.id} after ${this._maxRetries} attempts`);
-        } else {
+        if (this._setupLayerEvents(layerConfig)) {
             this._retryAttempts.delete(layerConfig.id);
+            return;
+        }
+
+        // A few quick retries handle the common near-immediate timing race (the
+        // layer is added a tick after registration).
+        if (retryCount < 3) {
+            setTimeout(() => {
+                // Bail if it was set up in the meantime (e.g. by the event sweep).
+                if (this._registeredLayers.has(layerConfig.id) && !this._setupComplete.has(layerConfig.id)) {
+                    this._setupLayerEventsWithRetry(layerConfig, retryCount + 1);
+                }
+            }, 100 * (retryCount + 1)); // 100ms, 200ms, 300ms
+            return;
+        }
+
+        // Still not ready — its source/style layers haven't appeared yet (remote
+        // vector/geojson/csv data loads after registration). Leave it pending; the
+        // event-driven sweep (styledata / sourcedata / idle) will set it up the
+        // moment the layer shows up. No fixed budget, no give-up, no error spam.
+    }
+
+    /**
+     * Attempt setup for every layer whose style layers haven't appeared yet.
+     * Driven by map events (styledata/sourcedata/idle) so late-loading sources are
+     * picked up as soon as they exist. Cheap no-op once nothing is pending.
+     */
+    _sweepPendingLayerSetup() {
+        if (this._pendingSetup.size === 0) return;
+
+        for (const layerId of [...this._pendingSetup]) {
+            const config = this._registeredLayers.get(layerId);
+            if (!config) {
+                this._pendingSetup.delete(layerId);
+                continue;
+            }
+            // _setupLayerEvents removes it from _pendingSetup on success. If it's
+            // still not ready, stay quiet — the next map event will retry. Call
+            // _logLayerSetupDiagnostics(config) manually from the console to debug.
+            this._setupLayerEvents(config);
         }
     }
 
     /**
-     * Set up long-term retry for persistent layer setup failures
+     * Dump why a layer's events couldn't be set up — i.e. why _getMatchingLayerIds
+     * returned nothing. Note: _setupSingleLayerEvents is currently a no-op (all
+     * interaction goes through the global click handler in MapFeatureControl), so
+     * this "failure" does NOT disable clicking/hover for the layer; it only means
+     * the layer's style layers weren't on the map yet — usually because a remote
+     * source (geojson/csv/vector data) finished loading late.
      */
-    _setupLongTermRetry(layerConfig) {
-        const currentAttempts = this._retryAttempts.get(layerConfig.id) || 0;
+    _logLayerSetupDiagnostics(layerConfig) {
+        try {
+            const style = this._mapboxAPI?.getStyle?.();
+            const allLayerIds = (style?.layers || []).map(l => l.id);
+            const id = layerConfig.id;
 
-        if (currentAttempts < 5) { // Limit long-term retries to 5
-            this._retryAttempts.set(layerConfig.id, currentAttempts + 1);
+            // Layers whose id/source/sourceLayer looks related, to spot naming mismatches.
+            const related = (style?.layers || []).filter(l =>
+                l.id === id ||
+                l.id.includes(id) ||
+                (layerConfig.source && l.source === layerConfig.source) ||
+                (layerConfig.sourceLayer && l['source-layer'] === layerConfig.sourceLayer)
+            ).map(l => ({ id: l.id, type: l.type, source: l.source, sourceLayer: l['source-layer'] }));
 
-            setTimeout(() => {
-                // Check if layer is still registered before retrying
-                if (this._registeredLayers.has(layerConfig.id)) {
-                    const success = this._setupLayerEvents(layerConfig);
-                    if (!success) {
-                        this._setupLongTermRetry(layerConfig);
-                    } else {
-                        this._retryAttempts.delete(layerConfig.id);
-                    }
-                }
-            }, this._retryDelay);
-        } else {
-            console.error(`[StateManager] Gave up on setting up events for ${layerConfig.id} after 5 long-term retries`);
-            this._retryAttempts.delete(layerConfig.id);
+            const sourceId = layerConfig.source || `${layerConfig.type}-${id}`;
+            const sourcePresent = !!(this._map?.getSource?.(sourceId) || (style?.sources && style.sources[sourceId]));
+
+            console.warn(`[StateManager] No matching style layers for "${id}" — interaction still works via the global handler. Diagnostics:`, {
+                type: layerConfig.type,
+                configSource: layerConfig.source,
+                configSourceLayer: layerConfig.sourceLayer,
+                expectedSourceId: sourceId,
+                sourcePresentOnMap: sourcePresent,
+                styleLoaded: this._map?.isStyleLoaded?.(),
+                relatedStyleLayers: related,
+                totalStyleLayers: allLayerIds.length
+            });
+        } catch (err) {
+            console.warn(`[StateManager] Failed to collect setup diagnostics for ${layerConfig?.id}:`, err);
         }
     }
 
@@ -1015,6 +1088,8 @@ export class MapFeatureStateManager extends EventTarget {
                 this._setupSingleLayerEvents(actualLayerId, layerConfig);
             });
 
+            this._setupComplete.add(layerConfig.id);
+            this._pendingSetup.delete(layerConfig.id);
             return true;
         } catch (error) {
             console.error(`[StateManager] Error setting up events for ${layerConfig.id}:`, error);
@@ -1738,16 +1813,15 @@ export class MapFeatureStateManager extends EventTarget {
                 console.debug('[StateManager] Style change complete, re-registering layers');
                 this._isStyleChanging = false;
 
-                // Re-register all layers after style change
-                const layersToReregister = Array.from(this._registeredLayers.entries());
-                layersToReregister.forEach(([layerId, layerConfig]) => {
-                    this._setupLayerEventsWithRetry(layerConfig);
+                // The old style's layers are gone — everything must be set up again.
+                this._setupComplete.clear();
+                this._registeredLayers.forEach((layerConfig, layerId) => {
+                    if (this._isRasterLayer(layerConfig)) return;
+                    this._pendingSetup.add(layerId);
                 });
-            } else {
-                // Not a style change, but layers may have been added
-                // Retry any failed layer registrations
-                this._retryFailedLayers();
             }
+            // Layers (and their sources) may have just appeared — try any pending.
+            this._sweepPendingLayerSetup();
         };
 
         const handleStyleStart = () => {
@@ -1755,44 +1829,22 @@ export class MapFeatureStateManager extends EventTarget {
             this._isStyleChanging = true;
         };
 
-        // Use MapboxAPI for event handling
+        // Use MapboxAPI for event handling. styledata fires when layers are added,
+        // sourcedata when a source's tiles/data load (covers late remote sources),
+        // and idle is the backstop once loading settles.
         this._mapboxAPI.on('styledata', handleStyleData);
         this._mapboxAPI.on('style.load', handleStyleStart);
+        const handleSourceData = () => this._sweepPendingLayerSetup();
+        const handleIdle = () => this._sweepPendingLayerSetup();
+        this._mapboxAPI.on('sourcedata', handleSourceData);
+        this._mapboxAPI.on('idle', handleIdle);
 
         // Store references for cleanup
         this._eventListenerRefs.set('map-events', [
             { type: 'styledata', listener: handleStyleData },
-            { type: 'style.load', listener: handleStyleStart }
+            { type: 'style.load', listener: handleStyleStart },
+            { type: 'sourcedata', listener: handleSourceData },
+            { type: 'idle', listener: handleIdle }
         ]);
-    }
-
-    /**
-     * Retry failed layer registrations
-     */
-    _retryFailedLayers() {
-        const failedLayers = [];
-
-        this._registeredLayers.forEach((config, layerId) => {
-            // Skip raster layers - they don't need event setup
-            if (this._isRasterLayer(config)) {
-                return;
-            }
-
-            // Check if layer setup was successful by looking for matching style layers
-            const matchingIds = this._getMatchingLayerIds(config);
-            if (matchingIds.length === 0) {
-                // Only retry if not already in a retry cycle (to avoid duplicate retries)
-                // If it's already retrying, the existing retry will handle it
-                if (!this._retryAttempts.has(layerId)) {
-                    failedLayers.push(config);
-                }
-            }
-        });
-
-        if (failedLayers.length > 0) {
-            failedLayers.forEach(config => {
-                this._setupLayerEventsWithRetry(config);
-            });
-        }
     }
 }
