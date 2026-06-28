@@ -1,4 +1,4 @@
-import { queryCadastralPlots, parseCadastralQuery } from './cadastral-search.js'
+import { queryCadastralPlots, parseCadastralQuery, isCadastralSearchEnabled } from './cadastral-search.js'
 
 /**
  * MapSearchControl - Mapbox search with coordinate search and Goa cadastral
@@ -819,7 +819,7 @@ export class MapSearchControl {
 
             this.removeSearchMarker();
 
-            const cadastralParsed = parseCadastralQuery(query);
+            const cadastralParsed = isCadastralSearchEnabled() ? parseCadastralQuery(query) : null;
             if (cadastralParsed) {
                 this.startCadastralParquetSearch(query, cadastralParsed);
             } else {
@@ -877,7 +877,7 @@ export class MapSearchControl {
 
         if (this.isCoordinateInput) return;
 
-        const cadastralParsed = parseCadastralQuery(this.currentQuery);
+        const cadastralParsed = isCadastralSearchEnabled() ? parseCadastralQuery(this.currentQuery) : null;
         if (cadastralParsed && this.localSuggestions.length > 0) {
             clearTimeout(this.injectionTimeout);
             this.scheduleCadastralSuggestionInjection();

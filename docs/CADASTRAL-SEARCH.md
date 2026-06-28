@@ -47,13 +47,25 @@ flowchart TD
 
 | File | Role |
 | ---- | ---- |
-| `js/cadastral-search.js` | Parquet init, village fuzzy match, plot query, label formatting |
+| `js/cadastral-search.js` | Configurable URLs, parquet init, village fuzzy match, plot query |
 | `js/map-search-control.js` | Triggers parquet search when input matches cadastral pattern |
-| `js/map-init.js` | Calls `prewarmCadastral()` after map load to hide cold-start latency |
-| `public/data/cadastral_search.parquet` | ~3.4 MB, ~828k plot centroids (built in [amche/utils](https://github.com/publicmap/amche-utils)) |
-| `public/data/villages.json` | Distinct `{ village, taluka }` pairs for fuzzy matching (~426 entries) |
+| `js/map-init.js` | Configures and pre-warms cadastral search when atlas defines `cadastralSearch` |
+| `config/goa.atlas.json` | `cadastralSearch.parquetUrl` and `cadastralSearch.villagesUrl` |
 
-Vite copies `public/data/*` → `dist/data/` (see `vite.config.mjs`). Runtime URLs are `/data/cadastral_search.parquet` and `/data/villages.json`.
+Data files are hosted externally in [ourgoaindata/cadastral-search](https://github.com/ourgoaindata/cadastral-search) (~3.4 MB parquet, ~426 villages). amche-atlas does not bundle them.
+
+### Atlas configuration
+
+Goa atlas enables search via:
+
+```json
+"cadastralSearch": {
+  "parquetUrl": "https://raw.githubusercontent.com/ourgoaindata/cadastral-search/v1.0.0/data/cadastral_search.parquet",
+  "villagesUrl": "https://raw.githubusercontent.com/ourgoaindata/cadastral-search/v1.0.0/data/villages.json"
+}
+```
+
+Pre-warm and search run only when the active atlas defines both URLs. Other atlases never fetch cadastral data.
 
 ### Dependencies
 
@@ -61,9 +73,9 @@ Vite copies `public/data/*` → `dist/data/` (see `vite.config.mjs`). Runtime UR
 - `hyparquet-compressors` — ZSTD decompression (file is ZSTD level 22)
 - `fast-levenshtein` — village typo tolerance
 
-## Data pipeline (utils repo)
+## Data pipeline
 
-Parquet is generated from Goa OneMap cadastral GeoJSONL in the **amche/utils** repository:
+Parquet is generated from Goa OneMap cadastral GeoJSONL in the **amche-utils** repository:
 
 ```
 goa_cadastral_raw_onemap_gos.geojsonl  (~828k plots)
@@ -72,28 +84,36 @@ goa_cadastral_raw_onemap_gos.geojsonl  (~828k plots)
 convert_to_search_parquet.py
         │
         ▼
-cadastral_data_parquet/cadastral_search.parquet  (3.4 MB)
+cadastral_search.parquet  (3.4 MB)
+        │
+        ▼
+ourgoaindata/cadastral-search  (tagged release, e.g. v1.0.0)
+        │
+        ▼
+goa.atlas.json cadastralSearch URLs
 ```
 
 Schema (6 columns): `taluka`, `village`, `survey`, `subdiv`, `lon`, `lat` — centroids only, no geometry.
 
-Design rationale (single file vs per-village split, FLOAT coords, runtime normalisation): see [CADASTRAL_SEARCH_PARQUET.md](https://github.com/publicmap/amche-utils/blob/main/CADASTRAL_SEARCH_PARQUET.md) in the utils repo.
+Design rationale: see [CADASTRAL_SEARCH_PARQUET.md](https://github.com/publicmap/amche-utils/blob/main/CADASTRAL_SEARCH_PARQUET.md) in the utils repo.
 
-### Regenerate and refresh app assets
+### Regenerate and publish new data
 
 ```bash
 # 1. Build parquet (utils repo)
-cd path/to/amche/utils
+cd path/to/amche-utils
 source venv/bin/activate
 python convert_to_search_parquet.py
 
-# 2. Copy parquet + villages list into amche-atlas
-cp cadastral_data_parquet/cadastral_search.parquet ../amche-atlas/public/data/
-python export_villages_json.py --atlas-dir ../amche-atlas
+# 2. Copy into cadastral-search repo and tag a new release
+cp cadastral_data_parquet/cadastral_search.parquet path/to/cadastral-search/data/
+python export_villages_json.py --output path/to/cadastral-search/data/villages.json
+cd path/to/cadastral-search
+git add data/
+git commit -m "Update cadastral search data"
+git tag v1.x.x && git push origin main --tags
 
-# 3. Rebuild / deploy amche-atlas
-cd ../amche-atlas
-npm run build
+# 3. Bump URLs in amche-atlas config/goa.atlas.json to @v1.x.x
 ```
 
 ## Query behaviour
@@ -114,16 +134,18 @@ Duplicate village names across talukas (e.g. Verlem in Sanguem and Quepem) appea
 
 ## Deployment notes
 
-- Both files under `public/data/` must be present before `npm run build` (they are copied into `dist/data/`).
-- First visit after deploy: background pre-warm downloads ~3.4 MB parquet + ~20 KB villages list (browser-cached afterward).
+- Both assets are served from GitHub raw at a pinned tag (`v1.0.0`). Do not use jsDelivr for the parquet — hyparquet requires byte-accurate range reads and jsDelivr corrupts the file footer.
+- Bump the tag in `goa.atlas.json` when cadastral-search data is updated.
+- First visit on Goa atlas: background pre-warm downloads ~3.4 MB parquet + ~20 KB villages list (browser-cached afterward).
 - hyparquet uses HTTP range requests — typically only relevant row groups are fetched per search.
 
 ## Testing
 
-1. `npm run dev` — ensure `public/data/cadastral_search.parquet` and `villages.json` exist.
-2. Open Goa atlas, search box: type `Verlem 1/2` — cadastral suggestions should appear above Mapbox results.
+1. Open Goa atlas (`?atlas=goa`) — Network tab should fetch parquet/villages from jsDelivr after map load.
+2. Search box: type `Verlem 1/2` — cadastral suggestions appear above Mapbox results.
 3. Select a suggestion — map flies to plot, zoom 18.
 4. Typo test: `verlam 1/2` should still match Verlem plots.
 5. Village-only `verlem` — no parquet query; Mapbox only.
+6. Non-Goa atlas (e.g. `?atlas=india`) — no cadastral parquet fetch.
 
 Push branch to `dev` for live preview: `git push origin HEAD:dev --force` → https://amche.in/dev/

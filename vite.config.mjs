@@ -70,8 +70,6 @@ export default defineConfig({
         { src: 'sound/*.js', dest: 'sound' },
         { src: 'warper/*.js', dest: 'warper' },
         { src: 'game/*.js', dest: 'game' },
-        // Cadastral search data (parquet + village list).
-        { src: 'public/data/*', dest: 'data' },
         // Root-level static files.
         { src: 'service-worker.js', dest: '.' },
         { src: 'manifest.json', dest: '.' },

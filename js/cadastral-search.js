@@ -2,8 +2,8 @@ import levenshtein from 'fast-levenshtein'
 import { asyncBufferFromUrl, parquetMetadataAsync, parquetReadObjects } from 'hyparquet'
 import { compressors } from 'hyparquet-compressors'
 
-const PARQUET_URL = '/data/cadastral_search.parquet'
-const VILLAGES_URL = '/data/villages.json'
+let parquetUrl = null
+let villagesUrl = null
 
 let initPromise = null
 let parquetFile = null
@@ -11,11 +11,30 @@ let parquetMetadata = null
 let rowOffsets = null
 let villageList = []
 
+export function configureCadastralSearch({ parquetUrl: p, villagesUrl: v }) {
+    if (p === parquetUrl && v === villagesUrl) return
+    parquetUrl = p
+    villagesUrl = v
+    initPromise = null
+    parquetFile = null
+    parquetMetadata = null
+    rowOffsets = null
+    villageList = []
+}
+
+export function isCadastralSearchEnabled() {
+    return Boolean(parquetUrl && villagesUrl)
+}
+
 async function _doInit() {
-    const villages = await fetch(VILLAGES_URL).then(r => r.json())
+    if (!parquetUrl || !villagesUrl) {
+        throw new Error('Cadastral search is not configured')
+    }
+
+    const villages = await fetch(villagesUrl).then(r => r.json())
     villageList = villages
 
-    parquetFile = await asyncBufferFromUrl({ url: PARQUET_URL })
+    parquetFile = await asyncBufferFromUrl({ url: parquetUrl })
     parquetMetadata = await parquetMetadataAsync(parquetFile)
 
     rowOffsets = [0]
@@ -25,7 +44,15 @@ async function _doInit() {
 }
 
 function lazyInit() {
-    if (!initPromise) initPromise = _doInit()
+    if (!isCadastralSearchEnabled()) {
+        return Promise.reject(new Error('Cadastral search is not configured'))
+    }
+    if (!initPromise) {
+        initPromise = _doInit().catch(err => {
+            initPromise = null
+            throw err
+        })
+    }
     return initPromise
 }
 
@@ -69,6 +96,7 @@ function getMatchingRowGroupRanges(villageName) {
 }
 
 export function prewarmCadastral() {
+    if (!isCadastralSearchEnabled()) return
     lazyInit().catch(() => {})
 }
 
@@ -84,6 +112,7 @@ export function formatCadastralLabel({ village, taluka, survey, subdiv }) {
 }
 
 export async function queryCadastralPlots(villagePart, surveyRaw, limit = 5) {
+    if (!isCadastralSearchEnabled()) return []
     await lazyInit()
 
     const surveyNorm = surveyRaw.replace(/[^a-z0-9]/gi, '').toLowerCase()
