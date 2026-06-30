@@ -228,6 +228,14 @@
         {
           "title": "Boundaries",
           "sourceLayer": "admin"
+        },
+        {
+          "title": "Bathymetry",
+          "sourceLayer": "depth"
+        },
+        {
+          "title": "Satellite",
+          "sourceLayer": "satellite"
         }
       ]
     },
