@@ -4,6 +4,8 @@ import { MapLayerControl } from './map-layer-controls.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
+import { configureCadastralSearch, prewarmCadastral, isCadastralSearchEnabled } from './cadastral-search.js';
+import { initCadastralSearchUI } from './cadastral-search-ui.js';
 import { MapExportControl } from './map-export-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
 import { MeasureControl } from './map-measure-control.js';
@@ -266,6 +268,12 @@ export class MapInitializer {
 
         // Set current atlas in registry
         layerRegistry.setCurrentAtlas(atlasId);
+
+        if (config.cadastralSearch?.parquetUrl && config.cadastralSearch?.villagesUrl) {
+            configureCadastralSearch(config.cadastralSearch);
+            prewarmCadastral();
+            MapInitializer._ensureCadastralSearchUI();
+        }
 
         // Mark as imported atlas if loaded via URL
         if (isImportedAtlas) {
@@ -1112,36 +1120,63 @@ export class MapInitializer {
         });
     }
 
+    static _configureCadastralForCurrentAtlas() {
+        const registry = window.layerRegistry;
+        if (!registry) return;
+
+        const atlasId = registry.getCurrentAtlas?.() || registry._currentAtlas;
+        let cadastralSearch = registry.getAtlasMetadata(atlasId)?.cadastralSearch;
+
+        if (!cadastralSearch) {
+            const urlAtlas = URLUtils.getUrlParameter('atlas');
+            if (urlAtlas && urlAtlas !== 'index') {
+                cadastralSearch = registry.getAtlasMetadata(urlAtlas)?.cadastralSearch;
+            }
+        }
+
+        if (cadastralSearch?.parquetUrl && cadastralSearch?.villagesUrl) {
+            configureCadastralSearch(cadastralSearch);
+            prewarmCadastral();
+        }
+    }
+
+    static _ensureCadastralSearchUI() {
+        if (!window.searchControl || !window.map || !isCadastralSearchEnabled()) return;
+        initCadastralSearchUI(window.map, window.searchControl);
+    }
+
     // Initialize search box with enhanced functionality
     static initializeSearch() {
-        // Note: We now need to use the global map variable
         const searchSetup = () => {
-            // Initialize the feature state manager
+            if (window.searchControl) return;
+
             const featureStateManager = new MapFeatureStateManager(window.map);
 
-            // Start watching for layer additions
             featureStateManager.watchLayerAdditions();
 
-            // Initialize the enhanced search control
             const searchControl = new MapSearchControl(window.map);
 
-            // Connect the feature state manager to the search control
             searchControl.setFeatureStateManager(featureStateManager);
 
-            // Make both globally accessible for debugging
             window.featureStateManager = featureStateManager;
             window.searchControl = searchControl;
 
+            MapInitializer._configureCadastralForCurrentAtlas();
+            MapInitializer._ensureCadastralSearchUI();
         };
 
-        // Wait for style to load before setting up search
         if (window.map) {
+            if (window.map.isStyleLoaded()) {
+                searchSetup();
+            }
             window.map.on('style.load', searchSetup);
         } else {
-            // If map isn't available yet, set up a listener to check when it becomes available
             const checkMapInterval = setInterval(() => {
                 if (window.map) {
                     clearInterval(checkMapInterval);
+                    if (window.map.isStyleLoaded()) {
+                        searchSetup();
+                    }
                     window.map.on('style.load', searchSetup);
                 }
             }, 100);

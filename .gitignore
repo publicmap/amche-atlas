@@ -1,4 +1,5 @@
-data/
+# Root-level data/ only (scripts, geojson, etc.). Runtime assets live in public/data/.
+/data/
 **/.DS_Store
 
 # Dependencies

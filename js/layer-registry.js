@@ -125,7 +125,8 @@ export class LayerRegistry {
                     // may opt into via `stylePreset: "<name>"`.
                     style: config.style || null,
                     inspect: config.inspect || null,
-                    stylePresets: config.stylePresets || null
+                    stylePresets: config.stylePresets || null,
+                    cadastralSearch: config.cadastralSearch || null
                 });
 
                 if (config.layers && Array.isArray(config.layers)) {
