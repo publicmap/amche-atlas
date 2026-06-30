@@ -49,7 +49,10 @@
   },
   "homepage": "https://amche.in",
   "dependencies": {
+    "fast-levenshtein": "^3.0.0",
     "html2canvas": "^1.4.1",
+    "hyparquet": "^1.26.0",
+    "hyparquet-compressors": "^1.1.1",
     "jspdf": "^4.2.1",
     "lz-string": "^1.5.0",
     "tokml": "^0.4.0"

@@ -119,6 +119,108 @@
 /* Mapbox Search Box */
 #mapbox-search-box {
     max-width: 400px;
+    width: 100%;
+}
+
+.cadastral-search-panel {
+    display: flex;
+    gap: 0.5rem;
+    padding-bottom: 0.25rem;
+}
+
+.cadastral-search-panel.hidden {
+    display: none;
+}
+
+.cadastral-village-select {
+    flex: 1.4 1 0;
+    min-width: 0;
+}
+
+.cadastral-survey-input {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.cadastral-search-panel sl-select::part(combobox),
+.cadastral-search-panel sl-input::part(base) {
+    background: #1f2937;
+    border-color: #374151;
+    color: #f3f4f6;
+    min-height: 36px;
+}
+
+.cadastral-search-panel sl-select,
+.cadastral-search-panel sl-input {
+    --sl-input-background-color: #1f2937;
+    --sl-input-background-color-hover: #1f2937;
+    --sl-input-background-color-focus: #1f2937;
+    --sl-input-border-color: #374151;
+    --sl-input-border-color-hover: #6b7280;
+    --sl-input-border-color-focus: #6b7280;
+    --sl-input-color: #f3f4f6;
+    --sl-input-color-hover: #f3f4f6;
+    --sl-input-color-focus: #f3f4f6;
+    --sl-input-placeholder-color: #9ca3af;
+    --sl-input-icon-color: #9ca3af;
+    --sl-color-neutral-700: #f3f4f6;
+    --sl-color-neutral-600: #f3f4f6;
+    --sl-panel-background-color: #1f2937;
+    --sl-panel-border-color: #374151;
+}
+
+.cadastral-search-panel sl-select::part(display-input),
+.cadastral-search-panel sl-select::part(listbox) {
+    color: #f3f4f6;
+    background: #1f2937;
+}
+
+.cadastral-dropdown {
+    z-index: 9999;
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.cadastral-dropdown.hidden {
+    display: none;
+}
+
+.cadastral-results {
+    max-height: 240px;
+    overflow-y: auto;
+    border-top: 1px solid #374151;
+    margin-top: 0.25rem;
+}
+
+.cadastral-results.hidden {
+    display: none;
+}
+
+.cadastral-result {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 0;
+    background: transparent;
+    color: #f3f4f6;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cadastral-result:hover,
+.cadastral-result:focus {
+    background: #374151;
+    outline: none;
+}
+
+.cadastral-result__text {
+    font-size: 0.875rem;
+    line-height: 1.25;
 }
 
 @media (max-width: 768px) {
@@ -5119,6 +5221,47 @@ sl-tab:hover::part(base) {
 
 .selection-popup .mapboxgl-popup-tip {
     border-top-color: #1e293b !important;
+}
+
+/* Cadastral / search result marker popup */
+.search-result-popup .mapboxgl-popup-content {
+    padding: 12px 42px 12px 14px !important;
+    background: rgba(17, 24, 39, 0.95) !important;
+    border: 1px solid #374151 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+    color: #f3f4f6 !important;
+    max-width: 320px !important;
+}
+
+.search-result-popup .search-result-popup__title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.45;
+    word-wrap: break-word;
+}
+
+.search-result-popup .mapboxgl-popup-close-button {
+    width: 32px;
+    height: 32px;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0;
+    font-size: 18px;
+    line-height: 32px;
+    color: #9ca3af !important;
+    border-radius: 4px;
+}
+
+.search-result-popup .mapboxgl-popup-close-button:hover {
+    color: #f3f4f6 !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.search-result-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+    border-top-color: rgba(17, 24, 39, 0.95) !important;
 }
 
 /* OSM attribution hover popups (Map Center + Nominatim result) */

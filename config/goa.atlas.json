@@ -8,6 +8,10 @@
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/goa.atlas.json",
   "color": "#059669",
   "wikidata": "Q1171",
+  "cadastralSearch": {
+    "parquetUrl": "https://raw.githubusercontent.com/ourgoaindata/cadastral-search/v1.0.0/data/cadastral_search.parquet",
+    "villagesUrl": "https://raw.githubusercontent.com/ourgoaindata/cadastral-search/v1.0.0/data/villages.json"
+  },
   "map": {
     "center": [
       73.8,
