@@ -189,12 +189,26 @@ export class KeyboardController {
 
     isInputActive() {
         const active = document.activeElement;
-        return active && (
+        if (!active) return false;
+        if (
             active.tagName === 'INPUT' ||
             active.tagName === 'TEXTAREA' ||
             active.isContentEditable ||
-            active.closest('mapbox-search-box')
-        );
+            active.closest('mapbox-search-box') ||
+            active.tagName === 'SL-INPUT' ||
+            active.tagName === 'SL-SELECT' ||
+            active.closest('sl-input') ||
+            active.closest('sl-select')
+        ) return true;
+        // Shoelace components delegate focus into their shadow DOM; the light-DOM
+        // active element becomes the sl-* host. Also catch focus inside shadow roots.
+        const host = active.getRootNode?.()?.host;
+        return Boolean(host && (
+            host.tagName === 'SL-INPUT' ||
+            host.tagName === 'SL-SELECT' ||
+            host.closest('sl-input') ||
+            host.closest('sl-select')
+        ));
     }
 
     focusSearch() {
