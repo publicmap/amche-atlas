@@ -1,6 +1,8 @@
 /**
  * Controller for Three Dimensional Terrain
  */
+import { trackEvent } from './analytics.js';
+
 export class Terrain3DControl {
     constructor(options = {}) {
         this.options = {
@@ -716,6 +718,7 @@ export class Terrain3DControl {
 
         $checkbox.on('change', (e) => {
             this._enabled = e.target.checked;
+            trackEvent('terrain_3d_toggle', { enabled: this._enabled });
             // Show/hide terrain controls based on checkbox state
             $terrainControls.css('display', this._enabled ? 'block' : 'none');
             this._updateTerrain();

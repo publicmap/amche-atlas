@@ -1,5 +1,6 @@
 import { ExportFrame } from './export-frame.js';
 import { InspectionHandlerLoader } from './inspection-handler-loader.js';
+import { trackEvent } from './analytics.js';
 
 export class MapExportControl {
     constructor() {
@@ -449,6 +450,8 @@ export class MapExportControl {
 
         try {
             const format = config.format;
+
+            trackEvent('map_export', { export_type: format });
 
             if (format === 'pdf') {
                 await this._exportPDF(config);
