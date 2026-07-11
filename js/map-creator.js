@@ -252,6 +252,7 @@ export class MapCreator {
 
         $('#copy-inline-btn').on('click', () => {
             const url = $('#inline-url').val();
+            window.amcheAnalytics?.trackEvent('share_action', { method: 'copy_map_url' });
             navigator.clipboard.writeText(url).then(() => {
                 const $btn = $('#copy-inline-btn');
                 $btn.text('Copied!').removeClass('bg-blue-600 hover:bg-blue-700').addClass('bg-green-600');

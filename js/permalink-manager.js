@@ -29,6 +29,10 @@ export class PermalinkManager {
         const permalinkUrl = data.permalinks[permalinkId].url;
         const originalHash = window.location.hash;
 
+        // Stash for analytics: an event sent now would be lost in the redirect
+        // below, so index.js reports permalink_resolve after the page reloads.
+        try { sessionStorage.setItem('amche_permalink_resolved', permalinkId); } catch (e) { /* ignore */ }
+
         const extraParams = new URLSearchParams(urlParams);
         extraParams.delete('permalink');
         extraParams.delete('p');

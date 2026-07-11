@@ -31,6 +31,7 @@
         src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace.js"></script>
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
         href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css">
+    <script defer type="module" src="js/analytics.js"></script>
 </head>
 
 <body class="flex flex-col min-h-screen">
@@ -146,7 +147,14 @@
                             <li>How long you spend on the website</li>
                             <li>What type of device and browser you use</li>
                             <li>Your general location (city or country level, not exact address)</li>
+                            <li>Which map features you interact with — for example which map layers you turn on or
+                                off, use of search, measurement, 3D terrain and export tools</li>
                         </ul>
+                        <p class="text-gray-700 leading-relaxed mt-3">
+                            These interaction events record only the names of public map layers and tools — never
+                            your search text, cadastral plot numbers, GPS coordinates, or anything that could
+                            identify you or a property you looked up.
+                        </p>
                         <p class="text-gray-700 leading-relaxed mt-3">
                             This data helps us understand how to make the website better for local users. We do not
                             collect personally

@@ -4,6 +4,7 @@
  */
 import { MapboxAPI } from './mapbox-api.js';
 import { handlerLoader } from './inspection-handler-loader.js';
+import { trackEvent } from './analytics.js';
 
 export class MapFeatureStateManager extends EventTarget {
     constructor(map, mapboxAPI = null) {
@@ -452,6 +453,11 @@ export class MapFeatureStateManager extends EventTarget {
 
         // Process clicked features and select them
         const newSelections = [];
+
+        // Report which layer the topmost inspected feature belongs to
+        if (clickedFeatures[0]?.layerId) {
+            trackEvent('feature_inspect', { layer_id: clickedFeatures[0].layerId });
+        }
 
         clickedFeatures.forEach(({ feature, layerId, lngLat }) => {
             if (!feature || !layerId) return;

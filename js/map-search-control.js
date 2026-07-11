@@ -1,4 +1,5 @@
 import { queryCadastralPlots, parseCadastralQuery, isCadastralSearchEnabled } from './cadastral-search.js'
+import { trackEvent } from './analytics.js'
 
 /**
  * MapSearchControl - Mapbox search with coordinate search and Goa cadastral
@@ -911,6 +912,13 @@ export class MapSearchControl {
             const coordinates = feature.geometry.coordinates;
 
             const isLocalSuggestion = feature.properties && feature.properties._isLocalSuggestion;
+
+            // Cadastral plot selections are deliberately not named in analytics:
+            // plot identifiers can reveal personal interest in specific parcels.
+            trackEvent('search_select', {
+                search_type: isLocalSuggestion ? 'cadastral' : 'place',
+                result_name: isLocalSuggestion ? undefined : feature.properties?.name
+            });
 
             if (isLocalSuggestion) {
                 // Set value silently (no input event) so Mapbox doesn't fetch suggestions
