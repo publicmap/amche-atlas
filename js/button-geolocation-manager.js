@@ -2,6 +2,8 @@
  * Geolocation Manager
  */
 
+import { trackEvent } from './analytics.js';
+
 export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
     constructor() {
@@ -80,6 +82,7 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
             // (code 1), which won't resolve itself.
             const isTransient = error.code === 2 || error.code === 3;
             if (!isTransient || this.locationErrorCount >= 3) {
+                trackEvent('geolocate', { status: 'error', error_code: error.code });
                 this._showErrorDialog(error);
             }
 
@@ -89,6 +92,11 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         });
 
         this.on('geolocate', (e) => {
+            // geolocate fires continuously while tracking; report once per session
+            if (!this._analyticsGeolocateReported) {
+                this._analyticsGeolocateReported = true;
+                trackEvent('geolocate', { status: 'success' });
+            }
             this.locationErrorCount = 0;
             const now = performance.now();
             const elapsed = this._triggerStartedAt

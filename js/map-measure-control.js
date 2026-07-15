@@ -5,6 +5,8 @@
  * Uses the globally loaded MapboxDraw (@mapbox/mapbox-gl-draw) and turf (@turf/turf).
  */
 
+import { trackEvent } from './analytics.js';
+
 const DRAW_LABELS_SOURCE_ID = 'source-draw-labels';
 const DRAW_LABELS_LAYER_ID = 'layer-draw-labels';
 const DRAW_NODES_SOURCE_ID = 'source-draw-nodes';
@@ -167,6 +169,7 @@ export class MeasureControl {
         this._toolsContainer.style.display = this._expanded ? 'block' : 'none';
         this._toggleBtn.classList.toggle('active', this._expanded);
         if (this._expanded) {
+            trackEvent('measure_use');
             // Reveal existing measurements and activate line measurement by default.
             this._setMeasurementsVisible(true);
             const lineMode = this._drawCtrl.modes.DRAW_LINE_STRING;
