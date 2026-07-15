@@ -150,7 +150,7 @@
           ]
         ]
       },
-      "initiallyChecked": false,
+      "initiallyChecked": true,
       "inspect": {
         "id": "Shape_Area",
         "title": "Plot",
@@ -158,8 +158,7 @@
         "fields": [
           "Village_Name",
           "District_Name"
-        ],
-        "customHtml": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/' target='_blank'>Bhunaksha Goa</a> | <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31' target='_blank'>View RoR</a> | <a href='https://davepaiva.github.io/goa-cadastral-duckdb-demo/' target='_blank'>Search</a>"
+        ]
       }
     },
     {
@@ -225,7 +224,7 @@
       "sourceLayer": "LGD_Districts",
       "maxzoom": 10,
       "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>LGD/Bharatmaps</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/districts'>Datameet Community:LGD_Districts</a>",
-      "initiallyChecked": true,
+      "initiallyChecked": false,
       "filter": [
         "!=",
         [

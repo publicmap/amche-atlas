@@ -2097,8 +2097,7 @@
     },
     {
       "tags": [
-        "survey",
-        "basemap"
+        "survey"
       ],
       "title": "SOI 1:50K Open Series Maps 2011",
       "description": "Open Series Map from Survey of India as per the <a href='https://www.surveyofindia.gov.in/files/nmp/National%20Map%20Policy.pdf'>National Map Policy 2005</a> for supporting development activities in the country. See <a href='https://www.pmv.ac.in/pdf/lecture/geography/OSM-Numbering-System.pdf'>OSM sheet numbering system</a> for more details.",
@@ -3377,6 +3376,35 @@
       "attribution": "<a href='https://surveyofindia.gov.in/UserFiles/files/RAILWAY%203_5M_ENG_25_31stEdn2025.pdf' target='_blank'>Survey Of India</a> via <a href='https://mapwarper.net/maps/107806' target='_blank'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/107806/thumb/RAILWAY_3_5M_ENG_25_31stEdn2025.png",
       "bbox": "65.3782764,2.3725089,99.3278618,38.3625613",
+      "initiallyChecked": false
+    },
+    {
+      "title": "Railway Map Of India (1915)",
+      "description": "Color map of railway system, with inset maps: Russian Turkistan -- The world and its highways by land and sea -- Proposed railroads through Persia and Asia Minor -- Gujarat -- Bombay -- Kalka Simla Railway -- Indian Empire provinces -- Bengal -- Calcutta -- Bengal coal fields -- Madras -- River services in Bengal -- Agra -- Cawnpore -- Delhi -- Lucknow -- Malaysia and Sumatra. Map showing railways, train stations, railways under construction, roads, and sea routes. Relief shown by hachures and shadings. Includes legend and distance table.",
+      "date": "1915",
+      "type": "tms",
+      "id": "railway-map-1915",
+      "url": "https://mapwarper.net/maps/tile/52833/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://www.davidrumsey.com/luna/servlet/detail/RUMSEY~8~1~328296~90096788:March-1915-map-of-railway-systems-i?sort=Pub_List_No_InitialSort%2CPub_Date%2CPub_List_No%2CSeries_No#' target='_blank'>https://www.davidrumsey.com/luna/servlet/detail/RUMSEY~8~1~328296~90096788:March-1915-map-of-railway-systems-i?sort=Pub_List_No_InitialSort%2CPub_Date%2CPub_List_No%2CSeries_No#</a> via <a href='https://mapwarper.net/maps/52833' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/52833/thumb/13440000.png",
+      "bbox": "60.0942287,2.0067687,103.0829347,38.5042557",
       "initiallyChecked": false
     },
     {
