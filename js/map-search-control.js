@@ -348,8 +348,9 @@ export class MapSearchControl {
      */
     removeSearchMarker() {
         if (this.searchMarker) {
-            this.searchMarker.remove();
+            const marker = this.searchMarker;
             this.searchMarker = null;
+            marker.remove();
         }
     }
 
