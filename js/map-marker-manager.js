@@ -416,7 +416,58 @@ export class MapMarkerManager {
         return `<div class="feature-badge-footer" style="display:flex;align-items:center;gap:4px;margin-top:4px;padding-top:3px;border-top:1px solid rgba(0,0,0,0.2);">` +
             `${thumbnailHTML}${atlasBadge}` +
             `<span style="font-size:9px;color:#1a1a1a;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${layerName}</span>` +
+            this._buildLayerActionsMenuHTML(f.layerId) +
             `</div>`;
+    }
+
+    /**
+     * Export shortcuts menu (three-dot trigger) reused in both the badge footer
+     * and the popup's expanded layer header. See _handleLayerExportAction.
+     */
+    _buildLayerActionsMenuHTML(layerId) {
+        return `
+            <sl-dropdown class="layer-actions-dropdown" data-layer-id="${layerId}" hoist style="flex-shrink:0;">
+                <sl-icon-button slot="trigger" name="three-dots-vertical" label="Layer actions" style="font-size:12px;color:#6b7280;"></sl-icon-button>
+                <sl-menu style="font-size:11px;">
+                    <sl-menu-item value="export-selected">
+                        Export Selected
+                        <sl-menu slot="submenu">
+                            <sl-menu-item value="export-selected:geojson">GeoJSON</sl-menu-item>
+                            <sl-menu-item value="export-selected:kml">KML</sl-menu-item>
+                            <sl-menu-item value="export-selected:csv">GeoCSV</sl-menu-item>
+                        </sl-menu>
+                    </sl-menu-item>
+                    <sl-menu-item value="export-layer">
+                        Export Layer
+                        <sl-menu slot="submenu">
+                            <sl-menu-item value="export-layer:geojson">GeoJSON</sl-menu-item>
+                            <sl-menu-item value="export-layer:kml">KML</sl-menu-item>
+                            <sl-menu-item value="export-layer:csv">GeoCSV</sl-menu-item>
+                        </sl-menu>
+                    </sl-menu-item>
+                </sl-menu>
+            </sl-dropdown>
+        `;
+    }
+
+    /**
+     * Wires up sl-select on a layer actions dropdown (badge footer or popup header)
+     * to trigger _handleLayerExportAction.
+     */
+    _attachLayerActionsMenuHandlers(root) {
+        root.querySelectorAll('.layer-actions-dropdown').forEach(dropdown => {
+            if (dropdown._exportMenuWired) return;
+            dropdown._exportMenuWired = true;
+            dropdown.addEventListener('click', (e) => e.stopPropagation());
+            const menu = dropdown.querySelector('sl-menu');
+            menu?.addEventListener('sl-select', (e) => {
+                e.stopPropagation();
+                const value = e.detail.item?.value || '';
+                const [action, format] = value.split(':');
+                if (!format) return;
+                this._handleLayerExportAction(action, format, dropdown.dataset.layerId);
+            });
+        });
     }
 
     _buildMarkerBadgesHTML(features, lngLat) {
@@ -531,6 +582,9 @@ export class MapMarkerManager {
             badge.addEventListener('click', handler);
             if (this._isTouch) badge.addEventListener('touchend', handler);
         });
+
+        // Layer actions menu (export shortcuts) in each badge's footer
+        this._attachLayerActionsMenuHandlers(el);
     }
 
     _expandBadgeValue(valueSpan) {
@@ -1209,6 +1263,7 @@ export class MapMarkerManager {
                             <div class="expanded-layer-header" style="display:flex;align-items:center;gap:4px;padding:4px 6px;border-bottom:1px solid #1a1a1a;">
                                 ${atlasBadge}
                                 <span style="font-size:10px;color:#94a3b8;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${layerConfig?.title || layerId}</span>
+                                ${this._buildLayerActionsMenuHTML(layerId)}
                                 <button class="layer-info-toggle" data-layer-id="${layerId}" style="background:#1a1a1a;border:1px solid #222;color:#6b7280;font-size:10px;padding:1px 5px;border-radius:3px;cursor:pointer;line-height:1;flex-shrink:0;">...</button>
                             </div>
                             <div class="layer-info-panel" style="display:none;padding:6px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;">
@@ -1618,6 +1673,9 @@ export class MapMarkerManager {
             });
         });
 
+        // Layer actions menu (export shortcuts) in expanded header
+        this._attachLayerActionsMenuHandlers(popup);
+
         // Opacity slider
         popup.querySelectorAll('.layer-opacity-slider').forEach(slider => {
             slider.addEventListener('input', (e) => {
@@ -1964,6 +2022,34 @@ export class MapMarkerManager {
                 saveBtn.disabled = false;
             }
         });
+    }
+
+    /**
+     * Shortcut export triggered from the layer actions menu in a feature popup.
+     * "export-selected" reuses the app's current selection (same as the "selected
+     * only" export in map-export.html); "export-layer" pulls every feature currently
+     * loaded for that layer's source, regardless of selection.
+     */
+    async _handleLayerExportAction(action, format, layerId) {
+        const exportControl = window.exportControl;
+        if (!exportControl || !layerId || !format) return;
+
+        const config = { format, exportSelectedOnly: true };
+
+        if (action === 'export-layer') {
+            const layerConfig = this._stateManager.getLayerConfig(layerId);
+            const sourceId = layerConfig?.source || `${layerConfig?.type}-${layerId}`;
+            let features = [];
+            try {
+                features = this._map.querySourceFeatures(sourceId, { sourceLayer: layerConfig?.sourceLayer }) || [];
+            } catch (err) {
+                console.warn(`[MapMarkerManager] Could not query features for layer "${layerId}":`, err);
+            }
+            if (features.length === 0) return;
+            config.customSelectedFeatures = features.map(feature => ({ feature, layerId, layerConfig }));
+        }
+
+        await exportControl._handleExport(config);
     }
 
     _closePopup(markerId) {

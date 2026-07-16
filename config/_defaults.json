@@ -311,7 +311,7 @@
           ]
         },
         "circle": {
-          "circle-radius": 5,
+          "circle-radius": 2,
           "circle-color": "#FF0000",
           "circle-opacity": 0.8,
           "circle-stroke-width": 1,
@@ -327,7 +327,7 @@
       },
       "csv": {
         "circle": {
-          "circle-radius": 5,
+          "circle-radius": 3,
           "circle-color": "#3887be",
           "circle-opacity": 0.7,
           "circle-stroke-width": 1.5,
