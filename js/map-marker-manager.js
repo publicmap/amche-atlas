@@ -22,7 +22,6 @@ export class MapMarkerManager {
         this._selectionLayerId = 'selection'; // Layer ID for selection markers
         this._starredMarkers = new Set(); // Marker IDs that are starred (persist on new selection)
         this._selectedBadges = new Set(); // Expanded (selected) feature badges
-        this._badgeViewSaved = null; // Camera state to restore when no badge is selected
         this._isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
         this._setupEventListeners();
@@ -416,20 +415,30 @@ export class MapMarkerManager {
         return `<div class="feature-badge-footer" style="display:flex;align-items:center;gap:4px;margin-top:4px;padding-top:3px;border-top:1px solid rgba(0,0,0,0.2);">` +
             `${thumbnailHTML}${atlasBadge}` +
             `<span style="font-size:9px;color:#1a1a1a;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${layerName}</span>` +
-            this._buildLayerActionsMenuHTML(f.layerId) +
+            this._buildLayerActionsMenuHTML(f.layerId, f.feature) +
             `</div>`;
     }
 
     /**
-     * Export shortcuts menu (three-dot trigger) reused in both the badge footer
-     * and the popup's expanded layer header. See _handleLayerExportAction.
+     * Actions menu (three-dot trigger) reused in both the badge footer and the
+     * popup's expanded layer header. See _handleZoomToFeatureAction and
+     * _handleLayerExportAction.
      */
-    _buildLayerActionsMenuHTML(layerId) {
+    _buildLayerActionsMenuHTML(layerId, feature) {
+        const featureData = feature ? encodeURIComponent(JSON.stringify(feature)) : '';
         return `
-            <sl-dropdown class="layer-actions-dropdown" data-layer-id="${layerId}" hoist style="flex-shrink:0;">
+            <sl-dropdown class="layer-actions-dropdown" data-layer-id="${layerId}" data-feature-data="${featureData}" hoist style="flex-shrink:0;">
                 <sl-icon-button slot="trigger" name="three-dots-vertical" label="Layer actions" style="font-size:12px;color:#6b7280;"></sl-icon-button>
                 <sl-menu style="font-size:11px;">
+                    ${feature ? `
+                    <sl-menu-item value="zoom-to-feature">
+                        <sl-icon slot="prefix" name="zoom-in"></sl-icon>
+                        Zoom to Feature
+                    </sl-menu-item>
+                    <sl-divider></sl-divider>
+                    ` : ''}
                     <sl-menu-item value="export-selected">
+                        <sl-icon slot="prefix" name="download"></sl-icon>
                         Export Selected
                         <sl-menu slot="submenu">
                             <sl-menu-item value="export-selected:geojson">GeoJSON</sl-menu-item>
@@ -438,12 +447,18 @@ export class MapMarkerManager {
                         </sl-menu>
                     </sl-menu-item>
                     <sl-menu-item value="export-layer">
+                        <sl-icon slot="prefix" name="download"></sl-icon>
                         Export Layer
                         <sl-menu slot="submenu">
                             <sl-menu-item value="export-layer:geojson">GeoJSON</sl-menu-item>
                             <sl-menu-item value="export-layer:kml">KML</sl-menu-item>
                             <sl-menu-item value="export-layer:csv">GeoCSV</sl-menu-item>
                         </sl-menu>
+                    </sl-menu-item>
+                    <sl-divider></sl-divider>
+                    <sl-menu-item value="remove-layer" style="color:#ef4444;">
+                        <sl-icon slot="prefix" name="trash" style="color:#ef4444;"></sl-icon>
+                        Remove Layer
                     </sl-menu-item>
                 </sl-menu>
             </sl-dropdown>
@@ -452,7 +467,7 @@ export class MapMarkerManager {
 
     /**
      * Wires up sl-select on a layer actions dropdown (badge footer or popup header)
-     * to trigger _handleLayerExportAction.
+     * to trigger _handleZoomToFeatureAction / _handleLayerExportAction.
      */
     _attachLayerActionsMenuHandlers(root) {
         root.querySelectorAll('.layer-actions-dropdown').forEach(dropdown => {
@@ -463,11 +478,42 @@ export class MapMarkerManager {
             menu?.addEventListener('sl-select', (e) => {
                 e.stopPropagation();
                 const value = e.detail.item?.value || '';
+                if (value === 'zoom-to-feature') {
+                    this._handleZoomToFeatureAction(dropdown);
+                    return;
+                }
+                if (value === 'remove-layer') {
+                    this._handleRemoveLayerAction(dropdown.dataset.layerId);
+                    return;
+                }
                 const [action, format] = value.split(':');
                 if (!format) return;
                 this._handleLayerExportAction(action, format, dropdown.dataset.layerId);
             });
         });
+    }
+
+    /**
+     * User-triggered zoom from the layer actions menu — the app no longer zooms
+     * automatically when a badge/feature card is selected.
+     */
+    _handleZoomToFeatureAction(dropdown) {
+        const featureData = dropdown.dataset.featureData;
+        if (!featureData) return;
+        try {
+            const feature = JSON.parse(decodeURIComponent(featureData));
+            this._isProgrammaticZoom = true;
+            this._zoomToFeature(feature);
+            setTimeout(() => { this._isProgrammaticZoom = false; }, 1500);
+        } catch (err) {
+            console.warn('[MapMarkerManager] Could not zoom to feature:', err);
+        }
+    }
+
+    _handleRemoveLayerAction(layerId) {
+        if (!layerId) return;
+        if (!confirm(`Remove layer "${layerId}"?`)) return;
+        window.postMessage({ type: 'remove-layer', layerId }, '*');
     }
 
     _buildMarkerBadgesHTML(features, lngLat) {
@@ -640,9 +686,10 @@ export class MapMarkerManager {
 
     /**
      * Toggle a selection-marker badge between collapsed and selected (expanded) state.
-     * Selecting expands the attribute table, turns the eye orange, isolates the layer
-     * and zooms to fit the feature; deselecting collapses it, clears isolation and
-     * restores the view once no badge remains selected.
+     * Selecting expands the attribute table, turns the eye orange and isolates the
+     * layer; deselecting collapses it and clears isolation. Zooming to the feature
+     * is a manual action (see the layer actions menu's "Zoom to Feature" item), not
+     * automatic here.
      */
     _toggleBadgeSelected(badge, f) {
         const wasSelected = badge.classList.contains('badge-selected');
@@ -669,8 +716,6 @@ export class MapMarkerManager {
 
     _selectBadge(badge, f) {
         this._setBadgeSelected(badge);
-
-        const firstSelection = this._selectedBadges.size === 0;
         this._selectedBadges.add(badge);
 
         if (!f) return;
@@ -685,15 +730,6 @@ export class MapMarkerManager {
             window.postMessage({ type: 'isolate-layer', layerId: f.layerId, isBasemap }, '*');
             this._setSiblingBadgesDimmed(badge, true);
         }
-
-        // Save the current view the first time a badge is zoomed so we can restore
-        // it later, then zoom to fit the feature (same as the inspector's zoom button).
-        if (firstSelection) this._saveBadgeView();
-        if (f.feature) {
-            this._isProgrammaticZoom = true;
-            this._zoomToFeature(f.feature);
-            setTimeout(() => { this._isProgrammaticZoom = false; }, 1500);
-        }
     }
 
     _deselectBadge(badge) {
@@ -705,28 +741,6 @@ export class MapMarkerManager {
             window.postMessage({ type: 'clear-layer-isolation' }, '*');
             this._setSiblingBadgesDimmed(badge, false);
         }
-
-        // Restore the saved view once nothing is selected anymore.
-        if (this._selectedBadges.size === 0) this._restoreBadgeView();
-    }
-
-    _saveBadgeView() {
-        if (this._badgeViewSaved) return;
-        this._badgeViewSaved = {
-            center: this._map.getCenter(),
-            zoom: this._map.getZoom(),
-            bearing: this._map.getBearing(),
-            pitch: this._map.getPitch()
-        };
-    }
-
-    _restoreBadgeView() {
-        if (!this._badgeViewSaved) return;
-        const camera = this._badgeViewSaved;
-        this._badgeViewSaved = null;
-        this._isProgrammaticZoom = true;
-        this._map.flyTo({ ...camera, duration: 1000 });
-        setTimeout(() => { this._isProgrammaticZoom = false; }, 1500);
     }
 
     _blockMapHoverEvents(el) {
@@ -1263,7 +1277,7 @@ export class MapMarkerManager {
                             <div class="expanded-layer-header" style="display:flex;align-items:center;gap:4px;padding:4px 6px;border-bottom:1px solid #1a1a1a;">
                                 ${atlasBadge}
                                 <span style="font-size:10px;color:#94a3b8;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${layerConfig?.title || layerId}</span>
-                                ${this._buildLayerActionsMenuHTML(layerId)}
+                                ${this._buildLayerActionsMenuHTML(layerId, f.feature)}
                                 <button class="layer-info-toggle" data-layer-id="${layerId}" style="background:#1a1a1a;border:1px solid #222;color:#6b7280;font-size:10px;padding:1px 5px;border-radius:3px;cursor:pointer;line-height:1;flex-shrink:0;">...</button>
                             </div>
                             <div class="layer-info-panel" style="display:none;padding:6px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;">
