@@ -9,6 +9,19 @@ export class MapCreator {
         this.currentGeometryType = null;
         this.currentDataSource = null;
         this.currentLayerType = null;
+        // Config JSON textarea can be hand-edited; this holds those edits for
+        // geojson/csv layers (whose currentData holds the raw data, not the config).
+        // Tile-type layers (vector/tms/wms/...) don't need this since
+        // currentData already *is* the config object.
+        this._layerConfigOverride = null;
+        this._originalTileConfig = null;
+        // True once the user has manually toggled a Point/Line/Area/Label
+        // checkbox — turns off auto-detection until the next data load.
+        this._styleTypesUserModified = false;
+        // True once the user has hand-edited the Configuration JSON — the
+        // style checkboxes/pickers stop overwriting config.style until the
+        // user touches one of them again (see setupEventListeners).
+        this._styleManuallyEdited = false;
     }
 
     init() {
@@ -22,6 +35,10 @@ export class MapCreator {
         window.addEventListener('message', async (event) => {
             if (event.data.type === 'bounds-update' && Array.isArray(event.data.bounds)) {
                 this._parentBounds = event.data.bounds;
+                return;
+            }
+            if (event.data.type === 'creator-tile-info') {
+                this._handleTileInfoDetected(event.data.geometryTypes || [], event.data.fields || []);
                 return;
             }
             if (event.data.type === 'load-file-data') {
@@ -130,6 +147,7 @@ export class MapCreator {
             $('#settings-section').hide();
             this.setLoadingState('default');
             $('.format-chip').removeClass('active-format');
+            this._resetConfigEditorState();
             this.clearPreview();
         });
 
@@ -142,6 +160,7 @@ export class MapCreator {
             $('#data-preview-details').hide();
             $('#settings-section').hide();
             this.setLoadingState('default');
+            this._resetConfigEditorState();
             this.clearPreview();
         });
 
@@ -159,18 +178,27 @@ export class MapCreator {
         $('#preview-geojson-io-btn').on('click', () => this.previewOnGeojsonIO());
         $('#download-geojson-btn').on('click', () => this.downloadGeoJSON());
 
-        $('#fill-color').on('input', (e) => {
-            $('#fill-color-preview').css('background-color', e.target.value);
+        $('.style-color-input').on('input', (e) => {
+            $(e.target).siblings('.color-preview').css('background-color', e.target.value);
+            this._styleManuallyEdited = false;
             this.updateConfigPreview();
         });
 
-        $('#stroke-color').on('input', (e) => {
-            $('#stroke-color-preview').css('background-color', e.target.value);
+        $('.style-control').on('input', (e) => {
+            $(`#${e.target.id}-value`).text(e.target.value);
+            this._styleManuallyEdited = false;
             this.updateConfigPreview();
         });
 
-        $('#stroke-width').on('input', (e) => {
-            $('#stroke-width-value').text(e.target.value);
+        $('.style-type-checkbox').on('change', () => {
+            this._styleTypesUserModified = true;
+            this._styleManuallyEdited = false;
+            this.updateStyleSectionVisibility();
+            this.updateConfigPreview();
+        });
+
+        $('#label-field-select').on('change', () => {
+            this._styleManuallyEdited = false;
             this.updateConfigPreview();
         });
 
@@ -250,6 +278,14 @@ export class MapCreator {
             this.updateConfigPreview();
         });
 
+        let configEditTimeout;
+        $('#config-preview').on('input', () => {
+            clearTimeout(configEditTimeout);
+            configEditTimeout = setTimeout(() => this.handleConfigJSONEdit(), 300);
+        });
+
+        $('#reset-config-json-btn').on('click', () => this.resetConfigOverride());
+
         $('#copy-inline-btn').on('click', () => {
             const url = $('#inline-url').val();
             window.amcheAnalytics?.trackEvent('share_action', { method: 'copy_map_url' });
@@ -261,6 +297,64 @@ export class MapCreator {
                 }, 2000);
             });
         });
+    }
+
+    handleConfigJSONEdit() {
+        const text = $('#config-preview').val();
+        let parsed;
+        try {
+            parsed = JSON.parse(text);
+        } catch (error) {
+            $('#config-json-status').html(`<span style="color:#f87171;">✗ Invalid JSON — ${error.message}</span>`);
+            return;
+        }
+
+        $('#config-json-status').html('<span style="color:#86efac;">✓ Valid — live preview updated</span>');
+        $('#reset-config-json-btn').removeClass('hidden');
+
+        if (parsed.type) {
+            this.currentLayerType = parsed.type;
+        }
+
+        if (parsed.style !== undefined) {
+            this._styleManuallyEdited = true;
+        }
+
+        if (this.currentLayerType === 'geojson' || this.currentLayerType === 'csv') {
+            this._layerConfigOverride = parsed;
+        } else {
+            this.currentData = parsed;
+        }
+
+        if (parsed.title !== undefined) $('#layer-title').val(parsed.title);
+        if (parsed.id !== undefined) $('#layer-id').val(parsed.id);
+        if (parsed.type !== undefined) $('#layer-type').val(parsed.type);
+        if (parsed.description !== undefined) $('#layer-description').val(parsed.description);
+        if (parsed.attribution !== undefined) $('#layer-attribution').val(parsed.attribution);
+
+        const baseUrl = window.location.origin + window.location.pathname;
+        const configJson = JSON.stringify(parsed).replace(/"/g, "'");
+        $('#inline-url').val(`${baseUrl}?layers=${encodeURIComponent(configJson)}`);
+
+        $('#add-to-map-btn').prop('disabled', false);
+        this.schedulePreview();
+    }
+
+    resetConfigOverride() {
+        if (this._originalTileConfig && this.currentLayerType !== 'geojson' && this.currentLayerType !== 'csv') {
+            this.currentData = JSON.parse(JSON.stringify(this._originalTileConfig));
+        }
+        this._resetConfigEditorState();
+        this.updateConfigPreview();
+    }
+
+    _resetConfigEditorState() {
+        this._layerConfigOverride = null;
+        this._styleManuallyEdited = false;
+        this._styleTypesUserModified = false;
+        this._lastLabelFieldsKey = undefined;
+        $('#config-json-status').html('');
+        $('#reset-config-json-btn').addClass('hidden');
     }
 
     getDefaultIdField(fields) {
@@ -772,9 +866,6 @@ export class MapCreator {
     }
 
     setupColorPickers() {
-        $('#fill-color-preview').css('background-color', '#3b82f6');
-        $('#stroke-color-preview').css('background-color', '#1e40af');
-
         const defaultGeoJSON = {
             type: 'FeatureCollection',
             features: []
@@ -1344,9 +1435,10 @@ export class MapCreator {
 
         const fields = this.extractFields(geojson);
         this.populateDataFields(fields);
+        this.populateLabelFieldOptions(fields);
 
         this.updateDataPreview(geojson);
-        this.showStyleSection(geometryType);
+        this.showStyleSection(geojson);
         this.showConfigSection();
 
         $('#layer-type').val('geojson');
@@ -1355,6 +1447,7 @@ export class MapCreator {
             return;
         }
 
+        this._resetConfigEditorState();
         this.updateConfigPreview();
         $('#add-to-map-btn').prop('disabled', false);
         this.setLoadingState('success');
@@ -1362,6 +1455,7 @@ export class MapCreator {
 
     processCSVLayer(csvUrl, geojson, rows) {
         this._previewFitted = false;
+        this._resetConfigEditorState();
         this.currentData = {
             csvUrl: csvUrl,
             geojson: geojson,
@@ -1375,9 +1469,10 @@ export class MapCreator {
 
         const fields = this.extractFields(geojson);
         this.populateDataFields(fields);
+        this.populateLabelFieldOptions(fields);
 
         this.updateDataPreview(geojson);
-        this.showStyleSection(geometryType);
+        this.showStyleSection(geojson);
         this.showConfigSection();
 
         $('#layer-type').val('csv');
@@ -1399,6 +1494,7 @@ export class MapCreator {
             columns: rows.length > 0 ? Object.keys(rows[0]) : []
         });
 
+        this._resetConfigEditorState();
         this.currentData = {
             csvUrl: csvUrl,
             geojson: null,
@@ -1431,6 +1527,9 @@ export class MapCreator {
     }
 
     showTileLayerSuccess(config) {
+        this._resetConfigEditorState();
+        this._originalTileConfig = JSON.parse(JSON.stringify(config));
+
         $('#data-preview-details').hide();
         // .show() is a no-op when the element wasn't hidden via inline style,
         // so the MutationObserver bridge never fires. Remove the disabled
@@ -1445,9 +1544,28 @@ export class MapCreator {
         $('#layer-description').val(config.description || '');
         $('#layer-attribution').val(config.attribution || '');
 
+        // Point/Line/Area/Label style checkboxes only make sense for vector
+        // tile layers — geometry is unknown up front, so start with just
+        // Label checked and let live tile detection (see
+        // _handleTileInfoDetected) or the user fill in the rest.
+        if ((config.type || 'tms') === 'vector') {
+            $('#style-controls').show();
+            $('#geometry-type-info').text('Geometry type unknown until tiles load — check the box(es) that match your data below, or wait for it to auto-detect once the preview loads.');
+            this._styleTypesUserModified = false;
+            $('#style-type-point, #style-type-line, #style-type-area').prop('checked', false);
+            $('#style-type-label').prop('checked', true);
+            this.updateStyleSectionVisibility();
+
+            const fields = config.inspect?.fields || [];
+            this.populateLabelFieldOptions(fields, config.inspect?.label);
+        } else {
+            $('#style-controls').hide();
+        }
+
         this.updateTileConfigPreview(config);
         $('#add-to-map-btn').prop('disabled', false);
         this.setLoadingState('success');
+        this.schedulePreview();
     }
 
     detectGeometryType(geojson) {
@@ -1495,29 +1613,143 @@ export class MapCreator {
         $('#data-preview-details').show();
     }
 
-    showStyleSection(geometryType) {
+    showStyleSection(geojson) {
         $('#settings-section').show();
-        $('#geometry-type-info').text(`Detected geometry type: ${geometryType}`);
+        $('#style-controls').show();
 
-        if (geometryType === 'Point') {
-            $('#fill-color-control').show();
-            $('#stroke-color-control').show();
-            $('#stroke-width-control').show().find('label').html(
-                'Point Size: <span id="stroke-width-value">2</span>px'
-            );
-        } else if (geometryType === 'LineString') {
-            $('#fill-color-control').hide();
-            $('#stroke-color-control').show();
-            $('#stroke-width-control').show().find('label').html(
-                'Line Width: <span id="stroke-width-value">2</span>px'
-            );
-        } else if (geometryType === 'Polygon') {
-            $('#fill-color-control').show();
-            $('#stroke-color-control').show();
-            $('#stroke-width-control').show().find('label').html(
-                'Stroke Width: <span id="stroke-width-value">2</span>px'
-            );
+        const types = this.detectGeometryTypesPresent(geojson);
+        $('#geometry-type-info').text(types.length ? `Detected geometry: ${types.join(', ')}` : 'Detected geometry: unknown');
+
+        if (!this._styleTypesUserModified) {
+            this.autoCheckStyleTypes(types);
         }
+        this.updateStyleSectionVisibility();
+    }
+
+    // Every distinct geometry type present in a GeoJSON FeatureCollection,
+    // e.g. ['Polygon', 'Point'] for a mixed dataset.
+    detectGeometryTypesPresent(geojson) {
+        const types = new Set();
+        (geojson?.features || []).forEach(feature => {
+            if (feature.geometry?.type) types.add(feature.geometry.type);
+        });
+        return Array.from(types);
+    }
+
+    // Checks the Point/Line/Area boxes that match the geometry actually
+    // present. Label is left untouched — it defaults on and the user (or
+    // _handleTileInfoDetected) controls it independently.
+    autoCheckStyleTypes(geometryTypes) {
+        const has = (...gts) => gts.some(gt => geometryTypes.includes(gt));
+        $('#style-type-point').prop('checked', has('Point', 'MultiPoint'));
+        $('#style-type-line').prop('checked', has('LineString', 'MultiLineString'));
+        $('#style-type-area').prop('checked', has('Polygon', 'MultiPolygon'));
+        this.updateStyleSectionVisibility();
+    }
+
+    updateStyleSectionVisibility() {
+        $('#style-section-point').toggle($('#style-type-point').is(':checked'));
+        $('#style-section-line').toggle($('#style-type-line').is(':checked'));
+        $('#style-section-area').toggle($('#style-type-area').is(':checked'));
+        $('#style-section-label').toggle($('#style-type-label').is(':checked'));
+    }
+
+    // Builds the flat Mapbox style object from whichever Point/Line/Area/Label
+    // checkboxes are checked. Multiple style "families" (fill-*, line-*,
+    // circle-*, text-*) can coexist in one flat object — MapboxAPI splits them
+    // into the right layer types when the layer is actually added to the map.
+    buildStyleFromControls() {
+        const style = {};
+
+        if ($('#style-type-area').is(':checked')) {
+            const fillColor = $('#area-fill-color').val();
+            const fillOpacity = parseFloat($('#area-fill-opacity').val());
+            const strokeColor = $('#area-stroke-color').val();
+            const strokeWidth = parseFloat($('#area-stroke-width').val());
+            style['fill-color'] = ['coalesce', ['get', 'fill-color'], ['get', 'color'], fillColor];
+            style['fill-opacity'] = fillOpacity;
+            style['line-color'] = ['coalesce', ['get', 'stroke-color'], ['get', 'color'], strokeColor];
+            style['line-width'] = strokeWidth;
+        }
+
+        if ($('#style-type-line').is(':checked')) {
+            const lineColor = $('#line-color').val();
+            const lineWidth = parseFloat($('#line-width').val());
+            style['line-color'] = ['coalesce', ['get', 'stroke-color'], ['get', 'color'], lineColor];
+            style['line-width'] = lineWidth;
+        }
+
+        if ($('#style-type-point').is(':checked')) {
+            const fillColor = $('#point-fill-color').val();
+            const strokeColor = $('#point-stroke-color').val();
+            const radius = parseFloat($('#point-radius').val());
+            style['circle-color'] = ['coalesce', ['get', 'fill-color'], ['get', 'color'], fillColor];
+            style['circle-radius'] = radius;
+            style['circle-stroke-color'] = ['coalesce', ['get', 'stroke-color'], ['get', 'color'], strokeColor];
+            style['circle-stroke-width'] = 2;
+        }
+
+        if ($('#style-type-label').is(':checked')) {
+            const labelField = $('#label-field-select').val();
+            if (labelField) {
+                style['text-field'] = ['to-string', ['get', labelField]];
+            }
+        }
+
+        return style;
+    }
+
+    // Populates the Label section's field dropdown. `preferredField` wins if
+    // it's still a valid option; otherwise falls back to the current
+    // selection, then the best-guess default (see getDefaultNameField).
+    populateLabelFieldOptions(fields, preferredField) {
+        const $select = $('#label-field-select');
+
+        // Rebuilding <option> elements while the dropdown is open confuses
+        // the native picker (it can stop responding to clicks). Skip the
+        // rebuild entirely when the field list hasn't actually changed.
+        const fieldsKey = JSON.stringify(fields);
+        if (!preferredField && this._lastLabelFieldsKey === fieldsKey) {
+            return;
+        }
+        this._lastLabelFieldsKey = fieldsKey;
+
+        const current = $select.val();
+        $select.empty().append('<option value="">None</option>');
+        fields.forEach(field => {
+            $select.append(`<option value="${field}">${field}</option>`);
+        });
+
+        let value = '';
+        if (preferredField && fields.includes(preferredField)) {
+            value = preferredField;
+        } else if (current && fields.includes(current)) {
+            value = current;
+        } else {
+            value = this.getDefaultNameField(fields);
+        }
+        if (value) $select.val(value);
+    }
+
+    // Called when the parent map reports back geometry types / fields it
+    // found while rendering the live tile preview (vector layers only — see
+    // MapBrowserControl._detectVectorTileInfo). This fires once per freshly
+    // loaded vector source, asynchronously (after tiles have had a chance to
+    // load) — so it can land while the user is already typing. Don't clobber
+    // the JSON box (or an open label dropdown) if so.
+    _handleTileInfoDetected(geometryTypes, fields) {
+        const active = document.activeElement;
+        if (active && (active.id === 'config-preview' || active.id === 'label-field-select')) {
+            return;
+        }
+
+        if (fields && fields.length > 0) {
+            this.populateLabelFieldOptions(fields);
+        }
+        if (!this._styleTypesUserModified) {
+            this.autoCheckStyleTypes(geometryTypes);
+        }
+        this.updateConfigPreview();
     }
 
     showConfigSection() {
@@ -1538,27 +1770,6 @@ export class MapCreator {
             return filename.replace(/\.(geojson|json|csv|kml|gpkg|geojsonl|ndjson|jsonl|zip)$/i, '').replace(/[-_]/g, ' ');
         }
         return 'Custom Layer';
-    }
-
-    generateMapboxStyle(geometryType, fillColor, strokeColor, strokeWidth) {
-        const style = {};
-
-        if (geometryType === 'Polygon') {
-            style['fill-color'] = ['coalesce', ['get', 'fill-color'], ['get', 'color'], fillColor];
-            style['fill-opacity'] = 0.6;
-            style['line-color'] = ['coalesce', ['get', 'stroke-color'], ['get', 'color'], strokeColor];
-            style['line-width'] = parseFloat(strokeWidth);
-        } else if (geometryType === 'LineString') {
-            style['line-color'] = ['coalesce', ['get', 'stroke-color'], ['get', 'color'], strokeColor];
-            style['line-width'] = parseFloat(strokeWidth);
-        } else if (geometryType === 'Point') {
-            style['circle-color'] = ['coalesce', ['get', 'fill-color'], ['get', 'color'], fillColor];
-            style['circle-radius'] = parseFloat(strokeWidth) * 2;
-            style['circle-stroke-color'] = ['coalesce', ['get', 'stroke-color'], ['get', 'color'], strokeColor];
-            style['circle-stroke-width'] = 2;
-        }
-
-        return style;
     }
 
     calculateBBox(geojson) {
@@ -1630,14 +1841,9 @@ export class MapCreator {
         const layerId = $('#layer-id').val().trim() || this.generateId(title);
         const description = $('#layer-description').val().trim();
         const attribution = $('#layer-attribution').val().trim();
-        const fillColor = $('#fill-color').val();
-        const strokeColor = $('#stroke-color').val();
-        const strokeWidth = $('#stroke-width').val();
 
         const isExternalUrl = typeof this.currentDataSource === 'string' &&
             (this.currentDataSource.startsWith('http://') || this.currentDataSource.startsWith('https://'));
-
-        const style = this.generateMapboxStyle(this.currentGeometryType, fillColor, strokeColor, strokeWidth);
 
         const idField = $('#feature-id-field').val() || 'id';
         const nameField = $('#feature-name-field').val();
@@ -1652,11 +1858,11 @@ export class MapCreator {
         const bbox = this.calculateBBox(this.currentData);
 
         const config = {
+            ...(this._layerConfigOverride || {}),
             id: layerId,
             title: title,
             type: layerType,
             initiallyChecked: false,
-            style: style,
             inspect: {
                 id: idField,
                 title: 'Name',
@@ -1685,8 +1891,8 @@ export class MapCreator {
             config.bbox = bbox;
         }
 
-        if (nameField) {
-            config.style['text-field'] = ['to-string', ['get', nameField]];
+        if (!this._styleManuallyEdited) {
+            config.style = this.buildStyleFromControls();
         }
 
         return config;
@@ -1697,11 +1903,6 @@ export class MapCreator {
         const layerId = $('#layer-id').val().trim() || this.generateId(title);
         const description = $('#layer-description').val().trim();
         const attribution = $('#layer-attribution').val().trim();
-        const fillColor = $('#fill-color').val();
-        const strokeColor = $('#stroke-color').val();
-        const strokeWidth = $('#stroke-width').val();
-
-        const style = this.generateMapboxStyle(this.currentGeometryType, fillColor, strokeColor, strokeWidth);
 
         const idField = $('#feature-id-field').val() || 'id';
         const nameField = $('#feature-name-field').val();
@@ -1719,11 +1920,11 @@ export class MapCreator {
             (this.currentData.csvUrl.startsWith('http://') || this.currentData.csvUrl.startsWith('https://'));
 
         const config = {
+            ...(this._layerConfigOverride || {}),
             id: layerId,
             title: title,
             type: 'geojson',
             initiallyChecked: false,
-            style: style,
             inspect: {
                 id: idField,
                 title: 'Name',
@@ -1753,8 +1954,8 @@ export class MapCreator {
             config.bbox = bbox;
         }
 
-        if (nameField) {
-            config.style['text-field'] = ['to-string', ['get', nameField]];
+        if (!this._styleManuallyEdited) {
+            config.style = this.buildStyleFromControls();
         }
 
         // Save-notes write-back (Google Sheets only)
@@ -1800,6 +2001,10 @@ export class MapCreator {
             delete config.attribution;
         }
 
+        if (layerType === 'vector' && !this._styleManuallyEdited) {
+            config.style = this.buildStyleFromControls();
+        }
+
         this.currentData = config;
         $('#config-preview').val(JSON.stringify(config, null, 2));
     }
@@ -1835,35 +2040,45 @@ export class MapCreator {
     }
 
     sendPreview() {
-        let geojson = null;
-        let bbox = null;
-        let config = null;
+        if (this.currentLayerType === 'geojson' || this.currentLayerType === 'csv') {
+            let geojson = null;
+            let config = null;
 
-        if (this.currentLayerType === 'geojson') {
-            geojson = this.currentData;
-            bbox = this.calculateBBox(geojson);
-            config = this.generateLayerConfig();
-        } else if (this.currentLayerType === 'csv') {
-            geojson = this.currentData?.geojson;
-            if (!geojson) return;
-            bbox = this.calculateBBox(geojson);
-            config = this.generateCSVLayerConfig();
-        } else {
+            if (this.currentLayerType === 'geojson') {
+                geojson = this.currentData;
+                config = this.generateLayerConfig();
+            } else {
+                geojson = this.currentData?.geojson;
+                if (!geojson) return;
+                config = this.generateCSVLayerConfig();
+            }
+
+            if (!geojson || !geojson.features || geojson.features.length === 0) return;
+
+            const bbox = this.calculateBBox(geojson);
+            const fitBounds = !this._previewFitted;
+            this._previewFitted = true;
+
+            window.parent.postMessage({
+                type: 'creator-preview',
+                geojson: geojson,
+                style: config.style,
+                geometryType: this.currentGeometryType,
+                bbox: bbox,
+                fitBounds: fitBounds
+            }, '*');
             return;
         }
 
-        if (!geojson || !geojson.features || geojson.features.length === 0) return;
-
-        const fitBounds = !this._previewFitted;
-        this._previewFitted = true;
+        // Tile-based layer types (vector/tms/wms): render actual tiles on the
+        // parent map so styling/zoom edits made in the JSON below are visible live.
+        const config = this.currentData;
+        if (!config || !config.type || !config.url) return;
+        if (!['vector', 'tms', 'wms'].includes(config.type)) return;
 
         window.parent.postMessage({
-            type: 'creator-preview',
-            geojson: geojson,
-            style: config.style,
-            geometryType: this.currentGeometryType,
-            bbox: bbox,
-            fitBounds: fitBounds
+            type: 'creator-tile-preview',
+            config: config
         }, '*');
     }
 
@@ -2008,10 +2223,9 @@ export class MapCreator {
         this._previewFitted = false;
         this.updateDataPreview(geojson);
 
-        const geometryType = this.detectGeometryType(geojson);
-        this.currentGeometryType = geometryType;
+        this.currentGeometryType = this.detectGeometryType(geojson);
 
-        this.showStyleSection(geometryType);
+        this.showStyleSection(geojson);
         this.updateConfigPreview();
         $('#add-to-map-btn').prop('disabled', false);
     }

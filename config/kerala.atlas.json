@@ -59,9 +59,21 @@
       "maxzoom": 13,
       "attribution": "<a href='https://czmp.ncscm.res.in/'>National Centre for Sustainable Coastal Management</a> - Collected by <a href='https://github.com/ramSeraph/indian_cadastrals/releases/tag/kerala'>Datameet Community</a>",
       "style": {
-        "text-padding": 10,
+        "text-padding": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          200,
+          17,
+          2
+        ],
         "text-font": [
-          "Open Sans SemiBold"
+          "PT Sans Narrow Bold"
         ],
         "text-field": [
           "step",
@@ -213,6 +225,9 @@
           "Project Description"
         ]
       }
+    },
+    {
+      "id": "parivesh-kerala"
     },
     {
       "title": "Kerala Mask",

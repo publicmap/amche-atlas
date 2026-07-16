@@ -802,40 +802,121 @@ File upload only: .zip containing shapefile">
                     <h3 class="text-sm font-semibold mb-3">Style</h3>
                     <div id="geometry-type-info" class="mb-3 text-xs text-gray-600"></div>
 
-                    <!-- Fill Color (for polygons/points) -->
-                    <div class="mb-4" id="fill-color-control">
-                        <label class="block text-sm font-medium mb-2">Fill Color</label>
-                        <div class="color-picker-wrapper">
-                            <input type="color" id="fill-color" value="#3b82f6">
-                            <div class="color-preview" id="fill-color-preview" style="background-color: #3b82f6;"></div>
-                        </div>
+                    <!-- Style type picker -->
+                    <div class="flex flex-wrap gap-4 mb-4">
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                            <input type="checkbox" id="style-type-point" class="style-type-checkbox w-4 h-4"> Point
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                            <input type="checkbox" id="style-type-line" class="style-type-checkbox w-4 h-4"> Line
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                            <input type="checkbox" id="style-type-area" class="style-type-checkbox w-4 h-4"> Area
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                            <input type="checkbox" id="style-type-label" class="style-type-checkbox w-4 h-4" checked> Label
+                        </label>
                     </div>
 
-                    <!-- Stroke Color (for lines/polygons) -->
-                    <div class="mb-4" id="stroke-color-control">
-                        <label class="block text-sm font-medium mb-2">Stroke Color</label>
-                        <div class="color-picker-wrapper">
-                            <input type="color" id="stroke-color" value="#1e40af">
-                            <div class="color-preview" id="stroke-color-preview" style="background-color: #1e40af;">
+                    <!-- Point style -->
+                    <div id="style-section-point" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
+                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Point style</h4>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">Fill Color</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" id="point-fill-color" value="#3b82f6" class="style-color-input">
+                                <div class="color-preview" style="background-color: #3b82f6;"></div>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">Stroke Color</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" id="point-stroke-color" value="#1e40af" class="style-color-input">
+                                <div class="color-preview" style="background-color: #1e40af;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-1">
+                            <label class="block text-sm font-medium mb-2">
+                                Radius: <span id="point-radius-value">4</span>px
+                            </label>
+                            <input type="range" id="point-radius" min="1" max="20" value="4" step="0.5" class="w-full style-control">
+                        </div>
                     </div>
 
-                    <!-- Stroke Width (for lines/polygons) -->
-                    <div class="mb-4" id="stroke-width-control">
-                        <label class="block text-sm font-medium mb-2">
-                            Stroke Width: <span id="stroke-width-value">2</span>px
-                        </label>
-                        <input type="range" id="stroke-width" min="1" max="10" value="2" step="0.5" class="w-full">
+                    <!-- Line style -->
+                    <div id="style-section-line" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
+                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Line style</h4>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">Line Color</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" id="line-color" value="#1e40af" class="style-color-input">
+                                <div class="color-preview" style="background-color: #1e40af;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-1">
+                            <label class="block text-sm font-medium mb-2">
+                                Line Width: <span id="line-width-value">2</span>px
+                            </label>
+                            <input type="range" id="line-width" min="1" max="10" value="2" step="0.5" class="w-full style-control">
+                        </div>
+                    </div>
+
+                    <!-- Area style -->
+                    <div id="style-section-area" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
+                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Area style</h4>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">Fill Color</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" id="area-fill-color" value="#3b82f6" class="style-color-input">
+                                <div class="color-preview" style="background-color: #3b82f6;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">
+                                Fill Opacity: <span id="area-fill-opacity-value">0.6</span>
+                            </label>
+                            <input type="range" id="area-fill-opacity" min="0" max="1" value="0.6" step="0.05" class="w-full style-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">Stroke Color</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" id="area-stroke-color" value="#1e40af" class="style-color-input">
+                                <div class="color-preview" style="background-color: #1e40af;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-1">
+                            <label class="block text-sm font-medium mb-2">
+                                Stroke Width: <span id="area-stroke-width-value">2</span>px
+                            </label>
+                            <input type="range" id="area-stroke-width" min="1" max="10" value="2" step="0.5" class="w-full style-control">
+                        </div>
+                    </div>
+
+                    <!-- Label style -->
+                    <div id="style-section-label" class="style-type-section mb-1 pl-3" style="border-left:2px solid #374151;">
+                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Label style</h4>
+                        <label class="block text-sm font-medium mb-2">Label Field</label>
+                        <select id="label-field-select" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                            <option value="">None</option>
+                        </select>
+                        <div class="text-xs text-gray-500 mt-1">Field shown as a map label on this layer</div>
                     </div>
                 </div>
 
                 <!-- Configuration JSON Section -->
                 <div class="mt-4 pt-4 border-t border-gray-200">
                     <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2">Configuration JSON</label>
-                        <textarea id="config-preview" rows="8" readonly
-                            class="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 font-mono text-xs mb-2"></textarea>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium">Configuration JSON</label>
+                            <button type="button" id="reset-config-json-btn"
+                                class="text-xs text-blue-400 hover:text-blue-300 hidden">↺ Reset to generated defaults</button>
+                        </div>
+                        <p class="step-hint" style="margin-bottom:8px;">
+                            Edit directly to customize styling, zoom levels, or any other option not covered by the fields above — the map preview updates live.
+                        </p>
+                        <textarea id="config-preview" rows="10" spellcheck="false"
+                            class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-1"></textarea>
+                        <div id="config-json-status" class="text-xs mb-2" style="min-height:16px;"></div>
 
                         <details class="mt-2">
                             <summary class="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900 py-2">
