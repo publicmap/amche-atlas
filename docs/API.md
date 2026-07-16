@@ -39,6 +39,35 @@ Override visible layers from the atlas configuration.
 ?layers=goa-plots,{"id":"custom-layer","opacity":0.7}
 ```
 
+#### Dynamic layer shortcuts
+
+Instead of pasting a full external URL into the map creator to build a complete layer config, a layer entry in `?layers=` can be a compact `{"type":"<service>","id":"<id>"}` shorthand that's resolved dynamically against the service's API when the page loads — no need to know the layer's tile URL, title, or attribution in advance.
+
+**Format:** `{"type":"<service>","id":"<id>"}`
+
+**Supported services:**
+
+| `type` | `id` format | Resolved via | Produces |
+|---|---|---|---|
+| `allmaps` | Allmaps image ID (e.g. `bca064e512c963f0`) | `annotations.allmaps.org/images/<id>` | `tms` layer — georeferenced historic map tiles |
+| `mapwarper` | MapWarper map ID (e.g. `108838`) | `mapwarper.net/api/v1/maps/<id>` | `tms` layer — georeferenced historic map tiles |
+| `osm` | OSM element reference, `<node\|way\|relation>/<id>` (e.g. `relation/21057460`) | Overpass API (fetched once, not re-queried on pan) | `geojson` layer with the element's geometry inlined |
+
+**Examples:**
+```
+?layers={"type":"allmaps","id":"bca064e512c963f0"}
+?layers={"type":"mapwarper","id":"108838"}
+?layers={"type":"osm","id":"relation/21057460"}
+?layers=mapbox-streets,{"type":"osm","id":"way/28845634"}
+```
+
+**Adding the same source via the map creator:** `map-creator.html` accepts the equivalent full URL pasted directly into the URL box, and auto-fills title/attribution/style from the same API:
+- Allmaps: `https://viewer.allmaps.org/?url=...`, `https://annotations.allmaps.org/images/<id>`, or `https://allmaps.xyz/images/<id>/{z}/{x}/{y}@2x.png`
+- MapWarper: `https://mapwarper.net/maps/<id>`
+- OSM: `https://www.openstreetmap.org/<node|way|relation>/<id>`
+
+**Implementation:** each service's API calls live in its own module — `js/allmaps-url-api.js`, `js/mapwarper-url-api.js`, `js/osm-url-api.js` — so adding a new service means adding one module plus a `case` in the dispatcher, `js/dynamic-layer-shorthand.js`. Resolution happens once, during `js/map-init.js`'s `loadConfiguration()`, before the layer ever reaches `MapboxAPI`; the compact shorthand — not the resolved config — is what's kept in the shareable URL.
+
 ### `selected`
 
 Deep link to specific selected features on the map, or trigger a location click at the hash position.
@@ -928,6 +957,8 @@ All other parameters (`terrain`, `geolocate`, `q`, `selected`, etc.) are applied
 | `js/map-export-control.js` | Calls `window.urlManager.updateExportParam()` when export settings change. |
 | `js/map-feature-control-iframe.js` | Calls `window.urlManager.updateURL({ updateSelections: true, updateLayers: true })` after feature selections change. Calls `window.urlManager.updateCompareParam()` when swipe-comparison is toggled. Contains the map click handler that `applyLocationClickFromURL()` fires into. |
 | `js/map-layer-controls.js` | Calls `window.urlManager.onLayersChanged()` when layer visibility or opacity changes. |
+| `js/dynamic-layer-shorthand.js` | Detects and expands the `{type,id}` dynamic layer shortcuts (see [Dynamic layer shortcuts](#dynamic-layer-shortcuts)), dispatching to the matching service module. Called from `map-init.js`'s per-layer loop in `loadConfiguration()`. |
+| `js/allmaps-url-api.js`, `js/mapwarper-url-api.js`, `js/osm-url-api.js` | One module per external service backing the dynamic layer shortcuts — each resolves an ID/URL into a full layer config via that service's API. Also used directly by `map-creator.js` to auto-fill a layer from a pasted full URL. |
 
 ### URL Write Flow
 

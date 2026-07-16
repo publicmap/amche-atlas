@@ -2104,7 +2104,7 @@
       "headerImage": "assets/map-layers/india/map-layer-soi.png",
       "legendImage": "assets/map-layers/india/legend-soi.png",
       "type": "tms",
-      "id": "soi-open-2011",
+      "id": "soi-osm",
       "url": "https://indianopenmaps.fly.dev/soi/osm/{z}/{x}/{y}.webp",
       "attribution": "<a href='https://surveyofindia.gov.in/pages/copyright-policy'>© Survey of India</a>, <a href='https://onlinemaps.surveyofindia.gov.in/'>Open Series Maps 2011</a> via <a href='https://ramseraph.github.io/opendata/maps/SOI/'>Datameet Community</a>"
     },

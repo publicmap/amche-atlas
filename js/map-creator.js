@@ -2,6 +2,8 @@ import { DataUtils, GeoUtils } from './map-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { StreamingGPKGReader } from './streaming-gpkg-reader.js';
+import { AllmapsAPI } from './allmaps-url-api.js';
+import { OSMApi } from './osm-url-api.js';
 
 export class MapCreator {
     constructor() {
@@ -118,6 +120,8 @@ export class MapCreator {
                     'Vector Tiles': 'vector-tiles',
                     'Raster Tiles': 'raster-tiles',
                     'MapWarper': 'mapwarper',
+                    'Allmaps': 'allmaps',
+                    'OSM': 'osm',
                     'Amche Atlas JSON': 'atlas-json',
                     'WMS': 'wms',
                     'Bharatlas': 'bharatlas',
@@ -421,6 +425,12 @@ export class MapCreator {
         }
         if (this.isCSVUrl(url)) {
             return 'CSV';
+        }
+        if (AllmapsAPI.isAllmapsUrl(url)) {
+            return 'Allmaps';
+        }
+        if (OSMApi.isOsmUrl(url)) {
+            return 'OSM';
         }
         if (urlLower.includes('jsonkeeper.com/b/')) {
             return 'Amche Atlas JSON';
@@ -992,6 +1002,8 @@ export class MapCreator {
         if (this.isBharatlasUrl(url)) return true;
         if (this.isWMSUrl(url)) return true;
         if (this.isCSVUrl(url)) return true;
+        if (AllmapsAPI.isAllmapsUrl(url)) return true;
+        if (OSMApi.isOsmUrl(url)) return true;
         if (urlLower.includes('jsonkeeper.com/b/')) return true;
         if (urlLower.endsWith('.geojson')) return true;
         if (urlLower.endsWith('.json')) return true;
@@ -1031,6 +1043,38 @@ export class MapCreator {
 
             if (this.isBharatlasUrl(url)) {
                 await this.handleBharatlasImport(url);
+                return;
+            }
+
+            if (AllmapsAPI.isAllmapsUrl(url)) {
+                const config = await AllmapsAPI.createConfigFromUrl(url);
+                this.currentLayerType = 'tms';
+                this.currentData = config;
+                this.currentDataSource = url;
+                this.showTileLayerSuccess(config);
+                return;
+            }
+
+            if (OSMApi.isOsmUrl(url)) {
+                // Mirrors the "overpass" type's handling below: a fixed geometry
+                // whose style is already fully resolved (mixed point/line/polygon
+                // geometry, so the Point/Line/Area checkboxes don't apply) — use
+                // the generic tile-config path and preview it as inline GeoJSON.
+                const config = await OSMApi.createConfigFromRef(url);
+                this.currentLayerType = 'osm';
+                this.currentData = config;
+                this.currentDataSource = url;
+                this.showTileLayerSuccess(config);
+
+                const geojson = config.geojson;
+                window.parent.postMessage({
+                    type: 'creator-preview',
+                    geojson,
+                    style: config.style,
+                    geometryType: this.detectGeometryType(geojson),
+                    bbox: this.calculateBBox(geojson),
+                    fitBounds: true
+                }, '*');
                 return;
             }
 

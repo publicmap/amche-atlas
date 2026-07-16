@@ -16,6 +16,7 @@ import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { ButtonGeolocationManager } from './button-geolocation-manager.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
+import { isDynamicLayerShorthand, expandDynamicLayerShorthand } from './dynamic-layer-shorthand.js';
 
 export class MapInitializer {
     // Note: location-based atlas selection is owned by SplashScreenManager
@@ -460,6 +461,27 @@ export class MapInitializer {
 
             // Process layers one by one
             for (const layerConfig of config.layers) {
+                // Dynamic layer shorthand from the URL API, e.g. {"type":"allmaps","id":"..."}
+                // — resolve via the matching service's API before anything else touches it,
+                // since its `type` isn't a real MapboxAPI layer type until expanded.
+                if (isDynamicLayerShorthand(layerConfig)) {
+                    const expanded = await expandDynamicLayerShorthand(layerConfig);
+                    if (expanded) {
+                        validLayers.push(layerRegistry.applyAtlasCascade({
+                            ...expanded,
+                            // Preserve URL-critical properties from the original shorthand,
+                            // same as the registry-resolution branch below.
+                            ...(layerConfig._originalJson && { _originalJson: layerConfig._originalJson }),
+                            ...(layerConfig.initiallyChecked !== undefined && { initiallyChecked: layerConfig.initiallyChecked }),
+                            ...(layerConfig.opacity !== undefined && { opacity: layerConfig.opacity })
+                        }, atlasId));
+                    } else {
+                        console.warn(`[Dynamic Layer] Could not resolve layer from URL: {type:"${layerConfig.type}", id:"${layerConfig.id}"} - ignoring.`);
+                        invalidLayers.push(layerConfig.id);
+                    }
+                    continue;
+                }
+
                 // If the layer only has an id (or minimal properties), look it up using the registry
                 if (layerConfig.id && !layerConfig.type) {
                     // Try to resolve the layer from the registry

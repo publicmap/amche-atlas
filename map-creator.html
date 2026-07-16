@@ -504,6 +504,31 @@ Click to try example map">
                         MapWarper
                     </button>
                     <button type="button"
+                        class="format-chip px-2 py-1 bg-cyan-900/40 hover:bg-cyan-800/60 text-cyan-200 rounded text-xs font-medium cursor-pointer transition-colors border border-cyan-800/50"
+                        data-format="allmaps" data-sample="https://annotations.allmaps.org/images/bca064e512c963f0"
+                        data-tooltip="🗺️ Allmaps
+Georeferenced historic maps
+Hosted on allmaps.org / allmaps.xyz
+
+URL formats:
+  viewer.allmaps.org/?url=...
+  annotations.allmaps.org/images/[ID]
+  allmaps.xyz/images/[ID]/{z}/{x}/{y}@2x.png
+Click to try example map">
+                        Allmaps
+                    </button>
+                    <button type="button"
+                        class="format-chip px-2 py-1 bg-lime-900/40 hover:bg-lime-800/60 text-lime-200 rounded text-xs font-medium cursor-pointer transition-colors border border-lime-800/50"
+                        data-format="osm" data-sample="https://www.openstreetmap.org/way/28845634"
+                        data-tooltip="🌍 OpenStreetMap Element
+A single node/way/relation by ID
+Fetched once via the Overpass API
+
+URL format: openstreetmap.org/[node|way|relation]/[ID]
+Click to try example (Gateway of India)">
+                        OSM
+                    </button>
+                    <button type="button"
                         class="format-chip px-2 py-1 bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 rounded text-xs font-medium cursor-pointer transition-colors border border-indigo-800/50"
                         data-format="wms"
                         data-sample="http://14.139.123.73:8080/geoserver/wms?service=WMS&version=1.3.0&request=GetMap&layers=nbss_geoserver:Goa_LUP&styles=&format=image/png&transparent=true"

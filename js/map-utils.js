@@ -215,13 +215,15 @@ export class DataUtils {
             // 3. Quote unquoted string values
             // Looks for values that are NOT:
             // - true/false/null
-            // - numbers
+            // - numbers (the *whole* value, not just a leading digit — a value
+            //   like a hex ID "80713f728801d925" starts with a digit but isn't
+            //   numeric, and must still get quoted)
             // - ALREADY quoted strings
             // - objects/arrays ({ or [)
             // The leading `"` requires the colon to be a key/value separator (every
             // key is quoted by step 2), so colons *inside* an already-quoted value
             // (e.g. "File:Map_..._1-250,000_...") are never matched and corrupted.
-            fixed = fixed.replace(/("\s*:\s*)(?!(?:true|false|null|[-0-9]|\"|\'|\{|\[))([a-zA-Z0-9_\-\.\/]+?)\s*(?=[,}])/g, '$1"$2"');
+            fixed = fixed.replace(/("\s*:\s*)(?!(?:true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\s*[,}]|\"|\'|\{|\[))([a-zA-Z0-9_\-\.\/]+?)\s*(?=[,}])/g, '$1"$2"');
 
             return JSON.parse(fixed);
         } catch (error) {
