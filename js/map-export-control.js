@@ -31,7 +31,7 @@ export class MapExportControl {
         button.title = 'Export Map';
 
         const icon = document.createElement('sl-icon');
-        icon.name = 'box-arrow-in-down';
+        icon.name = 'download';
         icon.style.fontSize = '18px';
         button.appendChild(icon);
 
