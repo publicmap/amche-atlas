@@ -16,8 +16,11 @@
  * ```
  */
 
+import { WikidataAPI } from './wikidata-url-api.js';
+
 const OSMTOGEOJSON_CDN = 'https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0-beta.5/+esm';
 const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_TURBO_URL = 'https://overpass-turbo.eu/';
 
 export class OSMApi {
     // feature.id from osmtogeojson (and this shorthand's `id` field) both use
@@ -39,11 +42,37 @@ export class OSMApi {
         return /openstreetmap\.org\/(node|way|relation)\/\d+/i.test(url);
     }
 
+    static osmUrlToObject(type, id) {
+        return `https://www.openstreetmap.org/${type}/${id}`;
+    }
+
     static buildQuery(type, id) {
-        // "out geom" returns full geometry in one shot — for relations this
-        // includes member geometry too, no separate recursion step needed.
-        const verb = type === 'node' ? 'out;' : 'out geom;';
-        return `[out:json][timeout:25];${type}(${id});${verb}`;
+        // "meta" adds version/timestamp/changeset/user to each element (used
+        // for the layer description below); "geom" returns full geometry in
+        // one shot — for relations this includes member geometry too, no
+        // separate recursion step needed.
+        const verb = type === 'node' ? 'out meta;' : 'out meta geom;';
+        return `[out:json][timeout:60];${type}(${id});${verb}`;
+    }
+
+    static overpassTurboUrl(type, id) {
+        const query = this.buildQuery(type, id);
+        return `${OVERPASS_TURBO_URL}?Q=${encodeURIComponent(query)}&R`;
+    }
+
+    static formatRelativeTime(isoTimestamp) {
+        if (!isoTimestamp) return undefined;
+        const diffMs = Date.now() - new Date(isoTimestamp).getTime();
+        const minutes = Math.floor(diffMs / 60000);
+        if (minutes < 60) return minutes <= 1 ? '1 minute ago' : `${minutes} minutes ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+        const days = Math.floor(hours / 24);
+        if (days < 30) return days === 1 ? '1 day ago' : `${days} days ago`;
+        const months = Math.floor(days / 30);
+        if (months < 12) return months === 1 ? '1 month ago' : `${months} months ago`;
+        const years = Math.floor(months / 12);
+        return years === 1 ? '1 year ago' : `${years} years ago`;
     }
 
     static async fetchElementGeoJSON(type, id) {
@@ -63,6 +92,16 @@ export class OSMApi {
         if (!geojson.features || geojson.features.length === 0) {
             throw new Error(`OSM ${type} ${id} not found or has no geometry`);
         }
+
+        // Each feature's own type/id (not just the requested element's) gets
+        // a `url` property, so e.g. relation members link to their own OSM page.
+        geojson.features.forEach(feature => {
+            const ref = this.extractRef(feature.id);
+            if (!ref) return;
+            feature.properties = feature.properties || {};
+            feature.properties.url = this.osmUrlToObject(ref.type, ref.id);
+        });
+
         return geojson;
     }
 
@@ -101,28 +140,46 @@ export class OSMApi {
         return `${minLng},${minLat},${maxLng},${maxLat}`;
     }
 
-    static createConfig(type, id, geojson) {
+    static async createConfig(type, id, geojson) {
         const primary = geojson.features.find(f => f.id === `${type}/${id}`) || geojson.features[0];
-        const name = primary?.properties?.name;
+        const props = primary?.properties || {};
+        const name = props.name;
         const title = name || `OSM ${type} ${id}`;
 
-        const osmUrl = `https://www.openstreetmap.org/${type}/${id}`;
+        const osmUrl = this.osmUrlToObject(type, id);
         const attribution = `<a href='${osmUrl}' target='_blank'>${title}</a> — © <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap contributors</a>`;
+
+        let description = `Feature exported from [OpenStreetMap](${osmUrl}/history) via [Overpass API](${this.overpassTurboUrl(type, id)}).`;
+        if (props.version !== undefined) description += ` Feature version **v${props.version}**`;
+        const editedAgo = this.formatRelativeTime(props.timestamp);
+        if (editedAgo) description += ` Last edited ${editedAgo}.`;
+
+        let headerImage;
+        if (WikidataAPI.isQid(props.wikidata)) {
+            try {
+                const summary = await WikidataAPI.getSummary(props.wikidata);
+                if (summary.description) {
+                    description = `${summary.title} is ${summary.description}. ${description}`;
+                }
+                headerImage = summary.headerImage;
+            } catch (error) {
+                console.warn(`[OSM] Failed to resolve wikidata ${props.wikidata}:`, error);
+            }
+        }
 
         const config = {
             title,
             type: 'geojson',
             id: `osm-${type}-${id}`,
             geojson,
+            description,
             attribution,
+            headerImage,
             bbox: this.bboxFromGeoJSON(geojson),
             style: {
                 'circle-color': '#10b981',
-                'circle-radius': 5,
                 'circle-stroke-color': '#fff',
-                'circle-stroke-width': 1,
                 'line-color': '#10b981',
-                'line-width': 2,
                 'fill-color': 'rgba(16,185,129,0.25)'
             },
             inspect: {
