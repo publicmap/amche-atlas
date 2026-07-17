@@ -886,8 +886,8 @@ export class MapMarkerManager {
 
         const el = document.createElement('div');
         el.className = 'selection-marker';
-        // Action row (info + zoom buttons) sits on top at the click point; feature
-        // badges stack below it, left-aligned to the buttons.
+        // Action row (map pin) sits on top at the click point; feature badges
+        // stack below it, left-aligned to the pin.
         el.style.cssText = 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px;';
 
         el.innerHTML = `
@@ -897,13 +897,13 @@ export class MapMarkerManager {
             </div>
         `;
 
-        // Anchor so the info button is centered on the clicked location — clicking the
-        // same spot again hits the button and clears the marker (seamless toggle).
-        const infoSize = this._isTouch ? 24 : 20;
+        // Anchor so the pin's tip touches the clicked location — clicking the
+        // same spot again hits the pin and clears the marker (seamless toggle).
+        const pinSize = this._isTouch ? 34 : 28;
         const marker = new mapboxgl.Marker({
             element: el,
             anchor: 'top-left',
-            offset: [-(infoSize / 2), -(infoSize / 2)]
+            offset: [-(pinSize / 2), -pinSize]
         })
             .setLngLat([lngLat.lng, lngLat.lat])
             .addTo(this._map);
@@ -938,33 +938,32 @@ export class MapMarkerManager {
             el.addEventListener('touchend', handleMarkerToggle);
         }
 
-        // Info button at the click point — clicking it (i.e. clicking the same spot
-        // again) clears this marker, toggling the selection off.
+        // Map pin at the click point — same icon as the layer inspector's trigger
+        // button (geo-alt-fill), so a real marker (not an abstract button) marks the
+        // spot. Clicking it (i.e. clicking the same spot again) clears this marker,
+        // toggling the selection off.
         const actionRow = el.querySelector('.marker-action-row');
         if (actionRow) {
-            const closeBtn = document.createElement('span');
-            closeBtn.className = 'marker-close-btn';
-            closeBtn.innerHTML = `<sl-icon name="info-circle" style="font-size:${Math.round(infoSize * 0.7)}px;color:#fff;pointer-events:none;"></sl-icon>`;
-            closeBtn.title = 'Clear this marker';
-            closeBtn.style.cssText = `
+            const pinBtn = document.createElement('span');
+            pinBtn.className = 'marker-pin-btn';
+            pinBtn.innerHTML = `<sl-icon name="geo-alt-fill" style="font-size:${pinSize}px;color:#f97316;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));pointer-events:none;"></sl-icon>`;
+            pinBtn.title = 'Clear this marker';
+            pinBtn.style.cssText = `
                 display: flex;
-                align-items: center;
+                align-items: flex-end;
                 justify-content: center;
-                width: ${infoSize}px;
-                height: ${infoSize}px;
-                border-radius: 50%;
-                background: #f97316;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+                width: ${pinSize}px;
+                height: ${pinSize}px;
                 cursor: pointer;
                 flex-shrink: 0;
-                transition: background 0.2s;
+                transition: filter 0.2s;
             `;
             if (!this._isTouch) {
-                closeBtn.addEventListener('mouseenter', () => {
-                    closeBtn.style.background = '#ea580c';
+                pinBtn.addEventListener('mouseenter', () => {
+                    pinBtn.style.filter = 'brightness(1.2) drop-shadow(0 1px 2px rgba(0,0,0,0.5))';
                 });
-                closeBtn.addEventListener('mouseleave', () => {
-                    closeBtn.style.background = '#f97316';
+                pinBtn.addEventListener('mouseleave', () => {
+                    pinBtn.style.filter = '';
                 });
             }
             const handleCloseClick = (e) => {
@@ -973,51 +972,13 @@ export class MapMarkerManager {
                 this._starredMarkers.delete(markerId);
                 this.removeMarker(markerId);
             };
-            closeBtn.addEventListener('click', handleCloseClick);
+            pinBtn.addEventListener('click', handleCloseClick);
             // On touch, also bind touchend so the close fires on first tap rather
             // than waiting for the synthesized (and sometimes swallowed) click.
             if (this._isTouch) {
-                closeBtn.addEventListener('touchend', handleCloseClick);
+                pinBtn.addEventListener('touchend', handleCloseClick);
             }
-            actionRow.appendChild(closeBtn);
-
-            // Zoom button to the right of the info button — fits all selected features
-            // in view (same action as the inspector's zoom button).
-            const zoomBtn = document.createElement('span');
-            zoomBtn.className = 'marker-zoom-btn';
-            zoomBtn.innerHTML = `<sl-icon name="eye" style="font-size:${Math.round(infoSize * 0.7)}px;color:#fff;pointer-events:none;"></sl-icon>`;
-            zoomBtn.title = 'Fit all features in view';
-            zoomBtn.style.cssText = `
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: ${infoSize}px;
-                height: ${infoSize}px;
-                border-radius: 50%;
-                background: #6b7280;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.35);
-                cursor: pointer;
-                flex-shrink: 0;
-                transition: background 0.2s;
-            `;
-            if (!this._isTouch) {
-                zoomBtn.addEventListener('mouseenter', () => {
-                    zoomBtn.style.background = '#4b5563';
-                });
-                zoomBtn.addEventListener('mouseleave', () => {
-                    zoomBtn.style.background = '#6b7280';
-                });
-            }
-            const handleZoomClick = (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                window.postMessage({ type: 'zoom-to-selection' }, '*');
-            };
-            zoomBtn.addEventListener('click', handleZoomClick);
-            if (this._isTouch) {
-                zoomBtn.addEventListener('touchend', handleZoomClick);
-            }
-            actionRow.appendChild(zoomBtn);
+            actionRow.appendChild(pinBtn);
         }
 
         // Hover to highlight features on map (desktop only — avoids synthetic
