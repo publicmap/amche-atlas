@@ -149,8 +149,8 @@ export class OSMApi {
         const osmUrl = this.osmUrlToObject(type, id);
         const attribution = `<a href='${osmUrl}' target='_blank'>${title}</a> — © <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap contributors</a>`;
 
-        let description = `Feature exported from [OpenStreetMap](${osmUrl}/history) via [Overpass API](${this.overpassTurboUrl(type, id)}).`;
-        if (props.version !== undefined) description += ` Feature version **v${props.version}**`;
+        let description = `Feature exported from <a href='${osmUrl}/history' target='_blank'>OpenStreetMap</a> via <a href='${this.overpassTurboUrl(type, id)}' target='_blank'>Overpass API</a>.`;
+        if (props.version !== undefined) description += ` Feature version <strong>v${props.version}</strong>`;
         const editedAgo = this.formatRelativeTime(props.timestamp);
         if (editedAgo) description += ` Last edited ${editedAgo}.`;
 
@@ -159,8 +159,9 @@ export class OSMApi {
             try {
                 const summary = await WikidataAPI.getSummary(props.wikidata);
                 if (summary.description) {
-                    const wikipediaLink = summary.wikipediaUrl ? ` ([Wikipedia](${summary.wikipediaUrl}))` : '';
-                    description = `${summary.title} is ${summary.description}${wikipediaLink}. ${description}`;
+                    const wikipediaLink = summary.wikipediaUrl ? ` (<a href='${summary.wikipediaUrl}' target='_blank'>Wikipedia</a>)` : '';
+                    const wikidataLink = ` (<a href='https://www.wikidata.org/wiki/${props.wikidata}' target='_blank'>Wikidata</a>)`;
+                    description = `${summary.title} is ${summary.description}${wikipediaLink}${wikidataLink}. ${description}`;
                 }
                 headerImage = summary.headerImage;
             } catch (error) {
