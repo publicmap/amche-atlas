@@ -179,9 +179,10 @@ export class OSMApi {
             headerImage,
             bbox: this.bboxFromGeoJSON(geojson),
             style: {
-                'circle-color': '#10b981',
-                'circle-stroke-color': '#fff',
-                'line-color': '#10b981',
+                'circle-radius': 1,
+                'circle-color': '#fff',
+                'circle-stroke-color': 'rgba(1, 106, 71, 1)',
+                'line-color': 'rgba(1, 106, 71, 1)',
                 'fill-color': 'rgba(16,185,129,0.25)'
             },
             inspect: {

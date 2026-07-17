@@ -896,9 +896,11 @@ export class MapboxAPI {
             }
             if (this._map.getLayer(circleId)) {
                 this._map.setPaintProperty(circleId, 'circle-opacity', finalOpacity);
+                this._map.setPaintProperty(circleId, 'circle-stroke-opacity', finalOpacity);
             }
             if (this._map.getLayer(textId)) {
                 this._map.setPaintProperty(textId, 'text-opacity', finalOpacity);
+                this._map.setPaintProperty(textId, 'icon-opacity', finalOpacity);
             }
         });
         return true;
