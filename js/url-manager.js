@@ -34,6 +34,20 @@ export class URLManager {
                     requestAnimationFrame(() => this._notifyParentOfURL());
                 });
             });
+
+            // moveend never fires if the map doesn't pan/zoom on startup, so an
+            // embedding parent would otherwise never learn the initial URL. Post
+            // it once after the map finishes loading, whether or not it ever moves.
+            const notifyInitialURL = () => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => this._notifyParentOfURL());
+                });
+            };
+            if (this.map.loaded()) {
+                notifyInitialURL();
+            } else {
+                this.map.once('load', notifyInitialURL);
+            }
         }
     }
 
