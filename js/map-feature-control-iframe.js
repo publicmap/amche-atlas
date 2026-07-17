@@ -767,10 +767,18 @@ export class MapFeatureControl {
                 urlOrderMap.set(id, index);
             });
 
-            // Sort layerConfigs by URL order
+            // Sort layerConfigs by URL order. Dynamic shorthand layers (e.g.
+            // "allmaps:<id>") resolve to a different `.id` (e.g. "allmaps-<id>")
+            // than the literal URL token, so match on `_originalJson` first —
+            // it preserves the exact token that was in the `layers=` param.
+            const getUrlOrder = (config) => {
+                const originalOrder = urlOrderMap.get(config._originalJson);
+                return originalOrder !== undefined ? originalOrder : urlOrderMap.get(config.id);
+            };
+
             layerConfigs.sort((a, b) => {
-                const aOrder = urlOrderMap.get(a.id);
-                const bOrder = urlOrderMap.get(b.id);
+                const aOrder = getUrlOrder(a);
+                const bOrder = getUrlOrder(b);
 
                 // If both have URL order, sort by it
                 if (aOrder !== undefined && bOrder !== undefined) {
