@@ -889,6 +889,14 @@ export class URLManager {
             window.dispatchEvent(new CustomEvent('urlUpdated', {
                 detail: { url: newUrl, activeLayers: this.getCurrentActiveLayers() }
             }));
+
+            // Notify any embedding parent (e.g. an iframe host) of the new URL
+            if (window.parent !== window) {
+                window.parent.postMessage(
+                    { type: "url", href: window.location.href },
+                    "*" // tighten to a specific origin in production
+                );
+            }
         }
     }
 
