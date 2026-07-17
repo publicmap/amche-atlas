@@ -21,6 +21,31 @@ export class URLManager {
         this.setupLayerControlEventListeners();
 
         $(document).on('update_url', this.updateGeolocateParam );
+
+        // Mapbox GL's own `hash: true` option writes the #map=zoom/lat/lng/bearing
+        // hash directly via history.replaceState on map move, bypassing
+        // _performURLUpdate() entirely. Notify the parent here too, deferred two
+        // animation frames so it runs after Mapbox's (internally throttled) hash
+        // write has actually landed.
+        if (this.map) {
+            this.map.on('moveend', () => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => this._notifyParentOfURL());
+                });
+            });
+        }
+    }
+
+    /**
+     * Notify any embedding parent (e.g. an iframe host) of the current URL.
+     */
+    _notifyParentOfURL() {
+        if (window.parent !== window) {
+            window.parent.postMessage(
+                { type: "url", href: window.location.href },
+                "*" // tighten to a specific origin in production
+            );
+        }
     }
 
     setStateManager(stateManager) {
@@ -890,13 +915,7 @@ export class URLManager {
                 detail: { url: newUrl, activeLayers: this.getCurrentActiveLayers() }
             }));
 
-            // Notify any embedding parent (e.g. an iframe host) of the new URL
-            if (window.parent !== window) {
-                window.parent.postMessage(
-                    { type: "url", href: window.location.href },
-                    "*" // tighten to a specific origin in production
-                );
-            }
+            this._notifyParentOfURL();
         }
     }
 
