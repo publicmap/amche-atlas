@@ -159,7 +159,8 @@ export class OSMApi {
             try {
                 const summary = await WikidataAPI.getSummary(props.wikidata);
                 if (summary.description) {
-                    description = `${summary.title} is ${summary.description}. ${description}`;
+                    const wikipediaLink = summary.wikipediaUrl ? ` ([Wikipedia](${summary.wikipediaUrl}))` : '';
+                    description = `${summary.title} is ${summary.description}${wikipediaLink}. ${description}`;
                 }
                 headerImage = summary.headerImage;
             } catch (error) {

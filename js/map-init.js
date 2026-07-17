@@ -461,7 +461,7 @@ export class MapInitializer {
 
             // Process layers one by one
             for (const layerConfig of config.layers) {
-                // Dynamic layer shorthand from the URL API, e.g. {"type":"allmaps","id":"..."}
+                // Dynamic layer shorthand from the URL API, e.g. "allmaps:<id>"
                 // — resolve via the matching service's API before anything else touches it,
                 // since its `type` isn't a real MapboxAPI layer type until expanded.
                 if (isDynamicLayerShorthand(layerConfig)) {
@@ -476,7 +476,7 @@ export class MapInitializer {
                             ...(layerConfig.opacity !== undefined && { opacity: layerConfig.opacity })
                         }, atlasId));
                     } else {
-                        console.warn(`[Dynamic Layer] Could not resolve layer from URL: {type:"${layerConfig.type}", id:"${layerConfig.id}"} - ignoring.`);
+                        console.warn(`[Dynamic Layer] Could not resolve layer from URL: "${layerConfig.type}:${layerConfig.id}" - ignoring.`);
                         invalidLayers.push(layerConfig.id);
                     }
                     continue;

@@ -41,7 +41,7 @@ export class WikidataAPI {
 
     static async fetchEntity(qid) {
         const url = `${WIKIDATA_API}?action=wbgetentities&ids=${encodeURIComponent(qid)}` +
-            `&props=labels%7Cdescriptions%7Cclaims&languages=en&format=json&origin=*`;
+            `&props=labels%7Cdescriptions%7Cclaims%7Csitelinks%2Furls&sitefilter=enwiki&languages=en&format=json&origin=*`;
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Wikidata HTTP ${response.status}`);
@@ -59,7 +59,8 @@ export class WikidataAPI {
         return {
             title: entity.labels?.en?.value || qid,
             description: entity.descriptions?.en?.value,
-            headerImage: this.imageFromClaims(entity.claims)
+            headerImage: this.imageFromClaims(entity.claims),
+            wikipediaUrl: entity.sitelinks?.enwiki?.url
         };
     }
 }

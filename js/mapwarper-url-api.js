@@ -367,7 +367,7 @@ export class MapWarperAPI {
 
     // Resolves a bare numeric map ID (no host/mosaic-vs-map context available),
     // so this always assumes an individual map on mapwarper.net — the common
-    // case, and what the `{type:mapwarper,id:...}` URL API shorthand needs.
+    // case, and what the `mapwarper:<id>` URL API shorthand needs.
     static async createConfigFromId(mapId, baseUrl = 'https://mapwarper.net') {
         const mapData = await this.fetchMapMetadata(mapId, baseUrl);
         return this.createMapConfig(mapData, baseUrl);

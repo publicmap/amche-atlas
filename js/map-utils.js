@@ -2,6 +2,8 @@
  * Utility classes for data manipulation, geographic conversions, URL handling, and map operations.
  */
 
+import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
+
 export class DataUtils {
     /**
      * Checks if an item is a plain object (not null, not array, not function)
@@ -529,8 +531,9 @@ export class URLUtils {
                             layers.push({ id: trimmedItem });
                         }
                     } else {
-                        // Simple layer ID
-                        layers.push({ id: trimmedItem });
+                        // Simple layer ID, or a dynamic layer shorthand string (e.g. "osm:relation/123")
+                        const shorthand = parseDynamicLayerShorthandString(trimmedItem);
+                        layers.push(shorthand ? { ...shorthand, _originalJson: trimmedItem } : { id: trimmedItem });
                     }
                 }
                 currentItem = '';
@@ -557,8 +560,9 @@ export class URLUtils {
                     layers.push({ id: trimmedItem });
                 }
             } else {
-                // Simple layer ID
-                layers.push({ id: trimmedItem });
+                // Simple layer ID, or a dynamic layer shorthand string (e.g. "osm:relation/123")
+                const shorthand = parseDynamicLayerShorthandString(trimmedItem);
+                layers.push(shorthand ? { ...shorthand, _originalJson: trimmedItem } : { id: trimmedItem });
             }
         }
 

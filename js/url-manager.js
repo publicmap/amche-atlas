@@ -5,6 +5,7 @@
 
 import { LayerOrderManager } from './layer-order-manager.js';
 import { URL_API_PARAMS } from './url-api-params.js';
+import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
 
 export class URLManager {
     constructor(mapLayerControl, map) {
@@ -86,6 +87,16 @@ export class URLManager {
         // opacity override so custom URL layers don't lose their type/url/style/etc.
         if (layer._originalJson && !layer.geojson) {
             if (layer.opacity === undefined) {
+                return layer._originalJson;
+            }
+            // A dynamic layer shorthand string (e.g. "osm:relation/123") has nowhere
+            // to carry opacity inline, so fall back to the equivalent {type,id,opacity}
+            // object form, which dynamic-layer-shorthand.js accepts identically.
+            const shorthand = parseDynamicLayerShorthandString(layer._originalJson);
+            if (shorthand) {
+                if (layer.opacity !== 1) {
+                    return JSON.stringify({ ...shorthand, opacity: layer.opacity });
+                }
                 return layer._originalJson;
             }
             // Parse the single-quote JSON (_originalJson uses ' instead of "),
@@ -201,7 +212,8 @@ export class URLManager {
                             layers.push({ id: trimmedItem });
                         }
                     } else {
-                        layers.push({ id: trimmedItem });
+                        const shorthand = parseDynamicLayerShorthandString(trimmedItem);
+                        layers.push(shorthand ? { ...shorthand, _originalJson: trimmedItem } : { id: trimmedItem });
                     }
                 }
                 currentItem = '';
@@ -222,7 +234,8 @@ export class URLManager {
                     layers.push({ id: trimmedItem });
                 }
             } else {
-                layers.push({ id: trimmedItem });
+                const shorthand = parseDynamicLayerShorthandString(trimmedItem);
+                layers.push(shorthand ? { ...shorthand, _originalJson: trimmedItem } : { id: trimmedItem });
             }
         }
 
