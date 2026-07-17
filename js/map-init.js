@@ -16,6 +16,7 @@ import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { ButtonGeolocationManager } from './button-geolocation-manager.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
+import { CameraUtils } from './map-camera-utils.js';
 import { isDynamicLayerShorthand, expandDynamicLayerShorthand } from './dynamic-layer-shorthand.js';
 
 export class MapInitializer {
@@ -712,6 +713,14 @@ export class MapInitializer {
         const initialMapOptions = await this._loadInitialMapOptions(configParam);
         Object.assign(window.amche.MAPBOX_MAP_OPTIONS, initialMapOptions);
 
+        // Snapshot whether the incoming URL already had a position hash
+        // *before* constructing the map — Mapbox's `hash: true` option (see
+        // _defaults.json) starts writing its own #zoom/lat/lng hash within
+        // milliseconds of construction even when the URL had none, so
+        // `window.location.hash` can no longer be trusted for this check
+        // once the map exists.
+        const hadInitialHash = !!window.location.hash;
+
         const map = new mapboxgl.Map(window.amche.MAPBOX_MAP_OPTIONS);
 
         // Make map accessible globally for debugging
@@ -1010,22 +1019,74 @@ export class MapInitializer {
                     delete window.hashLayerView; // Clean up
                     map.once('moveend', () => map.once('idle', signalMapReady));
                 }, 2000);
-            } else if (!window.location.hash) {
-                // No hash in URL, use config defaults
-                setTimeout(() => {
-                    const flyToOptions = {
-                        center: config.map?.center || [73.8274, 15.4406],
-                        zoom: config.map?.zoom || 9,
-                        pitch: 28,
-                        bearing: 0,
-                        duration: 3000,
-                        essential: true,
-                        curve: 1.42,
-                        speed: 0.6
-                    };
-                    map.flyTo(flyToOptions);
+            } else if (!hadInitialHash) {
+                // config.map.center/zoom are already inherited from the index
+                // atlas when the active atlas doesn't define its own (see the
+                // style-inheritance step above in loadConfiguration()), so
+                // this is only a last-resort guard against a totally missing
+                // `map` block — sourced from the index atlas's own config
+                // rather than a hardcoded literal that would drift out of
+                // sync with config/index.atlas.json.
+                const indexAtlasMap = layerRegistry.getAtlasMetadata('index')?.map || {};
+                const fallbackCenter = config.map?.center || indexAtlasMap.center || [0, 0];
+                const fallbackZoom = config.map?.zoom ?? indexAtlasMap.zoom ?? 2;
+
+                // If the URL specified layers (deep link) and any of them carry
+                // geojson/csv data or a known bbox, fit the camera to that data
+                // instead of the atlas's default center/zoom — the data is
+                // presumably why the link was shared. Layers are folded into
+                // the shared viewport one by one as each finishes loading (see
+                // CameraUtils.autoFitLayers). Falls through to the default
+                // flyTo below if nothing in the URL layers is fittable, or if
+                // fitting never completes.
+                const layersParam = URLUtils.getUrlParameter('layers');
+                const urlLayers = (config.layers || []).filter(l => l.initiallyChecked === true);
+
+                let autoFitSignaled = false;
+                const signalReadyOnce = () => {
+                    if (autoFitSignaled) return;
+                    autoFitSignaled = true;
                     map.once('moveend', () => map.once('idle', signalMapReady));
-                }, 2000);
+                };
+
+                const isAutoFitting = !!layersParam && CameraUtils.autoFitLayers(map, urlLayers, {
+                    duration: 1500,
+                    onFit: signalReadyOnce
+                });
+
+                if (isAutoFitting) {
+                    // Safety net: if none of the eligible layers ever produced
+                    // a fit (all failed to load, or had no usable geometry),
+                    // don't leave the loading state stuck — fall back to defaults.
+                    setTimeout(() => {
+                        if (autoFitSignaled) return;
+                        map.flyTo({
+                            center: fallbackCenter,
+                            zoom: fallbackZoom,
+                            pitch: 28,
+                            bearing: 0,
+                            duration: 1500,
+                            essential: true
+                        });
+                        signalReadyOnce();
+                    }, 16000);
+                } else {
+                    // No hash in URL, use config defaults
+                    setTimeout(() => {
+                        const flyToOptions = {
+                            center: fallbackCenter,
+                            zoom: fallbackZoom,
+                            pitch: 28,
+                            bearing: 0,
+                            duration: 3000,
+                            essential: true,
+                            curve: 1.42,
+                            speed: 0.6
+                        };
+                        map.flyTo(flyToOptions);
+                        map.once('moveend', () => map.once('idle', signalMapReady));
+                    }, 2000);
+                }
             } else {
                 // Has a hash (position) — map is ready, signal immediately
                 map.once('idle', signalMapReady);

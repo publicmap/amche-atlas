@@ -1,4 +1,5 @@
 import { DataUtils, GeoUtils } from './map-utils.js';
+import { CameraUtils } from './map-camera-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { StreamingGPKGReader } from './streaming-gpkg-reader.js';
@@ -1817,59 +1818,7 @@ export class MapCreator {
     }
 
     calculateBBox(geojson) {
-        if (!geojson || !geojson.features || geojson.features.length === 0) {
-            return null;
-        }
-
-        let minLon = Infinity;
-        let minLat = Infinity;
-        let maxLon = -Infinity;
-        let maxLat = -Infinity;
-
-        const processCoordinate = (coord) => {
-            const [lon, lat] = coord;
-            if (lon < minLon) minLon = lon;
-            if (lon > maxLon) maxLon = lon;
-            if (lat < minLat) minLat = lat;
-            if (lat > maxLat) maxLat = lat;
-        };
-
-        const processCoordinates = (coords, depth) => {
-            if (depth === 0) {
-                processCoordinate(coords);
-            } else {
-                coords.forEach(c => processCoordinates(c, depth - 1));
-            }
-        };
-
-        geojson.features.forEach(feature => {
-            if (!feature.geometry || !feature.geometry.coordinates) return;
-
-            const { type, coordinates } = feature.geometry;
-
-            switch (type) {
-                case 'Point':
-                    processCoordinates(coordinates, 0);
-                    break;
-                case 'MultiPoint':
-                case 'LineString':
-                    processCoordinates(coordinates, 1);
-                    break;
-                case 'MultiLineString':
-                case 'Polygon':
-                    processCoordinates(coordinates, 2);
-                    break;
-                case 'MultiPolygon':
-                    processCoordinates(coordinates, 3);
-                    break;
-            }
-        });
-
-        if (minLon === Infinity || minLat === Infinity || maxLon === -Infinity || maxLat === -Infinity) {
-            return null;
-        }
-
-        return [minLon, minLat, maxLon, maxLat];
+        return CameraUtils.computeGeojsonBbox(geojson);
     }
 
     generateLayerConfig() {

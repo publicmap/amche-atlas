@@ -5,6 +5,7 @@
 import { LayerThumbnail } from './layer-thumbnail.js';
 import { FeatureDisplayRenderer } from './feature-display-renderer.js';
 import { LayerOrderManager } from './layer-order-manager.js';
+import { CameraUtils } from './map-camera-utils.js';
 
 export class MapMarkerManager {
     constructor(map, stateManager, mapboxAPI = null) {
@@ -2089,29 +2090,18 @@ export class MapMarkerManager {
     _zoomToFeature(feature) {
         if (!this._map || !feature) return;
 
-        try {
-            if (typeof turf === 'undefined') {
-                console.error('[MapMarkerManager] Turf.js not loaded');
-                return;
-            }
-
-            if (!feature.geometry || !feature.geometry.coordinates) {
-                console.warn('[MapMarkerManager] Feature has no valid geometry');
-                return;
-            }
-
-            const bbox = turf.bbox(feature);
-
-            this._map.fitBounds([
-                [bbox[0], bbox[1]],
-                [bbox[2], bbox[3]]
-            ], {
-                padding: 50,
-                duration: 1000
-            });
-        } catch (error) {
-            console.error('[MapMarkerManager] Error zooming to feature:', error);
+        if (!feature.geometry || !feature.geometry.coordinates) {
+            console.warn('[MapMarkerManager] Feature has no valid geometry');
+            return;
         }
+
+        const bbox = CameraUtils.computeGeojsonBbox(feature);
+        if (!bbox) {
+            console.warn('[MapMarkerManager] Could not compute bbox for feature');
+            return;
+        }
+
+        CameraUtils.fitBounds(this._map, bbox, { duration: 1000 });
     }
 
     _openInspector(layerId, featureId) {
