@@ -295,7 +295,7 @@ export class MapMarkerManager {
         this._showHoverMarker(lngLat, labelText, freshFeatures);
     }
 
-    _truncateName(value, max = 10) {
+    _truncateName(value, max = 50) {
         const s = String(value ?? '');
         return s.length > max ? `${s.slice(0, max)}...` : s;
     }
@@ -317,7 +317,7 @@ export class MapMarkerManager {
     }
 
     _createFeatureBadgeHTML(fieldName, value, index, f) {
-        const display = this._truncateName(value, 10);
+        const display = this._truncateName(value, 50);
         const detailsHTML = f ? this._buildBadgeAttributeTable(f) : '';
         return `
             <div class="feature-badge" data-badge-index="${index}" title="${this._escapeAttr(value)}" style="
@@ -904,10 +904,16 @@ export class MapMarkerManager {
         const marker = new mapboxgl.Marker({
             element: el,
             anchor: 'top-left',
-            offset: [-(pinSize / 2), -pinSize]
+            offset: [-(pinSize / 2), -pinSize],
+            draggable: true
         })
             .setLngLat([lngLat.lng, lngLat.lat])
             .addTo(this._map);
+
+        // Dragging the marker re-queries whatever is beneath its new position and
+        // treats it exactly like a click there, so the marker can be used to probe
+        // nearby features without re-clicking the map.
+        marker.on('dragend', () => this._handleMarkerDragEnd(marker));
 
         // Clicking a badge opens the inspector; selection markers are already selected.
         this._attachBadgeHandlers(el, features, lngLat, false);
@@ -1008,6 +1014,25 @@ export class MapMarkerManager {
         this._updateSelectionLayer();
 
         return markerId;
+    }
+
+    /**
+     * Re-query features at a dragged marker's new position and dispatch them
+     * through the same selection pipeline as a map click, so the marker (and its
+     * badges) rebuild as if the user had clicked at the drop point.
+     */
+    _handleMarkerDragEnd(marker) {
+        const lngLat = marker.getLngLat();
+        const point = this._map.project(lngLat);
+
+        const interactiveFeatures = this._stateManager.getFeaturesAtPoint(point, lngLat)
+            .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
+
+        if (interactiveFeatures.length > 0) {
+            this._stateManager.handleFeatureClicks(interactiveFeatures);
+        } else {
+            this._stateManager.handleFeatureClicks([], lngLat);
+        }
     }
 
     _setMarkerFeaturesHoverState(markerId, hoverState) {
