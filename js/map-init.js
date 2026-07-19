@@ -12,6 +12,7 @@ import { MeasureControl } from './map-measure-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
 import { MapAttributionControl } from './map-attribution-control.js';
+import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { ButtonGeolocationManager } from './button-geolocation-manager.js';
@@ -875,6 +876,8 @@ export class MapInitializer {
             map.addControl(new TimeControl(), 'top-right');
             map.addControl(window.terrain3DControl, 'top-right');
             map.addControl(window.attributionControl, 'bottom-right');
+            window.contextMessagesControl = new MapContextMessagesControl();
+            window.contextMessagesControl.onAdd(map);
             window.exportControl = new MapExportControl();
             map.addControl(window.exportControl, 'bottom-right');
             window.externalMapLinksControl = new ButtonExternalMapLinks();

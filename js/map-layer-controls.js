@@ -45,6 +45,7 @@ import {MapboxAPI} from './mapbox-api.js';
 import {DataUtils} from './map-utils.js';
 import {MapWarperAPI} from './mapwarper-url-api.js';
 import {LayerOrderManager} from './layer-order-manager.js';
+import {MapContextMessagesControl} from './map-context-messages-control.js';
 
 export class MapLayerControl {
     constructor(options) {
@@ -289,7 +290,15 @@ export class MapLayerControl {
         for (const layer of mapOrderLayers) {
             const groupIndex = layerIdToIndex.get(layer.id);
             if (groupIndex !== undefined) {
-                await this._toggleLayerGroup(groupIndex, true);
+                const layerTitle = this._escapeHtml(layer.title || layer.id);
+                const messageId = MapContextMessagesControl.show(`Loading map &quot;${layerTitle}&quot;`);
+                // createLayerGroup only issues the addSource/addLayer calls - it resolves
+                // almost instantly even though tiles are still loading in the background.
+                // Enforce a minimum visible time so the message is actually perceivable
+                // instead of flashing for a few milliseconds on fast/cached layers.
+                const minVisible = new Promise(resolve => setTimeout(resolve, 400));
+                await Promise.all([this._toggleLayerGroup(groupIndex, true), minVisible]);
+                MapContextMessagesControl.close(messageId);
                 // Yield to browser between layers to prevent blocking
                 await new Promise(resolve => requestAnimationFrame(resolve));
             }
@@ -591,6 +600,14 @@ export class MapLayerControl {
     /**
      * Get atlas ID for a layer
      */
+    _escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     _getAtlasIdForLayer(group) {
         // First check if group already has _sourceAtlas set
         if (group._sourceAtlas) {

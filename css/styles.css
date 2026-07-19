@@ -549,6 +549,66 @@ body {
     z-index: 2;
 }
 
+/* Contextual message bars, stacked just above the attribution control */
+.map-context-messages {
+    position: absolute;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 800px;
+    box-sizing: border-box;
+    padding: 0 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.map-context-message {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(31, 41, 55, 0.9);
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 10px 8px 14px;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.map-context-message--closing {
+    opacity: 0;
+    transform: translateY(4px);
+}
+
+.map-context-message__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.map-context-message__close {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+    opacity: 0.75;
+}
+
+.map-context-message__close:hover {
+    opacity: 1;
+}
+
 .mapboxgl-ctrl.mapboxgl-ctrl-attrib {
     background-color: #ffffffe1;
     margin: 0 46px 0 120px;
