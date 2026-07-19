@@ -240,8 +240,11 @@ export class MapMarkerManager {
         }
 
         // Pointer is over an existing inspect marker (buttons or badges) — those
-        // capture the interaction, so don't show a redundant hover popup.
-        if (this._pointerOverMarker) {
+        // capture the interaction, so don't show a redundant hover popup. Skip this
+        // suppression while a marker is being dragged: the pointer is pinned to the
+        // dragged marker's own element, but the hover preview needs to reflect
+        // whatever is newly beneath it, not be blocked by that.
+        if (this._pointerOverMarker && !this._draggingMarkerId) {
             this._clearHoverMarker();
             return;
         }
@@ -756,6 +759,15 @@ export class MapMarkerManager {
     }
 
     _showHoverMarker(lngLat, labelText, features) {
+        // Same feature(s) as currently shown — just reposition the existing marker
+        // instead of tearing down and rebuilding its DOM every mousemove tick. The
+        // rebuild is what made the label jump/stutter or lag behind the cursor.
+        const key = features.map(f => `${f.layerId}:${f.featureId}`).sort().join('|');
+        if (this._hoverMarker && this._hoverMarkerKey === key) {
+            this._hoverMarker.setLngLat([lngLat.lng, lngLat.lat]);
+            return;
+        }
+
         // Remove existing hover marker
         this._clearHoverMarker();
 
@@ -797,6 +809,7 @@ export class MapMarkerManager {
         // none, so all interaction passes through to the map beneath it.
 
         this._hoverMarker = marker;
+        this._hoverMarkerKey = key;
     }
 
     _clearHoverMarker() {
@@ -804,6 +817,7 @@ export class MapMarkerManager {
             this._hoverMarker.remove();
             this._hoverMarker = null;
         }
+        this._hoverMarkerKey = null;
     }
 
     _findMarkerByFeatures(hoveredFeatures) {
@@ -910,10 +924,30 @@ export class MapMarkerManager {
             .setLngLat([lngLat.lng, lngLat.lat])
             .addTo(this._map);
 
-        // Dragging the marker re-queries whatever is beneath its new position and
-        // treats it exactly like a click there, so the marker can be used to probe
-        // nearby features without re-clicking the map.
-        marker.on('dragend', () => this._handleMarkerDragEnd(marker));
+        // While dragging, the marker behaves like the mouse pointer hovering the map
+        // (live preview of whatever is beneath it) rather than selecting anything.
+        // Only on release does it re-query and act like a click at the drop point.
+        // Mapbox fires 'drag' on every pointermove tick, which can outpace the
+        // display's refresh rate; running the feature query + hover pipeline
+        // synchronously on each one backs up the main thread and makes the marker's
+        // own position updates (driven by the same thread) stutter or lag behind the
+        // cursor. Coalesce to at most one query per animation frame.
+        let dragRAF = null;
+        marker.on('dragstart', () => this._handleMarkerDragStart(markerId));
+        marker.on('drag', () => {
+            if (dragRAF) return;
+            dragRAF = requestAnimationFrame(() => {
+                dragRAF = null;
+                this._handleMarkerDrag(marker);
+            });
+        });
+        marker.on('dragend', () => {
+            if (dragRAF) {
+                cancelAnimationFrame(dragRAF);
+                dragRAF = null;
+            }
+            this._handleMarkerDragEnd(marker);
+        });
 
         // Clicking a badge opens the inspector; selection markers are already selected.
         this._attachBadgeHandlers(el, features, lngLat, false);
@@ -1016,12 +1050,34 @@ export class MapMarkerManager {
         return markerId;
     }
 
+    _handleMarkerDragStart(markerId) {
+        this._draggingMarkerId = markerId;
+    }
+
+    /**
+     * While the marker is being dragged, treat its current position exactly like a
+     * mouse hover — query what's beneath it and run it through the same hover
+     * pipeline normal map mousemove uses, so the same hover popup/highlight preview
+     * follows the marker instead of nothing happening until it's dropped.
+     */
+    _handleMarkerDrag(marker) {
+        const lngLat = marker.getLngLat();
+        const point = this._map.project(lngLat);
+
+        const interactiveFeatures = this._stateManager.getFeaturesAtPoint(point, lngLat)
+            .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
+
+        this._stateManager.handleFeatureHovers(interactiveFeatures, lngLat);
+    }
+
     /**
      * Re-query features at a dragged marker's new position and dispatch them
      * through the same selection pipeline as a map click, so the marker (and its
      * badges) rebuild as if the user had clicked at the drop point.
      */
     _handleMarkerDragEnd(marker) {
+        this._draggingMarkerId = null;
+
         const lngLat = marker.getLngLat();
         const point = this._map.project(lngLat);
 

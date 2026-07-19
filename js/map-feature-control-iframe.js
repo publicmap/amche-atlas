@@ -2024,10 +2024,23 @@ export class MapFeatureControl {
         // Mousemove handler (skip on touch devices to avoid hover/selection conflicts)
         const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         if (!isTouchDevice) {
+            // Native mousemove can fire faster than the display refreshes, and
+            // _handleMouseMove does several queryRenderedFeatures calls plus hover
+            // state/DOM work per tick. Running that synchronously on every event backs
+            // up the main thread — updates lag behind the cursor and catch up in a
+            // burst once movement slows, instead of tracking smoothly. Coalesce to the
+            // latest event once per animation frame.
+            let mouseMoveEvent = null;
+            let mouseMoveRAF = null;
             this._map.on('mousemove', (e) => {
                 // Track mouse movement for center hover prioritization
                 this._lastMouseMoveTime = Date.now();
-                this._handleMouseMove(e);
+                mouseMoveEvent = e;
+                if (mouseMoveRAF) return;
+                mouseMoveRAF = requestAnimationFrame(() => {
+                    mouseMoveRAF = null;
+                    this._handleMouseMove(mouseMoveEvent);
+                });
             });
         }
 

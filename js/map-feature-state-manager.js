@@ -274,16 +274,30 @@ export class MapFeatureStateManager extends EventTarget {
 
         // Dedupe repeated hovers over the same feature set. On desktop `mousemove`
         // fires continuously while the cursor sits over one feature; without this
-        // guard every tick tears down and re-applies the hover state (and rebuilds
-        // the hover popup downstream), making the highlight and popup flicker. Touch
-        // avoids this naturally via the throttled center-hover. Skip the guard for
-        // live center-hover during a pan (allowDuringMove), where the popup must keep
-        // tracking the moving center even when the underlying feature is unchanged.
+        // guard every tick tears down and re-applies the mapbox feature-state (which
+        // flickers the highlight). Touch avoids this naturally via the throttled
+        // center-hover. Skip the guard for live center-hover during a pan
+        // (allowDuringMove), where the popup must keep tracking the moving center
+        // even when the underlying feature is unchanged.
         const signature = hoveredFeatures
             .map(({ feature, layerId }) => `${layerId}:${this._getFeatureId(feature)}`)
             .sort()
             .join('|');
         if (!allowDuringMove && signature === this._lastHoverSignature) {
+            // Feature-state is already applied and doesn't need re-touching, but the
+            // pointer position still moved — forward it so position-tracking UI (the
+            // hover label) keeps following the cursor smoothly instead of freezing
+            // until the hovered feature set actually changes.
+            const processedFeatures = hoveredFeatures.map(({ feature, layerId }) => ({
+                featureId: this._getFeatureId(feature),
+                layerId,
+                feature
+            }));
+            this._emitStateChange('features-batch-hover', {
+                hoveredFeatures: processedFeatures,
+                affectedLayers: Array.from(new Set(processedFeatures.map(f => f.layerId))),
+                lngLat: globalLngLat
+            });
             return;
         }
 
