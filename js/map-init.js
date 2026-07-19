@@ -345,6 +345,20 @@ export class MapInitializer {
                     ...(layer._originalJson && { _originalJson: layer._originalJson })
                 }));
 
+                // Queue a "Loading map ..." message for every URL layer right away, before
+                // any async resolution (registry lookups, Overpass/Allmaps/Mapwarper
+                // shorthand expansion) runs below - otherwise slow shorthand resolution
+                // (e.g. a batched Overpass request) leaves the user with no feedback
+                // until it completes. _loadingMessageId travels with the layer object
+                // through cascade/merge below so _initializeAllLayers can close it once
+                // the layer actually renders (or this file closes it early on failure).
+                processedUrlLayers.forEach(layer => {
+                    const title = MapInitializer._getQueuedLayerTitle(layer);
+                    layer._loadingMessageId = MapContextMessagesControl.show(
+                        `Loading map &quot;${MapInitializer._escapeHtml(title)}&quot;`
+                    );
+                });
+
                 // When URL layers are specified, set ALL existing layers to initiallyChecked: false
                 // This ensures only URL-specified layers are visible
                 const existingLayers = config.layers || [];
@@ -483,11 +497,15 @@ export class MapInitializer {
                             // same as the registry-resolution branch below.
                             ...(layerConfig._originalJson && { _originalJson: layerConfig._originalJson }),
                             ...(layerConfig.initiallyChecked !== undefined && { initiallyChecked: layerConfig.initiallyChecked }),
-                            ...(layerConfig.opacity !== undefined && { opacity: layerConfig.opacity })
+                            ...(layerConfig.opacity !== undefined && { opacity: layerConfig.opacity }),
+                            ...(layerConfig._loadingMessageId && { _loadingMessageId: layerConfig._loadingMessageId })
                         }, atlasId));
                     } else {
                         console.warn(`[Dynamic Layer] Could not resolve layer from URL: "${layerConfig.type}:${layerConfig.id}" - ignoring.`);
                         invalidLayers.push(layerConfig.id);
+                        // This layer will never reach _initializeAllLayers, so its queued
+                        // loading message would otherwise be stuck on screen forever.
+                        MapContextMessagesControl.close(layerConfig._loadingMessageId);
                     }
                     continue;
                 }
@@ -551,6 +569,9 @@ export class MapInitializer {
                         if (layerConfig.initiallyChecked === true) {
                             console.warn(`[LayerRegistry] Unknown layer ID from URL: "${layerConfig.id}" - ignoring.`);
                             invalidLayers.push(layerConfig.id);
+                            // This layer will never reach _initializeAllLayers, so its queued
+                            // loading message would otherwise be stuck on screen forever.
+                            MapContextMessagesControl.close(layerConfig._loadingMessageId);
                         } else {
                             console.warn(`[LayerRegistry] Layer "${layerConfig.id}" not found in registry, using as-is (might be missing metadata)`);
                             // For non-URL layers, keep them as-is (they might be fully defined custom layers)
@@ -1212,6 +1233,25 @@ export class MapInitializer {
                 });
             }
         });
+    }
+
+    // Best-effort display name for a layer that hasn't been resolved yet -
+    // used for the "Loading map ..." message shown while URL layers (including
+    // dynamic shorthands like "osm:relation/123") are still being resolved.
+    static _getQueuedLayerTitle(layer) {
+        if (layer.title) return layer.title;
+        if (isDynamicLayerShorthand(layer)) return `${layer.type}:${layer.id}`;
+        const registryLayer = window.layerRegistry?.getLayer(layer.id);
+        if (registryLayer?.title) return registryLayer.title;
+        return layer.id;
+    }
+
+    static _escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     static _configureCadastralForCurrentAtlas() {

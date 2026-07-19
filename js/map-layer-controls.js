@@ -291,7 +291,15 @@ export class MapLayerControl {
             const groupIndex = layerIdToIndex.get(layer.id);
             if (groupIndex !== undefined) {
                 const layerTitle = this._escapeHtml(layer.title || layer.id);
-                const messageId = MapContextMessagesControl.show(`Loading map &quot;${layerTitle}&quot;`);
+                // A message may already be queued for this layer from map-init.js -
+                // shown before URL layers (e.g. "osm:..." dynamic shorthands) were even
+                // resolved. Reuse it (refreshing the text, since the placeholder shown
+                // while queued may not have known the real title yet) instead of
+                // creating a second one.
+                const messageId = MapContextMessagesControl.show(
+                    `Loading map &quot;${layerTitle}&quot;`,
+                    { id: layer._loadingMessageId }
+                );
                 // createLayerGroup only issues the addSource/addLayer calls - it resolves
                 // almost instantly even though tiles are still loading in the background.
                 // Enforce a minimum visible time so the message is actually perceivable
