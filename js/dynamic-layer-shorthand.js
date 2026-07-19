@@ -75,3 +75,44 @@ export async function expandDynamicLayerShorthand(layerConfig) {
         return null;
     }
 }
+
+/**
+ * Pre-resolves every "osm:" shorthand layer in `layerConfigs` with a single
+ * combined Overpass request instead of one request per layer — Overpass
+ * aggressively rate-limits/times out when hit with several requests back to
+ * back (e.g. `?layers=osm:relation/1,osm:relation/2,...`).
+ *
+ * Returns a Map keyed by the original layerConfig object references (not
+ * copies) to their expanded config, or null if that ref failed to resolve.
+ * Only entries this function actually batched are present in the map —
+ * callers should fall back to expandDynamicLayerShorthand() for anything
+ * missing (a lone osm: entry, or allmaps:/mapwarper: entries), and for the
+ * whole thing if the combined request itself fails.
+ */
+export async function resolveDynamicLayerShorthands(layerConfigs) {
+    const results = new Map();
+
+    const osmRefs = layerConfigs
+        .filter(layerConfig => isDynamicLayerShorthand(layerConfig) && layerConfig.type === 'osm')
+        .map(layerConfig => ({ layerConfig, ref: OSMApi.extractRef(layerConfig.id) }))
+        .filter(({ ref }) => !!ref);
+
+    if (osmRefs.length < 2) return results;
+
+    try {
+        const configs = await OSMApi.createConfigsFromRefs(osmRefs.map(({ ref }) => ref));
+        osmRefs.forEach(({ layerConfig, ref }) => {
+            const entry = configs.get(`${ref.type}/${ref.id}`);
+            if (entry instanceof Error) {
+                console.warn(`[Dynamic Layer] Failed to resolve "osm:${layerConfig.id}":`, entry);
+                results.set(layerConfig, null);
+            } else {
+                results.set(layerConfig, entry);
+            }
+        });
+    } catch (error) {
+        console.warn('[Dynamic Layer] Combined Overpass request failed, falling back to individual requests:', error);
+    }
+
+    return results;
+}

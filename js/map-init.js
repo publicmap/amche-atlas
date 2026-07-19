@@ -17,7 +17,7 @@ import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { ButtonGeolocationManager } from './button-geolocation-manager.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 import { CameraUtils } from './map-camera-utils.js';
-import { isDynamicLayerShorthand, expandDynamicLayerShorthand } from './dynamic-layer-shorthand.js';
+import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands } from './dynamic-layer-shorthand.js';
 
 export class MapInitializer {
     // Note: location-based atlas selection is owned by SplashScreenManager
@@ -460,13 +460,21 @@ export class MapInitializer {
             const validLayers = [];
             const invalidLayers = [];
 
+            // Batch-resolve any "osm:" shorthand layers into a single Overpass
+            // request before the per-layer loop below, which otherwise fires
+            // one Overpass request per layer sequentially (see
+            // resolveDynamicLayerShorthands' docs for why).
+            const precomputedDynamicLayers = await resolveDynamicLayerShorthands(config.layers);
+
             // Process layers one by one
             for (const layerConfig of config.layers) {
                 // Dynamic layer shorthand from the URL API, e.g. "allmaps:<id>"
                 // — resolve via the matching service's API before anything else touches it,
                 // since its `type` isn't a real MapboxAPI layer type until expanded.
                 if (isDynamicLayerShorthand(layerConfig)) {
-                    const expanded = await expandDynamicLayerShorthand(layerConfig);
+                    const expanded = precomputedDynamicLayers.has(layerConfig)
+                        ? precomputedDynamicLayers.get(layerConfig)
+                        : await expandDynamicLayerShorthand(layerConfig);
                     if (expanded) {
                         validLayers.push(layerRegistry.applyAtlasCascade({
                             ...expanded,

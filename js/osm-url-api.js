@@ -208,4 +208,82 @@ export class OSMApi {
         const geojson = await this.fetchElementGeoJSON(parsed.type, parsed.id);
         return this.createConfig(parsed.type, parsed.id, geojson);
     }
+
+    // Single `out meta geom;` covers every ref regardless of type — the
+    // "geom" modifier only affects ways/relations (adds inline member
+    // geometry), it's a harmless no-op for nodes, which already carry lat/lon.
+    static buildBatchQuery(refs) {
+        const statements = refs.map(({ type, id }) => `${type}(${id});`).join('\n  ');
+        return `[out:json][timeout:180];\n(\n  ${statements}\n);\nout meta geom;`;
+    }
+
+    /**
+     * Fetches multiple OSM elements in a single Overpass request and groups
+     * the resulting features back by their own "type/id" ref. Each requested
+     * ref queries a single top-level element (no recursion), so every
+     * returned feature's own id maps unambiguously back to one ref.
+     *
+     * Returns a Map<"type/id", Feature[]> — a ref with no entry (or an empty
+     * array) means it wasn't found / had no geometry.
+     */
+    static async fetchElementsGeoJSON(refs) {
+        const query = this.buildBatchQuery(refs);
+        const response = await fetch(OVERPASS_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'data=' + encodeURIComponent(query)
+        });
+        if (!response.ok) {
+            throw new Error(`Overpass HTTP ${response.status}`);
+        }
+        const osmJson = await response.json();
+
+        const { default: osmtogeojson } = await import(/* @vite-ignore */ OSMTOGEOJSON_CDN);
+        const geojson = osmtogeojson(osmJson);
+
+        const byRef = new Map();
+        geojson.features.forEach(feature => {
+            const ref = this.extractRef(feature.id);
+            if (!ref) return;
+            feature.properties = feature.properties || {};
+            feature.properties.url = this.osmUrlToObject(ref.type, ref.id);
+
+            const key = `${ref.type}/${ref.id}`;
+            if (!byRef.has(key)) byRef.set(key, []);
+            byRef.get(key).push(feature);
+        });
+
+        return byRef;
+    }
+
+    /**
+     * Batched equivalent of createConfigFromRef() for multiple refs — see
+     * dynamic-layer-shorthand.js's resolveDynamicLayerShorthands(), which
+     * uses this to fold several "osm:" URL shorthand layers into one
+     * Overpass request instead of one request per layer.
+     *
+     * Returns a Map<"type/id", config|Error> — one entry per input ref, in
+     * the same order, with a per-ref Error for any that failed so a single
+     * unresolvable ref doesn't drop the whole batch.
+     */
+    static async createConfigsFromRefs(refs) {
+        const byRef = await this.fetchElementsGeoJSON(refs);
+        const results = new Map();
+
+        for (const { type, id } of refs) {
+            const key = `${type}/${id}`;
+            const features = byRef.get(key);
+            if (!features || features.length === 0) {
+                results.set(key, new Error(`OSM ${type} ${id} not found or has no geometry`));
+                continue;
+            }
+            try {
+                results.set(key, await this.createConfig(type, id, { type: 'FeatureCollection', features }));
+            } catch (error) {
+                results.set(key, error);
+            }
+        }
+
+        return results;
+    }
 }
