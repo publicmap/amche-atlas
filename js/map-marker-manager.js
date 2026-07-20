@@ -576,6 +576,12 @@ export class MapMarkerManager {
                 // On touch, stop touchmove from reaching the map's drag-pan handler.
                 details.addEventListener('touchmove', (e) => e.stopPropagation());
                 details.addEventListener('touchstart', (e) => e.stopPropagation());
+                // Without this, any click bubbling up from the table (including the
+                // click that ends a text selection drag) hits the badge's own click
+                // handler below and toggles the table closed, making selecting or
+                // copying text inside it impossible.
+                details.addEventListener('mousedown', (e) => e.stopPropagation());
+                details.addEventListener('click', (e) => e.stopPropagation());
             }
 
             const layerIsBasemap = () => {
