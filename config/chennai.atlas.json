@@ -61,9 +61,62 @@
       "id": "tngis_tn_cadastrals-cug5wy",
       "url": "https://indianopenmaps.com/not-so-open/cadastrals/tamil-nadu/tngis/{z}/{x}/{y}.pbf",
       "sourceLayer": "TNGIS_TN_Cadastrals",
-      "minzoom": 0,
+      "minzoom": 14,
       "maxzoom": 14,
       "attribution": "Source: <a href='https://tngis.tn.gov.in' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "style": {
+        "text-field": [
+          "get",
+          "kide"
+        ],
+        "text-padding": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          200,
+          17,
+          2
+        ],
+        "text-font": [
+          "PT Sans Narrow Bold"
+        ],
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          17,
+          [
+            "format",
+            [
+              "get",
+              "survey_number"
+            ],
+            {
+              "text-color": "black",
+              "font-scale": 1.1
+            },
+            "/",
+            {},
+            [
+              "get",
+              "sub_division"
+            ],
+            {
+              "text-color": "grey",
+              "font-scale": 1
+            }
+          ]
+        ],
+        "text-color": "black",
+        "text-halo-width": 0
+      },
       "inspect": {
         "id": "id",
         "title": "Survey Number",
@@ -348,8 +401,7 @@
       },
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:1911_Map_of_Chennai_Tamil_Nadu_India.jpg' target='_blank'>File:1911_Map_of_Chennai_Tamil_Nadu_India.jpg</a> via <a href='https://warper.wmflabs.org/maps/2017#Preview_tab' target='_blank'>MapWarper</a>",
       "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/1911_Map_of_Chennai_Tamil_Nadu_India.jpg/100px-1911_Map_of_Chennai_Tamil_Nadu_India.jpg",
-      "bbox": "80.20812053734737,12.998155153853746,80.3224696757144,13.152261793569687",
-      "initiallyChecked": true
+      "bbox": "80.20812053734737,12.998155153853746,80.3224696757144,13.152261793569687"
     },
     {
       "title": "Constable's Hand Atlas Map of Madras 1893 ",
@@ -378,8 +430,7 @@
       },
       "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Map_of_Madras_from_Maps_of_constable_1893_Hand_Atlas.jpg' target='_blank'>File:Map_of_Madras_from_Maps_of_constable_1893_Hand_Atlas.jpg</a> via <a href='https://warper.wmflabs.org/maps/9002' target='_blank'>MapWarper</a>",
       "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Map_of_Madras_from_Maps_of_constable_1893_Hand_Atlas.jpg/120px-Map_of_Madras_from_Maps_of_constable_1893_Hand_Atlas.jpg",
-      "bbox": "80.2167428,13.0033772,80.3156074,13.1338784",
-      "initiallyChecked": true
+      "bbox": "80.2167428,13.0033772,80.3156074,13.1338784"
     },
     {
       "title": "Madras and its suburbs 1874",

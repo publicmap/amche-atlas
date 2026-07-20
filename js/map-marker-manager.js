@@ -232,10 +232,15 @@ export class MapMarkerManager {
     }
 
     _handleBatchHover(data) {
-        // Don't update hover markers during map movement (pan/zoom) on desktop.
-        // On touch, center-hover live-queries during the pan so the hover popup
-        // tracks the moving center — allow it through.
-        if (this._isMapMoving && !this._isTouch) {
+        // Touch devices have no cursor, so this used to be driven by a center-of-screen
+        // query that showed an inspect popup there. The draggable inspect marker now
+        // covers that use case directly, so hover popups are desktop-only.
+        if (this._isTouch) {
+            return;
+        }
+
+        // Don't update hover markers during map movement (pan/zoom).
+        if (this._isMapMoving) {
             return;
         }
 
@@ -783,15 +788,9 @@ export class MapMarkerManager {
         // this as an interactive selection marker.
         el.style.cssText = 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none; cursor: pointer; transform: none !important; transition: none !important;';
 
-        const infoSize = this._isTouch ? 24 : 20;
-        // On touch there is no cursor, so the map center is queried instead. Drop an info
-        // marker in the action row — its box is centred on the queried point (lngLat) —
-        // so the user can see exactly which point is being inspected.
-        const queryIcon = this._isTouch
-            ? `<span class="marker-query-eye" style="display:flex;align-items:center;justify-content:center;width:${infoSize}px;height:${infoSize}px;border-radius:50%;background:#6b7280;box-shadow:0 1px 4px rgba(0,0,0,0.35);flex-shrink:0;pointer-events:none;"><sl-icon name="info-circle" style="font-size:${Math.round(infoSize * 0.7)}px;color:#fff;pointer-events:none;"></sl-icon></span>`
-            : '';
+        const infoSize = 20;
         el.innerHTML = `
-            <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; height: ${infoSize}px; flex-shrink: 0;">${queryIcon}</div>
+            <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; height: ${infoSize}px; flex-shrink: 0;"></div>
             <div class="marker-content" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 240px;">
                 ${this._buildMarkerBadgesHTML(features, lngLat)}
             </div>
