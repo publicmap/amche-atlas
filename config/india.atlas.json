@@ -3433,7 +3433,7 @@
         ]
       },
       "attribution": "<a href=\"https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin,_Published_1877,_New_Edition_1914.jpg\" target=\"_blank\">File:Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin,_Published_1877,_New_Edition_1914.jpg</a> via <a href=\"https://warper.wmflabs.org/maps/6346#Preview_tab\" target=\"_blank\">MapWarper</a>",
-      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin%2C_Published_1877%2C_New_Edition_1914.jpg/100px-Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin%2C_Published_1877%2C_New_Edition_1914.jpg",
+      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin%2C_Published_1877%2C_New_Edition_1914.jpg/120px-Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin%2C_Published_1877%2C_New_Edition_1914.jpg",
       "bbox": "69.8665829,4.0629612,79.2039852,17.4602489"
     },
     {
@@ -3452,7 +3452,7 @@
     {
       "title": "Geological Map of India (1855)",
       "description": "General sketch of the physical and geological features of British India. Compiled by Greenough, George Bellas (1778-1855)",
-      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Greenough_Geology_India_1855.jpg/100px-Greenough_Geology_India_1855.jpg",
+      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Greenough_Geology_India_1855.jpg/120px-Greenough_Geology_India_1855.jpg",
       "type": "tms",
       "id": "1855-geology",
       "url": "https://warper.wmflabs.org/maps/tile/2258/{z}/{x}/{y}.png",
@@ -3481,7 +3481,7 @@
       ],
       "title": "Robert Wilkinsons General Atlas  (1792)",
       "description": "Engraved by Thomas Conder and issued as plate no. 37 in the 1792 edition of Robert Wilkinsons General Atlas",
-      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Southern_India_Wilkinson.png/100px-Southern_India_Wilkinson.png",
+      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Southern_India_Wilkinson.png/120px-Southern_India_Wilkinson.png",
       "type": "tms",
       "id": "1792-general-atlas",
       "url": "https://warper.wmflabs.org/maps/tile/7050/{z}/{x}/{y}.png",
