@@ -8,6 +8,7 @@ import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { OverpassLoader } from './overpass-loader.js';
 import ConfigManager from './config-manager.js';
+import { handlerLoader } from './inspection-handler-loader.js';
 
 const COG_PROVIDER_URL = new URL('./cog-tile-provider.js', import.meta.url).href;
 let _cogProviderRegistered = false;
@@ -418,6 +419,8 @@ export class MapboxAPI {
                     return this._createCOGLayer(groupId, config, visible);
                 case 'geojson':
                     return this._createGeoJSONLayer(groupId, config, visible);
+                case 'js':
+                    return this._createJsLayer(groupId, config, visible);
                 case 'overpass':
                     return this._createOverpassLayer(groupId, config, visible);
                 case 'csv':
@@ -469,6 +472,8 @@ export class MapboxAPI {
                 case 'cog':
                     return this._updateCOGLayerVisibility(groupId, config, visible);
                 case 'geojson':
+                    return this._updateGeoJSONLayerVisibility(groupId, config, visible);
+                case 'js':
                     return this._updateGeoJSONLayerVisibility(groupId, config, visible);
                 case 'overpass':
                     return this._updateOverpassLayerVisibility(groupId, config, visible);
@@ -524,6 +529,8 @@ export class MapboxAPI {
                     return this._removeCOGLayer(groupId, config);
                 case 'geojson':
                     return this._removeGeoJSONLayer(groupId, config);
+                case 'js':
+                    return this._removeGeoJSONLayer(groupId, config);
                 case 'overpass':
                     return this._removeOverpassLayer(groupId, config);
                 case 'csv':
@@ -563,6 +570,8 @@ export class MapboxAPI {
                 case 'cog':
                     return this._updateCOGLayerOpacity(groupId, config, opacity);
                 case 'geojson':
+                    return this._updateGeoJSONLayerOpacity(groupId, config, opacity);
+                case 'js':
                     return this._updateGeoJSONLayerOpacity(groupId, config, opacity);
                 case 'overpass':
                     return this._updateGeoJSONLayerOpacity(groupId, config, opacity);
@@ -1638,6 +1647,85 @@ export class MapboxAPI {
         this._refreshTimers.set(groupId, timer);
     }
 
+    // JS layer methods
+    // A `js` layer fetches data from `config.url` and hands it to an
+    // atlas-defined function (config/{atlas}.js → `dataFunctions[id]`) that
+    // gathers/paginates/transforms the response into GeoJSON. The resulting
+    // GeoJSON is then rendered through the same pipeline as a `geojson` layer.
+    async _createJsLayer(groupId, config, visible) {
+        const sourceId = `geojson-${groupId}`;
+
+        if (!this._map.getSource(sourceId) && visible) {
+            let geojson;
+            try {
+                geojson = await this._fetchJsLayerData(config);
+            } catch (error) {
+                console.error(`Error loading data for js layer ${groupId}:`, error);
+                return false;
+            }
+
+            // Strip `url`/`refresh` so `_createGeoJSONLayer` doesn't also try to
+            // treat config.url as a raw GeoJSON endpoint and set up its own timer;
+            // this layer's own refresh (re-running the atlas dataFunction) is
+            // scheduled separately below.
+            const created = await this._createGeoJSONLayer(groupId, { ...config, type: 'geojson', data: geojson, url: undefined, refresh: undefined }, visible);
+
+            if (created && config.refresh) {
+                this._setupJsLayerRefresh(groupId, config);
+            }
+
+            return created;
+        }
+
+        return this._updateGeoJSONLayerVisibility(groupId, config, visible);
+    }
+
+    async _fetchJsLayerData(config) {
+        const atlasName = config._sourceAtlas;
+        // Prefer the unprefixed original id — layer-registry.js prefixes ids
+        // like `goa-aqi` when a layer is pulled cross-atlas, but the atlas's
+        // own config/{atlas}.js dataFunctions are keyed by the original id.
+        const functionName = config.dataFunction || config._originalId || config.id;
+
+        if (!atlasName || !functionName) {
+            throw new Error(`js layer "${config.id}" is missing atlas context or an id/dataFunction to resolve its data function`);
+        }
+
+        const dataFunctions = await handlerLoader.loadDataFunctions(atlasName);
+        const fn = dataFunctions[functionName];
+
+        if (typeof fn !== 'function') {
+            throw new Error(`No dataFunction "${functionName}" exported from config/${atlasName}.js`);
+        }
+
+        const result = await fn({ url: config.url, config, layerId: config.id });
+        return this._processGeoJSONData(result);
+    }
+
+    _setupJsLayerRefresh(groupId, config) {
+        if (this._refreshTimers.has(groupId)) {
+            clearInterval(this._refreshTimers.get(groupId));
+        }
+
+        const timer = setInterval(async () => {
+            const sourceId = `geojson-${groupId}`;
+            if (!this._map.getSource(sourceId)) {
+                clearInterval(timer);
+                this._refreshTimers.delete(groupId);
+                return;
+            }
+
+            try {
+                const geojson = await this._fetchJsLayerData(config);
+                this._map.getSource(sourceId).setData(geojson);
+            } catch (error) {
+                console.error(`Error refreshing js layer ${groupId}:`, error);
+            }
+        }, config.refresh);
+
+        this._refreshTimers.set(groupId, timer);
+    }
+
     async _createSegregatedGeoJSONLayer(groupId, config, visible) {
         // Fetch data first to process it
         let geojson;
@@ -2029,7 +2117,11 @@ export class MapboxAPI {
         });
 
         if (visible && config.refresh && config.url && !this._refreshTimers.has(groupId)) {
-            this._setupGeoJSONRefresh(groupId, config);
+            if (config.type === 'js') {
+                this._setupJsLayerRefresh(groupId, config);
+            } else {
+                this._setupGeoJSONRefresh(groupId, config);
+            }
         } else if (!visible && this._refreshTimers.has(groupId)) {
             clearInterval(this._refreshTimers.get(groupId));
             this._refreshTimers.delete(groupId);
@@ -2270,6 +2362,11 @@ export class MapboxAPI {
                 const response = await fetch(config.url);
                 const data = await response.json();
                 this._map.getSource(sourceId).setData(this._processGeoJSONData(data));
+            } else if (config.type === 'js') {
+                const sourceId = `geojson-${groupId}`;
+                if (!this._map.getSource(sourceId)) return false;
+                const geojson = await this._fetchJsLayerData(config);
+                this._map.getSource(sourceId).setData(geojson);
             } else if (config.type === 'csv') {
                 const sourceId = `csv-${groupId}`;
                 if (!this._map.getSource(sourceId)) return false;
@@ -2971,6 +3068,7 @@ export class MapboxAPI {
             case 'wms':
                 return [`wms-layer-${groupId}`].filter(id => this._map.getLayer(id));
             case 'overpass':
+            case 'js':
             case 'geojson': {
                 const sourceId = `geojson-${groupId}`;
 

@@ -132,13 +132,14 @@ export class CameraUtils {
 
     /**
      * True for layer types whose map source ends up holding GeoJSON that a
-     * bbox can be computed from once loaded (geojson/csv). Overpass layers
-     * are deliberately excluded — their query commonly depends on the current
-     * viewport via a `{{bbox}}` placeholder, so fitting the camera to their
-     * result would be circular.
+     * bbox can be computed from once loaded (geojson/csv/js — a `js` layer's
+     * data function ultimately populates the same `geojson-${id}` source).
+     * Overpass layers are deliberately excluded — their query commonly
+     * depends on the current viewport via a `{{bbox}}` placeholder, so
+     * fitting the camera to their result would be circular.
      */
     static isGeojsonBackedType(layer) {
-        return !!layer && (layer.type === 'geojson' || layer.type === 'csv');
+        return !!layer && (layer.type === 'geojson' || layer.type === 'csv' || layer.type === 'js');
     }
 
     /** The Mapbox source id MapboxAPI creates for a geojson/csv-backed layer. */

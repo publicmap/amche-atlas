@@ -152,6 +152,103 @@
       }
     },
     {
+      "tags": [
+        "pollution"
+      ],
+      "title": "Air Quality",
+      "description": "Live air quality and weather readings from the AQI Online sensor network across Goa.",
+      "type": "js",
+      "id": "aqi",
+      "url": "https://backend.aqionline.in/api/devices?page=1&limit=50",
+      "refresh": 300000,
+      "attribution": "<a href='https://aqionline.in'>AQI Online</a>",
+      "style": {
+        "text-field": [
+          "get",
+          "aqi"
+        ],
+        "circle-radius": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          8,
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          7,
+          5
+        ],
+        "circle-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "coalesce",
+            [
+              "get",
+              "aqi"
+            ],
+            0
+          ],
+          0,
+          "#00e400",
+          50,
+          "#ffff00",
+          100,
+          "#ff7e00",
+          150,
+          "#ff0000",
+          200,
+          "#8f3f97",
+          300,
+          "#7e0023"
+        ],
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#ffffff"
+      },
+      "inspect": {
+        "id": "device_id",
+        "title": "AQI",
+        "label": "aqi",
+        "fields": [
+          "pm25",
+          "pm10",
+          "co",
+          "co2",
+          "no2",
+          "o3",
+          "so2",
+          "temp",
+          "hum",
+          "online"
+        ],
+        "fieldTitles": [
+          "PM2.5 (µg/m³)",
+          "PM10 (µg/m³)",
+          "CO (ppb)",
+          "CO2 (ppm)",
+          "NO2 (ppb)",
+          "O3 (ppb)",
+          "SO2 (ppb)",
+          "Temperature (°C)",
+          "Humidity (%)",
+          "Online"
+        ]
+      }
+    },
+    {
       "id": "agricultural-landuse",
       "title": "Suggested Agricultural Landuse",
       "description": "Suggested agricultural crops and land-use practices for different areas of Goa based on soil characteristics, climate, and terrain analysis from <a href='http://gis.nbsslup.in/'>ICAR-NBSS&LUP Bhoomi Geoportal</a>.",
@@ -3151,7 +3248,7 @@
       ],
       "title": "Goa Admiralty Chart (1853)",
       "description": "Nautical chart of the West Coast of India from Achra River to Cape Ramas. Surveyed by Lieut. A.D. Taylor 1853-4 for East India Company.",
-      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Admiralty_Chart_No_740_West_Coast_of_India%2C_Published_1858%2C_New_Edition_1914.jpg/100px-Admiralty_Chart_No_740_West_Coast_of_India%2C_Published_1858%2C_New_Edition_1914.jpg",
+      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Admiralty_Chart_No_740_West_Coast_of_India%2C_Published_1858%2C_New_Edition_1914.jpg/120px-Admiralty_Chart_No_740_West_Coast_of_India%2C_Published_1858%2C_New_Edition_1914.jpg",
       "type": "tms",
       "id": "1853-admiralty-chart",
       "url": "https://warper.wmflabs.org/maps/tile/4749/{z}/{x}/{y}.png",

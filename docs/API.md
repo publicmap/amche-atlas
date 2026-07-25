@@ -348,7 +348,7 @@ Available on all layer types unless noted otherwise.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | string | Unique identifier referenced from URLs and other configs. **Required** for all types except inline `style` layers. |
-| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `csv`, `overpass`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
+| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `js`, `csv`, `overpass`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
 | `title` | string | Display name in the layer control. |
 | `description` | string | HTML allowed; shown in the layer info panel. |
 | `tags` | string[] | Used to group layers in the UI. Prefix with `N.` (e.g. `"1.Development Plans"`) to control sort order. |
@@ -686,6 +686,55 @@ Inline or remote GeoJSON. Also accepts a KML URL (auto-converted using `js/kml-c
   }
 }
 ```
+
+### `js` — Custom JS data-mapping function
+
+Fetches from an arbitrary API `url` and hands the raw response to an atlas-defined JavaScript function that gathers/paginates/transforms it into GeoJSON. Use this for API shapes that aren't plain GeoJSON, CSV, or a paginated feed `geojson`/`overpass` can't already handle. Once transformed, the layer renders through the same pipeline as a `geojson` layer — `style`, `inspect`, `clustered`, and `opacity` all work identically.
+
+The data function lives in the atlas's own `config/{atlas}.js` file (e.g. `config/goa.js`), exported as `dataFunctions`, keyed by the layer's `id` (or `dataFunction` if that's set) — the same file/convention used by `inspect.onClick` handlers, just a different export. This keeps arbitrary fetch/parse code out of `mapbox-api.js` and scoped to the atlas that needs it.
+
+| Field | Notes |
+|---|---|
+| `url` | API endpoint passed to the data function. **Required.** |
+| `id` | Also used as the default lookup key into `dataFunctions` unless `dataFunction` is set. **Required.** |
+| `dataFunction` | Name of the exported `dataFunctions` key to use, if different from `id`. |
+| `refresh` | Polling interval in milliseconds — re-runs the data function and updates the source. Same semantics as `geojson`'s `refresh`. |
+| `style`, `inspect`, `clustered`, `clusterMaxZoom`, `clusterRadius`, `opacity` | Same semantics as the `geojson` type. |
+
+```json
+{
+  "id": "aqi",
+  "type": "js",
+  "title": "Air Quality",
+  "url": "https://backend.aqionline.in/api/devices?page=1&limit=50",
+  "refresh": 300000,
+  "attribution": "<a href='https://aqionline.in'>AQI Online</a>",
+  "style": {
+    "circle-radius": 5,
+    "circle-color": "#4c7fff"
+  },
+  "inspect": { "id": "device_id", "title": "AQI Monitoring Station", "label": "device_id", "fields": ["aqi", "pm25", "pm10"] }
+}
+```
+
+The matching function in `config/goa.js`:
+
+```javascript
+export const dataFunctions = {
+  aqi: async ({ url }) => {
+    // Paginate through `url`, gather results, and return a
+    // GeoJSON FeatureCollection built from the response.
+    // See config/goa.js for the full implementation.
+  }
+};
+```
+
+**Function signature:** `async ({ url, config, layerId }) => geoJsonOrGeometryLikeObject`. The return value is passed through the same normalizer used by `geojson`/`data` (`FeatureCollection`, a single `Feature`, or a bare geometry are all accepted).
+
+**Notes:**
+- Resolution happens via `js/inspection-handler-loader.js`'s `loadDataFunctions()`, which dynamically imports `config/{atlas}.js` — the same loader and file used for `inspect.onClick` handlers (`handlers` export vs. `dataFunctions` export).
+- The atlas is resolved from the layer's `_sourceAtlas` (set by the layer registry when the config is loaded), so a `js` layer only works within an atlas that has a matching `config/{atlas}.js` module — there is no cross-atlas fallback.
+- Errors thrown by the data function are caught and logged to the console; the layer simply fails to load rather than crashing the map.
 
 ### `csv` — CSV tabular data
 

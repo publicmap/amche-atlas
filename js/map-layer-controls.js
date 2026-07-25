@@ -1259,7 +1259,7 @@ export class MapLayerControl {
         }
 
         // Skip vector layers that explicitly disable interactivity via inspect: false or inspect: null
-        const isVectorLike = layerConfig.type === 'geojson' || layerConfig.type === 'vector' || layerConfig.type === 'csv';
+        const isVectorLike = layerConfig.type === 'geojson' || layerConfig.type === 'vector' || layerConfig.type === 'csv' || layerConfig.type === 'js';
         const isExplicitlyDisabled = layerConfig.inspect === false || layerConfig.inspect === null;
         if (isVectorLike && isExplicitlyDisabled) {
             return;

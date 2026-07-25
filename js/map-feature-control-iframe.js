@@ -2378,6 +2378,10 @@ export class MapFeatureControl {
                 return layerId;
             }
 
+            if (layerConfig.type === 'js' && actualLayerId.startsWith(`geojson-${layerId}-`)) {
+                return layerId;
+            }
+
             if (layerConfig.type === 'csv' && actualLayerId.startsWith(`csv-${layerId}-`)) {
                 return layerId;
             }

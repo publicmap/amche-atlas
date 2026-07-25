@@ -1,14 +1,15 @@
 /**
  * Inspection Handler Loader
  *
- * Dynamically loads and executes layer inspection handlers from config files.
+ * Dynamically loads and executes layer inspection handlers and data-mapping
+ * functions from config files.
  * STRICT NAMING CONVENTION: Handler files must match the atlas name.
  * - config/{atlas-name}.js (e.g., config/goa.js, config/index.js)
  */
 
 export class InspectionHandlerLoader {
     constructor() {
-        this._handlersCache = new Map(); // atlas name -> handlers object
+        this._moduleCache = new Map(); // atlas name -> imported module namespace
         this._loadingPromises = new Map(); // track in-progress loads
     }
 
@@ -18,33 +19,49 @@ export class InspectionHandlerLoader {
      * @returns {Promise<Object>} Handlers object
      */
     async loadHandlers(atlasName) {
-        // Return cached handlers if available
-        if (this._handlersCache.has(atlasName)) {
-            return this._handlersCache.get(atlasName);
+        const module = await this._loadModule(atlasName);
+        return module.handlers || {};
+    }
+
+    /**
+     * Load data-mapping functions for a specific atlas, used by `type: "js"`
+     * layers to transform a fetched API response into GeoJSON.
+     * @param {string} atlasName - Name of the atlas (e.g., 'goa', 'index')
+     * @returns {Promise<Object>} dataFunctions object
+     */
+    async loadDataFunctions(atlasName) {
+        const module = await this._loadModule(atlasName);
+        return module.dataFunctions || {};
+    }
+
+    /**
+     * Load and cache the config/{atlas}.js module (handlers + dataFunctions)
+     */
+    async _loadModule(atlasName) {
+        if (this._moduleCache.has(atlasName)) {
+            return this._moduleCache.get(atlasName);
         }
 
-        // Return existing promise if already loading
         if (this._loadingPromises.has(atlasName)) {
             return this._loadingPromises.get(atlasName);
         }
 
-        // Start loading
-        const loadPromise = this._loadHandlersInternal(atlasName);
+        const loadPromise = this._loadModuleInternal(atlasName);
         this._loadingPromises.set(atlasName, loadPromise);
 
         try {
-            const handlers = await loadPromise;
-            this._handlersCache.set(atlasName, handlers);
-            return handlers;
+            const module = await loadPromise;
+            this._moduleCache.set(atlasName, module);
+            return module;
         } finally {
             this._loadingPromises.delete(atlasName);
         }
     }
 
     /**
-     * Internal method to load handlers from file
+     * Internal method to load the module from file
      */
-    async _loadHandlersInternal(atlasName) {
+    async _loadModuleInternal(atlasName) {
         try {
             // Try to import the handlers file (config/{atlas}.js)
             const handlersModule = await import(`../config/${atlasName}.js`);
@@ -52,11 +69,13 @@ export class InspectionHandlerLoader {
             if (handlersModule.handlers && typeof handlersModule.handlers === 'object') {
                 console.log(`[HandlerLoader] Loaded ${Object.keys(handlersModule.handlers).length} handlers from ${atlasName}.js`);
                 this._exposeHandlersGlobally(handlersModule.handlers);
-                return handlersModule.handlers;
-            } else {
-                console.warn(`[HandlerLoader] No handlers export found in ${atlasName}.js`);
-                return {};
             }
+
+            if (handlersModule.dataFunctions && typeof handlersModule.dataFunctions === 'object') {
+                console.log(`[HandlerLoader] Loaded ${Object.keys(handlersModule.dataFunctions).length} data functions from ${atlasName}.js`);
+            }
+
+            return handlersModule;
         } catch (error) {
             // File doesn't exist or failed to load
             if (error.message.includes('Failed to fetch') || error.message.includes('Cannot find module')) {
@@ -115,7 +134,7 @@ export class InspectionHandlerLoader {
      * Clear cached handlers (useful for development/hot reload)
      */
     clearCache() {
-        this._handlersCache.clear();
+        this._moduleCache.clear();
         console.log('[HandlerLoader] Handler cache cleared');
     }
 
@@ -123,7 +142,7 @@ export class InspectionHandlerLoader {
      * Get list of loaded atlases
      */
     getLoadedAtlases() {
-        return Array.from(this._handlersCache.keys());
+        return Array.from(this._moduleCache.keys());
     }
 }
 
