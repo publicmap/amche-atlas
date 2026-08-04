@@ -391,9 +391,21 @@ export class MapMarkerManager {
             rows = [`<div style="font-size:9px;color:#78350f;padding:2px 0;">No attributes</div>`];
         }
 
+        // Configured `fields` only shows a curated subset — offer a toggle to reveal
+        // every non-empty property, mirroring the popup's "show all" behavior.
+        let allPropertiesHTML = '';
+        let showAllButton = '';
+        if (fields.length > 0 && validEntries.length > rows.length) {
+            const allRows = validEntries.map(([k, v]) => buildRow(k, v));
+            allPropertiesHTML = `<div class="badge-all-properties" style="display:none;">${allRows.join('')}</div>`;
+            const btnStyle = `margin-top:2px;padding:2px 0;background:transparent;color:#78350f;border:none;border-top:1px dashed rgba(0,0,0,0.2);font-size:9px;font-weight:600;cursor:pointer;width:100%;text-align:left;`;
+            showAllButton = `<button class="badge-show-all-props-btn" data-total="${validEntries.length}" style="${btnStyle}">Show all ${validEntries.length} properties</button>`;
+        }
+
         const footer = this._buildBadgeLayerFooter(f);
 
-        return `<div class="feature-badge-details" style="display:none;width:100%;margin-top:3px;border-top:1px solid rgba(0,0,0,0.2);padding-top:3px;max-height:180px;overflow-y:auto;">${rows.join('')}${footer}</div>`;
+        return `<div class="feature-badge-details" style="display:none;width:100%;margin-top:3px;border-top:1px solid rgba(0,0,0,0.2);padding-top:3px;max-height:180px;overflow-y:auto;">` +
+            `<div class="badge-shown-properties">${rows.join('')}</div>${allPropertiesHTML}${showAllButton}${footer}</div>`;
     }
 
     /**
@@ -582,6 +594,20 @@ export class MapMarkerManager {
                 // copying text inside it impossible.
                 details.addEventListener('mousedown', (e) => e.stopPropagation());
                 details.addEventListener('click', (e) => e.stopPropagation());
+
+                const showAllBtn = details.querySelector('.badge-show-all-props-btn');
+                if (showAllBtn) {
+                    showAllBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const shown = details.querySelector('.badge-shown-properties');
+                        const all = details.querySelector('.badge-all-properties');
+                        const total = showAllBtn.dataset.total;
+                        const isShowingAll = all.style.display !== 'none';
+                        all.style.display = isShowingAll ? 'none' : 'block';
+                        if (shown) shown.style.display = isShowingAll ? 'block' : 'none';
+                        showAllBtn.textContent = isShowingAll ? `Show all ${total} properties` : 'Show less';
+                    });
+                }
             }
 
             const layerIsBasemap = () => {
@@ -1036,6 +1062,11 @@ export class MapMarkerManager {
                 // even where rounded corners/gaps would leak through to the map.
                 this._pointerOverMarker = true;
                 this._clearHoverMarker();
+                // The pointer is no longer over the map canvas, so the mousemove-driven
+                // hover query won't fire to clear whatever was hovered right before
+                // entering the box — clear it explicitly so only this marker's own
+                // features end up highlighted.
+                this._stateManager.handleMapMouseLeave();
                 this._setMarkerFeaturesHoverState(markerId, true);
             });
 
@@ -1152,6 +1183,9 @@ export class MapMarkerManager {
         const popupElement = popup.getElement();
         if (popupElement && !this._isTouch) {
             popupElement.addEventListener('mouseenter', () => {
+                // Clear any hover state left over from before the pointer entered the
+                // popup — the map no longer sees mousemove events to do this itself.
+                this._stateManager.handleMapMouseLeave();
                 this._setMarkerFeaturesHoverState(markerId, true);
             });
 

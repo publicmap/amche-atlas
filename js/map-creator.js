@@ -18,6 +18,13 @@ export class MapCreator {
         // currentData already *is* the config object.
         this._layerConfigOverride = null;
         this._originalTileConfig = null;
+        // OSM layers only: 'dynamic' (default) keeps a tiny {type:'osm', id}
+        // reference that's re-fetched from Overpass on every load (see
+        // dynamic-layer-shorthand.js); 'static' embeds the full geometry in
+        // this.currentData like any other geojson layer. See
+        // getOsmDynamicConfig()/updateOsmDataModeUI().
+        this._dataMode = 'dynamic';
+        this._osmRef = null;
         // True once the user has manually toggled a Point/Line/Area/Label
         // checkbox — turns off auto-detection until the next data load.
         this._styleTypesUserModified = false;
@@ -220,6 +227,15 @@ export class MapCreator {
         });
 
         $('#layer-type').on('change', () => {
+            this.updateConfigPreview();
+        });
+
+        $('input[name="osm-data-mode"]').on('change', (e) => {
+            this._dataMode = e.target.value;
+            this.applyOsmDataModeFieldState();
+            if (this._dataMode === 'static' && this._originalTileConfig) {
+                this.currentData = JSON.parse(JSON.stringify(this._originalTileConfig));
+            }
             this.updateConfigPreview();
         });
 
@@ -1062,9 +1078,12 @@ export class MapCreator {
                 // geometry, so the Point/Line/Area checkboxes don't apply) — use
                 // the generic tile-config path and preview it as inline GeoJSON.
                 const config = await OSMApi.createConfigFromRef(url);
+                const ref = OSMApi.extractRef(url);
                 this.currentLayerType = 'osm';
                 this.currentData = config;
                 this.currentDataSource = url;
+                this._osmRef = ref ? `${ref.type}/${ref.id}` : null;
+                this._dataMode = 'dynamic';
                 this.showTileLayerSuccess(config);
 
                 const geojson = config.geojson;
@@ -1471,6 +1490,7 @@ export class MapCreator {
         if (sourceName !== 'edited') {
             this._previewFitted = false;
         }
+        this.resetOsmDataMode();
         this.currentData = geojson;
         this.currentDataSource = sourceName;
         this.currentLayerType = 'geojson';
@@ -1501,6 +1521,7 @@ export class MapCreator {
     processCSVLayer(csvUrl, geojson, rows) {
         this._previewFitted = false;
         this._resetConfigEditorState();
+        this.resetOsmDataMode();
         this.currentData = {
             csvUrl: csvUrl,
             geojson: geojson,
@@ -1540,6 +1561,7 @@ export class MapCreator {
         });
 
         this._resetConfigEditorState();
+        this.resetOsmDataMode();
         this.currentData = {
             csvUrl: csvUrl,
             geojson: null,
@@ -1575,6 +1597,10 @@ export class MapCreator {
         this._resetConfigEditorState();
         this._originalTileConfig = JSON.parse(JSON.stringify(config));
 
+        if (this.currentLayerType !== 'osm') {
+            this.resetOsmDataMode();
+        }
+
         $('#data-preview-details').hide();
         // .show() is a no-op when the element wasn't hidden via inline style,
         // so the MutationObserver bridge never fires. Remove the disabled
@@ -1608,9 +1634,68 @@ export class MapCreator {
         }
 
         this.updateTileConfigPreview(config);
+        if (this.currentLayerType === 'osm') {
+            this.updateOsmDataModeUI(config);
+        }
         $('#add-to-map-btn').prop('disabled', false);
         this.setLoadingState('success');
         this.schedulePreview();
+    }
+
+    // Geometry size (in characters) drives whether embedding it inline
+    // ("Static") is even offered — see updateOsmDataModeUI(). Only geometry
+    // coordinates count, not properties, since coordinates are what blew up
+    // the URL for large ways/relations.
+    calculateOsmGeometrySize(geojson) {
+        const features = (geojson && geojson.features) || [];
+        return JSON.stringify(features.map(f => f.geometry)).length;
+    }
+
+    // Threshold under which "Static" (fully embedded geometry) is offered as
+    // an alternative to "Dynamic". In practice this only admits a single bare
+    // Point — anything with real line/polygon geometry must stay Dynamic to
+    // avoid recreating the too-long-URL bug this guards against.
+    static OSM_STATIC_MAX_GEOMETRY_CHARS = 50;
+
+    updateOsmDataModeUI(config) {
+        $('#osm-data-mode-section').show();
+
+        const geomSize = this.calculateOsmGeometrySize(config.geojson);
+        const staticAllowed = geomSize < MapCreator.OSM_STATIC_MAX_GEOMETRY_CHARS;
+        $('#data-mode-static').prop('disabled', !staticAllowed);
+        $('#data-mode-static-disabled-hint').toggle(!staticAllowed);
+        if (!staticAllowed) this._dataMode = 'dynamic';
+
+        $('#data-mode-dynamic').prop('checked', this._dataMode === 'dynamic');
+        $('#data-mode-static').prop('checked', this._dataMode === 'static');
+
+        this.applyOsmDataModeFieldState();
+        if (this._dataMode === 'dynamic') this.updateConfigPreview();
+    }
+
+    applyOsmDataModeFieldState() {
+        const dynamic = this.currentLayerType === 'osm' && this._dataMode === 'dynamic';
+        $('#layer-title, #layer-description, #layer-attribution').prop('disabled', dynamic);
+        $('#osm-dynamic-note').toggle(dynamic);
+    }
+
+    // Minimal config for OSM "Dynamic" mode — the same {type, id} shorthand
+    // the `?layers=osm:relation/123` URL API accepts (see
+    // dynamic-layer-shorthand.js), so title/description/attribution/style are
+    // re-derived from OSM on every load rather than stored here.
+    getOsmDynamicConfig() {
+        const title = $('#layer-title').val().trim() || this._originalTileConfig?.title || 'OSM Feature';
+        const config = { type: 'osm', id: this._osmRef, title };
+        if (this._originalTileConfig?.bbox) config.bbox = this._originalTileConfig.bbox;
+        return config;
+    }
+
+    resetOsmDataMode() {
+        this._osmRef = null;
+        this._dataMode = 'dynamic';
+        $('#osm-data-mode-section').hide();
+        $('#layer-title, #layer-description, #layer-attribution').prop('disabled', false);
+        $('#osm-dynamic-note').hide();
     }
 
     detectGeometryType(geojson) {
@@ -1822,6 +1907,10 @@ export class MapCreator {
     }
 
     generateLayerConfig() {
+        if (this.currentLayerType === 'osm' && this._dataMode === 'dynamic') {
+            return this.getOsmDynamicConfig();
+        }
+
         if (this.currentLayerType === 'csv') {
             return this.generateCSVLayerConfig();
         }
@@ -2006,6 +2095,18 @@ export class MapCreator {
         let config;
 
         this.updateSaveNotesVisibility();
+
+        if (this.currentLayerType === 'osm' && this._dataMode === 'dynamic') {
+            config = this.getOsmDynamicConfig();
+            $('#config-preview').val(JSON.stringify(config, null, 2));
+
+            const baseUrl = window.location.origin + window.location.pathname;
+            const configJson = JSON.stringify(config).replace(/"/g, "'");
+            $('#inline-url').val(`${baseUrl}?layers=${encodeURIComponent(configJson)}`);
+
+            this.schedulePreview();
+            return;
+        }
 
         if (this.currentLayerType === 'csv') {
             config = this.generateCSVLayerConfig();
@@ -2271,6 +2372,8 @@ export class MapCreator {
             config = this.generateCSVLayerConfig();
         } else if (this.currentLayerType === 'geojson') {
             config = this.generateLayerConfig();
+        } else if (this.currentLayerType === 'osm' && this._dataMode === 'dynamic') {
+            config = this.getOsmDynamicConfig();
         } else {
             config = this.currentData;
         }

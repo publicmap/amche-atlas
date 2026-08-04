@@ -696,6 +696,33 @@ File upload only: .zip containing shapefile">
                         <div class="text-xs text-gray-500 mt-1">Data format type (auto-detected from source)</div>
                     </div>
 
+                    <div class="mb-4" id="osm-data-mode-section" style="display:none;">
+                        <label class="block text-sm font-medium mb-2">Data</label>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                                <input type="radio" name="osm-data-mode" id="data-mode-dynamic" value="dynamic" checked class="w-4 h-4"> Dynamic
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                                <input type="radio" name="osm-data-mode" id="data-mode-static" value="static" class="w-4 h-4"> Static
+                            </label>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            <strong>Dynamic</strong> (recommended) keeps a tiny reference to this OSM element and
+                            re-fetches its geometry from Overpass each time the map loads, so the shareable URL stays
+                            short. <strong>Static</strong> embeds the full geometry in the layer config so it works
+                            even if Overpass is down, but grows with the feature's size.
+                        </div>
+                        <div id="data-mode-static-disabled-hint" class="text-xs mt-1" style="color:#fbbf24; display:none;">
+                            Static is unavailable — this feature's geometry is too large to embed without breaking the
+                            shareable URL.
+                        </div>
+                        <div id="osm-dynamic-note" class="text-xs mt-2 p-2 rounded"
+                            style="background:#111827;border:1px solid #374151;color:#9ca3af;">
+                            Title, description, and attribution below are for this preview only — dynamic layers
+                            re-generate them from OpenStreetMap on every load.
+                        </div>
+                    </div>
+
                     <div class="mb-4">
                         <label class="block text-sm font-medium mb-2">Description</label>
                         <textarea id="layer-description" rows="2" placeholder="Optional description"

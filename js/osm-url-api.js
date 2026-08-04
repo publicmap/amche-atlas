@@ -140,6 +140,37 @@ export class OSMApi {
         return `${minLng},${minLat},${maxLng},${maxLat}`;
     }
 
+    // A relation's members can mix points/lines/polygons (e.g. a route
+    // relation's ways stay LineStrings, only multipolygon/boundary relations
+    // get assembled into Polygons by osmtogeojson) — so the default style
+    // only includes the paint properties for geometry types actually present,
+    // rather than always defining circle/line/fill regardless of geometry.
+    static styleForGeometryTypes(geojson) {
+        const types = new Set();
+        (geojson.features || []).forEach(feature => {
+            if (feature.geometry && feature.geometry.type) types.add(feature.geometry.type);
+        });
+
+        const hasPoint = types.has('Point') || types.has('MultiPoint');
+        const hasLine = types.has('LineString') || types.has('MultiLineString');
+        const hasPolygon = types.has('Polygon') || types.has('MultiPolygon');
+
+        const style = {};
+        if (hasPoint) {
+            style['circle-radius'] = 1;
+            style['circle-color'] = '#fff';
+            style['circle-stroke-color'] = 'rgba(1, 106, 71, 1)';
+        }
+        // Line paint also strokes polygon outlines, so lines and polygons share it.
+        if (hasLine || hasPolygon) {
+            style['line-color'] = 'rgba(1, 106, 71, 1)';
+        }
+        if (hasPolygon) {
+            style['fill-color'] = 'rgba(16,185,129,0.25)';
+        }
+        return style;
+    }
+
     static async createConfig(type, id, geojson) {
         const primary = geojson.features.find(f => f.id === `${type}/${id}`) || geojson.features[0];
         const props = primary?.properties || {};
@@ -178,13 +209,7 @@ export class OSMApi {
             attribution,
             headerImage,
             bbox: this.bboxFromGeoJSON(geojson),
-            style: {
-                'circle-radius': 1,
-                'circle-color': '#fff',
-                'circle-stroke-color': 'rgba(1, 106, 71, 1)',
-                'line-color': 'rgba(1, 106, 71, 1)',
-                'fill-color': 'rgba(16,185,129,0.25)'
-            },
+            style: this.styleForGeometryTypes(geojson),
             inspect: {
                 id: 'id',
                 title: 'name',
