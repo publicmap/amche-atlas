@@ -783,13 +783,25 @@ File upload only: .zip containing shapefile">
                         </div>
 
                         <details class="mb-3">
-                            <summary class="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900 py-2">
-                                Inspect Fields
+                            <summary class="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center justify-between">
+                                <span>Inspect Fields</span>
+                                <button type="button" id="inspect-fields-toggle-all-btn"
+                                    class="text-xs text-blue-400 hover:text-blue-300 font-normal">Select all</button>
                             </summary>
                             <div class="mt-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-2">
                                 <div id="inspect-fields-list" class="space-y-1"></div>
                             </div>
                         </details>
+
+                        <div class="mb-3">
+                            <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-medium">
+                                <input type="checkbox" id="include-bbox-checkbox" class="w-4 h-4">
+                                Include bounding box (bbox)
+                            </label>
+                            <div class="text-xs text-gray-500 mt-1" style="margin-left: 24px;">
+                                Lets the layer zoom-to-extent when toggled on. Adds coordinates to the shareable URL, so it's off by default.
+                            </div>
+                        </div>
                     </div>
                 </div>
 

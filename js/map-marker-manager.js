@@ -938,7 +938,7 @@ export class MapMarkerManager {
 
         el.innerHTML = `
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0;"></div>
-            <div class="marker-content" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 240px;">
+            <div class="marker-content" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 240px; cursor: move;">
                 ${this._buildMarkerBadgesHTML(features, lngLat)}
             </div>
         `;
@@ -977,12 +977,20 @@ export class MapMarkerManager {
                 cancelAnimationFrame(dragRAF);
                 dragRAF = null;
             }
-            this._handleMarkerDragEnd(marker);
+            this._handleMarkerDragEnd(marker, markerId);
         });
 
         // Clicking a badge opens the inspector; selection markers are already selected.
         this._attachBadgeHandlers(el, features, lngLat, false);
         this._blockMapHoverEvents(el);
+
+        // Only the pin (marker-action-row) should drag the actual location. The
+        // balloon group has its own independent drag that just repositions it
+        // on screen for decluttering, without touching lngLat or re-querying.
+        const contentEl = el.querySelector('.marker-content');
+        if (contentEl) {
+            this._attachBalloonDragHandler(contentEl);
+        }
 
         const markerData = {
             id: markerId,
@@ -1110,8 +1118,14 @@ export class MapMarkerManager {
      * Re-query features at a dragged marker's new position and dispatch them
      * through the same selection pipeline as a map click, so the marker (and its
      * badges) rebuild as if the user had clicked at the drop point.
+     *
+     * This only touches the dragged marker itself: its own old feature selections
+     * are dropped (removeMarker, same scoped cleanup as closing it) and the new
+     * ones are added without the usual "replace" clearing a fresh click would do
+     * — otherwise moving one marker in a multi-marker selection would wipe out
+     * every other marker and feature selected alongside it.
      */
-    _handleMarkerDragEnd(marker) {
+    _handleMarkerDragEnd(marker, markerId) {
         this._draggingMarkerId = null;
 
         const lngLat = marker.getLngLat();
@@ -1120,11 +1134,90 @@ export class MapMarkerManager {
         const interactiveFeatures = this._stateManager.getFeaturesAtPoint(point, lngLat)
             .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
 
-        if (interactiveFeatures.length > 0) {
-            this._stateManager.handleFeatureClicks(interactiveFeatures);
-        } else {
-            this._stateManager.handleFeatureClicks([], lngLat);
+        this.removeMarker(markerId);
+
+        const wasCmdCtrlPressed = this._stateManager._isCmdCtrlPressed;
+        this._stateManager._isCmdCtrlPressed = true;
+        try {
+            if (interactiveFeatures.length > 0) {
+                this._stateManager.handleFeatureClicks(interactiveFeatures);
+            } else {
+                this._stateManager.handleFeatureClicks([], lngLat);
+            }
+        } finally {
+            this._stateManager._isCmdCtrlPressed = wasCmdCtrlPressed;
         }
+    }
+
+    /**
+     * The balloon group (marker-content) sits inside the same DOM element as the
+     * location pin, so a mousedown there would otherwise bubble to the map's
+     * canvas container and trigger Mapbox's own marker-drag (moving the pin and
+     * re-querying the location). Stop that bubbling and instead run a purely
+     * visual drag — a CSS transform on this element — that repositions the
+     * balloons for readability without ever touching the marker's lngLat.
+     */
+    _attachBalloonDragHandler(contentEl) {
+        const DRAG_THRESHOLD = 4;
+        let startX = 0;
+        let startY = 0;
+        let offsetX = 0;
+        let offsetY = 0;
+        let lastDx = 0;
+        let lastDy = 0;
+        let moved = false;
+
+        const getPoint = (e) => (e.touches && e.touches.length ? e.touches[0] : e);
+
+        const onMove = (e) => {
+            const point = getPoint(e);
+            const dx = point.clientX - startX;
+            const dy = point.clientY - startY;
+            if (!moved && Math.hypot(dx, dy) > DRAG_THRESHOLD) moved = true;
+            if (moved) {
+                lastDx = dx;
+                lastDy = dy;
+                contentEl.style.transform = `translate3d(${offsetX + dx}px, ${offsetY + dy}px, 0)`;
+                e.preventDefault();
+            }
+        };
+
+        const onUp = () => {
+            if (moved) {
+                offsetX += lastDx;
+                offsetY += lastDy;
+            }
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onUp);
+        };
+
+        const onDown = (e) => {
+            e.stopPropagation();
+            const point = getPoint(e);
+            startX = point.clientX;
+            startY = point.clientY;
+            moved = false;
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onUp);
+        };
+
+        contentEl.addEventListener('mousedown', onDown);
+        contentEl.addEventListener('touchstart', onDown);
+
+        // A real drag shouldn't also trigger whatever badge sits under the
+        // pointer on release — swallow that one click in the capture phase,
+        // before it reaches the badge's own bubble-phase click handler.
+        contentEl.addEventListener('click', (e) => {
+            if (moved) {
+                e.stopPropagation();
+                e.preventDefault();
+                moved = false;
+            }
+        }, true);
     }
 
     _setMarkerFeaturesHoverState(markerId, hoverState) {

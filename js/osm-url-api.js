@@ -5,8 +5,15 @@
  * `geojson` layer config. Unlike the `overpass` layer type (which re-queries a
  * viewport bbox on every pan — see js/mapbox-api.js `_createOverpassLayer`), a
  * specific element referenced by ID is a fixed feature, so this fetches its
- * geometry once via the Overpass API and inlines the result rather than
- * polling on every map move.
+ * geometry once and inlines the result rather than polling on every map move.
+ *
+ * Single-element lookups go straight to the OSM API v0.6 (api.openstreetmap.org)
+ * rather than Overpass: it's the canonical source, needs no query language,
+ * responds with the same `elements` JSON shape osmtogeojson already consumes,
+ * and doesn't depend on the (rate-limited, occasionally overloaded) public
+ * Overpass instance. Multi-ref batching (see fetchElementsGeoJSON /
+ * createConfigsFromRefs) stays on Overpass since the OSM API has no equivalent
+ * single-call batch endpoint that also resolves geometry.
  *
  * Usage:
  * ```javascript
@@ -19,6 +26,7 @@
 import { WikidataAPI } from './wikidata-url-api.js';
 
 const OSMTOGEOJSON_CDN = 'https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0-beta.5/+esm';
+const OSM_API_BASE = 'https://api.openstreetmap.org/api/0.6';
 const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
 const OVERPASS_TURBO_URL = 'https://overpass-turbo.eu/';
 
@@ -75,24 +83,19 @@ export class OSMApi {
         return years === 1 ? '1 year ago' : `${years} years ago`;
     }
 
-    static async fetchElementGeoJSON(type, id) {
-        const query = this.buildQuery(type, id);
-        const response = await fetch(OVERPASS_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'data=' + encodeURIComponent(query)
-        });
-        if (!response.ok) {
-            throw new Error(`Overpass HTTP ${response.status}`);
-        }
-        const osmJson = await response.json();
+    // Nodes need no geometry expansion; ways/relations need "/full" to pull
+    // in their member nodes (and, for relations, member ways) so osmtogeojson
+    // has enough elements to assemble a LineString/Polygon.
+    static elementApiUrl(type, id) {
+        const path = type === 'node' ? `node/${id}` : `${type}/${id}/full`;
+        return `${OSM_API_BASE}/${path}.json`;
+    }
 
-        const { default: osmtogeojson } = await import(/* @vite-ignore */ OSMTOGEOJSON_CDN);
-        const geojson = osmtogeojson(osmJson);
-        if (!geojson.features || geojson.features.length === 0) {
-            throw new Error(`OSM ${type} ${id} not found or has no geometry`);
-        }
+    static osmToGeoJSON(osmJson) {
+        return import(/* @vite-ignore */ OSMTOGEOJSON_CDN).then(({ default: osmtogeojson }) => osmtogeojson(osmJson));
+    }
 
+    static annotateFeatureUrls(geojson) {
         // Each feature's own type/id (not just the requested element's) gets
         // a `url` property, so e.g. relation members link to their own OSM page.
         geojson.features.forEach(feature => {
@@ -101,8 +104,25 @@ export class OSMApi {
             feature.properties = feature.properties || {};
             feature.properties.url = this.osmUrlToObject(ref.type, ref.id);
         });
-
         return geojson;
+    }
+
+    static async fetchElementGeoJSON(type, id) {
+        const response = await fetch(this.elementApiUrl(type, id));
+        if (response.status === 404 || response.status === 410) {
+            throw new Error(`OSM ${type} ${id} not found (may have been deleted)`);
+        }
+        if (!response.ok) {
+            throw new Error(`OSM API HTTP ${response.status}`);
+        }
+        const osmJson = await response.json();
+
+        const geojson = await this.osmToGeoJSON(osmJson);
+        if (!geojson.features || geojson.features.length === 0) {
+            throw new Error(`OSM ${type} ${id} not found or has no geometry`);
+        }
+
+        return this.annotateFeatureUrls(geojson);
     }
 
     static bboxFromGeoJSON(geojson) {
@@ -171,7 +191,7 @@ export class OSMApi {
         return style;
     }
 
-    static async createConfig(type, id, geojson) {
+    static async createConfig(type, id, geojson, source = 'osm-api') {
         const primary = geojson.features.find(f => f.id === `${type}/${id}`) || geojson.features[0];
         const props = primary?.properties || {};
         const name = props.name;
@@ -180,7 +200,10 @@ export class OSMApi {
         const osmUrl = this.osmUrlToObject(type, id);
         const attribution = `<a href='${osmUrl}' target='_blank'>${title}</a> — © <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap contributors</a>`;
 
-        let description = `Feature exported from <a href='${osmUrl}/history' target='_blank'>OpenStreetMap</a> via <a href='${this.overpassTurboUrl(type, id)}' target='_blank'>Overpass API</a>.`;
+        const sourceLink = source === 'overpass'
+            ? `via <a href='${this.overpassTurboUrl(type, id)}' target='_blank'>Overpass API</a>`
+            : `via the <a href='${this.elementApiUrl(type, id)}' target='_blank'>OSM API</a>`;
+        let description = `Feature exported from <a href='${osmUrl}/history' target='_blank'>OpenStreetMap</a> ${sourceLink}.`;
         if (props.version !== undefined) description += ` Feature version <strong>v${props.version}</strong>`;
         const editedAgo = this.formatRelativeTime(props.timestamp);
         if (editedAgo) description += ` Last edited ${editedAgo}.`;
@@ -263,8 +286,7 @@ export class OSMApi {
         }
         const osmJson = await response.json();
 
-        const { default: osmtogeojson } = await import(/* @vite-ignore */ OSMTOGEOJSON_CDN);
-        const geojson = osmtogeojson(osmJson);
+        const geojson = await this.osmToGeoJSON(osmJson);
 
         const byRef = new Map();
         geojson.features.forEach(feature => {
@@ -303,7 +325,7 @@ export class OSMApi {
                 continue;
             }
             try {
-                results.set(key, await this.createConfig(type, id, { type: 'FeatureCollection', features }));
+                results.set(key, await this.createConfig(type, id, { type: 'FeatureCollection', features }, 'overpass'));
             } catch (error) {
                 results.set(key, error);
             }

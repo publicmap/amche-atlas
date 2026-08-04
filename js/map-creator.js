@@ -296,6 +296,21 @@ export class MapCreator {
         });
 
         $('#inspect-fields-list').on('change', 'input[type="checkbox"]', () => {
+            this.updateInspectFieldsToggleLabel();
+            this.updateConfigPreview();
+        });
+
+        $('#inspect-fields-toggle-all-btn').on('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const $checkboxes = $('#inspect-fields-list input[type="checkbox"]');
+            const allChecked = $checkboxes.length > 0 && $checkboxes.filter(':checked').length === $checkboxes.length;
+            $checkboxes.prop('checked', !allChecked);
+            this.updateInspectFieldsToggleLabel();
+            this.updateConfigPreview();
+        });
+
+        $('#include-bbox-checkbox').on('change', () => {
             this.updateConfigPreview();
         });
 
@@ -396,6 +411,17 @@ export class MapCreator {
         return fields[0] || 'name';
     }
 
+    getDefaultInspectFields(fields, limit = 3) {
+        const inspectPriority = ['name', 'title', 'label', 'description', 'url', 'website', 'wikidata', 'id'];
+        const matched = [];
+        for (const candidate of inspectPriority) {
+            const found = fields.find(f => f.toLowerCase() === candidate);
+            if (found && !matched.includes(found)) matched.push(found);
+            if (matched.length >= limit) break;
+        }
+        return matched;
+    }
+
     getDefaultLatField(fields) {
         const latPatterns = ['lat', 'latitude', 'y', 'northing', 'lat_dd', 'decimal_latitude', 'gps_lat', 'geo_lat', 'point_y', 'coord_y'];
 
@@ -436,6 +462,9 @@ export class MapCreator {
         }
         if (this.isBharatlasUrl(url)) {
             return 'Bharatlas';
+        }
+        if (this.isGistUrl(url)) {
+            return 'GeoJSON';
         }
         if (this.isWMSUrl(url)) {
             return 'WMS';
@@ -489,6 +518,29 @@ export class MapCreator {
             return 'MapWarper';
         }
         return null;
+    }
+
+    isGistUrl(url) {
+        if (!url) return false;
+        return /^https?:\/\/gist\.github\.com\/(?:[^/]+\/)?[0-9a-f]{16,}/i.test(url);
+    }
+
+    async resolveGistRawUrl(url) {
+        const match = url.match(/^https?:\/\/gist\.github\.com\/(?:[^/]+\/)?([0-9a-f]{16,})/i);
+        if (!match) return url;
+
+        const response = await fetch(`https://api.github.com/gists/${match[1]}`);
+        if (!response.ok) {
+            throw new Error(`Could not resolve Gist (${response.status})`);
+        }
+        const data = await response.json();
+        const files = Object.values(data.files || {});
+        if (files.length === 0) {
+            throw new Error('Gist has no files');
+        }
+
+        const geoFile = files.find(f => /\.(geojson|json|csv|kml|geojsonl|ndjson|jsonl)$/i.test(f.filename));
+        return (geoFile || files[0]).raw_url;
     }
 
     isBharatlasUrl(url) {
@@ -1017,6 +1069,7 @@ export class MapCreator {
 
         if (this.isOverpassShareUrl(url)) return true;
         if (this.isBharatlasUrl(url)) return true;
+        if (this.isGistUrl(url)) return true;
         if (this.isWMSUrl(url)) return true;
         if (this.isCSVUrl(url)) return true;
         if (AllmapsAPI.isAllmapsUrl(url)) return true;
@@ -1052,6 +1105,11 @@ export class MapCreator {
         this.setLoadingState('loading');
 
         try {
+            if (this.isGistUrl(url)) {
+                url = await this.resolveGistRawUrl(url);
+                $('#url-input').val(url);
+            }
+
             if (this.isOverpassShareUrl(url)) {
                 await this.handleOverpassImport(url, { withPreview: true });
                 this.setLoadingState('success');
@@ -1958,8 +2016,13 @@ export class MapCreator {
 
         if (isExternalUrl) {
             config.url = this.currentDataSource;
+        } else {
+            // No URL to fetch from (uploaded file / pasted data) — cache the
+            // GeoJSON in localStorage instead of embedding it in the shareable
+            // URL. Not needed when a URL exists: that's already the source of
+            // truth, and caching it would also risk masking upstream edits.
+            config.dataSource = 'localStorage';
         }
-        config.dataSource = 'localStorage';
 
         if (description) {
             config.description = description;
@@ -1969,7 +2032,7 @@ export class MapCreator {
             config.attribution = attribution;
         }
 
-        if (bbox) {
+        if (bbox && $('#include-bbox-checkbox').is(':checked')) {
             config.bbox = bbox;
         }
 
@@ -2021,8 +2084,9 @@ export class MapCreator {
         if (isExternalUrl) {
             config.type = layerType;
             config.url = this.currentData.csvUrl;
+        } else {
+            config.dataSource = 'localStorage';
         }
-        config.dataSource = 'localStorage';
 
         if (description) {
             config.description = description;
@@ -2032,7 +2096,7 @@ export class MapCreator {
             config.attribution = attribution;
         }
 
-        if (bbox) {
+        if (bbox && $('#include-bbox-checkbox').is(':checked')) {
             config.bbox = bbox;
         }
 
@@ -2251,12 +2315,14 @@ export class MapCreator {
         const defaultLon = this.getDefaultLonField(fields);
         const defaultId = this.getDefaultIdField(fields);
         const defaultName = this.getDefaultNameField(fields);
+        const defaultInspectFields = this.getDefaultInspectFields(fields);
 
         console.log('[MapCreator] Default fields detected:', {
             lat: defaultLat,
             lon: defaultLon,
             id: defaultId,
-            name: defaultName
+            name: defaultName,
+            inspect: defaultInspectFields
         });
 
         fields.forEach(field => {
@@ -2272,20 +2338,29 @@ export class MapCreator {
             $idSelect.append(`<option value="${field}" ${field === defaultId ? 'selected' : ''}>${field}</option>`);
             $nameSelect.append(`<option value="${field}" ${field === defaultName ? 'selected' : ''}>${field}</option>`);
 
+            const isChecked = defaultInspectFields.includes(field);
             const $checkbox = $(`
                 <label class="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                    <input type="checkbox" value="${field}" checked class="rounded">
+                    <input type="checkbox" value="${field}" ${isChecked ? 'checked' : ''} class="rounded">
                     <span>${field}</span>
                 </label>
             `);
             $fieldsList.append($checkbox);
         });
 
+        this.updateInspectFieldsToggleLabel();
+
         if (isCSV) {
             $('#csv-latitude-field, #csv-longitude-field').off('change').on('change', () => {
                 this.reprocessCSV();
             });
         }
+    }
+
+    updateInspectFieldsToggleLabel() {
+        const $checkboxes = $('#inspect-fields-list input[type="checkbox"]');
+        const allChecked = $checkboxes.length > 0 && $checkboxes.filter(':checked').length === $checkboxes.length;
+        $('#inspect-fields-toggle-all-btn').text(allChecked ? 'Deselect all' : 'Select all');
     }
 
     reprocessCSV() {
