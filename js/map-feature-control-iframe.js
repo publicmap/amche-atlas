@@ -26,11 +26,9 @@ export class MapFeatureControl {
         this._config = null;
         this._globalHandlersAdded = false;
         this._isMapDragging = false;
-        this._lastMouseMoveTime = Date.now();
         this._isIframeReady = false;
         this._messageQueue = [];
         this._inspectorInitialized = false;
-        this._lastMouseMoveTime = 0;
 
         // Set up resize listener
         this._resizeListener = this._handleResize.bind(this);
@@ -102,16 +100,6 @@ export class MapFeatureControl {
 
         // Set up global map interaction handlers for hover/click
         this._setupGlobalInteractionHandlers();
-
-        // Enable center hover for keyboard navigation
-        this._stateManager.setCenterHoverEnabled(true);
-
-        // Trigger initial center hover after a short delay
-        setTimeout(() => {
-            if (this._stateManager.isCenterHoverEnabled()) {
-                this._stateManager.triggerCenterHover();
-            }
-        }, 500);
 
         // Send initial data to iframe
         this._sendDataToIframe();
@@ -2033,8 +2021,6 @@ export class MapFeatureControl {
             let mouseMoveEvent = null;
             let mouseMoveRAF = null;
             this._map.on('mousemove', (e) => {
-                // Track mouse movement for center hover prioritization
-                this._lastMouseMoveTime = Date.now();
                 mouseMoveEvent = e;
                 if (mouseMoveRAF) return;
                 mouseMoveRAF = requestAnimationFrame(() => {
@@ -2067,35 +2053,6 @@ export class MapFeatureControl {
 
         this._map.on('dragend', () => {
             this._isMapDragging = false;
-
-            // Trigger center hover after drag ends on touch devices
-            if (this._stateManager.isCenterHoverEnabled()) {
-                // Small delay to allow map to settle
-                setTimeout(() => {
-                    this._stateManager.triggerCenterHover();
-                }, 100);
-            }
-        });
-
-        // Map move handler for center hover.
-        this._map.on('move', () => {
-            if (!this._stateManager.isCenterHoverEnabled()) return;
-
-            // Touch: live-query the center continuously during the pan (throttled
-            // inside triggerCenterHover) so the hover popup tracks the moving center,
-            // instead of only refreshing at moveend. allowDuringMove bypasses the
-            // state manager's movement guard.
-            if (isTouchDevice) {
-                this._stateManager.triggerCenterHover(true);
-                return;
-            }
-
-            // Desktop: keyboard-nav center hover only when the mouse is idle.
-            const timeSinceMouseMove = Date.now() - this._lastMouseMoveTime;
-            const isMouseInactive = timeSinceMouseMove > 500;
-            if (isMouseInactive && !this._isMapDragging) {
-                this._stateManager.triggerCenterHover();
-            }
         });
 
         // Window message listener for center selection (spacebar trigger)

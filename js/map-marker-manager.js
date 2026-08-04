@@ -342,7 +342,6 @@ export class MapMarkerManager {
                 max-width: 240px;
             ">
                 <div class="feature-badge-header" style="display: flex; flex-direction: row; align-items: center; gap: 4px; width: 100%;">
-                    <sl-icon class="badge-eye" name="eye" style="display: none; font-size: 12px; color: #6b7280; flex-shrink: 0; pointer-events: none;"></sl-icon>
                     <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 0;">
                         <span style="font-size: 8px; line-height: 1.1; font-weight: 600; color: #c2410c; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap;">${this._escapeAttr(fieldName)}</span>
                         <span class="badge-value" data-full="${this._escapeAttr(value)}" data-short="${this._escapeAttr(display)}" style="font-size: 11px; line-height: 1.2; font-weight: 700; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this._escapeAttr(display)}</span>
@@ -705,10 +704,8 @@ export class MapMarkerManager {
 
     _setBadgeCollapsed(badge) {
         badge.classList.remove('badge-selected');
-        const eye = badge.querySelector('.badge-eye');
         const details = badge.querySelector('.feature-badge-details');
         if (details) details.style.display = 'none';
-        if (eye) { eye.style.display = 'none'; eye.style.color = '#6b7280'; }
         badge.style.borderColor = 'rgba(255, 255, 0, 1)';
         badge.style.background = 'rgba(255, 255, 0, 0.9)';
         this._collapseBadgeValue(badge.querySelector('.badge-value'));
@@ -716,10 +713,8 @@ export class MapMarkerManager {
 
     _setBadgeSelected(badge) {
         badge.classList.add('badge-selected');
-        const eye = badge.querySelector('.badge-eye');
         const details = badge.querySelector('.feature-badge-details');
         if (details) details.style.display = 'block';
-        if (eye) { eye.style.display = 'inline-flex'; eye.style.color = '#f97316'; }
         badge.style.borderColor = '#000';
         badge.style.background = 'rgba(255, 255, 0, 1)';
         this._expandBadgeValue(badge.querySelector('.badge-value'));
@@ -727,10 +722,9 @@ export class MapMarkerManager {
 
     /**
      * Toggle a selection-marker badge between collapsed and selected (expanded) state.
-     * Selecting expands the attribute table, turns the eye orange and isolates the
-     * layer; deselecting collapses it and clears isolation. Zooming to the feature
-     * is a manual action (see the layer actions menu's "Zoom to Feature" item), not
-     * automatic here.
+     * Selecting expands the attribute table and isolates the layer; deselecting
+     * collapses it and clears isolation. Zooming to the feature is a manual action
+     * (see the layer actions menu's "Zoom to Feature" item), not automatic here.
      */
     _toggleBadgeSelected(badge, f) {
         const wasSelected = badge.classList.contains('badge-selected');

@@ -65,9 +65,6 @@ export class MapFeatureStateManager extends EventTarget {
             }
         });
 
-        // Center-point hover tracking
-        this._centerHoverEnabled = false;
-        this._lastCenterHoverUpdate = 0;
         // Signature of the currently-applied hovered feature set, used to dedupe
         // repeated hovers over the same feature (desktop mousemove fires continuously).
         this._lastHoverSignature = null;
@@ -98,13 +95,6 @@ export class MapFeatureStateManager extends EventTarget {
 
         this._map.on('moveend', () => {
             this._isMapMoving = false;
-
-            // Trigger center hover for touch devices after map movement
-            if (this._isTouchDevice && this._centerHoverEnabled && this._selectedFeatures.size === 0) {
-                setTimeout(() => {
-                    this.triggerCenterHover();
-                }, 100);
-            }
         });
     }
 
@@ -382,14 +372,6 @@ export class MapFeatureStateManager extends EventTarget {
 
         // Update line layer sort keys for z-ordering
         this._updateLineSortKeys();
-
-        // Return to center hover only on touch devices (not pointer devices)
-        // Only if enabled AND no selections exist
-        if (this._isTouchDevice && this._centerHoverEnabled && this._selectedFeatures.size === 0) {
-            setTimeout(() => {
-                this.triggerCenterHover();
-            }, 100);
-        }
 
         // Emit map mouse leave event
         this._emitStateChange('map-mouse-leave', {
@@ -897,26 +879,6 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
-     * Trigger hover for features at the center of the map
-     * Called when map moves or on keyboard navigation
-     */
-    triggerCenterHover(allowDuringMove = false) {
-        const now = Date.now();
-        if (now - this._lastCenterHoverUpdate < 100) {
-            return;
-        }
-        this._lastCenterHoverUpdate = now;
-
-        const centerFeatures = this.getFeaturesAtCenter();
-
-        if (centerFeatures.length > 0) {
-            this.handleFeatureHovers(centerFeatures, centerFeatures[0].lngLat, allowDuringMove);
-        } else {
-            this.handleMapMouseLeave(allowDuringMove);
-        }
-    }
-
-    /**
      * Trigger selection for features at the center of the map
      * Called on spacebar press
      */
@@ -926,28 +888,6 @@ export class MapFeatureStateManager extends EventTarget {
         if (centerFeatures.length > 0) {
             this.handleFeatureClicks(centerFeatures);
         }
-    }
-
-    /**
-     * Enable or disable center-point hover tracking
-     * @param {boolean} enabled - Whether center hover is enabled
-     */
-    setCenterHoverEnabled(enabled) {
-        this._centerHoverEnabled = enabled;
-
-        if (enabled) {
-            this.triggerCenterHover();
-        } else {
-            this.handleMapMouseLeave();
-        }
-    }
-
-    /**
-     * Check if center hover is enabled
-     * @returns {boolean} True if center hover is enabled
-     */
-    isCenterHoverEnabled() {
-        return this._centerHoverEnabled;
     }
 
     /**
