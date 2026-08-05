@@ -759,6 +759,7 @@ export class MapInitializer {
 
         // Make map accessible globally for debugging
         window.map = map;
+        window.dispatchEvent(new CustomEvent('mapInstanceReady', { detail: { map } }));
 
         // Mount the geolocation control IMMEDIATELY (before map.on('load')) so
         // its auto-trigger starts navigator.geolocation.watchPosition in

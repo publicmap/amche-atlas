@@ -54,16 +54,16 @@ export class SplashScreenManager {
      * needs `_atlasMetadata` populated, which only happens after the registry's
      * idempotent initialize() resolves (deduped via in-flight WeakMap shared
      * with map-init.js).
+     *
+     * `window.layerRegistry` is normally already set by the time this runs
+     * (index.js assigns it at module-eval time, before the window `load`
+     * handler that constructs SplashScreenManager). The event listener is
+     * only a fallback for out-of-order execution, not the common path.
      */
     async waitForLayerRegistry() {
-        const waitForInstance = () => new Promise((resolve) => {
-            const check = () => {
-                if (window.layerRegistry) resolve();
-                else setTimeout(check, 50);
-            };
-            check();
-        });
-        await waitForInstance();
+        if (!window.layerRegistry) {
+            await new Promise((resolve) => window.addEventListener('layerRegistryReady', resolve, { once: true }));
+        }
         try {
             await window.layerRegistry.initialize();
         } catch (e) {
@@ -493,20 +493,22 @@ export class SplashScreenManager {
 
         // `window.map` is unreliable before map-init assigns it: it can be the
         // <div id="map"> element via the named-access window proxy, or
-        // undefined. Treat it as a Mapbox map only once it has `on`.
-        const attachLoad = () => {
+        // undefined. Treat it as a Mapbox map only once it has `on`. If it
+        // isn't ready yet, map-init.js dispatches 'mapInstanceReady' the
+        // instant it constructs the map — no polling needed.
+        const attachLoad = (m) => {
             if (this.autoProceed.cancelled || this.hasProceeded) return;
             if (window.mapDisplayReady) { proceed(); return; }
-            const m = window.map;
-            const isMapboxMap = m && typeof m.on === 'function';
-            if (isMapboxMap) {
-                if (typeof m.loaded === 'function' && m.loaded()) proceed();
-                else m.once('load', proceed);
-            } else {
-                setTimeout(attachLoad, 50);
-            }
+            if (typeof m.loaded === 'function' && m.loaded()) proceed();
+            else m.once('load', proceed);
         };
-        attachLoad();
+
+        const existing = window.map;
+        if (existing && typeof existing.on === 'function') {
+            attachLoad(existing);
+        } else {
+            window.addEventListener('mapInstanceReady', (e) => attachLoad(e.detail.map), { once: true });
+        }
     }
 
     cancelAutoProceed() {
@@ -537,8 +539,8 @@ export class SplashScreenManager {
     closeLoadingOverlay() {
         const overlay = document.getElementById('loading-overlay');
         if (!overlay) return;
-        overlay.style.opacity = '0';
         overlay.style.transition = 'opacity 0.3s ease';
-        setTimeout(() => { overlay.style.display = 'none'; }, 300);
+        overlay.addEventListener('transitionend', () => { overlay.style.display = 'none'; }, { once: true });
+        overlay.style.opacity = '0';
     }
 }

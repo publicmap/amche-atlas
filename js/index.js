@@ -15,6 +15,7 @@ window.IntroContentManager = IntroContentManager;
 
 const layerRegistry = new LayerRegistry();
 window.layerRegistry = layerRegistry;
+window.dispatchEvent(new CustomEvent('layerRegistryReady'));
 
 // Initialize the map
 mapboxgl.accessToken = window.amche.MAPBOXGL_ACCESS_TOKEN;
