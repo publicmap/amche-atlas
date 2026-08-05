@@ -75,10 +75,6 @@ export class SplashScreenManager {
         this.elements = {
             splashSection: document.getElementById('splash-atlas-section'),
             detectingState: document.getElementById('splash-detecting-state'),
-            permissionButtons: document.getElementById('splash-permission-buttons'),
-            allowBtn: document.getElementById('splash-allow-btn'),
-            denyBtn: document.getElementById('splash-deny-btn'),
-            allowCountdown: document.getElementById('splash-allow-countdown'),
             atlasState: document.getElementById('splash-atlas-state'),
             locatedText: document.getElementById('splash-located-text'),
             atlasName: document.getElementById('splash-atlas-name'),
@@ -246,10 +242,11 @@ export class SplashScreenManager {
     }
 
     /**
-     * The detect-then-show flow. Three permission states:
-     *   - granted  → silent GPS detection (no Allow/Deny buttons shown)
-     *   - prompt   → show "Detecting..." + Allow/Deny with 3s auto-Allow
-     *   - denied   → skip GPS, go straight to GeoIP (no buttons either)
+     * The detect-then-show flow. No artificial wait before requesting a GPS
+     * fix — the browser's own native permission dialog (if permission is
+     * still 'prompt') handles asking the user, so calling getCurrentPosition
+     * immediately is the fastest path in every state except 'denied', where
+     * asking would just fail after a delay.
      */
     async runLocationDetectionFlow() {
         let permissionState = 'prompt';
@@ -260,81 +257,45 @@ export class SplashScreenManager {
             } catch (e) {}
         }
 
-        this.showDetectingState({ withPermissionButtons: permissionState === 'prompt' });
-
-        if (permissionState === 'granted') {
-            await this.detectGPSThenGeoIP();
-            this.state.wasLocated = true;
-            return;
-        }
+        this.showDetectingState();
 
         if (permissionState === 'denied') {
             await this.detectGeoIP();
-            this.state.wasLocated = true;
-            return;
-        }
-
-        const choice = await this.waitForPermissionChoice();
-        this.hidePermissionButtons();
-
-        if (choice === 'allow') {
-            await this.detectGPSThenGeoIP();
         } else {
-            await this.detectGeoIP();
+            await this.detectGPSThenGeoIP();
         }
         this.state.wasLocated = true;
     }
 
-    showDetectingState({ withPermissionButtons }) {
+    showDetectingState() {
         if (this.elements.detectingState) this.elements.detectingState.style.display = 'block';
         if (this.elements.atlasState) this.elements.atlasState.style.display = 'none';
-        if (this.elements.permissionButtons) {
-            this.elements.permissionButtons.style.display = withPermissionButtons ? 'flex' : 'none';
-        }
-    }
-
-    hidePermissionButtons() {
-        if (this.elements.permissionButtons) this.elements.permissionButtons.style.display = 'none';
     }
 
     /**
-     * Resolve with 'allow' or 'deny'. 3s auto-Allow countdown — clears on click.
+     * Race GPS (capped at 5s inside window.handleGeolocation) against GeoIP,
+     * kicked off in parallel so a slow/denied/timed-out GPS fix doesn't add
+     * GeoIP's own network latency on top of the 5s cap — GeoIP is typically
+     * already resolved (or close to it) by the time GPS gives up.
      */
-    waitForPermissionChoice() {
-        return new Promise(resolve => {
-            let countdown = 3;
-            let timer = null;
-            const finish = (choice) => {
-                if (timer) clearInterval(timer);
-                resolve(choice);
-            };
-
-            if (this.elements.allowBtn) {
-                this.elements.allowBtn.addEventListener('click', () => finish('allow'), { once: true });
-            }
-            if (this.elements.denyBtn) {
-                this.elements.denyBtn.addEventListener('click', () => finish('deny'), { once: true });
-            }
-
-            timer = setInterval(() => {
-                countdown--;
-                if (this.elements.allowCountdown) this.elements.allowCountdown.textContent = countdown;
-                if (countdown <= 0) finish('allow');
-            }, 1000);
-        });
-    }
-
     async detectGPSThenGeoIP() {
         if (!window.handleGeolocation) return this.detectGeoIP();
-        const success = await window.handleGeolocation(false);
+
+        const geoipPromise = window.handleIPLocationFallback ? window.handleIPLocationFallback() : Promise.resolve(false);
+        const gpsSuccess = await window.handleGeolocation(false);
         if (this.state.manualLocationSelection) return;
 
-        if (success) {
+        if (gpsSuccess) {
             const loc = window.loadingStartupState?.userLocation;
             if (loc) await this.applyLocationBasedAtlas(loc.lat, loc.lng, 'gps');
-        } else {
-            await this.detectGeoIP();
+            return;
         }
+
+        // GPS failed or timed out — fall back to the GeoIP request already in flight.
+        await geoipPromise;
+        if (this.state.manualLocationSelection) return;
+        const ip = window.ipLocationData;
+        if (ip?.lat && ip?.lng) await this.applyLocationBasedAtlas(ip.lat, ip.lng, 'geoip');
     }
 
     async detectGeoIP() {

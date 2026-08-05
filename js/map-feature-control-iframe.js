@@ -116,6 +116,27 @@ export class MapFeatureControl {
     }
 
     /**
+     * Toggle "add to selection" mode. Shared by the inspector panel's own
+     * toggle button and the right-click/long-press shortcut menu, so both
+     * stay in sync with the marker manager's selection mode.
+     */
+    setAddSelectionMode(enabled) {
+        if (this._markerManager) {
+            this._markerManager.setSelectionMode(enabled ? 'add' : 'replace');
+        }
+        if (this._iframe && this._iframe.contentWindow) {
+            this._iframe.contentWindow.postMessage({
+                type: 'add-selection-mode-changed',
+                enabled
+            }, '*');
+        }
+    }
+
+    isAddSelectionModeEnabled() {
+        return this._markerManager?.getSelectionMode?.() === 'add';
+    }
+
+    /**
      * Create the main container with toggle button and iframe panel
      */
     _createContainer() {
@@ -423,12 +444,7 @@ export class MapFeatureControl {
                 }
             } else if (event.data.type === 'set-add-selection-mode') {
                 if (this._markerManager) {
-                    const mode = event.data.enabled ? 'add' : 'replace';
-                    this._markerManager.setSelectionMode(mode);
-                }
-                // Also update state manager Cmd/Ctrl flag
-                if (this._stateManager) {
-                    this._stateManager._isCmdCtrlPressed = event.data.enabled;
+                    this._markerManager.setSelectionMode(event.data.enabled ? 'add' : 'replace');
                 }
             } else if (event.data.type === 'open-layer-info') {
                 this._openLayerInfo(event.data.layer);
@@ -1928,20 +1944,20 @@ export class MapFeatureControl {
             isLongPress = false;
             touchMoved = false;
 
-            // Start every tap from a clean add-mode state. Long-press sets the
-            // transient Cmd/Ctrl flag mid-gesture; resetting it here (rather than
-            // via timers tied to the previous gesture, which the next tap could
-            // cancel) guarantees a leftover long-press flag never keeps later
-            // taps stuck in add-mode (old markers never cleared). Explicit add
-            // mode lives in the marker manager's selectionMode and is preserved.
+            // Start every tap from a clean add-mode state. Explicit add mode
+            // (toggled via the shortcut menu or inspector panel) lives in the
+            // marker manager's selectionMode and is preserved across taps.
             const explicitAddMode = this._markerManager?.getSelectionMode?.() === 'add';
             this._stateManager._isCmdCtrlPressed = explicitAddMode;
 
-            // Set timer for long press (500ms)
+            // Set timer for long press (500ms). A long press now opens the
+            // shortcut menu (shortcut-menu.js, via the browser's native
+            // `contextmenu` event, which mobile browsers fire on long-press)
+            // instead of arming add-selection mode, so the tap-fallback below
+            // must skip it to avoid also selecting whatever feature is under
+            // the finger.
             touchTimer = setTimeout(() => {
                 isLongPress = true;
-                // Simulate Cmd/Ctrl press for long-press
-                this._stateManager._isCmdCtrlPressed = true;
             }, 500);
         });
 
@@ -1981,18 +1997,17 @@ export class MapFeatureControl {
             // Taps on marker/popup/control overlays bubble up to mapbox's touch
             // handler too, but those elements have their own click handlers — if
             // we synthesized here we'd create a new selection instead of letting
-            // the marker toggle its popup.
+            // the marker toggle its popup. Long presses are excluded entirely:
+            // they open the shortcut menu (shortcut-menu.js) rather than
+            // selecting a feature.
             const allFingersLifted = !e.originalEvent.touches || e.originalEvent.touches.length === 0;
             const tappedCanvas = touchStartTarget === this._map.getCanvas();
-            if (!touchMoved && touchStartPoint && allFingersLifted && tappedCanvas) {
+            if (!touchMoved && !isLongPress && touchStartPoint && allFingersLifted && tappedCanvas) {
                 const tapPoint = touchStartPoint;
                 if (tapFallbackTimer) clearTimeout(tapFallbackTimer);
                 tapFallbackTimer = setTimeout(() => {
                     tapFallbackTimer = null;
                     const lngLat = this._map.unproject(tapPoint);
-                    // The long-press flag (set mid-gesture) is still active here so
-                    // a long-press tap adds to the selection; the next touchstart
-                    // resets it for the following tap.
                     this._processClickAtPoint(tapPoint, lngLat);
                 }, 60);
             }

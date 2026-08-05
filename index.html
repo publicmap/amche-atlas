@@ -83,7 +83,7 @@
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
         href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
-        href="https://cdn.jsdelivr.net/npm/mapbox-gl@v3.26.0/dist/mapbox-gl.min.css">
+        href="https://cdn.jsdelivr.net/npm/mapbox-gl@v3.27.0/dist/mapbox-gl.min.css">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
         href="https://cdn.jsdelivr.net/npm/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.css">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
@@ -265,12 +265,35 @@
     <script defer src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script><!-- Add jQuery -->
     <script defer src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
     <!-- Turf.js for geospatial operations -->
-    <script defer src="https://cdn.jsdelivr.net/npm/mapbox-gl@v3.26.0/dist/mapbox-gl.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mapbox-gl@v3.27.0/dist/mapbox-gl.min.js"></script>
     <!-- Mapbox GL JS -->
     <script defer src="https://cdn.jsdelivr.net/npm/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.js"></script>
     <!-- Mapbox GL Draw (for measure control) -->
     <script defer src="https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js"></script><!-- Mapbox GL JS -->
-    <script defer src="https://cdn.jsdelivr.net/npm/@mapbox/search-js-web@1.0.0/dist/mapboxsearch.min.js"></script>
+    <script>
+        // @mapbox/search-js-web captures `globalThis.fetch` into a module-scoped variable
+        // the moment it loads, so patching window.fetch AFTER it loads (e.g. from within
+        // js/map-search-control.js) has no effect - the library keeps calling the original.
+        // This must run synchronously before the deferred search-js script below so the
+        // library captures the patched version instead. It bypasses the suggest endpoint's
+        // network request only when window.amche.shouldBypassSearchSuggest() says so
+        // (raw coordinate input, handled locally instead of via the Mapbox search API).
+        (function () {
+            var originalFetch = window.fetch.bind(window);
+            window.fetch = function (input, init) {
+                var url = typeof input === 'string' ? input : (input && input.url);
+                if (url && url.indexOf('/search/searchbox/v1/suggest') !== -1 &&
+                    window.amche.shouldBypassSearchSuggest && window.amche.shouldBypassSearchSuggest()) {
+                    return Promise.resolve(new Response(JSON.stringify({ suggestions: [] }), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    }));
+                }
+                return originalFetch(input, init);
+            };
+        })();
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@mapbox/search-js-web@1.6.0/dist/mapboxsearch.min.js"></script>
     <!-- Mapbox Search JS -->
     <script defer type="module"
         src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace.min.js"></script>
@@ -471,13 +494,6 @@
                                 style="width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; flex-shrink: 0;">
                             </div>
                             <span style="flex: 1;">Please wait. Detecting user location</span>
-                            <div id="splash-permission-buttons" style="display: none; gap: 8px;">
-                                <button id="splash-deny-btn"
-                                    style="padding: 6px 14px; background: rgba(255,255,255,0.08); color: #e5e7eb; border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; font-size: 0.85rem; cursor: pointer; font-family: inherit;">Deny</button>
-                                <button id="splash-allow-btn"
-                                    style="padding: 6px 14px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 5px; font-size: 0.85rem; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(59,130,246,0.4); font-family: inherit;">Allow
-                                    (<span id="splash-allow-countdown">3</span>s)</button>
-                            </div>
                         </div>
                     </div>
 
@@ -738,7 +754,7 @@
                     const position = await new Promise((resolve, reject) => {
                         navigator.geolocation.getCurrentPosition(resolve, reject, {
                             enableHighAccuracy: true,
-                            timeout: 10000,
+                            timeout: 5000,
                             maximumAge: 0
                         });
                     });
@@ -756,6 +772,13 @@
                         accuracy: position.coords.accuracy,
                         detectedAt: performance.now()
                     };
+                    // Dedicated, never-overwritten-by-GeoIP marker of a real GPS fix,
+                    // dispatched as an event too so map-init.js can react (re-center +
+                    // offer a lock/default toggle) even if it's already past startup.
+                    window.loadingStartupState.gpsFix = window.loadingStartupState.userLocation;
+                    window.dispatchEvent(new CustomEvent('amche:gps-resolved', {
+                        detail: { lat: position.coords.latitude, lng: position.coords.longitude }
+                    }));
                     console.log(
                         `[GPS] User location detected at t=${Math.round(performance.now())}ms:`,
                         `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`,

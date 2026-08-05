@@ -13,6 +13,7 @@ import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
 import { MapAttributionControl } from './map-attribution-control.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
+import { ShortcutMenu } from './shortcut-menu.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { ButtonGeolocationManager } from './button-geolocation-manager.js';
@@ -166,7 +167,10 @@ export class MapInitializer {
         //   - splash set proceedNormally (user clicked through, or auto-proceed)
         //   - splash set userLocation (GPS resolved → URL is rewritten by now)
         //   - safety timeout (splash never ran / page has no splash hook)
-        const safetyTimeoutMs = window.loadingStartupState?.manualOverlayControl ? 30000 : 2500;
+        // 5500ms covers the 5s GPS cap in index.html's handleGeolocation plus
+        // a small buffer for the GeoIP fallback (run in parallel by splash,
+        // so it's normally done well before GPS gives up).
+        const safetyTimeoutMs = window.loadingStartupState?.manualOverlayControl ? 30000 : 5500;
         await Promise.race([
             new Promise(resolve => {
                 const check = setInterval(() => {
@@ -859,6 +863,10 @@ export class MapInitializer {
                 browserControlContainer.appendChild(controlElement);
             }
 
+            // Right-click / long-press shortcut menu, relies on the controls above
+            window.shortcutMenu = new ShortcutMenu();
+            window.shortcutMenu.onAdd(map);
+
             const supportedExts = ['geojson', 'json', 'kml', 'csv', 'geojsonl', 'ndjson', 'jsonl', 'gpkg', 'zip'];
             const dropOverlay = document.createElement('div');
             dropOverlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(30,64,175,0.55);display:none;align-items:center;justify-content:center;pointer-events:none;';
@@ -899,6 +907,8 @@ export class MapInitializer {
             map.addControl(window.attributionControl, 'bottom-right');
             window.contextMessagesControl = new MapContextMessagesControl();
             window.contextMessagesControl.onAdd(map);
+            const shortcutHintId = MapContextMessagesControl.show('Long press/right click map for shortcuts');
+            setTimeout(() => MapContextMessagesControl.close(shortcutHintId), 8000);
             window.exportControl = new MapExportControl();
             map.addControl(window.exportControl, 'bottom-right');
             window.externalMapLinksControl = new ButtonExternalMapLinks();
@@ -1019,7 +1029,52 @@ export class MapInitializer {
                 window.dispatchEvent(new CustomEvent('mapReady', { detail: { map } }));
             };
 
-            if (window.hashLayerView) {
+            // Computed once, up front, so it's available both to the "no hash"
+            // fallback below and to the GPS-lock message's "Switch to map
+            // default" link (which can fire long after this block runs).
+            const indexAtlasMap = layerRegistry.getAtlasMetadata('index')?.map || {};
+            const fallbackCenter = config.map?.center || indexAtlasMap.center || [0, 0];
+            const fallbackZoom = config.map?.zoom ?? indexAtlasMap.zoom ?? 2;
+            window.__amcheAtlasDefaultView = { center: fallbackCenter, zoom: fallbackZoom };
+
+            // Whenever a real GPS fix is established — at startup (possibly
+            // after the fallback camera below already ran, since GeoIP/atlas
+            // defaults shouldn't block on the up-to-5s GPS cap) or later from
+            // a manual geolocate click — prefer zooming to it and let the user
+            // choose between staying locked to GPS or returning to the atlas's
+            // default view.
+            let gpsLockMessageTimer = null;
+            const applyGpsLock = (lat, lng) => {
+                map.flyTo({ center: [lng, lat], zoom: 17, pitch: 0, bearing: 0, duration: 2000, essential: true });
+                MapContextMessagesControl.show(
+                    'Locked to <a href="#" onclick="window.geolocationControl?.trigger();return false;">GPS</a>. ' +
+                    'Switch to <a href="#" onclick="window.__amcheSwitchToAtlasDefault?.();return false;">map default</a>',
+                    { id: 'gps-lock-status' }
+                );
+                clearTimeout(gpsLockMessageTimer);
+                gpsLockMessageTimer = setTimeout(() => MapContextMessagesControl.close('gps-lock-status'), 10000);
+            };
+            window.__amcheSwitchToAtlasDefault = () => {
+                if (window.geolocationControl?.isTracking) window.geolocationControl.trigger();
+                MapContextMessagesControl.close('gps-lock-status');
+                const view = window.__amcheAtlasDefaultView;
+                map.flyTo({ center: view.center, zoom: view.zoom, pitch: 28, bearing: 0, duration: 1500, essential: true });
+            };
+            // A GPS fix that arrives AFTER the placement chain below has
+            // already run (or is mid-flight) always wins — it corrects
+            // whatever GeoIP/atlas-default camera was used to avoid blocking
+            // startup on the up-to-5s GPS cap.
+            window.addEventListener('amche:gps-resolved', (e) => {
+                if (e.detail) applyGpsLock(e.detail.lat, e.detail.lng);
+            });
+
+            if (window.loadingStartupState?.gpsFix) {
+                // GPS already resolved by the time we got here — go straight
+                // to it instead of running the placement chain below at all.
+                const { lat, lng } = window.loadingStartupState.gpsFix;
+                applyGpsLock(lat, lng);
+                map.once('moveend', () => map.once('idle', signalMapReady));
+            } else if (window.hashLayerView) {
                 // Hash layer view was calculated from layer/atlas bbox
                 console.log('[MapInit] Applying hashLayerView:', window.hashLayerView);
                 setTimeout(() => {
@@ -1051,17 +1106,38 @@ export class MapInitializer {
                     delete window.hashLayerView; // Clean up
                     map.once('moveend', () => map.once('idle', signalMapReady));
                 }, 2000);
-            } else if (!hadInitialHash) {
-                // config.map.center/zoom are already inherited from the index
-                // atlas when the active atlas doesn't define its own (see the
-                // style-inheritance step above in loadConfiguration()), so
-                // this is only a last-resort guard against a totally missing
-                // `map` block — sourced from the index atlas's own config
-                // rather than a hardcoded literal that would drift out of
-                // sync with config/index.atlas.json.
-                const indexAtlasMap = layerRegistry.getAtlasMetadata('index')?.map || {};
-                const fallbackCenter = config.map?.center || indexAtlasMap.center || [0, 0];
-                const fallbackZoom = config.map?.zoom ?? indexAtlasMap.zoom ?? 2;
+            } else if (hadInitialHash) {
+                // Had a hash at construction time — Mapbox's hash:true option
+                // already jumped to it synchronously in the Map constructor.
+                map.once('idle', signalMapReady);
+            } else if (MapInitializer._parseHashLocation(window.location.hash)) {
+                // hadInitialHash only reflects the hash at map-CONSTRUCTION
+                // time (captured before this atlas/location was even known).
+                // Splash resolves GPS/GeoIP asynchronously and writes
+                // ?...&geolocate=true#zoom/lat/lng via history.replaceState,
+                // which fires no 'hashchange' event — Mapbox's hash:true never
+                // re-reads it, so the map's camera is still sitting on
+                // whatever defaults were used at construction even though the
+                // URL now has a real resolved position (loadConfiguration()
+                // above always waits for splash to finish before we get here,
+                // so the hash can be trusted at this point). Fly to it instead
+                // of falling through to the atlas's generic default center/zoom.
+                const lateHash = MapInitializer._parseHashLocation(window.location.hash);
+                map.flyTo({
+                    center: [lateHash.lng, lateHash.lat],
+                    zoom: lateHash.zoom,
+                    pitch: 28,
+                    bearing: 0,
+                    duration: 1500,
+                    essential: true
+                });
+                map.once('moveend', () => map.once('idle', signalMapReady));
+            } else {
+                // fallbackCenter/fallbackZoom are computed above (config.map
+                // inherits the index atlas's when the active atlas doesn't
+                // define its own — see the style-inheritance step in
+                // loadConfiguration()); this branch is a last-resort guard
+                // against a totally missing `map` block.
 
                 // If the URL specified layers (deep link) and any of them carry
                 // geojson/csv data or a known bbox, fit the camera to that data
@@ -1119,9 +1195,6 @@ export class MapInitializer {
                         map.once('moveend', () => map.once('idle', signalMapReady));
                     }, 2000);
                 }
-            } else {
-                // Has a hash (position) — map is ready, signal immediately
-                map.once('idle', signalMapReady);
             }
 
             // Add global keyboard shortcuts
@@ -1244,6 +1317,19 @@ export class MapInitializer {
         const registryLayer = window.layerRegistry?.getLayer(layer.id);
         if (registryLayer?.title) return registryLayer.title;
         return layer.id;
+    }
+
+    // Parses a Mapbox-style `#zoom/lat/lng` hash into { zoom, lat, lng }, or
+    // null if absent/malformed. Mirrors SplashScreenManager.parseHashLocation.
+    static _parseHashLocation(hash) {
+        if (!hash || hash.length <= 1) return null;
+        const parts = hash.substring(1).split('/');
+        if (parts.length !== 3) return null;
+        const zoom = parseFloat(parts[0]);
+        const lat = parseFloat(parts[1]);
+        const lng = parseFloat(parts[2]);
+        if (isNaN(zoom) || isNaN(lat) || isNaN(lng)) return null;
+        return { zoom, lat, lng };
     }
 
     static _escapeHtml(text) {

@@ -332,19 +332,18 @@ export class MapMarkerManager {
                 display: flex;
                 flex-direction: column;
                 align-items: flex-start;
-                background: rgba(255, 255, 0, 0.9);
-                border: 1px solid rgba(255, 255, 0, 1);
-                border-radius: 8px;
-                padding: 2px 7px;
+                width: 100%;
+                box-sizing: border-box;
+                background: transparent;
+                border-radius: 5px;
+                padding: 4px 8px;
                 cursor: pointer;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.35);
-                transition: border-color 0.15s, background 0.15s, opacity 0.15s;
-                max-width: 240px;
+                transition: background 0.15s, opacity 0.15s;
             ">
                 <div class="feature-badge-header" style="display: flex; flex-direction: row; align-items: center; gap: 4px; width: 100%;">
                     <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 0;">
-                        <span style="font-size: 8px; line-height: 1.1; font-weight: 600; color: #c2410c; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap;">${this._escapeAttr(fieldName)}</span>
-                        <span class="badge-value" data-full="${this._escapeAttr(value)}" data-short="${this._escapeAttr(display)}" style="font-size: 11px; line-height: 1.2; font-weight: 700; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this._escapeAttr(display)}</span>
+                        <span style="font-size: 8px; line-height: 1.1; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap;">${this._escapeAttr(fieldName)}</span>
+                        <span class="badge-value" data-full="${this._escapeAttr(value)}" data-short="${this._escapeAttr(display)}" style="font-size: 11px; line-height: 1.2; font-weight: 700; color: #f3f4f6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this._escapeAttr(display)}</span>
                     </div>
                 </div>
                 ${detailsHTML}
@@ -366,9 +365,9 @@ export class MapMarkerManager {
         const fieldTitles = inspectConfig.fieldTitles || [];
 
         const buildRow = (label, value) =>
-            `<div style="display:flex;gap:6px;font-size:9px;line-height:1.25;padding:1px 0;border-bottom:1px solid rgba(0,0,0,0.1);">` +
-            `<div style="color:#78350f;min-width:54px;max-width:88px;font-weight:600;flex-shrink:0;word-break:break-word;">${this._escapeAttr(label)}</div>` +
-            `<div style="color:#1a1a1a;flex:1;word-break:break-word;white-space:pre-line;">${this._escapeAttr(value)}</div>` +
+            `<div style="display:flex;gap:6px;font-size:9px;line-height:1.25;padding:1px 0;border-bottom:1px solid #374151;">` +
+            `<div style="color:#9ca3af;min-width:54px;max-width:88px;font-weight:600;flex-shrink:0;word-break:break-word;">${this._escapeAttr(label)}</div>` +
+            `<div style="color:#f3f4f6;flex:1;word-break:break-word;white-space:pre-line;">${this._escapeAttr(value)}</div>` +
             `</div>`;
 
         const validEntries = Object.entries(properties).filter(([, v]) => v !== null && v !== undefined && v !== '');
@@ -387,7 +386,7 @@ export class MapMarkerManager {
         }
 
         if (rows.length === 0) {
-            rows = [`<div style="font-size:9px;color:#78350f;padding:2px 0;">No attributes</div>`];
+            rows = [`<div style="font-size:9px;color:#9ca3af;padding:2px 0;">No attributes</div>`];
         }
 
         // Configured `fields` only shows a curated subset — offer a toggle to reveal
@@ -397,13 +396,13 @@ export class MapMarkerManager {
         if (fields.length > 0 && validEntries.length > rows.length) {
             const allRows = validEntries.map(([k, v]) => buildRow(k, v));
             allPropertiesHTML = `<div class="badge-all-properties" style="display:none;">${allRows.join('')}</div>`;
-            const btnStyle = `margin-top:2px;padding:2px 0;background:transparent;color:#78350f;border:none;border-top:1px dashed rgba(0,0,0,0.2);font-size:9px;font-weight:600;cursor:pointer;width:100%;text-align:left;`;
+            const btnStyle = `margin-top:2px;padding:2px 0;background:transparent;color:#9ca3af;border:none;border-top:1px dashed #374151;font-size:9px;font-weight:600;cursor:pointer;width:100%;text-align:left;`;
             showAllButton = `<button class="badge-show-all-props-btn" data-total="${validEntries.length}" style="${btnStyle}">Show all ${validEntries.length} properties</button>`;
         }
 
         const footer = this._buildBadgeLayerFooter(f);
 
-        return `<div class="feature-badge-details" style="display:none;width:100%;margin-top:3px;border-top:1px solid rgba(0,0,0,0.2);padding-top:3px;max-height:180px;overflow-y:auto;">` +
+        return `<div class="feature-badge-details" style="display:none;width:100%;margin-top:3px;border-top:1px solid #374151;padding-top:3px;max-height:180px;overflow-y:auto;">` +
             `<div class="badge-shown-properties">${rows.join('')}</div>${allPropertiesHTML}${showAllButton}${footer}</div>`;
     }
 
@@ -432,9 +431,9 @@ export class MapMarkerManager {
 
         const layerName = this._escapeAttr(layerConfig.title || f.layerId);
 
-        return `<div class="feature-badge-footer" style="display:flex;align-items:center;gap:4px;margin-top:4px;padding-top:3px;border-top:1px solid rgba(0,0,0,0.2);">` +
+        return `<div class="feature-badge-footer" style="display:flex;align-items:center;gap:4px;margin-top:4px;padding-top:3px;border-top:1px solid #374151;">` +
             `${thumbnailHTML}${atlasBadge}` +
-            `<span style="font-size:9px;color:#1a1a1a;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${layerName}</span>` +
+            `<span style="font-size:9px;color:#9ca3af;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${layerName}</span>` +
             this._buildLayerActionsMenuHTML(f.layerId, f.feature) +
             `</div>`;
     }
@@ -550,15 +549,16 @@ export class MapMarkerManager {
                 display: flex;
                 align-items: center;
                 gap: 4px;
-                background: rgba(255, 255, 0, 0.9);
-                border: 1px solid rgba(255, 255, 0, 1);
-                border-radius: 8px;
-                padding: 3px 7px;
+                width: 100%;
+                box-sizing: border-box;
+                background: transparent;
+                border-radius: 5px;
+                padding: 4px 8px;
                 cursor: pointer;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+                transition: background 0.15s;
             ">
-                <sl-icon name="geo-alt" style="font-size: 11px; color: #000;"></sl-icon>
-                <span style="font-size: 11px; font-weight: 700; color: #000; white-space: nowrap;">${coords}</span>
+                <sl-icon name="geo-alt" style="font-size: 11px; color: #9ca3af;"></sl-icon>
+                <span style="font-size: 11px; font-weight: 700; color: #f3f4f6; white-space: nowrap;">${coords}</span>
             </div>
         `;
     }
@@ -616,8 +616,9 @@ export class MapMarkerManager {
 
             if (!this._isTouch) {
                 badge.addEventListener('mouseenter', () => {
-                    badge.style.borderColor = '#000';
-                    badge.style.background = 'rgba(255, 255, 0, 1)';
+                    if (!badge.classList.contains('badge-selected')) {
+                        badge.style.background = '#374151';
+                    }
                     this._expandBadgeValue(valueSpan);
                     // Isolation (sibling dimming + layer isolation) is reserved for
                     // clicked selection markers; hover popups only highlight the badge.
@@ -635,8 +636,7 @@ export class MapMarkerManager {
                 });
                 badge.addEventListener('mouseleave', () => {
                     if (!badge.classList.contains('badge-selected')) {
-                        badge.style.borderColor = 'rgba(255, 255, 0, 1)';
-                        badge.style.background = 'rgba(255, 255, 0, 0.9)';
+                        badge.style.background = 'transparent';
                         this._collapseBadgeValue(valueSpan);
                     }
                     if (!isHover) {
@@ -706,18 +706,20 @@ export class MapMarkerManager {
         badge.classList.remove('badge-selected');
         const details = badge.querySelector('.feature-badge-details');
         if (details) details.style.display = 'none';
-        badge.style.borderColor = 'rgba(255, 255, 0, 1)';
-        badge.style.background = 'rgba(255, 255, 0, 0.9)';
-        this._collapseBadgeValue(badge.querySelector('.badge-value'));
+        badge.style.background = 'transparent';
+        const valueSpan = badge.querySelector('.badge-value');
+        if (valueSpan) valueSpan.style.color = '#f3f4f6';
+        this._collapseBadgeValue(valueSpan);
     }
 
     _setBadgeSelected(badge) {
         badge.classList.add('badge-selected');
         const details = badge.querySelector('.feature-badge-details');
         if (details) details.style.display = 'block';
-        badge.style.borderColor = '#000';
-        badge.style.background = 'rgba(255, 255, 0, 1)';
-        this._expandBadgeValue(badge.querySelector('.badge-value'));
+        badge.style.background = '#1e3a5f';
+        const valueSpan = badge.querySelector('.badge-value');
+        if (valueSpan) valueSpan.style.color = '#93c5fd';
+        this._expandBadgeValue(valueSpan);
     }
 
     /**
@@ -817,7 +819,7 @@ export class MapMarkerManager {
         const infoSize = 20;
         el.innerHTML = `
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; height: ${infoSize}px; flex-shrink: 0;"></div>
-            <div class="marker-content" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 240px;">
+            <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);">
                 ${this._buildMarkerBadgesHTML(features, lngLat)}
             </div>
         `;
@@ -891,8 +893,7 @@ export class MapMarkerManager {
         badges.forEach(b => {
             // Don't override the persistent styling of a selected (expanded) badge.
             if (b.classList.contains('badge-selected')) return;
-            b.style.borderColor = isHovered ? '#000' : 'rgba(255, 255, 0, 1)';
-            b.style.background = isHovered ? 'rgba(255, 255, 0, 1)' : 'rgba(255, 255, 0, 0.9)';
+            b.style.background = isHovered ? '#374151' : 'transparent';
         });
     }
 
@@ -932,7 +933,7 @@ export class MapMarkerManager {
 
         el.innerHTML = `
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0;"></div>
-            <div class="marker-content" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 240px; cursor: move;">
+            <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); cursor: move;">
                 ${this._buildMarkerBadgesHTML(features, lngLat)}
             </div>
         `;

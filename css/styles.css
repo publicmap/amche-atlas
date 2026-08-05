@@ -609,6 +609,64 @@ body {
     opacity: 1;
 }
 
+/* Right-click / long-press shortcut menu */
+.shortcut-menu {
+    position: fixed;
+    z-index: 1100;
+    min-width: 220px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    padding: 4px;
+}
+
+.shortcut-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #f3f4f6;
+    font-size: 13px;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.shortcut-menu-item sl-icon {
+    font-size: 15px;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.shortcut-menu-item span {
+    flex: 1;
+}
+
+.shortcut-menu-item:hover {
+    background: #374151;
+}
+
+.shortcut-menu-item.is-checked {
+    color: #93c5fd;
+}
+
+.shortcut-menu-item.is-checked sl-icon:not(.shortcut-menu-check) {
+    color: #3b82f6;
+}
+
+.shortcut-menu-check {
+    color: #3b82f6 !important;
+    visibility: hidden;
+}
+
+.shortcut-menu-item.is-checked .shortcut-menu-check {
+    visibility: visible;
+}
+
 .mapboxgl-ctrl.mapboxgl-ctrl-attrib {
     background-color: #ffffffe1;
     margin: 0 46px 0 120px;
