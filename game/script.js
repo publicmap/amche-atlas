@@ -1,6 +1,6 @@
 // Map Puzzle Game Logic
 
-const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ';
+const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1Ijoib3NtaW5kaWEiLCJhIjoiY202czRpbWdpMDNyZjJwczJqZXdkMGR1eSJ9.eQQf--msfqtZIamJN-KKVQ';
 const MAP_STYLE = 'mapbox://styles/planemad/cm3gyibd3004x01qz08rohcsg';
 // Extract just the user/style-id part for static API if needed, 
 // but static API usually takes 'user/styleid' or 'mapbox/streets-v11'.

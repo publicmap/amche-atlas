@@ -156,7 +156,7 @@ export class MapFeatureControl {
             justify-content: center;
             padding: 0;
         `;
-        button.innerHTML = '<span style="font-size: 20px; line-height: 1;"><sl-icon name="geo-alt-fill" style="font-size: 14px;" aria-hidden="true" library="default"></sl-icon></span>';
+        button.innerHTML = '<span style="font-size: 20px; line-height: 1;"><sl-icon name="layers" style="font-size: 14px;" aria-hidden="true" library="default"></sl-icon></span>';
 
         // Add event handlers
         button.addEventListener('click', () => {
