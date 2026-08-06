@@ -1107,7 +1107,7 @@
       "tags": [
         "6.Regulatory"
       ],
-      "id": "goa-esa",
+      "id": "esa",
       "title": "Goa Area ESA Village (2026 Draft)",
       "type": "geojson",
       "initiallyChecked": false,
@@ -1130,9 +1130,9 @@
             "get",
             "color"
           ],
-          "#b1dd8c"
+          "lightgreen"
         ],
-        "fill-opacity": 0.2,
+        "fill-opacity": 0.5,
         "line-color": [
           "coalesce",
           [
@@ -1143,9 +1143,9 @@
             "get",
             "color"
           ],
-          "#ffffff"
+          "#94e35e"
         ],
-        "line-width": 2
+        "line-width": 4
       }
     },
     {
