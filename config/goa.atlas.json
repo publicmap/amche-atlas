@@ -1117,7 +1117,7 @@
         "label": "name"
       },
       "url": "https://gist.githubusercontent.com/planemad/17636414b540770a8e8d48889094c0e0/raw/287c68037d6312a9ae6c8158bb2bf286df129deb/esa-outline-raw.geojson",
-      "description": "Villages falling under Eco-Sensitive Areas in the Draft Notification dt. 2026-07-27",
+      "description": "Villages falling under Eco-Sensitive Areas in the Draft Notification dt. 2026-07-27. Digitized from Gazette Maps for <a href='https://editor.allmaps.org/georeference?url=https%3A%2F%2Fiiif.archive.org%2Fiiif%2Fin.gazette.central.e.2026-07-27.274876%2Fmanifest.json&bg-preset=osm&bg-url=https%3A%2F%2Findianopenmaps.fly.dev%2Fsoi%2Fosm%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.webp&image=https%3A%2F%2Fiiif.archive.org%2Fimage%2Fiiif%2F3%2Fin.gazette.central.e.2026-07-27.274876%252F274876_jp2.zip%252F274876_jp2%252F274876_0159.jp2'>Goa and neighbouring areas</a>, ",
       "attribution": "<a href='https://archive.org/details/in.gazette.central.e.2026-07-27.274876'>Extrordinary Gazette of India, 2026-07-27 No. 4166(E)</a>",
       "style": {
         "fill-color": [
