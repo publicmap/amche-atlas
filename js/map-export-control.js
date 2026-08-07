@@ -1423,8 +1423,10 @@ export class MapExportControl {
             filename = this._generateFilenameFromFeatures(selectedFeatures, 'geojson');
         } else {
             features = [];
+            const activeLayerIds = this._getActiveStyleLayerIds();
             const layers = this._map.getStyle().layers.filter(l =>
-                l.type === 'fill' || l.type === 'line' || l.type === 'circle' || l.type === 'symbol'
+                activeLayerIds.has(l.id) &&
+                (l.type === 'fill' || l.type === 'line' || l.type === 'circle' || l.type === 'symbol')
             );
 
             for (const layer of layers) {
@@ -1457,8 +1459,10 @@ export class MapExportControl {
             filename = this._generateFilenameFromFeatures(selectedFeatures, 'kml');
         } else {
             features = [];
+            const activeLayerIds = this._getActiveStyleLayerIds();
             const layers = this._map.getStyle().layers.filter(l =>
-                l.type === 'fill' || l.type === 'line' || l.type === 'circle' || l.type === 'symbol'
+                activeLayerIds.has(l.id) &&
+                (l.type === 'fill' || l.type === 'line' || l.type === 'circle' || l.type === 'symbol')
             );
 
             for (const layer of layers) {
@@ -1516,7 +1520,10 @@ export class MapExportControl {
             filename = this._generateFilenameFromFeatures(selectedFeatures, 'csv');
         } else {
             console.log('CSV Export: Using all rendered features');
-            const allFeatures = this._map.queryRenderedFeatures();
+            const activeLayerIds = Array.from(this._getActiveStyleLayerIds());
+            const allFeatures = activeLayerIds.length
+                ? this._map.queryRenderedFeatures({ layers: activeLayerIds })
+                : [];
             console.log(`CSV Export: Found ${allFeatures.length} rendered features`);
 
             const validFeatures = allFeatures.filter(f => f.geometry && f.geometry.type);
@@ -1789,7 +1796,10 @@ export class MapExportControl {
                 features = selectedFeatures.map(item => item.feature);
                 filename = this._generateFilenameFromFeatures(selectedFeatures, 'dxf');
             } else {
-                features = this._map.queryRenderedFeatures();
+                const activeLayerIds = Array.from(this._getActiveStyleLayerIds());
+                features = activeLayerIds.length
+                    ? this._map.queryRenderedFeatures({ layers: activeLayerIds })
+                    : [];
                 filename = this._generateFilename('dxf');
             }
 
@@ -1954,7 +1964,10 @@ export class MapExportControl {
 
         this._sendProgress(55, 'Extracting vector features');
 
-        const features = this._map.queryRenderedFeatures();
+        const activeLayerIds = Array.from(this._getActiveStyleLayerIds());
+        const features = activeLayerIds.length
+            ? this._map.queryRenderedFeatures({ layers: activeLayerIds })
+            : [];
         const filteredFeatures = features.filter(feature => {
             if (feature.geometry.type === 'Point') {
                 const [lng, lat] = feature.geometry.coordinates;
@@ -2512,6 +2525,16 @@ export class MapExportControl {
         worldFile += upperLeftY + '\n';
 
         return worldFile;
+    }
+
+    /**
+     * Style layer IDs for layers currently active (toggled on) in the layer
+     * control, scoped the same way map-feature-control-iframe.js scopes
+     * click/hover queries. Prevents "export all" from sweeping in basemap or
+     * toggled-off layers via map.getStyle()/queryRenderedFeatures().
+     */
+    _getActiveStyleLayerIds() {
+        return new Set(window.stateManager?.getInteractiveRenderedLayerIds() || []);
     }
 
     _hasSelectedFeatures() {
