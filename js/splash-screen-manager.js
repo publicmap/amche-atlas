@@ -310,26 +310,11 @@ export class SplashScreenManager {
     /**
      * Find the smallest atlas whose bbox contains the point. Synchronous —
      * relies on layerRegistry being initialized (waitForLayerRegistry already
-     * ensured this in initialize()).
-     *
-     * External (cross-repo) atlases are excluded: they're referenced by full
-     * URL in index's `atlases` array and shouldn't be auto-selected as the
-     * initial atlas purely because the user happens to be inside their bbox.
+     * ensured this in initialize()). Delegates to LayerRegistry.findBestAtlasForPoint,
+     * which is also used by map-init.js's "you've panned outside this atlas" prompt.
      */
     findBestAtlasForLocation(lat, lng) {
-        const reg = window.layerRegistry;
-        if (!reg?._atlasMetadata) return null;
-
-        let best = null;
-        for (const [atlasId, metadata] of reg._atlasMetadata.entries()) {
-            if (atlasId === 'index' || !metadata.bbox) continue;
-            if (metadata.isExternal) continue;
-            if (!reg.isPointInAtlasBbox(atlasId, lng, lat)) continue;
-            const [w, s, e, n] = metadata.bbox;
-            const area = (e - w) * (n - s);
-            if (!best || area < best.area) best = { id: atlasId, area };
-        }
-        return best?.id || null;
+        return window.layerRegistry?.findBestAtlasForPoint(lng, lat) || null;
     }
 
     /**

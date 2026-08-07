@@ -1069,6 +1069,74 @@ export class MapInitializer {
                 if (e.detail) applyGpsLock(e.detail.lat, e.detail.lng);
             });
 
+            // Suggest switching atlases when the map center drifts outside the
+            // active atlas's bbox (e.g. panning from Goa into Karnataka).
+            // Debounced on moveend and gated behind a grace period so the
+            // startup camera-placement chain below (flyTo/fitBounds) never
+            // triggers it before the user has actually panned anywhere.
+            const ATLAS_BOUNDS_MESSAGE_ID = 'atlas-bounds-suggestion';
+            let atlasBoundsCheckReady = false;
+            setTimeout(() => { atlasBoundsCheckReady = true; }, 6000);
+            let atlasBoundsCheckTimeout = null;
+
+            // Switches the active atlas via a full reload (same mechanism as
+            // MapBrowserControl._handleLoadAtlas) so the new atlas's own default
+            // layers/config load cleanly; the current hash (center/zoom) is kept
+            // so the map lands right back where the user already was.
+            window.__amcheSwitchAtlas = (targetAtlasId) => {
+                MapContextMessagesControl.close(ATLAS_BOUNDS_MESSAGE_ID);
+                const url = new URL(window.location.origin + window.location.pathname);
+                const params = new URLSearchParams(window.location.search);
+                const newParams = [`atlas=${encodeURIComponent(targetAtlasId)}`];
+                for (const [key, value] of params.entries()) {
+                    if (key !== 'atlas' && key !== 'layers') {
+                        newParams.push(`${key}=${value}`);
+                    }
+                }
+                let finalUrl = `${url.origin}${url.pathname}?${newParams.join('&')}`;
+                if (window.location.hash) finalUrl += window.location.hash;
+                window.location.href = finalUrl;
+            };
+
+            const checkAtlasBounds = () => {
+                if (!atlasBoundsCheckReady) return;
+                const currentAtlasId = layerRegistry.getCurrentAtlas();
+                const currentMetadata = layerRegistry.getAtlasMetadata(currentAtlasId);
+                if (!currentMetadata || !currentMetadata.bbox) {
+                    // Nothing to compare against (e.g. the global index atlas) -
+                    // clear any stale suggestion and stop.
+                    MapContextMessagesControl.close(ATLAS_BOUNDS_MESSAGE_ID);
+                    return;
+                }
+
+                const { lng, lat } = map.getCenter();
+                if (layerRegistry.isPointInAtlasBbox(currentAtlasId, lng, lat)) {
+                    MapContextMessagesControl.close(ATLAS_BOUNDS_MESSAGE_ID);
+                    return;
+                }
+
+                const suggestedAtlasId = layerRegistry.findBestAtlasForPoint(lng, lat, { excludeAtlasId: currentAtlasId });
+                if (!suggestedAtlasId) {
+                    // Outside the current atlas but no other atlas covers this
+                    // location either - nothing useful to suggest.
+                    MapContextMessagesControl.close(ATLAS_BOUNDS_MESSAGE_ID);
+                    return;
+                }
+
+                const suggestedName = MapInitializer._escapeHtml(
+                    layerRegistry.getAtlasMetadata(suggestedAtlasId)?.name || suggestedAtlasId
+                );
+                MapContextMessagesControl.show(
+                    `You've panned outside this atlas. Switch to <a href="#" onclick="window.__amcheSwitchAtlas('${suggestedAtlasId}');return false;">${suggestedName}</a>?`,
+                    { id: ATLAS_BOUNDS_MESSAGE_ID }
+                );
+            };
+
+            map.on('moveend', () => {
+                clearTimeout(atlasBoundsCheckTimeout);
+                atlasBoundsCheckTimeout = setTimeout(checkAtlasBounds, 600);
+            });
+
             if (window.loadingStartupState?.gpsFix) {
                 // GPS already resolved by the time we got here — go straight
                 // to it instead of running the placement chain below at all.

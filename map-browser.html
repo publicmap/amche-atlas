@@ -429,6 +429,60 @@
             margin-top: 13px;
         }
 
+        /* "You've panned outside this atlas" banner - sits between the hero and
+           the filter row, only visible when the current view center falls
+           outside the selected atlas's bbox and another atlas covers it. */
+        .atlas-suggestion-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: rgba(59, 130, 246, 0.12);
+            border-top: 1px solid rgba(59, 130, 246, 0.35);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.35);
+            color: #dbeafe;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .atlas-suggestion-banner-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .atlas-suggestion-banner-switch {
+            flex-shrink: 0;
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s;
+        }
+
+        .atlas-suggestion-banner-switch:hover {
+            background: #2563eb;
+        }
+
+        .atlas-suggestion-banner-dismiss {
+            flex-shrink: 0;
+            background: transparent;
+            border: none;
+            color: rgba(219, 234, 254, 0.7);
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 2px 4px;
+        }
+
+        .atlas-suggestion-banner-dismiss:hover {
+            color: #fff;
+        }
+
         .filter-section {
             background: #1f2937;
             color: white;
@@ -1237,6 +1291,10 @@
         <!-- Selected Atlas Header (dynamically rendered from the active atlas) -->
         <div class="explorer-header" id="explorer-header">
             <div id="atlas-hero"></div>
+            <!-- "You've panned outside this atlas" banner. Kept as its own persistent
+                 element (not rebuilt with the hero) so it can be cheaply shown/hidden
+                 on every bounds-update without re-rendering the whole header. -->
+            <div id="atlas-suggestion-banner" class="atlas-suggestion-banner" style="display:none;"></div>
             <!-- Layer filter row (visibility toggle + name search). Lives here as a
                  persistent element so its event handlers survive, and is moved into
                  the atlas hero by renderExplorerHeader so it reads as part of the
@@ -1346,6 +1404,7 @@
         let visibilityFilter = 'all'; // Filter layers by visibility: 'all' | 'visible' | 'hidden'
         let otherAtlasesExpanded = false; // Collapsed "Other Atlases" (out-of-view) section state
         let canGoBackView = false; // Whether a previous map view exists to step back to
+        let dismissedAtlasSuggestionId = null; // Suggested atlas the user dismissed; re-shown only if the suggestion changes
 
         // Make LayerThumbnail available globally for use in functions
         window.LayerThumbnail = LayerThumbnail;
@@ -1434,6 +1493,7 @@
                     renderExplorerHeader(window.selectedAtlasId);
                     initializePreviewMap();
                     renderLayers();
+                    renderAtlasSuggestionBanner();
                     drawBboxes();
 
                     // Notify parent that browser is ready and rendered
@@ -1464,6 +1524,7 @@
                 if (event.data.type === 'bounds-update') {
                     currentBounds = event.data.bounds;
                     renderLayers();
+                    renderAtlasSuggestionBanner();
                 }
 
                 if (event.data.type === 'feature-selected') {
@@ -1724,6 +1785,10 @@
         // Select atlas (expand it in the list)
         function selectAtlas(atlasId, atlasName, skipURLUpdate = false) {
             window.selectedAtlasId = atlasId;
+            // Re-evaluate the suggestion banner fresh for the newly selected atlas
+            // context - a suggestion dismissed for the previous atlas shouldn't
+            // suppress a (possibly different) suggestion for the new one.
+            dismissedAtlasSuggestionId = null;
 
             // Keep the dropdown in sync when selection changes from elsewhere,
             // defaulting to the index atlas when nothing is selected
@@ -1745,6 +1810,7 @@
 
             renderExplorerHeader(atlasId);
             renderLayers();
+            renderAtlasSuggestionBanner();
 
             // Notify parent to update URL with atlas parameter (unless this is from URL initialization)
             if (!skipURLUpdate) {
@@ -2242,6 +2308,70 @@
             // A stable id keyed on the atlas lets MapUtils cache the parsed geometry.
             const probe = { id: `atlas-view-probe:${atlasId}`, bbox: atlasData.bbox, geojson: atlasData.geojson };
             return MapUtils.isLayerInView(probe, currentBounds);
+        }
+
+        // Find the smallest-area non-index, non-external atlas whose bbox contains
+        // (lng, lat). Local mirror of LayerRegistry.findBestAtlasForPoint (js/layer-registry.js) -
+        // this iframe only has the atlasMetadata snapshot sent via postMessage, not
+        // a live layerRegistry reference to call into directly.
+        function findBestAtlasForPoint(lng, lat, excludeAtlasId) {
+            let best = null;
+            atlasMetadata.forEach((metadata, atlasId) => {
+                if (atlasId === 'index' || atlasId === excludeAtlasId) return;
+                if (!metadata.bbox || metadata.isExternal) return;
+                const [w, s, e, n] = metadata.bbox;
+                if (lng < w || lng > e || lat < s || lat > n) return;
+                const area = (e - w) * (n - s);
+                if (!best || area < best.area) best = { id: atlasId, area };
+            });
+            return best?.id || null;
+        }
+
+        // Show/hide the "you've panned outside this atlas" banner based on the
+        // current map view center vs the selected atlas's bbox - the same check
+        // map-init.js runs for the main map's own moveend-based suggestion, just
+        // scoped to the browser's view instead of the live map center. Re-run on
+        // every bounds-update and whenever the selected atlas changes.
+        function renderAtlasSuggestionBanner() {
+            const $banner = $('#atlas-suggestion-banner');
+            if (!$banner.length) return;
+            if (!currentBounds) { $banner.hide(); return; }
+
+            const effectiveId = getEffectiveAtlasId();
+            const atlasData = atlasMetadata.get(effectiveId);
+            if (!atlasData || !atlasData.bbox) { $banner.hide(); return; }
+
+            const [w, s, e, n] = currentBounds;
+            const centerLng = (w + e) / 2;
+            const centerLat = (s + n) / 2;
+            const [aw, as_, ae, an] = atlasData.bbox;
+            const inside = centerLng >= aw && centerLng <= ae && centerLat >= as_ && centerLat <= an;
+            if (inside) {
+                $banner.hide();
+                dismissedAtlasSuggestionId = null;
+                return;
+            }
+
+            const suggestedId = findBestAtlasForPoint(centerLng, centerLat, effectiveId);
+            if (!suggestedId || suggestedId === dismissedAtlasSuggestionId) {
+                $banner.hide();
+                return;
+            }
+
+            const suggestedName = atlasMetadata.get(suggestedId)?.name || suggestedId;
+            $banner.empty().show();
+            $('<span>', { class: 'atlas-suggestion-banner-text' })
+                .text(`You're viewing an area outside this atlas. Switch to ${suggestedName}?`)
+                .appendTo($banner);
+            $('<button>', { class: 'atlas-suggestion-banner-switch', type: 'button', text: 'Switch' })
+                .on('click', () => changeAtlasSelection(suggestedId))
+                .appendTo($banner);
+            $('<button>', {
+                class: 'atlas-suggestion-banner-dismiss', type: 'button', title: 'Dismiss', html: '&times;'
+            }).on('click', () => {
+                dismissedAtlasSuggestionId = suggestedId;
+                $banner.hide();
+            }).appendTo($banner);
         }
 
         // When switching to an atlas whose extent lies outside the current map view,

@@ -306,7 +306,16 @@ export class MapLayerControl {
                 // instead of flashing for a few milliseconds on fast/cached layers.
                 const minVisible = new Promise(resolve => setTimeout(resolve, 400));
                 await Promise.all([this._toggleLayerGroup(groupIndex, true), minVisible]);
-                MapContextMessagesControl.close(messageId);
+                // Swap the "Loading" text for a confirmation (with a zoom shortcut when
+                // a bbox is known) rather than closing outright, so newly added maps -
+                // e.g. from the layer creator - give visible confirmation instead of
+                // just silently appearing.
+                const zoomLink = this._buildZoomToLayerLink(layer);
+                MapContextMessagesControl.show(
+                    `Added map &quot;${layerTitle}&quot;${zoomLink ? ' &middot; ' + zoomLink : ''}`,
+                    { id: messageId }
+                );
+                setTimeout(() => MapContextMessagesControl.close(messageId), 3000);
                 // Yield to browser between layers to prevent blocking
                 await new Promise(resolve => requestAnimationFrame(resolve));
             }
@@ -614,6 +623,49 @@ export class MapLayerControl {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    /**
+     * Resolve a bbox to offer a "Zoom to layer" shortcut on: the layer's own
+     * bbox if set, otherwise its source atlas's bbox (mirrors the fallback in
+     * MapBrowserControl._handleZoomToLayer).
+     */
+    _getLayerBbox(layer) {
+        if (Array.isArray(layer?.bbox) && layer.bbox.length === 4) {
+            return layer.bbox;
+        }
+        const atlasId = layer?._sourceAtlas;
+        if (atlasId && window.layerRegistry) {
+            const atlasMetadata = window.layerRegistry.getAtlasMetadata(atlasId);
+            if (Array.isArray(atlasMetadata?.bbox) && atlasMetadata.bbox.length === 4) {
+                return atlasMetadata.bbox;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Inline link for context messages that fits the map to a layer's extent.
+     * Returns '' when no bbox is known, so callers can skip the separator too.
+     */
+    _buildZoomToLayerLink(layer) {
+        const bbox = this._getLayerBbox(layer);
+        if (!bbox) return '';
+        return `<a href="#" onclick="window.layerControl?._zoomToBounds(${JSON.stringify(bbox)});return false;">Zoom to layer</a>`;
+    }
+
+    /**
+     * Fit the map to a [west, south, east, north] bbox. Exposed for the inline
+     * onclick handlers built by _buildZoomToLayerLink.
+     */
+    _zoomToBounds(bbox) {
+        if (!this._map || !Array.isArray(bbox) || bbox.length !== 4) return;
+        const [west, south, east, north] = bbox;
+        this._map.fitBounds([[west, south], [east, north]], {
+            padding: 50,
+            maxZoom: 16,
+            duration: 1000
+        });
     }
 
     _getAtlasIdForLayer(group) {
