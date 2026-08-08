@@ -4,6 +4,7 @@
  * A compact control button that shows the current atlas name and opens
  * a full-screen map browser overlay when clicked.
  */
+import { MapContextMessagesControl } from './map-context-messages-control.js';
 
 export class MapBrowserControl {
     constructor() {
@@ -1004,181 +1005,33 @@ export class MapBrowserControl {
         }
     }
 
-    _handleAddCustomLayer(config) {
+    async _handleAddCustomLayer(config) {
         console.log('[MapBrowserControl] Adding custom layer:', config);
 
-        const url = new URL(window.location.origin + window.location.pathname);
-        const hash = window.location.hash;
-
-        // Parse URL parameters manually, keeping layers encoded until we've extracted it
-        const searchParams = window.location.search;
-        console.log('[MapBrowserControl] Current search params:', searchParams);
-
-        let existingLayersEncoded = '';
-        let otherParamsMap = new Map();
-
-        if (searchParams.startsWith('?')) {
-            const paramsString = searchParams.substring(1);
-
-            // Find the layers parameter by looking for "layers="
-            const layersIndex = paramsString.indexOf('layers=');
-
-            if (layersIndex !== -1) {
-                // Extract everything before layers parameter
-                if (layersIndex > 0) {
-                    const beforeLayers = paramsString.substring(0, layersIndex - 1); // -1 to skip the &
-                    beforeLayers.split('&').forEach(param => {
-                        const eqIndex = param.indexOf('=');
-                        if (eqIndex !== -1) {
-                            otherParamsMap.set(param.substring(0, eqIndex), param.substring(eqIndex + 1));
-                        }
-                    });
-                }
-
-                // Extract the layers parameter value (URL-encoded, keep it encoded!)
-                // We need to find where it ends - layers should be the last parameter
-                // If there are parameters after it, they would start with &
-                // BUT we can't just look for & because the encoded value might contain %26
-                // Solution: layers parameter goes until the end of the search string OR until we hit a real & that starts a new parameter
-                // A real & would be followed by paramName=, not by encoded characters
-
-                let layersValueEncoded = paramsString.substring(layersIndex + 7); // 7 = "layers=".length
-
-                // Check if there's another parameter after layers by looking for &paramName=
-                // We need to find an & that's followed by characters and an =
-                let nextParamStart = -1;
-                for (let i = 0; i < layersValueEncoded.length; i++) {
-                    if (layersValueEncoded[i] === '&') {
-                        // Check if this looks like a parameter start (has = within next 20 chars)
-                        const remainingChunk = layersValueEncoded.substring(i + 1, Math.min(i + 21, layersValueEncoded.length));
-                        if (remainingChunk.includes('=')) {
-                            // This is likely a real parameter, not part of the encoded value
-                            nextParamStart = i;
-                            break;
-                        }
-                    }
-                }
-
-                if (nextParamStart !== -1) {
-                    const afterLayers = layersValueEncoded.substring(nextParamStart + 1);
-                    layersValueEncoded = layersValueEncoded.substring(0, nextParamStart);
-
-                    // Parse params after layers
-                    afterLayers.split('&').forEach(param => {
-                        const eqIndex = param.indexOf('=');
-                        if (eqIndex !== -1) {
-                            otherParamsMap.set(param.substring(0, eqIndex), param.substring(eqIndex + 1));
-                        }
-                    });
-                }
-
-                existingLayersEncoded = layersValueEncoded;
-                console.log('[MapBrowserControl] Existing layers (encoded):', existingLayersEncoded);
-                console.log('[MapBrowserControl] Existing layers (decoded):', decodeURIComponent(existingLayersEncoded));
-            } else {
-                // No layers parameter, just parse all params
-                paramsString.split('&').forEach(param => {
-                    const eqIndex = param.indexOf('=');
-                    if (eqIndex !== -1) {
-                        otherParamsMap.set(param.substring(0, eqIndex), param.substring(eqIndex + 1));
-                    }
-                });
-            }
+        const mapLayerControl = window.layerControl;
+        if (!mapLayerControl) {
+            console.warn('[MapBrowserControl] Layer control not available, cannot add layer live');
+            return;
         }
 
-        let jsonString = JSON.stringify(config);
-        // Escape single quotes within string values before converting double quotes to single quotes
-        // This regex finds content within double quotes and escapes any single quotes inside
-        jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
-            // Escape single quotes in the content
-            const escaped = content.replace(/'/g, "\\'");
-            return `"${escaped}"`;
-        });
-        jsonString = jsonString.replace(/"/g, "'");
-        console.log('[MapBrowserControl] New layer JSON:', jsonString);
-
-        // Decode existing layers, combine with new while maintaining basemap grouping
-        const existingLayersDecoded = existingLayersEncoded ? decodeURIComponent(existingLayersEncoded) : '';
-
-        // Parse existing layers to separate overlays and basemaps
-        let overlayLayers = [];
-        let basemapLayers = [];
-
-        if (existingLayersDecoded) {
-            const layers = existingLayersDecoded.split(',');
-            layers.forEach(layerStr => {
-                const layerStr_trimmed = layerStr.trim();
-                // Try to parse as JSON to check for basemap tag
-                try {
-                    if (layerStr_trimmed.startsWith('{') || layerStr_trimmed.startsWith("{'")) {
-                        const parsed = JSON.parse(layerStr_trimmed.replace(/'/g, '"'));
-                        const isBasemap = parsed.tags && Array.isArray(parsed.tags) && parsed.tags.includes('basemap');
-                        if (isBasemap) {
-                            basemapLayers.push(layerStr_trimmed);
-                        } else {
-                            overlayLayers.push(layerStr_trimmed);
-                        }
-                    } else {
-                        // Simple layer ID - check if it's a basemap in the registry
-                        const layerId = layerStr_trimmed;
-                        const layer = window.layerRegistry?.getLayer(layerId);
-                        const isBasemap = layer && layer.tags && Array.isArray(layer.tags) && layer.tags.includes('basemap');
-                        if (isBasemap) {
-                            basemapLayers.push(layerStr_trimmed);
-                        } else {
-                            overlayLayers.push(layerStr_trimmed);
-                        }
-                    }
-                } catch (e) {
-                    // If parsing fails, assume it's an overlay ID
-                    const layerId = layerStr_trimmed;
-                    const layer = window.layerRegistry?.getLayer(layerId);
-                    const isBasemap = layer && layer.tags && Array.isArray(layer.tags) && layer.tags.includes('basemap');
-                    if (isBasemap) {
-                        basemapLayers.push(layerStr_trimmed);
-                    } else {
-                        overlayLayers.push(layerStr_trimmed);
-                    }
-                }
-            });
+        try {
+            await mapLayerControl._addLayerDirectly(config);
+        } catch (error) {
+            console.error('[MapBrowserControl] Failed to add custom layer:', error);
+            return;
         }
 
-        // Determine if new layer is a basemap
-        const isNewLayerBasemap = config.tags && Array.isArray(config.tags) && config.tags.includes('basemap');
+        // Close the browser/creator overlay so the new layer is visible on the
+        // live map, then show the same "Added map" confirmation (with a zoom
+        // shortcut when a bbox is known) used for regular layer toggles.
+        this.closeBrowser();
 
-        // Add new layer at the beginning of appropriate group
-        if (isNewLayerBasemap) {
-            basemapLayers.unshift(jsonString);
-        } else {
-            overlayLayers.unshift(jsonString);
-        }
-
-        // Combine: overlays first, then basemaps (maintaining order within each group)
-        const allLayers = [...overlayLayers, ...basemapLayers];
-        const newLayersDecoded = allLayers.join(',');
-        console.log('[MapBrowserControl] Combined layers (decoded):', newLayersDecoded);
-
-        // Build URL manually
-        let finalUrl = url.toString();
-
-        // Build query string with other params first, then layers (encoded)
-        const queryParts = [];
-        otherParamsMap.forEach((value, key) => {
-            queryParts.push(`${key}=${value}`);
-        });
-        queryParts.push('layers=' + encodeURIComponent(newLayersDecoded));
-
-        // Add zoom-to parameter if layer has bbox
-        if (config.bbox && Array.isArray(config.bbox) && config.bbox.length === 4) {
-            queryParts.push('zoomTo=' + config.id);
-        }
-
-        finalUrl += '?' + queryParts.join('&');
-        finalUrl += hash;
-
-        console.log('[MapBrowserControl] Final URL:', finalUrl);
-        console.log('[MapBrowserControl] Final URL length:', finalUrl.length);
-        window.location.href = finalUrl;
+        const layerTitle = mapLayerControl._escapeHtml?.(config.title || config.id) || (config.title || config.id);
+        const zoomLink = mapLayerControl._buildZoomToLayerLink?.(config) || '';
+        const messageId = MapContextMessagesControl.show(
+            `Added map &quot;${layerTitle}&quot;${zoomLink ? ' &middot; ' + zoomLink : ''}`
+        );
+        setTimeout(() => MapContextMessagesControl.close(messageId), 3000);
     }
 
     _handleLoadAtlas(atlasUrl) {
