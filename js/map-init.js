@@ -12,7 +12,7 @@ import { MeasureControl } from './map-measure-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
 import { MapAttributionControl } from './map-attribution-control.js';
-import { MapContextMessagesControl } from './map-context-messages-control.js';
+import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
 import { ShortcutMenu } from './shortcut-menu.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
@@ -20,7 +20,6 @@ import { ButtonGeolocationManager } from './button-geolocation-manager.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 import { CameraUtils } from './map-camera-utils.js';
 import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands } from './dynamic-layer-shorthand.js';
-import { LayerThumbnail } from './layer-thumbnail.js';
 
 export class MapInitializer {
     // Note: location-based atlas selection is owned by SplashScreenManager
@@ -381,7 +380,7 @@ export class MapInitializer {
                 processedUrlLayers.forEach(layer => {
                     const title = MapInitializer._getQueuedLayerTitle(layer);
                     layer._loadingMessageId = MapContextMessagesControl.show(
-                        `Loading map ${MapInitializer._buildQueuedLayerLabel(layer, title)}`
+                        `${LOADING_ICON_HTML}${MapInitializer._buildQueuedLayerLabel(layer, title)}`
                     );
                 });
 
@@ -1410,23 +1409,13 @@ export class MapInitializer {
         return layer.id;
     }
 
-    // Thumbnail + bold name for the "Loading map ..." placeholder, mirroring
-    // MapAttributionControl/MapLayerControl's layer-label treatment. The layer
-    // isn't resolved yet at this point (registry lookup, shorthand expansion),
-    // so the thumbnail may fall back to a generic icon until it's swapped for
-    // the resolved version once the layer actually loads.
+    // Bold name for the "Loading map ..." placeholder - no thumbnail, since the
+    // layer isn't resolved yet at this point (registry lookup, shorthand
+    // expansion) and would only show a generic fallback icon. The spinner
+    // conveys "loading"; the real thumbnail appears once the layer actually
+    // loads and map-layer-controls.js swaps this message for the confirmation.
     static _buildQueuedLayerLabel(layer, title) {
-        const escapedTitle = MapInitializer._escapeHtml(title);
-        try {
-            const thumb = LayerThumbnail.generate(layer, 16, { interactive: false });
-            thumb.style.display = 'inline-block';
-            thumb.style.verticalAlign = 'middle';
-            thumb.style.marginRight = '6px';
-            thumb.style.borderRadius = '4px';
-            return `${thumb.outerHTML}<strong>${escapedTitle}</strong>`;
-        } catch (error) {
-            return `<strong>${escapedTitle}</strong>`;
-        }
+        return `<strong>${MapInitializer._escapeHtml(title)}</strong>`;
     }
 
     // Parses a Mapbox-style `#zoom/lat/lng` hash into { zoom, lat, lng }, or

@@ -45,7 +45,7 @@ import {MapboxAPI} from './mapbox-api.js';
 import {DataUtils} from './map-utils.js';
 import {MapWarperAPI} from './mapwarper-url-api.js';
 import {LayerOrderManager} from './layer-order-manager.js';
-import {MapContextMessagesControl} from './map-context-messages-control.js';
+import {MapContextMessagesControl, LOADING_ICON_HTML} from './map-context-messages-control.js';
 import {LayerThumbnail} from './layer-thumbnail.js';
 
 export class MapLayerControl {
@@ -296,10 +296,10 @@ export class MapLayerControl {
                 // shown before URL layers (e.g. "osm:..." dynamic shorthands) were even
                 // resolved. Reuse it (refreshing the text, since the placeholder shown
                 // while queued may not have known the real title yet) instead of
-                // creating a second one.
-                const labelHtml = this._buildLayerLabelHTML(layer, layerTitle);
+                // creating a second one. No thumbnail while loading - just the spinner
+                // and name; the real thumbnail appears once the layer is actually added.
                 const messageId = MapContextMessagesControl.show(
-                    `Loading map ${labelHtml}`,
+                    `${LOADING_ICON_HTML}<strong>${layerTitle}</strong>`,
                     { id: layer._loadingMessageId }
                 );
                 // createLayerGroup only issues the addSource/addLayer calls - it resolves
@@ -308,13 +308,14 @@ export class MapLayerControl {
                 // instead of flashing for a few milliseconds on fast/cached layers.
                 const minVisible = new Promise(resolve => setTimeout(resolve, 400));
                 await Promise.all([this._toggleLayerGroup(groupIndex, true), minVisible]);
-                // Swap the "Loading" text for a confirmation (with a zoom shortcut when
-                // a bbox is known) rather than closing outright, so newly added maps -
+                // Swap the spinner+name for the layer's thumbnail (with a zoom shortcut
+                // when a bbox is known) rather than closing outright, so newly added maps -
                 // e.g. from the layer creator - give visible confirmation instead of
                 // just silently appearing.
+                const labelHtml = this._buildLayerLabelHTML(layer, layerTitle);
                 const zoomLink = this._buildZoomToLayerLink(layer);
                 MapContextMessagesControl.show(
-                    `Added map ${labelHtml}${zoomLink ? ' &middot; ' + zoomLink : ''}`,
+                    `${labelHtml}${zoomLink ? ' &middot; ' + zoomLink : ''}`,
                     { id: messageId }
                 );
                 setTimeout(() => MapContextMessagesControl.close(messageId), 3000);

@@ -22,6 +22,11 @@
 const SHOW_EVENT = 'map-context-message:show';
 const CLOSE_EVENT = 'map-context-message:close';
 
+// Spinner shown in place of the old "Loading" prefix word for layer add/load
+// messages (map-init.js, map-layer-controls.js). Swapped for the layer's own
+// thumbnail once it's actually added.
+export const LOADING_ICON_HTML = '<sl-spinner style="font-size: 14px; vertical-align: middle; margin-right: 4px;"></sl-spinner>';
+
 let messageCounter = 0;
 function generateMessageId() {
     messageCounter += 1;

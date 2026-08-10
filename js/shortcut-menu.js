@@ -183,6 +183,11 @@ export class ShortcutMenu {
                 action: () => window.featureControl?._showPanel()
             },
             {
+                icon: 'trash',
+                label: 'Remove all layers',
+                action: () => window.browserControl?.hideAllLayers()
+            },
+            {
                 id: 'select-multiple-features',
                 icon: 'plus-circle-dotted',
                 iconChecked: 'plus-circle-fill',

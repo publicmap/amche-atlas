@@ -730,6 +730,14 @@ export class MapBrowserControl {
                 checkbox.checked = false;
                 groupElement.hide();
                 mapLayerControl._toggleLayerGroup(groupIndex, false);
+
+                // Mirror the "Added map" confirmation shown when layers are loaded
+                // (map-layer-controls.js _initializeAllLayers / _handleAddCustomLayer
+                // above) so removals are just as visible.
+                const group = mapLayerControl._state.groups[groupIndex];
+                const layerTitle = mapLayerControl._escapeHtml?.(group?.title || actualLayerId) || (group?.title || actualLayerId);
+                const labelHtml = mapLayerControl._buildLayerLabelHTML?.(group, layerTitle) || `<strong>${layerTitle}</strong>`;
+                MapContextMessagesControl.show(`Removed map ${labelHtml}`, { duration: 3000 });
             }
         }
 
@@ -745,6 +753,46 @@ export class MapBrowserControl {
             type: 'active-layers-update',
             activeLayers: Array.from(activeLayers)
         }, '*');
+    }
+
+    // Base id of a possibly atlas-prefixed layer id (goa-local-body -> local-body),
+    // mirroring baseLayerId() in map-browser.html, so prefixed/unprefixed forms of
+    // the same layer compare equal.
+    _baseLayerId(id) {
+        const prefix = id.split('-')[0];
+        return window.layerRegistry?._atlasMetadata?.has(prefix) ? id.slice(prefix.length + 1) : id;
+    }
+
+    // Resolved (atlas-prefixed) ids an atlas references, mirroring the
+    // atlasLayerReferences map built in _sendLayerData().
+    _getAtlasLayerReferenceIds(atlasId) {
+        const knownAtlases = window.layerRegistry?._atlasMetadata ? new Set(window.layerRegistry._atlasMetadata.keys()) : new Set();
+        const atlasLayerConfigs = window.layerRegistry?._atlasLayers?.get(atlasId) || [];
+        return atlasLayerConfigs.map(l => {
+            const layerId = l.id;
+            if (layerId && layerId.includes('-') && knownAtlases.has(layerId.split('-')[0])) {
+                return layerId;
+            }
+            return `${atlasId}-${layerId}`;
+        });
+    }
+
+    // Turns off every active layer except the index atlas's own base layers
+    // (selection / admin lines / satellite etc.) — the same layers the "Hide all
+    // maps" button in the map browser's atlas header (map-browser.html
+    // #reset-toggle-btn / getAtlasToggleScope) always leaves untouched. Unlike
+    // that button this isn't scoped to a single atlas — there's no selected-atlas
+    // context here (e.g. the shortcut menu) — it just protects the shared base
+    // layers and clears everything else.
+    hideAllLayers() {
+        const indexBase = new Set(this._getAtlasLayerReferenceIds('index').map(id => this._baseLayerId(id)));
+        const handledOff = new Set();
+        this._getActiveLayers().forEach(layerId => {
+            const base = this._baseLayerId(layerId);
+            if (indexBase.has(base) || handledOff.has(base)) return;
+            handledOff.add(base);
+            this._handleLayerToggle(layerId, false);
+        });
     }
 
     toggleBrowser() {
@@ -1031,7 +1079,7 @@ export class MapBrowserControl {
         const labelHtml = mapLayerControl._buildLayerLabelHTML?.(config, layerTitle) || `<strong>${layerTitle}</strong>`;
         const zoomLink = mapLayerControl._buildZoomToLayerLink?.(config) || '';
         MapContextMessagesControl.show(
-            `Added map ${labelHtml}${zoomLink ? ' &middot; ' + zoomLink : ''}`,
+            `${labelHtml}${zoomLink ? ' &middot; ' + zoomLink : ''}`,
             { duration: 3000 }
         );
     }
