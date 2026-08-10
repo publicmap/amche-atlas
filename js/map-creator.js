@@ -394,7 +394,9 @@ export class MapCreator {
     }
 
     getDefaultIdField(fields) {
-        const idPriority = ['id', 'fid', 'gid', 'objectid', 'objectid1', 'featureid', 'feature_id', 'osm_id', 'uid', '_id'];
+        // $row (auto-generated sheet row number) always wins when present -
+        // it's a guaranteed-unique id for CSV/sheet layers.
+        const idPriority = ['$row', 'id', 'fid', 'gid', 'objectid', 'objectid1', 'featureid', 'feature_id', 'osm_id', 'uid', '_id'];
         for (const field of idPriority) {
             const found = fields.find(f => f.toLowerCase() === field);
             if (found) return found;

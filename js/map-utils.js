@@ -79,7 +79,12 @@ export class DataUtils {
      * as commonly found in Google Sheets exports. Rows from different
      * tables keep only their own table's keys, so a downstream consumer
      * that unions keys across all rows (e.g. GeoUtils.rowsToGeoJSON) can
-     * still work across mismatched column sets.
+     * still work across mismatched column sets. Every row also gets two
+     * auto-generated `$`-prefixed properties (distinguishing them from real
+     * sheet columns): `$row`, the 1-indexed line number of that row in the
+     * source sheet (suitable as a unique id field), and, when a table has a
+     * caption row, `$table` set to that caption (e.g. "$table": "Table 4.2
+     * Aldona").
      * @param {string} csvText - Raw CSV text
      * @returns {Array} Array of objects representing rows
      */
@@ -93,40 +98,47 @@ export class DataUtils {
 
         const rows = [];
         let headers = null;
+        let tableName = null;
 
-        for (const record of records) {
+        records.forEach((record, index) => {
             if (isBlankRecord(record)) {
                 // A blank row ends the current table; the next header-like
                 // row (optionally preceded by a caption row) starts a new one.
                 headers = null;
-                continue;
+                tableName = null;
+                return;
             }
 
             if (!headers) {
-                // A caption/title row for a table (e.g. "Siolim 17.2") has
+                // A caption/title row for a table (e.g. "Table 4.2 Aldona") has
                 // only one populated cell; skip it and wait for the real
                 // header row, which has several column names.
                 const populatedCount = record.filter(val => val.trim() !== '').length;
-                if (populatedCount < 2) continue;
+                if (populatedCount < 2) {
+                    tableName = record.find(val => val.trim() !== '')?.trim() || null;
+                    return;
+                }
                 headers = record.map(header => header.trim());
-                continue;
+                return;
             }
 
             // Google Sheets sometimes repeats the header row verbatim; skip it.
             if (record.length === headers.length &&
                 record.every((val, idx) => val.trim() === headers[idx])) {
-                continue;
+                return;
             }
 
             const row = {};
-            headers.forEach((header, index) => {
+            headers.forEach((header, idx) => {
                 if (!header) return; // unlabeled trailing/padding column
-                row[header] = index < record.length ? record[index] : '';
+                row[header] = idx < record.length ? record[idx] : '';
             });
             if (Object.values(row).some(val => String(val).trim() !== '')) {
+                row['$row'] = index + 1;
+                if (tableName) row['$table'] = tableName;
                 rows.push(row);
             }
-        }
+        });
 
         return rows;
     }

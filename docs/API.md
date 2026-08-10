@@ -88,7 +88,9 @@ Deep link to specific selected features on the map, or trigger a location click 
 - Feature IDs are the raw IDs from the data source (feature.id, properties.id, or properties.fid)
 
 **Location click behavior:**
-When `?selected` is present without a value and a position hash (`#zoom/lat/lng`) is in the URL, the map simulates a click at that location on load. This selects any features at the point, creates a marker, and opens the feature inspector — identical to a user clicking the map.
+When `?selected` is present without a value and a position hash (`#zoom/lat/lng`) is in the URL, the map simulates a click at that location on load. This selects any features at the point, creates a marker, and opens the feature inspector — identical to a user clicking the map. This is the same location-based restoration `markers=` uses (see below); `?selected` on its own is the shorthand for a single point taken from the hash instead of an explicit `lng,lat`.
+
+**Note:** the app no longer writes `?selected=<layerId>:<featureId>` when sharing a URL — every selection already has a marker, and `markers=` (below) carries its location, which is enough to recover the same features on load without also duplicating them here. The `layerId:featureId` form is still parsed for links shared before this change, and remains available for hand-written deep links that must pin an exact feature ID rather than a location.
 
 **Examples:**
 ```
@@ -106,6 +108,10 @@ Combined with layers:
 
 Location click (select whatever is at this point):
 ?atlas=goa-land-atlas&selected#18/15.54845/73.8187
+
+Location click with layers (auto-adds a marker at the hash position and selects
+whatever features are found there once those layers finish loading):
+?atlas=goa&layers=local-body,plots,2019-czmp-tidal-hazard-line,2019-czmp-khazan,2021-regional-plan,selection,mapbox-admin-lines,mapbox-satellite&selected#16.53/15.604468/73.810136
 ```
 
 **Notes:**
@@ -278,14 +284,19 @@ Restore export (print/image) settings serialized as a JSON object. Set automatic
 
 ### `markers`
 
-Compact encoding of the selection markers on the map. Set automatically when you select features and share the URL — it is the compact replacement for inlining the full selection GeoJSON in `layers`. Each marker is `lng,lat:layerId~featureId,layerId~featureId`, and multiple markers are joined with `|`.
+Compact encoding of the selection markers on the map. Set automatically when you select features and share the URL. Each marker is just its click location; multiple markers are joined with `|`.
 
-**Format:** `?markers=<lng>,<lat>:<layerId>~<featureId>,...|<next marker>...`
+**Format:** `?markers=<lng>,<lat>|<next marker>...`
 
 **Example:**
 ```
-?markers=73.8187,15.54845:goa-plots~12345
+?markers=73.8187,15.54845
+?markers=73.809867,15.606272|73.82,15.61
 ```
+
+**Restoration behavior:** on load, once a marker's layers are ready, its location is re-queried exactly as if the user clicked there — this recovers the same selected features without the URL needing to spell out which `layerId`/`featureId` pairs they were (that would just duplicate what the location already implies, and is what `?selected` used to carry — see above).
+
+**Legacy format:** URLs shared before this change may still contain explicit refs — `?markers=<lng>,<lat>:<layerId>~<featureId>,...` — which are still parsed and restore the exact original feature IDs instead of re-querying the point.
 
 ### `zoomTo`
 
@@ -329,7 +340,7 @@ Zoom to a layer's bounding box on load, then remove the parameter from the URL. 
 
 The application automatically updates the URL as you interact with the map:
 - Layer visibility changes update the `layers` parameter
-- Feature selections update the `selected` parameter
+- Feature selections update the `markers` parameter with each marker's click location (see [`markers`](#markers) — `selected` is no longer written automatically, though it's still accepted as a hand-written deep link)
 - Terrain controls update terrain-related parameters
 - Search queries update the `q` parameter
 

@@ -2458,30 +2458,35 @@ export class MapMarkerManager {
         }
 
         const selectionLayer = window.layerControl._state.groups.find(g => g.id === this._selectionLayerId);
-        if (!selectionLayer?.geojson?.features || selectionLayer.geojson.features.length === 0) {
+        const markerPoints = (selectionLayer?.geojson?.features || []).filter(f => f.geometry?.type === 'Point');
+        if (markerPoints.length === 0) {
             return false;
         }
 
-        const features = selectionLayer.geojson.features.filter(f =>
-            f.properties?.features && Array.isArray(f.properties.features) && f.properties.features.length > 0
-        );
-
-        if (features.length === 0) {
-            return false;
-        }
+        // Older shared URLs carry explicit layerId/featureId refs per marker (see
+        // UrlManager.parseMarkersFromURL); newer URLs carry only the click location, and
+        // the features present there are recovered below by re-querying that point once
+        // its layers are ready — exactly as if the user clicked there fresh.
+        const withRefs = markerPoints.filter(f => Array.isArray(f.properties?.features) && f.properties.features.length > 0);
+        const locationsOnly = markerPoints.filter(f => !Array.isArray(f.properties?.features) || f.properties.features.length === 0);
 
         const layerIds = new Set();
-        features.forEach(feature => {
+        withRefs.forEach(feature => {
             feature.properties.features.forEach(ref => layerIds.add(ref.layerId));
         });
+        if (locationsOnly.length > 0) {
+            // No refs to target specific layers, so wait for every layer the URL asked
+            // to be active instead.
+            window.layerControl._state.groups.forEach(group => {
+                if (group.initiallyChecked) layerIds.add(group.id);
+            });
+        }
 
         await this._waitForLayersReady(Array.from(layerIds));
         await this._waitForMapIdle();
 
         const allRestoredFeatures = [];
-        for (const feature of features) {
-            if (feature.geometry.type !== 'Point') continue;
-
+        for (const feature of withRefs) {
             const [lng, lat] = feature.geometry.coordinates;
             const lngLat = { lng, lat };
             const featureRefs = feature.properties.features || [];
@@ -2503,14 +2508,42 @@ export class MapMarkerManager {
             }
         }
 
+        if (locationsOnly.length > 0) {
+            // Force "add" mode so each location-only marker layers onto the others
+            // (and onto any ref-based markers restored above) instead of clearing them,
+            // same as MapMarkerManager._handleMarkerDragEnd re-selecting after a drag.
+            const wasCmdCtrlPressed = this._stateManager._isCmdCtrlPressed;
+            this._stateManager._isCmdCtrlPressed = true;
+            try {
+                for (const feature of locationsOnly) {
+                    const [lng, lat] = feature.geometry.coordinates;
+                    const lngLat = { lng, lat };
+                    const point = this._map.project([lng, lat]);
+                    const interactiveFeatures = this._stateManager.getFeaturesAtPoint(point, lngLat)
+                        .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
+
+                    if (interactiveFeatures.length > 0) {
+                        this._stateManager.handleFeatureClicks(interactiveFeatures);
+                    } else {
+                        this._stateManager.handleFeatureClicks([], lngLat);
+                    }
+                }
+            } finally {
+                this._stateManager._isCmdCtrlPressed = wasCmdCtrlPressed;
+            }
+        }
+
         if (this._markers.size > 0) {
             this._stateManager._updateLineSortKeys();
         }
 
-        // Notify the inspector iframe (and other listeners) of the restored selections so
-        // the status bar with the Clear / Add / Zoom buttons shows. The markers are already
-        // created above, so the fromMarkerRestore flag tells _handleSelection not to re-add
-        // them — mirrors the event sequence in UrlManager.applySelectionsFromURL.
+        // Notify the inspector iframe (and other listeners) of the ref-based restorations
+        // so the status bar with the Clear / Add / Zoom buttons shows. Those markers were
+        // created manually above (bypassing the normal click pipeline), so the
+        // fromMarkerRestore flag tells _handleSelection not to re-add them — mirrors the
+        // event sequence in UrlManager.applySelectionsFromURL. Location-only markers went
+        // through handleFeatureClicks() above, which already emits these events itself
+        // (and creates their markers via the normal _handleSelection listener).
         if (allRestoredFeatures.length > 0) {
             for (const { feature, featureId, layerId, lngLat } of allRestoredFeatures) {
                 await this._stateManager._executeInspectionHandler(feature, layerId, lngLat);
