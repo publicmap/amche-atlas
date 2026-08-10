@@ -3,20 +3,31 @@
  * frequently used app actions.
  *
  * Desktop: right-click on the map.
- * Touch: long-press on the map. Mobile browsers fire the native `contextmenu`
- * DOM event on long-press, and Mapbox GL forwards that as its own
- * `contextmenu` map event, so a single listener covers both input types
- * without any custom touch-timer code here.
+ * Touch: long-press on the map. Mobile browsers are inconsistent about firing
+ * a native `contextmenu` DOM event on long-press over a canvas (Mapbox's
+ * touch handlers can swallow the touch sequence before it gets there), so
+ * long-press is also detected explicitly with a touch timer below.
  */
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_THRESHOLD = 10;
+
 export class ShortcutMenu {
     constructor() {
         this._map = null;
         this._menu = null;
         this._lngLat = null;
 
+        this._touchTimer = null;
+        this._touchStart = null;
+        this._longPressFired = false;
+
         this._handleContextMenu = this._handleContextMenu.bind(this);
         this._handleOutsideEvent = this._handleOutsideEvent.bind(this);
         this._handleKeydown = this._handleKeydown.bind(this);
+        this._handleTouchStart = this._handleTouchStart.bind(this);
+        this._handleTouchMove = this._handleTouchMove.bind(this);
+        this._handleTouchEnd = this._handleTouchEnd.bind(this);
+        this._suppressNextClick = this._suppressNextClick.bind(this);
         this._hide = this._hide.bind(this);
     }
 
@@ -27,6 +38,13 @@ export class ShortcutMenu {
         map.on('contextmenu', this._handleContextMenu);
         map.on('movestart', this._hide);
         map.on('zoomstart', this._hide);
+
+        const canvasContainer = map.getCanvasContainer();
+        canvasContainer.addEventListener('touchstart', this._handleTouchStart, { passive: true });
+        canvasContainer.addEventListener('touchmove', this._handleTouchMove, { passive: true });
+        canvasContainer.addEventListener('touchend', this._handleTouchEnd, { passive: true });
+        canvasContainer.addEventListener('touchcancel', this._handleTouchEnd, { passive: true });
+        this._canvasContainer = canvasContainer;
 
         document.addEventListener('mousedown', this._handleOutsideEvent, true);
         document.addEventListener('touchstart', this._handleOutsideEvent, true);
@@ -43,14 +61,96 @@ export class ShortcutMenu {
             this._map.off('movestart', this._hide);
             this._map.off('zoomstart', this._hide);
         }
+        if (this._canvasContainer) {
+            this._canvasContainer.removeEventListener('touchstart', this._handleTouchStart);
+            this._canvasContainer.removeEventListener('touchmove', this._handleTouchMove);
+            this._canvasContainer.removeEventListener('touchend', this._handleTouchEnd);
+            this._canvasContainer.removeEventListener('touchcancel', this._handleTouchEnd);
+            this._canvasContainer = null;
+        }
         document.removeEventListener('mousedown', this._handleOutsideEvent, true);
         document.removeEventListener('touchstart', this._handleOutsideEvent, true);
         document.removeEventListener('keydown', this._handleKeydown);
         window.removeEventListener('resize', this._hide);
 
+        if (this._touchTimer) {
+            clearTimeout(this._touchTimer);
+            this._touchTimer = null;
+        }
+
         this._menu?.parentNode?.removeChild(this._menu);
         this._menu = null;
         this._map = null;
+    }
+
+    /**
+     * Start the long-press timer on single-finger touch. Multi-finger touches
+     * (pinch-zoom) are left alone.
+     */
+    _handleTouchStart(e) {
+        if (e.touches.length !== 1) {
+            this._clearTouchTimer();
+            return;
+        }
+
+        // Clear any stale pending timer before recording the new touch — order
+        // matters here, since _clearTouchTimer also resets _touchStart and must
+        // not run after it's set below.
+        this._clearTouchTimer();
+
+        const touch = e.touches[0];
+        this._touchStart = { x: touch.clientX, y: touch.clientY };
+        this._longPressFired = false;
+
+        this._touchTimer = setTimeout(() => {
+            this._touchTimer = null;
+            this._longPressFired = true;
+
+            const rect = this._map.getContainer().getBoundingClientRect();
+            this._lngLat = this._map.unproject([
+                this._touchStart.x - rect.left,
+                this._touchStart.y - rect.top
+            ]);
+            this._show(this._touchStart.x, this._touchStart.y);
+
+            // The finger is usually still down when the menu opens; the tap/click
+            // that follows on lift-off would otherwise fall through to the map's
+            // own selection handling. Swallow exactly one.
+            document.addEventListener('click', this._suppressNextClick, true);
+        }, LONG_PRESS_MS);
+    }
+
+    /**
+     * Cancel the pending long-press if the finger moves enough to look like a
+     * pan/drag rather than a stationary press.
+     */
+    _handleTouchMove(e) {
+        if (!this._touchTimer || !this._touchStart || e.touches.length !== 1) return;
+
+        const touch = e.touches[0];
+        const dx = touch.clientX - this._touchStart.x;
+        const dy = touch.clientY - this._touchStart.y;
+        if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_THRESHOLD) {
+            this._clearTouchTimer();
+        }
+    }
+
+    _handleTouchEnd() {
+        this._clearTouchTimer();
+    }
+
+    _clearTouchTimer() {
+        if (this._touchTimer) {
+            clearTimeout(this._touchTimer);
+            this._touchTimer = null;
+        }
+        this._touchStart = null;
+    }
+
+    _suppressNextClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.removeEventListener('click', this._suppressNextClick, true);
     }
 
     _createMenu() {

@@ -20,6 +20,7 @@ import { ButtonGeolocationManager } from './button-geolocation-manager.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 import { CameraUtils } from './map-camera-utils.js';
 import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands } from './dynamic-layer-shorthand.js';
+import { LayerThumbnail } from './layer-thumbnail.js';
 
 export class MapInitializer {
     // Note: location-based atlas selection is owned by SplashScreenManager
@@ -380,7 +381,7 @@ export class MapInitializer {
                 processedUrlLayers.forEach(layer => {
                     const title = MapInitializer._getQueuedLayerTitle(layer);
                     layer._loadingMessageId = MapContextMessagesControl.show(
-                        `Loading map &quot;${MapInitializer._escapeHtml(title)}&quot;`
+                        `Loading map ${MapInitializer._buildQueuedLayerLabel(layer, title)}`
                     );
                 });
 
@@ -1407,6 +1408,25 @@ export class MapInitializer {
         const registryLayer = window.layerRegistry?.getLayer(layer.id);
         if (registryLayer?.title) return registryLayer.title;
         return layer.id;
+    }
+
+    // Thumbnail + bold name for the "Loading map ..." placeholder, mirroring
+    // MapAttributionControl/MapLayerControl's layer-label treatment. The layer
+    // isn't resolved yet at this point (registry lookup, shorthand expansion),
+    // so the thumbnail may fall back to a generic icon until it's swapped for
+    // the resolved version once the layer actually loads.
+    static _buildQueuedLayerLabel(layer, title) {
+        const escapedTitle = MapInitializer._escapeHtml(title);
+        try {
+            const thumb = LayerThumbnail.generate(layer, 16, { interactive: false });
+            thumb.style.display = 'inline-block';
+            thumb.style.verticalAlign = 'middle';
+            thumb.style.marginRight = '6px';
+            thumb.style.borderRadius = '4px';
+            return `${thumb.outerHTML}<strong>${escapedTitle}</strong>`;
+        } catch (error) {
+            return `<strong>${escapedTitle}</strong>`;
+        }
     }
 
     // Parses a Mapbox-style `#zoom/lat/lng` hash into { zoom, lat, lng }, or

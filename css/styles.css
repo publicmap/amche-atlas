@@ -561,6 +561,7 @@ body {
     padding: 0 12px;
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 6px;
     pointer-events: none;
     z-index: 5;
@@ -571,6 +572,8 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    max-width: 100%;
+    width: max-content;
     background: rgba(31, 41, 55, 0.9);
     color: #fff;
     border-radius: 6px;
@@ -578,18 +581,22 @@ body {
     font-size: 13px;
     line-height: 1.4;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-    opacity: 1;
+    opacity: 0.5;
     transform: translateY(0);
     transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.map-context-message--closing {
+.map-context-message:last-child,
+.map-context-message:hover {
+    opacity: 1;
+}
+
+.map-context-message.map-context-message--closing {
     opacity: 0;
     transform: translateY(4px);
 }
 
 .map-context-message__body {
-    flex: 1;
     min-width: 0;
 }
 
@@ -602,6 +609,11 @@ body {
     line-height: 1;
     cursor: pointer;
     padding: 0 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.map-context-message:hover .map-context-message__close {
     opacity: 0.75;
 }
 

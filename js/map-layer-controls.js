@@ -46,6 +46,7 @@ import {DataUtils} from './map-utils.js';
 import {MapWarperAPI} from './mapwarper-url-api.js';
 import {LayerOrderManager} from './layer-order-manager.js';
 import {MapContextMessagesControl} from './map-context-messages-control.js';
+import {LayerThumbnail} from './layer-thumbnail.js';
 
 export class MapLayerControl {
     constructor(options) {
@@ -296,8 +297,9 @@ export class MapLayerControl {
                 // resolved. Reuse it (refreshing the text, since the placeholder shown
                 // while queued may not have known the real title yet) instead of
                 // creating a second one.
+                const labelHtml = this._buildLayerLabelHTML(layer, layerTitle);
                 const messageId = MapContextMessagesControl.show(
-                    `Loading map &quot;${layerTitle}&quot;`,
+                    `Loading map ${labelHtml}`,
                     { id: layer._loadingMessageId }
                 );
                 // createLayerGroup only issues the addSource/addLayer calls - it resolves
@@ -312,7 +314,7 @@ export class MapLayerControl {
                 // just silently appearing.
                 const zoomLink = this._buildZoomToLayerLink(layer);
                 MapContextMessagesControl.show(
-                    `Added map &quot;${layerTitle}&quot;${zoomLink ? ' &middot; ' + zoomLink : ''}`,
+                    `Added map ${labelHtml}${zoomLink ? ' &middot; ' + zoomLink : ''}`,
                     { id: messageId }
                 );
                 setTimeout(() => MapContextMessagesControl.close(messageId), 3000);
@@ -626,6 +628,33 @@ export class MapLayerControl {
     }
 
     /**
+     * Small non-interactive thumbnail for context messages, mirroring
+     * MapAttributionControl._buildThumbnailHTML.
+     */
+    _buildMessageThumbnailHTML(layer) {
+        try {
+            const thumb = LayerThumbnail.generate(layer, 16, { interactive: false });
+            thumb.style.display = 'inline-block';
+            thumb.style.verticalAlign = 'middle';
+            thumb.style.marginRight = '6px';
+            thumb.style.borderRadius = '4px';
+            return thumb.outerHTML;
+        } catch (error) {
+            console.warn('[MapLayerControl] Failed to build message thumbnail:', error);
+            return '';
+        }
+    }
+
+    /**
+     * Thumbnail + bold layer name for context messages, replacing the plain
+     * quoted-title format (e.g. Loading map "X") with a MapAttributionControl-style
+     * label (thumbnail to the left of a bold name).
+     */
+    _buildLayerLabelHTML(layer, layerTitle) {
+        return `${this._buildMessageThumbnailHTML(layer)}<strong>${layerTitle}</strong>`;
+    }
+
+    /**
      * Resolve a bbox to offer a "Zoom to layer" shortcut on: the layer's own
      * bbox if set, otherwise its source atlas's bbox (mirrors the fallback in
      * MapBrowserControl._handleZoomToLayer).
@@ -646,12 +675,25 @@ export class MapLayerControl {
 
     /**
      * Inline link for context messages that fits the map to a layer's extent.
-     * Returns '' when no bbox is known, so callers can skip the separator too.
+     * Returns '' when no bbox is known, or when the map is already centered
+     * within it (the layer is presumably already in view, so a zoom shortcut
+     * would be redundant).
      */
     _buildZoomToLayerLink(layer) {
         const bbox = this._getLayerBbox(layer);
-        if (!bbox) return '';
+        if (!bbox || !this._isMapCenterOutsideBbox(bbox)) return '';
         return `<a href="#" onclick="window.layerControl?._zoomToBounds(${JSON.stringify(bbox)});return false;">Zoom to layer</a>`;
+    }
+
+    /**
+     * True when the map's current center falls outside a [west, south, east,
+     * north] bbox (or when there's no map yet to check against).
+     */
+    _isMapCenterOutsideBbox(bbox) {
+        if (!this._map || !Array.isArray(bbox) || bbox.length !== 4) return true;
+        const [west, south, east, north] = bbox;
+        const { lng, lat } = this._map.getCenter();
+        return lng < west || lng > east || lat < south || lat > north;
     }
 
     /**

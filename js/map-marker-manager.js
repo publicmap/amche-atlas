@@ -24,6 +24,7 @@ export class MapMarkerManager {
         this._starredMarkers = new Set(); // Marker IDs that are starred (persist on new selection)
         this._selectedBadges = new Set(); // Expanded (selected) feature badges
         this._isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+        this._loadingPlaceholders = new Map(); // placeholderId -> mapboxgl.Marker, shown while a URL-restored marker's query is pending
 
         this._setupEventListeners();
         this._setupMapMovementTracking();
@@ -159,20 +160,33 @@ export class MapMarkerManager {
      * Get all active layers in the same order as inspector display
      */
     _getAllActiveLayersInInspectorOrder() {
-        if (!window.layerControl?._state?.groups) {
-            return [];
+        const activeLayers = this._getActiveLayerConfigs();
+        const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(activeLayers);
+        return [...overlays, ...basemaps];
+    }
+
+    /**
+     * Active layer configs, preferring MapFeatureControl's visibility check —
+     * the same one map-inspector.html's layer list is built from — over the
+     * plain checkbox check below. That check falls back to reading actual map
+     * layer visibility for `style`/`raster-style-layer` layers (e.g. basemap
+     * imagery), which don't necessarily expose a checkbox at a stable index in
+     * `_sourceControls`, so relying on the checkbox alone under-counts active
+     * layers here versus what the inspector shows.
+     */
+    _getActiveLayerConfigs() {
+        if (window.featureControl?._getActiveLayersFromConfig) {
+            return Array.from(window.featureControl._getActiveLayersFromConfig().values()).map(d => d.config);
         }
 
+        if (!window.layerControl?._state?.groups) return [];
         const activeLayers = [];
         window.layerControl._state.groups.forEach((group, index) => {
-            const isActive = this._isLayerActive(index);
-            if (isActive && group.id) {
+            if (this._isLayerActive(index) && group.id) {
                 activeLayers.push(group);
             }
         });
-
-        const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(activeLayers);
-        return [...overlays, ...basemaps];
+        return activeLayers;
     }
 
     _handleSelection(data) {
@@ -402,7 +416,14 @@ export class MapMarkerManager {
 
         const footer = this._buildBadgeLayerFooter(f);
 
-        return `<div class="feature-badge-details" style="display:none;width:100%;margin-top:3px;border-top:1px solid #374151;padding-top:3px;max-height:180px;overflow-y:auto;">` +
+        // Same data attributes the popup's feature-item-details uses, so
+        // _loadInspectionHandlerHTML can load a layer's inspect.onClick handler
+        // (config/{atlas}.js) here too.
+        const needsHandler = layerConfig?._sourceAtlas && inspectConfig.onClick;
+        const handlerAttrs = `data-needs-handler="${needsHandler ? 'true' : 'false'}" data-atlas="${layerConfig?._sourceAtlas || ''}" data-handler="${inspectConfig.onClick || ''}" data-feature-data="${encodeURIComponent(JSON.stringify(f.feature))}"`;
+
+        return `<div class="feature-badge-details" ${handlerAttrs} style="display:none;width:100%;margin-top:3px;border-top:1px solid #374151;padding-top:3px;max-height:180px;overflow-y:auto;">` +
+            `<div class="custom-html-container"></div>` +
             `<div class="badge-shown-properties">${rows.join('')}</div>${allPropertiesHTML}${showAllButton}${footer}</div>`;
     }
 
@@ -535,30 +556,79 @@ export class MapMarkerManager {
         window.postMessage({ type: 'remove-layer', layerId }, '*');
     }
 
-    _buildMarkerBadgesHTML(features, lngLat) {
+    _buildMarkerBadgesHTML(features, lngLat, options = {}) {
+        const { includeMoreLayers = false } = options;
+
+        let html;
         if (features && features.length > 0) {
-            return features.map((f, i) => {
+            html = features.map((f, i) => {
                 const { fieldName, value } = this._getBadgeLabelInfo(f);
                 return this._createFeatureBadgeHTML(fieldName, value, i, f);
             }).join('');
+        } else {
+            // No features (empty map click) — show a single coordinates badge
+            const coords = `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
+            html = `
+                <div class="feature-badge" data-badge-index="-1" style="
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    width: 100%;
+                    box-sizing: border-box;
+                    background: transparent;
+                    border-radius: 5px;
+                    padding: 4px 8px;
+                    cursor: pointer;
+                    transition: background 0.15s;
+                ">
+                    <sl-icon name="geo-alt" style="font-size: 11px; color: #9ca3af;"></sl-icon>
+                    <span style="font-size: 11px; font-weight: 700; color: #f3f4f6; white-space: nowrap;">${coords}</span>
+                </div>
+            `;
         }
-        // No features (empty map click) — show a single coordinates badge
-        const coords = `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
+
+        if (includeMoreLayers) {
+            const clickedLayerIds = new Set((features || []).map(f => f.layerId));
+            const extraLayers = this._getAllActiveLayersInInspectorOrder().filter(layer => !clickedLayerIds.has(layer.id));
+            html += this._createMoreLayersBadgeHTML(extraLayers);
+        }
+
+        return html;
+    }
+
+    /**
+     * Trailing badge summarizing any other active layer at this location that
+     * isn't among the clicked features (e.g. a raster basemap). Collapsed like
+     * the feature badges above it; expanding lazily lists each layer with its
+     * LayerThumbnail, same as the inspector's layer cards.
+     *
+     * Hidden by default — it's meta/decluttering info, not a selected feature,
+     * so it should only reveal while this specific marker is the one being
+     * hovered/explored (see the marker's mouseenter/mouseleave in addMarker),
+     * not sit permanently visible on every marker on the map.
+     */
+    _createMoreLayersBadgeHTML(extraLayers) {
+        if (!extraLayers || extraLayers.length === 0) return '';
+        const count = extraLayers.length;
         return `
-            <div class="feature-badge" data-badge-index="-1" style="
-                display: flex;
-                align-items: center;
-                gap: 4px;
+            <div class="feature-badge more-layers-badge" style="
+                display: none;
+                flex-direction: column;
+                align-items: flex-start;
                 width: 100%;
                 box-sizing: border-box;
                 background: transparent;
                 border-radius: 5px;
                 padding: 4px 8px;
                 cursor: pointer;
-                transition: background 0.15s;
+                transition: background 0.15s, opacity 0.15s;
             ">
-                <sl-icon name="geo-alt" style="font-size: 11px; color: #9ca3af;"></sl-icon>
-                <span style="font-size: 11px; font-weight: 700; color: #f3f4f6; white-space: nowrap;">${coords}</span>
+                <div class="feature-badge-header" style="display: flex; flex-direction: row; align-items: center; gap: 4px; width: 100%;">
+                    <sl-icon name="layers" style="font-size: 11px; color: #9ca3af;"></sl-icon>
+                    <span style="font-size: 11px; font-weight: 700; color: #f3f4f6; white-space: nowrap; flex: 1;">${count} more layer${count !== 1 ? 's' : ''}</span>
+                    <sl-icon-button class="more-layers-shortcut-btn" name="three-dots-vertical" label="Shortcuts" style="font-size:12px;color:#6b7280;flex-shrink:0;"></sl-icon-button>
+                </div>
+                <div class="more-layers-badge-details" style="display:none;width:100%;margin-top:3px;border-top:1px solid #374151;padding-top:3px;max-height:180px;overflow-y:auto;"></div>
             </div>
         `;
     }
@@ -574,6 +644,10 @@ export class MapMarkerManager {
 
     _attachBadgeHandlers(el, features, lngLat, isHover) {
         el.querySelectorAll('.feature-badge').forEach(badge => {
+            // The "N more layers" summary badge has no backing feature and its own
+            // expand/collapse behavior — wired separately in _attachMoreLayersBadgeHandler.
+            if (badge.classList.contains('more-layers-badge')) return;
+
             const idx = parseInt(badge.dataset.badgeIndex, 10);
             const f = (idx >= 0 && features) ? features[idx] : null;
             const valueSpan = badge.querySelector('.badge-value');
@@ -671,6 +745,115 @@ export class MapMarkerManager {
 
         // Layer actions menu (export shortcuts) in each badge's footer
         this._attachLayerActionsMenuHandlers(el);
+
+        this._attachMoreLayersBadgeHandler(el, features, lngLat);
+    }
+
+    /**
+     * Show/hide the "N more layers" summary badge for a marker. Only the marker
+     * currently being hovered/explored should reveal it — every other marker on
+     * the map keeps it hidden. Collapses it back on hide so re-hovering starts
+     * from the same collapsed state.
+     */
+    _setMoreLayersBadgeVisible(el, visible) {
+        const badge = el.querySelector('.more-layers-badge');
+        if (!badge) return;
+
+        badge.style.display = visible ? 'flex' : 'none';
+        if (!visible) {
+            const details = badge.querySelector('.more-layers-badge-details');
+            if (details) details.style.display = 'none';
+            badge.style.background = 'transparent';
+        }
+    }
+
+    /**
+     * Expand/collapse the "N more layers" summary badge and lazily populate it
+     * with a thumbnail + name row per extra layer, mirroring the marker popup's
+     * equivalent "more layers" row.
+     */
+    _attachMoreLayersBadgeHandler(el, features, lngLat) {
+        const badge = el.querySelector('.more-layers-badge');
+        if (!badge) return;
+
+        const details = badge.querySelector('.more-layers-badge-details');
+        if (!details) return;
+
+        details.addEventListener('wheel', (e) => e.stopPropagation());
+        details.addEventListener('touchmove', (e) => e.stopPropagation());
+        details.addEventListener('touchstart', (e) => e.stopPropagation());
+        details.addEventListener('mousedown', (e) => e.stopPropagation());
+        details.addEventListener('click', (e) => e.stopPropagation());
+
+        const shortcutBtn = badge.querySelector('.more-layers-shortcut-btn');
+        if (shortcutBtn) {
+            const openShortcutMenu = (e) => {
+                e.stopPropagation();
+                if (e.type === 'touchend') e.preventDefault();
+                if (!window.shortcutMenu) return;
+                const point = e.touches?.[0] || e.changedTouches?.[0] || e;
+                window.shortcutMenu._lngLat = lngLat;
+                window.shortcutMenu._show(point.clientX, point.clientY);
+            };
+            shortcutBtn.addEventListener('click', openShortcutMenu);
+            if (this._isTouch) shortcutBtn.addEventListener('touchend', openShortcutMenu);
+        }
+
+        const handler = (e) => {
+            e.stopPropagation();
+            if (e.type === 'touchend') e.preventDefault();
+
+            const isExpanding = details.style.display === 'none';
+            details.style.display = isExpanding ? 'block' : 'none';
+            badge.style.background = isExpanding ? '#374151' : 'transparent';
+
+            if (isExpanding && !details.dataset.loaded) {
+                details.dataset.loaded = 'true';
+
+                const currentBounds = this._map.getBounds();
+                const bounds = [
+                    currentBounds.getWest(), currentBounds.getSouth(),
+                    currentBounds.getEast(), currentBounds.getNorth()
+                ];
+                const allActiveLayers = this._getAllActiveLayersInInspectorOrder();
+                const clickedLayerIds = new Set((features || []).map(f => f.layerId));
+                const extraLayers = allActiveLayers.filter(layer => !clickedLayerIds.has(layer.id));
+
+                extraLayers.forEach(layer => {
+                    let isInView = true;
+                    if (window.MapUtils && layer.bbox) {
+                        isInView = window.MapUtils.isLayerInView(layer, bounds);
+                    }
+
+                    const thumbnail = LayerThumbnail.generate(layer, 24, { isInView, useHeaderImage: false });
+                    thumbnail.style.margin = '0';
+                    thumbnail.style.borderRadius = '3px';
+                    thumbnail.style.flexShrink = '0';
+
+                    const layerRow = document.createElement('div');
+                    layerRow.style.cssText = 'display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;';
+                    layerRow.appendChild(thumbnail);
+
+                    const label = document.createElement('span');
+                    label.style.cssText = 'font-size:10px;color:#9ca3af;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                    label.textContent = layer.title || layer.id;
+                    layerRow.appendChild(label);
+
+                    layerRow.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        if (!isInView && window.layerControl) {
+                            window.layerControl._zoomToLayer(layer.id);
+                        } else {
+                            window.postMessage({ type: 'open-layer-info', layer }, '*');
+                        }
+                    });
+
+                    details.appendChild(layerRow);
+                });
+            }
+        };
+        badge.addEventListener('click', handler);
+        if (this._isTouch) badge.addEventListener('touchend', handler);
     }
 
     _expandBadgeValue(valueSpan) {
@@ -766,6 +949,13 @@ export class MapMarkerManager {
             window.postMessage({ type: 'clear-layer-isolation' }, '*');
             window.postMessage({ type: 'isolate-layer', layerId: f.layerId, isBasemap }, '*');
             this._setSiblingBadgesDimmed(badge, true);
+        }
+
+        // Layer's inspect.onClick handler (config/{atlas}.js) adds extra HTML
+        // beyond the plain fields table — same mechanism the popup uses.
+        const details = badge.querySelector('.feature-badge-details');
+        if (details) {
+            this._loadInspectionHandlerHTML(details, f.layerId, f.featureId);
         }
     }
 
@@ -934,7 +1124,7 @@ export class MapMarkerManager {
         el.innerHTML = `
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0;"></div>
             <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); cursor: move;">
-                ${this._buildMarkerBadgesHTML(features, lngLat)}
+                ${this._buildMarkerBadgesHTML(features, lngLat, { includeMoreLayers: true })}
             </div>
         `;
 
@@ -1071,11 +1261,13 @@ export class MapMarkerManager {
                 // features end up highlighted.
                 this._stateManager.handleMapMouseLeave();
                 this._setMarkerFeaturesHoverState(markerId, true);
+                this._setMoreLayersBadgeVisible(el, true);
             });
 
             el.addEventListener('mouseleave', () => {
                 this._pointerOverMarker = false;
                 this._setMarkerFeaturesHoverState(markerId, false);
+                this._setMoreLayersBadgeVisible(el, false);
             });
         }
 
@@ -1517,6 +1709,42 @@ export class MapMarkerManager {
         const extraLayers = allActiveLayers.filter(layer => !(hasFeatures && groupedFeatures.has(layer.id)));
         const extraLayerCount = extraLayers.length;
 
+        // A trailing row summarizing any other active layer at this location that
+        // isn't among the clicked features (e.g. a raster basemap). Collapsed like
+        // the feature rows above it; expanding lazily lists each layer with its
+        // LayerThumbnail, same as the inspector's layer cards.
+        if (hasFeatures && extraLayerCount > 0) {
+            featuresList += `
+                <div class="feature-item-container more-layers-row" style="
+                    background: #000;
+                    border-radius: 3px;
+                    margin-bottom: 2px;
+                    overflow: hidden;
+                    border: 1px solid #000;
+                ">
+                    <div class="feature-item-header more-layers-header" style="
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                        padding: 4px;
+                        min-height: 36px;
+                        background: #000;
+                        transition: background 0.2s;
+                        cursor: pointer;
+                    ">
+                        <div style="flex-shrink:0;width:32px;height:32px;border-radius:3px;background:#111;display:flex;align-items:center;justify-content:center;">
+                            <sl-icon name="layers" style="font-size:14px;color:#6b7280;"></sl-icon>
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <span style="font-size: 11px; font-weight: 500; color: #94a3b8;">${extraLayerCount} more layer${extraLayerCount !== 1 ? 's' : ''} at this location</span>
+                        </div>
+                        <button class="expand-icon" style="background:#111;border:1px solid #333;color:#94a3b8;font-size:10px;flex-shrink:0;cursor:pointer;padding:1px 5px;border-radius:3px;line-height:1;">...</button>
+                    </div>
+                    <div class="more-layers-details" style="display:none;background:#111;border-top:1px solid #000;"></div>
+                </div>
+            `;
+        }
+
         const isStarred = this._starredMarkers.has(markerData.id);
         const featureCount = hasFeatures ? features.length : allActiveLayers.length;
 
@@ -1633,19 +1861,6 @@ export class MapMarkerManager {
                             flex-shrink: 0;
                             transition: all 0.2s;
                         " title="Browse Map Collections"><sl-icon name="map" style="font-size: 12px;"></sl-icon></button>
-                        ${extraLayerCount > 0 ? `
-                        <button class="show-more-layers" style="
-                            background: #1e293b;
-                            border: 1px solid #334155;
-                            color: #94a3b8;
-                            padding: 2px 6px;
-                            border-radius: 3px;
-                            cursor: pointer;
-                            font-size: 10px;
-                            flex-shrink: 0;
-                        ">Show ${extraLayerCount} more layer${extraLayerCount !== 1 ? 's' : ''}</button>
-                        ` : ''}
-                        <div class="extra-layers-container" style="display:none;flex-wrap:wrap;gap:4px;"></div>
                         <button class="open-inspector" style="
                             background: #000;
                             border: none;
@@ -1730,6 +1945,65 @@ export class MapMarkerManager {
         `;
     }
 
+    /**
+     * Load and render a layer's custom inspect.onClick handler (config/{atlas}.js)
+     * into a `.custom-html-container` inside `details`. Shared by the popup's
+     * expanded feature card and the marker badge's expanded attribute table —
+     * both mark the container with data-needs-handler/data-atlas/data-handler/
+     * data-feature-data so this can run identically for either.
+     */
+    async _loadInspectionHandlerHTML(details, layerId, featureId) {
+        const needsHandler = details.dataset.needsHandler === 'true';
+        const customContainer = details.querySelector('.custom-html-container');
+        if (!needsHandler || !customContainer || customContainer.dataset.loaded) return;
+
+        const atlasName = details.dataset.atlas;
+        const handlerName = details.dataset.handler;
+        const layerConfig = this._stateManager.getLayerConfig(layerId);
+        let feature;
+        try {
+            feature = JSON.parse(decodeURIComponent(details.dataset.featureData));
+        } catch (e) {}
+
+        if (!feature || !atlasName || !handlerName) return;
+
+        customContainer.innerHTML = '<div style="color: #94a3b8; font-size: 10px; padding: 4px;">Loading...</div>';
+
+        try {
+            const { handlerLoader } = await import('./inspection-handler-loader.js');
+
+            // Execute handler - the HTML contains inline scripts that will run
+            const customHTML = await handlerLoader.executeHandler(atlasName, handlerName, {
+                feature,
+                featureId,
+                layerConfig,
+                properties: feature.properties
+            });
+
+            if (customHTML) {
+                // Insert HTML and manually execute scripts
+                customContainer.innerHTML = customHTML;
+
+                // Extract and execute script tags
+                const scripts = customContainer.querySelectorAll('script');
+                scripts.forEach(oldScript => {
+                    const newScript = document.createElement('script');
+                    Array.from(oldScript.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    newScript.textContent = oldScript.textContent;
+                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                });
+            } else {
+                customContainer.innerHTML = '';
+            }
+            customContainer.dataset.loaded = 'true';
+        } catch (error) {
+            console.error('[MapMarkerManager] Error loading handler:', error);
+            customContainer.innerHTML = `<div style="color: #f87171; font-size: 10px; padding: 4px;">Error loading details</div>`;
+        }
+    }
+
     _attachPopupEventListeners(markerId) {
         const markerData = this._markers.get(markerId);
         if (!markerData?.popup) return;
@@ -1800,15 +2074,24 @@ export class MapMarkerManager {
             }, 100);
         });
 
-        popup.querySelector('.show-more-layers')?.addEventListener('click', (e) => {
+        popup.querySelector('.more-layers-header')?.addEventListener('click', (e) => {
             e.stopPropagation();
-            const btn = e.currentTarget;
-            const container = popup.querySelector('.extra-layers-container');
-            if (!container) return;
+            const header = e.currentTarget;
+            const row = header.closest('.more-layers-row');
+            const details = row?.querySelector('.more-layers-details');
+            const icon = header.querySelector('.expand-icon');
+            if (!details) return;
 
-            if (container.style.display === 'none') {
-                container.style.display = 'flex';
-                btn.style.display = 'none';
+            const isExpanding = details.style.display === 'none';
+            details.style.display = isExpanding ? 'block' : 'none';
+            if (icon) {
+                icon.style.background = isExpanding ? '#222' : '#111';
+                icon.style.color = isExpanding ? '#cbd5e1' : '#94a3b8';
+            }
+            header.style.background = isExpanding ? '#111' : '#000';
+
+            if (isExpanding && !details.dataset.loaded) {
+                details.dataset.loaded = 'true';
 
                 const currentBounds = this._map.getBounds();
                 const bounds = [
@@ -1825,21 +2108,32 @@ export class MapMarkerManager {
                     if (window.MapUtils && layer.bbox) {
                         isInView = window.MapUtils.isLayerInView(layer, bounds);
                     }
-                    const thumbnail = LayerThumbnail.generate(layer, 24, { isInView });
-                    if (thumbnail) {
-                        thumbnail.style.borderRadius = '3px';
-                        thumbnail.style.cursor = 'pointer';
-                        thumbnail.style.margin = '0';
-                        thumbnail.addEventListener('click', (ev) => {
-                            ev.stopPropagation();
-                            if (!isInView && window.layerControl) {
-                                window.layerControl._zoomToLayer(layer.id);
-                            } else {
-                                window.postMessage({ type: 'open-layer-info', layer }, '*');
-                            }
-                        });
-                        container.appendChild(thumbnail);
-                    }
+
+                    const thumbnail = LayerThumbnail.generate(layer, 32, { isInView, useHeaderImage: false });
+                    thumbnail.style.margin = '0';
+                    thumbnail.style.borderRadius = '3px';
+                    thumbnail.style.flexShrink = '0';
+
+                    const layerRow = document.createElement('div');
+                    layerRow.className = 'extra-layer-row';
+                    layerRow.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;border-bottom:1px solid #1a1a1a;cursor:pointer;';
+                    layerRow.appendChild(thumbnail);
+
+                    const label = document.createElement('span');
+                    label.style.cssText = 'font-size:11px;color:#94a3b8;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                    label.textContent = layer.title || layer.id;
+                    layerRow.appendChild(label);
+
+                    layerRow.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        if (!isInView && window.layerControl) {
+                            window.layerControl._zoomToLayer(layer.id);
+                        } else {
+                            window.postMessage({ type: 'open-layer-info', layer }, '*');
+                        }
+                    });
+
+                    details.appendChild(layerRow);
                 });
             }
         });
@@ -1993,57 +2287,7 @@ export class MapMarkerManager {
                     window.postMessage({ type: 'isolate-layer', layerId, isBasemap }, '*');
 
                     // Load inspection handler if needed
-                    const needsHandler = details.dataset.needsHandler === 'true';
-                    const customContainer = details.querySelector('.custom-html-container');
-
-                    if (needsHandler && customContainer && !customContainer.dataset.loaded) {
-                        const atlasName = details.dataset.atlas;
-                        const handlerName = details.dataset.handler;
-                        const layerConfig = this._stateManager.getLayerConfig(layerId);
-                        let feature;
-                        try {
-                            const parsedFeature = JSON.parse(decodeURIComponent(details.dataset.featureData));
-                            feature = { feature: parsedFeature };
-                        } catch (e) {}
-
-                        if (feature && atlasName && handlerName) {
-                            customContainer.innerHTML = '<div style="color: #94a3b8; font-size: 10px; padding: 4px;">Loading...</div>';
-
-                            try {
-                                const { handlerLoader } = await import('./inspection-handler-loader.js');
-
-                                // Execute handler - the HTML contains inline scripts that will run
-                                const customHTML = await handlerLoader.executeHandler(atlasName, handlerName, {
-                                    feature: feature.feature,
-                                    featureId: featureId,
-                                    layerConfig: layerConfig,
-                                    properties: feature.feature.properties
-                                });
-
-                                if (customHTML) {
-                                    // Insert HTML and manually execute scripts
-                                    customContainer.innerHTML = customHTML;
-
-                                    // Extract and execute script tags
-                                    const scripts = customContainer.querySelectorAll('script');
-                                    scripts.forEach(oldScript => {
-                                        const newScript = document.createElement('script');
-                                        Array.from(oldScript.attributes).forEach(attr => {
-                                            newScript.setAttribute(attr.name, attr.value);
-                                        });
-                                        newScript.textContent = oldScript.textContent;
-                                        oldScript.parentNode.replaceChild(newScript, oldScript);
-                                    });
-                                } else {
-                                    customContainer.innerHTML = '';
-                                }
-                                customContainer.dataset.loaded = 'true';
-                            } catch (error) {
-                                console.error('[MapMarkerManager] Error loading handler:', error);
-                                customContainer.innerHTML = `<div style="color: #f87171; font-size: 10px; padding: 4px;">Error loading details</div>`;
-                            }
-                        }
-                    }
+                    await this._loadInspectionHandlerHTML(details, layerId, featureId);
                 } else {
                     // Collapsing - restore camera position
                     const savedCamera = this._cameraPositions.get(cameraKey);
@@ -2470,52 +2714,74 @@ export class MapMarkerManager {
         const withRefs = markerPoints.filter(f => Array.isArray(f.properties?.features) && f.properties.features.length > 0);
         const locationsOnly = markerPoints.filter(f => !Array.isArray(f.properties?.features) || f.properties.features.length === 0);
 
-        const layerIds = new Set();
-        withRefs.forEach(feature => {
-            feature.properties.features.forEach(ref => layerIds.add(ref.layerId));
+        // Show a pin with a spinner at each location-only marker immediately, rather
+        // than leaving nothing on screen until every layer below has finished loading —
+        // raster/basemap sources (satellite imagery, admin-line style layers, ...) can
+        // take much longer than the vector data the query itself depends on.
+        const placeholderIds = locationsOnly.map(feature => {
+            const [lng, lat] = feature.geometry.coordinates;
+            return this._addLoadingPlaceholder({ lng, lat });
         });
-        if (locationsOnly.length > 0) {
-            // No refs to target specific layers, so wait for every layer the URL asked
-            // to be active instead.
-            window.layerControl._state.groups.forEach(group => {
-                if (group.initiallyChecked) layerIds.add(group.id);
-            });
-        }
 
-        await this._waitForLayersReady(Array.from(layerIds));
-        await this._waitForMapIdle();
+        const refLayerIds = new Set();
+        withRefs.forEach(feature => {
+            feature.properties.features.forEach(ref => refLayerIds.add(ref.layerId));
+        });
 
         const allRestoredFeatures = [];
-        for (const feature of withRefs) {
-            const [lng, lat] = feature.geometry.coordinates;
-            const lngLat = { lng, lat };
-            const featureRefs = feature.properties.features || [];
 
-            const restoredFeatures = [];
-            for (const ref of featureRefs) {
-                const selectedFeature = await this._restoreFeatureFromRef(ref);
-                if (selectedFeature) {
-                    restoredFeatures.push({
-                        ...selectedFeature,
-                        lngLat
-                    });
+        if (withRefs.length > 0) {
+            await this._waitForLayersReady(Array.from(refLayerIds));
+            await this._waitForMapIdle();
+
+            for (const feature of withRefs) {
+                const [lng, lat] = feature.geometry.coordinates;
+                const lngLat = { lng, lat };
+                const featureRefs = feature.properties.features || [];
+
+                const restoredFeatures = [];
+                for (const ref of featureRefs) {
+                    const selectedFeature = await this._restoreFeatureFromRef(ref);
+                    if (selectedFeature) {
+                        restoredFeatures.push({
+                            ...selectedFeature,
+                            lngLat
+                        });
+                    }
                 }
-            }
 
-            if (restoredFeatures.length > 0) {
-                this.addMarker(lngLat, restoredFeatures, { showPopup: false });
-                allRestoredFeatures.push(...restoredFeatures);
+                if (restoredFeatures.length > 0) {
+                    this.addMarker(lngLat, restoredFeatures, { showPopup: false });
+                    allRestoredFeatures.push(...restoredFeatures);
+                }
             }
         }
 
         if (locationsOnly.length > 0) {
+            // No refs to target specific layers, so wait for the URL's queryable
+            // (non-raster) layers instead. Raster/style layers never register with the
+            // state manager and can't be queried anyway, so waiting on them would just
+            // stall every marker behind the slowest basemap tile — see the loading
+            // placeholder above and _isQueryableLayerType below.
+            const layerIds = new Set();
+            window.layerControl._state.groups.forEach(group => {
+                if (group.initiallyChecked && this._isQueryableLayerType(group)) {
+                    layerIds.add(group.id);
+                }
+            });
+
+            await this._waitForLayersReady(Array.from(layerIds));
+            await this._waitForSourcesReady(Array.from(layerIds));
+
             // Force "add" mode so each location-only marker layers onto the others
             // (and onto any ref-based markers restored above) instead of clearing them,
             // same as MapMarkerManager._handleMarkerDragEnd re-selecting after a drag.
             const wasCmdCtrlPressed = this._stateManager._isCmdCtrlPressed;
             this._stateManager._isCmdCtrlPressed = true;
             try {
-                for (const feature of locationsOnly) {
+                locationsOnly.forEach((feature, i) => {
+                    this._removeLoadingPlaceholder(placeholderIds[i]);
+
                     const [lng, lat] = feature.geometry.coordinates;
                     const lngLat = { lng, lat };
                     const point = this._map.project([lng, lat]);
@@ -2527,7 +2793,7 @@ export class MapMarkerManager {
                     } else {
                         this._stateManager.handleFeatureClicks([], lngLat);
                     }
-                }
+                });
             } finally {
                 this._stateManager._isCmdCtrlPressed = wasCmdCtrlPressed;
             }
@@ -2566,6 +2832,98 @@ export class MapMarkerManager {
         }
 
         return true;
+    }
+
+    /**
+     * A pin + spinner shown at a location-only marker's position while its layers
+     * load and its point query is pending — see restoreMarkersFromSelectionLayer.
+     * Returns an id to pass to _removeLoadingPlaceholder once the real marker is ready.
+     */
+    _addLoadingPlaceholder(lngLat) {
+        const pinSize = this._isTouch ? 34 : 28;
+        const el = document.createElement('div');
+        el.className = 'marker-loading-placeholder';
+        el.style.cssText = 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none;';
+        el.innerHTML = `
+            <div class="marker-action-row" style="display: flex; align-items: flex-end; justify-content: center; width: ${pinSize}px; height: ${pinSize}px; flex-shrink: 0;">
+                <sl-icon name="geo-alt-fill" style="font-size:${pinSize}px;color:#f97316;opacity:0.55;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));"></sl-icon>
+            </div>
+            <div class="marker-content" style="display:flex;align-items:center;gap:6px;background:#1f2937;border:1px solid #374151;border-radius:8px;padding:4px 8px;box-shadow:0 4px 16px rgba(0,0,0,0.35);">
+                <sl-spinner style="font-size:12px;--indicator-color:#f97316;"></sl-spinner>
+                <span style="font-size:11px;font-weight:600;color:#9ca3af;white-space:nowrap;">Loading...</span>
+            </div>
+        `;
+
+        const marker = new mapboxgl.Marker({
+            element: el,
+            anchor: 'top-left',
+            offset: [-(pinSize / 2), -pinSize]
+        })
+            .setLngLat([lngLat.lng, lngLat.lat])
+            .addTo(this._map);
+
+        const id = `placeholder-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        this._loadingPlaceholders.set(id, marker);
+        return id;
+    }
+
+    _removeLoadingPlaceholder(id) {
+        const marker = this._loadingPlaceholders.get(id);
+        if (marker) {
+            marker.remove();
+            this._loadingPlaceholders.delete(id);
+        }
+    }
+
+    /**
+     * Whether a layer group's type is one that (a) actually registers with the state
+     * manager and (b) is queryable via queryRenderedFeatures — i.e. worth waiting on
+     * before re-querying a restored marker's location. Mirrors the skip conditions in
+     * MapLayerControls._registerLayerWithStateManager and MapFeatureStateManager._isRasterLayer.
+     */
+    _isQueryableLayerType(group) {
+        if (!group.type || group.type === 'style') return false;
+        const nonQueryableTypes = ['tms', 'wmts', 'img', 'raster-style-layer', 'cog', 'wms'];
+        if (nonQueryableTypes.includes(group.type)) return false;
+        const isVectorLike = group.type === 'geojson' || group.type === 'vector' || group.type === 'csv' || group.type === 'js';
+        if (isVectorLike && (group.inspect === false || group.inspect === null)) return false;
+        return true;
+    }
+
+    /**
+     * Wait for the given layers' sources to finish loading, without waiting on the
+     * map's global 'idle' event — which only fires once every source (including slow
+     * raster/satellite basemap tiles) has settled. A restored marker's point query only
+     * needs its own vector sources ready, not the whole style.
+     */
+    async _waitForSourcesReady(layerIds, timeout = 5000) {
+        const sourceIds = new Set();
+        layerIds.forEach(layerId => {
+            const layerConfig = this._stateManager.getLayerConfig(layerId);
+            if (layerConfig) {
+                sourceIds.add(layerConfig.source || `${layerConfig.type}-${layerId}`);
+            }
+        });
+
+        if (sourceIds.size === 0) {
+            return;
+        }
+
+        const startTime = Date.now();
+        return new Promise((resolve) => {
+            const check = () => {
+                const allLoaded = Array.from(sourceIds).every(id => {
+                    return this._map.getSource(id) && this._map.isSourceLoaded(id);
+                });
+
+                if (allLoaded || Date.now() - startTime > timeout) {
+                    resolve();
+                } else {
+                    requestAnimationFrame(check);
+                }
+            };
+            check();
+        });
     }
 
     async _waitForLayersReady(layerIds, timeout = 10000) {

@@ -1028,9 +1028,10 @@ export class MapBrowserControl {
         this.closeBrowser();
 
         const layerTitle = mapLayerControl._escapeHtml?.(config.title || config.id) || (config.title || config.id);
+        const labelHtml = mapLayerControl._buildLayerLabelHTML?.(config, layerTitle) || `<strong>${layerTitle}</strong>`;
         const zoomLink = mapLayerControl._buildZoomToLayerLink?.(config) || '';
         MapContextMessagesControl.show(
-            `Added map &quot;${layerTitle}&quot;${zoomLink ? ' &middot; ' + zoomLink : ''}`,
+            `Added map ${labelHtml}${zoomLink ? ' &middot; ' + zoomLink : ''}`,
             { duration: 3000 }
         );
     }
