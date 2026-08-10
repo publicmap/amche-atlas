@@ -1245,7 +1245,7 @@ export class MapCreator {
                 }
                 const geojson = GeoUtils.rowsToGeoJSON(rows, true);
                 if (!geojson || geojson.features.length === 0) {
-                    const fields = rows.length > 0 ? Object.keys(rows[0]) : [];
+                    const fields = this.csvRowFields(rows);
                     const message = `Could not auto-detect latitude/longitude columns.\n\nColumns found: ${fields.join(', ')}\n\nPlease select the coordinate fields manually below.`;
                     alert(message);
                     this.processCSVLayerWithoutCoords(url, rows);
@@ -1282,7 +1282,7 @@ export class MapCreator {
                     }
                     const geojson = GeoUtils.rowsToGeoJSON(rows, true);
                     if (!geojson || geojson.features.length === 0) {
-                        const fields = rows.length > 0 ? Object.keys(rows[0]) : [];
+                        const fields = this.csvRowFields(rows);
                         const message = `Could not auto-detect latitude/longitude columns.\n\nColumns found: ${fields.join(', ')}\n\nPlease select the coordinate fields manually below.`;
                         alert(message);
                         this.processCSVLayerWithoutCoords(url, rows);
@@ -1615,7 +1615,7 @@ export class MapCreator {
     processCSVLayerWithoutCoords(csvUrl, rows) {
         console.log('[MapCreator] processCSVLayerWithoutCoords called', {
             rowCount: rows.length,
-            columns: rows.length > 0 ? Object.keys(rows[0]) : []
+            columns: this.csvRowFields(rows)
         });
 
         this._resetConfigEditorState();
@@ -1632,7 +1632,7 @@ export class MapCreator {
         $('#settings-step-hint').hide();
         $('#data-preview-details').show();
 
-        const fields = rows.length > 0 ? Object.keys(rows[0]) : [];
+        const fields = this.csvRowFields(rows);
         console.log('[MapCreator] Populating data fields with:', fields);
         this.populateDataFields(fields);
 
@@ -2246,13 +2246,25 @@ export class MapCreator {
         window.parent.postMessage({ type: 'creator-clear-preview' }, '*');
     }
 
+    csvRowFields(rows) {
+        // A Google Sheet made of stacked tables produces rows with different
+        // key sets (one per table), so union across all rows rather than
+        // just inspecting the first one.
+        const fieldSet = new Set();
+        (rows || []).forEach(row => Object.keys(row).forEach(key => fieldSet.add(key)));
+        return Array.from(fieldSet);
+    }
+
     extractFields(geojson) {
         if (!geojson.features || geojson.features.length === 0) {
             return ['id', 'name'];
         }
 
+        // Sample generously (not just the first few features) so a CSV made
+        // of several stacked tables with different columns still surfaces
+        // every table's fields, not just the first table's.
         const fieldSet = new Set();
-        geojson.features.slice(0, 10).forEach(feature => {
+        geojson.features.slice(0, 500).forEach(feature => {
             if (feature.properties) {
                 Object.keys(feature.properties).forEach(key => fieldSet.add(key));
             }
