@@ -718,6 +718,19 @@
                 updateHighlights();
             }
 
+            if (event.data.type === 'expand-layer') {
+                const layerId = event.data.layerId;
+                if (layerId) {
+                    expandedLayerId = layerId;
+                    manuallyExpandedLayers.add(layerId);
+                    renderLayers();
+                    setTimeout(() => {
+                        const card = document.querySelector(`.layer-card[data-layer-id="${layerId}"]`);
+                        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 50);
+                }
+            }
+
             if (event.data.type === 'clear-highlights') {
                 highlightedLayerIds.clear();
                 updateHighlights();

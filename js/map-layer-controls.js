@@ -1291,12 +1291,12 @@ export class MapLayerControl {
                 if (this._mapboxAPI) {
                     const layerIds = this._mapboxAPI.getLayerGroupIds(layerConfig.id, layerConfig);
                     layerIds.forEach(id => {
-                        window.attributionControl.addLayerAttribution(id, layerConfig.attribution);
+                        window.attributionControl.addLayerAttribution(id, layerConfig.attribution, layerConfig.title, layerConfig);
                     });
                 }
             } else {
                 // Standard registration for other layer types
-                window.attributionControl.addLayerAttribution(layerConfig.id, layerConfig.attribution);
+                window.attributionControl.addLayerAttribution(layerConfig.id, layerConfig.attribution, layerConfig.title, layerConfig);
             }
         }
 

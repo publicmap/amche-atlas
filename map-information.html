@@ -265,6 +265,13 @@
         let currentLayer = null;
         let isEditing = false;
         let hasChanges = false;
+        let editModeRequested = false;
+
+        function maybeEnterEditMode() {
+            if (editModeRequested && !isEditing) {
+                toggleEditMode();
+            }
+        }
 
         (async function initModules() {
             try {
@@ -279,6 +286,7 @@
                 console.log('[Layer Info] Modules loaded successfully');
                 if (currentLayer) {
                     renderLayerInfo(currentLayer);
+                    maybeEnterEditMode();
                 }
             } catch (error) {
                 console.error('[Layer Info] Failed to load modules:', error);
@@ -288,12 +296,14 @@
         $(document).ready(function () {
             const urlParams = new URLSearchParams(window.location.search);
             const layerJson = urlParams.get('layer');
+            editModeRequested = urlParams.get('edit') === 'true';
 
             if (layerJson) {
                 try {
                     currentLayer = JSON.parse(decodeURIComponent(layerJson));
                     if (LayerThumbnail) {
                         renderLayerInfo(currentLayer);
+                        maybeEnterEditMode();
                     }
                 } catch (error) {
                     console.error('Error parsing layer data:', error);

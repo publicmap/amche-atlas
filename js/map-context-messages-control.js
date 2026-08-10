@@ -6,6 +6,12 @@
  * are shown/closed by dispatching window CustomEvents (or via the static
  * show()/close() helpers below, which just wrap those events).
  *
+ * Messages auto-close after DEFAULT_DURATION_MS unless a caller passes a longer
+ * `duration`, or `duration: 0` to keep one up until explicitly closed (e.g. a
+ * suggestion the user should be able to act on whenever they notice it).
+ * Re-showing the same `id` (to update its text, e.g. swapping "Loading..." for
+ * "Added...") restarts its timer rather than stacking a second one.
+ *
  * Usage:
  * ```js
  * const id = MapContextMessagesControl.show('Loading map "Roads"');
@@ -23,10 +29,13 @@ function generateMessageId() {
 }
 
 export class MapContextMessagesControl {
+    static DEFAULT_DURATION_MS = 5000;
+
     constructor() {
         this._map = null;
         this._container = null;
         this._messages = new Map();
+        this._timers = new Map();
         this._resizeObserver = null;
 
         this._handleShow = this._handleShow.bind(this);
@@ -36,12 +45,17 @@ export class MapContextMessagesControl {
     /**
      * Dispatch a message to any mounted MapContextMessagesControl.
      * @param {string} html - HTML content to render for the message
-     * @param {{id?: string}} [options]
+     * @param {{id?: string, duration?: number}} [options] - `duration` in ms
+     *   (default DEFAULT_DURATION_MS); pass 0 to keep the message up until it's
+     *   explicitly closed.
      * @returns {string} the message id, usable with close()
      */
     static show(html, options = {}) {
         const id = options.id || generateMessageId();
-        window.dispatchEvent(new CustomEvent(SHOW_EVENT, { detail: { id, html } }));
+        const duration = options.duration === undefined
+            ? MapContextMessagesControl.DEFAULT_DURATION_MS
+            : options.duration;
+        window.dispatchEvent(new CustomEvent(SHOW_EVENT, { detail: { id, html, duration } }));
         return id;
     }
 
@@ -77,6 +91,8 @@ export class MapContextMessagesControl {
         this._container?.parentNode?.removeChild(this._container);
         this._container = null;
         this._messages.clear();
+        this._timers.forEach(timer => clearTimeout(timer));
+        this._timers.clear();
         this._map = null;
     }
 
@@ -97,13 +113,14 @@ export class MapContextMessagesControl {
     }
 
     _handleShow(event) {
-        const { id, html } = event.detail || {};
+        const { id, html, duration } = event.detail || {};
         if (!html) return;
         const messageId = id || generateMessageId();
 
         const existing = this._messages.get(messageId);
         if (existing) {
             existing.querySelector('.map-context-message__body').innerHTML = html;
+            this._scheduleAutoClose(messageId, duration);
             return;
         }
 
@@ -127,6 +144,21 @@ export class MapContextMessagesControl {
 
         this._messages.set(messageId, el);
         this._container.appendChild(el);
+        this._scheduleAutoClose(messageId, duration);
+    }
+
+    // (Re)schedules a message's auto-close, replacing any timer already running
+    // for that id. `duration` falsy-but-defined-as-0 (or negative) means "keep
+    // open until explicitly closed".
+    _scheduleAutoClose(id, duration) {
+        const existingTimer = this._timers.get(id);
+        if (existingTimer) clearTimeout(existingTimer);
+        this._timers.delete(id);
+
+        if (!duration || duration <= 0) return;
+
+        const timer = setTimeout(() => this._close(id), duration);
+        this._timers.set(id, timer);
     }
 
     _handleClose(event) {
@@ -135,6 +167,10 @@ export class MapContextMessagesControl {
     }
 
     _close(id) {
+        const timer = this._timers.get(id);
+        if (timer) clearTimeout(timer);
+        this._timers.delete(id);
+
         const el = this._messages.get(id);
         if (!el) return;
         this._messages.delete(id);

@@ -447,7 +447,7 @@ export class MapFeatureControl {
                     this._markerManager.setSelectionMode(event.data.enabled ? 'add' : 'replace');
                 }
             } else if (event.data.type === 'open-layer-info') {
-                this._openLayerInfo(event.data.layer);
+                this._openLayerInfo(event.data.layer, { edit: event.data.edit });
             } else if (event.data.type === 'hover-isolate-feature') {
                 this._hoverIsolateFeature(event.data.layerId, event.data.featureId, event.data.feature);
             } else if (event.data.type === 'clear-feature-isolation') {
@@ -561,7 +561,7 @@ export class MapFeatureControl {
     /**
      * Open layer information modal
      */
-    _openLayerInfo(layer) {
+    _openLayerInfo(layer, options = {}) {
         const modal = document.getElementById('layer-info-modal');
         const iframe = document.getElementById('layer-info-iframe');
 
@@ -571,7 +571,8 @@ export class MapFeatureControl {
         }
 
         const layerJson = encodeURIComponent(JSON.stringify(layer));
-        iframe.src = `map-information.html?layer=${layerJson}`;
+        const editParam = options.edit ? '&edit=true' : '';
+        iframe.src = `map-information.html?layer=${layerJson}${editParam}`;
         modal.style.display = 'block';
 
         const closeHandler = (e) => {
@@ -1825,6 +1826,16 @@ export class MapFeatureControl {
         if (this._iframeSrcLoaded || !this._iframe) return;
         this._iframe.src = 'map-inspector.html';
         this._iframeSrcLoaded = true;
+    }
+
+    /**
+     * Open the selected-features panel and expand/scroll to a specific layer's
+     * group within it. Used by hover actions elsewhere on the page (e.g. the
+     * attribution control) that want to jump straight to a layer's selection.
+     */
+    showLayerSelection(layerId) {
+        this._showPanel();
+        this._sendMessageToIframe({ type: 'expand-layer', layerId });
     }
 
     _showPanel() {

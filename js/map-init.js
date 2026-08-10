@@ -298,6 +298,27 @@ export class MapInitializer {
             }, config);
         }
 
+        // Notify the user (with an Undo) whenever the resolved atlas differs from
+        // the one they were just looking at - covers every atlas-switch entry
+        // point (bounds-suggestion nudge, atlas badge, map browser/creator import)
+        // since they all land here via a normal navigation, leaving
+        // history.back() as a reliable way to return to the previous atlas.
+        let previousAtlasId = null;
+        try {
+            previousAtlasId = sessionStorage.getItem('amche_last_atlas');
+        } catch (error) { /* sessionStorage unavailable (e.g. private browsing) */ }
+
+        if (previousAtlasId && previousAtlasId !== atlasId) {
+            const atlasDisplayName = layerRegistry.getAtlasMetadata(atlasId)?.name || config.name || atlasId;
+            MapContextMessagesControl.show(
+                `Switched to <strong>${MapInitializer._escapeHtml(atlasDisplayName)}</strong> atlas &middot; <a href="#" onclick="window.history.back();return false;">Undo</a>`
+            );
+        }
+
+        try {
+            sessionStorage.setItem('amche_last_atlas', atlasId);
+        } catch (error) { /* sessionStorage unavailable (e.g. private browsing) */ }
+
         // If loading a non-index atlas without explicit layers parameter,
         // merge with index atlas layers (common layers across all atlases)
         if (atlasId !== 'index' && !layersParam && !isImportedAtlas) {

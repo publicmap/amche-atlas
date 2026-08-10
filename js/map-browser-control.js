@@ -326,7 +326,7 @@ export class MapBrowserControl {
             }
 
             if (event.data.type === 'open-layer-info') {
-                this._openLayerInfo(event.data.layer);
+                this._openLayerInfo(event.data.layer, { edit: event.data.edit });
             }
 
             if (event.data.type === 'load-atlas') {
@@ -389,7 +389,7 @@ export class MapBrowserControl {
         });
     }
 
-    _openLayerInfo(layer) {
+    _openLayerInfo(layer, options = {}) {
         const modal = document.getElementById('layer-info-modal');
         const iframe = document.getElementById('layer-info-iframe');
 
@@ -399,7 +399,8 @@ export class MapBrowserControl {
         }
 
         const layerJson = encodeURIComponent(JSON.stringify(layer));
-        iframe.src = `map-information.html?layer=${layerJson}`;
+        const editParam = options.edit ? '&edit=true' : '';
+        iframe.src = `map-information.html?layer=${layerJson}${editParam}`;
         modal.style.display = 'block';
 
         const closeHandler = (e) => {
@@ -1028,10 +1029,10 @@ export class MapBrowserControl {
 
         const layerTitle = mapLayerControl._escapeHtml?.(config.title || config.id) || (config.title || config.id);
         const zoomLink = mapLayerControl._buildZoomToLayerLink?.(config) || '';
-        const messageId = MapContextMessagesControl.show(
-            `Added map &quot;${layerTitle}&quot;${zoomLink ? ' &middot; ' + zoomLink : ''}`
+        MapContextMessagesControl.show(
+            `Added map &quot;${layerTitle}&quot;${zoomLink ? ' &middot; ' + zoomLink : ''}`,
+            { duration: 3000 }
         );
-        setTimeout(() => MapContextMessagesControl.close(messageId), 3000);
     }
 
     _handleLoadAtlas(atlasUrl) {
@@ -1566,6 +1567,11 @@ export class MapBrowserControl {
     }
 
     _handleUpdateAtlasParam(atlasId) {
+        const resolvedAtlasId = atlasId || 'index';
+        const previousAtlasId = window.layerRegistry?.getCurrentAtlas();
+        const previousFullUrl = window.location.href;
+        const atlasActuallyChanged = !!window.layerRegistry && previousAtlasId !== resolvedAtlasId;
+
         const params = new URLSearchParams(window.location.search);
 
         if (atlasId) {
@@ -1576,5 +1582,42 @@ export class MapBrowserControl {
 
         const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
         window.history.replaceState(null, '', newUrl);
+
+        // map-browser.html's atlas switch is live (layer visibility only, no
+        // reload) - without this, layerRegistry._currentAtlas stays on the
+        // previous atlas, so map-init.js's "you've panned outside this atlas"
+        // bounds check keeps comparing against the atlas we just left and
+        // spuriously re-suggests switching to the atlas we're already on.
+        if (window.layerRegistry) {
+            window.layerRegistry.setCurrentAtlas(resolvedAtlasId);
+        }
+        if (window.layerControl) {
+            window.layerControl._updateAtlasButtonText?.();
+        }
+        // Dismiss immediately rather than waiting on the next moveend + the
+        // message's own auto-close - id string is duplicated from map-init.js's
+        // ATLAS_BOUNDS_MESSAGE_ID (not exported, and this stays a plain-string
+        // cross-module id like every other MapContextMessagesControl id).
+        MapContextMessagesControl.close('atlas-bounds-suggestion');
+
+        // Mirror map-init.js's "Switched to X atlas" notification for a real
+        // navigation - this live switch never reloads the page, so that copy
+        // never fires here on its own. Undo reloads back to the exact previous
+        // URL (rather than history.back(), which has nothing to return to
+        // since this only ever used history.replaceState): switchAtlasContext's
+        // layer-toggle messages already keep layers= in sync with what was
+        // actually shown, so the reload lands back on the same view.
+        if (atlasActuallyChanged) {
+            const atlasDisplayName = window.layerRegistry.getAtlasMetadata(resolvedAtlasId)?.name || resolvedAtlasId;
+            const escapedName = window.layerControl?._escapeHtml?.(atlasDisplayName) || atlasDisplayName;
+            const jsEscapedUrl = previousFullUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            MapContextMessagesControl.show(
+                `Switched to <strong>${escapedName}</strong> atlas &middot; <a href="#" onclick="window.location.href='${jsEscapedUrl}';return false;">Undo</a>`
+            );
+        }
+
+        try {
+            sessionStorage.setItem('amche_last_atlas', resolvedAtlasId);
+        } catch (error) { /* sessionStorage unavailable (e.g. private browsing) */ }
     }
 }

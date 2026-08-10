@@ -61,14 +61,11 @@
       "id": "tngis_tn_cadastrals-cug5wy",
       "url": "https://indianopenmaps.com/not-so-open/cadastrals/tamil-nadu/tngis/{z}/{x}/{y}.pbf",
       "sourceLayer": "TNGIS_TN_Cadastrals",
-      "minzoom": 14,
+      "minzoom": 12,
       "maxzoom": 14,
       "attribution": "Source: <a href='https://tngis.tn.gov.in' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
       "style": {
-        "text-field": [
-          "get",
-          "kide"
-        ],
+        "line-width": 0.5,
         "text-padding": [
           "interpolate",
           [

@@ -675,7 +675,153 @@ body {
     line-height: 1;
     border-radius: 0;
     border: none;
+    max-width: calc(100vw - 150px);
+    display: flex;
+    align-items: center;
+}
 
+.map-attrib-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded {
+    position: relative;
+    width: fit-content !important;
+    max-width: calc(100vw - 150px);
+    padding-right: 20px;
+    align-items: flex-start;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .map-attrib-content {
+    flex-basis: 100%;
+    white-space: normal;
+    overflow-x: hidden;
+    text-overflow: clip;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-item {
+    display: block;
+    position: relative;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-item.has-actions {
+    padding-right: 150px;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-item:hover {
+    background-color: #ffffff;
+}
+
+.attrib-item:not(:last-child)::after {
+    content: ' | ';
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-item::after {
+    content: '';
+}
+
+.attrib-label {
+    display: none;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-label {
+    display: inline;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.attrib-layer-thumb {
+    display: none !important;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-layer-thumb {
+    display: inline-block !important;
+}
+
+.attrib-actions {
+    display: none;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-actions {
+    display: block;
+    position: absolute;
+    top: 0;
+    right: 0;
+    visibility: hidden;
+    transition: none;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-item:hover .attrib-actions {
+    visibility: visible;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.attrib-action-btn {
+    width: auto;
+    height: auto;
+    display: inline;
+    overflow: visible;
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 0;
+    margin: 0 0 0 4px;
+    border: none;
+    outline: none;
+    background: none;
+    background-color: transparent;
+    color: inherit;
+    transition: none;
+    font: inherit;
+    line-height: inherit;
+    text-decoration: underline;
+    box-shadow: none;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.attrib-action-btn:hover,
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.attrib-action-btn:focus {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.attrib-action-remove {
+    color: #dc2626;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.map-attrib-toggle {
+    flex: 0 0 auto;
+    width: auto;
+    height: auto;
+    display: inline;
+    overflow: visible;
+    cursor: pointer;
+    white-space: nowrap;
+    margin-left: 4px;
+    padding: 0;
+    border: none;
+    outline: none;
+    background: none;
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    text-decoration: underline;
+    box-shadow: none;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.map-attrib-toggle:hover,
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.map-attrib-toggle:focus {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .map-attrib-toggle {
+    position: absolute;
+    top: 3px;
+    right: 4px;
+    margin-left: 0;
 }
 
 /* Update these styles */
