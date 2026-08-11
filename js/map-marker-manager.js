@@ -3,6 +3,8 @@
  * Creates markers at selection locations with popups showing selected features
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
+import { LayerLegend } from './layer-legend.js';
+import { LAYER_SPECIFICATIONS } from './config-manager.js';
 import { FeatureDisplayRenderer } from './feature-display-renderer.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { CameraUtils } from './map-camera-utils.js';
@@ -26,6 +28,8 @@ export class MapMarkerManager {
         this._selectedBadges = new Set(); // Expanded (selected) feature badges
         this._isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
         this._loadingPlaceholders = new Map(); // placeholderId -> mapboxgl.Marker, shown while a URL-restored marker's query is pending
+        this._layerInfoPanel = null;
+        this._layerInfoState = null;
 
         this._setupEventListeners();
         this._setupMapMovementTracking();
@@ -82,6 +86,15 @@ export class MapMarkerManager {
                 this._markers.forEach(markerData => {
                     this._fadePopup(markerData.id, true);
                 });
+            }
+        });
+
+        // The layer info panel is closed the same way the old map-information.html
+        // iframe was (keyboard-controller.js Escape handling, the panel's own close
+        // button) — via this shared postMessage convention.
+        window.addEventListener('message', (event) => {
+            if (event.data?.type === 'close-layer-info') {
+                this._hideLayerInfoPanel();
             }
         });
     }
@@ -2464,6 +2477,427 @@ export class MapMarkerManager {
                 saveBtn.disabled = false;
             }
         });
+    }
+
+    /**
+     * Full-screen layer information panel — replaces the old map-information.html
+     * iframe/modal (index.html's #layer-info-modal). Triggered via the same
+     * 'open-layer-info' postMessage convention used throughout the app
+     * (LayerThumbnail, map-attribution-control.js, map-inspector.html,
+     * map-browser.html, and this file's own badge/menu actions), so none of those
+     * callers needed to change — only the _openLayerInfo dispatcher in
+     * map-feature-control-iframe.js / map-browser-control.js now calls this
+     * instead of loading an iframe.
+     */
+    showLayerInfo(layer, options = {}) {
+        if (!layer) return;
+        if (!this._layerInfoPanel) this._createLayerInfoPanel();
+
+        this._layerInfoState = {
+            layer: { ...layer },
+            isEditing: false,
+            hasChanges: false,
+            jsonInvalid: false
+        };
+
+        this._renderLayerInfoPanel();
+        this._layerInfoPanel.style.display = 'block';
+
+        if (options.edit) {
+            this._toggleLayerInfoEditMode();
+        }
+    }
+
+    _hideLayerInfoPanel() {
+        if (this._layerInfoPanel) this._layerInfoPanel.style.display = 'none';
+        this._layerInfoState = null;
+    }
+
+    _createLayerInfoPanel() {
+        const panel = document.createElement('div');
+        panel.className = 'marker-layer-info-panel';
+        panel.style.cssText = `
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: #0a0a0a;
+            color: #e2e8f0;
+            overflow-y: auto;
+        `;
+        document.body.appendChild(panel);
+        this._layerInfoPanel = panel;
+    }
+
+    _layerInfoFullId(layer) {
+        const atlasId = layer._sourceAtlas || 'default';
+        const layerId = layer.id || 'no-id';
+        return layerId.startsWith(`${atlasId}-`) ? `#${layerId}` : `#${atlasId}-${layerId}`;
+    }
+
+    _formatBbox(bbox) {
+        if (!Array.isArray(bbox) || bbox.length !== 4) return String(bbox);
+        return `[${bbox.map(n => Number(n).toFixed(4)).join(', ')}]`;
+    }
+
+    _escapeHtml(text) {
+        return String(text ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    _filterLayerForDisplay(layer) {
+        const filtered = { ...layer };
+        delete filtered._originalJson;
+        return filtered;
+    }
+
+    _renderLayerInfoPanel() {
+        const { layer, isEditing } = this._layerInfoState;
+        const panel = this._layerInfoPanel;
+
+        const fullId = this._layerInfoFullId(layer);
+        const typeBadge = LayerThumbnail.getTypeBadge(layer.type);
+        const btnStyle = 'background:#1f2937;border:1px solid #334155;color:#cbd5e1;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:5px;flex-shrink:0;';
+        const inputStyle = 'width:100%;box-sizing:border-box;background:#0a0a0a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:5px 6px;font-size:12px;font-family:inherit;';
+
+        let layerUrl = layer.url || layer.tiles?.[0] || layer.data || '';
+        if (!layerUrl && layer.source && typeof layer.source === 'object') {
+            layerUrl = layer.source.url || layer.source.tiles?.[0] || '';
+        }
+
+        panel.innerHTML = `
+            <div style="position:sticky;top:0;background:#111827;border-bottom:1px solid #334155;padding:10px 14px;display:flex;align-items:flex-start;gap:10px;z-index:1;">
+                <div class="li-thumb" style="flex-shrink:0;"></div>
+                <div style="flex:1;min-width:0;">
+                    ${isEditing
+                        ? `<input class="li-title-input" value="${this._escapeHtml(layer.title || '')}" placeholder="Layer title" style="${inputStyle}font-size:14px;font-weight:600;margin-bottom:6px;">`
+                        : `<div style="font-size:14px;font-weight:600;color:#f1f5f9;margin-bottom:4px;">${this._escapeHtml(layer.title || layer.id || 'Unknown Layer')}</div>`
+                    }
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                        <button class="li-id-badge" title="Click to copy shareable link" style="background:#334155;border:none;color:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;">${this._escapeHtml(fullId)}</button>
+                        <span style="background:${typeBadge.bg};color:${typeBadge.color};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;text-transform:uppercase;">${this._escapeHtml(typeBadge.label)}</span>
+                    </div>
+                    ${isEditing ? `
+                        <div style="margin-top:6px;">
+                            <label style="display:block;font-size:9px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:3px;">Layer ID</label>
+                            <input class="li-id-input" value="${this._escapeHtml(layer.id || '')}" placeholder="layer-id" style="${inputStyle}font-family:monospace;">
+                        </div>` : ''
+                    }
+                </div>
+                <div style="display:flex;gap:6px;flex-shrink:0;">
+                    <button class="li-edit-btn" style="${btnStyle}${isEditing ? 'background:#16a34a;border-color:#16a34a;color:#fff;' : ''}">
+                        <sl-icon name="${isEditing ? 'check-circle' : 'pencil'}"></sl-icon>${isEditing ? 'Apply' : 'Edit'}
+                    </button>
+                    <button class="li-remove-btn" style="${btnStyle}background:#7f1d1d;border-color:#7f1d1d;color:#fca5a5;">
+                        <sl-icon name="trash"></sl-icon>Remove
+                    </button>
+                    <button class="li-close-btn" title="Close" style="${btnStyle}padding:5px 7px;">
+                        <sl-icon name="x-lg"></sl-icon>
+                    </button>
+                </div>
+            </div>
+            <div style="max-width:640px;margin:0 auto;padding:14px;">
+                ${layerUrl && !isEditing ? `
+                    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
+                        <input class="li-url-input" readonly value="${this._escapeHtml(layerUrl)}" style="${inputStyle}font-size:10px;font-family:monospace;color:#94a3b8;">
+                        <button class="li-copy-url-btn" style="${btnStyle}white-space:nowrap;">Copy URL</button>
+                    </div>` : ''
+                }
+                ${isEditing ? `
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;font-size:9px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:3px;">Description</label>
+                        <textarea class="li-description-input" placeholder="Layer description (HTML supported)" rows="3" style="${inputStyle}resize:vertical;">${this._escapeHtml(layer.description || '')}</textarea>
+                    </div>`
+                    : (layer.description ? `
+                    <div style="background:#111827;border:1px solid #1f2937;border-radius:6px;padding:10px 12px;margin-bottom:10px;font-size:12px;line-height:1.5;color:#cbd5e1;">${layer.description}</div>` : '')
+                }
+                ${!isEditing && layer.attribution ? `
+                    <div style="font-size:10px;color:#6b7280;margin-bottom:10px;">${layer.attribution}</div>` : ''
+                }
+                <div class="li-legend-container" style="margin-bottom:10px;"></div>
+                ${isEditing
+                    ? `<div class="li-metadata-edit-fields" style="margin-bottom:10px;"></div>`
+                    : this._buildLayerInfoMetadataViewHTML(layer)
+                }
+                <div style="border-top:1px solid #1f2937;padding-top:10px;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                        <span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;flex:1;">Raw Configuration</span>
+                        <button class="li-copy-config-btn" style="${btnStyle}padding:3px 7px;">Copy</button>
+                    </div>
+                    <pre class="li-raw-config" contenteditable="${isEditing}" style="background:#111827;border:1px solid #1f2937;border-radius:6px;padding:10px;font-size:10px;font-family:monospace;line-height:1.5;overflow-x:auto;max-height:320px;white-space:pre-wrap;word-wrap:break-word;${isEditing ? 'outline:none;' : ''}">${this._escapeHtml(JSON.stringify(this._filterLayerForDisplay(layer), null, 2))}</pre>
+                    <div class="li-json-error" style="display:none;font-size:10px;color:#f87171;margin-top:4px;"></div>
+                </div>
+            </div>
+        `;
+
+        const thumbContainer = panel.querySelector('.li-thumb');
+        if (thumbContainer) thumbContainer.appendChild(LayerThumbnail.generate(layer, 48));
+
+        const legendContainer = panel.querySelector('.li-legend-container');
+        const legend = LayerLegend.generate(layer);
+        if (legend && legendContainer) legendContainer.appendChild(legend);
+
+        if (isEditing) this._populateLayerInfoEditFields();
+
+        this._attachLayerInfoListeners();
+    }
+
+    _buildLayerInfoMetadataViewHTML(layer) {
+        const items = [];
+        if (layer.bbox) items.push(['Bounding Box', this._formatBbox(layer.bbox)]);
+        if (layer.tags?.length) items.push(['Tags', layer.tags.join(', ')]);
+        if (layer._sourceAtlas) items.push(['Source Atlas', layer._sourceAtlas]);
+        if (layer.opacity !== undefined) items.push(['Opacity', `${Math.round(layer.opacity * 100)}%`]);
+
+        if (items.length === 0) return '';
+
+        return `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+                ${items.map(([key, value]) => `
+                    <div style="background:#111827;border-radius:6px;padding:8px 10px;">
+                        <div style="font-size:9px;font-weight:600;color:#6b7280;text-transform:uppercase;margin-bottom:2px;">${this._escapeHtml(key)}</div>
+                        <div style="font-size:11px;color:#e2e8f0;">${this._escapeHtml(value)}</div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    _populateLayerInfoEditFields() {
+        const { layer } = this._layerInfoState;
+        const container = this._layerInfoPanel.querySelector('.li-metadata-edit-fields');
+        if (!container) return;
+
+        const spec = LAYER_SPECIFICATIONS[layer.type];
+        if (!spec) return;
+
+        const fieldOrder = ['url', 'sourceLayer', 'maxzoom', 'minzoom', 'tileSize', 'opacity', 'attribution', 'initiallyChecked', 'headerImage', 'bbox', 'tags'];
+        const fieldsHTML = fieldOrder
+            .filter(field => spec.optional?.includes(field) || spec.required?.includes(field))
+            .map(field => this._buildLayerInfoFieldHTML(field, layer[field], spec.properties?.[field]))
+            .join('');
+
+        const styleFieldHTML = layer.style
+            ? this._buildLayerInfoFieldHTML('style', JSON.stringify(layer.style, null, 2), { type: 'object', description: 'Mapbox GL style properties' })
+            : '';
+
+        container.innerHTML = fieldsHTML + styleFieldHTML;
+    }
+
+    _buildLayerInfoFieldHTML(name, value, propertySpec) {
+        const label = name.replace(/([A-Z])/g, ' $1').trim();
+        const inputStyle = 'width:100%;box-sizing:border-box;background:#0a0a0a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:5px 6px;font-size:11px;font-family:inherit;';
+        let inputHTML;
+
+        if (propertySpec?.type === 'boolean') {
+            inputHTML = `
+                <select class="li-field-input" data-field="${name}" style="${inputStyle}">
+                    <option value="true" ${value === true ? 'selected' : ''}>true</option>
+                    <option value="false" ${value === false ? 'selected' : ''}>false</option>
+                </select>`;
+        } else if (propertySpec?.type === 'number') {
+            const step = name.toLowerCase().includes('opacity') ? '0.1' : '1';
+            inputHTML = `<input type="number" class="li-field-input" data-field="${name}" value="${value ?? ''}" step="${step}" placeholder="${this._escapeHtml(propertySpec.description || '')}" style="${inputStyle}">`;
+        } else if (propertySpec?.type === 'array' || propertySpec?.type === 'object' || name === 'style') {
+            const textValue = value ? (typeof value === 'string' ? value : JSON.stringify(value, null, 2)) : '';
+            inputHTML = `<textarea class="li-field-input" data-field="${name}" placeholder="${this._escapeHtml(propertySpec?.description || '')}" rows="3" style="${inputStyle}font-family:monospace;resize:vertical;">${this._escapeHtml(textValue)}</textarea>`;
+        } else {
+            inputHTML = `<input type="text" class="li-field-input" data-field="${name}" value="${this._escapeHtml(value ?? '')}" placeholder="${this._escapeHtml(propertySpec?.description || '')}" style="${inputStyle}">`;
+        }
+
+        return `
+            <div style="margin-bottom:8px;">
+                <label style="display:block;font-size:9px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:3px;">${this._escapeHtml(label)}</label>
+                ${inputHTML}
+            </div>`;
+    }
+
+    _attachLayerInfoListeners() {
+        const panel = this._layerInfoPanel;
+
+        panel.querySelector('.li-close-btn')?.addEventListener('click', () => this._hideLayerInfoPanel());
+        panel.querySelector('.li-edit-btn')?.addEventListener('click', () => this._toggleLayerInfoEditMode());
+
+        panel.querySelector('.li-remove-btn')?.addEventListener('click', () => {
+            const { layer } = this._layerInfoState;
+            if (!confirm(`Remove layer "${layer.title || layer.id}"?`)) return;
+            window.postMessage({ type: 'remove-layer', layerId: layer.id }, '*');
+            this._hideLayerInfoPanel();
+        });
+
+        panel.querySelector('.li-id-badge')?.addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            const fullId = this._layerInfoFullId(this._layerInfoState.layer);
+            const shareUrl = `${window.location.origin}/${fullId}`;
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                const original = btn.textContent;
+                btn.textContent = 'LINK COPIED!';
+                btn.style.background = '#16a34a';
+                setTimeout(() => {
+                    btn.textContent = original;
+                    btn.style.background = '#334155';
+                }, 2000);
+            }).catch(err => console.error('[MapMarkerManager] Failed to copy share link:', err));
+        });
+
+        panel.querySelector('.li-copy-url-btn')?.addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            const url = panel.querySelector('.li-url-input')?.value;
+            if (!url) return;
+            navigator.clipboard.writeText(url).then(() => {
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = original; }, 2000);
+            });
+        });
+
+        panel.querySelector('.li-copy-config-btn')?.addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            const text = panel.querySelector('.li-raw-config')?.textContent || '';
+            navigator.clipboard.writeText(text).then(() => {
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = original; }, 2000);
+            });
+        });
+
+        if (!this._layerInfoState.isEditing) return;
+
+        panel.querySelector('.li-title-input')?.addEventListener('input', (e) => {
+            this._layerInfoState.layer.title = e.target.value;
+            this._syncLayerInfoFieldsToRaw();
+        });
+
+        panel.querySelector('.li-id-input')?.addEventListener('input', (e) => {
+            this._layerInfoState.layer.id = e.target.value;
+            this._syncLayerInfoFieldsToRaw();
+        });
+
+        panel.querySelector('.li-description-input')?.addEventListener('input', (e) => {
+            this._layerInfoState.layer.description = e.target.value;
+            this._syncLayerInfoFieldsToRaw();
+        });
+
+        panel.querySelectorAll('.li-field-input').forEach(input => {
+            input.addEventListener('input', () => this._syncLayerInfoFieldsToRaw());
+            input.addEventListener('change', () => this._syncLayerInfoFieldsToRaw());
+        });
+
+        panel.querySelector('.li-raw-config')?.addEventListener('input', () => this._syncLayerInfoRawToFields());
+    }
+
+    /**
+     * Field edits win over the raw JSON view — read every .li-field-input plus the
+     * title/id/description inputs, merge them into the working layer object, and
+     * refresh the <pre> to match (mirrors map-information.html's syncToRawConfig).
+     */
+    _syncLayerInfoFieldsToRaw() {
+        const panel = this._layerInfoPanel;
+        const updated = { ...this._layerInfoState.layer };
+
+        panel.querySelectorAll('.li-field-input').forEach(input => {
+            const field = input.dataset.field;
+            let value = input.value;
+
+            if (input.tagName === 'SELECT') {
+                value = value === 'true';
+            } else if (input.type === 'number') {
+                value = value === '' ? undefined : parseFloat(value);
+            } else if (input.tagName === 'TEXTAREA') {
+                try {
+                    value = JSON.parse(value);
+                } catch (e) {
+                    return; // Leave this field's raw text as typed until it's valid JSON.
+                }
+            }
+
+            if (value !== undefined && value !== '') {
+                updated[field] = value;
+            } else {
+                delete updated[field];
+            }
+        });
+
+        this._layerInfoState.layer = updated;
+        this._layerInfoState.hasChanges = true;
+
+        const rawEl = panel.querySelector('.li-raw-config');
+        if (rawEl) rawEl.textContent = JSON.stringify(this._filterLayerForDisplay(updated), null, 2);
+    }
+
+    /**
+     * Raw JSON edits win over the fields — parse the <pre>, adopt it as the working
+     * layer object, and repopulate the individual inputs (mirrors map-information.html's
+     * validateAndSyncFromRaw). Invalid JSON blocks Apply but doesn't touch the fields.
+     */
+    _syncLayerInfoRawToFields() {
+        const panel = this._layerInfoPanel;
+        const rawEl = panel.querySelector('.li-raw-config');
+        const errorEl = panel.querySelector('.li-json-error');
+        if (!rawEl) return;
+
+        try {
+            const parsed = JSON.parse(rawEl.textContent);
+            this._layerInfoState.layer = parsed;
+            this._layerInfoState.hasChanges = true;
+            this._layerInfoState.jsonInvalid = false;
+
+            rawEl.style.borderColor = '#1f2937';
+            if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
+
+            const titleInput = panel.querySelector('.li-title-input');
+            if (titleInput) titleInput.value = parsed.title || '';
+            const idInput = panel.querySelector('.li-id-input');
+            if (idInput) idInput.value = parsed.id || '';
+            const descInput = panel.querySelector('.li-description-input');
+            if (descInput) descInput.value = parsed.description || '';
+
+            panel.querySelectorAll('.li-field-input').forEach(input => {
+                const value = parsed[input.dataset.field];
+                if (value === undefined) return;
+                input.value = (input.tagName === 'TEXTAREA' && typeof value === 'object')
+                    ? JSON.stringify(value, null, 2)
+                    : value;
+            });
+        } catch (e) {
+            this._layerInfoState.jsonInvalid = true;
+            rawEl.style.borderColor = '#ef4444';
+            if (errorEl) { errorEl.style.display = 'block'; errorEl.textContent = `Invalid JSON: ${e.message}`; }
+        }
+    }
+
+    /**
+     * Entering edit mode just re-renders with editable fields. Leaving it applies
+     * changes (posts 'update-layer' and closes the panel, matching map-information.html's
+     * applyChanges) only if something actually changed - otherwise it's a no-op cancel
+     * back to view mode.
+     */
+    _toggleLayerInfoEditMode() {
+        const state = this._layerInfoState;
+        if (!state) return;
+
+        if (!state.isEditing) {
+            state.isEditing = true;
+            this._renderLayerInfoPanel();
+            return;
+        }
+
+        if (!state.hasChanges) {
+            state.isEditing = false;
+            this._renderLayerInfoPanel();
+            return;
+        }
+
+        if (state.jsonInvalid) {
+            alert('Cannot apply changes: Invalid JSON in raw configuration');
+            return;
+        }
+
+        window.postMessage({ type: 'update-layer', layer: state.layer }, '*');
+        this._hideLayerInfoPanel();
     }
 
     /**

@@ -559,41 +559,14 @@ export class MapFeatureControl {
     }
 
     /**
-     * Open layer information modal
+     * Layer info is rendered by MapMarkerManager's inline panel (map-marker-manager.js)
+     * rather than the old map-information.html iframe modal. The panel posts the same
+     * 'update-layer'/'remove-layer'/'close-layer-info' message types the iframe used to,
+     * so the 'remove-layer' case in _setupMessageListener above still handles removal
+     * unchanged; 'update-layer' has no listener in this context, matching prior behavior.
      */
     _openLayerInfo(layer, options = {}) {
-        const modal = document.getElementById('layer-info-modal');
-        const iframe = document.getElementById('layer-info-iframe');
-
-        if (!modal || !iframe) {
-            console.warn('Layer info modal not found in page');
-            return;
-        }
-
-        const layerJson = encodeURIComponent(JSON.stringify(layer));
-        const editParam = options.edit ? '&edit=true' : '';
-        iframe.src = `map-information.html?layer=${layerJson}${editParam}`;
-        modal.style.display = 'block';
-
-        const closeHandler = (e) => {
-            if (e.data.type === 'close-layer-info') {
-                modal.style.display = 'none';
-                iframe.src = '';
-                window.removeEventListener('message', closeHandler);
-            }
-        };
-
-        const keyHandler = (e) => {
-            if (e.key === 'Escape') {
-                modal.style.display = 'none';
-                iframe.src = '';
-                document.removeEventListener('keydown', keyHandler);
-                window.removeEventListener('message', closeHandler);
-            }
-        };
-
-        window.addEventListener('message', closeHandler);
-        document.addEventListener('keydown', keyHandler);
+        this._markerManager?.showLayerInfo(layer, options);
     }
 
     /**

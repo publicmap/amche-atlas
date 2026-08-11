@@ -152,8 +152,8 @@ export class KeyboardController {
             return;
         }
 
-        const layerInfoModal = document.getElementById('layer-info-modal');
-        if (layerInfoModal && layerInfoModal.style.display !== 'none') {
+        const layerInfoPanel = document.querySelector('.marker-layer-info-panel');
+        if (layerInfoPanel && layerInfoPanel.style.display !== 'none') {
             window.postMessage({ type: 'close-layer-info' }, '*');
             this.focusMap();
             return;

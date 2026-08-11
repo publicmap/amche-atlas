@@ -185,6 +185,11 @@ export class ShortcutMenu {
                 action: () => window.featureControl?._showPanel()
             },
             {
+                icon: 'chat-left-text',
+                label: 'Comments',
+                action: () => this._addCommentAtLocation()
+            },
+            {
                 icon: 'trash',
                 label: 'Remove all layers',
                 action: () => window.browserControl?.hideAllLayers()
@@ -267,6 +272,51 @@ export class ShortcutMenu {
             console.error('[ShortcutMenu] Failed to publish GeoLibre project:', error);
             window.layerControl?._showToast('Could not open GeoLibre — publishing failed', 'error');
         }
+    }
+
+    /**
+     * Turns on the notes layer and opens the same "Add Note" popup form used
+     * when clicking an empty spot on the map (map-marker-manager.js), pre-filled
+     * for the location the shortcut menu was opened at.
+     */
+    _addCommentAtLocation() {
+        if (!this._lngLat) return;
+
+        this._enableLayer('notes');
+
+        const markerManager = window.featureControl?._markerManager;
+        if (!markerManager) return;
+
+        const markerId = markerManager.addMarker(this._lngLat, [], { showPopup: true });
+
+        // _showMarkerPopup wires up the popup's own button listeners (including
+        // the add-note form) on its own setTimeout(0); queue after that so the
+        // button exists by the time we click it.
+        setTimeout(() => {
+            const popupElement = markerManager._markers.get(markerId)?.popup?.getElement();
+            popupElement?.querySelector('.add-note-btn')?.click();
+
+            const select = popupElement?.querySelector('.note-layer-select');
+            if (select?.querySelector('option[value="notes"]')) {
+                select.value = 'notes';
+            }
+        }, 0);
+    }
+
+    _enableLayer(layerId) {
+        const layerControl = window.layerControl;
+        if (!layerControl) return;
+
+        const groupIndex = layerControl._state.groups.findIndex(g => g.id === layerId);
+        if (groupIndex === -1) return;
+
+        const groupElement = layerControl._sourceControls[groupIndex];
+        const checkbox = groupElement?.querySelector('.toggle-switch input[type="checkbox"]');
+        if (checkbox?.checked) return;
+
+        if (checkbox) checkbox.checked = true;
+        groupElement?.show?.();
+        layerControl._toggleLayerGroup(groupIndex, true);
     }
 
     _handleContextMenu(e) {

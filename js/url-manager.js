@@ -1235,7 +1235,11 @@ export class URLManager {
             }
 
             // Handle selected features parameter
-            if (hasLocationClick && window.location.hash) {
+            // markers= is the more specific/authoritative param — a bare `selected`
+            // flag is redundant noise when markers= is present and must not hijack
+            // this branch into firing a single synthetic click instead of restoring
+            // every marker.
+            if (hasLocationClick && window.location.hash && !markersParam) {
                 applied = true;
                 await this.applyLocationClickFromURL();
             } else if ((markersParam || selectedParam) && this.stateManager) {
