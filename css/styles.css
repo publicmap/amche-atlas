@@ -664,20 +664,34 @@ body {
 
 .shortcut-menu-item.is-checked {
     color: #93c5fd;
+    background: rgba(59, 130, 246, 0.12);
 }
 
-.shortcut-menu-item.is-checked sl-icon:not(.shortcut-menu-check) {
+.shortcut-menu-item.is-checked:hover {
+    background: rgba(59, 130, 246, 0.2);
+}
+
+.shortcut-menu-item.is-checked sl-icon:not(.shortcut-menu-chevron) {
     color: #3b82f6;
 }
 
-.shortcut-menu-check {
-    color: #3b82f6 !important;
-    visibility: hidden;
+.shortcut-menu-chevron {
+    color: #6b7280 !important;
+    font-size: 12px !important;
 }
 
-.shortcut-menu-item.is-checked .shortcut-menu-check {
-    visibility: visible;
+.shortcut-menu-state {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #6b7280;
 }
+
+.shortcut-menu-item.is-checked .shortcut-menu-state {
+    color: #3b82f6;
+}
+
 
 .mapboxgl-ctrl.mapboxgl-ctrl-attrib {
     background-color: #ffffffe1;
@@ -721,11 +735,28 @@ body {
 }
 
 .mapboxgl-ctrl-attrib.is-expanded .attrib-item.has-actions {
-    padding-right: 150px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 8px;
+    align-items: baseline;
 }
 
 .mapboxgl-ctrl-attrib.is-expanded .attrib-item:hover {
     background-color: #ffffff;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-main {
+    min-width: 0;
+}
+
+@media (max-width: 640px) {
+    .mapboxgl-ctrl-attrib.is-expanded .attrib-item.has-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .mapboxgl-ctrl-attrib.is-expanded .attrib-actions {
+        justify-self: start;
+    }
 }
 
 .attrib-item:not(:last-child)::after {
@@ -760,9 +791,8 @@ body {
 
 .mapboxgl-ctrl-attrib.is-expanded .attrib-actions {
     display: block;
-    position: absolute;
-    top: 0;
-    right: 0;
+    white-space: nowrap;
+    justify-self: end;
     visibility: hidden;
     transition: none;
 }

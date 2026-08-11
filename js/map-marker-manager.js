@@ -552,11 +552,27 @@ export class MapMarkerManager {
     }
 
     /**
+     * The notes group header IS its own visibility toggle (see shortcut-menu.js
+     * _getNotesGroupElement) — expanding its <sl-details> turns the layer on.
+     * Mirrors that same check so the comment box only appears while notes is active.
+     */
+    _isNotesLayerActive() {
+        const groups = window.layerControl?._state?.groups;
+        if (!groups) return false;
+        const groupIndex = groups.findIndex(g => g.id === 'notes');
+        if (groupIndex === -1) return false;
+        return !!window.layerControl._sourceControls?.[groupIndex]?.open;
+    }
+
+    /**
      * Every marker balloon leads with an inline comment box, prefilled from a
      * notes-layer feature already selected at this point (if any) so an
      * existing note is editable in place instead of behind a separate form.
+     * Only shown while the notes layer itself is active.
      */
     _buildCommentSectionHTML(features) {
+        if (!this._isNotesLayerActive()) return '';
+
         const noteEntry = (features || []).find(f => {
             const layerConfig = this._stateManager.getLayerConfig(f.layerId);
             return layerConfig?.type === 'csv' && (layerConfig.saveUrl || window.GOOGLE_SHEETS_SAVE_URL);
@@ -1671,6 +1687,41 @@ export class MapMarkerManager {
         setTimeout(() => {
             this._isProgrammaticZoom = false;
         }, 700);
+    }
+
+    /**
+     * Fits the camera to a set of selected features — either just the marker
+     * near `lngLat` (e.g. opened via that marker's own shortcut trigger) if
+     * it has any, or every marker's features on the map otherwise. Markers
+     * with no features (empty-map-click pins) still fold their point into the
+     * bounds so a lone pin is at least centered/visible.
+     */
+    zoomToSelected(lngLat) {
+        if (!this._map || this._markers.size === 0) return;
+
+        let markers = [...this._markers.values()];
+        if (lngLat) {
+            const markerId = this.findMarkerNear(lngLat);
+            const markerData = markerId ? this._markers.get(markerId) : null;
+            if (markerData?.features.length > 0) {
+                markers = [markerData];
+            }
+        }
+
+        let bounds = null;
+        markers.forEach(markerData => {
+            if (markerData.features.length > 0) {
+                markerData.features.forEach(f => {
+                    bounds = CameraUtils.extendBbox(bounds, CameraUtils.computeGeojsonBbox(f.feature));
+                });
+            } else {
+                const { lng, lat } = markerData.lngLat;
+                bounds = CameraUtils.extendBbox(bounds, [lng, lat, lng, lat]);
+            }
+        });
+
+        if (!bounds) return;
+        CameraUtils.fitBounds(this._map, bounds, { duration: 1000 });
     }
 
     _zoomToFeature(feature) {

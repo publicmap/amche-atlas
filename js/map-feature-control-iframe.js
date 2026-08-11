@@ -26,6 +26,7 @@ export class MapFeatureControl {
         this._config = null;
         this._globalHandlersAdded = false;
         this._isMapDragging = false;
+        this._autoSelectEnabled = true;
         this._isIframeReady = false;
         this._messageQueue = [];
         this._inspectorInitialized = false;
@@ -134,6 +135,37 @@ export class MapFeatureControl {
 
     isAddSelectionModeEnabled() {
         return this._markerManager?.getSelectionMode?.() === 'add';
+    }
+
+    /**
+     * When off, map clicks no longer run the select/place-marker pipeline
+     * (see the `force` guard in _processClickAtPoint) — selection then only
+     * happens through the shortcut menu's manual "Select features" action.
+     */
+    setAutoSelectEnabled(enabled) {
+        this._autoSelectEnabled = !!enabled;
+    }
+
+    isAutoSelectEnabled() {
+        return this._autoSelectEnabled;
+    }
+
+    clearSelection() {
+        this._stateManager?.clearAllSelections();
+    }
+
+    zoomToSelected(lngLat) {
+        this._markerManager?.zoomToSelected(lngLat);
+    }
+
+    /**
+     * Manually runs the click-selection pipeline at an arbitrary lngLat,
+     * bypassing the Auto Select gate — used by the shortcut menu's
+     * "Select features" action.
+     */
+    triggerSelectionAt(lngLat) {
+        if (!this._map || !lngLat) return;
+        this._processClickAtPoint(this._map.project(lngLat), lngLat, { force: true });
     }
 
     /**
@@ -2098,7 +2130,9 @@ export class MapFeatureControl {
      * @param {{x:number,y:number}} point - screen point
      * @param {{lng:number,lat:number}} lngLat - geographic coordinate
      */
-    _processClickAtPoint(point, lngLat) {
+    _processClickAtPoint(point, lngLat, { force = false } = {}) {
+        if (!force && !this._autoSelectEnabled) return;
+
         let interactiveFeatures = [];
         try {
             // Scope the query to interactive layers so clicks don't intersect

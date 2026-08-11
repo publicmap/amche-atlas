@@ -669,7 +669,7 @@ export class MapAttributionControl {
                 const thumbHtml = layer ? this._buildThumbnailHTML(layer) : '';
                 const actionsHtml = layer ? this._buildActionsHTML() : '';
                 const itemClass = layer ? 'attrib-item has-actions' : 'attrib-item';
-                processed.push(`<span class="${itemClass}" data-attrib-idx="${idx}">${thumbHtml}<span class="attrib-label">${esc(label)}: </span>${tempDiv.innerHTML.trim()}${actionsHtml}</span>`);
+                processed.push(`<span class="${itemClass}" data-attrib-idx="${idx}"><span class="attrib-main">${thumbHtml}<span class="attrib-label">${esc(label)}: </span>${tempDiv.innerHTML.trim()}</span>${actionsHtml}</span>`);
             });
 
             // Rebuild the static (source) attribution items inside the content wrapper.

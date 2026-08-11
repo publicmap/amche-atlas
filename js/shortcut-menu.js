@@ -82,6 +82,8 @@ export class ShortcutMenu {
 
         this._menu?.parentNode?.removeChild(this._menu);
         this._menu = null;
+        this._submenu?.parentNode?.removeChild(this._submenu);
+        this._submenu = null;
         this._map = null;
     }
 
@@ -162,6 +164,55 @@ export class ShortcutMenu {
 
         const items = [
             {
+                id: 'selection-menu',
+                icon: 'cursor',
+                label: 'Selection',
+                children: [
+                    {
+                        id: 'select-features',
+                        icon: 'crosshair',
+                        label: 'Select features',
+                        action: () => this._selectFeaturesAtPoint()
+                    },
+                    {
+                        id: 'zoom-to-selected',
+                        icon: 'bounding-box',
+                        label: 'Zoom To Selected',
+                        action: () => window.featureControl?.zoomToSelected(this._lngLat)
+                    },
+                    {
+                        id: 'toggle-multi-select',
+                        icon: 'plus-circle-dotted',
+                        iconChecked: 'plus-circle-fill',
+                        label: 'Multi Select',
+                        checkable: true,
+                        checked: () => window.featureControl?.isAddSelectionModeEnabled?.() || false,
+                        action: () => {
+                            const enabled = !window.featureControl?.isAddSelectionModeEnabled();
+                            window.featureControl?.setAddSelectionMode(enabled);
+                        }
+                    },
+                    {
+                        id: 'toggle-auto-select',
+                        icon: 'lightning-charge',
+                        iconChecked: 'lightning-charge-fill',
+                        label: 'Auto Select',
+                        checkable: true,
+                        checked: () => window.featureControl?.isAutoSelectEnabled?.() ?? true,
+                        action: () => {
+                            const enabled = !(window.featureControl?.isAutoSelectEnabled?.() ?? true);
+                            window.featureControl?.setAutoSelectEnabled(enabled);
+                        }
+                    },
+                    {
+                        id: 'clear-selection',
+                        icon: 'x-circle',
+                        label: 'Clear Selection',
+                        action: () => window.featureControl?.clearSelection()
+                    }
+                ]
+            },
+            {
                 icon: 'badge-3d',
                 label: '3D View',
                 action: () => window.terrain3DControl?.showPanel()
@@ -199,20 +250,32 @@ export class ShortcutMenu {
                 icon: 'globe',
                 label: 'Open with GeoLibre',
                 action: () => this._openWithGeoLibre()
-            },
-            {
-                id: 'select-multiple-features',
-                icon: 'plus-circle-dotted',
-                iconChecked: 'plus-circle-fill',
-                label: 'Select multiple features',
-                checkable: true,
-                action: () => {
-                    const enabled = !window.featureControl?.isAddSelectionModeEnabled();
-                    window.featureControl?.setAddSelectionMode(enabled);
-                }
             }
         ];
 
+        this._menuButtons = [];
+        this._buildMenuItems(this._menu, items, this._menuButtons, true);
+        this._items = items;
+        document.body.appendChild(this._menu);
+
+        this._submenu = document.createElement('div');
+        this._submenu.className = 'shortcut-menu shortcut-submenu';
+        this._submenu.style.display = 'none';
+        document.body.appendChild(this._submenu);
+        this._submenuButtons = [];
+        this._openSubmenuId = null;
+    }
+
+    /**
+     * Renders a flat list of menu items (top-level or a submenu) into `container`.
+     * Items with `children` open a nested submenu on hover or click instead of
+     * running an action; checkable leaf items get a checkbox indicator kept in
+     * sync by _updateCheckedStates via each item's own `checked()` accessor.
+     * `isTopLevel` items close any open submenu when hovered, so moving across
+     * unrelated top-level items dismisses a sibling's flyout (touch has no
+     * hover, so click-to-toggle below still covers that case).
+     */
+    _buildMenuItems(container, items, trackInto, isTopLevel) {
         items.forEach(item => {
             const button = document.createElement('button');
             button.type = 'button';
@@ -228,23 +291,86 @@ export class ShortcutMenu {
             button.appendChild(label);
 
             if (item.checkable) {
-                const check = document.createElement('sl-icon');
-                check.className = 'shortcut-menu-check';
-                check.setAttribute('name', 'check-lg');
-                button.appendChild(check);
+                const state = document.createElement('span');
+                state.className = 'shortcut-menu-state';
+                button.appendChild(state);
             }
 
-            button.addEventListener('click', (e) => {
-                e.stopPropagation();
-                item.action();
-                this._hide();
-            });
+            if (item.children) {
+                const chevron = document.createElement('sl-icon');
+                chevron.className = 'shortcut-menu-chevron';
+                chevron.setAttribute('name', 'chevron-right');
+                button.appendChild(chevron);
 
-            this._menu.appendChild(button);
+                button.addEventListener('mouseenter', () => {
+                    if (this._openSubmenuId !== item.id) this._showSubmenuFor(item, button);
+                });
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (this._openSubmenuId === item.id) {
+                        this._closeSubmenu();
+                    } else {
+                        this._showSubmenuFor(item, button);
+                    }
+                });
+            } else {
+                if (isTopLevel) {
+                    button.addEventListener('mouseenter', () => this._closeSubmenu());
+                }
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    item.action();
+                    this._hide();
+                });
+            }
+
+            trackInto.push({ button, item });
+            container.appendChild(button);
         });
+    }
 
-        this._items = items;
-        document.body.appendChild(this._menu);
+    /**
+     * Opens `item`'s submenu flyout next to `button` (flipping to the left
+     * when it wouldn't fit on the right).
+     */
+    _showSubmenuFor(item, button) {
+        this._submenu.innerHTML = '';
+        this._submenuButtons = [];
+        this._buildMenuItems(this._submenu, item.children, this._submenuButtons, false);
+        this._updateCheckedStates();
+
+        this._submenu.style.display = 'block';
+        this._openSubmenuId = item.id;
+
+        const buttonRect = button.getBoundingClientRect();
+        const submenuRect = this._submenu.getBoundingClientRect();
+
+        let left = buttonRect.right + 4;
+        if (left + submenuRect.width > window.innerWidth - 8) {
+            left = buttonRect.left - submenuRect.width - 4;
+        }
+        const maxTop = window.innerHeight - submenuRect.height - 8;
+
+        this._submenu.style.left = `${Math.max(8, left)}px`;
+        this._submenu.style.top = `${Math.max(8, Math.min(buttonRect.top, maxTop))}px`;
+    }
+
+    _closeSubmenu() {
+        if (this._submenu) {
+            this._submenu.style.display = 'none';
+            this._submenu.innerHTML = '';
+        }
+        this._submenuButtons = [];
+        this._openSubmenuId = null;
+    }
+
+    /**
+     * Runs the manual selection trigger for "Select features" — the only way
+     * to select/place a marker at a point while Toggle Auto Select is off.
+     */
+    _selectFeaturesAtPoint() {
+        if (!this._lngLat) return;
+        window.featureControl?.triggerSelectionAt(this._lngLat);
     }
 
     /**
@@ -335,12 +461,15 @@ export class ShortcutMenu {
     }
 
     _updateCheckedStates() {
-        const enabled = window.featureControl?.isAddSelectionModeEnabled?.() || false;
-        this._menu.querySelectorAll('.shortcut-menu-item').forEach(button => {
-            const item = this._items.find(i => i.id === button.dataset.itemId);
-            if (!item || !item.checkable) return;
-            button.classList.toggle('is-checked', enabled);
-            button.querySelector('sl-icon:not(.shortcut-menu-check)').setAttribute('name', enabled ? item.iconChecked : item.icon);
+        [...this._menuButtons, ...this._submenuButtons].forEach(({ button, item }) => {
+            if (!item.checkable) return;
+            const isChecked = !!item.checked?.();
+            button.classList.toggle('is-checked', isChecked);
+            if (item.iconChecked) {
+                button.querySelector('sl-icon:not(.shortcut-menu-chevron)').setAttribute('name', isChecked ? item.iconChecked : item.icon);
+            }
+            const stateLabel = button.querySelector('.shortcut-menu-state');
+            if (stateLabel) stateLabel.textContent = isChecked ? 'ON' : 'OFF';
         });
 
         const commentsButton = this._menu.querySelector('[data-item-id="toggle-comments"]');
@@ -365,6 +494,7 @@ export class ShortcutMenu {
 
     _hide() {
         if (this._menu) this._menu.style.display = 'none';
+        this._closeSubmenu();
     }
 
     _isOpen() {
@@ -374,6 +504,7 @@ export class ShortcutMenu {
     _handleOutsideEvent(e) {
         if (!this._isOpen()) return;
         if (this._menu.contains(e.target)) return;
+        if (this._submenu?.contains(e.target)) return;
         this._hide();
     }
 
