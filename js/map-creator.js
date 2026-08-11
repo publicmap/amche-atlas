@@ -5,6 +5,7 @@ import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { StreamingGPKGReader } from './streaming-gpkg-reader.js';
 import { AllmapsAPI } from './allmaps-url-api.js';
 import { OSMApi } from './osm-url-api.js';
+import * as GoogleSheetsAPI from './google-sheets-api.js';
 
 export class MapCreator {
     constructor() {
@@ -1019,42 +1020,6 @@ export class MapCreator {
         return url;
     }
 
-    parseGoogleSheetsHTML(html) {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const table = doc.querySelector('table.waffle');
-        if (!table) {
-            throw new Error('No Google Sheets data table found in HTML response');
-        }
-
-        const extractCells = (tr) => Array.from(tr.querySelectorAll('td')).map(td => {
-            td.querySelectorAll('br').forEach(br => br.replaceWith(' '));
-            return td.textContent.replace(/\s+/g, ' ').trim();
-        });
-
-        const trs = Array.from(table.querySelectorAll('tbody tr'));
-        if (trs.length < 2) {
-            throw new Error('Google Sheets HTML has no data rows');
-        }
-
-        const rawHeaders = extractCells(trs[0]);
-        let lastIdx = rawHeaders.length - 1;
-        while (lastIdx >= 0 && !rawHeaders[lastIdx]) lastIdx--;
-        const headers = rawHeaders.slice(0, lastIdx + 1);
-        if (!headers.length) {
-            throw new Error('Google Sheets HTML has no header row');
-        }
-
-        return trs.slice(1)
-            .map(tr => {
-                const cells = extractCells(tr);
-                const row = {};
-                headers.forEach((h, i) => { row[h] = cells[i] || ''; });
-                return row;
-            })
-            .filter(row => Object.values(row).some(v => v !== ''));
-    }
-
     isCSVUrl(url) {
         const urlLower = url.toLowerCase();
         if (urlLower.endsWith('.csv')) {
@@ -1070,65 +1035,27 @@ export class MapCreator {
     }
 
     isGoogleSheetUrl(url) {
-        return typeof url === 'string' && url.includes('docs.google.com/spreadsheets');
+        return GoogleSheetsAPI.isGoogleSheetUrl(url);
     }
 
     extractGoogleSpreadsheetId(url) {
-        const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-        return match ? match[1] : null;
+        return GoogleSheetsAPI.extractSpreadsheetId(url);
     }
 
     buildGoogleSheetCsvUrl(spreadsheetId, gid) {
-        return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`;
+        return GoogleSheetsAPI.buildCsvUrl(spreadsheetId, gid);
     }
 
-    // Lists every tab of a Google Sheet (name + gid) by scraping the public
-    // /htmlview page, which embeds a `items.push({name, pageUrl, gid, ...})`
-    // call per tab for its sheet-switcher widget. Works for any sheet shared
-    // as "Anyone with the link can view" - no publish-to-web or API key needed.
     async fetchGoogleSheetTabs(spreadsheetId) {
-        const response = await fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/htmlview`);
-        if (!response.ok) {
-            throw new Error('Could not load the list of sheet tabs');
-        }
-        const html = await response.text();
-        const tabs = [];
-        const re = /items\.push\(\{name:\s*"((?:\\.|[^"\\])*)",\s*pageUrl:\s*"(?:\\.|[^"\\])*",\s*gid:\s*"(-?\d+)"/g;
-        let m;
-        while ((m = re.exec(html)) !== null) {
-            tabs.push({ name: m[1].replace(/\\(.)/g, '$1'), gid: m[2] });
-        }
-        return tabs;
+        return GoogleSheetsAPI.fetchSheetTabs(spreadsheetId);
     }
 
     async fetchCsvRows(url) {
-        const response = await fetch(url);
-        const csvText = await response.text();
-        const looksLikeHTML = /^\s*<(!doctype|html|head|meta)/i.test(csvText);
-        return (looksLikeHTML && this.isGoogleSheetUrl(url))
-            ? this.parseGoogleSheetsHTML(csvText)
-            : DataUtils.parseCSV(csvText);
+        return GoogleSheetsAPI.fetchCsvRows(url);
     }
 
-    // Fetches every tab's CSV and concatenates the rows. `$row` (the
-    // auto-generated per-tab line number - see DataUtils.parseCSV) is
-    // rewritten with the tab's gid so ids stay unique across the merged set,
-    // and each row is tagged with its source tab name for context.
     async fetchAllGoogleSheetRows(spreadsheetId, tabs) {
-        const allRows = [];
-        for (const tab of tabs) {
-            try {
-                const rows = await this.fetchCsvRows(this.buildGoogleSheetCsvUrl(spreadsheetId, tab.gid));
-                rows.forEach(row => {
-                    if (row['$row'] !== undefined) row['$row'] = `${tab.gid}-${row['$row']}`;
-                    row['Sheet'] = tab.name;
-                });
-                allRows.push(...rows);
-            } catch (error) {
-                console.warn(`[MapCreator] Failed to load sheet "${tab.name}" (gid=${tab.gid}):`, error);
-            }
-        }
-        return allRows;
+        return GoogleSheetsAPI.fetchAllSheetRows(spreadsheetId, tabs);
     }
 
     onUrlInputForGoogleSheets(url) {
@@ -1414,7 +1341,7 @@ export class MapCreator {
                     const csvText = await response.text();
                     const looksLikeHTML = /^\s*<(!doctype|html|head|meta)/i.test(csvText);
                     const rows = (looksLikeHTML && this.isGoogleSheetUrl(url))
-                        ? this.parseGoogleSheetsHTML(csvText)
+                        ? GoogleSheetsAPI.parseSheetsHTML(csvText)
                         : DataUtils.parseCSV(csvText);
                     this.finishCSVLoad(url, rows, false);
                 } else {

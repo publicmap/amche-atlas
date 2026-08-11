@@ -1490,7 +1490,11 @@
         </main>
     </div>
 
-    <!-- Layer info is rendered by MapMarkerManager's inline panel (see map-marker-manager.js showLayerInfo) -->
+    <!-- Layer Information Modal -->
+    <div id="layer-info-modal"
+        style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10000; background: #0f172a;">
+        <iframe id="layer-info-iframe" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
 </body>
 
 </html>

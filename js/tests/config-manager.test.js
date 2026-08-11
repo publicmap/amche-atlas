@@ -64,9 +64,10 @@ describe('ConfigManager', () => {
     describe('getAllLayerTypes', () => {
         it('should return all layer types', () => {
             const types = ConfigManager.getAllLayerTypes();
-            expect(types).toHaveLength(10);
+            expect(types).toHaveLength(11);
             expect(types).toContain('vector');
             expect(types).toContain('geojson');
+            expect(types).toContain('sheet');
         });
     });
 

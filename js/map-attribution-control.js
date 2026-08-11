@@ -351,10 +351,11 @@ export class MapAttributionControl {
     }
 
     /**
-     * Clicking a layer's thumbnail/name opens its layer info panel; clicking the
-     * hover actions triggers the select/edit/remove behaviors. All go through the
-     * same postMessage conventions used elsewhere (LayerThumbnail, map-marker-manager.js),
-     * where MapMarkerManager's showLayerInfo renders the panel inline.
+     * Clicking a layer's thumbnail/name opens its map-information.html panel;
+     * clicking the hover actions triggers the select/edit/remove behaviors.
+     * All go through the same postMessage conventions used elsewhere
+     * (LayerThumbnail, map-marker-manager.js) — index.html already has the
+     * #layer-info-modal/#layer-info-iframe pair and remove-layer listener.
      */
     _handleItemClick(e) {
         if (!this._expanded) return;

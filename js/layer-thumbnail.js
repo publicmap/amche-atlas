@@ -782,6 +782,7 @@ export class LayerThumbnail {
             'vector': '🔷',
             'geojson': '📍',
             'csv': '📊',
+            'sheet': '📑',
             'tms': '🗺️',
             'raster-style-layer': '🖼️',
             'style': '🎨'
@@ -825,6 +826,7 @@ export class LayerThumbnail {
             'vector': { label: 'Vector', color: '#3b82f6', bg: '#eff6ff' },
             'geojson': { label: 'GeoJSON', color: '#10b981', bg: '#d1fae5' },
             'csv': { label: 'CSV', color: '#f59e0b', bg: '#fef3c7' },
+            'sheet': { label: 'Sheet', color: '#f59e0b', bg: '#fef3c7' },
             'tms': { label: 'Raster', color: '#8b5cf6', bg: '#f5f3ff' },
             'raster-style-layer': { label: 'Style', color: '#6b7280', bg: '#f3f4f6' },
             'style': { label: 'Style', color: '#6b7280', bg: '#f3f4f6' }

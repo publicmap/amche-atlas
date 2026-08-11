@@ -132,19 +132,20 @@ export class CameraUtils {
 
     /**
      * True for layer types whose map source ends up holding GeoJSON that a
-     * bbox can be computed from once loaded (geojson/csv/js — a `js` layer's
-     * data function ultimately populates the same `geojson-${id}` source).
+     * bbox can be computed from once loaded (geojson/csv/sheet/js — a `js`
+     * layer's data function ultimately populates the same `geojson-${id}`
+     * source, and `sheet` reuses `csv`'s `csv-${id}` source).
      * Overpass layers are deliberately excluded — their query commonly
      * depends on the current viewport via a `{{bbox}}` placeholder, so
      * fitting the camera to their result would be circular.
      */
     static isGeojsonBackedType(layer) {
-        return !!layer && (layer.type === 'geojson' || layer.type === 'csv' || layer.type === 'js');
+        return !!layer && (layer.type === 'geojson' || layer.type === 'csv' || layer.type === 'sheet' || layer.type === 'js');
     }
 
-    /** The Mapbox source id MapboxAPI creates for a geojson/csv-backed layer. */
+    /** The Mapbox source id MapboxAPI creates for a geojson/csv/sheet-backed layer. */
     static sourceIdForLayer(layer) {
-        return layer.type === 'csv' ? `csv-${layer.id}` : `geojson-${layer.id}`;
+        return (layer.type === 'csv' || layer.type === 'sheet') ? `csv-${layer.id}` : `geojson-${layer.id}`;
     }
 
     static fitBounds(map, bbox, options = {}) {

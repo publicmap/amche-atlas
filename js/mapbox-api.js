@@ -9,6 +9,7 @@ import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { OverpassLoader } from './overpass-loader.js';
 import ConfigManager from './config-manager.js';
 import { handlerLoader } from './inspection-handler-loader.js';
+import * as GoogleSheetsAPI from './google-sheets-api.js';
 
 const COG_PROVIDER_URL = new URL('./cog-tile-provider.js', import.meta.url).href;
 let _cogProviderRegistered = false;
@@ -425,6 +426,8 @@ export class MapboxAPI {
                     return this._createOverpassLayer(groupId, config, visible);
                 case 'csv':
                     return this._createCSVLayer(groupId, config, visible);
+                case 'sheet':
+                    return this._createSheetLayer(groupId, config, visible);
                 case 'img':
                     return this._createImageLayer(groupId, config, visible);
                 case 'raster-style-layer':
@@ -478,6 +481,7 @@ export class MapboxAPI {
                 case 'overpass':
                     return this._updateOverpassLayerVisibility(groupId, config, visible);
                 case 'csv':
+                case 'sheet':
                     return this._updateCSVLayerVisibility(groupId, config, visible);
                 case 'img':
                     return this._updateImageLayerVisibility(groupId, config, visible);
@@ -534,6 +538,7 @@ export class MapboxAPI {
                 case 'overpass':
                     return this._removeOverpassLayer(groupId, config);
                 case 'csv':
+                case 'sheet':
                     return this._removeCSVLayer(groupId, config);
                 case 'img':
                     return this._removeImageLayer(groupId, config);
@@ -2373,6 +2378,11 @@ export class MapboxAPI {
                 const response = await fetch(config.url);
                 const csvText = await response.text();
                 this._map.getSource(sourceId).setData(this._processCSVData(csvText, config.csvParser));
+            } else if (config.type === 'sheet') {
+                const sourceId = `csv-${groupId}`;
+                if (!this._map.getSource(sourceId)) return false;
+                const geojson = await this._fetchSheetGeoJSON(config);
+                this._map.getSource(sourceId).setData(geojson);
             }
             return true;
         } catch (error) {
@@ -2459,6 +2469,90 @@ export class MapboxAPI {
             throw new Error('Invalid CSV data format');
         }
         return GeoUtils.rowsToGeoJSON(rows);
+    }
+
+    // Sheet layer methods — a "sheet" layer is a `csv` layer whose data comes
+    // from every tab of a Google Sheet merged together, instead of a single
+    // tab's export URL. It reuses the exact same source/layer plumbing as
+    // `csv` (`csv-${groupId}`) — only how the GeoJSON is fetched differs.
+    async _createSheetLayer(groupId, config, visible) {
+        if (visible && config.blink) {
+            this._setupBlinking(groupId, config);
+        }
+
+        const sourceId = `csv-${groupId}`;
+
+        if (!this._map.getSource(sourceId) && visible) {
+            try {
+                if (!config.url) {
+                    console.error('Sheet layer missing URL:', groupId);
+                    return false;
+                }
+
+                const geojson = await this._fetchSheetGeoJSON(config);
+
+                const sourceConfig = {
+                    type: 'geojson',
+                    data: geojson
+                };
+
+                if (config.inspect?.id) {
+                    sourceConfig.promoteId = config.inspect.id;
+                }
+
+                if (config.attribution) {
+                    sourceConfig.attribution = config.attribution;
+                }
+
+                this._map.addSource(sourceId, sourceConfig);
+
+                // Use the same layer creation logic as GeoJSON/CSV to support all layer types
+                await this._addGeoJSONLayers(groupId, config, sourceId, visible);
+
+                if (config.refresh) {
+                    this._setupSheetRefresh(groupId, config);
+                }
+            } catch (error) {
+                console.error(`Error loading sheet layer '${groupId}':`, error);
+                return false;
+            }
+        } else {
+            this._updateCSVLayerVisibility(groupId, config, visible);
+        }
+
+        return true;
+    }
+
+    // Fetches every tab of config.url's spreadsheet and merges them into one
+    // GeoJSON FeatureCollection (see js/google-sheets-api.js — Google's CSV
+    // export only ever returns a single tab, so this is N fetches, not one).
+    async _fetchSheetGeoJSON(config) {
+        const rows = await GoogleSheetsAPI.fetchAllRowsFromUrl(config.url);
+        return GeoUtils.rowsToGeoJSON(rows);
+    }
+
+    _setupSheetRefresh(groupId, config) {
+        if (this._refreshTimers.has(groupId)) {
+            clearInterval(this._refreshTimers.get(groupId));
+        }
+
+        const timer = setInterval(async () => {
+            const sourceId = `csv-${groupId}`;
+            if (!this._map.getSource(sourceId)) {
+                clearInterval(timer);
+                this._refreshTimers.delete(groupId);
+                return;
+            }
+
+            try {
+                const geojson = await this._fetchSheetGeoJSON(config);
+                this._map.getSource(sourceId).setData(geojson);
+            } catch (error) {
+                console.error('Error refreshing sheet layer:', error);
+            }
+        }, config.refresh);
+
+        this._refreshTimers.set(groupId, timer);
     }
 
     _setupCSVRefresh(groupId, config) {
@@ -3107,7 +3201,8 @@ export class MapboxAPI {
                     ];
                 }).filter(id => this._map.getLayer(id));
             }
-            case 'csv': {
+            case 'csv':
+            case 'sheet': {
                 const sourceId = `csv-${groupId}`;
                 return variantPrefixes.flatMap(prefix => {
                     const variantSuffix = this._getVariantSuffix(prefix);

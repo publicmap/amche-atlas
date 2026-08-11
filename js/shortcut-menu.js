@@ -185,9 +185,10 @@ export class ShortcutMenu {
                 action: () => window.featureControl?._showPanel()
             },
             {
+                id: 'toggle-comments',
                 icon: 'chat-left-text',
-                label: 'Comments',
-                action: () => this._addCommentAtLocation()
+                label: 'Show Comments',
+                action: () => this._toggleComments()
             },
             {
                 icon: 'trash',
@@ -275,48 +276,54 @@ export class ShortcutMenu {
     }
 
     /**
-     * Turns on the notes layer and opens the same "Add Note" popup form used
-     * when clicking an empty spot on the map (map-marker-manager.js), pre-filled
-     * for the location the shortcut menu was opened at.
+     * The notes layer's group header IS its own visibility toggle in this app
+     * (see map-layer-controls.js _handleGroupShow/_handleGroupHide, wired to the
+     * <sl-details>'s sl-show/sl-hide events) — expanding it turns the layer on
+     * and syncs the checkbox/URL, collapsing it turns the layer off. Driving
+     * that through .show()/.hide() (rather than flipping the checkbox and
+     * calling _toggleLayerGroup directly) is what makes both directions and
+     * the URL sync actually work.
      */
-    _addCommentAtLocation() {
+    _getNotesGroupElement() {
+        const layerControl = window.layerControl;
+        if (!layerControl) return null;
+
+        const groupIndex = layerControl._state.groups.findIndex(g => g.id === 'notes');
+        if (groupIndex === -1) return null;
+
+        return layerControl._sourceControls[groupIndex] || null;
+    }
+
+    _isNotesLayerVisible() {
+        return !!this._getNotesGroupElement()?.open;
+    }
+
+    /**
+     * Toggles the notes layer on/off. When turning it on, also focuses the
+     * comment box that leads every marker's balloon (map-marker-manager.js)
+     * for the location the shortcut menu was opened at — reusing a marker
+     * already there (e.g. one right-clicked directly) rather than creating
+     * a duplicate.
+     */
+    _toggleComments() {
+        const groupElement = this._getNotesGroupElement();
+        if (!groupElement) return;
+
+        if (groupElement.open) {
+            groupElement.hide();
+            return;
+        }
+
+        groupElement.show();
+
         if (!this._lngLat) return;
-
-        this._enableLayer('notes');
-
         const markerManager = window.featureControl?._markerManager;
         if (!markerManager) return;
 
-        const markerId = markerManager.addMarker(this._lngLat, [], { showPopup: true });
+        const markerId = markerManager.findMarkerNear(this._lngLat)
+            || markerManager.addMarker(this._lngLat, [], { showPopup: false });
 
-        // _showMarkerPopup wires up the popup's own button listeners (including
-        // the add-note form) on its own setTimeout(0); queue after that so the
-        // button exists by the time we click it.
-        setTimeout(() => {
-            const popupElement = markerManager._markers.get(markerId)?.popup?.getElement();
-            popupElement?.querySelector('.add-note-btn')?.click();
-
-            const select = popupElement?.querySelector('.note-layer-select');
-            if (select?.querySelector('option[value="notes"]')) {
-                select.value = 'notes';
-            }
-        }, 0);
-    }
-
-    _enableLayer(layerId) {
-        const layerControl = window.layerControl;
-        if (!layerControl) return;
-
-        const groupIndex = layerControl._state.groups.findIndex(g => g.id === layerId);
-        if (groupIndex === -1) return;
-
-        const groupElement = layerControl._sourceControls[groupIndex];
-        const checkbox = groupElement?.querySelector('.toggle-switch input[type="checkbox"]');
-        if (checkbox?.checked) return;
-
-        if (checkbox) checkbox.checked = true;
-        groupElement?.show?.();
-        layerControl._toggleLayerGroup(groupIndex, true);
+        markerManager.focusCommentInput(markerId);
     }
 
     _handleContextMenu(e) {
@@ -335,6 +342,12 @@ export class ShortcutMenu {
             button.classList.toggle('is-checked', enabled);
             button.querySelector('sl-icon:not(.shortcut-menu-check)').setAttribute('name', enabled ? item.iconChecked : item.icon);
         });
+
+        const commentsButton = this._menu.querySelector('[data-item-id="toggle-comments"]');
+        const commentsLabel = commentsButton?.querySelector('span');
+        if (commentsLabel) {
+            commentsLabel.textContent = this._isNotesLayerVisible() ? 'Hide Comments' : 'Show Comments';
+        }
     }
 
     _show(clientX, clientY) {

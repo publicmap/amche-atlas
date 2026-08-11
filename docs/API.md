@@ -359,7 +359,7 @@ Available on all layer types unless noted otherwise.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | string | Unique identifier referenced from URLs and other configs. **Required** for all types except inline `style` layers. |
-| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `js`, `csv`, `overpass`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
+| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `js`, `csv`, `sheet`, `overpass`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
 | `title` | string | Display name in the layer control. |
 | `description` | string | HTML allowed; shown in the layer info panel. |
 | `tags` | string[] | Used to group layers in the UI. Prefix with `N.` (e.g. `"1.Development Plans"`) to control sort order. |
@@ -885,6 +885,43 @@ Then verify it's public: open the `/exec` URL in an **incognito** tab. It should
 Ideally your sheet has a header row with `latitude`, `longitude`, `notes`, `timestamp`, `atlas`, and `layers` columns, but you don't have to create them — the script adds any missing column (labelled with the field name) on the first write. After a successful save the layer refreshes (~2s) so the new point appears — note Google's CSV export can lag a few seconds behind the edit.
 
 The client side is implemented in `js/google-sheets-writer.js`; the popup UI lives in `js/map-marker-manager.js`. Without `saveUrl`, a sheet layer stays read-only and the **Add Note → Save** action reports that the layer is read-only.
+
+### `sheet` — Google Sheet, every tab combined
+
+Like `csv`, but instead of one tab's export URL, `url` is just the spreadsheet itself — every tab is discovered and fetched, and their rows are merged client-side into a single layer. Useful when related data is split across tabs (e.g. one per taluka/region) that should render as one map layer.
+
+Google's CSV export (`/export?format=csv&gid=<gid>`) only ever returns a single tab — there is no spreadsheet URL that returns every tab combined. A `sheet` layer instead: lists every tab by scraping the spreadsheet's public `/htmlview` page (name + `gid` per tab, no publish-to-web or API key needed — just "Anyone with the link can view"), fetches each tab's CSV separately, and concatenates the rows. Each row is tagged with a `Sheet` property (the tab's name) and its `$row` id is prefixed with the tab's `gid`, so ids stay unique across tabs. The merge happens **on every layer load** (and again on each `refresh` tick) — it is not a one-time snapshot, so edits to any tab show up on next load like a normal `csv` layer.
+
+This is the live equivalent of `map-creator.html`'s "All Sheets (combined)" option, which does the same fetch-and-merge but bakes the result into a static `localStorage` snapshot at layer-creation time instead of re-fetching on every load — see `js/map-creator.js`. Both share the fetch/merge implementation in `js/google-sheets-api.js`.
+
+| Field | Notes |
+|---|---|
+| `url` | Any URL containing `docs.google.com/spreadsheets/d/<id>/...` — the spreadsheet's `/edit` link works as-is. A `gid` in the URL, if present, is **ignored** since every tab is merged. **Required.** |
+| `refresh` | Polling interval in milliseconds. Each tick re-fetches and re-merges **every** tab, so keep this well above the single-tab default if the sheet has many tabs. |
+| `style` | Mapbox circle/symbol properties (same as `csv`/GeoJSON). |
+| `inspect` | Popup configuration. |
+
+```json
+{
+  "id": "field-survey",
+  "type": "sheet",
+  "title": "Field Survey (All Tabs)",
+  "url": "https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/edit",
+  "style": {
+    "circle-radius": 5,
+    "circle-color": "#3b82f6"
+  },
+  "inspect": {
+    "fields": ["Sheet", "Status"]
+  }
+}
+```
+
+**Notes:**
+- **No `saveUrl`.** Write-back needs one target tab (see `csv`'s **Writing notes back to a Google Sheet** above); a merged `sheet` layer has no single tab to append to, so the Add Note button stays unavailable regardless of `saveUrl`.
+- **Cost scales with tab count.** Loading (or refreshing) fetches every tab, one request each — fine for a handful of tabs, less so for dozens. If you only need one tab, use `csv` with an explicit `&gid=<gid>` instead; it's a single request.
+- Renders through the same pipeline as `csv` (same `csv-${id}` source, same style/inspect semantics) — everything documented above under `csv` besides `saveUrl` and its single-tab `url` applies here too.
+- A tab that fails to fetch is skipped (logged to the console) rather than failing the whole layer.
 
 ### `overpass` — OpenStreetMap Overpass API
 

@@ -135,7 +135,7 @@ export class LayerOrderManager {
             return 'bottom';
         }
 
-        if (['vector', 'geojson', 'csv', 'overpass', 'js'].includes(type)) {
+        if (['vector', 'geojson', 'csv', 'sheet', 'overpass', 'js'].includes(type)) {
             return null;
         }
 
