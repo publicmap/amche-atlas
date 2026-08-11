@@ -90,9 +90,7 @@
         "circle-stroke-color": "white",
         "text-field": ""
       },
-      "inspect": {
-        "id": "name"
-      },
+      "inspect": false,
       "initiallyChecked": true
     },
     {

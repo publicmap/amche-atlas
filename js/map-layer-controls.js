@@ -68,7 +68,6 @@ export class MapLayerControl {
         this._sourceControls = [];
 
         this._legendImageCache = new Map();// Cache for loaded legend images to avoid reloading
-        this._globalClickHandlerAdded = false;// Global click handler tracking
         this._mapboxAPI = null;// MapboxAPI instance will be initialized when map is available
         this._defaultStyles = {};// Initialize default styles (will be populated by _loadDefaultStyles)
         this._layerSettingsModal = null;
@@ -104,9 +103,6 @@ export class MapLayerControl {
 
         // Initialize layer settings modal
         this._layerSettingsModal = new LayerSettingsModal(this);
-
-        // Add global click handler early
-        this._addGlobalClickHandler();
 
         // Add drawer focus management to prevent aria-hidden accessibility issues
         this._setupDrawerFocusManagement();
@@ -1438,56 +1434,6 @@ export class MapLayerControl {
                 setTimeout(() => toast.remove(), 300);
             }, duration);
         });
-    }
-
-    /**
-     * Add global click handler
-     */
-    _addGlobalClickHandler() {
-        if (this._globalClickHandlerAdded) return;
-
-        this._map.on('click', (e) => {
-            setTimeout(() => {
-                // Query rendered features with error handling for DEM data
-                let features = [];
-                try {
-                    features = this._map.queryRenderedFeatures(e.point);
-                } catch (error) {
-                    if (error instanceof RangeError) {
-                        return;
-                    } else {
-                        console.error('[MapLayerControls] Error querying rendered features on click:', error);
-                        throw error;
-                    }
-                }
-                const customFeatures = features.filter(feature => {
-                    const layerId = feature.layer?.id;
-                    return layerId && (
-                        layerId.includes('vector-layer-') ||
-                        layerId.includes('geojson-') ||
-                        layerId.includes('csv-') ||
-                        layerId.includes('tms-layer-')
-                    );
-                });
-
-                if (customFeatures.length === 0) {
-                    if (this._stateManager) {
-                        this._stateManager.clearAllSelections();
-                    }
-
-                    this._map.getCanvas().style.cursor = '';
-                    const popups = document.querySelectorAll('.mapboxgl-popup');
-                    popups.forEach(popup => {
-                        const popupInstance = popup._popup;
-                        if (popupInstance) {
-                            popupInstance.remove();
-                        }
-                    });
-                }
-            }, 0);
-        });
-
-        this._globalClickHandlerAdded = true;
     }
 
     /**

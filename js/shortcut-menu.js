@@ -321,7 +321,7 @@ export class ShortcutMenu {
         if (!markerManager) return;
 
         const markerId = markerManager.findMarkerNear(this._lngLat)
-            || markerManager.addMarker(this._lngLat, [], { showPopup: false });
+            || markerManager.addMarker(this._lngLat, []);
 
         markerManager.focusCommentInput(markerId);
     }
