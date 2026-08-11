@@ -602,6 +602,18 @@ File upload only: .zip containing shapefile">
                     </span>
                 </div>
 
+                <div id="google-sheet-section" class="hidden mt-3 p-3 rounded-lg"
+                    style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.35);">
+                    <label for="google-sheet-select" class="block text-sm font-semibold mb-2" style="color:#bfdbfe;">
+                        Sheet
+                    </label>
+                    <select id="google-sheet-select" class="w-full px-3 py-2 rounded text-sm"></select>
+                    <div class="text-xs mt-2" style="color:#93c5fd;">
+                        This spreadsheet has multiple tabs. Pick one, or choose <strong>All Sheets</strong> to merge
+                        every tab's rows into a single combined layer.
+                    </div>
+                </div>
+
                 <div id="overpass-section" class="hidden mt-3 p-3 rounded-lg"
                     style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.35);">
                     <div class="flex items-center justify-between mb-2">

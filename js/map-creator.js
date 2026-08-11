@@ -113,10 +113,12 @@ export class MapCreator {
             } else {
                 $('#clear-url-btn').addClass('hidden');
                 $('#url-validation').html('');
+                this.hideGoogleSheetSelector();
                 return;
             }
 
             url = this.normalizeGoogleSheetsUrl(url);
+            this.onUrlInputForGoogleSheets(url);
             const validFormat = this.detectUrlFormat(url);
             $('.format-chip').removeClass('active-format');
 
@@ -160,7 +162,12 @@ export class MapCreator {
             this.setLoadingState('default');
             $('.format-chip').removeClass('active-format');
             this._resetConfigEditorState();
+            this.hideGoogleSheetSelector();
             this.clearPreview();
+        });
+
+        $('#google-sheet-select').on('change', () => {
+            this.handleLoadData();
         });
 
         $('#upload-file-btn').on('click', () => {
@@ -173,6 +180,7 @@ export class MapCreator {
             $('#settings-section').hide();
             this.setLoadingState('default');
             this._resetConfigEditorState();
+            this.hideGoogleSheetSelector();
             this.clearPreview();
         });
 
@@ -182,6 +190,7 @@ export class MapCreator {
                 $('#clear-url-btn').addClass('hidden');
                 $('#url-validation').html('');
                 $('.format-chip').removeClass('active-format');
+                this.hideGoogleSheetSelector();
                 this.showSelectedFile(e.target.files[0].name);
             }
             this.handleFileUpload(e);
@@ -1060,6 +1069,142 @@ export class MapCreator {
         return false;
     }
 
+    isGoogleSheetUrl(url) {
+        return typeof url === 'string' && url.includes('docs.google.com/spreadsheets');
+    }
+
+    extractGoogleSpreadsheetId(url) {
+        const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        return match ? match[1] : null;
+    }
+
+    buildGoogleSheetCsvUrl(spreadsheetId, gid) {
+        return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`;
+    }
+
+    // Lists every tab of a Google Sheet (name + gid) by scraping the public
+    // /htmlview page, which embeds a `items.push({name, pageUrl, gid, ...})`
+    // call per tab for its sheet-switcher widget. Works for any sheet shared
+    // as "Anyone with the link can view" - no publish-to-web or API key needed.
+    async fetchGoogleSheetTabs(spreadsheetId) {
+        const response = await fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/htmlview`);
+        if (!response.ok) {
+            throw new Error('Could not load the list of sheet tabs');
+        }
+        const html = await response.text();
+        const tabs = [];
+        const re = /items\.push\(\{name:\s*"((?:\\.|[^"\\])*)",\s*pageUrl:\s*"(?:\\.|[^"\\])*",\s*gid:\s*"(-?\d+)"/g;
+        let m;
+        while ((m = re.exec(html)) !== null) {
+            tabs.push({ name: m[1].replace(/\\(.)/g, '$1'), gid: m[2] });
+        }
+        return tabs;
+    }
+
+    async fetchCsvRows(url) {
+        const response = await fetch(url);
+        const csvText = await response.text();
+        const looksLikeHTML = /^\s*<(!doctype|html|head|meta)/i.test(csvText);
+        return (looksLikeHTML && this.isGoogleSheetUrl(url))
+            ? this.parseGoogleSheetsHTML(csvText)
+            : DataUtils.parseCSV(csvText);
+    }
+
+    // Fetches every tab's CSV and concatenates the rows. `$row` (the
+    // auto-generated per-tab line number - see DataUtils.parseCSV) is
+    // rewritten with the tab's gid so ids stay unique across the merged set,
+    // and each row is tagged with its source tab name for context.
+    async fetchAllGoogleSheetRows(spreadsheetId, tabs) {
+        const allRows = [];
+        for (const tab of tabs) {
+            try {
+                const rows = await this.fetchCsvRows(this.buildGoogleSheetCsvUrl(spreadsheetId, tab.gid));
+                rows.forEach(row => {
+                    if (row['$row'] !== undefined) row['$row'] = `${tab.gid}-${row['$row']}`;
+                    row['Sheet'] = tab.name;
+                });
+                allRows.push(...rows);
+            } catch (error) {
+                console.warn(`[MapCreator] Failed to load sheet "${tab.name}" (gid=${tab.gid}):`, error);
+            }
+        }
+        return allRows;
+    }
+
+    onUrlInputForGoogleSheets(url) {
+        clearTimeout(this._sheetSelectorDebounce);
+
+        const spreadsheetId = this.isGoogleSheetUrl(url) ? this.extractGoogleSpreadsheetId(url) : null;
+        if (!spreadsheetId) {
+            this.hideGoogleSheetSelector();
+            return;
+        }
+
+        if (spreadsheetId === this._sheetSpreadsheetId && this._sheetTabs) {
+            // Tabs already loaded for this spreadsheet - just sync the
+            // selection to whatever gid is now in the URL, if any.
+            this.selectGoogleSheetTabForUrl(url);
+            return;
+        }
+
+        this._sheetSelectorDebounce = setTimeout(() => this.loadGoogleSheetSelector(spreadsheetId, url), 400);
+    }
+
+    selectGoogleSheetTabForUrl(url) {
+        const gidMatch = url.match(/[?&#]gid=(-?\d+)/);
+        const gid = gidMatch ? gidMatch[1] : null;
+        if (gid && this._sheetTabs.some(tab => tab.gid === gid)) {
+            $('#google-sheet-select').val(gid);
+        }
+    }
+
+    async loadGoogleSheetSelector(spreadsheetId, url) {
+        try {
+            const tabs = await this.fetchGoogleSheetTabs(spreadsheetId);
+            if (!tabs.length) {
+                this.hideGoogleSheetSelector();
+                return;
+            }
+
+            this._sheetSpreadsheetId = spreadsheetId;
+            this._sheetTabs = tabs;
+
+            const $select = $('#google-sheet-select');
+            $select.empty();
+            $select.append($('<option></option>').attr('value', 'all').text('All Sheets (combined)'));
+            tabs.forEach(tab => {
+                $select.append($('<option></option>').attr('value', tab.gid).text(tab.name));
+            });
+
+            const gidMatch = url.match(/[?&#]gid=(-?\d+)/);
+            const gid = gidMatch ? gidMatch[1] : null;
+            $select.val((gid && tabs.some(tab => tab.gid === gid)) ? gid : tabs[0].gid);
+
+            $('#google-sheet-section').toggleClass('hidden', tabs.length <= 1);
+        } catch (error) {
+            console.warn('[MapCreator] Could not load Google Sheet tabs:', error);
+            this.hideGoogleSheetSelector();
+        }
+    }
+
+    hideGoogleSheetSelector() {
+        $('#google-sheet-section').addClass('hidden');
+        this._sheetTabs = null;
+        this._sheetSpreadsheetId = null;
+    }
+
+    finishCSVLoad(url, rows, combined = false) {
+        const geojson = GeoUtils.rowsToGeoJSON(rows, true);
+        if (!geojson || geojson.features.length === 0) {
+            const fields = this.csvRowFields(rows);
+            const message = `Could not auto-detect latitude/longitude columns.\n\nColumns found: ${fields.join(', ')}\n\nPlease select the coordinate fields manually below.`;
+            alert(message);
+            this.processCSVLayerWithoutCoords(url, rows, combined);
+        } else {
+            this.processCSVLayer(url, geojson, rows, combined);
+        }
+    }
+
     isValidDataUrl(url) {
         if (!url || url.length < 10) return false;
 
@@ -1233,26 +1378,21 @@ export class MapCreator {
                 const geojson = await response.json();
                 this.processGeoJSON(geojson, url);
             } else if (this.isCSVUrl(url)) {
-                const response = await fetch(url);
-                const csvText = await response.text();
-                console.log('[MapCreator] CSV text length:', csvText.length);
-                console.log('[MapCreator] First 500 chars:', csvText.substring(0, 500));
-                const looksLikeHTML = /^\s*<(!doctype|html|head|meta)/i.test(csvText);
-                const rows = (looksLikeHTML && url.includes('docs.google.com/spreadsheets'))
-                    ? this.parseGoogleSheetsHTML(csvText)
-                    : DataUtils.parseCSV(csvText);
-                console.log('[MapCreator] Parsed rows:', rows.length);
-                if (rows.length > 0) {
-                    console.log('[MapCreator] First row keys:', Object.keys(rows[0]));
-                }
-                const geojson = GeoUtils.rowsToGeoJSON(rows, true);
-                if (!geojson || geojson.features.length === 0) {
-                    const fields = this.csvRowFields(rows);
-                    const message = `Could not auto-detect latitude/longitude columns.\n\nColumns found: ${fields.join(', ')}\n\nPlease select the coordinate fields manually below.`;
-                    alert(message);
-                    this.processCSVLayerWithoutCoords(url, rows);
+                const isMultiTabSheet = this.isGoogleSheetUrl(url) && this._sheetTabs && this._sheetTabs.length > 1
+                    && !$('#google-sheet-section').hasClass('hidden');
+                const selectedGid = isMultiTabSheet ? $('#google-sheet-select').val() : null;
+
+                if (selectedGid === 'all') {
+                    const spreadsheetId = this._sheetSpreadsheetId || this.extractGoogleSpreadsheetId(url);
+                    const rows = await this.fetchAllGoogleSheetRows(spreadsheetId, this._sheetTabs);
+                    this.finishCSVLoad(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`, rows, true);
                 } else {
-                    this.processCSVLayer(url, geojson, rows);
+                    if (selectedGid) {
+                        const spreadsheetId = this._sheetSpreadsheetId || this.extractGoogleSpreadsheetId(url);
+                        url = this.buildGoogleSheetCsvUrl(spreadsheetId, selectedGid);
+                    }
+                    const rows = await this.fetchCsvRows(url);
+                    this.finishCSVLoad(url, rows, false);
                 }
             } else if (url.toLowerCase().endsWith('.kml')) {
                 const response = await fetch(url);
@@ -1272,25 +1412,11 @@ export class MapCreator {
                     }
                 } else if (contentType && (contentType.includes('text/csv') || contentType.includes('text/plain'))) {
                     const csvText = await response.text();
-                    console.log('[MapCreator] CSV text length:', csvText.length);
-                    console.log('[MapCreator] First 500 chars:', csvText.substring(0, 500));
                     const looksLikeHTML = /^\s*<(!doctype|html|head|meta)/i.test(csvText);
-                    const rows = (looksLikeHTML && url.includes('docs.google.com/spreadsheets'))
+                    const rows = (looksLikeHTML && this.isGoogleSheetUrl(url))
                         ? this.parseGoogleSheetsHTML(csvText)
                         : DataUtils.parseCSV(csvText);
-                    console.log('[MapCreator] Parsed rows:', rows.length);
-                    if (rows.length > 0) {
-                        console.log('[MapCreator] First row keys:', Object.keys(rows[0]));
-                    }
-                    const geojson = GeoUtils.rowsToGeoJSON(rows, true);
-                    if (!geojson || geojson.features.length === 0) {
-                        const fields = this.csvRowFields(rows);
-                        const message = `Could not auto-detect latitude/longitude columns.\n\nColumns found: ${fields.join(', ')}\n\nPlease select the coordinate fields manually below.`;
-                        alert(message);
-                        this.processCSVLayerWithoutCoords(url, rows);
-                    } else {
-                        this.processCSVLayer(url, geojson, rows);
-                    }
+                    this.finishCSVLoad(url, rows, false);
                 } else {
                     throw new Error('Unsupported file type');
                 }
@@ -1578,14 +1704,15 @@ export class MapCreator {
         this.setLoadingState('success');
     }
 
-    processCSVLayer(csvUrl, geojson, rows) {
+    processCSVLayer(csvUrl, geojson, rows, combined = false) {
         this._previewFitted = false;
         this._resetConfigEditorState();
         this.resetOsmDataMode();
         this.currentData = {
             csvUrl: csvUrl,
             geojson: geojson,
-            rows: rows
+            rows: rows,
+            isCombinedSheets: combined
         };
         this.currentDataSource = csvUrl;
         this.currentLayerType = 'csv';
@@ -1603,8 +1730,8 @@ export class MapCreator {
 
         $('#layer-type').val('csv');
 
-        if (csvUrl.includes('docs.google.com/spreadsheets')) {
-            $('#layer-title').val('Google Sheet CSV');
+        if (this.isGoogleSheetUrl(csvUrl)) {
+            $('#layer-title').val(combined ? 'Google Sheet (All Tabs)' : 'Google Sheet CSV');
             $('#layer-description').val(`Data from Google Sheets - <a href='${csvUrl}' target='_blank'>View source</a>`);
             $('#layer-attribution').val(`<a href='${csvUrl}' target='_blank'>Google Sheets</a>`);
         }
@@ -1614,18 +1741,14 @@ export class MapCreator {
         this.setLoadingState('success');
     }
 
-    processCSVLayerWithoutCoords(csvUrl, rows) {
-        console.log('[MapCreator] processCSVLayerWithoutCoords called', {
-            rowCount: rows.length,
-            columns: this.csvRowFields(rows)
-        });
-
+    processCSVLayerWithoutCoords(csvUrl, rows, combined = false) {
         this._resetConfigEditorState();
         this.resetOsmDataMode();
         this.currentData = {
             csvUrl: csvUrl,
             geojson: null,
-            rows: rows
+            rows: rows,
+            isCombinedSheets: combined
         };
         this.currentDataSource = csvUrl;
         this.currentLayerType = 'csv';
@@ -1635,7 +1758,6 @@ export class MapCreator {
         $('#data-preview-details').show();
 
         const fields = this.csvRowFields(rows);
-        console.log('[MapCreator] Populating data fields with:', fields);
         this.populateDataFields(fields);
 
         $('#geojson-editor').val('// No preview available - select coordinate fields below');
@@ -1643,8 +1765,8 @@ export class MapCreator {
 
         $('#layer-type').val('csv');
 
-        if (csvUrl.includes('docs.google.com/spreadsheets')) {
-            $('#layer-title').val('Google Sheet CSV');
+        if (this.isGoogleSheetUrl(csvUrl)) {
+            $('#layer-title').val(combined ? 'Google Sheet (All Tabs)' : 'Google Sheet CSV');
             $('#layer-description').val(`Data from Google Sheets - <a href='${csvUrl}' target='_blank'>View source</a>`);
             $('#layer-attribution').val(`<a href='${csvUrl}' target='_blank'>Google Sheets</a>`);
         }
@@ -2063,7 +2185,8 @@ export class MapCreator {
 
         const bbox = this.currentData.geojson ? this.calculateBBox(this.currentData.geojson) : null;
 
-        const isExternalUrl = typeof this.currentData.csvUrl === 'string' &&
+        const isExternalUrl = !this.currentData.isCombinedSheets &&
+            typeof this.currentData.csvUrl === 'string' &&
             (this.currentData.csvUrl.startsWith('http://') || this.currentData.csvUrl.startsWith('https://'));
 
         const config = {
@@ -2106,9 +2229,10 @@ export class MapCreator {
             config.style = this.buildStyleFromControls();
         }
 
-        // Save-notes write-back (Google Sheets only)
+        // Save-notes write-back (Google Sheets only, and not for a combined
+        // All-Sheets dataset - there's no single tab gid to target)
         const csvUrl = this.currentData?.csvUrl;
-        const isGoogleSheet = typeof csvUrl === 'string' && csvUrl.includes('docs.google.com/spreadsheets');
+        const isGoogleSheet = !this.currentData?.isCombinedSheets && this.isGoogleSheetUrl(csvUrl);
         const saveUrl = $('#save-url-input').val().trim();
         if (isGoogleSheet && $('#enable-save-notes').is(':checked') && saveUrl) {
             config.saveUrl = saveUrl;
@@ -2120,8 +2244,8 @@ export class MapCreator {
     updateSaveNotesVisibility() {
         const csvUrl = this.currentData?.csvUrl;
         const isGoogleSheet = this.currentLayerType === 'csv' &&
-            typeof csvUrl === 'string' &&
-            csvUrl.includes('docs.google.com/spreadsheets');
+            !this.currentData?.isCombinedSheets &&
+            this.isGoogleSheetUrl(csvUrl);
         const section = document.getElementById('save-notes-section');
         if (section) section.style.display = isGoogleSheet ? '' : 'none';
     }

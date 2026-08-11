@@ -743,9 +743,16 @@ export class MapLayerControl {
         }
 
         try {
+            // Layers not known to the registry (e.g. custom layers created via
+            // map-creator.html) can't be resolved from a bare ID on reload, so their
+            // full config must be preserved verbatim in the URL via `_originalJson`.
+            const isKnownToRegistry = window.layerRegistry &&
+                !!window.layerRegistry.getLayer(layerConfig.id, null, true);
+
             const layerWithChecked = {
                 ...layerConfig,
-                initiallyChecked: true
+                initiallyChecked: true,
+                ...(!isKnownToRegistry && { _originalJson: JSON.stringify(layerConfig) })
             };
 
             let insertPosition;

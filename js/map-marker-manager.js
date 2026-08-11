@@ -6,6 +6,7 @@ import { LayerThumbnail } from './layer-thumbnail.js';
 import { FeatureDisplayRenderer } from './feature-display-renderer.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { CameraUtils } from './map-camera-utils.js';
+import { GeoLibreAPI } from './geolibre-api.js';
 
 export class MapMarkerManager {
     constructor(map, stateManager, mapboxAPI = null) {
@@ -466,6 +467,8 @@ export class MapMarkerManager {
      */
     _buildLayerActionsMenuHTML(layerId, feature) {
         const featureData = feature ? encodeURIComponent(JSON.stringify(feature)) : '';
+        const layerConfig = this._stateManager.getLayerConfig(layerId);
+        const geoLibreUrl = GeoLibreAPI.buildViewerUrl(layerConfig);
         return `
             <sl-dropdown class="layer-actions-dropdown" data-layer-id="${layerId}" data-feature-data="${featureData}" hoist style="flex-shrink:0;">
                 <sl-icon-button slot="trigger" name="three-dots-vertical" label="Layer actions" style="font-size:12px;color:#6b7280;"></sl-icon-button>
@@ -495,6 +498,12 @@ export class MapMarkerManager {
                             <sl-menu-item value="export-layer:csv">GeoCSV</sl-menu-item>
                         </sl-menu>
                     </sl-menu-item>
+                    ${geoLibreUrl ? `
+                    <sl-menu-item value="open-geolibre" data-geolibre-url="${this._escapeAttr(geoLibreUrl)}">
+                        <sl-icon slot="prefix" name="box-arrow-up-right"></sl-icon>
+                        Open Layer in GeoLibre
+                    </sl-menu-item>
+                    ` : ''}
                     <sl-divider></sl-divider>
                     <sl-menu-item value="remove-layer" style="color:#ef4444;">
                         <sl-icon slot="prefix" name="trash" style="color:#ef4444;"></sl-icon>
@@ -524,6 +533,11 @@ export class MapMarkerManager {
                 }
                 if (value === 'remove-layer') {
                     this._handleRemoveLayerAction(dropdown.dataset.layerId);
+                    return;
+                }
+                if (value === 'open-geolibre') {
+                    const geoLibreUrl = e.detail.item?.dataset.geolibreUrl;
+                    if (geoLibreUrl) window.open(geoLibreUrl, '_blank', 'noopener');
                     return;
                 }
                 const [action, format] = value.split(':');

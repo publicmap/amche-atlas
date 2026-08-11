@@ -8,6 +8,8 @@
  * touch handlers can swallow the touch sequence before it gets there), so
  * long-press is also detected explicitly with a touch timer below.
  */
+import { GeoLibreAPI } from './geolibre-api.js';
+
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_THRESHOLD = 10;
 
@@ -188,6 +190,11 @@ export class ShortcutMenu {
                 action: () => window.browserControl?.hideAllLayers()
             },
             {
+                icon: 'globe',
+                label: 'Open with GeoLibre',
+                action: () => this._openWithGeoLibre()
+            },
+            {
                 id: 'select-multiple-features',
                 icon: 'plus-circle-dotted',
                 iconChecked: 'plus-circle-fill',
@@ -232,6 +239,34 @@ export class ShortcutMenu {
 
         this._items = items;
         document.body.appendChild(this._menu);
+    }
+
+    /**
+     * Builds a .geolibre.json project from every active layer, publishes it
+     * to the shared textb.org pad GeoLibre reads projects from, then opens
+     * the map in GeoLibre. See geolibre-api.js / textb-sync.js for how the
+     * publish step actually gets the JSON there.
+     */
+    async _openWithGeoLibre() {
+        if (!window.map) return;
+
+        const { project, skipped } = GeoLibreAPI.buildProjectFromActiveLayers(window.map);
+        if (project.layers.length === 0) {
+            window.layerControl?._showToast('No active layers can be opened in GeoLibre yet', 'error');
+            return;
+        }
+
+        window.layerControl?._showToast('Opening in GeoLibre...', 'info');
+        try {
+            await GeoLibreAPI.publishProject(project);
+            window.open(GeoLibreAPI.PROJECT_VIEWER_URL, '_blank', 'noopener');
+            if (skipped.length) {
+                console.warn('[ShortcutMenu] Layers with no GeoLibre translation were left out:', skipped);
+            }
+        } catch (error) {
+            console.error('[ShortcutMenu] Failed to publish GeoLibre project:', error);
+            window.layerControl?._showToast('Could not open GeoLibre — publishing failed', 'error');
+        }
     }
 
     _handleContextMenu(e) {
