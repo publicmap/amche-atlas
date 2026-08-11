@@ -1103,9 +1103,13 @@ export class MapCreator {
                 $select.append($('<option></option>').attr('value', tab.gid).text(tab.name));
             });
 
-            const gidMatch = url.match(/[?&#]gid=(-?\d+)/);
-            const gid = gidMatch ? gidMatch[1] : null;
-            $select.val((gid && tabs.some(tab => tab.gid === gid)) ? gid : tabs[0].gid);
+            // Default to "All Sheets" regardless of whether the pasted URL names a
+            // specific gid — a gid in a copied sheet link is usually just wherever
+            // the tab happened to be open, not a deliberate "only this tab" choice.
+            // The `sheet` layer type (the default in the Type dropdown below, see
+            // processCSVLayer) always merges every tab anyway; picking one tab here
+            // only changes what the preview shows, not what gets saved.
+            $select.val('all');
 
             $('#google-sheet-section').toggleClass('hidden', tabs.length <= 1);
         } catch (error) {
@@ -1305,17 +1309,33 @@ export class MapCreator {
                 const geojson = await response.json();
                 this.processGeoJSON(geojson, url);
             } else if (this.isCSVUrl(url)) {
-                const isMultiTabSheet = this.isGoogleSheetUrl(url) && this._sheetTabs && this._sheetTabs.length > 1
+                // The `input` event's tab-discovery is debounced 400ms in the
+                // background (onUrlInputForGoogleSheets) - clicking "Load Data"
+                // before it resolves would otherwise read a stale/empty
+                // `_sheetTabs` here and silently fall back to a single-tab
+                // fetch, even though the selector goes on to show "All Sheets"
+                // moments later once that background fetch finally completes.
+                // Await it directly (reusing the cache if already loaded for
+                // this spreadsheet) so the fetch below always matches what's
+                // selected.
+                let spreadsheetId = null;
+                if (this.isGoogleSheetUrl(url)) {
+                    spreadsheetId = this.extractGoogleSpreadsheetId(url);
+                    if (spreadsheetId && spreadsheetId !== this._sheetSpreadsheetId) {
+                        clearTimeout(this._sheetSelectorDebounce);
+                        await this.loadGoogleSheetSelector(spreadsheetId, url);
+                    }
+                }
+
+                const isMultiTabSheet = spreadsheetId && this._sheetTabs && this._sheetTabs.length > 1
                     && !$('#google-sheet-section').hasClass('hidden');
                 const selectedGid = isMultiTabSheet ? $('#google-sheet-select').val() : null;
 
                 if (selectedGid === 'all') {
-                    const spreadsheetId = this._sheetSpreadsheetId || this.extractGoogleSpreadsheetId(url);
                     const rows = await this.fetchAllGoogleSheetRows(spreadsheetId, this._sheetTabs);
-                    this.finishCSVLoad(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`, rows, true);
+                    this.finishCSVLoad(GoogleSheetsAPI.buildEditUrl(spreadsheetId), rows, true);
                 } else {
                     if (selectedGid) {
-                        const spreadsheetId = this._sheetSpreadsheetId || this.extractGoogleSpreadsheetId(url);
                         url = this.buildGoogleSheetCsvUrl(spreadsheetId, selectedGid);
                     }
                     const rows = await this.fetchCsvRows(url);
@@ -1655,12 +1675,17 @@ export class MapCreator {
         this.showStyleSection(geojson);
         this.showConfigSection();
 
-        $('#layer-type').val('csv');
-
         if (this.isGoogleSheetUrl(csvUrl)) {
-            $('#layer-title').val(combined ? 'Google Sheet (All Tabs)' : 'Google Sheet CSV');
-            $('#layer-description').val(`Data from Google Sheets - <a href='${csvUrl}' target='_blank'>View source</a>`);
-            $('#layer-attribution').val(`<a href='${csvUrl}' target='_blank'>Google Sheets</a>`);
+            // `sheet` (every tab merged, live) is the default for any Google Sheet
+            // source - see docs/API.md's `sheet` type. Switch to `csv` manually to
+            // pin the link to just the tab currently previewed above.
+            const sheetUrl = GoogleSheetsAPI.buildEditUrl(GoogleSheetsAPI.extractSpreadsheetId(csvUrl));
+            $('#layer-type').val('sheet');
+            $('#layer-title').val('Google Sheet (All Tabs)');
+            $('#layer-description').val(`Data from Google Sheets - <a href='${sheetUrl}' target='_blank'>View source</a>`);
+            $('#layer-attribution').val(`<a href='${sheetUrl}' target='_blank'>Google Sheets</a>`);
+        } else {
+            $('#layer-type').val('csv');
         }
 
         this.updateConfigPreview();
@@ -1690,12 +1715,14 @@ export class MapCreator {
         $('#geojson-editor').val('// No preview available - select coordinate fields below');
         $('#preview-summary').html('<span class="text-yellow-600">⚠ Select coordinate fields to preview data</span>');
 
-        $('#layer-type').val('csv');
-
         if (this.isGoogleSheetUrl(csvUrl)) {
-            $('#layer-title').val(combined ? 'Google Sheet (All Tabs)' : 'Google Sheet CSV');
-            $('#layer-description').val(`Data from Google Sheets - <a href='${csvUrl}' target='_blank'>View source</a>`);
-            $('#layer-attribution').val(`<a href='${csvUrl}' target='_blank'>Google Sheets</a>`);
+            const sheetUrl = GoogleSheetsAPI.buildEditUrl(GoogleSheetsAPI.extractSpreadsheetId(csvUrl));
+            $('#layer-type').val('sheet');
+            $('#layer-title').val('Google Sheet (All Tabs)');
+            $('#layer-description').val(`Data from Google Sheets - <a href='${sheetUrl}' target='_blank'>View source</a>`);
+            $('#layer-attribution').val(`<a href='${sheetUrl}' target='_blank'>Google Sheets</a>`);
+        } else {
+            $('#layer-type').val('csv');
         }
 
         $('#add-to-map-btn').prop('disabled', true);
@@ -2109,10 +2136,11 @@ export class MapCreator {
         });
 
         const layerType = $('#layer-type').val() || 'csv';
+        const isSheetType = layerType === 'sheet';
 
         const bbox = this.currentData.geojson ? this.calculateBBox(this.currentData.geojson) : null;
 
-        const isExternalUrl = !this.currentData.isCombinedSheets &&
+        const isExternalUrl = !isSheetType && !this.currentData.isCombinedSheets &&
             typeof this.currentData.csvUrl === 'string' &&
             (this.currentData.csvUrl.startsWith('http://') || this.currentData.csvUrl.startsWith('https://'));
 
@@ -2133,7 +2161,13 @@ export class MapCreator {
             }
         };
 
-        if (isExternalUrl) {
+        if (isSheetType) {
+            // A `sheet` layer's url is the spreadsheet itself, regardless of which
+            // tab (or "All Sheets") was chosen for the preview above - every tab
+            // is merged live at load time, so there's no per-tab gid to pin.
+            config.type = 'sheet';
+            config.url = GoogleSheetsAPI.buildEditUrl(GoogleSheetsAPI.extractSpreadsheetId(this.currentData.csvUrl));
+        } else if (isExternalUrl) {
             config.type = layerType;
             config.url = this.currentData.csvUrl;
         } else {
@@ -2156,10 +2190,10 @@ export class MapCreator {
             config.style = this.buildStyleFromControls();
         }
 
-        // Save-notes write-back (Google Sheets only, and not for a combined
-        // All-Sheets dataset - there's no single tab gid to target)
+        // Save-notes write-back (Google Sheets only, and not for `sheet`/combined
+        // datasets - there's no single tab gid to target)
         const csvUrl = this.currentData?.csvUrl;
-        const isGoogleSheet = !this.currentData?.isCombinedSheets && this.isGoogleSheetUrl(csvUrl);
+        const isGoogleSheet = !isSheetType && !this.currentData?.isCombinedSheets && this.isGoogleSheetUrl(csvUrl);
         const saveUrl = $('#save-url-input').val().trim();
         if (isGoogleSheet && $('#enable-save-notes').is(':checked') && saveUrl) {
             config.saveUrl = saveUrl;
@@ -2171,6 +2205,7 @@ export class MapCreator {
     updateSaveNotesVisibility() {
         const csvUrl = this.currentData?.csvUrl;
         const isGoogleSheet = this.currentLayerType === 'csv' &&
+            $('#layer-type').val() !== 'sheet' &&
             !this.currentData?.isCombinedSheets &&
             this.isGoogleSheetUrl(csvUrl);
         const section = document.getElementById('save-notes-section');

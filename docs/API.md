@@ -890,7 +890,7 @@ The client side is implemented in `js/google-sheets-writer.js`; the popup UI liv
 
 Like `csv`, but instead of one tab's export URL, `url` is just the spreadsheet itself — every tab is discovered and fetched, and their rows are merged client-side into a single layer. Useful when related data is split across tabs (e.g. one per taluka/region) that should render as one map layer.
 
-Google's CSV export (`/export?format=csv&gid=<gid>`) only ever returns a single tab — there is no spreadsheet URL that returns every tab combined. A `sheet` layer instead: lists every tab by scraping the spreadsheet's public `/htmlview` page (name + `gid` per tab, no publish-to-web or API key needed — just "Anyone with the link can view"), fetches each tab's CSV separately, and concatenates the rows. Each row is tagged with a `Sheet` property (the tab's name) and its `$row` id is prefixed with the tab's `gid`, so ids stay unique across tabs. The merge happens **on every layer load** (and again on each `refresh` tick) — it is not a one-time snapshot, so edits to any tab show up on next load like a normal `csv` layer.
+Google's CSV export (`/export?format=csv&gid=<gid>`) only ever returns a single tab — there is no spreadsheet URL that returns every tab combined. A `sheet` layer instead: lists every tab by scraping the spreadsheet's public `/htmlview` page (name + `gid` per tab, no publish-to-web or API key needed — just "Anyone with the link can view"), fetches each tab's CSV separately, and concatenates the rows. Each row gets a `$sheet` field naming its source tab — the same auto-generated, `$`-prefixed convention as `$row`/`$table` (see `DataUtils.parseCSV` in `js/map-utils.js`), not a real column from the sheet — and its `$row` id is prefixed with the tab's `gid`, so ids stay unique across tabs. The merge happens **on every layer load** (and again on each `refresh` tick) — it is not a one-time snapshot, so edits to any tab show up on next load like a normal `csv` layer.
 
 This is the live equivalent of `map-creator.html`'s "All Sheets (combined)" option, which does the same fetch-and-merge but bakes the result into a static `localStorage` snapshot at layer-creation time instead of re-fetching on every load — see `js/map-creator.js`. Both share the fetch/merge implementation in `js/google-sheets-api.js`.
 
@@ -912,7 +912,7 @@ This is the live equivalent of `map-creator.html`'s "All Sheets (combined)" opti
     "circle-color": "#3b82f6"
   },
   "inspect": {
-    "fields": ["Sheet", "Status"]
+    "fields": ["$sheet", "Status"]
   }
 }
 ```
