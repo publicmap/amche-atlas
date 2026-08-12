@@ -29,24 +29,38 @@ export class SplashScreenManager {
         window.loadingStartupState = window.loadingStartupState || {};
         window.loadingStartupState.manualOverlayControl = true;
 
-        await this.waitForLayerRegistry();
         this.cacheElements();
         await this.parseURLConfiguration();
         this.showSplashSection();
         this.setupEventListeners();
         this.applyAtlasName();
 
-        // URL drives atlas/coords → no detection. Otherwise run the
-        // detect-then-pick-atlas flow.
+        // URL drives atlas/coords → no detection needed, and parseURLConfiguration
+        // above already resolved the atlas without the registry (see
+        // loadConfigurationFromURL's local-path-first fetch). Wire up the map-ready
+        // close trigger immediately in this case — waiting on waitForLayerRegistry()
+        // (which fetches every atlas json in index.atlas.json's `atlases` list,
+        // including slow external cross-repo ones) used to hold the splash open
+        // long after the map itself was actually ready.
+        //
+        // The GPS/GeoIP flow below is different: it needs the full registry
+        // (findBestAtlasForLocation requires _atlasMetadata populated for every
+        // atlas) AND it must finish picking the location-based atlas before the
+        // map is allowed to close the "Detecting user location" state — otherwise
+        // a fast map 'load' (which usually beats the up-to-5s GPS cap) would snap
+        // the splash closed onto the wrong (default) atlas mid-detection. So
+        // watchForMapReady() stays deferred until after that flow completes, same
+        // as before this fix.
         if (this.state.locationSource === 'atlas' || this.state.locationSource === 'url') {
             this.showAtlasState();
+            this.watchForMapReady();
         } else {
+            await this.waitForLayerRegistry();
             await this.runLocationDetectionFlow();
             this.applyAtlasName();
             this.showAtlasState();
+            this.watchForMapReady();
         }
-
-        this.watchForMapReady();
     }
 
     /**
@@ -141,13 +155,27 @@ export class SplashScreenManager {
                     atlasConfig = await response.json();
                     atlasId = 'imported';
                 } else {
-                    // Short-id atlas: resolve via the registry, which knows whether the
-                    // id maps to a local config/<id>.atlas.json or an external URL (e.g.
-                    // a cross-repo atlas like dfes-dmp). Fetching the local path blindly
-                    // returns the SPA's index.html for external atlases → JSON parse error.
-                    const meta = window.layerRegistry?.getAtlasMetadata?.(atlasParam);
-                    const fetchUrl = meta?.url || `config/${atlasParam}.atlas.json`;
-                    const response = await fetch(fetchUrl);
+                    // Short-id atlas: try the conventional local path directly first —
+                    // this is the common case and avoids waiting on the full layer
+                    // registry (which fetches every atlas in index.atlas.json's
+                    // `atlases` list, including slow external cross-repo ones) just to
+                    // show the splash / close it once the map is ready. Only consult
+                    // the registry — which knows external URL mappings like dfes-dmp —
+                    // if the local guess turns out to be wrong (a static-file server's
+                    // SPA fallback returns index.html with a 200, not a real 404, hence
+                    // the content-type check, mirrored from LayerRegistry._doInitialize).
+                    let fetchUrl = `config/${atlasParam}.atlas.json`;
+                    let response = await fetch(fetchUrl);
+                    const contentType = response.headers.get('content-type') || '';
+                    const looksLikeJson = contentType.includes('json');
+                    if (!response.ok || !looksLikeJson) {
+                        await this.waitForLayerRegistry();
+                        const meta = window.layerRegistry?.getAtlasMetadata?.(atlasParam);
+                        if (meta?.url) {
+                            fetchUrl = meta.url;
+                            response = await fetch(fetchUrl);
+                        }
+                    }
                     atlasConfig = await response.json();
                     atlasId = atlasParam;
                 }
@@ -432,9 +460,13 @@ export class SplashScreenManager {
 
     setupEventListeners() {
         if (this.elements.changeAtlasBtn) {
-            this.elements.changeAtlasBtn.addEventListener('click', (e) => {
+            this.elements.changeAtlasBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                // The dropdown needs every atlas's metadata, which the fast path
+                // taken elsewhere in this class deliberately avoids waiting for —
+                // await it here, lazily, only now that it's actually needed.
+                await this.waitForLayerRegistry();
                 this.populateAtlasDropdown();
                 if (this.elements.atlasDropdown) this.elements.atlasDropdown.style.display = 'inline-block';
                 if (this.elements.atlasName) this.elements.atlasName.style.display = 'none';

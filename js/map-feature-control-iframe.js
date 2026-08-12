@@ -937,6 +937,25 @@ export class MapFeatureControl {
     }
 
     /**
+     * Tell the inspector which layers' feature queries are still pending for a marker
+     * being streamed in (see MapMarkerManager.restoreMarkersFromSelectionLayer), so it
+     * can show a spinner placeholder card for each, in inspector layer order.
+     */
+    sendFeatureQueryPending(layerIds) {
+        if (!layerIds || layerIds.length === 0) return;
+        this._sendMessageToIframe({ type: 'feature-query-pending', layerIds });
+    }
+
+    /**
+     * A pending layer's query has resolved (feature found or not) — drop its
+     * placeholder card in the inspector. Safe to call even if a matching
+     * 'feature-selected' already cleared it.
+     */
+    sendFeatureQueryResolved(layerId) {
+        this._sendMessageToIframe({ type: 'feature-query-resolved', layerId });
+    }
+
+    /**
      * Send feature selection to iframe
      */
     _sendFeatureSelectionToIframe(layerId, feature, featureId) {

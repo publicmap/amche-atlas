@@ -1631,12 +1631,24 @@ export class URLManager {
     }
 
     /**
-     * Wait for map and layer control to be ready
+     * Wait for map and layer control to be ready.
+     *
+     * Deliberately checks `isStyleLoaded()`, NOT `map.loaded()` — the latter (per
+     * Mapbox GL JS) only returns true once every source in the style has finished
+     * loading, which stays false for as long as ANY layer (a slow satellite basemap,
+     * a multi-tab Google Sheet, ...) is still being added by
+     * MapLayerControl._initializeAllLayers()'s serial add loop. Since URLManager is
+     * constructed from inside map-init.js's own map.on('load') handler, the style
+     * itself is already parsed by the time this runs; waiting on `map.loaded()` here
+     * used to block applyURLParameters() — and therefore
+     * MapMarkerManager.restoreMarkersFromSelectionLayer()'s marker restoration — for
+     * as long as the slowest layer in the whole URL took to finish, defeating the
+     * point of that per-layer streaming restore.
      */
     async waitForMapReady() {
         return new Promise((resolve) => {
             const checkReady = () => {
-                if (this.map && this.map.loaded() && this.mapLayerControl && this.mapLayerControl._state) {
+                if (this.map && this.map.isStyleLoaded() && this.mapLayerControl && this.mapLayerControl._state) {
                     resolve();
                 } else {
                     setTimeout(checkReady, 100);

@@ -34,6 +34,7 @@ export class MapboxAPI {
         this._eventListeners = new Map(); // Cache for event listeners
         this._timeBasedLayers = new Map(); // Cache for layers with time parameters
         this._overpassLoaders = new Map(); // OverpassLoader instances keyed by groupId
+        this._layerDataPrefetch = new Map(); // url -> in-flight/resolved GeoJSON promise, see prefetchLayerData
 
         // Initialize style property mapping for different layer types
         this._stylePropertyMapping = this._initializeStylePropertyMapping();
@@ -2410,17 +2411,13 @@ export class MapboxAPI {
                     if (storedData) {
                         geojson = this._processGeoJSONData(storedData);
                     } else if (config.url) {
-                        const response = await fetch(config.url);
-                        const csvText = await response.text();
-                        geojson = this._processCSVData(csvText, config.csvParser);
+                        geojson = await this._fetchCSVGeoJSON(config);
                     } else {
                         console.error('CSV layer cache miss and no URL fallback:', groupId);
                         return false;
                     }
                 } else if (config.url) {
-                    const response = await fetch(config.url);
-                    const csvText = await response.text();
-                    geojson = this._processCSVData(csvText, config.csvParser);
+                    geojson = await this._consumePrefetchedGeoJSON(config.url, () => this._fetchCSVGeoJSON(config));
                 } else {
                     console.error('CSV layer missing both data and URL:', groupId);
                     return false;
@@ -2471,6 +2468,60 @@ export class MapboxAPI {
         return GeoUtils.rowsToGeoJSON(rows);
     }
 
+    async _fetchCSVGeoJSON(config) {
+        const response = await fetch(config.url);
+        const csvText = await response.text();
+        return this._processCSVData(csvText, config.csvParser);
+    }
+
+    /**
+     * Kick off (fire-and-forget) the network fetch for a sheet/csv layer's
+     * remote data ahead of when createLayerGroup would normally reach it in
+     * the sequential per-layer add loop (map-layer-controls.js's
+     * _initializeAllLayers) — so a slow layer (e.g. a multi-tab Google Sheet)
+     * starts loading in parallel with faster layers ahead of it in that
+     * sequence, instead of only starting once the loop reaches it.
+     * _consumePrefetchedGeoJSON picks up whatever this started (whether
+     * still in flight or already resolved) instead of re-fetching.
+     */
+    prefetchLayerData(config) {
+        if (!config?.url || config.data || config.dataSource === 'localStorage') return;
+        if (config.type === 'sheet') {
+            this._getOrFetchGeoJSON(config.url, () => this._fetchSheetGeoJSON(config)).catch(() => {});
+        } else if (config.type === 'csv') {
+            this._getOrFetchGeoJSON(config.url, () => this._fetchCSVGeoJSON(config)).catch(() => {});
+        }
+    }
+
+    _getOrFetchGeoJSON(url, fetcher) {
+        if (!this._layerDataPrefetch.has(url)) {
+            const promise = fetcher().catch(error => {
+                // Don't poison the cache with a rejected promise - let whatever
+                // consumes it next (the real creation call, if this was only a
+                // speculative prefetch) retry cleanly instead of inheriting the error.
+                this._layerDataPrefetch.delete(url);
+                throw error;
+            });
+            this._layerDataPrefetch.set(url, promise);
+        }
+        return this._layerDataPrefetch.get(url);
+    }
+
+    /**
+     * Used by the actual layer-creation methods (unlike prefetchLayerData,
+     * which only speculatively starts the fetch): reuses a matching in-flight
+     * or resolved prefetch if one exists, then evicts it so a later
+     * toggle-off/toggle-on of the same layer fetches fresh data again rather
+     * than reusing this one indefinitely.
+     */
+    async _consumePrefetchedGeoJSON(url, fetcher) {
+        try {
+            return await this._getOrFetchGeoJSON(url, fetcher);
+        } finally {
+            this._layerDataPrefetch.delete(url);
+        }
+    }
+
     // Sheet layer methods — a "sheet" layer is a `csv` layer whose data comes
     // from every tab of a Google Sheet merged together, instead of a single
     // tab's export URL. It reuses the exact same source/layer plumbing as
@@ -2489,7 +2540,7 @@ export class MapboxAPI {
                     return false;
                 }
 
-                const geojson = await this._fetchSheetGeoJSON(config);
+                const geojson = await this._consumePrefetchedGeoJSON(config.url, () => this._fetchSheetGeoJSON(config));
 
                 const sourceConfig = {
                     type: 'geojson',

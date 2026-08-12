@@ -991,7 +991,20 @@ export class MapInitializer {
             // Connect URL manager with state manager for feature selection URL sync
             urlManager.setStateManager(stateManager);
 
-            // Apply URL parameters after layers are initialized so sources exist for feature selection
+            // Apply URL parameters as soon as the map/layer control are ready — NOT
+            // gated on 'layersInitialized' (all config layers finishing their serial
+            // add loop, which can take many seconds with a slow sheet/basemap layer).
+            // applyURLParameters()'s own waitForMapReady() is a much lighter check
+            // (map style loaded + mapLayerControl._state exists, both true almost
+            // immediately), and the marker/selection restoration it triggers
+            // (MapMarkerManager.restoreMarkersFromSelectionLayer) already does its own
+            // per-layer readiness polling — it doesn't need every OTHER layer to have
+            // finished first. Waiting for 'layersInitialized' here used to hold URL-driven
+            // markers off the map until every layer had already loaded, defeating the
+            // point of that per-layer streaming. (applyLayerState(), the one piece of
+            // applyURLParameters() that would actually re-add layers, is a no-op stub, so
+            // there's no double-add risk from running this concurrently with the initial
+            // layer-add loop.)
             const applyParams = () => {
                 if (!stateRestored) {
                     urlManager.applyURLParameters();
@@ -999,11 +1012,7 @@ export class MapInitializer {
                     setTimeout(() => urlManager.applyURLParameters(), 100);
                 }
             };
-            if (window.layersInitialized) {
-                applyParams();
-            } else {
-                window.addEventListener('layersInitialized', applyParams, { once: true });
-            }
+            applyParams();
 
             // Initialize state persistence event listeners after URL manager is ready
             statePersistence.initialize();

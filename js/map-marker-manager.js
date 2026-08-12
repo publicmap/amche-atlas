@@ -23,7 +23,6 @@ export class MapMarkerManager {
         this._selectionLayerId = 'selection'; // Layer ID for selection markers
         this._selectedBadges = new Set(); // Expanded (selected) feature badges
         this._isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-        this._loadingPlaceholders = new Map(); // placeholderId -> mapboxgl.Marker, shown while a URL-restored marker's query is pending
 
         this._setupEventListeners();
         this._setupMapMovementTracking();
@@ -365,6 +364,33 @@ export class MapMarkerManager {
     }
 
     /**
+     * A "Locating…" placeholder shown in place of a feature badge for a layer whose
+     * query hasn't resolved yet (see MapMarkerManager.restoreMarkersFromSelectionLayer).
+     * Not a `.feature-badge` — has no backing feature, so it's excluded from
+     * _attachBadgeHandlers' click/hover wiring and _createMoreLayersBadgeHTML's "N more
+     * layers" count without any special-casing there.
+     */
+    _createPendingLayerBadgeHTML(layerId) {
+        const layerConfig = this._stateManager.getLayerConfig(layerId);
+        const title = layerConfig?.title || layerId;
+        return `
+            <div class="pending-layer-badge" style="
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                width: 100%;
+                box-sizing: border-box;
+                border-radius: 5px;
+                padding: 4px 8px;
+                opacity: 0.7;
+            ">
+                <sl-spinner style="font-size: 10px; --indicator-color: #9ca3af;"></sl-spinner>
+                <span style="font-size: 10px; font-weight: 600; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this._escapeAttr(title)}: Locating…</span>
+            </div>
+        `;
+    }
+
+    /**
      * Build the collapsible attribute table shown when a badge is selected.
      * Mirrors the inspector's field-selection logic (inspect.fields / fieldTitles,
      * falling back to all non-empty properties) but styled to match the yellow badge.
@@ -696,14 +722,29 @@ export class MapMarkerManager {
     }
 
     _buildMarkerBadgesHTML(features, lngLat, options = {}) {
-        const { includeMoreLayers = false, suppressEmptyBadge = false, clickedLayerIds = null } = options;
+        const { includeMoreLayers = false, suppressEmptyBadge = false, clickedLayerIds = null, pendingLayerIds = null } = options;
+
+        // Layers still being queried (see MapMarkerManager.restoreMarkersFromSelectionLayer)
+        // that haven't already produced a real badge — shown as a "Locating…" placeholder,
+        // interleaved with real feature badges in the same order the inspector displays
+        // layer cards, so the list doesn't jump around as each layer resolves.
+        const foundLayerIds = new Set((features || []).map(f => f.layerId));
+        const pendingIds = pendingLayerIds
+            ? [...pendingLayerIds].filter(id => !foundLayerIds.has(id))
+            : [];
 
         let html;
-        if (features && features.length > 0) {
-            html = features.map((f, i) => {
-                const { fieldName, value } = this._getBadgeLabelInfo(f);
-                return this._createFeatureBadgeHTML(fieldName, value, i, f);
-            }).join('');
+        if ((features && features.length > 0) || pendingIds.length > 0) {
+            const order = new Map(this._getAllActiveLayersInInspectorOrder().map((l, i) => [l.id, i]));
+            const orderOf = (layerId) => order.has(layerId) ? order.get(layerId) : Infinity;
+            const entries = [
+                ...(features || []).map((f, i) => ({ order: orderOf(f.layerId), sortIndex: i, render: () => {
+                    const { fieldName, value } = this._getBadgeLabelInfo(f);
+                    return this._createFeatureBadgeHTML(fieldName, value, i, f);
+                } })),
+                ...pendingIds.map(layerId => ({ order: orderOf(layerId), sortIndex: Infinity, render: () => this._createPendingLayerBadgeHTML(layerId) }))
+            ].sort((a, b) => a.order - b.order || a.sortIndex - b.sortIndex);
+            html = entries.map(entry => entry.render()).join('');
         } else if (suppressEmptyBadge) {
             // The clicked feature was a note, already shown in the comment box above —
             // no separate coordinates badge needed.
@@ -732,7 +773,9 @@ export class MapMarkerManager {
 
         if (includeMoreLayers) {
             const ids = clickedLayerIds || new Set((features || []).map(f => f.layerId));
-            const extraLayers = this._getAllActiveLayersInInspectorOrder().filter(layer => !ids.has(layer.id));
+            // Pending layers already show their own "Locating…" badge above — don't also
+            // fold them into the "N more layers" summary.
+            const extraLayers = this._getAllActiveLayersInInspectorOrder().filter(layer => !ids.has(layer.id) && !pendingIds.includes(layer.id));
             html += this._createMoreLayersBadgeHTML(extraLayers);
         }
 
@@ -785,7 +828,7 @@ export class MapMarkerManager {
         }
     }
 
-    _attachBadgeHandlers(el, features, lngLat, isHover, clickedLayerIds = null) {
+    _attachBadgeHandlers(el, features, lngLat, isHover, clickedLayerIds = null, pendingLayerIds = null) {
         el.querySelectorAll('.feature-badge').forEach(badge => {
             // The "N more layers" summary badge has no backing feature and its own
             // expand/collapse behavior — wired separately in _attachMoreLayersBadgeHandler.
@@ -895,7 +938,7 @@ export class MapMarkerManager {
         // Layer actions menu (export shortcuts) in each badge's footer
         this._attachLayerActionsMenuHandlers(el);
 
-        this._attachMoreLayersBadgeHandler(el, features, lngLat, clickedLayerIds);
+        this._attachMoreLayersBadgeHandler(el, features, lngLat, clickedLayerIds, pendingLayerIds);
     }
 
     /**
@@ -1058,7 +1101,7 @@ export class MapMarkerManager {
      * Expand/collapse the "N more layers" summary badge and lazily populate it
      * with a thumbnail + name row per extra layer.
      */
-    _attachMoreLayersBadgeHandler(el, features, lngLat, clickedLayerIds = null) {
+    _attachMoreLayersBadgeHandler(el, features, lngLat, clickedLayerIds = null, pendingLayerIds = null) {
         const badge = el.querySelector('.more-layers-badge');
         if (!badge) return;
 
@@ -1107,7 +1150,7 @@ export class MapMarkerManager {
                 ];
                 const allActiveLayers = this._getAllActiveLayersInInspectorOrder();
                 const ids = clickedLayerIds || new Set((features || []).map(f => f.layerId));
-                const extraLayers = allActiveLayers.filter(layer => !ids.has(layer.id));
+                const extraLayers = allActiveLayers.filter(layer => !ids.has(layer.id) && !pendingLayerIds?.has(layer.id));
 
                 extraLayers.forEach(layer => {
                     let isInView = true;
@@ -1399,7 +1442,8 @@ export class MapMarkerManager {
         });
     }
 
-    addMarker(lngLat, features) {
+    addMarker(lngLat, features, options = {}) {
+        const { pendingLayerIds = null } = options;
         features = this._dedupeFeatures(features);
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
         const markerNumber = this._markers.size + 1;
@@ -1431,7 +1475,7 @@ export class MapMarkerManager {
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0;"></div>
             <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); cursor: move;">
                 ${this._buildCommentSectionHTML(noteEntry)}
-                ${this._buildMarkerBadgesHTML(badgeFeatures, lngLat, { includeMoreLayers: true, suppressEmptyBadge: !!noteEntry, clickedLayerIds })}
+                ${this._buildMarkerBadgesHTML(badgeFeatures, lngLat, { includeMoreLayers: true, suppressEmptyBadge: !!noteEntry, clickedLayerIds, pendingLayerIds })}
             </div>
         `;
 
@@ -1473,7 +1517,7 @@ export class MapMarkerManager {
         });
 
         // Clicking a badge opens the inspector; selection markers are already selected.
-        this._attachBadgeHandlers(el, badgeFeatures, lngLat, false, clickedLayerIds);
+        this._attachBadgeHandlers(el, badgeFeatures, lngLat, false, clickedLayerIds, pendingLayerIds);
         this._attachCommentSectionHandlers(el, lngLat, noteEntry);
         this._blockMapHoverEvents(el);
 
@@ -1977,7 +2021,11 @@ export class MapMarkerManager {
         }
 
         if (!this._mapboxAPI) {
-            console.warn('[MarkerManager] MapboxAPI not available, cannot update selection layer');
+            // Expected transiently during startup: restoreMarkersFromSelectionLayer now
+            // renders markers as soon as their location is known, which can be before
+            // MapLayerControl.renderToContainer() has finished constructing its MapboxAPI
+            // instance. Self-resolves — the next call (as more layers resolve, or any
+            // later marker add/remove) succeeds once window.layerControl._mapboxAPI exists.
             return;
         }
 
@@ -2061,115 +2109,147 @@ export class MapMarkerManager {
         const withRefs = markerPoints.filter(f => Array.isArray(f.properties?.features) && f.properties.features.length > 0);
         const locationsOnly = markerPoints.filter(f => !Array.isArray(f.properties?.features) || f.properties.features.length === 0);
 
-        // Show a pin with a spinner at each location-only marker immediately, rather
-        // than leaving nothing on screen until every layer below has finished loading —
-        // raster/basemap sources (satellite imagery, admin-line style layers, ...) can
-        // take much longer than the vector data the query itself depends on.
-        const placeholderIds = locationsOnly.map(feature => {
-            const [lng, lat] = feature.geometry.coordinates;
-            return this._addLoadingPlaceholder({ lng, lat });
-        });
-
-        const refLayerIds = new Set();
-        withRefs.forEach(feature => {
-            feature.properties.features.forEach(ref => refLayerIds.add(ref.layerId));
-        });
-
-        const allRestoredFeatures = [];
-
-        if (withRefs.length > 0) {
-            await this._waitForLayersReady(Array.from(refLayerIds));
-            await this._waitForMapIdle();
-
-            for (const feature of withRefs) {
-                const [lng, lat] = feature.geometry.coordinates;
-                const lngLat = { lng, lat };
-                const featureRefs = feature.properties.features || [];
-
-                const restoredFeatures = [];
-                for (const ref of featureRefs) {
-                    const selectedFeature = await this._restoreFeatureFromRef(ref);
-                    if (selectedFeature) {
-                        restoredFeatures.push({
-                            ...selectedFeature,
-                            lngLat
-                        });
-                    }
-                }
-
-                if (restoredFeatures.length > 0) {
-                    this.addMarker(lngLat, restoredFeatures);
-                    allRestoredFeatures.push(...restoredFeatures);
-                }
-            }
-        }
-
+        // No refs to target specific layers for location-only markers, so stream against
+        // the URL's queryable (non-raster) layers instead. Raster/style layers never
+        // register with the state manager and can't be queried anyway — see
+        // _isQueryableLayerType. Computed up front (before building states below) since
+        // location-only states need it as their initial pending-layer set.
+        const locationLayerIds = [];
         if (locationsOnly.length > 0) {
-            // No refs to target specific layers, so wait for the URL's queryable
-            // (non-raster) layers instead. Raster/style layers never register with the
-            // state manager and can't be queried anyway, so waiting on them would just
-            // stall every marker behind the slowest basemap tile — see the loading
-            // placeholder above and _isQueryableLayerType below.
-            const layerIds = new Set();
             window.layerControl._state.groups.forEach(group => {
                 if (group.initiallyChecked && this._isQueryableLayerType(group)) {
-                    layerIds.add(group.id);
+                    locationLayerIds.push(group.id);
                 }
             });
+        }
 
-            await this._waitForLayersReady(Array.from(layerIds));
-            await this._waitForSourcesReady(Array.from(layerIds));
+        // Show a marker at every restored location immediately — the click point is
+        // already known, so there's no need to wait for every layer to finish loading
+        // before putting a pin down. Each layer that hasn't resolved yet renders as a
+        // "Locating…" placeholder badge (see _createPendingLayerBadgeHTML) instead of a
+        // generic spinner, and _upsertStreamingMarkerVisual rebuilds the marker in place
+        // as each one resolves below — real badges replacing placeholders, always in the
+        // inspector's layer order regardless of arrival order.
+        const toState = (feature, refs, pendingLayerIds) => {
+            const [lng, lat] = feature.geometry.coordinates;
+            const state = {
+                lngLat: { lng, lat },
+                refs: refs || null,
+                markerId: null,
+                foundFeatures: [],
+                pendingLayerIds: new Set(pendingLayerIds)
+            };
+            this._upsertStreamingMarkerVisual(state);
+            return state;
+        };
+        const withRefsState = withRefs.map(f => toState(f, f.properties.features || [], (f.properties.features || []).map(r => r.layerId)));
+        const locationsOnlyState = locationsOnly.map(f => toState(f, null, locationLayerIds));
 
-            // Force "add" mode so each location-only marker layers onto the others
-            // (and onto any ref-based markers restored above) instead of clearing them,
-            // same as MapMarkerManager._handleMarkerDragEnd re-selecting after a drag.
-            const wasCmdCtrlPressed = this._stateManager._isCmdCtrlPressed;
-            this._stateManager._isCmdCtrlPressed = true;
-            try {
-                locationsOnly.forEach((feature, i) => {
-                    this._removeLoadingPlaceholder(placeholderIds[i]);
+        const refLayerIds = new Set();
+        withRefsState.forEach(state => state.refs.forEach(ref => refLayerIds.add(ref.layerId)));
 
-                    const [lng, lat] = feature.geometry.coordinates;
-                    const lngLat = { lng, lat };
-                    const point = this._map.project([lng, lat]);
-                    const interactiveFeatures = this._stateManager.getFeaturesAtPoint(point, lngLat)
-                        .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
+        // Tell the inspector which layers are still pending so it can show a spinner
+        // placeholder card for each, in the same order it displays real feature cards.
+        const pendingLayerIds = this._getAllActiveLayersInInspectorOrder()
+            .map(l => l.id)
+            .filter(id => refLayerIds.has(id) || locationLayerIds.includes(id));
+        window.featureControl?.sendFeatureQueryPending?.(pendingLayerIds);
 
-                    if (interactiveFeatures.length > 0) {
-                        this._stateManager.handleFeatureClicks(interactiveFeatures);
-                    } else {
-                        this._stateManager.handleFeatureClicks([], lngLat);
+        const allRestoredFeatures = [];
+        const layerResolutions = [];
+
+        // Force "add" mode for the whole streaming window so every marker layers onto
+        // the others instead of clearing them, same as _handleMarkerDragEnd re-selecting
+        // after a drag.
+        const wasCmdCtrlPressed = this._stateManager._isCmdCtrlPressed;
+        this._stateManager._isCmdCtrlPressed = true;
+
+        try {
+            // Ref-based markers: each ref names its own layer, so resolve it as soon as
+            // THAT layer is ready instead of waiting on the slowest one in the set.
+            refLayerIds.forEach(layerId => {
+                layerResolutions.push(this._waitForSingleLayerReady(layerId).then(async () => {
+                    for (const state of withRefsState) {
+                        const ref = state.refs.find(r => r.layerId === layerId);
+                        if (!ref) continue;
+
+                        const restored = await this._restoreFeatureFromRef(ref);
+                        if (restored) {
+                            const withLngLat = { ...restored, lngLat: state.lngLat };
+                            state.foundFeatures.push(withLngLat);
+                            allRestoredFeatures.push(withLngLat);
+
+                            await this._stateManager._executeInspectionHandler(restored.feature, layerId, state.lngLat);
+                            this._stateManager._emitStateChange('feature-click', {
+                                feature: restored.feature,
+                                featureId: restored.featureId,
+                                layerId,
+                                lngLat: state.lngLat,
+                                fromURL: true,
+                                fromMarkerRestore: true
+                            });
+                        }
+                        state.pendingLayerIds.delete(layerId);
+                        this._upsertStreamingMarkerVisual(state);
+                        window.featureControl?.sendFeatureQueryResolved?.(layerId);
                     }
-                });
-            } finally {
-                this._stateManager._isCmdCtrlPressed = wasCmdCtrlPressed;
-            }
+                }));
+            });
+
+            // Location-only markers: query every pending location against each layer as
+            // soon as THAT layer is ready, instead of waiting for every layer in the set.
+            locationLayerIds.forEach(layerId => {
+                layerResolutions.push(this._waitForSingleLayerReady(layerId).then(async () => {
+                    for (const state of locationsOnlyState) {
+                        const point = this._map.project([state.lngLat.lng, state.lngLat.lat]);
+                        const found = this._stateManager.getFeaturesAtPoint(point, state.lngLat)
+                            .filter(f => f.layerId === layerId && this._stateManager.isLayerInteractive(f.layerId));
+
+                        for (const f of found) {
+                            const restored = this._selectRestoredFeature(f.feature, f.layerId, state.lngLat);
+                            state.foundFeatures.push(restored);
+                            allRestoredFeatures.push(restored);
+
+                            await this._stateManager._executeInspectionHandler(restored.feature, layerId, state.lngLat);
+                            this._stateManager._emitStateChange('feature-click', {
+                                feature: restored.feature,
+                                featureId: restored.featureId,
+                                layerId,
+                                lngLat: state.lngLat,
+                                fromURL: true,
+                                fromMarkerRestore: true
+                            });
+                        }
+                        state.pendingLayerIds.delete(layerId);
+                        this._upsertStreamingMarkerVisual(state);
+                        window.featureControl?.sendFeatureQueryResolved?.(layerId);
+                    }
+                }));
+            });
+
+            await Promise.allSettled(layerResolutions);
+
+            // Every state's pendingLayerIds has been drained to empty by now (each
+            // layerId is deleted right before its last _upsertStreamingMarkerVisual
+            // call above) — any location where nothing was ever found has already
+            // settled into a normal empty/coords marker via that same call, so there's
+            // nothing further to do here.
+        } finally {
+            this._stateManager._isCmdCtrlPressed = wasCmdCtrlPressed;
         }
 
         if (this._markers.size > 0) {
             this._stateManager._updateLineSortKeys();
         }
 
-        // Notify the inspector iframe (and other listeners) of the ref-based restorations
-        // so the status bar with the Clear / Add / Zoom buttons shows. Those markers were
-        // created manually above (bypassing the normal click pipeline), so the
+        // Notify the inspector iframe (and other listeners, e.g. URL sync) of the full
+        // restoration so the status bar with the Clear / Add / Zoom buttons shows. Every
+        // marker above was created manually (bypassing the normal click pipeline), so the
         // fromMarkerRestore flag tells _handleSelection not to re-add them — mirrors the
-        // event sequence in UrlManager.applySelectionsFromURL. Location-only markers went
-        // through handleFeatureClicks() above, which already emits these events itself
-        // (and creates their markers via the normal _handleSelection listener).
+        // event sequence in UrlManager.applySelectionsFromURL. Per-feature 'feature-click'
+        // events were already emitted as each one streamed in above; this is just the
+        // final consolidated summary.
         if (allRestoredFeatures.length > 0) {
-            for (const { feature, featureId, layerId, lngLat } of allRestoredFeatures) {
-                await this._stateManager._executeInspectionHandler(feature, layerId, lngLat);
-                this._stateManager._emitStateChange('feature-click', {
-                    feature,
-                    featureId,
-                    layerId,
-                    lngLat,
-                    fromURL: true,
-                    fromMarkerRestore: true
-                });
-            }
-
             this._stateManager._emitStateChange('feature-click-multiple', {
                 selectedFeatures: allRestoredFeatures,
                 clearedFeatures: [],
@@ -2182,44 +2262,60 @@ export class MapMarkerManager {
     }
 
     /**
-     * A pin + spinner shown at a location-only marker's position while its layers
-     * load and its point query is pending — see restoreMarkersFromSelectionLayer.
-     * Returns an id to pass to _removeLoadingPlaceholder once the real marker is ready.
+     * Select a feature directly in the state manager, bypassing handleFeatureClicks
+     * (which would re-trigger the normal click pipeline's _handleSelection listener and
+     * create a duplicate marker — restoreMarkersFromSelectionLayer manages its own marker
+     * per location via _upsertStreamingMarkerVisual instead). Mirrors the per-feature
+     * bookkeeping handleFeatureClicks does internally.
      */
-    _addLoadingPlaceholder(lngLat) {
-        const pinSize = this._isTouch ? 34 : 28;
-        const el = document.createElement('div');
-        el.className = 'marker-loading-placeholder';
-        el.style.cssText = 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none;';
-        el.innerHTML = `
-            <div class="marker-action-row" style="display: flex; align-items: flex-end; justify-content: center; width: ${pinSize}px; height: ${pinSize}px; flex-shrink: 0;">
-                <sl-icon name="geo-alt-fill" style="font-size:${pinSize}px;color:#f97316;opacity:0.55;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));"></sl-icon>
-            </div>
-            <div class="marker-content" style="display:flex;align-items:center;gap:6px;background:#1f2937;border:1px solid #374151;border-radius:8px;padding:4px 8px;box-shadow:0 4px 16px rgba(0,0,0,0.35);">
-                <sl-spinner style="font-size:12px;--indicator-color:#f97316;"></sl-spinner>
-                <span style="font-size:11px;font-weight:600;color:#9ca3af;white-space:nowrap;">Loading...</span>
-            </div>
-        `;
+    _selectRestoredFeature(feature, layerId, lngLat) {
+        const sm = this._stateManager;
+        const featureId = sm._getFeatureId(feature);
+        const compositeKey = sm._getCompositeKey(layerId, featureId);
+        const alreadySelected = sm._selectedFeatures.has(compositeKey);
 
-        const marker = new mapboxgl.Marker({
-            element: el,
-            anchor: 'top-left',
-            offset: [-(pinSize / 2), -pinSize]
-        })
-            .setLngLat([lngLat.lng, lngLat.lat])
-            .addTo(this._map);
+        sm._updateFeatureState(compositeKey, { feature, layerId, isSelected: true, lngLat, timestamp: Date.now() });
 
-        const id = `placeholder-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        this._loadingPlaceholders.set(id, marker);
-        return id;
+        if (!alreadySelected) {
+            sm._selectedFeatures.add(compositeKey);
+            sm._setMapboxFeatureStateAllLayers(featureId, layerId, { selected: true });
+        }
+
+        return { featureId, layerId, feature, lngLat };
     }
 
-    _removeLoadingPlaceholder(id) {
-        const marker = this._loadingPlaceholders.get(id);
-        if (marker) {
-            marker.remove();
-            this._loadingPlaceholders.delete(id);
+    /**
+     * Create or refresh the on-map marker for a location being streamed in during
+     * restoreMarkersFromSelectionLayer, so exactly one pin ever exists per location from
+     * the moment its location is known — with a "Locating…" placeholder badge for each
+     * layer still pending — while real badges grow in (and placeholders drop away) as
+     * more layers resolve. Badge order always follows the inspector's layer order (see
+     * LayerOrderManager), not arrival order.
+     */
+    _upsertStreamingMarkerVisual(state) {
+        if (state.markerId) {
+            const existing = this._markers.get(state.markerId);
+            if (existing) {
+                existing.marker.remove();
+                this._markers.delete(state.markerId);
+            }
         }
+        state.markerId = this.addMarker(state.lngLat, this._sortFeaturesByInspectorOrder(state.foundFeatures), {
+            pendingLayerIds: state.pendingLayerIds
+        });
+    }
+
+    /**
+     * Order features the same way map-inspector.html displays layer cards, regardless of
+     * the order their layers actually resolved in.
+     */
+    _sortFeaturesByInspectorOrder(features) {
+        const order = new Map(this._getAllActiveLayersInInspectorOrder().map((l, i) => [l.id, i]));
+        return [...features].sort((a, b) => {
+            const aOrder = order.has(a.layerId) ? order.get(a.layerId) : Infinity;
+            const bOrder = order.has(b.layerId) ? order.get(b.layerId) : Infinity;
+            return aOrder - bOrder;
+        });
     }
 
     /**
@@ -2238,93 +2334,31 @@ export class MapMarkerManager {
     }
 
     /**
-     * Wait for the given layers' sources to finish loading, without waiting on the
-     * map's global 'idle' event — which only fires once every source (including slow
-     * raster/satellite basemap tiles) has settled. A restored marker's point query only
-     * needs its own vector sources ready, not the whole style.
+     * Wait for a single layer to become queryable — registered with the state manager
+     * AND its own Mapbox source loaded — without waiting on any other layer. Lets
+     * restoreMarkersFromSelectionLayer stream results in per layer instead of being held
+     * back by the slowest one in the set (e.g. a big vector tile or raster layer).
      */
-    async _waitForSourcesReady(layerIds, timeout = 5000) {
-        const sourceIds = new Set();
-        layerIds.forEach(layerId => {
-            const layerConfig = this._stateManager.getLayerConfig(layerId);
-            if (layerConfig) {
-                sourceIds.add(layerConfig.source || `${layerConfig.type}-${layerId}`);
+    async _waitForSingleLayerReady(layerId, timeout = 10000) {
+        const startTime = Date.now();
+        while (!this._stateManager.isLayerRegistered(layerId)) {
+            if (Date.now() - startTime > timeout) {
+                console.warn(`[MarkerManager] Timeout waiting for layer to register: ${layerId}`);
+                return false;
             }
-        });
-
-        if (sourceIds.size === 0) {
-            return;
+            await new Promise(resolve => setTimeout(resolve, 150));
         }
 
-        const startTime = Date.now();
-        return new Promise((resolve) => {
-            const check = () => {
-                const allLoaded = Array.from(sourceIds).every(id => {
-                    return this._map.getSource(id) && this._map.isSourceLoaded(id);
-                });
-
-                if (allLoaded || Date.now() - startTime > timeout) {
-                    resolve();
-                } else {
-                    requestAnimationFrame(check);
-                }
-            };
-            check();
-        });
-    }
-
-    async _waitForLayersReady(layerIds, timeout = 10000) {
-        const startTime = Date.now();
-        const checkInterval = 200;
-
-        return new Promise((resolve) => {
-            const checkLayers = () => {
-                if (!this._stateManager) {
-                    console.warn('[MarkerManager] State manager not available');
-                    resolve(false);
-                    return;
-                }
-
-                const readyLayers = layerIds.filter(layerId =>
-                    this._stateManager.isLayerRegistered(layerId)
-                );
-
-                const allReady = readyLayers.length === layerIds.length;
-
-                if (allReady) {
-                    resolve(true);
-                } else if (Date.now() - startTime > timeout) {
-                    const notReady = layerIds.filter(id => !readyLayers.includes(id));
-                    console.warn(`[MarkerManager] Timeout waiting for layers: ${notReady.join(', ')}`);
-                    resolve(false);
-                } else {
-                    setTimeout(checkLayers, checkInterval);
-                }
-            };
-
-            checkLayers();
-        });
-    }
-
-    async _waitForMapIdle(timeout = 3000) {
-        return new Promise((resolve) => {
-            if (this._map.loaded() && this._map.areTilesLoaded()) {
-                resolve();
-                return;
+        const layerConfig = this._stateManager.getLayerConfig(layerId);
+        const sourceId = layerConfig?.source || `${layerConfig?.type}-${layerId}`;
+        while (!(this._map.getSource(sourceId) && this._map.isSourceLoaded(sourceId))) {
+            if (Date.now() - startTime > timeout) {
+                console.warn(`[MarkerManager] Timeout waiting for source to load: ${sourceId}`);
+                return false;
             }
-
-            const timeoutId = setTimeout(() => {
-                resolve();
-            }, timeout);
-
-            const onIdle = () => {
-                clearTimeout(timeoutId);
-                this._map.off('idle', onIdle);
-                resolve();
-            };
-
-            this._map.once('idle', onIdle);
-        });
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+        return true;
     }
 
     async _restoreFeatureFromRef(ref, retries = 3) {

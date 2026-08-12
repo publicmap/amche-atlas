@@ -312,7 +312,28 @@
         },
         "circle": {
           "circle-radius": 2,
-          "circle-color": "#FF0000",
+          "circle-color": [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            "rgba(255, 255, 0, 1)",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            "rgba(255, 255, 0, 0.8)",
+            "black"
+          ],
           "circle-opacity": 0.8,
           "circle-stroke-width": 1,
           "circle-stroke-color": "#FFFFFF",
@@ -328,7 +349,28 @@
       "csv": {
         "circle": {
           "circle-radius": 3,
-          "circle-color": "#3887be",
+          "circle-color": [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            "rgba(255, 255, 0, 1)",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            "rgba(255, 255, 0, 0.8)",
+            "black"
+          ],
           "circle-opacity": 0.7,
           "circle-stroke-width": 1.5,
           "circle-stroke-color": "#ffffff",

@@ -283,6 +283,17 @@ export class MapLayerControl {
             layerIdToIndex.set(item.group.id, item.groupIndex);
         });
 
+        // Kick off network fetches for slow remote-data layers (sheet/csv - e.g. a
+        // multi-tab Google Sheet) for every layer up front, in parallel, instead of
+        // only starting once the sequential loop below reaches that layer's turn.
+        // A layer near the front of the URL (meant to render near the top) can end
+        // up added last here (map order reverses URL order - see
+        // LayerOrderManager), so without this its slow fetch wouldn't even start
+        // until every layer below it had already been added.
+        if (this._mapboxAPI) {
+            mapOrderLayers.forEach(layer => this._mapboxAPI.prefetchLayerData(layer));
+        }
+
         // Add layers progressively with yields to browser
         for (const layer of mapOrderLayers) {
             const groupIndex = layerIdToIndex.get(layer.id);

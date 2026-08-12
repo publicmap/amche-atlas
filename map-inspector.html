@@ -522,6 +522,7 @@
         let selectionSnapshot = null; // Snapshot of selections before new click
         let selectionDebounceTimer = null; // Timer to batch selection messages
         let pendingNewSelections = new Set(); // Layers with new selections in current batch
+        let pendingLayerIds = new Set(); // Layers whose feature query hasn't resolved yet (streaming marker restore)
         let currentBounds = null; // Current map bounds [west, south, east, north]
         let parentUrlSearchParams = null; // URL search params from parent window
         let hoverClearTimeoutId = null; // Pending clear so brief gaps between cards don't flash the isolation off
@@ -736,10 +737,23 @@
                 updateHighlights();
             }
 
+            if (event.data.type === 'feature-query-pending') {
+                (event.data.layerIds || []).forEach(id => pendingLayerIds.add(id));
+                renderLayers();
+            }
+
+            if (event.data.type === 'feature-query-resolved') {
+                pendingLayerIds.delete(event.data.layerId);
+                renderLayers();
+            }
+
             if (event.data.type === 'feature-selected') {
                 const layerId = event.data.layerId;
                 const feature = event.data.feature;
                 const featureId = event.data.featureId; // Use the featureId from state manager
+
+                // A real feature arrived for this layer — drop its pending placeholder.
+                pendingLayerIds.delete(layerId);
 
                 // Create snapshot of selections before first new selection
                 if (!selectionSnapshot) {
@@ -853,6 +867,7 @@
                 const layerId = event.data.layerId;
                 selectedFeatures.delete(layerId);
                 featureCustomHTML.delete(layerId); // Clear custom HTML
+                pendingLayerIds.delete(layerId);
                 if (expandedLayerId === layerId) {
                     expandedLayerId = null;
                     if (isolateEnabled) {
@@ -869,6 +884,7 @@
             if (event.data.type === 'clear-all-selections') {
                 selectedFeatures.clear();
                 featureCustomHTML.clear();
+                pendingLayerIds.clear();
                 expandedLayerId = null;
                 if (isolateEnabled) {
                     window.parent.postMessage({
@@ -1439,10 +1455,10 @@
             // Use centralized ordering logic for inspector display
             const { overlays: overlayMaps, basemaps: baseMaps } = LayerOrderManager.getInspectorDisplayOrder(activeLayers);
 
-            // Sort function: selections/hovers first, then URL order
+            // Sort function: selections/hovers/pending queries first, then URL order
             const sortWithActivityPriority = (a, b) => {
-                const aHasActivity = selectedFeatures.has(a.id) || hoveredFeatures.has(a.id);
-                const bHasActivity = selectedFeatures.has(b.id) || hoveredFeatures.has(b.id);
+                const aHasActivity = selectedFeatures.has(a.id) || hoveredFeatures.has(a.id) || pendingLayerIds.has(a.id);
+                const bHasActivity = selectedFeatures.has(b.id) || hoveredFeatures.has(b.id) || pendingLayerIds.has(b.id);
                 if (aHasActivity && !bHasActivity) return -1;
                 if (!aHasActivity && bHasActivity) return 1;
 
@@ -1466,7 +1482,7 @@
                 $overlayList.html('<div class="text-center text-gray-500 py-4 text-xs">No overlay maps</div>');
             } else {
                 overlayMaps.forEach(layerConfig => {
-                    const hasSelection = selectedFeatures.has(layerConfig.id);
+                    const hasSelection = selectedFeatures.has(layerConfig.id) || pendingLayerIds.has(layerConfig.id);
                     const $card = hasSelection ? createSelectedFeatureCard(layerConfig) : createLayerCard(layerConfig);
                     setupCardDrag($card, 'overlay-list');
                     $overlayList.append($card);
@@ -1477,7 +1493,7 @@
                 $basemapList.html('<div class="text-center text-gray-500 py-4 text-xs">No base maps</div>');
             } else {
                 baseMaps.forEach(layerConfig => {
-                    const hasSelection = selectedFeatures.has(layerConfig.id);
+                    const hasSelection = selectedFeatures.has(layerConfig.id) || pendingLayerIds.has(layerConfig.id);
                     const $card = hasSelection ? createSelectedFeatureCard(layerConfig) : createLayerCard(layerConfig);
                     setupCardDrag($card, 'basemap-list');
                     $basemapList.append($card);
@@ -1584,12 +1600,16 @@
             const featuresMap = selectedFeatures.get(layerConfig.id);
             const customHTMLMap = featureCustomHTML.get(layerConfig.id) || new Map();
             const isExpanded = expandedLayerId === layerConfig.id;
-            const hasSelection = selectedFeatures.has(layerConfig.id);
+            // A layer whose query is still streaming in (see MapMarkerManager's
+            // restoreMarkersFromSelectionLayer) counts as "selected" so its card shows
+            // with a spinner placeholder in place of a feature name, even before any
+            // feature has actually resolved.
+            const isPending = pendingLayerIds.has(layerConfig.id) && (!featuresMap || featuresMap.size === 0);
+            const hasSelection = selectedFeatures.has(layerConfig.id) || isPending;
             const hasHover = hoveredFeatures.has(layerConfig.id);
 
-
-            if (!featuresMap || featuresMap.size === 0) {
-                return $('<div>'); // Return empty div if no features
+            if ((!featuresMap || featuresMap.size === 0) && !isPending) {
+                return $('<div>'); // Return empty div if no features and nothing pending
             }
 
             const cardClasses = 'layer-card bg-gray-800 rounded' +
@@ -1711,6 +1731,28 @@
                 });
             }
 
+            // Still waiting on this layer's query and nothing has resolved yet — show a
+            // single spinner badge in place of a feature name.
+            if (isPending && badges.length === 0) {
+                const $spinnerBadge = $('<span>', {
+                    css: {
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '2px 6px',
+                        background: '#374151',
+                        color: '#9ca3af',
+                        borderRadius: '10px',
+                        fontSize: '10px',
+                        fontWeight: '600',
+                        whiteSpace: 'nowrap'
+                    }
+                });
+                $spinnerBadge.append($('<sl-spinner>', { css: { fontSize: '9px' } }));
+                $spinnerBadge.append($('<span>', { text: 'Locating…' }));
+                $badgesContainer.append($spinnerBadge);
+            }
+
             // Create badge elements
             badges.forEach(({ featureId, labelValue, isHovered, isSelected }) => {
                 const $badge = $('<span>', {
@@ -1795,7 +1837,7 @@
                             featureId,
                             feature,
                             isHovered: true,
-                            isSelected: featuresMap.has(featureId)
+                            isSelected: featuresMap ? featuresMap.has(featureId) : false
                         });
                     });
                 }
