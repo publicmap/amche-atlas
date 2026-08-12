@@ -213,6 +213,43 @@ export class ShortcutMenu {
                 ]
             },
             {
+                id: 'open-with-menu',
+                icon: 'box-arrow-up-right',
+                label: 'Open With',
+                children: [
+                    {
+                        id: 'open-with-osm',
+                        icon: 'https://upload.wikimedia.org/wikipedia/commons/b/b0/Openstreetmap_logo.svg',
+                        label: 'OpenStreetMap',
+                        action: () => this._openExternalLink('osm')
+                    },
+                    {
+                        id: 'open-with-google-maps',
+                        icon: 'https://upload.wikimedia.org/wikipedia/commons/a/aa/Google_Maps_icon_%282020%29.svg',
+                        label: 'Google Maps',
+                        action: () => this._openExternalLink('google-maps')
+                    },
+                    {
+                        id: 'open-with-google-earth',
+                        icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Google_Earth_icon.svg/100px-Google_Earth_icon.svg.png',
+                        label: 'Google Earth',
+                        action: () => this._openExternalLink('google-earth')
+                    },
+                    {
+                        id: 'open-with-geolibre',
+                        icon: 'globe',
+                        label: 'GeoLibre',
+                        action: () => this._openWithGeoLibre()
+                    },
+                    {
+                        id: 'open-with-more',
+                        icon: 'three-dots',
+                        label: 'More',
+                        action: () => this._openMoreExternalLinks()
+                    }
+                ]
+            },
+            {
                 icon: 'badge-3d',
                 label: '3D View',
                 action: () => window.terrain3DControl?.showPanel()
@@ -245,11 +282,6 @@ export class ShortcutMenu {
                 icon: 'trash',
                 label: 'Remove all layers',
                 action: () => window.browserControl?.hideAllLayers()
-            },
-            {
-                icon: 'globe',
-                label: 'Open with GeoLibre',
-                action: () => this._openWithGeoLibre()
             }
         ];
 
@@ -282,9 +314,17 @@ export class ShortcutMenu {
             button.className = 'shortcut-menu-item';
             if (item.id) button.dataset.itemId = item.id;
 
-            const icon = document.createElement('sl-icon');
-            icon.setAttribute('name', item.icon);
-            button.appendChild(icon);
+            if (/^https?:\/\//.test(item.icon)) {
+                const icon = document.createElement('img');
+                icon.className = 'shortcut-menu-icon-img';
+                icon.src = item.icon;
+                icon.alt = '';
+                button.appendChild(icon);
+            } else {
+                const icon = document.createElement('sl-icon');
+                icon.setAttribute('name', item.icon);
+                button.appendChild(icon);
+            }
 
             const label = document.createElement('span');
             label.textContent = item.label;
@@ -371,6 +411,39 @@ export class ShortcutMenu {
     _selectFeaturesAtPoint() {
         if (!this._lngLat) return;
         window.featureControl?.triggerSelectionAt(this._lngLat);
+    }
+
+    /**
+     * Point to use for "Open With" links: where the menu was opened, falling
+     * back to the map center if it was triggered some other way.
+     */
+    _getExternalLinkPoint() {
+        return this._lngLat || this._map?.getCenter() || null;
+    }
+
+    /**
+     * Opens one of ButtonExternalMapLinks' generated URLs directly, reusing
+     * its link definitions (see button-external-map-links.js) so the URL
+     * formats stay in one place.
+     */
+    _openExternalLink(linkId) {
+        const point = this._getExternalLinkPoint();
+        if (!point || !window.externalMapLinksControl) return;
+
+        const zoom = Math.round(this._map.getZoom());
+        const links = window.externalMapLinksControl._generateNavigationLinks(point.lat, point.lng, zoom);
+        const link = links.find(l => l.id === linkId);
+        if (link) window.open(link.url, '_blank', 'noopener');
+    }
+
+    /**
+     * "More" opens the full ButtonExternalMapLinks modal pinned to the point
+     * the shortcut menu was opened at.
+     */
+    _openMoreExternalLinks() {
+        const point = this._getExternalLinkPoint();
+        if (!point) return;
+        window.externalMapLinksControl?.showAtCoordinates(point.lat, point.lng);
     }
 
     /**

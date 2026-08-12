@@ -2079,6 +2079,11 @@ export class MapFeatureControl {
             let mouseMoveEvent = null;
             let mouseMoveRAF = null;
             this._map.on('mousemove', (e) => {
+                // A marker balloon's manual drag (MapMarkerManager) runs via
+                // window-level listeners while the pointer passes over the map
+                // canvas — skip the hover query entirely so it doesn't compete with
+                // the drag for the main thread or flip hover state underneath it.
+                if (this._stateManager._isDraggingMarkerPanel) return;
                 mouseMoveEvent = e;
                 if (mouseMoveRAF) return;
                 mouseMoveRAF = requestAnimationFrame(() => {

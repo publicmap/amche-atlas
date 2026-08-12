@@ -84,6 +84,21 @@ export class MapMarkerManager {
         this._map.on('moveend', () => {
             this._isMapMoving = false;
         });
+
+        // Keep any manually-dragged marker balloons glued to the real map location
+        // they were dropped at (see _attachBalloonDragHandler) through every
+        // subsequent pan/zoom/rotate, rather than a fixed screen-pixel offset that
+        // only lined up with the pin at the moment it was set.
+        this._map.on('move', () => this._updatePanelOffsets());
+    }
+
+    _updatePanelOffsets() {
+        for (const markerData of this._markers.values()) {
+            if (!markerData.panelLngLat || !markerData.contentEl) continue;
+            const pinPoint = this._map.project(markerData.marker.getLngLat());
+            const panelPoint = this._map.project(markerData.panelLngLat);
+            markerData.contentEl.style.transform = `translate3d(${panelPoint.x - pinPoint.x}px, ${panelPoint.y - pinPoint.y}px, 0)`;
+        }
     }
 
     /**
@@ -506,7 +521,9 @@ export class MapMarkerManager {
             dropdown.addEventListener('click', (e) => e.stopPropagation());
             const menu = dropdown.querySelector('sl-menu');
             menu?.addEventListener('sl-select', (e) => {
-                e.stopPropagation();
+                // Let sl-select keep bubbling to <sl-dropdown> — that's what makes
+                // it auto-close after picking an item; stopping it here left the
+                // dropdown open after every action.
                 const value = e.detail.item?.value || '';
                 if (value === 'zoom-to-feature') {
                     this._handleZoomToFeatureAction(dropdown);
@@ -732,6 +749,12 @@ export class MapMarkerManager {
                 // copying text inside it impossible.
                 details.addEventListener('mousedown', (e) => e.stopPropagation());
                 details.addEventListener('click', (e) => e.stopPropagation());
+                // Also stop touchend: the badge itself listens for touchend to toggle
+                // open/closed (see `handler`/`this._isTouch` below), so without this,
+                // lifting a finger after scrolling the table — or tapping a button
+                // inside it — bubbles up and collapses the badge before the tap's own
+                // handler (e.g. showAllBtn's click) even runs.
+                details.addEventListener('touchend', (e) => e.stopPropagation());
 
                 const showAllBtn = details.querySelector('.badge-show-all-props-btn');
                 if (showAllBtn) {
@@ -972,6 +995,10 @@ export class MapMarkerManager {
         details.addEventListener('touchstart', (e) => e.stopPropagation());
         details.addEventListener('mousedown', (e) => e.stopPropagation());
         details.addEventListener('click', (e) => e.stopPropagation());
+        // Stop touchend too — the badge itself toggles open/closed on touchend
+        // (see `handler` below), so without this, releasing a finger after
+        // scrolling this list bubbles up and collapses it right back.
+        details.addEventListener('touchend', (e) => e.stopPropagation());
 
         const shortcutBtn = badge.querySelector('.more-layers-shortcut-btn');
         if (shortcutBtn) {
@@ -1358,20 +1385,32 @@ export class MapMarkerManager {
         this._attachCommentSectionHandlers(el, lngLat);
         this._blockMapHoverEvents(el);
 
-        // Only the pin (marker-action-row) should drag the actual location. The
-        // balloon group has its own independent drag that just repositions it
-        // on screen for decluttering, without touching lngLat or re-querying.
-        const contentEl = el.querySelector('.marker-content');
-        if (contentEl) {
-            this._attachBalloonDragHandler(contentEl);
+        // The "more layers" badge is normally revealed by hovering the marker
+        // (see mouseenter/mouseleave below), but touch devices have no hover —
+        // without this, the badge stays permanently hidden and is never reachable.
+        // Selection markers are already an explicit, committed action on touch, so
+        // just show it immediately rather than gating it behind another tap.
+        if (this._isTouch) {
+            this._setMoreLayersBadgeVisible(el, true);
         }
 
         const markerData = {
             id: markerId,
             marker,
             lngLat,
-            features
+            features,
+            contentEl: null,
+            panelLngLat: null
         };
+
+        // Only the pin (marker-action-row) should drag the actual location. The
+        // balloon group has its own independent drag that just repositions it
+        // on screen for decluttering, without touching lngLat or re-querying.
+        const contentEl = el.querySelector('.marker-content');
+        if (contentEl) {
+            markerData.contentEl = contentEl;
+            this._attachBalloonDragHandler(contentEl, markerId);
+        }
 
         this._markers.set(markerId, markerData);
         this._currentMarkerIndex = this._markers.size - 1;
@@ -1512,7 +1551,7 @@ export class MapMarkerManager {
      * visual drag — a CSS transform on this element — that repositions the
      * balloons for readability without ever touching the marker's lngLat.
      */
-    _attachBalloonDragHandler(contentEl) {
+    _attachBalloonDragHandler(contentEl, markerId) {
         const DRAG_THRESHOLD = 4;
         let startX = 0;
         let startY = 0;
@@ -1541,11 +1580,26 @@ export class MapMarkerManager {
             if (moved) {
                 offsetX += lastDx;
                 offsetY += lastDy;
+
+                // Pin the dropped screen position down as a real lngLat on the map
+                // instead of leaving it a fixed screen-pixel offset from the pin. A
+                // fixed-pixel offset only looks right while the map stays still —
+                // panning/zooming afterward drifted it out of place ("parallax") and,
+                // combined with the listener leak fixed below, could even snap it to
+                // an unrelated later touch. _updatePanelOffsets() (driven by the
+                // map's own 'move' event) keeps it glued to this lngLat from here on.
+                const markerData = this._markers.get(markerId);
+                if (markerData) {
+                    const pinPoint = this._map.project(markerData.marker.getLngLat());
+                    markerData.panelLngLat = this._map.unproject([pinPoint.x + offsetX, pinPoint.y + offsetY]);
+                }
             }
+            this._stateManager._isDraggingMarkerPanel = false;
             window.removeEventListener('mousemove', onMove);
             window.removeEventListener('mouseup', onUp);
             window.removeEventListener('touchmove', onMove);
             window.removeEventListener('touchend', onUp);
+            window.removeEventListener('touchcancel', onUp);
         };
 
         const onDown = (e) => {
@@ -1554,10 +1608,25 @@ export class MapMarkerManager {
             startX = point.clientX;
             startY = point.clientY;
             moved = false;
+            // The drag tracks via window-level listeners, so the pointer spends most
+            // of the gesture directly over the map canvas. Tell the map's own
+            // mousemove hover query to stand down for the duration (see the
+            // `_isDraggingMarkerPanel` check in map-feature-control-iframe.js) —
+            // otherwise it fights the drag for the main thread and flips hover state
+            // on whatever feature happens to be underneath.
+            this._stateManager._isDraggingMarkerPanel = true;
+            this._stateManager.handleMapMouseLeave();
             window.addEventListener('mousemove', onMove);
             window.addEventListener('mouseup', onUp);
             window.addEventListener('touchmove', onMove, { passive: false });
             window.addEventListener('touchend', onUp);
+            // Without this, a touch drag interrupted mid-gesture (e.g. the browser
+            // reclassifying it as a native page pan partway through) leaves these
+            // window-level listeners attached forever. The next unrelated touch —
+            // like panning the map somewhere else entirely — then gets misread as a
+            // continuation of this drag, yanking the balloon to wherever that new
+            // touch happens to land.
+            window.addEventListener('touchcancel', onUp);
         };
 
         contentEl.addEventListener('mousedown', onDown);
@@ -1738,7 +1807,10 @@ export class MapMarkerManager {
             return;
         }
 
-        CameraUtils.fitBounds(this._map, bbox, { duration: 1000 });
+        // Override CameraUtils' default maxZoom (16, tuned for fitting a whole
+        // newly-added layer) — a single feature is often much smaller than that,
+        // so the cap would otherwise zoom OUT instead of in when already closer.
+        CameraUtils.fitBounds(this._map, bbox, { duration: 1000, maxZoom: 20 });
     }
 
     removeMarker(markerId) {

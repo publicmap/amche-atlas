@@ -43,6 +43,14 @@ export class MapFeatureStateManager extends EventTarget {
         // Update the flag to track Cmd/Ctrl key state
         this._isCmdCtrlPressed = false;
 
+        // Set by MapMarkerManager while a marker balloon is being manually dragged
+        // (see _attachBalloonDragHandler). The drag runs via window-level mouse
+        // listeners, so the pointer is very likely passing directly over the map
+        // canvas — without this, the canvas's own mousemove hover query keeps
+        // querying/hovering whatever is beneath it, fighting the drag for the main
+        // thread (visible jank) and flipping hover state on unrelated features.
+        this._isDraggingMarkerPanel = false;
+
         // Update event listeners for keydown and keyup to track Cmd/Ctrl key state
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Meta' || event.key === 'Control') {

@@ -654,6 +654,14 @@ body {
     flex-shrink: 0;
 }
 
+.shortcut-menu-item .shortcut-menu-icon-img {
+    width: 15px;
+    height: 15px;
+    object-fit: contain;
+    flex-shrink: 0;
+    border-radius: 2px;
+}
+
 .shortcut-menu-item span {
     flex: 1;
 }
