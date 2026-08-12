@@ -760,7 +760,7 @@ CSV with one row per point. Latitude / longitude columns are **auto-detected** b
 | `refresh` | Polling interval in milliseconds. |
 | `style` | Mapbox circle/symbol properties (same as GeoJSON). |
 | `inspect` | Popup configuration. |
-| `saveUrl` | Deployed Google Apps Script web app URL (`…/exec`). Enables the **Add Note** button in the selection-marker popup, which appends a row (`latitude`, `longitude`, `notes`/`Notes`, `timestamp`/`Timestamp`, plus `atlas`/`layers` for map context) to the underlying Google Sheet. See **Writing notes back to a Google Sheet** below. |
+| `saveUrl` | Deployed Google Apps Script web app URL (`…/exec`). Enables the inline **Comment** box in the marker popup, which appends a row (`latitude`, `longitude`, `notes`/`Notes`, `timestamp`/`Timestamp`, plus `atlas`/`layers` for map context) to the underlying Google Sheet for a new note, or updates that row's `notes` column in place when editing an existing one. See **Writing notes back to a Google Sheet** below. |
 
 ```json
 {
@@ -778,11 +778,11 @@ CSV with one row per point. Latitude / longitude columns are **auto-detected** b
 
 #### Writing notes back to a Google Sheet
 
-A `csv` layer backed by a Google Sheet can opt into the **Add Note** button in the selection-marker popup: click any point, write a note, pick the layer, and **Save** appends a row to the sheet with `latitude`, `longitude`, `notes`, and `timestamp` columns, plus `atlas` and `layers` capturing the map context (the live `?atlas` and `?layers` URL parameters) when the note was added.
+A `csv` layer backed by a Google Sheet can opt into the inline **Comment** box that leads every marker popup while the layer is active: click any point, write a note, and **Save** appends a row to the sheet with `latitude`, `longitude`, `notes`, and `timestamp` columns, plus `atlas` and `layers` capturing the map context (the live `?atlas` and `?layers` URL parameters) when the note was added. Clicking an *existing* note prefills the same box for editing — saving it there updates that row's `notes` column in place instead of appending a duplicate, since a note's `latitude` + `longitude` + `timestamp` are unique together and identify the row to update.
 
-Writes go through a small **Google Apps Script web app** that you deploy on your own sheet — there is no shared backend and **no end-user sign-in**. The deployed script runs as *you* (the sheet owner) and appends the row, so any visitor can add a note without authenticating and without an "unverified app" warning. Each sheet has its own script URL, configured per-layer as `saveUrl`.
+Writes go through a small **Google Apps Script web app** that you deploy on your own sheet — there is no shared backend and **no end-user sign-in**. The deployed script runs as *you* (the sheet owner) and appends/updates the row, so any visitor can add or edit a note without authenticating and without an "unverified app" warning. Each sheet has its own script URL, configured per-layer as `saveUrl`.
 
-The browser only needs the `saveUrl`; column mapping and the append happen inside the script. The script targets the tab matching the layer URL's `gid` (falling back to the active sheet) and maps values onto columns by header name, case-insensitively: `latitude`/`lat`, `longitude`/`lng`/`lon`, `notes`/`note`/`comment`, `timestamp`/`time`/`date`, `atlas`, `layers`. If the sheet is missing a column for any of these fields, the script adds a labelled header column for it on the first write, so nothing is silently dropped.
+The browser only needs the `saveUrl`; column mapping and the append/update happen inside the script. The script targets the tab matching the layer URL's `gid` (falling back to the active sheet) and maps values onto columns by header name, case-insensitively: `latitude`/`lat`, `longitude`/`lng`/`lon`, `notes`/`note`/`comment`, `timestamp`/`time`/`date`, `atlas`, `layers`. If the sheet is missing a column for any of these fields, the script adds a labelled header column for it on the first write, so nothing is silently dropped. A request editing an existing note sends `action: "update"` with a `match` object (`{ latitude, longitude, timestamp }`) instead of fresh `latitude`/`longitude`/`timestamp` values; the script scans existing rows for that exact match and overwrites just the `notes` cell, returning an error if no row matches.
 
 **Step 1 — Add the script to your sheet.** Open your Google Sheet → **Extensions → Apps Script**, delete the placeholder, and paste:
 
@@ -838,6 +838,34 @@ function doPost(e) {
     }
     if (added) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
 
+    // Editing an existing note: latitude+longitude+timestamp are unique per
+    // note, so `match` identifies the row to update in place instead of
+    // appending a duplicate.
+    if (data.action === 'update' && data.match) {
+      var lastRow = sheet.getLastRow();
+      var matchRow = -1;
+      if (lastRow > 1) {
+        var body = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+        for (var r = 0; r < body.length; r++) {
+          if (String(body[r][colOf.latitude]) === String(data.match.latitude) &&
+              String(body[r][colOf.longitude]) === String(data.match.longitude) &&
+              String(body[r][colOf.timestamp]) === String(data.match.timestamp)) {
+            matchRow = r + 2; // +1 for the header row, +1 for 1-based row numbers
+            break;
+          }
+        }
+      }
+
+      if (matchRow === -1) {
+        return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Matching note not found' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      sheet.getRange(matchRow, colOf.notes + 1).setValue(data.notes != null ? data.notes : '');
+      return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     var row = new Array(headers.length).fill('');
     for (var field in aliases) {
       row[colOf[field]] = data[field] != null ? data[field] : '';
@@ -884,7 +912,9 @@ Then verify it's public: open the `/exec` URL in an **incognito** tab. It should
 
 Ideally your sheet has a header row with `latitude`, `longitude`, `notes`, `timestamp`, `atlas`, and `layers` columns, but you don't have to create them — the script adds any missing column (labelled with the field name) on the first write. After a successful save the layer refreshes (~2s) so the new point appears — note Google's CSV export can lag a few seconds behind the edit.
 
-The client side is implemented in `js/google-sheets-writer.js`; the popup UI lives in `js/map-marker-manager.js`. Without `saveUrl`, a sheet layer stays read-only and the **Add Note → Save** action reports that the layer is read-only.
+The client side is implemented in `js/google-sheets-writer.js`'s `saveRow()`; the popup UI lives in `js/map-marker-manager.js`. Without `saveUrl`, a sheet layer stays read-only and the comment box's **Save** action reports that the layer is read-only.
+
+> Already have a `doPost` deployed from before this update-in-place matching was added? It only ever appends, so editing an existing note there creates a duplicate row rather than updating it. Paste the script above into **Extensions → Apps Script**, then **Deploy → Manage deployments → Edit → New version** to pick up the fix — the `/exec` URL stays the same.
 
 ### `sheet` — Google Sheet, every tab combined
 

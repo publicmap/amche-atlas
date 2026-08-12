@@ -9,6 +9,7 @@
  * long-press is also detected explicitly with a touch timer below.
  */
 import { GeoLibreAPI } from './geolibre-api.js';
+import { LayerOrderManager } from './layer-order-manager.js';
 
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_THRESHOLD = 10;
@@ -22,6 +23,14 @@ export class ShortcutMenu {
         this._touchTimer = null;
         this._touchStart = null;
         this._longPressFired = false;
+
+        // Stack of flyout panels, one per nesting depth (0 = first flyout opened
+        // from the top-level menu, 1 = a flyout opened from within that, etc).
+        // `_openSubmenuIds[depth]` tracks which item's flyout currently occupies
+        // that depth, so hover/click can tell "already open" from "switch to this
+        // sibling" and close everything deeper than wherever focus moved to.
+        this._submenuLevels = [];
+        this._openSubmenuIds = [];
 
         this._handleContextMenu = this._handleContextMenu.bind(this);
         this._handleOutsideEvent = this._handleOutsideEvent.bind(this);
@@ -82,8 +91,9 @@ export class ShortcutMenu {
 
         this._menu?.parentNode?.removeChild(this._menu);
         this._menu = null;
-        this._submenu?.parentNode?.removeChild(this._submenu);
-        this._submenu = null;
+        this._submenuLevels.forEach(level => level?.element.parentNode?.removeChild(level.element));
+        this._submenuLevels = [];
+        this._openSubmenuIds = [];
         this._map = null;
     }
 
@@ -255,60 +265,104 @@ export class ShortcutMenu {
                 action: () => window.terrain3DControl?.showPanel()
             },
             {
+                id: 'maps-menu',
                 icon: 'map',
-                label: 'Open Map Browser',
-                action: () => window.browserControl?.openBrowser()
-            },
-            {
-                icon: 'plus-circle',
-                label: 'Import Map',
-                action: () => {
-                    if (!window.browserControl?._isOpen) window.browserControl?.openBrowser();
-                    window.browserControl?._switchToCreator();
+                label: 'Maps',
+                // Resolved on each open (rather than a static array) so the basemap
+                // toggle list reflects whichever layers are currently loaded for the
+                // active atlas.
+                children: () => {
+                    const items = [
+                        {
+                            id: 'import-data',
+                            icon: 'plus-circle',
+                            label: 'Import Data',
+                            action: () => {
+                                if (!window.browserControl?._isOpen) window.browserControl?.openBrowser();
+                                window.browserControl?._switchToCreator();
+                            }
+                        },
+                        {
+                            id: 'browse-maps',
+                            icon: 'map',
+                            label: 'Browse Maps',
+                            action: () => window.browserControl?.openBrowser()
+                        },
+                        { divider: true }
+                    ];
+
+                    if (this._getBasemapLayers().length > 0) {
+                        items.push({
+                            id: 'toggle-basemaps-menu',
+                            icon: 'map',
+                            label: 'Toggle Basemaps',
+                            // Resolved on each open of this nested flyout, same reasoning
+                            // as the parent Maps menu.
+                            children: () => this._buildBasemapToggleItems()
+                        });
+                        items.push({ divider: true });
+                    }
+
+                    items.push(
+                        {
+                            id: 'adjust-maps',
+                            icon: 'layers',
+                            label: 'Adjust Maps',
+                            action: () => window.featureControl?._showPanel()
+                        },
+                        {
+                            id: 'clear-all-maps',
+                            icon: 'trash',
+                            label: 'Clear All Maps',
+                            action: () => window.browserControl?.hideAllLayers()
+                        }
+                    );
+
+                    return items;
                 }
-            },
-            {
-                icon: 'layers',
-                label: 'Edit Map Layers',
-                action: () => window.featureControl?._showPanel()
             },
             {
                 id: 'toggle-comments',
                 icon: 'chat-left-text',
-                label: 'Show Comments',
+                label: 'Comments',
+                checkable: true,
+                checked: () => this._isLayerVisible('index-notes'),
                 action: () => this._toggleComments()
-            },
-            {
-                icon: 'trash',
-                label: 'Remove all layers',
-                action: () => window.browserControl?.hideAllLayers()
             }
         ];
 
         this._menuButtons = [];
-        this._buildMenuItems(this._menu, items, this._menuButtons, true);
+        this._buildMenuItems(this._menu, items, this._menuButtons, 0);
         this._items = items;
         document.body.appendChild(this._menu);
 
-        this._submenu = document.createElement('div');
-        this._submenu.className = 'shortcut-menu shortcut-submenu';
-        this._submenu.style.display = 'none';
-        document.body.appendChild(this._submenu);
-        this._submenuButtons = [];
-        this._openSubmenuId = null;
+        this._submenuLevels = [];
+        this._openSubmenuIds = [];
     }
 
     /**
-     * Renders a flat list of menu items (top-level or a submenu) into `container`.
-     * Items with `children` open a nested submenu on hover or click instead of
-     * running an action; checkable leaf items get a checkbox indicator kept in
-     * sync by _updateCheckedStates via each item's own `checked()` accessor.
-     * `isTopLevel` items close any open submenu when hovered, so moving across
-     * unrelated top-level items dismisses a sibling's flyout (touch has no
-     * hover, so click-to-toggle below still covers that case).
+     * Renders a flat list of menu items (the top-level menu or a flyout) into
+     * `container`. Items with `children` open a further nested flyout on hover
+     * or click instead of running an action; checkable leaf items get a
+     * checkbox indicator kept in sync by _updateCheckedStates via each item's
+     * own `checked()` accessor.
+     *
+     * `depth` is the flyout slot (see `_submenuLevels`) that a `children` item
+     * in this list opens into — 0 for the top-level menu, 1 for a flyout opened
+     * from the top-level menu, 2 for one opened from within that, etc. Leaf
+     * items close any flyout at `depth` or deeper when hovered, so moving
+     * across sibling items dismisses whatever flyout they'd otherwise conflict
+     * with (touch has no hover, so click-to-toggle below still covers that case).
      */
-    _buildMenuItems(container, items, trackInto, isTopLevel) {
+    _buildMenuItems(container, items, trackInto, depth) {
         items.forEach(item => {
+            if (item.divider) {
+                const divider = document.createElement('div');
+                divider.className = 'shortcut-menu-divider';
+                container.appendChild(divider);
+                return;
+            }
+
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'shortcut-menu-item';
@@ -343,20 +397,18 @@ export class ShortcutMenu {
                 button.appendChild(chevron);
 
                 button.addEventListener('mouseenter', () => {
-                    if (this._openSubmenuId !== item.id) this._showSubmenuFor(item, button);
+                    if (this._openSubmenuIds[depth] !== item.id) this._showSubmenuFor(item, button, depth);
                 });
                 button.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (this._openSubmenuId === item.id) {
-                        this._closeSubmenu();
+                    if (this._openSubmenuIds[depth] === item.id) {
+                        this._closeSubmenu(depth);
                     } else {
-                        this._showSubmenuFor(item, button);
+                        this._showSubmenuFor(item, button, depth);
                     }
                 });
             } else {
-                if (isTopLevel) {
-                    button.addEventListener('mouseenter', () => this._closeSubmenu());
-                }
+                button.addEventListener('mouseenter', () => this._closeSubmenu(depth));
                 button.addEventListener('click', (e) => {
                     e.stopPropagation();
                     item.action();
@@ -370,20 +422,36 @@ export class ShortcutMenu {
     }
 
     /**
-     * Opens `item`'s submenu flyout next to `button` (flipping to the left
-     * when it wouldn't fit on the right).
+     * Opens `item`'s flyout at slot `depth` next to `button` (flipping to the
+     * left when it wouldn't fit on the right). Flyout panels are created lazily
+     * and reused across opens; `_closeSubmenu(depth)` first clears out whatever
+     * (if anything) previously occupied this slot or anything deeper, since a
+     * deeper flyout may have been anchored to a button inside it.
      */
-    _showSubmenuFor(item, button) {
-        this._submenu.innerHTML = '';
-        this._submenuButtons = [];
-        this._buildMenuItems(this._submenu, item.children, this._submenuButtons, false);
+    _showSubmenuFor(item, button, depth) {
+        this._closeSubmenu(depth);
+
+        let level = this._submenuLevels[depth];
+        if (!level) {
+            const element = document.createElement('div');
+            element.className = 'shortcut-menu shortcut-submenu';
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            level = { element, buttons: [] };
+            this._submenuLevels[depth] = level;
+        }
+
+        level.element.innerHTML = '';
+        level.buttons = [];
+        const children = typeof item.children === 'function' ? item.children() : item.children;
+        this._buildMenuItems(level.element, children, level.buttons, depth + 1);
         this._updateCheckedStates();
 
-        this._submenu.style.display = 'block';
-        this._openSubmenuId = item.id;
+        level.element.style.display = 'block';
+        this._openSubmenuIds[depth] = item.id;
 
         const buttonRect = button.getBoundingClientRect();
-        const submenuRect = this._submenu.getBoundingClientRect();
+        const submenuRect = level.element.getBoundingClientRect();
 
         let left = buttonRect.right + 4;
         if (left + submenuRect.width > window.innerWidth - 8) {
@@ -391,17 +459,24 @@ export class ShortcutMenu {
         }
         const maxTop = window.innerHeight - submenuRect.height - 8;
 
-        this._submenu.style.left = `${Math.max(8, left)}px`;
-        this._submenu.style.top = `${Math.max(8, Math.min(buttonRect.top, maxTop))}px`;
+        level.element.style.left = `${Math.max(8, left)}px`;
+        level.element.style.top = `${Math.max(8, Math.min(buttonRect.top, maxTop))}px`;
     }
 
-    _closeSubmenu() {
-        if (this._submenu) {
-            this._submenu.style.display = 'none';
-            this._submenu.innerHTML = '';
+    /**
+     * Closes the flyout at `fromDepth` and every deeper one (they can only have
+     * been opened from inside it, so they'd otherwise be left dangling/mis-anchored).
+     */
+    _closeSubmenu(fromDepth = 0) {
+        for (let d = fromDepth; d < this._submenuLevels.length; d++) {
+            const level = this._submenuLevels[d];
+            if (level) {
+                level.element.style.display = 'none';
+                level.element.innerHTML = '';
+                level.buttons = [];
+            }
+            this._openSubmenuIds[d] = null;
         }
-        this._submenuButtons = [];
-        this._openSubmenuId = null;
     }
 
     /**
@@ -475,47 +550,78 @@ export class ShortcutMenu {
     }
 
     /**
-     * The notes layer's group header IS its own visibility toggle in this app
-     * (see map-layer-controls.js _handleGroupShow/_handleGroupHide, wired to the
-     * <sl-details>'s sl-show/sl-hide events) — expanding it turns the layer on
-     * and syncs the checkbox/URL, collapsing it turns the layer off. Driving
-     * that through .show()/.hide() (rather than flipping the checkbox and
-     * calling _toggleLayerGroup directly) is what makes both directions and
-     * the URL sync actually work.
+     * Finds a layer's group entry in map-layer-controls' _state.groups. Layers
+     * shared across atlases (defined once in index.atlas.json, e.g. 'notes')
+     * keep their bare `id` there but carry a `_prefixedId` like 'index-notes' —
+     * match on either, plus `_originalId`, so callers can use whichever form
+     * they have on hand.
      */
-    _getNotesGroupElement() {
+    _getGroupElement(layerId) {
         const layerControl = window.layerControl;
         if (!layerControl) return null;
 
-        const groupIndex = layerControl._state.groups.findIndex(g => g.id === 'notes');
+        const groupIndex = layerControl._state.groups.findIndex(g =>
+            g.id === layerId || g._prefixedId === layerId || g._originalId === layerId
+        );
         if (groupIndex === -1) return null;
 
         return layerControl._sourceControls[groupIndex] || null;
     }
 
-    _isNotesLayerVisible() {
-        return !!this._getNotesGroupElement()?.open;
+    /**
+     * Basemap-tagged layers currently loaded for the active atlas (i.e. present
+     * in map-layer-controls' _state.groups), used to build the "Toggle Basemaps"
+     * flyout under Maps.
+     */
+    _getBasemapLayers() {
+        const groups = window.layerControl?._state?.groups || [];
+        return groups.filter(g => LayerOrderManager.isBasemap(g));
+    }
+
+    _buildBasemapToggleItems() {
+        return this._getBasemapLayers().map(layer => ({
+            id: `basemap-${layer.id}`,
+            icon: 'map',
+            label: layer.title || layer.name || layer.id,
+            checkable: true,
+            checked: () => this._isLayerVisible(layer.id),
+            action: () => this._toggleLayerVisibility(layer.id)
+        }));
+    }
+
+    _isLayerVisible(layerId) {
+        const checkbox = this._getGroupElement(layerId)?.querySelector('.toggle-switch input[type="checkbox"]');
+        return !!checkbox?.checked;
     }
 
     /**
-     * Toggles the notes layer on/off. When turning it on, also focuses the
-     * comment box that leads every marker's balloon (map-marker-manager.js)
-     * for the location the shortcut menu was opened at — reusing a marker
-     * already there (e.g. one right-clicked directly) rather than creating
-     * a duplicate.
+     * Routed through MapBrowserControl._handleLayerToggle — the same handler
+     * map-browser.html's own layer toggles call via postMessage — rather than
+     * driving the <sl-details> show()/hide() directly. That handler is what
+     * actually adds/removes the Mapbox layer, fires the URL sync, and (via its
+     * layer-registry fallback) adds the group to _state.groups on the fly if
+     * it isn't there yet — e.g. 'index-notes' on any atlas other than index,
+     * which isn't merged in by default.
+     */
+    _toggleLayerVisibility(layerId) {
+        window.browserControl?._handleLayerToggle(layerId, !this._isLayerVisible(layerId));
+    }
+
+    /**
+     * Toggles the shared 'notes' layer (registered as 'index-notes' — it's
+     * defined once in index.atlas.json and not merged into other atlases by
+     * default, so on a non-index atlas it usually isn't in _state.groups yet;
+     * _handleLayerToggle's registry fallback adds it on demand). When turning
+     * it on, also focuses the comment box that leads every marker's balloon
+     * (map-marker-manager.js) for the location the shortcut menu was opened
+     * at — reusing a marker already there (e.g. one right-clicked directly)
+     * rather than creating a duplicate.
      */
     _toggleComments() {
-        const groupElement = this._getNotesGroupElement();
-        if (!groupElement) return;
+        const wasVisible = this._isLayerVisible('index-notes');
+        this._toggleLayerVisibility('index-notes');
 
-        if (groupElement.open) {
-            groupElement.hide();
-            return;
-        }
-
-        groupElement.show();
-
-        if (!this._lngLat) return;
+        if (wasVisible || !this._lngLat) return;
         const markerManager = window.featureControl?._markerManager;
         if (!markerManager) return;
 
@@ -534,7 +640,11 @@ export class ShortcutMenu {
     }
 
     _updateCheckedStates() {
-        [...this._menuButtons, ...this._submenuButtons].forEach(({ button, item }) => {
+        const allButtons = [
+            ...this._menuButtons,
+            ...this._submenuLevels.flatMap(level => level ? level.buttons : [])
+        ];
+        allButtons.forEach(({ button, item }) => {
             if (!item.checkable) return;
             const isChecked = !!item.checked?.();
             button.classList.toggle('is-checked', isChecked);
@@ -544,12 +654,6 @@ export class ShortcutMenu {
             const stateLabel = button.querySelector('.shortcut-menu-state');
             if (stateLabel) stateLabel.textContent = isChecked ? 'ON' : 'OFF';
         });
-
-        const commentsButton = this._menu.querySelector('[data-item-id="toggle-comments"]');
-        const commentsLabel = commentsButton?.querySelector('span');
-        if (commentsLabel) {
-            commentsLabel.textContent = this._isNotesLayerVisible() ? 'Hide Comments' : 'Show Comments';
-        }
     }
 
     _show(clientX, clientY) {
@@ -567,7 +671,7 @@ export class ShortcutMenu {
 
     _hide() {
         if (this._menu) this._menu.style.display = 'none';
-        this._closeSubmenu();
+        this._closeSubmenu(0);
     }
 
     _isOpen() {
@@ -577,7 +681,7 @@ export class ShortcutMenu {
     _handleOutsideEvent(e) {
         if (!this._isOpen()) return;
         if (this._menu.contains(e.target)) return;
-        if (this._submenu?.contains(e.target)) return;
+        if (this._submenuLevels.some(level => level?.element.contains(e.target))) return;
         this._hide();
     }
 

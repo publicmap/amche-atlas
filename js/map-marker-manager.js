@@ -569,32 +569,87 @@ export class MapMarkerManager {
     }
 
     /**
-     * The notes group header IS its own visibility toggle (see shortcut-menu.js
-     * _getNotesGroupElement) — expanding its <sl-details> turns the layer on.
-     * Mirrors that same check so the comment box only appears while notes is active.
+     * Finds the notes layer's group index in map-layer-controls' _state.groups.
+     * The shared 'notes' layer (defined once in index.atlas.json) keeps its bare
+     * `id` there but is referenced elsewhere as 'index-notes' via `_prefixedId` —
+     * match on either, plus `_originalId`, mirroring shortcut-menu.js's
+     * `_getGroupElement`.
      */
-    _isNotesLayerActive() {
+    _getNotesGroupIndex() {
         const groups = window.layerControl?._state?.groups;
-        if (!groups) return false;
-        const groupIndex = groups.findIndex(g => g.id === 'notes');
-        if (groupIndex === -1) return false;
-        return !!window.layerControl._sourceControls?.[groupIndex]?.open;
+        if (!groups) return -1;
+        return groups.findIndex(g => g.id === 'notes' || g._prefixedId === 'index-notes' || g._originalId === 'notes');
     }
 
     /**
-     * Every marker balloon leads with an inline comment box, prefilled from a
-     * notes-layer feature already selected at this point (if any) so an
-     * existing note is editable in place instead of behind a separate form.
-     * Only shown while the notes layer itself is active.
+     * Whether the notes layer is currently toggled on — same checkbox-based
+     * check as `_isLayerActive`/shortcut-menu.js's `_isLayerVisible`, so the
+     * comment box's activation state always matches what actually toggled the
+     * layer on (the sidebar checkbox or the shortcut menu's "Comments" item).
      */
-    _buildCommentSectionHTML(features) {
-        if (!this._isNotesLayerActive()) return '';
+    _isNotesLayerActive() {
+        const groupIndex = this._getNotesGroupIndex();
+        if (groupIndex === -1) return false;
+        return this._isLayerActive(groupIndex);
+    }
 
-        const noteEntry = (features || []).find(f => {
+    /**
+     * The notes layer's active config (if currently toggled on), used to
+     * resolve its exact layerId for excluding it from the "N more layers"
+     * summary even when no notes feature was clicked (empty comment case).
+     */
+    _getActiveNotesLayer() {
+        const groupIndex = this._getNotesGroupIndex();
+        if (groupIndex === -1 || !this._isLayerActive(groupIndex)) return null;
+        return window.layerControl._state.groups[groupIndex] || null;
+    }
+
+    /**
+     * Finds the clicked feature (if any) that belongs to a writable notes-style
+     * CSV layer — the one the special "Comment" rendering edits in place.
+     */
+    _findNoteEntry(features) {
+        return (features || []).find(f => {
             const layerConfig = this._stateManager.getLayerConfig(f.layerId);
             return layerConfig?.type === 'csv' && (layerConfig.saveUrl || window.GOOGLE_SHEETS_SAVE_URL);
         });
+    }
+
+    /**
+     * Format a note's ISO timestamp for display below the comment input:
+     * "Added at 11:35 AM" if it was added today, otherwise "Added on 29 May 2026".
+     */
+    _formatCommentDate(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        if (isNaN(date.getTime())) return '';
+
+        const now = new Date();
+        const isSameDay = date.getFullYear() === now.getFullYear() &&
+            date.getMonth() === now.getMonth() &&
+            date.getDate() === now.getDate();
+
+        if (isSameDay) {
+            const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            return `Added at ${time}`;
+        }
+
+        const dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        return `Added on ${dateStr}`;
+    }
+
+    /**
+     * Every marker balloon leads with an inline "Comment" box in place of the
+     * notes layer's normal badge, prefilled from a notes-layer feature already
+     * selected at this point (if any) so an existing note is editable in place
+     * instead of behind a separate form. Only shown while the notes layer
+     * itself is active.
+     */
+    _buildCommentSectionHTML(noteEntry) {
+        if (!this._isNotesLayerActive()) return '';
+
         const existingValue = String(noteEntry?.feature?.properties?.notes || '');
+        const dateLabel = this._formatCommentDate(noteEntry?.feature?.properties?.timestamp);
 
         return `
             <div class="marker-comment-section" style="
@@ -604,6 +659,7 @@ export class MapMarkerManager {
                 margin-bottom: 4px;
                 border-bottom: 1px solid #334155;
             ">
+                <span style="font-size: 8px; line-height: 1.1; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.02em; display: block; margin-bottom: 2px;">Comment</span>
                 <textarea class="marker-comment-input" rows="1" placeholder="Add a comment..." style="
                     display: block;
                     width: 100%;
@@ -621,6 +677,7 @@ export class MapMarkerManager {
                     line-height: 1.3;
                     cursor: text;
                 ">${this._escapeHtml(existingValue)}</textarea>
+                ${dateLabel ? `<span class="marker-comment-date" style="display: block; margin-top: 3px; font-size: 9px; color: #6b7280;">${this._escapeHtml(dateLabel)}</span>` : ''}
                 <button type="button" class="marker-comment-save-btn" style="
                     display: none;
                     width: 100%;
@@ -639,7 +696,7 @@ export class MapMarkerManager {
     }
 
     _buildMarkerBadgesHTML(features, lngLat, options = {}) {
-        const { includeMoreLayers = false } = options;
+        const { includeMoreLayers = false, suppressEmptyBadge = false, clickedLayerIds = null } = options;
 
         let html;
         if (features && features.length > 0) {
@@ -647,6 +704,10 @@ export class MapMarkerManager {
                 const { fieldName, value } = this._getBadgeLabelInfo(f);
                 return this._createFeatureBadgeHTML(fieldName, value, i, f);
             }).join('');
+        } else if (suppressEmptyBadge) {
+            // The clicked feature was a note, already shown in the comment box above —
+            // no separate coordinates badge needed.
+            html = '';
         } else {
             // No features (empty map click) — show a single coordinates badge
             const coords = `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
@@ -670,8 +731,8 @@ export class MapMarkerManager {
         }
 
         if (includeMoreLayers) {
-            const clickedLayerIds = new Set((features || []).map(f => f.layerId));
-            const extraLayers = this._getAllActiveLayersInInspectorOrder().filter(layer => !clickedLayerIds.has(layer.id));
+            const ids = clickedLayerIds || new Set((features || []).map(f => f.layerId));
+            const extraLayers = this._getAllActiveLayersInInspectorOrder().filter(layer => !ids.has(layer.id));
             html += this._createMoreLayersBadgeHTML(extraLayers);
         }
 
@@ -724,7 +785,7 @@ export class MapMarkerManager {
         }
     }
 
-    _attachBadgeHandlers(el, features, lngLat, isHover) {
+    _attachBadgeHandlers(el, features, lngLat, isHover, clickedLayerIds = null) {
         el.querySelectorAll('.feature-badge').forEach(badge => {
             // The "N more layers" summary badge has no backing feature and its own
             // expand/collapse behavior — wired separately in _attachMoreLayersBadgeHandler.
@@ -834,7 +895,7 @@ export class MapMarkerManager {
         // Layer actions menu (export shortcuts) in each badge's footer
         this._attachLayerActionsMenuHandlers(el);
 
-        this._attachMoreLayersBadgeHandler(el, features, lngLat);
+        this._attachMoreLayersBadgeHandler(el, features, lngLat, clickedLayerIds);
     }
 
     /**
@@ -842,12 +903,23 @@ export class MapMarkerManager {
      * its content, reveals a Save button only once the text actually changes
      * from what was prefilled, and writes through to the notes sheet exactly
      * like the old "Add Note" popup form did.
+     *
+     * Editing an existing note (`noteEntry` set) updates that row in place —
+     * matched server-side by its original latitude/longitude/timestamp, which
+     * are unique per note — instead of appending a duplicate row.
      */
-    _attachCommentSectionHandlers(el, lngLat) {
+    _attachCommentSectionHandlers(el, lngLat, noteEntry) {
         const section = el.querySelector('.marker-comment-section');
         const textarea = section?.querySelector('.marker-comment-input');
         const saveBtn = section?.querySelector('.marker-comment-save-btn');
         if (!section || !textarea || !saveBtn) return;
+
+        const existingProps = noteEntry?.feature?.properties;
+        const match = existingProps ? {
+            latitude: existingProps.latitude,
+            longitude: existingProps.longitude,
+            timestamp: existingProps.timestamp
+        } : null;
 
         let originalValue = textarea.value;
 
@@ -889,17 +961,20 @@ export class MapMarkerManager {
             saveBtn.textContent = 'Saving…';
 
             try {
-                const { appendRow, captureMapContext } = await import('./google-sheets-writer.js');
-                await appendRow({
+                const { saveRow, captureMapContext } = await import('./google-sheets-writer.js');
+                await saveRow({
                     saveUrl,
                     url: layerConfig.url,
-                    values: {
-                        latitude: lngLat.lat,
-                        longitude: lngLat.lng,
-                        notes,
-                        timestamp: new Date().toISOString(),
-                        ...captureMapContext()
-                    }
+                    match,
+                    values: match
+                        ? { notes }
+                        : {
+                            latitude: lngLat.lat,
+                            longitude: lngLat.lng,
+                            notes,
+                            timestamp: new Date().toISOString(),
+                            ...captureMapContext()
+                        }
                 });
 
                 originalValue = notes;
@@ -983,7 +1058,7 @@ export class MapMarkerManager {
      * Expand/collapse the "N more layers" summary badge and lazily populate it
      * with a thumbnail + name row per extra layer.
      */
-    _attachMoreLayersBadgeHandler(el, features, lngLat) {
+    _attachMoreLayersBadgeHandler(el, features, lngLat, clickedLayerIds = null) {
         const badge = el.querySelector('.more-layers-badge');
         if (!badge) return;
 
@@ -1031,8 +1106,8 @@ export class MapMarkerManager {
                     currentBounds.getEast(), currentBounds.getNorth()
                 ];
                 const allActiveLayers = this._getAllActiveLayersInInspectorOrder();
-                const clickedLayerIds = new Set((features || []).map(f => f.layerId));
-                const extraLayers = allActiveLayers.filter(layer => !clickedLayerIds.has(layer.id));
+                const ids = clickedLayerIds || new Set((features || []).map(f => f.layerId));
+                const extraLayers = allActiveLayers.filter(layer => !ids.has(layer.id));
 
                 extraLayers.forEach(layer => {
                     let isInView = true;
@@ -1335,11 +1410,28 @@ export class MapMarkerManager {
         // stack below it, left-aligned to the pin.
         el.style.cssText = 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px;';
 
+        // A clicked notes-layer feature gets its own editable "Comment" rendering
+        // instead of the generic badge, so pull it out of the badge list here.
+        // Only special-case it while the notes layer is actually active — otherwise
+        // a note feature would vanish from the badge list with no comment box to
+        // show it in instead.
+        const isNotesActive = this._isNotesLayerActive();
+        const noteEntry = isNotesActive ? this._findNoteEntry(features) : null;
+        const badgeFeatures = noteEntry ? features.filter(f => f !== noteEntry) : features;
+        const clickedLayerIds = new Set(features.map(f => f.layerId));
+        // While notes is active, the comment box always stands in for that layer at
+        // this location — with an existing note or an empty one waiting to be saved —
+        // so it should never also show up in the "N more layers" summary.
+        if (isNotesActive) {
+            const notesLayerId = noteEntry?.layerId || this._getActiveNotesLayer()?.id;
+            if (notesLayerId) clickedLayerIds.add(notesLayerId);
+        }
+
         el.innerHTML = `
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0;"></div>
             <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); cursor: move;">
-                ${this._buildCommentSectionHTML(features)}
-                ${this._buildMarkerBadgesHTML(features, lngLat, { includeMoreLayers: true })}
+                ${this._buildCommentSectionHTML(noteEntry)}
+                ${this._buildMarkerBadgesHTML(badgeFeatures, lngLat, { includeMoreLayers: true, suppressEmptyBadge: !!noteEntry, clickedLayerIds })}
             </div>
         `;
 
@@ -1381,8 +1473,8 @@ export class MapMarkerManager {
         });
 
         // Clicking a badge opens the inspector; selection markers are already selected.
-        this._attachBadgeHandlers(el, features, lngLat, false);
-        this._attachCommentSectionHandlers(el, lngLat);
+        this._attachBadgeHandlers(el, badgeFeatures, lngLat, false, clickedLayerIds);
+        this._attachCommentSectionHandlers(el, lngLat, noteEntry);
         this._blockMapHoverEvents(el);
 
         // The "more layers" badge is normally revealed by hovering the marker
@@ -1820,6 +1912,15 @@ export class MapMarkerManager {
         // Deselect any expanded badges in this marker so the saved view is restored.
         this._deselectMarkerBadges(markerData);
 
+        // Removing the element from the DOM while the pointer sits on it (e.g.
+        // clicking its own pin to clear it) doesn't fire a real 'mouseleave', so
+        // _pointerOverMarker would otherwise stay stuck true and suppress every
+        // hover popup until some other marker's mouseenter/mouseleave cycle reset it.
+        const markerEl = markerData.marker?.getElement?.();
+        if (markerEl?.matches?.(':hover')) {
+            this._pointerOverMarker = false;
+        }
+
         // Drop the feature selections anchored at this marker so closing it also
         // clears the highlight and the inspector entry (not just the marker dot).
         // Other markers keep their own selections.
@@ -1843,6 +1944,10 @@ export class MapMarkerManager {
     clearAllMarkers() {
         this._markers.forEach((markerData, id) => {
             this._deselectMarkerBadges(markerData);
+            const markerEl = markerData.marker?.getElement?.();
+            if (markerEl?.matches?.(':hover')) {
+                this._pointerOverMarker = false;
+            }
             markerData.marker.remove();
             this._markers.delete(id);
         });

@@ -700,6 +700,12 @@ body {
     color: #3b82f6;
 }
 
+.shortcut-menu-divider {
+    height: 1px;
+    margin: 4px 6px;
+    background: #374151;
+}
+
 
 .mapboxgl-ctrl.mapboxgl-ctrl-attrib {
     background-color: #ffffffe1;

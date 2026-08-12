@@ -1450,15 +1450,47 @@
       "tags": [
         "3.Coastal Zone"
       ],
-      "title": "Coastal Regulation Zone Lines",
+      "title": "CRZ Lines (2011)",
       "description": "Regulatory lines for Coastal Regulation Zones",
       "type": "vector",
-      "id": "crz-line",
+      "id": "2011-crz-line",
       "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/regulation-lines/parivesh/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bharatmaps_Parivesh_CRZ_Regulatory_Lines",
       "maxzoom": 14,
       "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>Bharatmaps/Parivesh</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
       "style": {
+        "symbol-placement": "line",
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          14,
+          [
+            "to-string",
+            [
+              "get",
+              "class"
+            ]
+          ]
+        ],
+        "circle-color": [
+          "match",
+          [
+            "get",
+            "class"
+          ],
+          "CRZ Boundary",
+          "darkgreen",
+          "High Tide Line",
+          "blue",
+          "Low Tide Line",
+          "blue",
+          "grey"
+        ],
+        "circle-radius": 1,
+        "circle-stroke-width": 0,
         "line-color": [
           "match",
           [
@@ -1466,29 +1498,60 @@
             "class"
           ],
           "CRZ Boundary",
-          "blue",
+          "darkgreen",
           "High Tide Line",
-          "darkblue",
-          "Low Tide Line",
           "blue",
-          "orange"
+          "Low Tide Line",
+          "lightblue",
+          "grey"
         ],
-        "line-width": [
+        "text-halo-color": [
           "match",
           [
             "get",
             "class"
           ],
           "CRZ Boundary",
-          3,
+          "red",
           "High Tide Line",
-          3,
-          1
+          "blue",
+          "Low Tide Line",
+          "lightblue",
+          "grey"
+        ],
+        "line-width": 1,
+        "line-offset": [
+          "match",
+          [
+            "get",
+            "class"
+          ],
+          "CRZ Boundary",
+          1.5,
+          "High Tide Line",
+          -1,
+          "Low Tide Line",
+          -1,
+          -1
+        ],
+        "line-cap": "round",
+        "line-join": "round",
+        "line-sort-key": [
+          "match",
+          [
+            "get",
+            "class"
+          ],
+          "High Tide Line",
+          2,
+          "Low Tide Line",
+          1,
+          3
         ]
       },
       "inspect": {
         "id": "class",
-        "title": "CRZ Class",
+        "title": "CRZ Line",
         "label": "class",
         "fields": [
           "state"
