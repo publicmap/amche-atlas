@@ -648,7 +648,7 @@
                 <div id="print-overlay-settings" style="display: none;">
                     <div class="form-group">
                         <label class="form-label">Include in export</label>
-                        <div style="display: flex; gap: 16px;">
+                        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="include-qr" checked>
                                 <span>QR Code</span>
@@ -657,7 +657,13 @@
                                 <input type="checkbox" id="include-legend" checked>
                                 <span>Legend</span>
                             </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="include-markers" checked>
+                                <span>Markers</span>
+                            </label>
                         </div>
+                        <div class="format-description">Markers keeps any pins and balloons you've placed on the map,
+                            including manually-offset positions and expanded feature details</div>
                     </div>
                 </div>
 
@@ -1340,6 +1346,7 @@
                 exportConfig.description = $('#map-description').val();
                 exportConfig.includeQRCode = $('#include-qr').is(':checked');
                 exportConfig.includeLegend = $('#include-legend').is(':checked');
+                exportConfig.includeMarkers = $('#include-markers').is(':checked');
                 exportConfig.margin = '10mm';
             }
 
@@ -1373,6 +1380,7 @@
                 exportConfig.description = $('#map-description').val();
                 exportConfig.includeQRCode = $('#include-qr').is(':checked');
                 exportConfig.includeLegend = $('#include-legend').is(':checked');
+                exportConfig.includeMarkers = $('#include-markers').is(':checked');
             }
 
             if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv' || currentFormat === 'dxf') {
@@ -2030,6 +2038,8 @@
                     settings.customHeight = parseFloat($('#custom-height').val());
                 }
 
+                settings.includeMarkers = $('#include-markers').is(':checked');
+
                 if (currentFormat === 'pdf') {
                     settings.includeLegend = $('#include-legend').is(':checked');
                 }
@@ -2125,6 +2135,10 @@
 
             if (settings.includeLegend !== undefined) {
                 $('#include-legend').prop('checked', settings.includeLegend);
+            }
+
+            if (settings.includeMarkers !== undefined) {
+                $('#include-markers').prop('checked', settings.includeMarkers);
             }
 
             if (settings.exportSelectedOnly !== undefined) {

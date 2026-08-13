@@ -759,7 +759,12 @@ export class MapLayerControl {
             const layerWithChecked = {
                 ...layerConfig,
                 initiallyChecked: true,
-                ...(!isKnownToRegistry && { _originalJson: JSON.stringify(layerConfig) })
+                // Single-quote dialect matches the convention used everywhere else
+                // _originalJson is produced (map-utils.js) and parsed (url-manager.js
+                // layerToURL) — using JSON.stringify's plain double quotes here would
+                // corrupt configs whose string fields contain literal apostrophes
+                // (e.g. mapwarper's `href='...'` attribution HTML).
+                ...(!isKnownToRegistry && { _originalJson: JSON.stringify(layerConfig).replace(/'/g, "\\'").replace(/"/g, "'") })
             };
 
             let insertPosition;

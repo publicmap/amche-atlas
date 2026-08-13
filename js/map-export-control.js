@@ -718,7 +718,19 @@ export class MapExportControl {
 
                     this._sendProgress(50, 'Capturing map');
                     const canvas = this._map.getCanvas();
-                    const imgData = canvas.toDataURL('image/png');
+                    let imgData = canvas.toDataURL('image/png');
+
+                    if (config.includeMarkers !== false) {
+                        this._sendProgress(55, 'Capturing markers');
+                        try {
+                            const markersDataUrl = await this._captureMarkersOverlay(targetWidth, targetHeight, canvas.width, canvas.height);
+                            if (markersDataUrl) {
+                                imgData = await this._mergeMarkersOntoRaster(imgData, markersDataUrl, canvas.width, canvas.height);
+                            }
+                        } catch (e) {
+                            console.warn('Failed to capture markers for PDF export', e);
+                        }
+                    }
 
                     const doc = new jsPDF({
                         orientation: widthMm > heightMm ? 'l' : 'p',
@@ -1212,8 +1224,18 @@ export class MapExportControl {
                     const actualPixelWidth = canvas.width;
                     const actualPixelHeight = canvas.height;
 
+                    let markersDataUrl = null;
+                    if (config.includeMarkers !== false) {
+                        this._sendProgress(55, 'Capturing markers');
+                        try {
+                            markersDataUrl = await this._captureMarkersOverlay(targetWidth, targetHeight, actualPixelWidth, actualPixelHeight);
+                        } catch (e) {
+                            console.warn('Failed to capture markers for PNG export', e);
+                        }
+                    }
+
                     this._sendProgress(60, 'Adding attribution');
-                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config);
+                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
 
                     const blob = await fetch(dataUrl).then(r => r.blob());
 
@@ -1300,8 +1322,18 @@ export class MapExportControl {
                     const actualPixelWidth = canvas.width;
                     const actualPixelHeight = canvas.height;
 
+                    let markersDataUrl = null;
+                    if (config.includeMarkers !== false) {
+                        this._sendProgress(55, 'Capturing markers');
+                        try {
+                            markersDataUrl = await this._captureMarkersOverlay(targetWidth, targetHeight, actualPixelWidth, actualPixelHeight);
+                        } catch (e) {
+                            console.warn('Failed to capture markers for JPEG export', e);
+                        }
+                    }
+
                     this._sendProgress(60, 'Adding attribution');
-                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config);
+                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
 
                     this._sendProgress(70, 'Converting to JPEG');
                     const tempImg = new Image();
@@ -1960,7 +1992,10 @@ export class MapExportControl {
 
         this._sendProgress(52, 'Adding attribution');
 
-        imageDataUrl = await this._addFooterToRaster(imageDataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi);
+        // Markers are excluded here: this raster becomes a georeferenced DXF
+        // background image, not a presentation graphic, so it shouldn't carry
+        // non-georeferenced marker overlays.
+        imageDataUrl = await this._addFooterToRaster(imageDataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, { includeMarkers: false });
 
         this._sendProgress(55, 'Extracting vector features');
 
@@ -2050,6 +2085,144 @@ export class MapExportControl {
 
         const worldFileContent = this._generateWorldFile(imageDimensions, transformer, frameCenter, actualPixelWidth, actualPixelHeight);
         this._downloadFile(worldFileContent, `${baseFilename}_raster.pgw`, 'text/plain');
+    }
+
+    /**
+     * Renders the live MapMarkerManager selection markers (pins + balloons, in
+     * whatever expanded/collapsed and manually-offset state they're currently
+     * in) into a transparent PNG matching the raster export's pixel
+     * dimensions. `map.getCanvas()` only rasterizes the WebGL map itself —
+     * markers are DOM elements overlaid on top of it — so this is composited
+     * separately on top of that snapshot (see _exportPDF/_exportPNG/_exportJPEG
+     * and _addFooterToRaster).
+     *
+     * Must be called while the map container is still resized to the export
+     * frame's target dimensions (i.e. before the calling export function
+     * restores the original size/camera) so the markers' on-screen positions
+     * match the captured map raster.
+     */
+    async _captureMarkersOverlay(logicalWidth, logicalHeight, physicalWidth, physicalHeight) {
+        const container = this._map.getContainer();
+        const markerEls = Array.from(container.querySelectorAll('.selection-marker'));
+        if (markerEls.length === 0) return null;
+
+        const html2canvas = (await import('html2canvas')).default;
+        const containerRect = container.getBoundingClientRect();
+        const scale = physicalWidth / logicalWidth;
+
+        const overlayRoot = document.createElement('div');
+        overlayRoot.style.cssText = `position:fixed;left:-9999px;top:0;width:${physicalWidth}px;height:${physicalHeight}px;overflow:hidden;`;
+
+        // Marker positions/sizes live in logical (CSS) pixels, but the composite
+        // needs to land at physical canvas pixel resolution — scale the whole
+        // layer uniformly rather than recomputing every nested offset (pin anchor,
+        // manually-dragged balloon transform, badge padding, etc.) by hand.
+        const scaledLayer = document.createElement('div');
+        scaledLayer.style.cssText = `position:absolute;left:0;top:0;width:${logicalWidth}px;height:${logicalHeight}px;transform:scale(${scale});transform-origin:top left;`;
+        overlayRoot.appendChild(scaledLayer);
+
+        markerEls.forEach(el => {
+            const rect = el.getBoundingClientRect();
+            const clone = this._prepareMarkerCloneForExport(el);
+            clone.style.position = 'absolute';
+            clone.style.left = `${rect.left - containerRect.left}px`;
+            clone.style.top = `${rect.top - containerRect.top}px`;
+            clone.style.margin = '0';
+            scaledLayer.appendChild(clone);
+        });
+
+        document.body.appendChild(overlayRoot);
+
+        try {
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            await new Promise(resolve => requestAnimationFrame(resolve));
+
+            const canvas = await html2canvas(overlayRoot, {
+                backgroundColor: null,
+                scale: 1,
+                logging: false,
+                useCORS: true,
+                width: physicalWidth,
+                height: physicalHeight
+            });
+            return canvas.toDataURL('image/png');
+        } catch (e) {
+            console.warn('[Export] Failed to capture marker overlay:', e);
+            return null;
+        } finally {
+            document.body.removeChild(overlayRoot);
+        }
+    }
+
+    /**
+     * Clones a marker element for static export: drops interactive-only chrome
+     * that means nothing in a flattened image (layer actions menu, "more
+     * layers" shortcut trigger, comment save button, "Locating…" placeholders),
+     * and inlines every <sl-icon>'s shadow-DOM SVG since html2canvas can't see
+     * into shadow roots — without this the pin and badge icons render blank.
+     */
+    _prepareMarkerCloneForExport(el) {
+        const clone = el.cloneNode(true);
+        clone.querySelectorAll('.layer-actions-dropdown, .more-layers-shortcut-btn, .marker-comment-save-btn, .pending-layer-badge')
+            .forEach(node => node.remove());
+
+        // cloneNode doesn't carry over a live-edited (unsaved) textarea value —
+        // only its original text content — so copy the current value across.
+        const liveTextareas = el.querySelectorAll('textarea');
+        clone.querySelectorAll('textarea').forEach((ta, i) => {
+            if (liveTextareas[i]) ta.value = liveTextareas[i].value;
+        });
+
+        const liveIcons = el.querySelectorAll('sl-icon');
+        clone.querySelectorAll('sl-icon').forEach((iconEl, i) => {
+            const svg = liveIcons[i]?.shadowRoot?.querySelector('svg');
+            if (!svg) {
+                iconEl.remove();
+                return;
+            }
+            const svgClone = svg.cloneNode(true);
+            svgClone.setAttribute('width', '100%');
+            svgClone.setAttribute('height', '100%');
+            svgClone.style.display = 'block';
+
+            // Mirrors sl-icon's own shadow DOM sizing (a 1em box the SVG fills),
+            // so the wrapper takes over the host's font-size/color styling.
+            const wrapper = document.createElement('span');
+            wrapper.setAttribute('style', `${iconEl.getAttribute('style') || ''}; display:inline-block; width:1em; height:1em; line-height:0;`);
+            wrapper.appendChild(svgClone);
+            iconEl.replaceWith(wrapper);
+        });
+
+        return clone;
+    }
+
+    _loadImageElement(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = src;
+        });
+    }
+
+    /**
+     * Flattens the marker overlay (see _captureMarkersOverlay) onto a base map
+     * raster — used by _exportPDF, which embeds its map image directly via
+     * jsPDF rather than going through _addFooterToRaster's html2canvas
+     * composite.
+     */
+    async _mergeMarkersOntoRaster(baseDataUrl, markersDataUrl, width, height) {
+        const [baseImg, overlayImg] = await Promise.all([
+            this._loadImageElement(baseDataUrl),
+            this._loadImageElement(markersDataUrl)
+        ]);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(baseImg, 0, 0, width, height);
+        ctx.drawImage(overlayImg, 0, 0, width, height);
+        return canvas.toDataURL('image/png');
     }
 
     async _loadFooterTemplate() {
@@ -2151,7 +2324,7 @@ export class MapExportControl {
         }
     }
 
-    async _addFooterToRaster(mapImageDataUrl, width, height, center, bearing, dpi = 96, config = {}) {
+    async _addFooterToRaster(mapImageDataUrl, width, height, center, bearing, dpi = 96, config = {}, markersDataUrl = null) {
         try {
             const html2canvas = (await import('html2canvas')).default;
 
@@ -2218,6 +2391,18 @@ export class MapExportControl {
                 mapImg.onload = resolve;
                 if (mapImg.complete) resolve();
             });
+
+            if (markersDataUrl) {
+                const markersImg = document.createElement('img');
+                markersImg.src = markersDataUrl;
+                markersImg.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;display:block;';
+                container.appendChild(markersImg);
+
+                await new Promise(resolve => {
+                    markersImg.onload = resolve;
+                    if (markersImg.complete) resolve();
+                });
+            }
 
             const template = await this._loadFooterTemplate();
             if (!template) {
