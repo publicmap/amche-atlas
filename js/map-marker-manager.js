@@ -332,12 +332,26 @@ export class MapMarkerManager {
         return /^https?:\/\/\S+$/i.test(String(value ?? '').trim());
     }
 
+    /** Splits a `url1, url2` / `url1; url2` value into its parts, only if every part is itself a URL. */
+    _splitMultiUrlValue(value) {
+        const parts = String(value ?? '').split(/[,;]/).map(p => p.trim()).filter(p => p !== '');
+        return parts.length > 1 && parts.every(p => this._isUrlValue(p)) ? parts : null;
+    }
+
     _buildLinkValueHTML(value) {
         const url = String(value).trim();
         const safeUrl = this._escapeAttr(url);
         const label = this._escapeAttr(this._truncateName(url, 40));
         return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;text-decoration:underline;word-break:break-all;">${label}</a>` +
             `<sl-icon name="box-arrow-up-right" style="font-size:9px;vertical-align:middle;margin-left:3px;color:#60a5fa;"></sl-icon>`;
+    }
+
+    _buildValueHTML(value) {
+        // Checked before _isUrlValue: a `;`-joined value has no whitespace, so the
+        // single-URL regex would otherwise greedily match the whole joined string.
+        const urls = this._splitMultiUrlValue(value);
+        if (urls) return urls.map(u => this._buildLinkValueHTML(u)).join('<br>');
+        return this._isUrlValue(value) ? this._buildLinkValueHTML(value) : this._escapeAttr(value);
     }
 
     _getBadgeLabelInfo(f) {
@@ -416,7 +430,7 @@ export class MapMarkerManager {
         const fieldTitles = inspectConfig.fieldTitles || [];
 
         const buildRow = (label, value) => {
-            const valueHTML = this._isUrlValue(value) ? this._buildLinkValueHTML(value) : this._escapeAttr(value);
+            const valueHTML = this._buildValueHTML(value);
             return `<div style="display:flex;gap:6px;font-size:9px;line-height:1.25;padding:1px 0;border-bottom:1px solid #374151;">` +
                 `<div style="color:#9ca3af;min-width:54px;max-width:88px;font-weight:600;flex-shrink:0;word-break:break-word;">${this._escapeAttr(label)}</div>` +
                 `<div style="color:#f3f4f6;flex:1;word-break:break-word;white-space:pre-line;">${valueHTML}</div>` +

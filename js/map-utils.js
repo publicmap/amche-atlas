@@ -90,8 +90,18 @@ export class DataUtils {
      */
     static parseCSV(csvText) {
         if (!csvText) return [];
+        return this.recordsToRows(this.parseCSVRecords(csvText));
+    }
 
-        const records = this.parseCSVRecords(csvText);
+    /**
+     * Shared table-detection logic behind parseCSV, factored out so other
+     * sources of tabular data (e.g. XLSX cell grids in xlsx-lite.js) that
+     * already have records as arrays-of-strings - not raw CSV text - can
+     * reuse the same multi-table/caption/header handling.
+     * @param {Array<Array<string>>} records - Rows as arrays of cell strings
+     * @returns {Array} Array of objects representing rows
+     */
+    static recordsToRows(records) {
         if (records.length === 0) return [];
 
         const isBlankRecord = (record) => record.every(val => val.trim() === '');

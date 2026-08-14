@@ -8,6 +8,13 @@
  * one's CSV separately, then merging the rows client-side (fetchAllSheetRows).
  */
 import { DataUtils } from './map-utils.js';
+import { fetchAndParseSheetXLSX } from './xlsx-lite.js';
+
+// Feature-detects the API xlsx-lite.js needs to unzip the XLSX export in the
+// browser. Where it's unavailable (older browsers), fetchCsvRows below just
+// falls back to the plain CSV export, which loses HYPERLINK() cell URLs but
+// otherwise works the same as before this module existed.
+const canParseXLSX = typeof DecompressionStream !== 'undefined';
 
 export function isGoogleSheetUrl(url) {
     return typeof url === 'string' && url.includes('docs.google.com/spreadsheets');
@@ -20,6 +27,11 @@ export function extractSpreadsheetId(url) {
 
 export function buildCsvUrl(spreadsheetId, gid) {
     return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv${gid !== undefined && gid !== null && gid !== '' ? `&gid=${gid}` : ''}`;
+}
+
+/** Same tab as buildCsvUrl, but as an XLSX export - the one format that keeps HYPERLINK() formula URLs. */
+export function buildXlsxUrl(spreadsheetId, gid) {
+    return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=xlsx${gid !== undefined && gid !== null && gid !== '' ? `&gid=${gid}` : ''}`;
 }
 
 /** The spreadsheet's own (tab-agnostic) URL — what a `sheet` layer's `url` should be. */
@@ -108,12 +120,30 @@ export function parseSheetsHTML(html) {
 }
 
 export async function fetchCsvRows(url) {
+    if (canParseXLSX && isGoogleSheetUrl(url)) {
+        try {
+            return await fetchGoogleSheetRowsAsXLSX(url);
+        } catch (e) {
+            console.warn('[GoogleSheetsAPI] XLSX fetch/parse failed, falling back to CSV export:', e);
+        }
+    }
+
     const response = await fetch(url);
     const csvText = await response.text();
     const looksLikeHTML = /^\s*<(!doctype|html|head|meta)/i.test(csvText);
     return (looksLikeHTML && isGoogleSheetUrl(url))
         ? parseSheetsHTML(csvText)
         : DataUtils.parseCSV(csvText);
+}
+
+/** Re-derives the tab's XLSX export URL from any Google Sheets CSV/edit URL and parses it. */
+async function fetchGoogleSheetRowsAsXLSX(url) {
+    const spreadsheetId = extractSpreadsheetId(url);
+    if (!spreadsheetId) {
+        throw new Error('Not a recognizable Google Sheets URL');
+    }
+    const gidMatch = url.match(/[?&#]gid=(-?\d+)/);
+    return fetchAndParseSheetXLSX(buildXlsxUrl(spreadsheetId, gidMatch ? gidMatch[1] : undefined));
 }
 
 /**
