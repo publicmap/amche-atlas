@@ -328,6 +328,18 @@ export class MapMarkerManager {
             .replace(/>/g, '&gt;');
     }
 
+    _isUrlValue(value) {
+        return /^https?:\/\/\S+$/i.test(String(value ?? '').trim());
+    }
+
+    _buildLinkValueHTML(value) {
+        const url = String(value).trim();
+        const safeUrl = this._escapeAttr(url);
+        const label = this._escapeAttr(this._truncateName(url, 40));
+        return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;text-decoration:underline;word-break:break-all;">${label}</a>` +
+            `<sl-icon name="box-arrow-up-right" style="font-size:9px;vertical-align:middle;margin-left:3px;color:#60a5fa;"></sl-icon>`;
+    }
+
     _getBadgeLabelInfo(f) {
         const layerConfig = this._stateManager.getLayerConfig(f.layerId);
         const inspectConfig = layerConfig?.inspect || {};
@@ -403,11 +415,13 @@ export class MapMarkerManager {
         const fields = inspectConfig.fields || [];
         const fieldTitles = inspectConfig.fieldTitles || [];
 
-        const buildRow = (label, value) =>
-            `<div style="display:flex;gap:6px;font-size:9px;line-height:1.25;padding:1px 0;border-bottom:1px solid #374151;">` +
-            `<div style="color:#9ca3af;min-width:54px;max-width:88px;font-weight:600;flex-shrink:0;word-break:break-word;">${this._escapeAttr(label)}</div>` +
-            `<div style="color:#f3f4f6;flex:1;word-break:break-word;white-space:pre-line;">${this._escapeAttr(value)}</div>` +
-            `</div>`;
+        const buildRow = (label, value) => {
+            const valueHTML = this._isUrlValue(value) ? this._buildLinkValueHTML(value) : this._escapeAttr(value);
+            return `<div style="display:flex;gap:6px;font-size:9px;line-height:1.25;padding:1px 0;border-bottom:1px solid #374151;">` +
+                `<div style="color:#9ca3af;min-width:54px;max-width:88px;font-weight:600;flex-shrink:0;word-break:break-word;">${this._escapeAttr(label)}</div>` +
+                `<div style="color:#f3f4f6;flex:1;word-break:break-word;white-space:pre-line;">${valueHTML}</div>` +
+                `</div>`;
+        };
 
         const validEntries = Object.entries(properties).filter(([, v]) => v !== null && v !== undefined && v !== '');
 

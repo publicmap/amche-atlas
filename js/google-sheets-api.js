@@ -48,6 +48,23 @@ export async function fetchSheetTabs(spreadsheetId) {
     return tabs;
 }
 
+/**
+ * Google wraps external links clicked from its own pages (including published
+ * sheet HTML) in a `google.com/url?q=<target>&sa=...` tracking redirect. Unwrap
+ * it so the stored value is the actual destination, not Google's redirector.
+ */
+function resolveHyperlinkHref(href) {
+    try {
+        const url = new URL(href, 'https://docs.google.com');
+        if (/(^|\.)google\.com$/.test(url.hostname) && url.pathname === '/url' && url.searchParams.has('q')) {
+            return url.searchParams.get('q');
+        }
+    } catch (e) {
+        // Not a parseable absolute URL - use href as-is.
+    }
+    return href;
+}
+
 /** Parses the gviz HTML table Google sometimes returns instead of CSV (e.g. for `/pub` links). */
 export function parseSheetsHTML(html) {
     const parser = new DOMParser();
@@ -59,6 +76,11 @@ export function parseSheetsHTML(html) {
 
     const extractCells = (tr) => Array.from(tr.querySelectorAll('td')).map(td => {
         td.querySelectorAll('br').forEach(br => br.replaceWith(' '));
+        // A hyperlinked cell (manual link or =HYPERLINK() formula) renders as
+        // <a href="...">display text</a> - store the link target, not the label.
+        td.querySelectorAll('a[href]').forEach(a => {
+            a.replaceWith(resolveHyperlinkHref(a.getAttribute('href')));
+        });
         return td.textContent.replace(/\s+/g, ' ').trim();
     });
 
