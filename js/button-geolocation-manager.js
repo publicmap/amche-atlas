@@ -3,6 +3,9 @@
  */
 
 import { trackEvent } from './analytics.js';
+import { MapContextMessagesControl } from './map-context-messages-control.js';
+
+const GEOLOCATION_MESSAGE_ID = 'geolocation-status';
 
 export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
 
@@ -20,8 +23,22 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         // url-manager's later applyURLParameters() can't re-toggle tracking
         // off in the window before the first GPS position arrives.
         this._initialTriggerSent = false;
+        this._statusMessageTimer = null;
 
         $(document).on('url_updated', this.handleUrlUpdate);
+    }
+
+    // Shows/updates the single geolocation status message bar. Reuses the same
+    // id so consecutive state changes (triggered -> tracking -> stopped/error)
+    // replace each other in place rather than stacking.
+    _showStatusMessage(html, autoCloseMs) {
+        clearTimeout(this._statusMessageTimer);
+        MapContextMessagesControl.show(html, { id: GEOLOCATION_MESSAGE_ID });
+        if (autoCloseMs) {
+            this._statusMessageTimer = setTimeout(() => {
+                MapContextMessagesControl.close(GEOLOCATION_MESSAGE_ID);
+            }, autoCloseMs);
+        }
     }
 
     onAdd(map) {
@@ -51,6 +68,7 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
             idleText = 'GPS Off';
             $(window).on('deviceorientationabsolute', this.handleOrientation);
             $(document).trigger('update_url', { geolocate: true });
+            this._showStatusMessage('Location tracking active', 3000);
         });
 
         this.on('trackuserlocationend', () => {
@@ -66,6 +84,7 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                 pitch: 0,
                 duration: 1000
             });
+            this._showStatusMessage('Location tracking stopped', 3000);
         });
 
         // Handle geolocation errors
@@ -83,6 +102,7 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
             const isTransient = error.code === 2 || error.code === 3;
             if (!isTransient || this.locationErrorCount >= 3) {
                 trackEvent('geolocate', { status: 'error', error_code: error.code });
+                this._showStatusMessage(this._getErrorMessage(error.code), 4000);
                 this._showErrorDialog(error);
             }
 
@@ -215,6 +235,7 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                             console.log(
                                 `[GPS] trigger() called at t=${Math.round(this._triggerStartedAt)}ms (${reason})`
                             );
+                            this._showStatusMessage('Finding your location…');
                             this.trigger();
                             return true;
                         }
@@ -276,6 +297,7 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         // before the first GPS position arrives and isTracking flips.
         if (params !== undefined && params.geolocate === true && !this._initialTriggerSent && !this.isTracking) {
             this._initialTriggerSent = true;
+            this._showStatusMessage('Finding your location…');
             this.trigger();
         }
     }

@@ -43,6 +43,14 @@ export class MapFeatureStateManager extends EventTarget {
         // Update the flag to track Cmd/Ctrl key state
         this._isCmdCtrlPressed = false;
 
+        // Set by MapMarkerManager while a marker balloon is being manually dragged
+        // (see _attachBalloonDragHandler). The drag runs via window-level mouse
+        // listeners, so the pointer is very likely passing directly over the map
+        // canvas — without this, the canvas's own mousemove hover query keeps
+        // querying/hovering whatever is beneath it, fighting the drag for the main
+        // thread (visible jank) and flipping hover state on unrelated features.
+        this._isDraggingMarkerPanel = false;
+
         // Update event listeners for keydown and keyup to track Cmd/Ctrl key state
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Meta' || event.key === 'Control') {
@@ -65,9 +73,9 @@ export class MapFeatureStateManager extends EventTarget {
             }
         });
 
-        // Center-point hover tracking
-        this._centerHoverEnabled = false;
-        this._lastCenterHoverUpdate = 0;
+        // Signature of the currently-applied hovered feature set, used to dedupe
+        // repeated hovers over the same feature (desktop mousemove fires continuously).
+        this._lastHoverSignature = null;
 
         // Device detection for hover behavior
         this._isTouchDevice = this._detectTouchDevice();
@@ -95,13 +103,6 @@ export class MapFeatureStateManager extends EventTarget {
 
         this._map.on('moveend', () => {
             this._isMapMoving = false;
-
-            // Trigger center hover for touch devices after map movement
-            if (this._isTouchDevice && this._centerHoverEnabled && this._selectedFeatures.size === 0) {
-                setTimeout(() => {
-                    this.triggerCenterHover();
-                }, 100);
-            }
         });
     }
 
@@ -257,14 +258,44 @@ export class MapFeatureStateManager extends EventTarget {
      * @param {Array} hoveredFeatures - Array of {feature, layerId, lngLat} objects
      * @param {Object} globalLngLat - Global mouse coordinates
      */
-    handleFeatureHovers(hoveredFeatures, globalLngLat) {
-        // Don't update hover states during map movement (pan/zoom)
-        if (this._isMapMoving) {
+    handleFeatureHovers(hoveredFeatures, globalLngLat, allowDuringMove = false) {
+        // Don't update hover states during map movement (pan/zoom), unless this is a
+        // live center-hover query on touch which intentionally tracks the moving center.
+        if (this._isMapMoving && !allowDuringMove) {
             return;
         }
 
         if (!hoveredFeatures || hoveredFeatures.length === 0) {
-            this.handleMapMouseLeave();
+            this.handleMapMouseLeave(allowDuringMove);
+            return;
+        }
+
+        // Dedupe repeated hovers over the same feature set. On desktop `mousemove`
+        // fires continuously while the cursor sits over one feature; without this
+        // guard every tick tears down and re-applies the mapbox feature-state (which
+        // flickers the highlight). Touch avoids this naturally via the throttled
+        // center-hover. Skip the guard for live center-hover during a pan
+        // (allowDuringMove), where the popup must keep tracking the moving center
+        // even when the underlying feature is unchanged.
+        const signature = hoveredFeatures
+            .map(({ feature, layerId }) => `${layerId}:${this._getFeatureId(feature)}`)
+            .sort()
+            .join('|');
+        if (!allowDuringMove && signature === this._lastHoverSignature) {
+            // Feature-state is already applied and doesn't need re-touching, but the
+            // pointer position still moved — forward it so position-tracking UI (the
+            // hover label) keeps following the cursor smoothly instead of freezing
+            // until the hovered feature set actually changes.
+            const processedFeatures = hoveredFeatures.map(({ feature, layerId }) => ({
+                featureId: this._getFeatureId(feature),
+                layerId,
+                feature
+            }));
+            this._emitStateChange('features-batch-hover', {
+                hoveredFeatures: processedFeatures,
+                affectedLayers: Array.from(new Set(processedFeatures.map(f => f.layerId))),
+                lngLat: globalLngLat
+            });
             return;
         }
 
@@ -306,6 +337,9 @@ export class MapFeatureStateManager extends EventTarget {
         // Update line layer sort keys for z-ordering
         this._updateLineSortKeys();
 
+        // Remember the applied set so identical follow-up hovers are skipped above.
+        this._lastHoverSignature = signature;
+
         // Emit batch hover event for more efficient UI updates
         this._emitStateChange('features-batch-hover', {
             hoveredFeatures: processedFeatures,
@@ -330,9 +364,10 @@ export class MapFeatureStateManager extends EventTarget {
     /**
      * Handle mouse leaving the map area
      */
-    handleMapMouseLeave() {
-        // Don't clear hover states during map movement
-        if (this._isMapMoving) {
+    handleMapMouseLeave(allowDuringMove = false) {
+        // Don't clear hover states during map movement, unless a live center-hover
+        // query on touch is driving updates while the map pans.
+        if (this._isMapMoving && !allowDuringMove) {
             return;
         }
 
@@ -346,14 +381,6 @@ export class MapFeatureStateManager extends EventTarget {
         // Update line layer sort keys for z-ordering
         this._updateLineSortKeys();
 
-        // Return to center hover only on touch devices (not pointer devices)
-        // Only if enabled AND no selections exist
-        if (this._isTouchDevice && this._centerHoverEnabled && this._selectedFeatures.size === 0) {
-            setTimeout(() => {
-                this.triggerCenterHover();
-            }, 100);
-        }
-
         // Emit map mouse leave event
         this._emitStateChange('map-mouse-leave', {
             timestamp: Date.now()
@@ -366,6 +393,9 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _clearAllHover() {
         const clearedFeatures = [];
+
+        // Invalidate the dedupe signature so re-hovering the same feature re-applies.
+        this._lastHoverSignature = null;
 
         this._featureStates.forEach((featureState, compositeKey) => {
             if (featureState.isHovered) {
@@ -857,26 +887,6 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
-     * Trigger hover for features at the center of the map
-     * Called when map moves or on keyboard navigation
-     */
-    triggerCenterHover() {
-        const now = Date.now();
-        if (now - this._lastCenterHoverUpdate < 100) {
-            return;
-        }
-        this._lastCenterHoverUpdate = now;
-
-        const centerFeatures = this.getFeaturesAtCenter();
-
-        if (centerFeatures.length > 0) {
-            this.handleFeatureHovers(centerFeatures, centerFeatures[0].lngLat);
-        } else {
-            this.handleMapMouseLeave();
-        }
-    }
-
-    /**
      * Trigger selection for features at the center of the map
      * Called on spacebar press
      */
@@ -886,28 +896,6 @@ export class MapFeatureStateManager extends EventTarget {
         if (centerFeatures.length > 0) {
             this.handleFeatureClicks(centerFeatures);
         }
-    }
-
-    /**
-     * Enable or disable center-point hover tracking
-     * @param {boolean} enabled - Whether center hover is enabled
-     */
-    setCenterHoverEnabled(enabled) {
-        this._centerHoverEnabled = enabled;
-
-        if (enabled) {
-            this.triggerCenterHover();
-        } else {
-            this.handleMapMouseLeave();
-        }
-    }
-
-    /**
-     * Check if center hover is enabled
-     * @returns {boolean} True if center hover is enabled
-     */
-    isCenterHoverEnabled() {
-        return this._centerHoverEnabled;
     }
 
     /**
@@ -1256,6 +1244,10 @@ export class MapFeatureStateManager extends EventTarget {
      */
     _clearLayerHover(layerId) {
         const clearedFeatures = [];
+
+        // A layer's hover was cleared independently; invalidate the dedupe signature
+        // so the next hover re-applies the full set rather than being skipped.
+        this._lastHoverSignature = null;
 
         this._featureStates.forEach((featureState, compositeKey) => {
             if (featureState.layerId === layerId && featureState.isHovered) {

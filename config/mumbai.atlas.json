@@ -342,6 +342,34 @@
       "attribution": "<a href='https://www.bncmc.gov.in/department.php?department_id=51'>BNCMC</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>"
     },
     {
+      "title": "Sanjay Gandhi National Park Zonal Masterplan 2025 (Draft)",
+      "description": "Draft Zonal Masterplan For Eco Sensitive Zones Of Sanjay Gandhi National Park. See <a href='https://data.opencity.in/dataset/d7412b62-3ff1-4dc0-9c4a-73d8570757e8/resource/9efa5513-3625-448f-b5bb-f8d24ee97520/download/sanjay-gandhi-national-park-zonal-plan-for-esz-by-bmc.pdf' target='_blank'>Sanjay Gandhi National Park Zonal Masterplan 2025</a> for details.",
+      "type": "tms",
+      "id": "sgnp-masterplan-2025",
+      "url": "https://mapwarper.net/maps/tile/108838/{z}/{x}/{y}.png",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "attribution": "<a href='https://vvcmc.in/wp-content/uploads/2025/09/TpDept_25_9_2025.pdf' target='_blank'>https://vvcmc.in/wp-content/uploads/2025/09/TpDept_25_9_2025.pdf</a> via <a href='https://mapwarper.net/maps/108838' target='_blank'>MapWarper</a>",
+      "headerImage": "https://mapwarper.net/uploads/108838/thumb/sgnp-masterplan.png",
+      "bbox": "72.8229342,19.1237503,72.9978592,19.3593569",
+      "initiallyChecked": false
+    },
+    {
       "tags": [
         "climate"
       ],

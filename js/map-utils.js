@@ -2,6 +2,8 @@
  * Utility classes for data manipulation, geographic conversions, URL handling, and map operations.
  */
 
+import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
+
 export class DataUtils {
     /**
      * Checks if an item is a plain object (not null, not array, not function)
@@ -71,7 +73,18 @@ export class DataUtils {
     }
 
     /**
-     * Parses CSV text into an array of objects with header fields as keys
+     * Parses CSV text into an array of objects with header fields as keys.
+     * Supports sheets made up of several stacked tables (each with its own
+     * caption row, header row, and column layout) separated by blank rows,
+     * as commonly found in Google Sheets exports. Rows from different
+     * tables keep only their own table's keys, so a downstream consumer
+     * that unions keys across all rows (e.g. GeoUtils.rowsToGeoJSON) can
+     * still work across mismatched column sets. Every row also gets two
+     * auto-generated `$`-prefixed properties (distinguishing them from real
+     * sheet columns): `$row`, the 1-indexed line number of that row in the
+     * source sheet (suitable as a unique id field), and, when a table has a
+     * caption row, `$table` set to that caption (e.g. "$table": "Table 4.2
+     * Aldona").
      * @param {string} csvText - Raw CSV text
      * @returns {Array} Array of objects representing rows
      */
@@ -81,28 +94,52 @@ export class DataUtils {
         const records = this.parseCSVRecords(csvText);
         if (records.length === 0) return [];
 
-        const headers = records[0];
-        let dataStartIndex = 1;
-
-        for (let i = 1; i < records.length; i++) {
-            if (records[i].length === headers.length &&
-                records[i].every((val, idx) => val.trim() === headers[idx].trim())) {
-                dataStartIndex = i + 1;
-            } else {
-                break;
-            }
-        }
+        const isBlankRecord = (record) => record.every(val => val.trim() === '');
 
         const rows = [];
-        for (let i = dataStartIndex; i < records.length; i++) {
-            const values = records[i];
-            if (values.length !== headers.length) continue;
+        let headers = null;
+        let tableName = null;
+
+        records.forEach((record, index) => {
+            if (isBlankRecord(record)) {
+                // A blank row ends the current table; the next header-like
+                // row (optionally preceded by a caption row) starts a new one.
+                headers = null;
+                tableName = null;
+                return;
+            }
+
+            if (!headers) {
+                // A caption/title row for a table (e.g. "Table 4.2 Aldona") has
+                // only one populated cell; skip it and wait for the real
+                // header row, which has several column names.
+                const populatedCount = record.filter(val => val.trim() !== '').length;
+                if (populatedCount < 2) {
+                    tableName = record.find(val => val.trim() !== '')?.trim() || null;
+                    return;
+                }
+                headers = record.map(header => header.trim());
+                return;
+            }
+
+            // Google Sheets sometimes repeats the header row verbatim; skip it.
+            if (record.length === headers.length &&
+                record.every((val, idx) => val.trim() === headers[idx])) {
+                return;
+            }
+
             const row = {};
-            headers.forEach((header, index) => {
-                row[header.trim()] = values[index];
+            headers.forEach((header, idx) => {
+                if (!header) return; // unlabeled trailing/padding column
+                row[header] = idx < record.length ? record[idx] : '';
             });
-            rows.push(row);
-        }
+            if (Object.values(row).some(val => String(val).trim() !== '')) {
+                row['$row'] = index + 1;
+                if (tableName) row['$table'] = tableName;
+                rows.push(row);
+            }
+        });
+
         return rows;
     }
 
@@ -132,9 +169,7 @@ export class DataUtils {
                 }
                 if (currentField.length > 0 || currentRecord.length > 0) {
                     currentRecord.push(currentField);
-                    if (currentRecord.some(f => f.trim().length > 0)) {
-                        records.push(currentRecord);
-                    }
+                    records.push(currentRecord);
                     currentRecord = [];
                     currentField = '';
                 }
@@ -145,9 +180,7 @@ export class DataUtils {
 
         if (currentField.length > 0 || currentRecord.length > 0) {
             currentRecord.push(currentField);
-            if (currentRecord.some(f => f.trim().length > 0)) {
-                records.push(currentRecord);
-            }
+            records.push(currentRecord);
         }
 
         return records;
@@ -215,13 +248,15 @@ export class DataUtils {
             // 3. Quote unquoted string values
             // Looks for values that are NOT:
             // - true/false/null
-            // - numbers
+            // - numbers (the *whole* value, not just a leading digit — a value
+            //   like a hex ID "80713f728801d925" starts with a digit but isn't
+            //   numeric, and must still get quoted)
             // - ALREADY quoted strings
             // - objects/arrays ({ or [)
             // The leading `"` requires the colon to be a key/value separator (every
             // key is quoted by step 2), so colons *inside* an already-quoted value
             // (e.g. "File:Map_..._1-250,000_...") are never matched and corrupted.
-            fixed = fixed.replace(/("\s*:\s*)(?!(?:true|false|null|[-0-9]|\"|\'|\{|\[))([a-zA-Z0-9_\-\.\/]+?)\s*(?=[,}])/g, '$1"$2"');
+            fixed = fixed.replace(/("\s*:\s*)(?!(?:true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\s*[,}]|\"|\'|\{|\[))([a-zA-Z0-9_\-\.\/]+?)\s*(?=[,}])/g, '$1"$2"');
 
             return JSON.parse(fixed);
         } catch (error) {
@@ -306,68 +341,77 @@ export class GeoUtils {
             return { type: 'FeatureCollection', features: [] };
         }
 
-        let lonField = explicitLonField;
-        let latField = explicitLatField;
+        const lonPatterns = [
+            'lon', 'lng', 'longitude', 'long',
+            'x', 'easting',
+            'lon_dd', 'lng_dd', 'decimal_longitude',
+            'gps_lon', 'gps_lng',
+            'geo_lon', 'geo_lng',
+            'point_x', 'coord_x'
+        ];
+        const latPatterns = [
+            'lat', 'latitude',
+            'y', 'northing',
+            'lat_dd', 'decimal_latitude',
+            'gps_lat',
+            'geo_lat',
+            'point_y', 'coord_y'
+        ];
 
-        if (!lonField || !latField) {
-            const lonPatterns = [
-                'lon', 'lng', 'longitude', 'long',
-                'x', 'easting',
-                'lon_dd', 'lng_dd', 'decimal_longitude',
-                'gps_lon', 'gps_lng',
-                'geo_lon', 'geo_lng',
-                'point_x', 'coord_x'
-            ];
-            const latPatterns = [
-                'lat', 'latitude',
-                'y', 'northing',
-                'lat_dd', 'decimal_latitude',
-                'gps_lat',
-                'geo_lat',
-                'point_y', 'coord_y'
-            ];
+        const matchesPattern = (field, pattern) => {
+            const fieldLower = field.trim().toLowerCase();
+            const patternLower = pattern.toLowerCase();
+            if (fieldLower === patternLower) return 2;
+            if (fieldLower.includes(patternLower)) return 1;
+            return 0;
+        };
 
-            const firstRow = rows[0];
-            const matchesPattern = (field, pattern) => {
-                const fieldLower = field.trim().toLowerCase();
-                const patternLower = pattern.toLowerCase();
-                if (fieldLower === patternLower) return 2;
-                if (fieldLower.includes(patternLower)) return 1;
-                return 0;
-            };
+        // Rank every field seen across ALL rows (not just the first) so
+        // sheets made of several stacked tables - each with its own set/order
+        // of columns (e.g. one table uses lat/lng, another Latitude/Longitude)
+        // - still resolve coordinates per row instead of only for the table
+        // whose columns happen to appear first.
+        const rankFields = (patterns) => {
+            const allFields = new Set();
+            rows.forEach(row => Object.keys(row).forEach(key => allFields.add(key)));
 
-            let bestLonScore = 0;
-            let bestLatScore = 0;
-
-            for (const field of Object.keys(firstRow)) {
-                for (const pattern of lonPatterns) {
+            const scored = [];
+            for (const field of allFields) {
+                let best = 0;
+                for (const pattern of patterns) {
                     const score = matchesPattern(field, pattern);
-                    if (score > bestLonScore) {
-                        bestLonScore = score;
-                        lonField = field;
-                    }
+                    if (score > best) best = score;
                 }
-                for (const pattern of latPatterns) {
-                    const score = matchesPattern(field, pattern);
-                    if (score > bestLatScore) {
-                        bestLatScore = score;
-                        latField = field;
-                    }
+                if (best > 0) {
+                    const coverage = rows.filter(row => row[field] !== undefined && row[field] !== null && String(row[field]).trim() !== '').length;
+                    scored.push({ field, score: best, coverage });
                 }
             }
+            // Prefer the strongest name match; break ties toward whichever
+            // field is populated on more rows (e.g. a sheet with both a
+            // sparse "lat"/"lng" pair and a fully-populated "Latitude"/
+            // "Longitude" pair should trust the latter).
+            scored.sort((a, b) => b.score - a.score || b.coverage - a.coverage);
+            return scored.map(s => s.field);
+        };
 
-            if (debug) {
-                console.log('CSV field detection:', {
-                    columns: Object.keys(firstRow),
-                    detectedLat: latField,
-                    detectedLon: lonField,
-                    latScore: bestLatScore,
-                    lonScore: bestLonScore
-                });
-            }
+        const lonCandidates = explicitLonField ? [explicitLonField] : rankFields(lonPatterns);
+        const latCandidates = explicitLatField ? [explicitLatField] : rankFields(latPatterns);
+
+        if (debug) {
+            console.log('CSV field detection:', {
+                lonCandidates,
+                latCandidates
+            });
         }
 
-        if (!lonField || !latField) return null;
+        if (lonCandidates.length === 0 || latCandidates.length === 0) return null;
+
+        // Pick the first candidate that's actually populated on this row -
+        // different rows may belong to different source tables with
+        // different coordinate column names.
+        const pickField = (row, candidates) =>
+            candidates.find(field => row[field] !== undefined && row[field] !== null && String(row[field]).trim() !== '');
 
         const parseCoordinate = (value) => {
             if (value === null || value === undefined || value === '') return NaN;
@@ -393,7 +437,9 @@ export class GeoUtils {
 
         const features = [];
         rows.forEach((row) => {
-            if (!(lonField in row) || !(latField in row)) return;
+            const lonField = pickField(row, lonCandidates);
+            const latField = pickField(row, latCandidates);
+            if (!lonField || !latField) return;
             const lon = parseCoordinate(row[lonField]);
             const lat = parseCoordinate(row[latField]);
             if (isNaN(lon) || isNaN(lat)) return;
@@ -527,8 +573,9 @@ export class URLUtils {
                             layers.push({ id: trimmedItem });
                         }
                     } else {
-                        // Simple layer ID
-                        layers.push({ id: trimmedItem });
+                        // Simple layer ID, or a dynamic layer shorthand string (e.g. "osm:relation/123")
+                        const shorthand = parseDynamicLayerShorthandString(trimmedItem);
+                        layers.push(shorthand ? { ...shorthand, _originalJson: trimmedItem } : { id: trimmedItem });
                     }
                 }
                 currentItem = '';
@@ -555,8 +602,9 @@ export class URLUtils {
                     layers.push({ id: trimmedItem });
                 }
             } else {
-                // Simple layer ID
-                layers.push({ id: trimmedItem });
+                // Simple layer ID, or a dynamic layer shorthand string (e.g. "osm:relation/123")
+                const shorthand = parseDynamicLayerShorthandString(trimmedItem);
+                layers.push(shorthand ? { ...shorthand, _originalJson: trimmedItem } : { id: trimmedItem });
             }
         }
 

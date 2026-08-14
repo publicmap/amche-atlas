@@ -989,4 +989,29 @@ export class LayerRegistry {
         const [west, south, east, north] = metadata.bbox;
         return lng >= west && lng <= east && lat >= south && lat <= north;
     }
+
+    /**
+     * Find the smallest-area local atlas whose bbox contains the given point.
+     * Excludes the 'index' atlas and external (cross-repo) atlases, since
+     * those shouldn't be auto-suggested purely because a point falls inside
+     * their bbox. Shared by SplashScreenManager's location-based atlas
+     * detection and the "you've panned outside this atlas" prompt in
+     * map-init.js.
+     * @param {number} lng - Longitude
+     * @param {number} lat - Latitude
+     * @param {{excludeAtlasId?: string}} [options] - Atlas id to skip (e.g. the currently active one)
+     * @returns {string|null} Best-fit atlas id, or null if none contains the point
+     */
+    findBestAtlasForPoint(lng, lat, { excludeAtlasId = null } = {}) {
+        let best = null;
+        for (const [atlasId, metadata] of this._atlasMetadata.entries()) {
+            if (atlasId === 'index' || atlasId === excludeAtlasId) continue;
+            if (!metadata.bbox || metadata.isExternal) continue;
+            if (!this.isPointInAtlasBbox(atlasId, lng, lat)) continue;
+            const [w, s, e, n] = metadata.bbox;
+            const area = (e - w) * (n - s);
+            if (!best || area < best.area) best = { id: atlasId, area };
+        }
+        return best?.id || null;
+    }
 }

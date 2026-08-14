@@ -30,7 +30,7 @@ export class ButtonExternalMapLinks {
         this._button.className = 'mapboxgl-ctrl-icon';
         this._button.type = 'button';
         this._button.setAttribute('aria-label', 'Open map in external services');
-        this._button.innerHTML = `<sl-icon name="geo" style="font-size: 20px;"></sl-icon>`;
+        this._button.innerHTML = `<sl-icon name="box-arrow-up-right" style="font-size: 20px;"></sl-icon>`;
 
         this._button.addEventListener('click', this._handleButtonClick);
         this._container.appendChild(this._button);

@@ -1,10 +1,11 @@
 /**
- * GoogleSheetsWriter - Appends a row to a Google Sheet via a bound Apps Script web app.
+ * GoogleSheetsWriter - Creates or updates a row in a Google Sheet via a bound
+ * Apps Script web app.
  *
  * There is no OAuth / sign-in: the sheet owner deploys a small Apps Script web app
  * (Execute as: me, Access: Anyone) and the browser POSTs the note to it. The script
- * runs under the owner's account and appends the row, so any visitor can add a note
- * without authenticating and without the "unverified app" consent screen.
+ * runs under the owner's account and appends/updates the row, so any visitor can add
+ * or edit a note without authenticating and without the "unverified app" consent screen.
  *
  * Each sheet has its own deployed script URL, configured per-layer as `saveUrl`.
  * See docs/API.md -> "Writing notes back to a Google Sheet" for the script and setup.
@@ -29,18 +30,30 @@ export function captureMapContext() {
 }
 
 /**
- * Append a row to a Google Sheet through its Apps Script web app.
+ * Create a new row, or update an existing one in place, in a Google Sheet
+ * through its Apps Script web app.
+ *
+ * A note's `latitude` + `longitude` + `timestamp` are unique together, so
+ * passing `match` (the original values of an already-saved note) tells the
+ * script to find that row and overwrite its `notes` column instead of
+ * appending a duplicate. Omit `match` to append a brand-new row.
  * @param {Object} opts
  * @param {string} opts.saveUrl - Deployed Apps Script web app URL (…/exec)
  * @param {string} [opts.url] - The layer's CSV url; its gid selects the target tab
- * @param {Object} opts.values - { latitude, longitude, notes, timestamp, atlas, layers }
+ * @param {Object} opts.values - For a new row: { latitude, longitude, notes, timestamp, atlas, layers }. For an update: { notes }.
+ * @param {{latitude: *, longitude: *, timestamp: *}} [opts.match] - Identifies the existing row to update in place.
  */
-export async function appendRow({ saveUrl, url, values }) {
+export async function saveRow({ saveUrl, url, values, match = null }) {
     if (!saveUrl) {
         throw new Error('Missing saveUrl. Add an Apps Script web app URL to the layer config (see docs/API.md).');
     }
 
-    const body = JSON.stringify({ gid: extractGid(url), ...values });
+    const body = JSON.stringify({
+        gid: extractGid(url),
+        action: match ? 'update' : 'create',
+        ...(match && { match }),
+        ...values
+    });
 
     let response;
     try {

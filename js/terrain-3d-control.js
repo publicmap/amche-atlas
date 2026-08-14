@@ -2,6 +2,7 @@
  * Controller for Three Dimensional Terrain
  */
 import { trackEvent } from './analytics.js';
+import { MapContextMessagesControl } from './map-context-messages-control.js';
 
 export class Terrain3DControl {
     constructor(options = {}) {
@@ -33,6 +34,8 @@ export class Terrain3DControl {
         this._autoPitchUserOverrode = false;
         this._pitchBeforePanel = null;
         this._syncCallback = null; // Optional callback fired after visual updates (e.g. compare/swipe)
+        this._autoEnableMessageId = null; // Context message shown when terrain auto-enables from a tilt gesture
+        this._autoEnableMessageTimer = null;
 
         // Audio visualization properties
         this._audioContext = null;
@@ -137,6 +140,8 @@ export class Terrain3DControl {
 
         // Remove pitch listener
         this.removePitchListener();
+
+        this._closeAutoEnabledMessage();
 
         if (this._panel) {
             $(this._panel).remove();
@@ -841,6 +846,7 @@ export class Terrain3DControl {
 
     _showPanel() {
         $(this._panel).show();
+        this._closeAutoEnabledMessage();
 
         // Lazy load: enable terrain when panel is opened for the first time
         if (!this._enabled) {
@@ -1319,7 +1325,20 @@ export class Terrain3DControl {
     }
 
     // Public methods for external control
+
+    // Opens the 3D Controls panel, e.g. from the auto-enable context message's
+    // "Vertical Scale" link. Pass focusExaggeration to scroll/focus that slider.
+    showPanel(focusExaggeration = false) {
+        this._showPanel();
+        if (focusExaggeration) {
+            const slider = document.getElementById('terrain-3d-exaggeration-slider');
+            slider?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            slider?.focus();
+        }
+    }
+
     setEnabled(enabled) {
+        this._closeAutoEnabledMessage();
         this._enabled = enabled;
         $('#terrain-3d-enabled').prop('checked', enabled);
         // Show/hide terrain controls container based on enabled state
@@ -1687,6 +1706,7 @@ export class Terrain3DControl {
             const pitch = this._map.getPitch();
             if (pitch > 0 && !this._enabled) {
                 this.setEnabled(true);
+                this._showAutoEnabledMessage();
             }
         };
 
@@ -1697,6 +1717,28 @@ export class Terrain3DControl {
         if (this._map && this._pitchListener) {
             this._map.off('pitch', this._pitchListener);
             this._pitchListener = null;
+        }
+    }
+
+    // Shown when terrain auto-enables from a camera tilt gesture (rather than
+    // the user explicitly opening the 3D panel), so they know why the terrain
+    // changed and can quickly tune or undo it.
+    _showAutoEnabledMessage() {
+        this._closeAutoEnabledMessage();
+        this._autoEnableMessageId = MapContextMessagesControl.show(
+            '3D terrain enabled. Change <a href="#" onclick="window.terrain3DControl?.showPanel(true);return false;">Vertical Scale</a> ' +
+            'to enhance terrain or <a href="#" onclick="window.terrain3DControl?.setEnabled(false);return false;">Disable</a> to improve performance',
+            { id: 'terrain-3d-auto-enabled' }
+        );
+        this._autoEnableMessageTimer = setTimeout(() => this._closeAutoEnabledMessage(), 10000);
+    }
+
+    _closeAutoEnabledMessage() {
+        clearTimeout(this._autoEnableMessageTimer);
+        this._autoEnableMessageTimer = null;
+        if (this._autoEnableMessageId) {
+            MapContextMessagesControl.close(this._autoEnableMessageId);
+            this._autoEnableMessageId = null;
         }
     }
 }

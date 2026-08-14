@@ -59,9 +59,21 @@
       "maxzoom": 13,
       "attribution": "<a href='https://czmp.ncscm.res.in/'>National Centre for Sustainable Coastal Management</a> - Collected by <a href='https://github.com/ramSeraph/indian_cadastrals/releases/tag/kerala'>Datameet Community</a>",
       "style": {
-        "text-padding": 10,
+        "text-padding": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          200,
+          17,
+          2
+        ],
         "text-font": [
-          "Open Sans SemiBold"
+          "PT Sans Narrow Bold"
         ],
         "text-field": [
           "step",
@@ -150,7 +162,7 @@
           ]
         ]
       },
-      "initiallyChecked": false,
+      "initiallyChecked": true,
       "inspect": {
         "id": "Shape_Area",
         "title": "Plot",
@@ -158,95 +170,18 @@
         "fields": [
           "Village_Name",
           "District_Name"
-        ],
-        "customHtml": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/' target='_blank'>Bhunaksha Goa</a> | <a href='https://goaonline.gov.in/Appln/Uil/DeptServices?__DocId=REV&__ServiceId=REV31' target='_blank'>View RoR</a> | <a href='https://davepaiva.github.io/goa-cadastral-duckdb-demo/' target='_blank'>Search</a>"
+        ]
       }
     },
     {
-      "title": "Kerala Parivesh Environmental Clearance",
-      "description": "Applications for environmental clearance from parivesh",
-      "type": "vector",
-      "id": "parivesh",
-      "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=92db364a-3d85-4e5d-ae0e-112727c7bc61",
-      "sourceLayer": "vector",
-      "maxzoom": 8,
-      "attribution": "<a href='https://environmentclearance.nic.in/'>Parivesh, Ministry of Environment,Forest and Climate Change,Government of India</a> - Collected by <a href='https://datameet.org'>Datameet Community</a> via <a href='https://github.com/datameet/parivesh-geojson'>MapHub</a>",
-      "style": {
-        "text-field": [
-          "get",
-          "Organization Name"
-        ],
-        "text-halo-color": "crimson",
-        "line-color": "crimson",
-        "line-width": 4,
-        "fill-color": [
-          "case",
-          [
-            "==",
-            [
-              "geometry-type"
-            ],
-            "Polygon"
-          ],
-          "crimson",
-          "transparent"
-        ],
-        "fill-opacity": [
-          "case",
-          [
-            "==",
-            [
-              "geometry-type"
-            ],
-            "Polygon"
-          ],
-          0.1,
-          0
-        ]
-      },
+      "id": "parivesh-kerala",
       "inspect": {
         "id": "Proposal Number",
-        "title": "Organization Name",
-        "label": "Organization Name",
+        "label": "Project Name",
         "fields": [
           "Project Category",
           "Project Name",
           "Project Description"
-        ]
-      }
-    },
-    {
-      "title": "Kerala Mask",
-      "description": "Mask for the distate state of Kerala.",
-      "headerImage": "assets/map-layers/map-layer-goa-districts.png",
-      "type": "vector",
-      "id": "kerala-mask",
-      "url": "https://indianopenmaps.fly.dev/not-so-open/districts/lgd/{z}/{x}/{y}.pbf ",
-      "sourceLayer": "LGD_Districts",
-      "maxzoom": 10,
-      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>LGD/Bharatmaps</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/districts'>Datameet Community:LGD_Districts</a>",
-      "initiallyChecked": true,
-      "filter": [
-        "!=",
-        [
-          "get",
-          "stname"
-        ],
-        "KERALA"
-      ],
-      "style": {
-        "fill-color": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          0,
-          "rgba(255, 255, 255, 0.5)",
-          12,
-          "rgba(255, 255, 255, 0.5)"
         ]
       }
     }

@@ -54,16 +54,16 @@ export class SplashScreenManager {
      * needs `_atlasMetadata` populated, which only happens after the registry's
      * idempotent initialize() resolves (deduped via in-flight WeakMap shared
      * with map-init.js).
+     *
+     * `window.layerRegistry` is normally already set by the time this runs
+     * (index.js assigns it at module-eval time, before the window `load`
+     * handler that constructs SplashScreenManager). The event listener is
+     * only a fallback for out-of-order execution, not the common path.
      */
     async waitForLayerRegistry() {
-        const waitForInstance = () => new Promise((resolve) => {
-            const check = () => {
-                if (window.layerRegistry) resolve();
-                else setTimeout(check, 50);
-            };
-            check();
-        });
-        await waitForInstance();
+        if (!window.layerRegistry) {
+            await new Promise((resolve) => window.addEventListener('layerRegistryReady', resolve, { once: true }));
+        }
         try {
             await window.layerRegistry.initialize();
         } catch (e) {
@@ -75,10 +75,6 @@ export class SplashScreenManager {
         this.elements = {
             splashSection: document.getElementById('splash-atlas-section'),
             detectingState: document.getElementById('splash-detecting-state'),
-            permissionButtons: document.getElementById('splash-permission-buttons'),
-            allowBtn: document.getElementById('splash-allow-btn'),
-            denyBtn: document.getElementById('splash-deny-btn'),
-            allowCountdown: document.getElementById('splash-allow-countdown'),
             atlasState: document.getElementById('splash-atlas-state'),
             locatedText: document.getElementById('splash-located-text'),
             atlasName: document.getElementById('splash-atlas-name'),
@@ -246,10 +242,11 @@ export class SplashScreenManager {
     }
 
     /**
-     * The detect-then-show flow. Three permission states:
-     *   - granted  → silent GPS detection (no Allow/Deny buttons shown)
-     *   - prompt   → show "Detecting..." + Allow/Deny with 3s auto-Allow
-     *   - denied   → skip GPS, go straight to GeoIP (no buttons either)
+     * The detect-then-show flow. No artificial wait before requesting a GPS
+     * fix — the browser's own native permission dialog (if permission is
+     * still 'prompt') handles asking the user, so calling getCurrentPosition
+     * immediately is the fastest path in every state except 'denied', where
+     * asking would just fail after a delay.
      */
     async runLocationDetectionFlow() {
         let permissionState = 'prompt';
@@ -260,81 +257,45 @@ export class SplashScreenManager {
             } catch (e) {}
         }
 
-        this.showDetectingState({ withPermissionButtons: permissionState === 'prompt' });
-
-        if (permissionState === 'granted') {
-            await this.detectGPSThenGeoIP();
-            this.state.wasLocated = true;
-            return;
-        }
+        this.showDetectingState();
 
         if (permissionState === 'denied') {
             await this.detectGeoIP();
-            this.state.wasLocated = true;
-            return;
-        }
-
-        const choice = await this.waitForPermissionChoice();
-        this.hidePermissionButtons();
-
-        if (choice === 'allow') {
-            await this.detectGPSThenGeoIP();
         } else {
-            await this.detectGeoIP();
+            await this.detectGPSThenGeoIP();
         }
         this.state.wasLocated = true;
     }
 
-    showDetectingState({ withPermissionButtons }) {
+    showDetectingState() {
         if (this.elements.detectingState) this.elements.detectingState.style.display = 'block';
         if (this.elements.atlasState) this.elements.atlasState.style.display = 'none';
-        if (this.elements.permissionButtons) {
-            this.elements.permissionButtons.style.display = withPermissionButtons ? 'flex' : 'none';
-        }
-    }
-
-    hidePermissionButtons() {
-        if (this.elements.permissionButtons) this.elements.permissionButtons.style.display = 'none';
     }
 
     /**
-     * Resolve with 'allow' or 'deny'. 3s auto-Allow countdown — clears on click.
+     * Race GPS (capped at 5s inside window.handleGeolocation) against GeoIP,
+     * kicked off in parallel so a slow/denied/timed-out GPS fix doesn't add
+     * GeoIP's own network latency on top of the 5s cap — GeoIP is typically
+     * already resolved (or close to it) by the time GPS gives up.
      */
-    waitForPermissionChoice() {
-        return new Promise(resolve => {
-            let countdown = 3;
-            let timer = null;
-            const finish = (choice) => {
-                if (timer) clearInterval(timer);
-                resolve(choice);
-            };
-
-            if (this.elements.allowBtn) {
-                this.elements.allowBtn.addEventListener('click', () => finish('allow'), { once: true });
-            }
-            if (this.elements.denyBtn) {
-                this.elements.denyBtn.addEventListener('click', () => finish('deny'), { once: true });
-            }
-
-            timer = setInterval(() => {
-                countdown--;
-                if (this.elements.allowCountdown) this.elements.allowCountdown.textContent = countdown;
-                if (countdown <= 0) finish('allow');
-            }, 1000);
-        });
-    }
-
     async detectGPSThenGeoIP() {
         if (!window.handleGeolocation) return this.detectGeoIP();
-        const success = await window.handleGeolocation(false);
+
+        const geoipPromise = window.handleIPLocationFallback ? window.handleIPLocationFallback() : Promise.resolve(false);
+        const gpsSuccess = await window.handleGeolocation(false);
         if (this.state.manualLocationSelection) return;
 
-        if (success) {
+        if (gpsSuccess) {
             const loc = window.loadingStartupState?.userLocation;
             if (loc) await this.applyLocationBasedAtlas(loc.lat, loc.lng, 'gps');
-        } else {
-            await this.detectGeoIP();
+            return;
         }
+
+        // GPS failed or timed out — fall back to the GeoIP request already in flight.
+        await geoipPromise;
+        if (this.state.manualLocationSelection) return;
+        const ip = window.ipLocationData;
+        if (ip?.lat && ip?.lng) await this.applyLocationBasedAtlas(ip.lat, ip.lng, 'geoip');
     }
 
     async detectGeoIP() {
@@ -349,26 +310,11 @@ export class SplashScreenManager {
     /**
      * Find the smallest atlas whose bbox contains the point. Synchronous —
      * relies on layerRegistry being initialized (waitForLayerRegistry already
-     * ensured this in initialize()).
-     *
-     * External (cross-repo) atlases are excluded: they're referenced by full
-     * URL in index's `atlases` array and shouldn't be auto-selected as the
-     * initial atlas purely because the user happens to be inside their bbox.
+     * ensured this in initialize()). Delegates to LayerRegistry.findBestAtlasForPoint,
+     * which is also used by map-init.js's "you've panned outside this atlas" prompt.
      */
     findBestAtlasForLocation(lat, lng) {
-        const reg = window.layerRegistry;
-        if (!reg?._atlasMetadata) return null;
-
-        let best = null;
-        for (const [atlasId, metadata] of reg._atlasMetadata.entries()) {
-            if (atlasId === 'index' || !metadata.bbox) continue;
-            if (metadata.isExternal) continue;
-            if (!reg.isPointInAtlasBbox(atlasId, lng, lat)) continue;
-            const [w, s, e, n] = metadata.bbox;
-            const area = (e - w) * (n - s);
-            if (!best || area < best.area) best = { id: atlasId, area };
-        }
-        return best?.id || null;
+        return window.layerRegistry?.findBestAtlasForPoint(lng, lat) || null;
     }
 
     /**
@@ -532,20 +478,22 @@ export class SplashScreenManager {
 
         // `window.map` is unreliable before map-init assigns it: it can be the
         // <div id="map"> element via the named-access window proxy, or
-        // undefined. Treat it as a Mapbox map only once it has `on`.
-        const attachLoad = () => {
+        // undefined. Treat it as a Mapbox map only once it has `on`. If it
+        // isn't ready yet, map-init.js dispatches 'mapInstanceReady' the
+        // instant it constructs the map — no polling needed.
+        const attachLoad = (m) => {
             if (this.autoProceed.cancelled || this.hasProceeded) return;
             if (window.mapDisplayReady) { proceed(); return; }
-            const m = window.map;
-            const isMapboxMap = m && typeof m.on === 'function';
-            if (isMapboxMap) {
-                if (typeof m.loaded === 'function' && m.loaded()) proceed();
-                else m.once('load', proceed);
-            } else {
-                setTimeout(attachLoad, 50);
-            }
+            if (typeof m.loaded === 'function' && m.loaded()) proceed();
+            else m.once('load', proceed);
         };
-        attachLoad();
+
+        const existing = window.map;
+        if (existing && typeof existing.on === 'function') {
+            attachLoad(existing);
+        } else {
+            window.addEventListener('mapInstanceReady', (e) => attachLoad(e.detail.map), { once: true });
+        }
     }
 
     cancelAutoProceed() {
@@ -576,8 +524,8 @@ export class SplashScreenManager {
     closeLoadingOverlay() {
         const overlay = document.getElementById('loading-overlay');
         if (!overlay) return;
-        overlay.style.opacity = '0';
         overlay.style.transition = 'opacity 0.3s ease';
-        setTimeout(() => { overlay.style.display = 'none'; }, 300);
+        overlay.addEventListener('transitionend', () => { overlay.style.display = 'none'; }, { once: true });
+        overlay.style.opacity = '0';
     }
 }

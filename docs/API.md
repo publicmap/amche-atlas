@@ -39,6 +39,40 @@ Override visible layers from the atlas configuration.
 ?layers=goa-plots,{"id":"custom-layer","opacity":0.7}
 ```
 
+#### Dynamic layer shortcuts
+
+Instead of pasting a full external URL into the map creator to build a complete layer config, a layer entry in `?layers=` can be a compact `<service>:<id>` shorthand that's resolved dynamically against the service's API when the page loads — no need to know the layer's tile URL, title, or attribution in advance.
+
+**Format:** `<service>:<id>`
+
+**Supported services:**
+
+| `type` | `id` format | Resolved via | Produces |
+|---|---|---|---|
+| `allmaps` | Allmaps image ID (e.g. `bca064e512c963f0`) | `annotations.allmaps.org/images/<id>` | `tms` layer — georeferenced historic map tiles |
+| `mapwarper` | MapWarper map ID (e.g. `108838`) | `mapwarper.net/api/v1/maps/<id>` | `tms` layer — georeferenced historic map tiles |
+| `osm` | OSM element reference, `<node\|way\|relation>/<id>` (e.g. `relation/21057460`) | Overpass API (fetched once, not re-queried on pan) | `geojson` layer with the element's geometry inlined |
+
+**Examples:**
+```
+?layers=allmaps:bca064e512c963f0
+?layers=mapwarper:108838
+?layers=osm:relation/21057460
+?layers=mapbox-streets,osm:way/28845634
+```
+
+**Opacity:** the plain string form has no room for extra properties. To set opacity on a dynamic layer, use the equivalent `{"type":"<service>","id":"<id>","opacity":<0-1>}` object form instead — this is also what the app writes back to the URL automatically when you adjust opacity on a dynamically-resolved layer:
+```
+?layers={"type":"osm","id":"relation/21057460","opacity":0.5}
+```
+
+**Adding the same source via the map creator:** `map-creator.html` accepts the equivalent full URL pasted directly into the URL box, and auto-fills title/attribution/style from the same API:
+- Allmaps: `https://viewer.allmaps.org/?url=...`, `https://annotations.allmaps.org/images/<id>`, or `https://allmaps.xyz/images/<id>/{z}/{x}/{y}@2x.png`
+- MapWarper: `https://mapwarper.net/maps/<id>`
+- OSM: `https://www.openstreetmap.org/<node|way|relation>/<id>`
+
+**Implementation:** each service's API calls live in its own module — `js/allmaps-url-api.js`, `js/mapwarper-url-api.js`, `js/osm-url-api.js` — so adding a new service means adding one module plus a `case` in the dispatcher, `js/dynamic-layer-shorthand.js`. The `type:id` string is parsed by `parseDynamicLayerShorthandString()` (also in `dynamic-layer-shorthand.js`) wherever `?layers=` is split into individual entries — `js/map-utils.js`'s `URLUtils.parseLayersFromUrl()` (startup) and `js/url-manager.js`'s `parseLayersFromUrl()` (runtime). Resolution happens once, during `js/map-init.js`'s `loadConfiguration()`, before the layer ever reaches `MapboxAPI`; the compact shorthand — not the resolved config — is what's kept in the shareable URL.
+
 ### `selected`
 
 Deep link to specific selected features on the map, or trigger a location click at the hash position.
@@ -54,7 +88,9 @@ Deep link to specific selected features on the map, or trigger a location click 
 - Feature IDs are the raw IDs from the data source (feature.id, properties.id, or properties.fid)
 
 **Location click behavior:**
-When `?selected` is present without a value and a position hash (`#zoom/lat/lng`) is in the URL, the map simulates a click at that location on load. This selects any features at the point, creates a marker, and opens the feature inspector — identical to a user clicking the map.
+When `?selected` is present without a value and a position hash (`#zoom/lat/lng`) is in the URL, the map simulates a click at that location on load. This selects any features at the point, creates a marker, and opens the feature inspector — identical to a user clicking the map. This is the same location-based restoration `markers=` uses (see below); `?selected` on its own is the shorthand for a single point taken from the hash instead of an explicit `lng,lat`.
+
+**Note:** the app no longer writes `?selected=<layerId>:<featureId>` when sharing a URL — every selection already has a marker, and `markers=` (below) carries its location, which is enough to recover the same features on load without also duplicating them here. The `layerId:featureId` form is still parsed for links shared before this change, and remains available for hand-written deep links that must pin an exact feature ID rather than a location.
 
 **Examples:**
 ```
@@ -72,6 +108,10 @@ Combined with layers:
 
 Location click (select whatever is at this point):
 ?atlas=goa-land-atlas&selected#18/15.54845/73.8187
+
+Location click with layers (auto-adds a marker at the hash position and selects
+whatever features are found there once those layers finish loading):
+?atlas=goa&layers=local-body,plots,2019-czmp-tidal-hazard-line,2019-czmp-khazan,2021-regional-plan,selection,mapbox-admin-lines,mapbox-satellite&selected#16.53/15.604468/73.810136
 ```
 
 **Notes:**
@@ -244,14 +284,19 @@ Restore export (print/image) settings serialized as a JSON object. Set automatic
 
 ### `markers`
 
-Compact encoding of the selection markers on the map. Set automatically when you select features and share the URL — it is the compact replacement for inlining the full selection GeoJSON in `layers`. Each marker is `lng,lat:layerId~featureId,layerId~featureId`, and multiple markers are joined with `|`.
+Compact encoding of the selection markers on the map. Set automatically when you select features and share the URL. Each marker is just its click location; multiple markers are joined with `|`.
 
-**Format:** `?markers=<lng>,<lat>:<layerId>~<featureId>,...|<next marker>...`
+**Format:** `?markers=<lng>,<lat>|<next marker>...`
 
 **Example:**
 ```
-?markers=73.8187,15.54845:goa-plots~12345
+?markers=73.8187,15.54845
+?markers=73.809867,15.606272|73.82,15.61
 ```
+
+**Restoration behavior:** on load, once a marker's layers are ready, its location is re-queried exactly as if the user clicked there — this recovers the same selected features without the URL needing to spell out which `layerId`/`featureId` pairs they were (that would just duplicate what the location already implies, and is what `?selected` used to carry — see above).
+
+**Legacy format:** URLs shared before this change may still contain explicit refs — `?markers=<lng>,<lat>:<layerId>~<featureId>,...` — which are still parsed and restore the exact original feature IDs instead of re-querying the point.
 
 ### `zoomTo`
 
@@ -295,7 +340,7 @@ Zoom to a layer's bounding box on load, then remove the parameter from the URL. 
 
 The application automatically updates the URL as you interact with the map:
 - Layer visibility changes update the `layers` parameter
-- Feature selections update the `selected` parameter
+- Feature selections update the `markers` parameter with each marker's click location (see [`markers`](#markers) — `selected` is no longer written automatically, though it's still accepted as a hand-written deep link)
 - Terrain controls update terrain-related parameters
 - Search queries update the `q` parameter
 
@@ -314,7 +359,7 @@ Available on all layer types unless noted otherwise.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | string | Unique identifier referenced from URLs and other configs. **Required** for all types except inline `style` layers. |
-| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `csv`, `overpass`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
+| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `js`, `csv`, `sheet`, `overpass`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
 | `title` | string | Display name in the layer control. |
 | `description` | string | HTML allowed; shown in the layer info panel. |
 | `tags` | string[] | Used to group layers in the UI. Prefix with `N.` (e.g. `"1.Development Plans"`) to control sort order. |
@@ -653,6 +698,55 @@ Inline or remote GeoJSON. Also accepts a KML URL (auto-converted using `js/kml-c
 }
 ```
 
+### `js` — Custom JS data-mapping function
+
+Fetches from an arbitrary API `url` and hands the raw response to an atlas-defined JavaScript function that gathers/paginates/transforms it into GeoJSON. Use this for API shapes that aren't plain GeoJSON, CSV, or a paginated feed `geojson`/`overpass` can't already handle. Once transformed, the layer renders through the same pipeline as a `geojson` layer — `style`, `inspect`, `clustered`, and `opacity` all work identically.
+
+The data function lives in the atlas's own `config/{atlas}.js` file (e.g. `config/goa.js`), exported as `dataFunctions`, keyed by the layer's `id` (or `dataFunction` if that's set) — the same file/convention used by `inspect.onClick` handlers, just a different export. This keeps arbitrary fetch/parse code out of `mapbox-api.js` and scoped to the atlas that needs it.
+
+| Field | Notes |
+|---|---|
+| `url` | API endpoint passed to the data function. **Required.** |
+| `id` | Also used as the default lookup key into `dataFunctions` unless `dataFunction` is set. **Required.** |
+| `dataFunction` | Name of the exported `dataFunctions` key to use, if different from `id`. |
+| `refresh` | Polling interval in milliseconds — re-runs the data function and updates the source. Same semantics as `geojson`'s `refresh`. |
+| `style`, `inspect`, `clustered`, `clusterMaxZoom`, `clusterRadius`, `opacity` | Same semantics as the `geojson` type. |
+
+```json
+{
+  "id": "aqi",
+  "type": "js",
+  "title": "Air Quality",
+  "url": "https://backend.aqionline.in/api/devices?page=1&limit=50",
+  "refresh": 300000,
+  "attribution": "<a href='https://aqionline.in'>AQI Online</a>",
+  "style": {
+    "circle-radius": 5,
+    "circle-color": "#4c7fff"
+  },
+  "inspect": { "id": "device_id", "title": "AQI Monitoring Station", "label": "device_id", "fields": ["aqi", "pm25", "pm10"] }
+}
+```
+
+The matching function in `config/goa.js`:
+
+```javascript
+export const dataFunctions = {
+  aqi: async ({ url }) => {
+    // Paginate through `url`, gather results, and return a
+    // GeoJSON FeatureCollection built from the response.
+    // See config/goa.js for the full implementation.
+  }
+};
+```
+
+**Function signature:** `async ({ url, config, layerId }) => geoJsonOrGeometryLikeObject`. The return value is passed through the same normalizer used by `geojson`/`data` (`FeatureCollection`, a single `Feature`, or a bare geometry are all accepted).
+
+**Notes:**
+- Resolution happens via `js/inspection-handler-loader.js`'s `loadDataFunctions()`, which dynamically imports `config/{atlas}.js` — the same loader and file used for `inspect.onClick` handlers (`handlers` export vs. `dataFunctions` export).
+- The atlas is resolved from the layer's `_sourceAtlas` (set by the layer registry when the config is loaded), so a `js` layer only works within an atlas that has a matching `config/{atlas}.js` module — there is no cross-atlas fallback.
+- Errors thrown by the data function are caught and logged to the console; the layer simply fails to load rather than crashing the map.
+
 ### `csv` — CSV tabular data
 
 CSV with one row per point. Latitude / longitude columns are **auto-detected** by name pattern (`lat`, `latitude`, `y`, `northing`, ... for latitude; `lng`, `lon`, `longitude`, `x`, `easting`, ... for longitude — see `GeoUtils.rowsToGeoJSON` in `js/map-utils.js` for the full pattern list). Renders as points using the GeoJSON style pipeline.
@@ -666,7 +760,7 @@ CSV with one row per point. Latitude / longitude columns are **auto-detected** b
 | `refresh` | Polling interval in milliseconds. |
 | `style` | Mapbox circle/symbol properties (same as GeoJSON). |
 | `inspect` | Popup configuration. |
-| `saveUrl` | Deployed Google Apps Script web app URL (`…/exec`). Enables the **Add Note** button in the selection-marker popup, which appends a row (`latitude`, `longitude`, `notes`/`Notes`, `timestamp`/`Timestamp`, plus `atlas`/`layers` for map context) to the underlying Google Sheet. See **Writing notes back to a Google Sheet** below. |
+| `saveUrl` | Deployed Google Apps Script web app URL (`…/exec`). Enables the inline **Comment** box in the marker popup, which appends a row (`latitude`, `longitude`, `notes`/`Notes`, `timestamp`/`Timestamp`, plus `atlas`/`layers` for map context) to the underlying Google Sheet for a new note, or updates that row's `notes` column in place when editing an existing one. See **Writing notes back to a Google Sheet** below. |
 
 ```json
 {
@@ -684,11 +778,11 @@ CSV with one row per point. Latitude / longitude columns are **auto-detected** b
 
 #### Writing notes back to a Google Sheet
 
-A `csv` layer backed by a Google Sheet can opt into the **Add Note** button in the selection-marker popup: click any point, write a note, pick the layer, and **Save** appends a row to the sheet with `latitude`, `longitude`, `notes`, and `timestamp` columns, plus `atlas` and `layers` capturing the map context (the live `?atlas` and `?layers` URL parameters) when the note was added.
+A `csv` layer backed by a Google Sheet can opt into the inline **Comment** box that leads every marker popup while the layer is active: click any point, write a note, and **Save** appends a row to the sheet with `latitude`, `longitude`, `notes`, and `timestamp` columns, plus `atlas` and `layers` capturing the map context (the live `?atlas` and `?layers` URL parameters) when the note was added. Clicking an *existing* note prefills the same box for editing — saving it there updates that row's `notes` column in place instead of appending a duplicate, since a note's `latitude` + `longitude` + `timestamp` are unique together and identify the row to update.
 
-Writes go through a small **Google Apps Script web app** that you deploy on your own sheet — there is no shared backend and **no end-user sign-in**. The deployed script runs as *you* (the sheet owner) and appends the row, so any visitor can add a note without authenticating and without an "unverified app" warning. Each sheet has its own script URL, configured per-layer as `saveUrl`.
+Writes go through a small **Google Apps Script web app** that you deploy on your own sheet — there is no shared backend and **no end-user sign-in**. The deployed script runs as *you* (the sheet owner) and appends/updates the row, so any visitor can add or edit a note without authenticating and without an "unverified app" warning. Each sheet has its own script URL, configured per-layer as `saveUrl`.
 
-The browser only needs the `saveUrl`; column mapping and the append happen inside the script. The script targets the tab matching the layer URL's `gid` (falling back to the active sheet) and maps values onto columns by header name, case-insensitively: `latitude`/`lat`, `longitude`/`lng`/`lon`, `notes`/`note`/`comment`, `timestamp`/`time`/`date`, `atlas`, `layers`. If the sheet is missing a column for any of these fields, the script adds a labelled header column for it on the first write, so nothing is silently dropped.
+The browser only needs the `saveUrl`; column mapping and the append/update happen inside the script. The script targets the tab matching the layer URL's `gid` (falling back to the active sheet) and maps values onto columns by header name, case-insensitively: `latitude`/`lat`, `longitude`/`lng`/`lon`, `notes`/`note`/`comment`, `timestamp`/`time`/`date`, `atlas`, `layers`. If the sheet is missing a column for any of these fields, the script adds a labelled header column for it on the first write, so nothing is silently dropped. A request editing an existing note sends `action: "update"` with a `match` object (`{ latitude, longitude, timestamp }`) instead of fresh `latitude`/`longitude`/`timestamp` values; the script scans existing rows for that exact match and overwrites just the `notes` cell, returning an error if no row matches.
 
 **Step 1 — Add the script to your sheet.** Open your Google Sheet → **Extensions → Apps Script**, delete the placeholder, and paste:
 
@@ -744,6 +838,34 @@ function doPost(e) {
     }
     if (added) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
 
+    // Editing an existing note: latitude+longitude+timestamp are unique per
+    // note, so `match` identifies the row to update in place instead of
+    // appending a duplicate.
+    if (data.action === 'update' && data.match) {
+      var lastRow = sheet.getLastRow();
+      var matchRow = -1;
+      if (lastRow > 1) {
+        var body = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+        for (var r = 0; r < body.length; r++) {
+          if (String(body[r][colOf.latitude]) === String(data.match.latitude) &&
+              String(body[r][colOf.longitude]) === String(data.match.longitude) &&
+              String(body[r][colOf.timestamp]) === String(data.match.timestamp)) {
+            matchRow = r + 2; // +1 for the header row, +1 for 1-based row numbers
+            break;
+          }
+        }
+      }
+
+      if (matchRow === -1) {
+        return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Matching note not found' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      sheet.getRange(matchRow, colOf.notes + 1).setValue(data.notes != null ? data.notes : '');
+      return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     var row = new Array(headers.length).fill('');
     for (var field in aliases) {
       row[colOf[field]] = data[field] != null ? data[field] : '';
@@ -790,7 +912,46 @@ Then verify it's public: open the `/exec` URL in an **incognito** tab. It should
 
 Ideally your sheet has a header row with `latitude`, `longitude`, `notes`, `timestamp`, `atlas`, and `layers` columns, but you don't have to create them — the script adds any missing column (labelled with the field name) on the first write. After a successful save the layer refreshes (~2s) so the new point appears — note Google's CSV export can lag a few seconds behind the edit.
 
-The client side is implemented in `js/google-sheets-writer.js`; the popup UI lives in `js/map-marker-manager.js`. Without `saveUrl`, a sheet layer stays read-only and the **Add Note → Save** action reports that the layer is read-only.
+The client side is implemented in `js/google-sheets-writer.js`'s `saveRow()`; the popup UI lives in `js/map-marker-manager.js`. Without `saveUrl`, a sheet layer stays read-only and the comment box's **Save** action reports that the layer is read-only.
+
+> Already have a `doPost` deployed from before this update-in-place matching was added? It only ever appends, so editing an existing note there creates a duplicate row rather than updating it. Paste the script above into **Extensions → Apps Script**, then **Deploy → Manage deployments → Edit → New version** to pick up the fix — the `/exec` URL stays the same.
+
+### `sheet` — Google Sheet, every tab combined
+
+Like `csv`, but instead of one tab's export URL, `url` is just the spreadsheet itself — every tab is discovered and fetched, and their rows are merged client-side into a single layer. Useful when related data is split across tabs (e.g. one per taluka/region) that should render as one map layer.
+
+Google's CSV export (`/export?format=csv&gid=<gid>`) only ever returns a single tab — there is no spreadsheet URL that returns every tab combined. A `sheet` layer instead: lists every tab by scraping the spreadsheet's public `/htmlview` page (name + `gid` per tab, no publish-to-web or API key needed — just "Anyone with the link can view"), fetches each tab's CSV separately, and concatenates the rows. Each row gets a `$sheet` field naming its source tab — the same auto-generated, `$`-prefixed convention as `$row`/`$table` (see `DataUtils.parseCSV` in `js/map-utils.js`), not a real column from the sheet — and its `$row` id is prefixed with the tab's `gid`, so ids stay unique across tabs. The merge happens **on every layer load** (and again on each `refresh` tick) — it is not a one-time snapshot, so edits to any tab show up on next load like a normal `csv` layer.
+
+This is the live equivalent of `map-creator.html`'s "All Sheets (combined)" option, which does the same fetch-and-merge but bakes the result into a static `localStorage` snapshot at layer-creation time instead of re-fetching on every load — see `js/map-creator.js`. Both share the fetch/merge implementation in `js/google-sheets-api.js`.
+
+| Field | Notes |
+|---|---|
+| `url` | Any URL containing `docs.google.com/spreadsheets/d/<id>/...` — the spreadsheet's `/edit` link works as-is. A `gid` in the URL, if present, is **ignored** since every tab is merged. **Required.** |
+| `refresh` | Polling interval in milliseconds. Each tick re-fetches and re-merges **every** tab, so keep this well above the single-tab default if the sheet has many tabs. |
+| `style` | Mapbox circle/symbol properties (same as `csv`/GeoJSON). |
+| `inspect` | Popup configuration. |
+
+```json
+{
+  "id": "field-survey",
+  "type": "sheet",
+  "title": "Field Survey (All Tabs)",
+  "url": "https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/edit",
+  "style": {
+    "circle-radius": 5,
+    "circle-color": "#3b82f6"
+  },
+  "inspect": {
+    "fields": ["$sheet", "Status"]
+  }
+}
+```
+
+**Notes:**
+- **No `saveUrl`.** Write-back needs one target tab (see `csv`'s **Writing notes back to a Google Sheet** above); a merged `sheet` layer has no single tab to append to, so the Add Note button stays unavailable regardless of `saveUrl`.
+- **Cost scales with tab count.** Loading (or refreshing) fetches every tab, one request each — fine for a handful of tabs, less so for dozens. If you only need one tab, use `csv` with an explicit `&gid=<gid>` instead; it's a single request.
+- Renders through the same pipeline as `csv` (same `csv-${id}` source, same style/inspect semantics) — everything documented above under `csv` besides `saveUrl` and its single-tab `url` applies here too.
+- A tab that fails to fetch is skipped (logged to the console) rather than failing the whole layer.
 
 ### `overpass` — OpenStreetMap Overpass API
 
@@ -928,6 +1089,8 @@ All other parameters (`terrain`, `geolocate`, `q`, `selected`, etc.) are applied
 | `js/map-export-control.js` | Calls `window.urlManager.updateExportParam()` when export settings change. |
 | `js/map-feature-control-iframe.js` | Calls `window.urlManager.updateURL({ updateSelections: true, updateLayers: true })` after feature selections change. Calls `window.urlManager.updateCompareParam()` when swipe-comparison is toggled. Contains the map click handler that `applyLocationClickFromURL()` fires into. |
 | `js/map-layer-controls.js` | Calls `window.urlManager.onLayersChanged()` when layer visibility or opacity changes. |
+| `js/dynamic-layer-shorthand.js` | Parses and expands the `type:id` dynamic layer shortcuts (see [Dynamic layer shortcuts](#dynamic-layer-shortcuts)), dispatching to the matching service module. `parseDynamicLayerShorthandString()` is called from `map-utils.js` and `url-manager.js` while splitting `?layers=`; `isDynamicLayerShorthand()`/`expandDynamicLayerShorthand()` are called from `map-init.js`'s per-layer loop in `loadConfiguration()`. |
+| `js/allmaps-url-api.js`, `js/mapwarper-url-api.js`, `js/osm-url-api.js` | One module per external service backing the dynamic layer shortcuts — each resolves an ID/URL into a full layer config via that service's API. Also used directly by `map-creator.js` to auto-fill a layer from a pasted full URL. |
 
 ### URL Write Flow
 

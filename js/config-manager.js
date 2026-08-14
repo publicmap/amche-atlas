@@ -156,6 +156,7 @@ export const LAYER_TYPES = {
     WMS: 'wms',
     GEOJSON: 'geojson',
     CSV: 'csv',
+    SHEET: 'sheet',
     IMG: 'img',
     RASTER_STYLE: 'raster-style-layer',
     LAYER_GROUP: 'layer-group'
@@ -438,6 +439,45 @@ export const LAYER_SPECIFICATIONS = {
             style: {
                 'circle-radius': 6,
                 'circle-color': '#00ff00'
+            }
+        }
+    },
+
+    [LAYER_TYPES.SHEET]: {
+        name: 'Google Sheet (All Tabs)',
+        description: 'Every tab of a Google Sheet, fetched and merged client-side into one layer',
+        required: ['id', 'type', 'url'],
+        optional: ['title', 'description', 'headerImage', 'attribution', 'initiallyChecked', 'style', 'inspect', 'refresh'],
+        properties: {
+            id: { type: 'string', description: 'Unique layer identifier' },
+            type: { type: 'string', value: 'sheet', description: 'Layer type identifier' },
+            url: { type: 'string', description: 'Any URL containing the spreadsheet (docs.google.com/spreadsheets/d/<id>/...) - a gid, if present, is ignored since every tab is merged' },
+            title: { type: 'string', description: 'Display name in UI' },
+            description: { type: 'string', description: 'Layer description (supports HTML)' },
+            headerImage: { type: 'string', description: 'Header image URL for layer card' },
+            attribution: { type: 'string', description: 'Data attribution text' },
+            initiallyChecked: { type: 'boolean', default: false, description: 'Whether layer is visible on load' },
+            style: { type: 'object', description: 'Mapbox GL style properties (circle-*, text-*)' },
+            refresh: { type: 'number', description: 'Auto-refresh interval in milliseconds (re-fetches and re-merges every tab)' },
+            inspect: {
+                type: 'object',
+                description: 'Feature inspection configuration',
+                properties: {
+                    id: { type: 'string', description: 'Property to use as feature ID' },
+                    title: { type: 'string', description: 'Title for popup' },
+                    label: { type: 'string', description: 'Property to use as feature label' },
+                    fields: { type: 'array', description: 'Properties to display in popup' }
+                }
+            }
+        },
+        example: {
+            id: 'field-survey',
+            type: 'sheet',
+            title: 'Field Survey (All Tabs)',
+            url: 'https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/edit',
+            style: {
+                'circle-radius': 5,
+                'circle-color': '#3b82f6'
             }
         }
     },

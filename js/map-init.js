@@ -12,10 +12,14 @@ import { MeasureControl } from './map-measure-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
 import { MapAttributionControl } from './map-attribution-control.js';
+import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
+import { ShortcutMenu } from './shortcut-menu.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { ButtonGeolocationManager } from './button-geolocation-manager.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
+import { CameraUtils } from './map-camera-utils.js';
+import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands } from './dynamic-layer-shorthand.js';
 
 export class MapInitializer {
     // Note: location-based atlas selection is owned by SplashScreenManager
@@ -163,7 +167,10 @@ export class MapInitializer {
         //   - splash set proceedNormally (user clicked through, or auto-proceed)
         //   - splash set userLocation (GPS resolved → URL is rewritten by now)
         //   - safety timeout (splash never ran / page has no splash hook)
-        const safetyTimeoutMs = window.loadingStartupState?.manualOverlayControl ? 30000 : 2500;
+        // 5500ms covers the 5s GPS cap in index.html's handleGeolocation plus
+        // a small buffer for the GeoIP fallback (run in parallel by splash,
+        // so it's normally done well before GPS gives up).
+        const safetyTimeoutMs = window.loadingStartupState?.manualOverlayControl ? 30000 : 5500;
         await Promise.race([
             new Promise(resolve => {
                 const check = setInterval(() => {
@@ -291,6 +298,27 @@ export class MapInitializer {
             }, config);
         }
 
+        // Notify the user (with an Undo) whenever the resolved atlas differs from
+        // the one they were just looking at - covers every atlas-switch entry
+        // point (bounds-suggestion nudge, atlas badge, map browser/creator import)
+        // since they all land here via a normal navigation, leaving
+        // history.back() as a reliable way to return to the previous atlas.
+        let previousAtlasId = null;
+        try {
+            previousAtlasId = sessionStorage.getItem('amche_last_atlas');
+        } catch (error) { /* sessionStorage unavailable (e.g. private browsing) */ }
+
+        if (previousAtlasId && previousAtlasId !== atlasId) {
+            const atlasDisplayName = layerRegistry.getAtlasMetadata(atlasId)?.name || config.name || atlasId;
+            MapContextMessagesControl.show(
+                `Switched to <strong>${MapInitializer._escapeHtml(atlasDisplayName)}</strong> atlas &middot; <a href="#" onclick="window.history.back();return false;">Undo</a>`
+            );
+        }
+
+        try {
+            sessionStorage.setItem('amche_last_atlas', atlasId);
+        } catch (error) { /* sessionStorage unavailable (e.g. private browsing) */ }
+
         // If loading a non-index atlas without explicit layers parameter,
         // merge with index atlas layers (common layers across all atlases)
         if (atlasId !== 'index' && !layersParam && !isImportedAtlas) {
@@ -341,6 +369,20 @@ export class MapInitializer {
                     // Preserve the original JSON for custom layers
                     ...(layer._originalJson && { _originalJson: layer._originalJson })
                 }));
+
+                // Queue a "Loading map ..." message for every URL layer right away, before
+                // any async resolution (registry lookups, Overpass/Allmaps/Mapwarper
+                // shorthand expansion) runs below - otherwise slow shorthand resolution
+                // (e.g. a batched Overpass request) leaves the user with no feedback
+                // until it completes. _loadingMessageId travels with the layer object
+                // through cascade/merge below so _initializeAllLayers can close it once
+                // the layer actually renders (or this file closes it early on failure).
+                processedUrlLayers.forEach(layer => {
+                    const title = MapInitializer._getQueuedLayerTitle(layer);
+                    layer._loadingMessageId = MapContextMessagesControl.show(
+                        `${LOADING_ICON_HTML}${MapInitializer._buildQueuedLayerLabel(layer, title)}`
+                    );
+                });
 
                 // When URL layers are specified, set ALL existing layers to initiallyChecked: false
                 // This ensures only URL-specified layers are visible
@@ -458,8 +500,41 @@ export class MapInitializer {
             const validLayers = [];
             const invalidLayers = [];
 
+            // Batch-resolve any "osm:" shorthand layers into a single Overpass
+            // request before the per-layer loop below, which otherwise fires
+            // one Overpass request per layer sequentially (see
+            // resolveDynamicLayerShorthands' docs for why).
+            const precomputedDynamicLayers = await resolveDynamicLayerShorthands(config.layers);
+
             // Process layers one by one
             for (const layerConfig of config.layers) {
+                // Dynamic layer shorthand from the URL API, e.g. "allmaps:<id>"
+                // — resolve via the matching service's API before anything else touches it,
+                // since its `type` isn't a real MapboxAPI layer type until expanded.
+                if (isDynamicLayerShorthand(layerConfig)) {
+                    const expanded = precomputedDynamicLayers.has(layerConfig)
+                        ? precomputedDynamicLayers.get(layerConfig)
+                        : await expandDynamicLayerShorthand(layerConfig);
+                    if (expanded) {
+                        validLayers.push(layerRegistry.applyAtlasCascade({
+                            ...expanded,
+                            // Preserve URL-critical properties from the original shorthand,
+                            // same as the registry-resolution branch below.
+                            ...(layerConfig._originalJson && { _originalJson: layerConfig._originalJson }),
+                            ...(layerConfig.initiallyChecked !== undefined && { initiallyChecked: layerConfig.initiallyChecked }),
+                            ...(layerConfig.opacity !== undefined && { opacity: layerConfig.opacity }),
+                            ...(layerConfig._loadingMessageId && { _loadingMessageId: layerConfig._loadingMessageId })
+                        }, atlasId));
+                    } else {
+                        console.warn(`[Dynamic Layer] Could not resolve layer from URL: "${layerConfig.type}:${layerConfig.id}" - ignoring.`);
+                        invalidLayers.push(layerConfig.id);
+                        // This layer will never reach _initializeAllLayers, so its queued
+                        // loading message would otherwise be stuck on screen forever.
+                        MapContextMessagesControl.close(layerConfig._loadingMessageId);
+                    }
+                    continue;
+                }
+
                 // If the layer only has an id (or minimal properties), look it up using the registry
                 if (layerConfig.id && !layerConfig.type) {
                     // Try to resolve the layer from the registry
@@ -519,6 +594,9 @@ export class MapInitializer {
                         if (layerConfig.initiallyChecked === true) {
                             console.warn(`[LayerRegistry] Unknown layer ID from URL: "${layerConfig.id}" - ignoring.`);
                             invalidLayers.push(layerConfig.id);
+                            // This layer will never reach _initializeAllLayers, so its queued
+                            // loading message would otherwise be stuck on screen forever.
+                            MapContextMessagesControl.close(layerConfig._loadingMessageId);
                         } else {
                             console.warn(`[LayerRegistry] Layer "${layerConfig.id}" not found in registry, using as-is (might be missing metadata)`);
                             // For non-URL layers, keep them as-is (they might be fully defined custom layers)
@@ -690,10 +768,19 @@ export class MapInitializer {
         const initialMapOptions = await this._loadInitialMapOptions(configParam);
         Object.assign(window.amche.MAPBOX_MAP_OPTIONS, initialMapOptions);
 
+        // Snapshot whether the incoming URL already had a position hash
+        // *before* constructing the map — Mapbox's `hash: true` option (see
+        // _defaults.json) starts writing its own #zoom/lat/lng hash within
+        // milliseconds of construction even when the URL had none, so
+        // `window.location.hash` can no longer be trusted for this check
+        // once the map exists.
+        const hadInitialHash = !!window.location.hash;
+
         const map = new mapboxgl.Map(window.amche.MAPBOX_MAP_OPTIONS);
 
         // Make map accessible globally for debugging
         window.map = map;
+        window.dispatchEvent(new CustomEvent('mapInstanceReady', { detail: { map } }));
 
         // Mount the geolocation control IMMEDIATELY (before map.on('load')) so
         // its auto-trigger starts navigator.geolocation.watchPosition in
@@ -798,6 +885,10 @@ export class MapInitializer {
                 browserControlContainer.appendChild(controlElement);
             }
 
+            // Right-click / long-press shortcut menu, relies on the controls above
+            window.shortcutMenu = new ShortcutMenu();
+            window.shortcutMenu.onAdd(map);
+
             const supportedExts = ['geojson', 'json', 'kml', 'csv', 'geojsonl', 'ndjson', 'jsonl', 'gpkg', 'zip'];
             const dropOverlay = document.createElement('div');
             dropOverlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(30,64,175,0.55);display:none;align-items:center;justify-content:center;pointer-events:none;';
@@ -836,6 +927,10 @@ export class MapInitializer {
             map.addControl(new TimeControl(), 'top-right');
             map.addControl(window.terrain3DControl, 'top-right');
             map.addControl(window.attributionControl, 'bottom-right');
+            window.contextMessagesControl = new MapContextMessagesControl();
+            window.contextMessagesControl.onAdd(map);
+            const shortcutHintId = MapContextMessagesControl.show('Long press/right click map for shortcuts');
+            setTimeout(() => MapContextMessagesControl.close(shortcutHintId), 8000);
             window.exportControl = new MapExportControl();
             map.addControl(window.exportControl, 'bottom-right');
             window.externalMapLinksControl = new ButtonExternalMapLinks();
@@ -956,7 +1051,120 @@ export class MapInitializer {
                 window.dispatchEvent(new CustomEvent('mapReady', { detail: { map } }));
             };
 
-            if (window.hashLayerView) {
+            // Computed once, up front, so it's available both to the "no hash"
+            // fallback below and to the GPS-lock message's "Switch to map
+            // default" link (which can fire long after this block runs).
+            const indexAtlasMap = layerRegistry.getAtlasMetadata('index')?.map || {};
+            const fallbackCenter = config.map?.center || indexAtlasMap.center || [0, 0];
+            const fallbackZoom = config.map?.zoom ?? indexAtlasMap.zoom ?? 2;
+            window.__amcheAtlasDefaultView = { center: fallbackCenter, zoom: fallbackZoom };
+
+            // Whenever a real GPS fix is established — at startup (possibly
+            // after the fallback camera below already ran, since GeoIP/atlas
+            // defaults shouldn't block on the up-to-5s GPS cap) or later from
+            // a manual geolocate click — prefer zooming to it and let the user
+            // choose between staying locked to GPS or returning to the atlas's
+            // default view.
+            let gpsLockMessageTimer = null;
+            const applyGpsLock = (lat, lng) => {
+                map.flyTo({ center: [lng, lat], zoom: 17, pitch: 0, bearing: 0, duration: 2000, essential: true });
+                MapContextMessagesControl.show(
+                    'Locked to <a href="#" onclick="window.geolocationControl?.trigger();return false;">GPS</a>. ' +
+                    'Switch to <a href="#" onclick="window.__amcheSwitchToAtlasDefault?.();return false;">map default</a>',
+                    { id: 'gps-lock-status' }
+                );
+                clearTimeout(gpsLockMessageTimer);
+                gpsLockMessageTimer = setTimeout(() => MapContextMessagesControl.close('gps-lock-status'), 10000);
+            };
+            window.__amcheSwitchToAtlasDefault = () => {
+                if (window.geolocationControl?.isTracking) window.geolocationControl.trigger();
+                MapContextMessagesControl.close('gps-lock-status');
+                const view = window.__amcheAtlasDefaultView;
+                map.flyTo({ center: view.center, zoom: view.zoom, pitch: 28, bearing: 0, duration: 1500, essential: true });
+            };
+            // A GPS fix that arrives AFTER the placement chain below has
+            // already run (or is mid-flight) always wins — it corrects
+            // whatever GeoIP/atlas-default camera was used to avoid blocking
+            // startup on the up-to-5s GPS cap.
+            window.addEventListener('amche:gps-resolved', (e) => {
+                if (e.detail) applyGpsLock(e.detail.lat, e.detail.lng);
+            });
+
+            // Suggest switching atlases when the map center drifts outside the
+            // active atlas's bbox (e.g. panning from Goa into Karnataka).
+            // Debounced on moveend and gated behind a grace period so the
+            // startup camera-placement chain below (flyTo/fitBounds) never
+            // triggers it before the user has actually panned anywhere.
+            const ATLAS_BOUNDS_MESSAGE_ID = 'atlas-bounds-suggestion';
+            let atlasBoundsCheckReady = false;
+            setTimeout(() => { atlasBoundsCheckReady = true; }, 6000);
+            let atlasBoundsCheckTimeout = null;
+
+            // Switches the active atlas via a full reload (same mechanism as
+            // MapBrowserControl._handleLoadAtlas) so the new atlas's own default
+            // layers/config load cleanly; the current hash (center/zoom) is kept
+            // so the map lands right back where the user already was.
+            window.__amcheSwitchAtlas = (targetAtlasId) => {
+                MapContextMessagesControl.close(ATLAS_BOUNDS_MESSAGE_ID);
+                const url = new URL(window.location.origin + window.location.pathname);
+                const params = new URLSearchParams(window.location.search);
+                const newParams = [`atlas=${encodeURIComponent(targetAtlasId)}`];
+                for (const [key, value] of params.entries()) {
+                    if (key !== 'atlas' && key !== 'layers') {
+                        newParams.push(`${key}=${value}`);
+                    }
+                }
+                let finalUrl = `${url.origin}${url.pathname}?${newParams.join('&')}`;
+                if (window.location.hash) finalUrl += window.location.hash;
+                window.location.href = finalUrl;
+            };
+
+            const checkAtlasBounds = () => {
+                if (!atlasBoundsCheckReady) return;
+                const currentAtlasId = layerRegistry.getCurrentAtlas();
+                const currentMetadata = layerRegistry.getAtlasMetadata(currentAtlasId);
+                if (!currentMetadata || !currentMetadata.bbox) {
+                    // Nothing to compare against (e.g. the global index atlas) -
+                    // clear any stale suggestion and stop.
+                    MapContextMessagesControl.close(ATLAS_BOUNDS_MESSAGE_ID);
+                    return;
+                }
+
+                const { lng, lat } = map.getCenter();
+                if (layerRegistry.isPointInAtlasBbox(currentAtlasId, lng, lat)) {
+                    MapContextMessagesControl.close(ATLAS_BOUNDS_MESSAGE_ID);
+                    return;
+                }
+
+                const suggestedAtlasId = layerRegistry.findBestAtlasForPoint(lng, lat, { excludeAtlasId: currentAtlasId });
+                if (!suggestedAtlasId) {
+                    // Outside the current atlas but no other atlas covers this
+                    // location either - nothing useful to suggest.
+                    MapContextMessagesControl.close(ATLAS_BOUNDS_MESSAGE_ID);
+                    return;
+                }
+
+                const suggestedName = MapInitializer._escapeHtml(
+                    layerRegistry.getAtlasMetadata(suggestedAtlasId)?.name || suggestedAtlasId
+                );
+                MapContextMessagesControl.show(
+                    `You've panned outside this atlas. Switch to <a href="#" onclick="window.__amcheSwitchAtlas('${suggestedAtlasId}');return false;">${suggestedName}</a>?`,
+                    { id: ATLAS_BOUNDS_MESSAGE_ID }
+                );
+            };
+
+            map.on('moveend', () => {
+                clearTimeout(atlasBoundsCheckTimeout);
+                atlasBoundsCheckTimeout = setTimeout(checkAtlasBounds, 600);
+            });
+
+            if (window.loadingStartupState?.gpsFix) {
+                // GPS already resolved by the time we got here — go straight
+                // to it instead of running the placement chain below at all.
+                const { lat, lng } = window.loadingStartupState.gpsFix;
+                applyGpsLock(lat, lng);
+                map.once('moveend', () => map.once('idle', signalMapReady));
+            } else if (window.hashLayerView) {
                 // Hash layer view was calculated from layer/atlas bbox
                 console.log('[MapInit] Applying hashLayerView:', window.hashLayerView);
                 setTimeout(() => {
@@ -988,25 +1196,95 @@ export class MapInitializer {
                     delete window.hashLayerView; // Clean up
                     map.once('moveend', () => map.once('idle', signalMapReady));
                 }, 2000);
-            } else if (!window.location.hash) {
-                // No hash in URL, use config defaults
-                setTimeout(() => {
-                    const flyToOptions = {
-                        center: config.map?.center || [73.8274, 15.4406],
-                        zoom: config.map?.zoom || 9,
-                        pitch: 28,
-                        bearing: 0,
-                        duration: 3000,
-                        essential: true,
-                        curve: 1.42,
-                        speed: 0.6
-                    };
-                    map.flyTo(flyToOptions);
-                    map.once('moveend', () => map.once('idle', signalMapReady));
-                }, 2000);
-            } else {
-                // Has a hash (position) — map is ready, signal immediately
+            } else if (hadInitialHash) {
+                // Had a hash at construction time — Mapbox's hash:true option
+                // already jumped to it synchronously in the Map constructor.
                 map.once('idle', signalMapReady);
+            } else if (MapInitializer._parseHashLocation(window.location.hash)) {
+                // hadInitialHash only reflects the hash at map-CONSTRUCTION
+                // time (captured before this atlas/location was even known).
+                // Splash resolves GPS/GeoIP asynchronously and writes
+                // ?...&geolocate=true#zoom/lat/lng via history.replaceState,
+                // which fires no 'hashchange' event — Mapbox's hash:true never
+                // re-reads it, so the map's camera is still sitting on
+                // whatever defaults were used at construction even though the
+                // URL now has a real resolved position (loadConfiguration()
+                // above always waits for splash to finish before we get here,
+                // so the hash can be trusted at this point). Fly to it instead
+                // of falling through to the atlas's generic default center/zoom.
+                const lateHash = MapInitializer._parseHashLocation(window.location.hash);
+                map.flyTo({
+                    center: [lateHash.lng, lateHash.lat],
+                    zoom: lateHash.zoom,
+                    pitch: 28,
+                    bearing: 0,
+                    duration: 1500,
+                    essential: true
+                });
+                map.once('moveend', () => map.once('idle', signalMapReady));
+            } else {
+                // fallbackCenter/fallbackZoom are computed above (config.map
+                // inherits the index atlas's when the active atlas doesn't
+                // define its own — see the style-inheritance step in
+                // loadConfiguration()); this branch is a last-resort guard
+                // against a totally missing `map` block.
+
+                // If the URL specified layers (deep link) and any of them carry
+                // geojson/csv data or a known bbox, fit the camera to that data
+                // instead of the atlas's default center/zoom — the data is
+                // presumably why the link was shared. Layers are folded into
+                // the shared viewport one by one as each finishes loading (see
+                // CameraUtils.autoFitLayers). Falls through to the default
+                // flyTo below if nothing in the URL layers is fittable, or if
+                // fitting never completes.
+                const layersParam = URLUtils.getUrlParameter('layers');
+                const urlLayers = (config.layers || []).filter(l => l.initiallyChecked === true);
+
+                let autoFitSignaled = false;
+                const signalReadyOnce = () => {
+                    if (autoFitSignaled) return;
+                    autoFitSignaled = true;
+                    map.once('moveend', () => map.once('idle', signalMapReady));
+                };
+
+                const isAutoFitting = !!layersParam && CameraUtils.autoFitLayers(map, urlLayers, {
+                    duration: 1500,
+                    onFit: signalReadyOnce
+                });
+
+                if (isAutoFitting) {
+                    // Safety net: if none of the eligible layers ever produced
+                    // a fit (all failed to load, or had no usable geometry),
+                    // don't leave the loading state stuck — fall back to defaults.
+                    setTimeout(() => {
+                        if (autoFitSignaled) return;
+                        map.flyTo({
+                            center: fallbackCenter,
+                            zoom: fallbackZoom,
+                            pitch: 28,
+                            bearing: 0,
+                            duration: 1500,
+                            essential: true
+                        });
+                        signalReadyOnce();
+                    }, 16000);
+                } else {
+                    // No hash in URL, use config defaults
+                    setTimeout(() => {
+                        const flyToOptions = {
+                            center: fallbackCenter,
+                            zoom: fallbackZoom,
+                            pitch: 28,
+                            bearing: 0,
+                            duration: 3000,
+                            essential: true,
+                            curve: 1.42,
+                            speed: 0.6
+                        };
+                        map.flyTo(flyToOptions);
+                        map.once('moveend', () => map.once('idle', signalMapReady));
+                    }, 2000);
+                }
             }
 
             // Add global keyboard shortcuts
@@ -1118,6 +1396,47 @@ export class MapInitializer {
                 });
             }
         });
+    }
+
+    // Best-effort display name for a layer that hasn't been resolved yet -
+    // used for the "Loading map ..." message shown while URL layers (including
+    // dynamic shorthands like "osm:relation/123") are still being resolved.
+    static _getQueuedLayerTitle(layer) {
+        if (layer.title) return layer.title;
+        if (isDynamicLayerShorthand(layer)) return `${layer.type}:${layer.id}`;
+        const registryLayer = window.layerRegistry?.getLayer(layer.id);
+        if (registryLayer?.title) return registryLayer.title;
+        return layer.id;
+    }
+
+    // Bold name for the "Loading map ..." placeholder - no thumbnail, since the
+    // layer isn't resolved yet at this point (registry lookup, shorthand
+    // expansion) and would only show a generic fallback icon. The spinner
+    // conveys "loading"; the real thumbnail appears once the layer actually
+    // loads and map-layer-controls.js swaps this message for the confirmation.
+    static _buildQueuedLayerLabel(layer, title) {
+        return `<strong>${MapInitializer._escapeHtml(title)}</strong>`;
+    }
+
+    // Parses a Mapbox-style `#zoom/lat/lng` hash into { zoom, lat, lng }, or
+    // null if absent/malformed. Mirrors SplashScreenManager.parseHashLocation.
+    static _parseHashLocation(hash) {
+        if (!hash || hash.length <= 1) return null;
+        const parts = hash.substring(1).split('/');
+        if (parts.length !== 3) return null;
+        const zoom = parseFloat(parts[0]);
+        const lat = parseFloat(parts[1]);
+        const lng = parseFloat(parts[2]);
+        if (isNaN(zoom) || isNaN(lat) || isNaN(lng)) return null;
+        return { zoom, lat, lng };
+    }
+
+    static _escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     static _configureCadastralForCurrentAtlas() {

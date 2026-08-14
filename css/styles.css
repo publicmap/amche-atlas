@@ -549,6 +549,164 @@ body {
     z-index: 2;
 }
 
+/* Contextual message bars, stacked just above the attribution control */
+.map-context-messages {
+    position: absolute;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 800px;
+    box-sizing: border-box;
+    padding: 0 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.map-context-message {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    width: max-content;
+    background: rgba(31, 41, 55, 0.9);
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 10px 8px 14px;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    opacity: 0.5;
+    transform: translateY(0);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.map-context-message:last-child,
+.map-context-message:hover {
+    opacity: 1;
+}
+
+.map-context-message.map-context-message--closing {
+    opacity: 0;
+    transform: translateY(4px);
+}
+
+.map-context-message__body {
+    min-width: 0;
+}
+
+.map-context-message__close {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.map-context-message:hover .map-context-message__close {
+    opacity: 0.75;
+}
+
+.map-context-message__close:hover {
+    opacity: 1;
+}
+
+/* Right-click / long-press shortcut menu */
+.shortcut-menu {
+    position: fixed;
+    z-index: 1100;
+    min-width: 220px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    padding: 4px;
+}
+
+.shortcut-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #f3f4f6;
+    font-size: 13px;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.shortcut-menu-item sl-icon {
+    font-size: 15px;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.shortcut-menu-item .shortcut-menu-icon-img {
+    width: 15px;
+    height: 15px;
+    object-fit: contain;
+    flex-shrink: 0;
+    border-radius: 2px;
+}
+
+.shortcut-menu-item span {
+    flex: 1;
+}
+
+.shortcut-menu-item:hover {
+    background: #374151;
+}
+
+.shortcut-menu-item.is-checked {
+    color: #93c5fd;
+    background: rgba(59, 130, 246, 0.12);
+}
+
+.shortcut-menu-item.is-checked:hover {
+    background: rgba(59, 130, 246, 0.2);
+}
+
+.shortcut-menu-item.is-checked sl-icon:not(.shortcut-menu-chevron) {
+    color: #3b82f6;
+}
+
+.shortcut-menu-chevron {
+    color: #6b7280 !important;
+    font-size: 12px !important;
+}
+
+.shortcut-menu-state {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+}
+
+.shortcut-menu-item.is-checked .shortcut-menu-state {
+    color: #3b82f6;
+}
+
+.shortcut-menu-divider {
+    height: 1px;
+    margin: 4px 6px;
+    background: #374151;
+}
+
+
 .mapboxgl-ctrl.mapboxgl-ctrl-attrib {
     background-color: #ffffffe1;
     margin: 0 46px 0 120px;
@@ -557,7 +715,169 @@ body {
     line-height: 1;
     border-radius: 0;
     border: none;
+    max-width: calc(100vw - 150px);
+    display: flex;
+    align-items: center;
+}
 
+.map-attrib-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded {
+    position: relative;
+    width: fit-content !important;
+    max-width: calc(100vw - 150px);
+    padding-right: 20px;
+    align-items: flex-start;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .map-attrib-content {
+    flex-basis: 100%;
+    white-space: normal;
+    overflow-x: hidden;
+    text-overflow: clip;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-item {
+    display: block;
+    position: relative;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-item.has-actions {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 8px;
+    align-items: baseline;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-item:hover {
+    background-color: #ffffff;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-main {
+    min-width: 0;
+}
+
+@media (max-width: 640px) {
+    .mapboxgl-ctrl-attrib.is-expanded .attrib-item.has-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .mapboxgl-ctrl-attrib.is-expanded .attrib-actions {
+        justify-self: start;
+    }
+}
+
+.attrib-item:not(:last-child)::after {
+    content: ' | ';
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-item::after {
+    content: '';
+}
+
+.attrib-label {
+    display: none;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-label {
+    display: inline;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.attrib-layer-thumb {
+    display: none !important;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-layer-thumb {
+    display: inline-block !important;
+}
+
+.attrib-actions {
+    display: none;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-actions {
+    display: block;
+    white-space: nowrap;
+    justify-self: end;
+    visibility: hidden;
+    transition: none;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .attrib-item:hover .attrib-actions {
+    visibility: visible;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.attrib-action-btn {
+    width: auto;
+    height: auto;
+    display: inline;
+    overflow: visible;
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 0;
+    margin: 0 0 0 4px;
+    border: none;
+    outline: none;
+    background: none;
+    background-color: transparent;
+    color: inherit;
+    transition: none;
+    font: inherit;
+    line-height: inherit;
+    text-decoration: underline;
+    box-shadow: none;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.attrib-action-btn:hover,
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.attrib-action-btn:focus {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.attrib-action-remove {
+    color: #dc2626;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.map-attrib-toggle {
+    flex: 0 0 auto;
+    width: auto;
+    height: auto;
+    display: inline;
+    overflow: visible;
+    cursor: pointer;
+    white-space: nowrap;
+    margin-left: 4px;
+    padding: 0;
+    border: none;
+    outline: none;
+    background: none;
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    text-decoration: underline;
+    box-shadow: none;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.map-attrib-toggle:hover,
+.mapboxgl-ctrl-group.mapboxgl-ctrl-attrib button.map-attrib-toggle:focus {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.mapboxgl-ctrl-attrib.is-expanded .map-attrib-toggle {
+    position: absolute;
+    top: 3px;
+    right: 4px;
+    margin-left: 0;
 }
 
 /* Update these styles */
@@ -5211,10 +5531,6 @@ sl-tab:hover::part(base) {
 /* Selection Marker Styles */
 .selection-marker {
     cursor: pointer;
-}
-
-.selection-marker:hover .marker-content {
-    transform: scale(1.05);
 }
 
 .selection-popup .mapboxgl-popup-content {

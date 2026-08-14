@@ -1392,13 +1392,92 @@
       "tags": [
         "basemap"
       ],
+      "id": "topo",
+      "title": "Tracestack Topo",
+      "description": "Topographic maps for trail navigation",
+      "headerImage": "assets/map-layers/osm/map-layer-osm.png",
+      "type": "tms",
+      "maxzoom": 19,
+      "url": "https://tile.tracestrack.com/_/{z}/{x}/{y}.webp?key=2865d32445cfad4676de8bf2b0acf7e6",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.9,
+          14,
+          0.8,
+          18,
+          0.7,
+          18.5,
+          0.9,
+          19,
+          0
+        ]
+      }
+    },
+    {
+      "tags": [
+        "basemap"
+      ],
       "id": "mapnik",
-      "title": "OpenStreetMap Carto",
-      "description": "Map data contributed by the <a href='https://www.openstreetmap.in/'>OpenStreetMap India Community</a> rendered in the deafult <a href='https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto'>OSM Carto style</a>. See <a href='https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto/Symbols'>legend</a> for details.",
+      "title": "OpenStreetMap Carto Standard Style",
+      "description": "Map data contributed by the <a href='https://www.openstreetmap.org/'>OpenStreetMap Community</a> rendered in the deafult <a href='https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto'>OSM Carto style</a>. See <a href='https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto/Symbols'>legend</a> for details.",
       "headerImage": "assets/map-layers/osm/map-layer-osm.png",
       "type": "tms",
       "maxzoom": 19,
       "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.9,
+          14,
+          0.8,
+          18,
+          0.7,
+          18.5,
+          0.9,
+          19,
+          0
+        ]
+      }
+    },
+    {
+      "initiallyChecked": true,
+      "tags": [
+        "basemap"
+      ],
+      "id": "maptiler-satellite",
+      "title": "Maptiler Satellite",
+      "description": "Satellite imagery from <a href='https://cloud.maptiler.com/tiles/>Maptiler</a>",
+      "type": "json",
+      "url": "https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=8n1qroRJ9APPiRFK8YVe",
+      "attribution": "<a href='https://www.maptiler.com/maps/#style=hybrid-v4&lang=auto&mode=2d&position=1.89/32.18/-24.83'>© MapTiler</a> <a href='https://www.maxar.com/'>© Maxar</a>"
+    },
+    {
+      "tags": [
+        "basemap"
+      ],
+      "id": "maptiler-satellite",
+      "title": "Maptiler Satellite",
+      "description": "Satellite imagery from <a href='https://cloud.maptiler.com/tiles/>Maptiler</a>",
+      "type": "tms",
+      "maxzoom": 19,
+      "url": "https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=8n1qroRJ9APPiRFK8YVe",
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
       "style": {
         "raster-opacity": [

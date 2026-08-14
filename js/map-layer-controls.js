@@ -45,6 +45,8 @@ import {MapboxAPI} from './mapbox-api.js';
 import {DataUtils} from './map-utils.js';
 import {MapWarperAPI} from './mapwarper-url-api.js';
 import {LayerOrderManager} from './layer-order-manager.js';
+import {MapContextMessagesControl, LOADING_ICON_HTML} from './map-context-messages-control.js';
+import {LayerThumbnail} from './layer-thumbnail.js';
 
 export class MapLayerControl {
     constructor(options) {
@@ -66,7 +68,6 @@ export class MapLayerControl {
         this._sourceControls = [];
 
         this._legendImageCache = new Map();// Cache for loaded legend images to avoid reloading
-        this._globalClickHandlerAdded = false;// Global click handler tracking
         this._mapboxAPI = null;// MapboxAPI instance will be initialized when map is available
         this._defaultStyles = {};// Initialize default styles (will be populated by _loadDefaultStyles)
         this._layerSettingsModal = null;
@@ -102,9 +103,6 @@ export class MapLayerControl {
 
         // Initialize layer settings modal
         this._layerSettingsModal = new LayerSettingsModal(this);
-
-        // Add global click handler early
-        this._addGlobalClickHandler();
 
         // Add drawer focus management to prevent aria-hidden accessibility issues
         this._setupDrawerFocusManagement();
@@ -289,7 +287,34 @@ export class MapLayerControl {
         for (const layer of mapOrderLayers) {
             const groupIndex = layerIdToIndex.get(layer.id);
             if (groupIndex !== undefined) {
-                await this._toggleLayerGroup(groupIndex, true);
+                const layerTitle = this._escapeHtml(layer.title || layer.id);
+                // A message may already be queued for this layer from map-init.js -
+                // shown before URL layers (e.g. "osm:..." dynamic shorthands) were even
+                // resolved. Reuse it (refreshing the text, since the placeholder shown
+                // while queued may not have known the real title yet) instead of
+                // creating a second one. No thumbnail while loading - just the spinner
+                // and name; the real thumbnail appears once the layer is actually added.
+                const messageId = MapContextMessagesControl.show(
+                    `${LOADING_ICON_HTML}<strong>${layerTitle}</strong>`,
+                    { id: layer._loadingMessageId }
+                );
+                // createLayerGroup only issues the addSource/addLayer calls - it resolves
+                // almost instantly even though tiles are still loading in the background.
+                // Enforce a minimum visible time so the message is actually perceivable
+                // instead of flashing for a few milliseconds on fast/cached layers.
+                const minVisible = new Promise(resolve => setTimeout(resolve, 400));
+                await Promise.all([this._toggleLayerGroup(groupIndex, true), minVisible]);
+                // Swap the spinner+name for the layer's thumbnail (with a zoom shortcut
+                // when a bbox is known) rather than closing outright, so newly added maps -
+                // e.g. from the layer creator - give visible confirmation instead of
+                // just silently appearing.
+                const labelHtml = this._buildLayerLabelHTML(layer, layerTitle);
+                const zoomLink = this._buildZoomToLayerLink(layer);
+                MapContextMessagesControl.show(
+                    `${labelHtml}${zoomLink ? ' &middot; ' + zoomLink : ''}`,
+                    { id: messageId }
+                );
+                setTimeout(() => MapContextMessagesControl.close(messageId), 3000);
                 // Yield to browser between layers to prevent blocking
                 await new Promise(resolve => requestAnimationFrame(resolve));
             }
@@ -591,6 +616,97 @@ export class MapLayerControl {
     /**
      * Get atlas ID for a layer
      */
+    _escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    /**
+     * Small non-interactive thumbnail for context messages, mirroring
+     * MapAttributionControl._buildThumbnailHTML.
+     */
+    _buildMessageThumbnailHTML(layer) {
+        try {
+            const thumb = LayerThumbnail.generate(layer, 16, { interactive: false });
+            thumb.style.display = 'inline-block';
+            thumb.style.verticalAlign = 'middle';
+            thumb.style.marginRight = '6px';
+            thumb.style.borderRadius = '4px';
+            return thumb.outerHTML;
+        } catch (error) {
+            console.warn('[MapLayerControl] Failed to build message thumbnail:', error);
+            return '';
+        }
+    }
+
+    /**
+     * Thumbnail + bold layer name for context messages, replacing the plain
+     * quoted-title format (e.g. Loading map "X") with a MapAttributionControl-style
+     * label (thumbnail to the left of a bold name).
+     */
+    _buildLayerLabelHTML(layer, layerTitle) {
+        return `${this._buildMessageThumbnailHTML(layer)}<strong>${layerTitle}</strong>`;
+    }
+
+    /**
+     * Resolve a bbox to offer a "Zoom to layer" shortcut on: the layer's own
+     * bbox if set, otherwise its source atlas's bbox (mirrors the fallback in
+     * MapBrowserControl._handleZoomToLayer).
+     */
+    _getLayerBbox(layer) {
+        if (Array.isArray(layer?.bbox) && layer.bbox.length === 4) {
+            return layer.bbox;
+        }
+        const atlasId = layer?._sourceAtlas;
+        if (atlasId && window.layerRegistry) {
+            const atlasMetadata = window.layerRegistry.getAtlasMetadata(atlasId);
+            if (Array.isArray(atlasMetadata?.bbox) && atlasMetadata.bbox.length === 4) {
+                return atlasMetadata.bbox;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Inline link for context messages that fits the map to a layer's extent.
+     * Returns '' when no bbox is known, or when the map is already centered
+     * within it (the layer is presumably already in view, so a zoom shortcut
+     * would be redundant).
+     */
+    _buildZoomToLayerLink(layer) {
+        const bbox = this._getLayerBbox(layer);
+        if (!bbox || !this._isMapCenterOutsideBbox(bbox)) return '';
+        return `<a href="#" onclick="window.layerControl?._zoomToBounds(${JSON.stringify(bbox)});return false;">Zoom to layer</a>`;
+    }
+
+    /**
+     * True when the map's current center falls outside a [west, south, east,
+     * north] bbox (or when there's no map yet to check against).
+     */
+    _isMapCenterOutsideBbox(bbox) {
+        if (!this._map || !Array.isArray(bbox) || bbox.length !== 4) return true;
+        const [west, south, east, north] = bbox;
+        const { lng, lat } = this._map.getCenter();
+        return lng < west || lng > east || lat < south || lat > north;
+    }
+
+    /**
+     * Fit the map to a [west, south, east, north] bbox. Exposed for the inline
+     * onclick handlers built by _buildZoomToLayerLink.
+     */
+    _zoomToBounds(bbox) {
+        if (!this._map || !Array.isArray(bbox) || bbox.length !== 4) return;
+        const [west, south, east, north] = bbox;
+        this._map.fitBounds([[west, south], [east, north]], {
+            padding: 50,
+            maxZoom: 16,
+            duration: 1000
+        });
+    }
+
     _getAtlasIdForLayer(group) {
         // First check if group already has _sourceAtlas set
         if (group._sourceAtlas) {
@@ -623,9 +739,16 @@ export class MapLayerControl {
         }
 
         try {
+            // Layers not known to the registry (e.g. custom layers created via
+            // map-creator.html) can't be resolved from a bare ID on reload, so their
+            // full config must be preserved verbatim in the URL via `_originalJson`.
+            const isKnownToRegistry = window.layerRegistry &&
+                !!window.layerRegistry.getLayer(layerConfig.id, null, true);
+
             const layerWithChecked = {
                 ...layerConfig,
-                initiallyChecked: true
+                initiallyChecked: true,
+                ...(!isKnownToRegistry && { _originalJson: JSON.stringify(layerConfig) })
             };
 
             let insertPosition;
@@ -1214,12 +1337,12 @@ export class MapLayerControl {
                 if (this._mapboxAPI) {
                     const layerIds = this._mapboxAPI.getLayerGroupIds(layerConfig.id, layerConfig);
                     layerIds.forEach(id => {
-                        window.attributionControl.addLayerAttribution(id, layerConfig.attribution);
+                        window.attributionControl.addLayerAttribution(id, layerConfig.attribution, layerConfig.title, layerConfig);
                     });
                 }
             } else {
                 // Standard registration for other layer types
-                window.attributionControl.addLayerAttribution(layerConfig.id, layerConfig.attribution);
+                window.attributionControl.addLayerAttribution(layerConfig.id, layerConfig.attribution, layerConfig.title, layerConfig);
             }
         }
 
@@ -1234,7 +1357,7 @@ export class MapLayerControl {
         }
 
         // Skip vector layers that explicitly disable interactivity via inspect: false or inspect: null
-        const isVectorLike = layerConfig.type === 'geojson' || layerConfig.type === 'vector' || layerConfig.type === 'csv';
+        const isVectorLike = layerConfig.type === 'geojson' || layerConfig.type === 'vector' || layerConfig.type === 'csv' || layerConfig.type === 'sheet' || layerConfig.type === 'js';
         const isExplicitlyDisabled = layerConfig.inspect === false || layerConfig.inspect === null;
         if (isVectorLike && isExplicitlyDisabled) {
             return;
@@ -1311,56 +1434,6 @@ export class MapLayerControl {
                 setTimeout(() => toast.remove(), 300);
             }, duration);
         });
-    }
-
-    /**
-     * Add global click handler
-     */
-    _addGlobalClickHandler() {
-        if (this._globalClickHandlerAdded) return;
-
-        this._map.on('click', (e) => {
-            setTimeout(() => {
-                // Query rendered features with error handling for DEM data
-                let features = [];
-                try {
-                    features = this._map.queryRenderedFeatures(e.point);
-                } catch (error) {
-                    if (error instanceof RangeError) {
-                        return;
-                    } else {
-                        console.error('[MapLayerControls] Error querying rendered features on click:', error);
-                        throw error;
-                    }
-                }
-                const customFeatures = features.filter(feature => {
-                    const layerId = feature.layer?.id;
-                    return layerId && (
-                        layerId.includes('vector-layer-') ||
-                        layerId.includes('geojson-') ||
-                        layerId.includes('csv-') ||
-                        layerId.includes('tms-layer-')
-                    );
-                });
-
-                if (customFeatures.length === 0) {
-                    if (this._stateManager) {
-                        this._stateManager.clearAllSelections();
-                    }
-
-                    this._map.getCanvas().style.cursor = '';
-                    const popups = document.querySelectorAll('.mapboxgl-popup');
-                    popups.forEach(popup => {
-                        const popupInstance = popup._popup;
-                        if (popupInstance) {
-                            popupInstance.remove();
-                        }
-                    });
-                }
-            }, 0);
-        });
-
-        this._globalClickHandlerAdded = true;
     }
 
     /**

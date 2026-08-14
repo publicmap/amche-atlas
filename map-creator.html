@@ -504,6 +504,31 @@ Click to try example map">
                         MapWarper
                     </button>
                     <button type="button"
+                        class="format-chip px-2 py-1 bg-cyan-900/40 hover:bg-cyan-800/60 text-cyan-200 rounded text-xs font-medium cursor-pointer transition-colors border border-cyan-800/50"
+                        data-format="allmaps" data-sample="https://annotations.allmaps.org/images/bca064e512c963f0"
+                        data-tooltip="🗺️ Allmaps
+Georeferenced historic maps
+Hosted on allmaps.org / allmaps.xyz
+
+URL formats:
+  viewer.allmaps.org/?url=...
+  annotations.allmaps.org/images/[ID]
+  allmaps.xyz/images/[ID]/{z}/{x}/{y}@2x.png
+Click to try example map">
+                        Allmaps
+                    </button>
+                    <button type="button"
+                        class="format-chip px-2 py-1 bg-lime-900/40 hover:bg-lime-800/60 text-lime-200 rounded text-xs font-medium cursor-pointer transition-colors border border-lime-800/50"
+                        data-format="osm" data-sample="https://www.openstreetmap.org/way/28845634"
+                        data-tooltip="🌍 OpenStreetMap Element
+A single node/way/relation by ID
+Fetched once via the Overpass API
+
+URL format: openstreetmap.org/[node|way|relation]/[ID]
+Click to try example (Gateway of India)">
+                        OSM
+                    </button>
+                    <button type="button"
                         class="format-chip px-2 py-1 bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 rounded text-xs font-medium cursor-pointer transition-colors border border-indigo-800/50"
                         data-format="wms"
                         data-sample="http://14.139.123.73:8080/geoserver/wms?service=WMS&version=1.3.0&request=GetMap&layers=nbss_geoserver:Goa_LUP&styles=&format=image/png&transparent=true"
@@ -575,6 +600,19 @@ Must contain .shp and .dbf files
 File upload only: .zip containing shapefile">
                         Shapefile
                     </span>
+                </div>
+
+                <div id="google-sheet-section" class="hidden mt-3 p-3 rounded-lg"
+                    style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.35);">
+                    <label for="google-sheet-select" class="block text-sm font-semibold mb-2" style="color:#bfdbfe;">
+                        Sheet (preview)
+                    </label>
+                    <select id="google-sheet-select" class="w-full px-3 py-2 rounded text-sm"></select>
+                    <div class="text-xs mt-2" style="color:#93c5fd;">
+                        This spreadsheet has multiple tabs. This only changes what's <strong>previewed</strong> below -
+                        the saved layer defaults to type <strong>Google Sheet</strong>, which always merges every tab
+                        live. Switch Type to <strong>CSV</strong> to pin the link to just one tab instead.
+                    </div>
                 </div>
 
                 <div id="overpass-section" class="hidden mt-3 p-3 rounded-lg"
@@ -662,6 +700,7 @@ File upload only: .zip containing shapefile">
                             class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="geojson">GeoJSON - Vector features in JSON format</option>
                             <option value="csv">CSV - Tabular data with lat/lng columns</option>
+                            <option value="sheet">Google Sheet - Every tab merged (live)</option>
                             <option value="vector">Vector Tiles - Tiled vector data (.pbf/.mvt)</option>
                             <option value="tms">Raster Tiles - Tiled images (TMS/XYZ)</option>
                             <option value="style">Style - Uses existing Mapbox style sources</option>
@@ -669,6 +708,33 @@ File upload only: .zip containing shapefile">
                             <option value="atlas">Atlas - Atlas configuration</option>
                         </select>
                         <div class="text-xs text-gray-500 mt-1">Data format type (auto-detected from source)</div>
+                    </div>
+
+                    <div class="mb-4" id="osm-data-mode-section" style="display:none;">
+                        <label class="block text-sm font-medium mb-2">Data</label>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                                <input type="radio" name="osm-data-mode" id="data-mode-dynamic" value="dynamic" checked class="w-4 h-4"> Dynamic
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                                <input type="radio" name="osm-data-mode" id="data-mode-static" value="static" class="w-4 h-4"> Static
+                            </label>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            <strong>Dynamic</strong> (recommended) keeps a tiny reference to this OSM element and
+                            re-fetches its geometry from Overpass each time the map loads, so the shareable URL stays
+                            short. <strong>Static</strong> embeds the full geometry in the layer config so it works
+                            even if Overpass is down, but grows with the feature's size.
+                        </div>
+                        <div id="data-mode-static-disabled-hint" class="text-xs mt-1" style="color:#fbbf24; display:none;">
+                            Static is unavailable — this feature's geometry is too large to embed without breaking the
+                            shareable URL.
+                        </div>
+                        <div id="osm-dynamic-note" class="text-xs mt-2 p-2 rounded"
+                            style="background:#111827;border:1px solid #374151;color:#9ca3af;">
+                            Title, description, and attribution below are for this preview only — dynamic layers
+                            re-generate them from OpenStreetMap on every load.
+                        </div>
                     </div>
 
                     <div class="mb-4">
@@ -731,13 +797,25 @@ File upload only: .zip containing shapefile">
                         </div>
 
                         <details class="mb-3">
-                            <summary class="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900 py-2">
-                                Inspect Fields
+                            <summary class="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center justify-between">
+                                <span>Inspect Fields</span>
+                                <button type="button" id="inspect-fields-toggle-all-btn"
+                                    class="text-xs text-blue-400 hover:text-blue-300 font-normal">Select all</button>
                             </summary>
                             <div class="mt-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-2">
                                 <div id="inspect-fields-list" class="space-y-1"></div>
                             </div>
                         </details>
+
+                        <div class="mb-3">
+                            <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-medium">
+                                <input type="checkbox" id="include-bbox-checkbox" class="w-4 h-4">
+                                Include bounding box (bbox)
+                            </label>
+                            <div class="text-xs text-gray-500 mt-1" style="margin-left: 24px;">
+                                Lets the layer zoom-to-extent when toggled on. Adds coordinates to the shareable URL, so it's off by default.
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -802,40 +880,121 @@ File upload only: .zip containing shapefile">
                     <h3 class="text-sm font-semibold mb-3">Style</h3>
                     <div id="geometry-type-info" class="mb-3 text-xs text-gray-600"></div>
 
-                    <!-- Fill Color (for polygons/points) -->
-                    <div class="mb-4" id="fill-color-control">
-                        <label class="block text-sm font-medium mb-2">Fill Color</label>
-                        <div class="color-picker-wrapper">
-                            <input type="color" id="fill-color" value="#3b82f6">
-                            <div class="color-preview" id="fill-color-preview" style="background-color: #3b82f6;"></div>
-                        </div>
+                    <!-- Style type picker -->
+                    <div class="flex flex-wrap gap-4 mb-4">
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                            <input type="checkbox" id="style-type-point" class="style-type-checkbox w-4 h-4"> Point
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                            <input type="checkbox" id="style-type-line" class="style-type-checkbox w-4 h-4"> Line
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                            <input type="checkbox" id="style-type-area" class="style-type-checkbox w-4 h-4"> Area
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                            <input type="checkbox" id="style-type-label" class="style-type-checkbox w-4 h-4" checked> Label
+                        </label>
                     </div>
 
-                    <!-- Stroke Color (for lines/polygons) -->
-                    <div class="mb-4" id="stroke-color-control">
-                        <label class="block text-sm font-medium mb-2">Stroke Color</label>
-                        <div class="color-picker-wrapper">
-                            <input type="color" id="stroke-color" value="#1e40af">
-                            <div class="color-preview" id="stroke-color-preview" style="background-color: #1e40af;">
+                    <!-- Point style -->
+                    <div id="style-section-point" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
+                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Point style</h4>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">Fill Color</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" id="point-fill-color" value="#3b82f6" class="style-color-input">
+                                <div class="color-preview" style="background-color: #3b82f6;"></div>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">Stroke Color</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" id="point-stroke-color" value="#1e40af" class="style-color-input">
+                                <div class="color-preview" style="background-color: #1e40af;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-1">
+                            <label class="block text-sm font-medium mb-2">
+                                Radius: <span id="point-radius-value">4</span>px
+                            </label>
+                            <input type="range" id="point-radius" min="1" max="20" value="4" step="0.5" class="w-full style-control">
+                        </div>
                     </div>
 
-                    <!-- Stroke Width (for lines/polygons) -->
-                    <div class="mb-4" id="stroke-width-control">
-                        <label class="block text-sm font-medium mb-2">
-                            Stroke Width: <span id="stroke-width-value">2</span>px
-                        </label>
-                        <input type="range" id="stroke-width" min="1" max="10" value="2" step="0.5" class="w-full">
+                    <!-- Line style -->
+                    <div id="style-section-line" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
+                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Line style</h4>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">Line Color</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" id="line-color" value="#1e40af" class="style-color-input">
+                                <div class="color-preview" style="background-color: #1e40af;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-1">
+                            <label class="block text-sm font-medium mb-2">
+                                Line Width: <span id="line-width-value">2</span>px
+                            </label>
+                            <input type="range" id="line-width" min="1" max="10" value="2" step="0.5" class="w-full style-control">
+                        </div>
+                    </div>
+
+                    <!-- Area style -->
+                    <div id="style-section-area" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
+                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Area style</h4>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">Fill Color</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" id="area-fill-color" value="#3b82f6" class="style-color-input">
+                                <div class="color-preview" style="background-color: #3b82f6;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">
+                                Fill Opacity: <span id="area-fill-opacity-value">0.6</span>
+                            </label>
+                            <input type="range" id="area-fill-opacity" min="0" max="1" value="0.6" step="0.05" class="w-full style-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium mb-2">Stroke Color</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" id="area-stroke-color" value="#1e40af" class="style-color-input">
+                                <div class="color-preview" style="background-color: #1e40af;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-1">
+                            <label class="block text-sm font-medium mb-2">
+                                Stroke Width: <span id="area-stroke-width-value">2</span>px
+                            </label>
+                            <input type="range" id="area-stroke-width" min="1" max="10" value="2" step="0.5" class="w-full style-control">
+                        </div>
+                    </div>
+
+                    <!-- Label style -->
+                    <div id="style-section-label" class="style-type-section mb-1 pl-3" style="border-left:2px solid #374151;">
+                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Label style</h4>
+                        <label class="block text-sm font-medium mb-2">Label Field</label>
+                        <select id="label-field-select" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                            <option value="">None</option>
+                        </select>
+                        <div class="text-xs text-gray-500 mt-1">Field shown as a map label on this layer</div>
                     </div>
                 </div>
 
                 <!-- Configuration JSON Section -->
                 <div class="mt-4 pt-4 border-t border-gray-200">
                     <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2">Configuration JSON</label>
-                        <textarea id="config-preview" rows="8" readonly
-                            class="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 font-mono text-xs mb-2"></textarea>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium">Configuration JSON</label>
+                            <button type="button" id="reset-config-json-btn"
+                                class="text-xs text-blue-400 hover:text-blue-300 hidden">↺ Reset to generated defaults</button>
+                        </div>
+                        <p class="step-hint" style="margin-bottom:8px;">
+                            Edit directly to customize styling, zoom levels, or any other option not covered by the fields above — the map preview updates live.
+                        </p>
+                        <textarea id="config-preview" rows="10" spellcheck="false"
+                            class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-1"></textarea>
+                        <div id="config-json-status" class="text-xs mb-2" style="min-height:16px;"></div>
 
                         <details class="mt-2">
                             <summary class="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900 py-2">

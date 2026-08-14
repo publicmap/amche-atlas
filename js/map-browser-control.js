@@ -4,6 +4,7 @@
  * A compact control button that shows the current atlas name and opens
  * a full-screen map browser overlay when clicked.
  */
+import { MapContextMessagesControl } from './map-context-messages-control.js';
 
 export class MapBrowserControl {
     constructor() {
@@ -325,7 +326,7 @@ export class MapBrowserControl {
             }
 
             if (event.data.type === 'open-layer-info') {
-                this._openLayerInfo(event.data.layer);
+                this._openLayerInfo(event.data.layer, { edit: event.data.edit });
             }
 
             if (event.data.type === 'load-atlas') {
@@ -358,6 +359,10 @@ export class MapBrowserControl {
                 this._handleCreatorPreview(event.data);
             }
 
+            if (event.data.type === 'creator-tile-preview') {
+                this._handleCreatorTilePreview(event.data.config);
+            }
+
             if (event.data.type === 'creator-clear-preview') {
                 this._clearCreatorPreview();
             }
@@ -384,7 +389,7 @@ export class MapBrowserControl {
         });
     }
 
-    _openLayerInfo(layer) {
+    _openLayerInfo(layer, options = {}) {
         const modal = document.getElementById('layer-info-modal');
         const iframe = document.getElementById('layer-info-iframe');
 
@@ -394,7 +399,8 @@ export class MapBrowserControl {
         }
 
         const layerJson = encodeURIComponent(JSON.stringify(layer));
-        iframe.src = `map-information.html?layer=${layerJson}`;
+        const editParam = options.edit ? '&edit=true' : '';
+        iframe.src = `map-information.html?layer=${layerJson}${editParam}`;
         modal.style.display = 'block';
 
         const closeHandler = (e) => {
@@ -724,6 +730,14 @@ export class MapBrowserControl {
                 checkbox.checked = false;
                 groupElement.hide();
                 mapLayerControl._toggleLayerGroup(groupIndex, false);
+
+                // Mirror the "Added map" confirmation shown when layers are loaded
+                // (map-layer-controls.js _initializeAllLayers / _handleAddCustomLayer
+                // above) so removals are just as visible.
+                const group = mapLayerControl._state.groups[groupIndex];
+                const layerTitle = mapLayerControl._escapeHtml?.(group?.title || actualLayerId) || (group?.title || actualLayerId);
+                const labelHtml = mapLayerControl._buildLayerLabelHTML?.(group, layerTitle) || `<strong>${layerTitle}</strong>`;
+                MapContextMessagesControl.show(`Removed map ${labelHtml}`, { duration: 3000 });
             }
         }
 
@@ -739,6 +753,46 @@ export class MapBrowserControl {
             type: 'active-layers-update',
             activeLayers: Array.from(activeLayers)
         }, '*');
+    }
+
+    // Base id of a possibly atlas-prefixed layer id (goa-local-body -> local-body),
+    // mirroring baseLayerId() in map-browser.html, so prefixed/unprefixed forms of
+    // the same layer compare equal.
+    _baseLayerId(id) {
+        const prefix = id.split('-')[0];
+        return window.layerRegistry?._atlasMetadata?.has(prefix) ? id.slice(prefix.length + 1) : id;
+    }
+
+    // Resolved (atlas-prefixed) ids an atlas references, mirroring the
+    // atlasLayerReferences map built in _sendLayerData().
+    _getAtlasLayerReferenceIds(atlasId) {
+        const knownAtlases = window.layerRegistry?._atlasMetadata ? new Set(window.layerRegistry._atlasMetadata.keys()) : new Set();
+        const atlasLayerConfigs = window.layerRegistry?._atlasLayers?.get(atlasId) || [];
+        return atlasLayerConfigs.map(l => {
+            const layerId = l.id;
+            if (layerId && layerId.includes('-') && knownAtlases.has(layerId.split('-')[0])) {
+                return layerId;
+            }
+            return `${atlasId}-${layerId}`;
+        });
+    }
+
+    // Turns off every active layer except the index atlas's own base layers
+    // (selection / admin lines / satellite etc.) — the same layers the "Hide all
+    // maps" button in the map browser's atlas header (map-browser.html
+    // #reset-toggle-btn / getAtlasToggleScope) always leaves untouched. Unlike
+    // that button this isn't scoped to a single atlas — there's no selected-atlas
+    // context here (e.g. the shortcut menu) — it just protects the shared base
+    // layers and clears everything else.
+    hideAllLayers() {
+        const indexBase = new Set(this._getAtlasLayerReferenceIds('index').map(id => this._baseLayerId(id)));
+        const handledOff = new Set();
+        this._getActiveLayers().forEach(layerId => {
+            const base = this._baseLayerId(layerId);
+            if (indexBase.has(base) || handledOff.has(base)) return;
+            handledOff.add(base);
+            this._handleLayerToggle(layerId, false);
+        });
     }
 
     toggleBrowser() {
@@ -1000,181 +1054,34 @@ export class MapBrowserControl {
         }
     }
 
-    _handleAddCustomLayer(config) {
+    async _handleAddCustomLayer(config) {
         console.log('[MapBrowserControl] Adding custom layer:', config);
 
-        const url = new URL(window.location.origin + window.location.pathname);
-        const hash = window.location.hash;
-
-        // Parse URL parameters manually, keeping layers encoded until we've extracted it
-        const searchParams = window.location.search;
-        console.log('[MapBrowserControl] Current search params:', searchParams);
-
-        let existingLayersEncoded = '';
-        let otherParamsMap = new Map();
-
-        if (searchParams.startsWith('?')) {
-            const paramsString = searchParams.substring(1);
-
-            // Find the layers parameter by looking for "layers="
-            const layersIndex = paramsString.indexOf('layers=');
-
-            if (layersIndex !== -1) {
-                // Extract everything before layers parameter
-                if (layersIndex > 0) {
-                    const beforeLayers = paramsString.substring(0, layersIndex - 1); // -1 to skip the &
-                    beforeLayers.split('&').forEach(param => {
-                        const eqIndex = param.indexOf('=');
-                        if (eqIndex !== -1) {
-                            otherParamsMap.set(param.substring(0, eqIndex), param.substring(eqIndex + 1));
-                        }
-                    });
-                }
-
-                // Extract the layers parameter value (URL-encoded, keep it encoded!)
-                // We need to find where it ends - layers should be the last parameter
-                // If there are parameters after it, they would start with &
-                // BUT we can't just look for & because the encoded value might contain %26
-                // Solution: layers parameter goes until the end of the search string OR until we hit a real & that starts a new parameter
-                // A real & would be followed by paramName=, not by encoded characters
-
-                let layersValueEncoded = paramsString.substring(layersIndex + 7); // 7 = "layers=".length
-
-                // Check if there's another parameter after layers by looking for &paramName=
-                // We need to find an & that's followed by characters and an =
-                let nextParamStart = -1;
-                for (let i = 0; i < layersValueEncoded.length; i++) {
-                    if (layersValueEncoded[i] === '&') {
-                        // Check if this looks like a parameter start (has = within next 20 chars)
-                        const remainingChunk = layersValueEncoded.substring(i + 1, Math.min(i + 21, layersValueEncoded.length));
-                        if (remainingChunk.includes('=')) {
-                            // This is likely a real parameter, not part of the encoded value
-                            nextParamStart = i;
-                            break;
-                        }
-                    }
-                }
-
-                if (nextParamStart !== -1) {
-                    const afterLayers = layersValueEncoded.substring(nextParamStart + 1);
-                    layersValueEncoded = layersValueEncoded.substring(0, nextParamStart);
-
-                    // Parse params after layers
-                    afterLayers.split('&').forEach(param => {
-                        const eqIndex = param.indexOf('=');
-                        if (eqIndex !== -1) {
-                            otherParamsMap.set(param.substring(0, eqIndex), param.substring(eqIndex + 1));
-                        }
-                    });
-                }
-
-                existingLayersEncoded = layersValueEncoded;
-                console.log('[MapBrowserControl] Existing layers (encoded):', existingLayersEncoded);
-                console.log('[MapBrowserControl] Existing layers (decoded):', decodeURIComponent(existingLayersEncoded));
-            } else {
-                // No layers parameter, just parse all params
-                paramsString.split('&').forEach(param => {
-                    const eqIndex = param.indexOf('=');
-                    if (eqIndex !== -1) {
-                        otherParamsMap.set(param.substring(0, eqIndex), param.substring(eqIndex + 1));
-                    }
-                });
-            }
+        const mapLayerControl = window.layerControl;
+        if (!mapLayerControl) {
+            console.warn('[MapBrowserControl] Layer control not available, cannot add layer live');
+            return;
         }
 
-        let jsonString = JSON.stringify(config);
-        // Escape single quotes within string values before converting double quotes to single quotes
-        // This regex finds content within double quotes and escapes any single quotes inside
-        jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
-            // Escape single quotes in the content
-            const escaped = content.replace(/'/g, "\\'");
-            return `"${escaped}"`;
-        });
-        jsonString = jsonString.replace(/"/g, "'");
-        console.log('[MapBrowserControl] New layer JSON:', jsonString);
-
-        // Decode existing layers, combine with new while maintaining basemap grouping
-        const existingLayersDecoded = existingLayersEncoded ? decodeURIComponent(existingLayersEncoded) : '';
-
-        // Parse existing layers to separate overlays and basemaps
-        let overlayLayers = [];
-        let basemapLayers = [];
-
-        if (existingLayersDecoded) {
-            const layers = existingLayersDecoded.split(',');
-            layers.forEach(layerStr => {
-                const layerStr_trimmed = layerStr.trim();
-                // Try to parse as JSON to check for basemap tag
-                try {
-                    if (layerStr_trimmed.startsWith('{') || layerStr_trimmed.startsWith("{'")) {
-                        const parsed = JSON.parse(layerStr_trimmed.replace(/'/g, '"'));
-                        const isBasemap = parsed.tags && Array.isArray(parsed.tags) && parsed.tags.includes('basemap');
-                        if (isBasemap) {
-                            basemapLayers.push(layerStr_trimmed);
-                        } else {
-                            overlayLayers.push(layerStr_trimmed);
-                        }
-                    } else {
-                        // Simple layer ID - check if it's a basemap in the registry
-                        const layerId = layerStr_trimmed;
-                        const layer = window.layerRegistry?.getLayer(layerId);
-                        const isBasemap = layer && layer.tags && Array.isArray(layer.tags) && layer.tags.includes('basemap');
-                        if (isBasemap) {
-                            basemapLayers.push(layerStr_trimmed);
-                        } else {
-                            overlayLayers.push(layerStr_trimmed);
-                        }
-                    }
-                } catch (e) {
-                    // If parsing fails, assume it's an overlay ID
-                    const layerId = layerStr_trimmed;
-                    const layer = window.layerRegistry?.getLayer(layerId);
-                    const isBasemap = layer && layer.tags && Array.isArray(layer.tags) && layer.tags.includes('basemap');
-                    if (isBasemap) {
-                        basemapLayers.push(layerStr_trimmed);
-                    } else {
-                        overlayLayers.push(layerStr_trimmed);
-                    }
-                }
-            });
+        try {
+            await mapLayerControl._addLayerDirectly(config);
+        } catch (error) {
+            console.error('[MapBrowserControl] Failed to add custom layer:', error);
+            return;
         }
 
-        // Determine if new layer is a basemap
-        const isNewLayerBasemap = config.tags && Array.isArray(config.tags) && config.tags.includes('basemap');
+        // Close the browser/creator overlay so the new layer is visible on the
+        // live map, then show the same "Added map" confirmation (with a zoom
+        // shortcut when a bbox is known) used for regular layer toggles.
+        this.closeBrowser();
 
-        // Add new layer at the beginning of appropriate group
-        if (isNewLayerBasemap) {
-            basemapLayers.unshift(jsonString);
-        } else {
-            overlayLayers.unshift(jsonString);
-        }
-
-        // Combine: overlays first, then basemaps (maintaining order within each group)
-        const allLayers = [...overlayLayers, ...basemapLayers];
-        const newLayersDecoded = allLayers.join(',');
-        console.log('[MapBrowserControl] Combined layers (decoded):', newLayersDecoded);
-
-        // Build URL manually
-        let finalUrl = url.toString();
-
-        // Build query string with other params first, then layers (encoded)
-        const queryParts = [];
-        otherParamsMap.forEach((value, key) => {
-            queryParts.push(`${key}=${value}`);
-        });
-        queryParts.push('layers=' + encodeURIComponent(newLayersDecoded));
-
-        // Add zoom-to parameter if layer has bbox
-        if (config.bbox && Array.isArray(config.bbox) && config.bbox.length === 4) {
-            queryParts.push('zoomTo=' + config.id);
-        }
-
-        finalUrl += '?' + queryParts.join('&');
-        finalUrl += hash;
-
-        console.log('[MapBrowserControl] Final URL:', finalUrl);
-        console.log('[MapBrowserControl] Final URL length:', finalUrl.length);
-        window.location.href = finalUrl;
+        const layerTitle = mapLayerControl._escapeHtml?.(config.title || config.id) || (config.title || config.id);
+        const labelHtml = mapLayerControl._buildLayerLabelHTML?.(config, layerTitle) || `<strong>${layerTitle}</strong>`;
+        const zoomLink = mapLayerControl._buildZoomToLayerLink?.(config) || '';
+        MapContextMessagesControl.show(
+            `${labelHtml}${zoomLink ? ' &middot; ' + zoomLink : ''}`,
+            { duration: 3000 }
+        );
     }
 
     _handleLoadAtlas(atlasUrl) {
@@ -1307,6 +1214,212 @@ export class MapBrowserControl {
             if (this._map.getLayer(id)) this._map.removeLayer(id);
         });
         if (this._map.getSource(sourceId)) this._map.removeSource(sourceId);
+
+        this._clearCreatorTilePreview();
+    }
+
+    // Live preview for tile-based layer configs (vector/tms/wms) being edited
+    // in the creator's Configuration JSON box.
+    //
+    // Vector previews render through the real MapboxAPI.createLayerGroup() /
+    // removeLayerGroup() — the exact code path used for every real layer —
+    // so the preview always matches fill/line/circle/symbol (labels),
+    // layout properties, and default styling exactly, with no separate
+    // paint-only reimplementation to keep in sync (see _renderVectorTilePreview).
+    //
+    // Raster (tms/wms) previews stay a simple opacity-only render here since
+    // that's all MapboxAPI does for raster tiles anyway.
+    _handleCreatorTilePreview(config) {
+        if (!this._map || !config || !config.url) return;
+
+        if (config.type === 'vector') {
+            if (!config.sourceLayer) return;
+            this._renderVectorTilePreview(config);
+            return;
+        }
+
+        if (config.type !== 'tms' && config.type !== 'wms') return;
+
+        const sourceId = '__creator_tile_preview__';
+        const layerId = '__creator_tile_preview_raster__';
+        const sourceKey = JSON.stringify([config.type, config.url, config.minzoom || 0, config.maxzoom || 22, config.tileSize || 256, config.srs || '']);
+        const isSameSource = this._tilePreviewSourceKey === sourceKey && this._map.getSource(sourceId);
+
+        try {
+            const opacity = config.style?.['raster-opacity'] ?? config.opacity ?? 1;
+
+            if (isSameSource) {
+                this._setLayerPaint(layerId, { 'raster-opacity': opacity });
+                return;
+            }
+
+            this._clearCreatorRasterPreview();
+            const tileUrl = config.type === 'wms'
+                ? this._buildWmsPreviewTileUrl(config.url, config.tileSize, config.srs)
+                : config.url;
+            this._map.addSource(sourceId, {
+                type: 'raster',
+                tileSize: config.tileSize || 256,
+                minzoom: config.minzoom || 0,
+                maxzoom: config.maxzoom || 22,
+                tiles: [tileUrl]
+            });
+            this._map.addLayer({
+                id: layerId,
+                type: 'raster',
+                source: sourceId,
+                paint: { 'raster-opacity': opacity }
+            });
+
+            this._tilePreviewSourceKey = sourceKey;
+        } catch (e) {
+            console.warn('[MapBrowserControl] Tile preview failed:', e);
+        }
+    }
+
+    // Renders the vector tile preview by adding/replacing a real layer group
+    // through the shared MapboxAPI instance (the same one that renders every
+    // layer already on the map — see js/map-layer-controls.js). This is the
+    // only way to get fill/line/circle/symbol, layout properties, and default
+    // styling to always match the final layer exactly.
+    //
+    // MapboxAPI has no generic "restyle" method, so every style edit does a
+    // full removeLayerGroup + createLayerGroup. That's fine here: schedulePreview()
+    // in map-creator.js already debounces edits, and the vector tiles stay
+    // browser-cached across the remove/re-add.
+    //
+    // Identity (url/sourceLayer/zoom) is tracked separately from style so that
+    // _detectVectorTileInfo — which posts a message back to the creator that
+    // can trigger another config render — only re-arms on a genuine source
+    // change, not on every style tweak (that would risk a feedback loop).
+    async _renderVectorTilePreview(config) {
+        const mapboxAPI = window.layerControl?._mapboxAPI;
+        if (!mapboxAPI) return;
+
+        const groupId = '__creator_vector_preview__';
+        const identityKey = JSON.stringify([config.url, config.sourceLayer, config.minzoom || 0, config.maxzoom || 22]);
+        const isNewIdentity = this._vectorPreviewIdentityKey !== identityKey;
+        const generation = (this._vectorPreviewGeneration = (this._vectorPreviewGeneration || 0) + 1);
+
+        try {
+            if (this._vectorPreviewActive) {
+                mapboxAPI.removeLayerGroup(groupId, this._vectorPreviewConfig);
+            }
+            this._vectorPreviewActive = true;
+            this._vectorPreviewConfig = config;
+
+            await mapboxAPI.createLayerGroup(groupId, config, { visible: true });
+
+            // A newer preview started while this one was loading (e.g. async
+            // icon prep for a symbol layer) — bail so we don't clobber it.
+            if (generation !== this._vectorPreviewGeneration) return;
+
+            if (isNewIdentity) {
+                this._vectorPreviewIdentityKey = identityKey;
+                this._detectVectorTileInfo(`vector-${groupId}`, config.sourceLayer);
+            }
+        } catch (e) {
+            console.warn('[MapBrowserControl] Vector tile preview failed:', e);
+        }
+    }
+
+    _clearVectorTilePreview() {
+        if (!this._vectorPreviewActive) return;
+        const mapboxAPI = window.layerControl?._mapboxAPI;
+        if (mapboxAPI && this._vectorPreviewConfig) {
+            mapboxAPI.removeLayerGroup('__creator_vector_preview__', this._vectorPreviewConfig);
+        }
+        this._vectorPreviewActive = false;
+        this._vectorPreviewConfig = null;
+        this._vectorPreviewIdentityKey = null;
+        this._vectorPreviewGeneration = (this._vectorPreviewGeneration || 0) + 1;
+    }
+
+    _clearCreatorRasterPreview() {
+        if (!this._map) return;
+        this._tilePreviewSourceKey = null;
+        const sourceId = '__creator_tile_preview__';
+        if (this._map.getLayer('__creator_tile_preview_raster__')) this._map.removeLayer('__creator_tile_preview_raster__');
+        if (this._map.getSource(sourceId)) this._map.removeSource(sourceId);
+    }
+
+    _setLayerPaint(layerId, paint) {
+        if (!this._map.getLayer(layerId)) return;
+        Object.entries(paint).forEach(([prop, value]) => {
+            this._map.setPaintProperty(layerId, prop, value);
+        });
+    }
+
+    _buildWmsPreviewTileUrl(wmsUrl, tileSize = 256, srs = 'EPSG:3857') {
+        const [baseUrl, query = ''] = wmsUrl.split('?');
+        const params = new URLSearchParams(query);
+        const lower = {};
+        for (const [key, value] of params.entries()) lower[key.toLowerCase()] = value;
+
+        const version = lower.version || '1.1.1';
+        const merged = new URLSearchParams();
+        merged.set('service', 'WMS');
+        merged.set('version', version);
+        merged.set('request', 'GetMap');
+        merged.set('layers', lower.layers || lower.layer || '');
+        merged.set('styles', lower.styles || '');
+        merged.set('format', lower.format || 'image/png');
+        merged.set('transparent', lower.transparent || 'true');
+        merged.set('width', String(tileSize));
+        merged.set('height', String(tileSize));
+        merged.set(version.startsWith('1.3') ? 'crs' : 'srs', srs);
+        merged.set('bbox', '{bbox-epsg-3857}');
+
+        return `${baseUrl}?${merged.toString()}`;
+    }
+
+    // Best-effort: once the preview vector tiles have had a chance to load,
+    // sample rendered features to report back which geometry types and
+    // properties actually exist — the creator uses this to auto-check the
+    // right Point/Line/Area boxes and populate the label field dropdown.
+    // Returns nothing useful if the current viewport doesn't overlap the
+    // source's data (the user can still check boxes manually).
+    _detectVectorTileInfo(sourceId, sourceLayer) {
+        if (!this._map) return;
+        const token = (this._tileInfoToken = (this._tileInfoToken || 0) + 1);
+
+        const query = () => {
+            if (this._tileInfoToken !== token || !this._iframe?.contentWindow) return;
+            let features = [];
+            try {
+                features = this._map.querySourceFeatures(sourceId, { sourceLayer });
+            } catch (e) {
+                return;
+            }
+            if (!features || features.length === 0) return;
+
+            const geometryTypes = new Set();
+            const fields = new Set();
+            features.slice(0, 200).forEach(feature => {
+                if (feature.geometry?.type) geometryTypes.add(feature.geometry.type);
+                if (feature.properties) Object.keys(feature.properties).forEach(key => fields.add(key));
+            });
+
+            this._iframe.contentWindow.postMessage({
+                type: 'creator-tile-info',
+                geometryTypes: Array.from(geometryTypes),
+                fields: Array.from(fields)
+            }, '*');
+        };
+
+        const onIdle = () => {
+            query();
+            this._map.off('idle', onIdle);
+        };
+        this._map.on('idle', onIdle);
+        setTimeout(query, 800);
+    }
+
+    _clearCreatorTilePreview() {
+        if (!this._map) return;
+        this._tileInfoToken = (this._tileInfoToken || 0) + 1;
+        this._clearVectorTilePreview();
+        this._clearCreatorRasterPreview();
     }
 
     // Build a bbox rectangle Feature from [west, south, east, north], or null.
@@ -1503,6 +1616,11 @@ export class MapBrowserControl {
     }
 
     _handleUpdateAtlasParam(atlasId) {
+        const resolvedAtlasId = atlasId || 'index';
+        const previousAtlasId = window.layerRegistry?.getCurrentAtlas();
+        const previousFullUrl = window.location.href;
+        const atlasActuallyChanged = !!window.layerRegistry && previousAtlasId !== resolvedAtlasId;
+
         const params = new URLSearchParams(window.location.search);
 
         if (atlasId) {
@@ -1513,5 +1631,42 @@ export class MapBrowserControl {
 
         const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
         window.history.replaceState(null, '', newUrl);
+
+        // map-browser.html's atlas switch is live (layer visibility only, no
+        // reload) - without this, layerRegistry._currentAtlas stays on the
+        // previous atlas, so map-init.js's "you've panned outside this atlas"
+        // bounds check keeps comparing against the atlas we just left and
+        // spuriously re-suggests switching to the atlas we're already on.
+        if (window.layerRegistry) {
+            window.layerRegistry.setCurrentAtlas(resolvedAtlasId);
+        }
+        if (window.layerControl) {
+            window.layerControl._updateAtlasButtonText?.();
+        }
+        // Dismiss immediately rather than waiting on the next moveend + the
+        // message's own auto-close - id string is duplicated from map-init.js's
+        // ATLAS_BOUNDS_MESSAGE_ID (not exported, and this stays a plain-string
+        // cross-module id like every other MapContextMessagesControl id).
+        MapContextMessagesControl.close('atlas-bounds-suggestion');
+
+        // Mirror map-init.js's "Switched to X atlas" notification for a real
+        // navigation - this live switch never reloads the page, so that copy
+        // never fires here on its own. Undo reloads back to the exact previous
+        // URL (rather than history.back(), which has nothing to return to
+        // since this only ever used history.replaceState): switchAtlasContext's
+        // layer-toggle messages already keep layers= in sync with what was
+        // actually shown, so the reload lands back on the same view.
+        if (atlasActuallyChanged) {
+            const atlasDisplayName = window.layerRegistry.getAtlasMetadata(resolvedAtlasId)?.name || resolvedAtlasId;
+            const escapedName = window.layerControl?._escapeHtml?.(atlasDisplayName) || atlasDisplayName;
+            const jsEscapedUrl = previousFullUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            MapContextMessagesControl.show(
+                `Switched to <strong>${escapedName}</strong> atlas &middot; <a href="#" onclick="window.location.href='${jsEscapedUrl}';return false;">Undo</a>`
+            );
+        }
+
+        try {
+            sessionStorage.setItem('amche_last_atlas', resolvedAtlasId);
+        } catch (error) { /* sessionStorage unavailable (e.g. private browsing) */ }
     }
 }

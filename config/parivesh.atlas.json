@@ -77,7 +77,7 @@
   },
   "layers": [
     {
-      "id": "env-approvals-jammu-and-kashmir",
+      "id": "jammu-and-kashmir",
       "type": "vector",
       "title": "Jammu and Kashmir",
       "tags": [
@@ -89,7 +89,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-himachal-pradesh",
+      "id": "himachal-pradesh",
       "type": "vector",
       "title": "Himachal Pradesh",
       "tags": [
@@ -101,7 +101,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-punjab",
+      "id": "punjab",
       "type": "vector",
       "title": "Punjab",
       "tags": [
@@ -113,7 +113,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-chandigarh",
+      "id": "chandigarh",
       "type": "vector",
       "title": "Chandigarh",
       "tags": [
@@ -125,7 +125,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-uttarakhand",
+      "id": "uttarakhand",
       "type": "vector",
       "title": "Uttarakhand",
       "tags": [
@@ -137,7 +137,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-haryana",
+      "id": "haryana",
       "type": "vector",
       "title": "Haryana",
       "tags": [
@@ -149,7 +149,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-delhi",
+      "id": "delhi",
       "type": "vector",
       "title": "Delhi",
       "tags": [
@@ -161,7 +161,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-rajasthan",
+      "id": "rajasthan",
       "type": "vector",
       "title": "Rajasthan",
       "tags": [
@@ -173,7 +173,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-ladakh",
+      "id": "ladakh",
       "type": "vector",
       "title": "Ladakh",
       "tags": [
@@ -185,7 +185,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-uttar-pradesh",
+      "id": "uttar-pradesh",
       "type": "vector",
       "title": "Uttar Pradesh",
       "tags": [
@@ -197,7 +197,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-madhya-pradesh",
+      "id": "madhya-pradesh",
       "type": "vector",
       "title": "Madhya Pradesh",
       "tags": [
@@ -209,7 +209,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-chhattisgarh",
+      "id": "chhattisgarh",
       "type": "vector",
       "title": "Chhattisgarh",
       "tags": [
@@ -221,7 +221,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-bihar",
+      "id": "bihar",
       "type": "vector",
       "title": "Bihar",
       "tags": [
@@ -233,7 +233,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-jharkhand",
+      "id": "jharkhand",
       "type": "vector",
       "title": "Jharkhand",
       "tags": [
@@ -245,7 +245,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-odisha",
+      "id": "odisha",
       "type": "vector",
       "title": "Odisha",
       "tags": [
@@ -257,7 +257,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-west-bengal",
+      "id": "west-bengal",
       "type": "vector",
       "title": "West Bengal",
       "tags": [
@@ -269,7 +269,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-sikkim",
+      "id": "sikkim",
       "type": "vector",
       "title": "Sikkim",
       "tags": [
@@ -281,7 +281,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-arunachal-pradesh",
+      "id": "arunachal-pradesh",
       "type": "vector",
       "title": "Arunachal Pradesh",
       "tags": [
@@ -293,7 +293,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-nagaland",
+      "id": "nagaland",
       "type": "vector",
       "title": "Nagaland",
       "tags": [
@@ -305,7 +305,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-manipur",
+      "id": "manipur",
       "type": "vector",
       "title": "Manipur",
       "tags": [
@@ -317,7 +317,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-mizoram",
+      "id": "mizoram",
       "type": "vector",
       "title": "Mizoram",
       "tags": [
@@ -329,7 +329,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-tripura",
+      "id": "tripura",
       "type": "vector",
       "title": "Tripura",
       "tags": [
@@ -341,7 +341,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-meghalaya",
+      "id": "meghalaya",
       "type": "vector",
       "title": "Meghalaya",
       "tags": [
@@ -353,7 +353,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-assam",
+      "id": "assam",
       "type": "vector",
       "title": "Assam",
       "tags": [
@@ -365,7 +365,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-gujarat",
+      "id": "gujarat",
       "type": "vector",
       "title": "Gujarat",
       "tags": [
@@ -377,7 +377,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-maharashtra",
+      "id": "maharashtra",
       "type": "vector",
       "title": "Maharashtra",
       "tags": [
@@ -389,7 +389,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-goa",
+      "id": "goa",
       "type": "vector",
       "title": "Goa",
       "tags": [
@@ -402,7 +402,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-dnh-dd",
+      "id": "dnh-dd",
       "type": "vector",
       "title": "Dadra and Nagar Haveli and Daman and Diu",
       "tags": [
@@ -414,7 +414,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-andhra-pradesh",
+      "id": "andhra-pradesh",
       "type": "vector",
       "title": "Andhra Pradesh",
       "tags": [
@@ -426,7 +426,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-karnataka",
+      "id": "karnataka",
       "type": "vector",
       "title": "Karnataka",
       "tags": [
@@ -438,7 +438,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-kerala",
+      "id": "kerala",
       "type": "vector",
       "title": "Kerala",
       "tags": [
@@ -450,7 +450,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-tamil-nadu",
+      "id": "tamil-nadu",
       "type": "vector",
       "title": "Tamil Nadu",
       "tags": [
@@ -462,7 +462,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-telangana",
+      "id": "telangana",
       "type": "vector",
       "title": "Telangana",
       "tags": [
@@ -474,7 +474,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-puducherry",
+      "id": "puducherry",
       "type": "vector",
       "title": "Puducherry",
       "tags": [
@@ -486,7 +486,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-andaman-nicobar",
+      "id": "andaman-nicobar",
       "type": "vector",
       "title": "Andaman and Nicobar Islands",
       "tags": [
@@ -498,7 +498,7 @@
       "attribution": "Source: <a href='https://parivesh.nic.in/'>Parivesh</a> &mdash; Collected by <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
-      "id": "env-approvals-lakshadweep",
+      "id": "lakshadweep",
       "type": "vector",
       "title": "Lakshadweep",
       "tags": [

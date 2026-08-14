@@ -88,24 +88,9 @@
         "circle-color": "black",
         "circle-stroke-width": 1,
         "circle-stroke-color": "white",
-        "text-halo-width": 0,
-        "text-size": 14,
-        "text-font": [
-          "Open Sans Regular"
-        ],
-        "text-field": [
-          "get",
-          "name"
-        ],
-        "text-anchor": "top",
-        "text-offset": [
-          0,
-          0.3
-        ]
+        "text-field": ""
       },
-      "inspect": {
-        "id": "name"
-      },
+      "inspect": false,
       "initiallyChecked": true
     },
     {
@@ -125,7 +110,6 @@
           ],
           "#3b82f6"
         ],
-        "circle-radius": 4,
         "circle-stroke-color": [
           "coalesce",
           [
@@ -138,7 +122,7 @@
           ],
           "#1e40af"
         ],
-        "circle-stroke-width": 2,
+        "circle-stroke-width": 1,
         "text-field": [
           "to-string",
           [
@@ -162,7 +146,7 @@
       "saveUrl": "https://script.google.com/macros/s/AKfycbxxPTcPGMRwiLD_OKmEgwmVaLViGtCqrPjEIWNC0QYPhZS7mAw0FgR8Dc88ipzvcxE-/exec",
       "description": "Data from <a href='https://docs.google.com/spreadsheets/d/1pcRVucZJuvE6LHXsZOzOE2-5H6BRvR_vlVhMGhlTqhg/edit?pli=1&gid=0#gid=0' target='_blank'>Google Sheet.</a>",
       "attribution": "<a href='https://docs.google.com/spreadsheets/d/1pcRVucZJuvE6LHXsZOzOE2-5H6BRvR_vlVhMGhlTqhg/export?format=csv&gid=0' target='_blank'>Google Sheets</a>",
-      "initiallyChecked": true
+      "initiallyChecked": false
     },
     {
       "id": "mapbox-streets",

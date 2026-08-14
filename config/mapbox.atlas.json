@@ -152,7 +152,7 @@
       "initiallyChecked": true,
       "id": "streets",
       "tags": [
-        "streets"
+        "basemap"
       ],
       "title": "Mapbox Street Map",
       "description": "Detailed street level map data layers sourced from <a href='https://www.openstreetmap.org/#map=11/15.4054/73.9280' target='_blank'>OpenStreetMap contributors</a> and other data sources via <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-streets-v8/' target='_blank'>Mapbox Streets</a> vector tiles.",
@@ -228,6 +228,14 @@
         {
           "title": "Boundaries",
           "sourceLayer": "admin"
+        },
+        {
+          "title": "Bathymetry",
+          "sourceLayer": "depth"
+        },
+        {
+          "title": "Satellite",
+          "sourceLayer": "satellite"
         }
       ]
     },

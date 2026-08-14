@@ -163,7 +163,7 @@ export class LayerSettingsModal {
         const tileJSONSection = content.querySelector('.tilejson-section');
         sourceDetails.innerHTML = '';
 
-        if (group.type === 'tms' || group.type === 'vector' || group.type === 'geojson' || group.type === 'raster-style-layer') {
+        if (group.type === 'tms' || group.type === 'vector' || group.type === 'geojson' || group.type === 'js' || group.type === 'raster-style-layer') {
             sourceDetails.innerHTML = `
                 <div class="source-details-content bg-gray-100 rounded">
                     <div class="mb-2">

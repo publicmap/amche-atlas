@@ -5,6 +5,7 @@
 
 import { LayerOrderManager } from './layer-order-manager.js';
 import { URL_API_PARAMS } from './url-api-params.js';
+import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
 
 export class URLManager {
     constructor(mapLayerControl, map) {
@@ -21,6 +22,45 @@ export class URLManager {
         this.setupLayerControlEventListeners();
 
         $(document).on('update_url', this.updateGeolocateParam );
+
+        // Mapbox GL's own `hash: true` option writes the #map=zoom/lat/lng/bearing
+        // hash directly via history.replaceState on map move, bypassing
+        // _performURLUpdate() entirely. Notify the parent here too, deferred two
+        // animation frames so it runs after Mapbox's (internally throttled) hash
+        // write has actually landed.
+        if (this.map) {
+            this.map.on('moveend', () => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => this._notifyParentOfURL());
+                });
+            });
+
+            // moveend never fires if the map doesn't pan/zoom on startup, so an
+            // embedding parent would otherwise never learn the initial URL. Post
+            // it once after the map finishes loading, whether or not it ever moves.
+            const notifyInitialURL = () => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => this._notifyParentOfURL());
+                });
+            };
+            if (this.map.loaded()) {
+                notifyInitialURL();
+            } else {
+                this.map.once('load', notifyInitialURL);
+            }
+        }
+    }
+
+    /**
+     * Notify any embedding parent (e.g. an iframe host) of the current URL.
+     */
+    _notifyParentOfURL() {
+        if (window.parent !== window) {
+            window.parent.postMessage(
+                { type: "url", href: window.location.href },
+                "*" // tighten to a specific origin in production
+            );
+        }
     }
 
     setStateManager(stateManager) {
@@ -57,9 +97,39 @@ export class URLManager {
      * Uses normalized IDs (without atlas prefix for current atlas layers)
      */
     layerToURL(layer) {
-        // If the layer has an _originalJson property and no opacity override, use it to preserve the original formatting
-        if (layer._originalJson && layer.opacity === undefined && !layer.geojson) {
-            return layer._originalJson;
+        // If the layer has an _originalJson property, preserve it — merging in any
+        // opacity override so custom URL layers don't lose their type/url/style/etc.
+        if (layer._originalJson && !layer.geojson) {
+            if (layer.opacity === undefined) {
+                return layer._originalJson;
+            }
+            // A dynamic layer shorthand string (e.g. "osm:relation/123") has nowhere
+            // to carry opacity inline, so fall back to the equivalent {type,id,opacity}
+            // object form, which dynamic-layer-shorthand.js accepts identically.
+            const shorthand = parseDynamicLayerShorthandString(layer._originalJson);
+            if (shorthand) {
+                if (layer.opacity !== 1) {
+                    return JSON.stringify({ ...shorthand, opacity: layer.opacity });
+                }
+                return layer._originalJson;
+            }
+            // Parse the single-quote JSON (_originalJson uses ' instead of "),
+            // update opacity, then re-serialize in the same format.
+            try {
+                const asDoubleQuote = layer._originalJson
+                    .replace(/\\'/g, '')
+                    .replace(/'/g, '"')
+                    .replace(//g, "'");
+                const parsed = JSON.parse(asDoubleQuote);
+                if (layer.opacity !== 1) {
+                    parsed.opacity = layer.opacity;
+                } else {
+                    delete parsed.opacity;
+                }
+                return JSON.stringify(parsed).replace(/'/g, "\\'").replace(/"/g, "'");
+            } catch (e) {
+                // Fallthrough to generic serialization if parse fails
+            }
         }
 
         // Use normalized ID if available (removes current atlas prefix)
@@ -156,7 +226,8 @@ export class URLManager {
                             layers.push({ id: trimmedItem });
                         }
                     } else {
-                        layers.push({ id: trimmedItem });
+                        const shorthand = parseDynamicLayerShorthandString(trimmedItem);
+                        layers.push(shorthand ? { ...shorthand, _originalJson: trimmedItem } : { id: trimmedItem });
                     }
                 }
                 currentItem = '';
@@ -177,7 +248,8 @@ export class URLManager {
                     layers.push({ id: trimmedItem });
                 }
             } else {
-                layers.push({ id: trimmedItem });
+                const shorthand = parseDynamicLayerShorthandString(trimmedItem);
+                layers.push(shorthand ? { ...shorthand, _originalJson: trimmedItem } : { id: trimmedItem });
             }
         }
 
@@ -676,13 +748,16 @@ export class URLManager {
             }
         }
 
-        // Handle selected features parameter
+        // The `selected=<layerId>:<featureId>` parameter is never written anymore —
+        // every selection has a corresponding marker (see MapMarkerManager._handleSelection),
+        // and a marker's location is enough to recover the same features by re-querying
+        // that point once layers are loaded (see serializeMarkersForURL / restoreMarkersFromSelectionLayer),
+        // so `selected=` would only duplicate what `markers=` already implies. Still
+        // clear it if a stale one is present from an older URL.
         if (options.updateSelections && this.stateManager) {
-            const newSelectedParam = this.serializeSelectionsForURL();
             const currentSelectedParam = urlParams.get('selected');
-
-            if (newSelectedParam !== currentSelectedParam) {
-                selectedParam = newSelectedParam;
+            if (currentSelectedParam) {
+                selectedParam = '';
                 hasChanges = true;
             }
         }
@@ -869,6 +944,8 @@ export class URLManager {
             window.dispatchEvent(new CustomEvent('urlUpdated', {
                 detail: { url: newUrl, activeLayers: this.getCurrentActiveLayers() }
             }));
+
+            this._notifyParentOfURL();
         }
     }
 
@@ -881,40 +958,6 @@ export class URLManager {
         }
 
         return layers.map(layer => this.layerToURL(layer)).join(',');
-    }
-
-    serializeSelectionsForURL() {
-        if (!this.stateManager) {
-            return '';
-        }
-
-        const selectionsByLayer = new Map();
-
-        this.stateManager._selectedFeatures.forEach(compositeKey => {
-            const featureState = this.stateManager._featureStates.get(compositeKey);
-            if (featureState) {
-                const layerId = featureState.layerId;
-                const featureId = this.stateManager._getFeatureId(featureState.feature);
-                const rawFeatureId = this.stateManager._extractRawFeatureId(featureId);
-
-                if (!selectionsByLayer.has(layerId)) {
-                    selectionsByLayer.set(layerId, []);
-                }
-                selectionsByLayer.get(layerId).push(rawFeatureId);
-            }
-        });
-
-        if (selectionsByLayer.size === 0) {
-            return '';
-        }
-
-        const segments = [];
-        selectionsByLayer.forEach((featureIds, layerId) => {
-            const featureIdsStr = featureIds.join(',');
-            segments.push(`${layerId}:${featureIdsStr}`);
-        });
-
-        return segments.join(';');
     }
 
     parseSelectionsFromURL(selectedParam) {
@@ -946,8 +989,12 @@ export class URLManager {
 
     /**
      * Serialize the selection layer's markers into a compact `markers=` param.
-     * Format: lng,lat:layerId~featureId,layerId~featureId|<next marker>...
-     * This replaces inlining the full selection GeoJSON inside the `layers=` param.
+     * Format: lng,lat|<next marker>...
+     * Only the click locations are stored — no per-feature layerId~featureId refs.
+     * The features present at each marker are recovered on load by re-querying that
+     * point once its layers are ready (see MapMarkerManager.restoreMarkersFromSelectionLayer),
+     * exactly as if the user clicked there, so there's nothing else to duplicate here
+     * or in a separate `selected=` parameter.
      */
     serializeMarkersForURL() {
         const selectionLayer = window.layerControl?._state?.groups?.find(g => g.id === 'selection');
@@ -961,12 +1008,8 @@ export class URLManager {
         const markers = [];
         features.forEach(feature => {
             if (feature?.geometry?.type !== 'Point') return;
-            const refs = feature.properties?.features;
-            if (!Array.isArray(refs) || refs.length === 0) return;
-
             const [lng, lat] = feature.geometry.coordinates;
-            const refsStr = refs.map(ref => `${ref.layerId}~${ref.featureId}`).join(',');
-            markers.push(`${round(lng)},${round(lat)}:${refsStr}`);
+            markers.push(`${round(lng)},${round(lat)}`);
         });
 
         return markers.join('|');
@@ -974,8 +1017,10 @@ export class URLManager {
 
     /**
      * Parse a compact `markers=` param back into a selection-layer FeatureCollection.
-     * Inverse of serializeMarkersForURL. The `name`/`featureCount` display fields are
-     * recomputed during restoration, so they are omitted from the URL.
+     * Inverse of serializeMarkersForURL. Also accepts the older
+     * `lng,lat:layerId~featureId,...` format (from URLs shared before this change) so
+     * existing shared links keep restoring their exact features rather than
+     * re-querying the point.
      */
     parseMarkersFromURL(markersParam) {
         const geojson = { type: 'FeatureCollection', features: [] };
@@ -985,33 +1030,34 @@ export class URLManager {
 
         markersParam.split('|').forEach((markerStr, index) => {
             const colonIndex = markerStr.indexOf(':');
-            if (colonIndex === -1) return;
-
-            const coordsStr = markerStr.substring(0, colonIndex);
-            const refsStr = markerStr.substring(colonIndex + 1);
+            const coordsStr = colonIndex === -1 ? markerStr : markerStr.substring(0, colonIndex);
 
             const [lng, lat] = coordsStr.split(',').map(parseFloat);
             if (isNaN(lng) || isNaN(lat)) return;
 
-            const featureRefs = refsStr.split(',').map(refStr => {
-                const tildeIndex = refStr.indexOf('~');
-                if (tildeIndex === -1) return null;
-                return {
-                    layerId: refStr.substring(0, tildeIndex),
-                    featureId: refStr.substring(tildeIndex + 1)
-                };
-            }).filter(Boolean);
+            const properties = { id: `marker-url-${index}` };
 
-            if (featureRefs.length === 0) return;
+            if (colonIndex !== -1) {
+                const refsStr = markerStr.substring(colonIndex + 1);
+                const featureRefs = refsStr.split(',').map(refStr => {
+                    const tildeIndex = refStr.indexOf('~');
+                    if (tildeIndex === -1) return null;
+                    return {
+                        layerId: refStr.substring(0, tildeIndex),
+                        featureId: refStr.substring(tildeIndex + 1)
+                    };
+                }).filter(Boolean);
+
+                if (featureRefs.length > 0) {
+                    properties.featureCount = featureRefs.length;
+                    properties.features = featureRefs;
+                }
+            }
 
             geojson.features.push({
                 type: 'Feature',
                 geometry: { type: 'Point', coordinates: [lng, lat] },
-                properties: {
-                    id: `marker-url-${index}`,
-                    featureCount: featureRefs.length,
-                    features: featureRefs
-                }
+                properties
             });
         });
 
@@ -1189,7 +1235,11 @@ export class URLManager {
             }
 
             // Handle selected features parameter
-            if (hasLocationClick && window.location.hash) {
+            // markers= is the more specific/authoritative param — a bare `selected`
+            // flag is redundant noise when markers= is present and must not hijack
+            // this branch into firing a single synthetic click instead of restoring
+            // every marker.
+            if (hasLocationClick && window.location.hash && !markersParam) {
                 applied = true;
                 await this.applyLocationClickFromURL();
             } else if ((markersParam || selectedParam) && this.stateManager) {

@@ -63,11 +63,11 @@ export class MapSearchControl {
         this.searchBox.addEventListener('input', this.handleInput.bind(this));
         this.searchBox.addEventListener('keydown', this.handleKeyDown.bind(this));
         this.searchBox.addEventListener('clear', this.handleClear.bind(this));
-        this.searchBox.addEventListener('input', () => {
-            if (window.urlManager) {
-                window.urlManager.updateSearchParam(this.getCurrentQuery());
-            }
-        });
+
+        // The fetch() patch in index.html (installed before the search-js CDN script loads,
+        // since that library caches globalThis.fetch at load time) consults this to decide
+        // whether to bypass the suggest endpoint's network request for the current input.
+        window.amche.shouldBypassSearchSuggest = () => this.isCoordinateInput;
         this.searchBox.bindMap(this.map);
 
         // Add required ARIA attributes for the combobox input
@@ -348,8 +348,9 @@ export class MapSearchControl {
      */
     removeSearchMarker() {
         if (this.searchMarker) {
-            this.searchMarker.remove();
+            const marker = this.searchMarker;
             this.searchMarker = null;
+            marker.remove();
         }
     }
 
@@ -792,6 +793,10 @@ export class MapSearchControl {
 
         this.currentQuery = query;
 
+        if (window.urlManager) {
+            window.urlManager.updateSearchParam(query);
+        }
+
         const coordinateResult = this.parseCoordinateInput(query);
         if (coordinateResult) {
             this.isCoordinateInput = true;
@@ -817,16 +822,12 @@ export class MapSearchControl {
 
             this.addSearchMarker([lng, lat], this.coordinateSuggestion.properties.place_name);
 
-            if (this.referenceView) {
-                const bounds = this.calculateContextBounds([[lng, lat]]);
-                if (bounds) {
-                    this.map.fitBounds(bounds, {
-                        padding: { top: 50, bottom: 50, left: 50, right: 50 },
-                        maxZoom: 16,
-                        duration: 1000
-                    });
-                }
-            }
+            this.map.flyTo({
+                center: [lng, lat],
+                zoom: Math.max(this.map.getZoom(), 14),
+                essential: true,
+                duration: 1000
+            });
         } else {
             this.isCoordinateInput = false;
             this.coordinateSuggestion = null;
@@ -973,6 +974,10 @@ export class MapSearchControl {
 
         this.hasActiveSearch = false;
         this.referenceView = null;
+
+        if (window.amche?.shouldBypassSearchSuggest) {
+            delete window.amche.shouldBypassSearchSuggest;
+        }
 
         if (this.searchBox) {
             this.searchBox.removeEventListener('suggest', this.handleSuggest.bind(this));

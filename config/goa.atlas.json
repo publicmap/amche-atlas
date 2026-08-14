@@ -152,6 +152,103 @@
       }
     },
     {
+      "tags": [
+        "pollution"
+      ],
+      "title": "Air Quality",
+      "description": "Live air quality and weather readings from the AQI Online sensor network across Goa.",
+      "type": "js",
+      "id": "aqi",
+      "url": "https://backend.aqionline.in/api/devices?page=1&limit=50",
+      "refresh": 300000,
+      "attribution": "<a href='https://aqionline.in'>AQI Online</a>",
+      "style": {
+        "text-field": [
+          "get",
+          "aqi"
+        ],
+        "circle-radius": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          8,
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          7,
+          5
+        ],
+        "circle-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "coalesce",
+            [
+              "get",
+              "aqi"
+            ],
+            0
+          ],
+          0,
+          "#00e400",
+          50,
+          "#ffff00",
+          100,
+          "#ff7e00",
+          150,
+          "#ff0000",
+          200,
+          "#8f3f97",
+          300,
+          "#7e0023"
+        ],
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#ffffff"
+      },
+      "inspect": {
+        "id": "device_id",
+        "title": "AQI",
+        "label": "aqi",
+        "fields": [
+          "pm25",
+          "pm10",
+          "co",
+          "co2",
+          "no2",
+          "o3",
+          "so2",
+          "temp",
+          "hum",
+          "online"
+        ],
+        "fieldTitles": [
+          "PM2.5 (µg/m³)",
+          "PM10 (µg/m³)",
+          "CO (ppb)",
+          "CO2 (ppm)",
+          "NO2 (ppb)",
+          "O3 (ppb)",
+          "SO2 (ppb)",
+          "Temperature (°C)",
+          "Humidity (%)",
+          "Online"
+        ]
+      }
+    },
+    {
       "id": "agricultural-landuse",
       "title": "Suggested Agricultural Landuse",
       "description": "Suggested agricultural crops and land-use practices for different areas of Goa based on soil characteristics, climate, and terrain analysis from <a href='http://gis.nbsslup.in/'>ICAR-NBSS&LUP Bhoomi Geoportal</a>.",
@@ -1010,6 +1107,51 @@
       "tags": [
         "6.Regulatory"
       ],
+      "id": "esa",
+      "title": "Goa Area ESA Village (2026 Draft)",
+      "type": "geojson",
+      "initiallyChecked": false,
+      "inspect": {
+        "id": "id",
+        "title": "Eco-Sensitive Area",
+        "label": "name"
+      },
+      "url": "https://gist.githubusercontent.com/planemad/17636414b540770a8e8d48889094c0e0/raw/287c68037d6312a9ae6c8158bb2bf286df129deb/esa-outline-raw.geojson",
+      "description": "Villages falling under Eco-Sensitive Areas in the Draft Notification dt. 2026-07-27. Digitized from Gazette Maps for <a href='https://editor.allmaps.org/georeference?url=https%3A%2F%2Fiiif.archive.org%2Fiiif%2Fin.gazette.central.e.2026-07-27.274876%2Fmanifest.json&bg-preset=osm&bg-url=https%3A%2F%2Findianopenmaps.fly.dev%2Fsoi%2Fosm%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.webp&image=https%3A%2F%2Fiiif.archive.org%2Fimage%2Fiiif%2F3%2Fin.gazette.central.e.2026-07-27.274876%252F274876_jp2.zip%252F274876_jp2%252F274876_0159.jp2'>Goa and neighbouring areas</a>, ",
+      "attribution": "<a href='https://archive.org/details/in.gazette.central.e.2026-07-27.274876'>Extrordinary Gazette of India, 2026-07-27 No. 4166(E)</a>",
+      "style": {
+        "fill-color": [
+          "coalesce",
+          [
+            "get",
+            "fill-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "lightgreen"
+        ],
+        "fill-opacity": 0.5,
+        "line-color": [
+          "coalesce",
+          [
+            "get",
+            "stroke-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#94e35e"
+        ],
+        "line-width": 4
+      }
+    },
+    {
+      "tags": [
+        "6.Regulatory"
+      ],
       "title": "Notified Private Forests",
       "description": "Private forests identified by Thomas and Arujao expert committees",
       "type": "geojson",
@@ -1378,11 +1520,11 @@
       "tags": [
         "3.Coastal Zone Plans"
       ],
-      "title": "Tidal hazard Lines",
+      "title": "CZMP 2019 Hazard Lines",
       "description": "Coastal lines demarcating the high tide line (HTL), low tide line (LTL) and composite hazard line. The primary purpose of the composite hazard line is to identify hazard zones along the coastline that reflects a potential danger and risk to people and their property. The hazard line is part of <a href='https://en.wikipedia.org/wiki/Integrated_coastal_zone_management'>Integrated coastal zone management</a> and is required per <a href='https://mczma.gov.in/sites/default/files/MoEF%20CZMP%20Guidelines%20OM%2026-6-2019.pdf'>required for CZMP 2019 maps</a>. This hazard line been prepared for the coastlines of India by <a href='https://surveyofindia.gov.in/documents/integrated-coastal-hazard-zone-mapping.pdf'>Survey of India</a> as a 0.5 meter contour line extending upto 7km inland at 1:10k scale to be used in CZMP 2019 maps. The line is an estimation of the highest tide level forecasted over the next 100 years. See <a href='https://moef.gov.in/uploads/2019/10/Climate-Change-and-the-Vulnerable-Indian-Coast_compressed.pdf'>Hazard line for the coast of India and its implications in coastal management (pg.29), MoEFCC</a> for the methods of delianation of the hazard line. This includes collection and presentation of data, identifying flood lines over the last 40 years (which includes sea level rise impacts), and a prediction of erosion to take place over the next 100 years and digital photogrammetric processing of high resolution Aerial photography data.",
       "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>Tidal and Hazard Lines, CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href='https://indianopenmaps.com/viewer#source=/not-so-open/coastal/regulation-lines/goa/&map=' target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
       "type": "vector",
-      "id": "2019-czmp-tidal-hazard-line",
+      "id": "2019-czmp-lines",
       "sourceLayer": "CZMP_2019_Goa_Hazard_Lines",
       "minzoom": 12,
       "maxzoom": 14,
@@ -2833,7 +2975,7 @@
       "tags": [
         "2.Development Plans"
       ],
-      "title": "1.Regional Development Plan for Goa 2021",
+      "title": "Regional Development Plan for Goa 2021",
       "description": "Regional landuse plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>",
       "headerImage": "https://mapwarper.net/uploads/74193/thumb/siolim-marna.png",
       "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
@@ -3151,7 +3293,7 @@
       ],
       "title": "Goa Admiralty Chart (1853)",
       "description": "Nautical chart of the West Coast of India from Achra River to Cape Ramas. Surveyed by Lieut. A.D. Taylor 1853-4 for East India Company.",
-      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Admiralty_Chart_No_740_West_Coast_of_India%2C_Published_1858%2C_New_Edition_1914.jpg/100px-Admiralty_Chart_No_740_West_Coast_of_India%2C_Published_1858%2C_New_Edition_1914.jpg",
+      "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Admiralty_Chart_No_740_West_Coast_of_India%2C_Published_1858%2C_New_Edition_1914.jpg/120px-Admiralty_Chart_No_740_West_Coast_of_India%2C_Published_1858%2C_New_Edition_1914.jpg",
       "type": "tms",
       "id": "1853-admiralty-chart",
       "url": "https://warper.wmflabs.org/maps/tile/4749/{z}/{x}/{y}.png",

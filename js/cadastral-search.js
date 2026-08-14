@@ -281,6 +281,28 @@ export function detectVillageFromMapCenter(map) {
     return findVillageEntry(name, taluka)
 }
 
+export async function getVillageCenter(villageName) {
+    if (!isCadastralSearchEnabled() || !villageName) return null
+    await lazyInit()
+
+    const ranges = getMatchingRowGroupRanges(villageName)
+    const candidateLower = villageName.toLowerCase()
+
+    for (const range of ranges) {
+        const rows = await parquetReadObjects({
+            file: parquetFile,
+            compressors,
+            columns: ['village', 'lon', 'lat'],
+            rowStart: range.start,
+            rowEnd: range.end,
+        })
+        const match = rows.find(r => r.village.toLowerCase() === candidateLower)
+        if (match) return { lon: match.lon, lat: match.lat }
+    }
+
+    return null
+}
+
 export async function queryCadastralPlotsByVillage(villageName, surveyRaw, limit = 5) {
     if (!isCadastralSearchEnabled() || !villageName) return []
     await lazyInit()

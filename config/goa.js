@@ -10,6 +10,81 @@
  * ============================================================================
  */
 
+/**
+ * ============================================================================
+ * Data-mapping functions for `type: "js"` layers.
+ *
+ * Each key matches a layer's `id` (or its `dataFunction` override) and
+ * receives { url, config, layerId }. It must gather/transform the response
+ * from `url` into a GeoJSON FeatureCollection.
+ * ============================================================================
+ */
+export const dataFunctions = {
+
+    /**
+     * AQI Online device readings
+     * Fetches devices from the paginated https://backend.aqionline.in/api/devices
+     * endpoint and converts each device's latest realtime readings into a
+     * GeoJSON point feature.
+     *
+     * Used for: Air Quality layer (id: "aqi")
+     */
+    aqi: async ({ url }) => {
+        const MAX_PAGES = 10;
+        const requestUrl = new URL(url);
+        const limit = Number(requestUrl.searchParams.get('limit')) || 50;
+
+        const features = [];
+        const seenIds = new Set();
+
+        for (let page = 1; page <= MAX_PAGES; page++) {
+            requestUrl.searchParams.set('page', page);
+            requestUrl.searchParams.set('limit', limit);
+
+            const response = await fetch(requestUrl.toString());
+            if (!response.ok) {
+                console.warn(`[AQI] Page ${page} request failed with status ${response.status}`);
+                break;
+            }
+
+            const { data = [] } = await response.json();
+            if (data.length === 0) break;
+
+            for (const device of data) {
+                if (typeof device.latitude !== 'number' || typeof device.longitude !== 'number') continue;
+                if (seenIds.has(device._id)) continue;
+                seenIds.add(device._id);
+
+                const readings = {};
+                (device.realtime || []).forEach(({ _field, _value, unit }) => {
+                    readings[_field] = _value;
+                    if (unit) readings[`${_field}_unit`] = unit;
+                });
+
+                features.push({
+                    type: 'Feature',
+                    id: device._id,
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [device.longitude, device.latitude]
+                    },
+                    properties: {
+                        device_id: device.device_id,
+                        online: device.online,
+                        ...readings
+                    }
+                });
+            }
+
+            // Last page reached
+            if (data.length < limit) break;
+        }
+
+        return { type: 'FeatureCollection', features };
+    }
+
+};
+
 export const handlers = {
 
     /**
@@ -251,6 +326,20 @@ export const handlers = {
  * - getBhunakshaInfo: Fetches occupant details for plot layers
  * - waterBodyInfo: Shows water body details
  * - fireTruckStatus: Displays fire truck status with color coding
+ *
+ * This file also exports `dataFunctions` for `type: "js"` layers, used to
+ * gather/transform a fetched API response into GeoJSON. Add a `type: "js"`
+ * layer in goa.atlas.json with `id` matching a `dataFunctions` key:
+ *
+ * {
+ *   "id": "aqi",
+ *   "type": "js",
+ *   "url": "https://backend.aqionline.in/api/devices?page=1&limit=50"
+ * }
+ *
+ * Available data functions:
+ * - aqi: Paginates the AQI Online devices API and converts device readings
+ *        into a GeoJSON FeatureCollection of point features
  *
  * ============================================================================
  */

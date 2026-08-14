@@ -26,11 +26,10 @@ export class MapFeatureControl {
         this._config = null;
         this._globalHandlersAdded = false;
         this._isMapDragging = false;
-        this._lastMouseMoveTime = Date.now();
+        this._autoSelectEnabled = true;
         this._isIframeReady = false;
         this._messageQueue = [];
         this._inspectorInitialized = false;
-        this._lastMouseMoveTime = 0;
 
         // Set up resize listener
         this._resizeListener = this._handleResize.bind(this);
@@ -103,16 +102,6 @@ export class MapFeatureControl {
         // Set up global map interaction handlers for hover/click
         this._setupGlobalInteractionHandlers();
 
-        // Enable center hover for keyboard navigation
-        this._stateManager.setCenterHoverEnabled(true);
-
-        // Trigger initial center hover after a short delay
-        setTimeout(() => {
-            if (this._stateManager.isCenterHoverEnabled()) {
-                this._stateManager.triggerCenterHover();
-            }
-        }, 500);
-
         // Send initial data to iframe
         this._sendDataToIframe();
 
@@ -125,6 +114,58 @@ export class MapFeatureControl {
     setConfig(config) {
         this._config = config;
         this._sendDataToIframe();
+    }
+
+    /**
+     * Toggle "add to selection" mode. Shared by the inspector panel's own
+     * toggle button and the right-click/long-press shortcut menu, so both
+     * stay in sync with the marker manager's selection mode.
+     */
+    setAddSelectionMode(enabled) {
+        if (this._markerManager) {
+            this._markerManager.setSelectionMode(enabled ? 'add' : 'replace');
+        }
+        if (this._iframe && this._iframe.contentWindow) {
+            this._iframe.contentWindow.postMessage({
+                type: 'add-selection-mode-changed',
+                enabled
+            }, '*');
+        }
+    }
+
+    isAddSelectionModeEnabled() {
+        return this._markerManager?.getSelectionMode?.() === 'add';
+    }
+
+    /**
+     * When off, map clicks no longer run the select/place-marker pipeline
+     * (see the `force` guard in _processClickAtPoint) — selection then only
+     * happens through the shortcut menu's manual "Select features" action.
+     */
+    setAutoSelectEnabled(enabled) {
+        this._autoSelectEnabled = !!enabled;
+    }
+
+    isAutoSelectEnabled() {
+        return this._autoSelectEnabled;
+    }
+
+    clearSelection() {
+        this._stateManager?.clearAllSelections();
+    }
+
+    zoomToSelected(lngLat) {
+        this._markerManager?.zoomToSelected(lngLat);
+    }
+
+    /**
+     * Manually runs the click-selection pipeline at an arbitrary lngLat,
+     * bypassing the Auto Select gate — used by the shortcut menu's
+     * "Select features" action.
+     */
+    triggerSelectionAt(lngLat) {
+        if (!this._map || !lngLat) return;
+        this._processClickAtPoint(this._map.project(lngLat), lngLat, { force: true });
     }
 
     /**
@@ -435,15 +476,10 @@ export class MapFeatureControl {
                 }
             } else if (event.data.type === 'set-add-selection-mode') {
                 if (this._markerManager) {
-                    const mode = event.data.enabled ? 'add' : 'replace';
-                    this._markerManager.setSelectionMode(mode);
-                }
-                // Also update state manager Cmd/Ctrl flag
-                if (this._stateManager) {
-                    this._stateManager._isCmdCtrlPressed = event.data.enabled;
+                    this._markerManager.setSelectionMode(event.data.enabled ? 'add' : 'replace');
                 }
             } else if (event.data.type === 'open-layer-info') {
-                this._openLayerInfo(event.data.layer);
+                this._openLayerInfo(event.data.layer, { edit: event.data.edit });
             } else if (event.data.type === 'hover-isolate-feature') {
                 this._hoverIsolateFeature(event.data.layerId, event.data.featureId, event.data.feature);
             } else if (event.data.type === 'clear-feature-isolation') {
@@ -557,7 +593,7 @@ export class MapFeatureControl {
     /**
      * Open layer information modal
      */
-    _openLayerInfo(layer) {
+    _openLayerInfo(layer, options = {}) {
         const modal = document.getElementById('layer-info-modal');
         const iframe = document.getElementById('layer-info-iframe');
 
@@ -567,7 +603,8 @@ export class MapFeatureControl {
         }
 
         const layerJson = encodeURIComponent(JSON.stringify(layer));
-        iframe.src = `map-information.html?layer=${layerJson}`;
+        const editParam = options.edit ? '&edit=true' : '';
+        iframe.src = `map-information.html?layer=${layerJson}${editParam}`;
         modal.style.display = 'block';
 
         const closeHandler = (e) => {
@@ -767,10 +804,18 @@ export class MapFeatureControl {
                 urlOrderMap.set(id, index);
             });
 
-            // Sort layerConfigs by URL order
+            // Sort layerConfigs by URL order. Dynamic shorthand layers (e.g.
+            // "allmaps:<id>") resolve to a different `.id` (e.g. "allmaps-<id>")
+            // than the literal URL token, so match on `_originalJson` first —
+            // it preserves the exact token that was in the `layers=` param.
+            const getUrlOrder = (config) => {
+                const originalOrder = urlOrderMap.get(config._originalJson);
+                return originalOrder !== undefined ? originalOrder : urlOrderMap.get(config.id);
+            };
+
             layerConfigs.sort((a, b) => {
-                const aOrder = urlOrderMap.get(a.id);
-                const bOrder = urlOrderMap.get(b.id);
+                const aOrder = getUrlOrder(a);
+                const bOrder = getUrlOrder(b);
 
                 // If both have URL order, sort by it
                 if (aOrder !== undefined && bOrder !== undefined) {
@@ -1325,7 +1370,7 @@ export class MapFeatureControl {
 
             // Update URL if urlManager is available
             if (window.urlManager) {
-                window.urlManager.updateURL();
+                window.urlManager.updateURL({ updateLayers: true });
             }
         }
     }
@@ -1815,6 +1860,16 @@ export class MapFeatureControl {
         this._iframeSrcLoaded = true;
     }
 
+    /**
+     * Open the selected-features panel and expand/scroll to a specific layer's
+     * group within it. Used by hover actions elsewhere on the page (e.g. the
+     * attribution control) that want to jump straight to a layer's selection.
+     */
+    showLayerSelection(layerId) {
+        this._showPanel();
+        this._sendMessageToIframe({ type: 'expand-layer', layerId });
+    }
+
     _showPanel() {
         this.preload();
 
@@ -1919,38 +1974,8 @@ export class MapFeatureControl {
         let tapFallbackTimer = null;
         let touchStartTarget = null;
 
-        // Tap debug logging — helps diagnose why taps don't open the inspector on
-        // mobile. Visible in remote/device consoles with the [TapDebug] prefix.
-        const tapLog = (label, extra = {}) => {
-            console.log(`[TapDebug] ${label}`, {
-                isTouchDevice: ('ontouchstart' in window) || navigator.maxTouchPoints > 0,
-                maxTouchPoints: navigator.maxTouchPoints,
-                ...extra
-            });
-        };
-        tapLog('handlers attached');
-
-        // Native DOM-level diagnostics on the map canvas. Mapbox synthesizes its
-        // own `click` from the browser's native DOM click; if the native click
-        // never fires we know the browser/terrain swallowed the tap, if it fires
-        // but the mapbox `click` (below) doesn't, mapbox swallowed it.
-        const canvasContainer = this._map.getCanvasContainer();
-        ['pointerdown', 'pointerup', 'click', 'touchend'].forEach(type => {
-            canvasContainer.addEventListener(type, (ev) => {
-                tapLog(`DOM ${type} on canvas`, {
-                    pointerType: ev.pointerType,
-                    target: ev.target?.className || ev.target?.tagName,
-                    defaultPrevented: ev.defaultPrevented
-                });
-            }, { capture: true, passive: true });
-        });
-
         // Touch start handler for long-press detection
         this._map.on('touchstart', (e) => {
-            tapLog('touchstart', {
-                touches: e.originalEvent.touches?.length,
-                point: e.point
-            });
             if (!e.originalEvent.touches || e.originalEvent.touches.length !== 1) {
                 // Multi-touch gesture (pinch/rotate) — not a tap candidate.
                 touchStartPoint = null;
@@ -1962,21 +1987,20 @@ export class MapFeatureControl {
             isLongPress = false;
             touchMoved = false;
 
-            // Start every tap from a clean add-mode state. Long-press sets the
-            // transient Cmd/Ctrl flag mid-gesture; resetting it here (rather than
-            // via timers tied to the previous gesture, which the next tap could
-            // cancel) guarantees a leftover long-press flag never keeps later
-            // taps stuck in add-mode (old markers never cleared). Explicit add
-            // mode lives in the marker manager's selectionMode and is preserved.
+            // Start every tap from a clean add-mode state. Explicit add mode
+            // (toggled via the shortcut menu or inspector panel) lives in the
+            // marker manager's selectionMode and is preserved across taps.
             const explicitAddMode = this._markerManager?.getSelectionMode?.() === 'add';
             this._stateManager._isCmdCtrlPressed = explicitAddMode;
 
-            // Set timer for long press (500ms)
+            // Set timer for long press (500ms). A long press now opens the
+            // shortcut menu (shortcut-menu.js, via the browser's native
+            // `contextmenu` event, which mobile browsers fire on long-press)
+            // instead of arming add-selection mode, so the tap-fallback below
+            // must skip it to avoid also selecting whatever feature is under
+            // the finger.
             touchTimer = setTimeout(() => {
                 isLongPress = true;
-                // Simulate Cmd/Ctrl press for long-press
-                this._stateManager._isCmdCtrlPressed = true;
-                tapLog('long-press detected -> add mode ON');
             }, 500);
         });
 
@@ -1988,7 +2012,6 @@ export class MapFeatureControl {
 
                 // Cancel if moved more than 10 pixels
                 if (dx > 10 || dy > 10) {
-                    tapLog('touchmove -> long-press cancelled (moved)', { dx, dy });
                     touchMoved = true;
                     clearTimeout(touchTimer);
                     touchTimer = null;
@@ -1999,11 +2022,6 @@ export class MapFeatureControl {
 
         // Touch end handler - reset state
         this._map.on('touchend', (e) => {
-            tapLog('touchend', {
-                isLongPress,
-                touchMoved,
-                remainingTouches: e.originalEvent.touches?.length
-            });
             if (touchTimer) {
                 clearTimeout(touchTimer);
                 touchTimer = null;
@@ -2022,19 +2040,17 @@ export class MapFeatureControl {
             // Taps on marker/popup/control overlays bubble up to mapbox's touch
             // handler too, but those elements have their own click handlers — if
             // we synthesized here we'd create a new selection instead of letting
-            // the marker toggle its popup.
+            // the marker toggle its popup. Long presses are excluded entirely:
+            // they open the shortcut menu (shortcut-menu.js) rather than
+            // selecting a feature.
             const allFingersLifted = !e.originalEvent.touches || e.originalEvent.touches.length === 0;
             const tappedCanvas = touchStartTarget === this._map.getCanvas();
-            if (!touchMoved && touchStartPoint && allFingersLifted && tappedCanvas) {
+            if (!touchMoved && !isLongPress && touchStartPoint && allFingersLifted && tappedCanvas) {
                 const tapPoint = touchStartPoint;
                 if (tapFallbackTimer) clearTimeout(tapFallbackTimer);
                 tapFallbackTimer = setTimeout(() => {
                     tapFallbackTimer = null;
                     const lngLat = this._map.unproject(tapPoint);
-                    tapLog('tap fallback -> processClick (mapbox click never fired)', { point: tapPoint, lngLat });
-                    // The long-press flag (set mid-gesture) is still active here so
-                    // a long-press tap adds to the selection; the next touchstart
-                    // resets it for the following tap.
                     this._processClickAtPoint(tapPoint, lngLat);
                 }, 60);
             }
@@ -2042,7 +2058,6 @@ export class MapFeatureControl {
 
         // Click handler
         this._map.on('click', (e) => {
-            tapLog('click fired', { point: e.point, lngLat: e.lngLat });
             // Real mapbox click arrived — cancel the touch fallback so we don't
             // process the same tap twice.
             if (tapFallbackTimer) {
@@ -2055,19 +2070,42 @@ export class MapFeatureControl {
         // Mousemove handler (skip on touch devices to avoid hover/selection conflicts)
         const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         if (!isTouchDevice) {
+            // Native mousemove can fire faster than the display refreshes, and
+            // _handleMouseMove does several queryRenderedFeatures calls plus hover
+            // state/DOM work per tick. Running that synchronously on every event backs
+            // up the main thread — updates lag behind the cursor and catch up in a
+            // burst once movement slows, instead of tracking smoothly. Coalesce to the
+            // latest event once per animation frame.
+            let mouseMoveEvent = null;
+            let mouseMoveRAF = null;
             this._map.on('mousemove', (e) => {
-                // Track mouse movement for center hover prioritization
-                this._lastMouseMoveTime = Date.now();
-                this._handleMouseMove(e);
+                // A marker balloon's manual drag (MapMarkerManager) runs via
+                // window-level listeners while the pointer passes over the map
+                // canvas — skip the hover query entirely so it doesn't compete with
+                // the drag for the main thread or flip hover state underneath it.
+                if (this._stateManager._isDraggingMarkerPanel) return;
+                mouseMoveEvent = e;
+                if (mouseMoveRAF) return;
+                mouseMoveRAF = requestAnimationFrame(() => {
+                    mouseMoveRAF = null;
+                    this._handleMouseMove(mouseMoveEvent);
+                });
             });
         }
 
-        // Mouse leave handlers
-        this._map.on('mouseleave', () => {
+        // Mouse leave handlers. The hover popup/marker is rendered as a sibling of the
+        // map canvas, so moving the pointer onto it fires the canvas's `mouseout` even
+        // though the pointer never left the map. Treating that as a real leave clears
+        // the hover state and removes the marker, which drops the pointer back onto the
+        // canvas and re-triggers hover — an endless flicker loop. Ignore leaves whose
+        // related target is one of our own overlays so hover stays stable.
+        this._map.on('mouseleave', (e) => {
+            if (this._isPointerEnteringOwnOverlay(e)) return;
             this._stateManager.handleMapMouseLeave();
         });
 
-        this._map.on('mouseout', () => {
+        this._map.on('mouseout', (e) => {
+            if (this._isPointerEnteringOwnOverlay(e)) return;
             this._stateManager.handleMapMouseLeave();
         });
 
@@ -2078,26 +2116,6 @@ export class MapFeatureControl {
 
         this._map.on('dragend', () => {
             this._isMapDragging = false;
-
-            // Trigger center hover after drag ends on touch devices
-            if (this._stateManager.isCenterHoverEnabled()) {
-                // Small delay to allow map to settle
-                setTimeout(() => {
-                    this._stateManager.triggerCenterHover();
-                }, 100);
-            }
-        });
-
-        // Map move handler for center hover (keyboard navigation support)
-        this._map.on('move', () => {
-            const timeSinceMouseMove = Date.now() - this._lastMouseMoveTime;
-            const isMouseInactive = timeSinceMouseMove > 500;
-
-            if (this._stateManager.isCenterHoverEnabled() &&
-                isMouseInactive &&
-                !this._isMapDragging) {
-                this._stateManager.triggerCenterHover();
-            }
         });
 
         // Window message listener for center selection (spacebar trigger)
@@ -2117,7 +2135,9 @@ export class MapFeatureControl {
      * @param {{x:number,y:number}} point - screen point
      * @param {{lng:number,lat:number}} lngLat - geographic coordinate
      */
-    _processClickAtPoint(point, lngLat) {
+    _processClickAtPoint(point, lngLat, { force = false } = {}) {
+        if (!force && !this._autoSelectEnabled) return;
+
         let interactiveFeatures = [];
         try {
             // Scope the query to interactive layers so clicks don't intersect
@@ -2258,6 +2278,18 @@ export class MapFeatureControl {
     }
 
     /**
+     * True when a map mouseleave/mouseout is actually the pointer moving onto one of
+     * our own map overlays (hover marker, selection marker, or popup) rather than
+     * leaving the map. Used to suppress the hover-clear flicker loop those overlays
+     * would otherwise cause when they sit under the cursor.
+     */
+    _isPointerEnteringOwnOverlay(e) {
+        const related = e?.originalEvent?.relatedTarget;
+        if (!related || typeof related.closest !== 'function') return false;
+        return !!related.closest('.hover-marker, .selection-marker, .mapboxgl-popup');
+    }
+
+    /**
      * Find the closest feature to a given screen point
      * @param {Array} features - Array of features to search
      * @param {Object} point - Screen point {x, y}
@@ -2368,7 +2400,11 @@ export class MapFeatureControl {
                 return layerId;
             }
 
-            if (layerConfig.type === 'csv' && actualLayerId.startsWith(`csv-${layerId}-`)) {
+            if (layerConfig.type === 'js' && actualLayerId.startsWith(`geojson-${layerId}-`)) {
+                return layerId;
+            }
+
+            if ((layerConfig.type === 'csv' || layerConfig.type === 'sheet') && actualLayerId.startsWith(`csv-${layerId}-`)) {
                 return layerId;
             }
         }
