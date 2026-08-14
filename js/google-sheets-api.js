@@ -124,19 +124,23 @@ export async function fetchCsvRows(url) {
  * `$row`/`$table`, not a real column from the sheet.
  */
 export async function fetchAllSheetRows(spreadsheetId, tabs) {
+    const results = await Promise.allSettled(
+        tabs.map(tab => fetchCsvRows(buildCsvUrl(spreadsheetId, tab.gid)))
+    );
+
     const allRows = [];
-    for (const tab of tabs) {
-        try {
-            const rows = await fetchCsvRows(buildCsvUrl(spreadsheetId, tab.gid));
-            rows.forEach(row => {
-                if (row['$row'] !== undefined) row['$row'] = `${tab.gid}-${row['$row']}`;
-                row['$sheet'] = tab.name;
-            });
-            allRows.push(...rows);
-        } catch (error) {
-            console.warn(`[GoogleSheetsAPI] Failed to load sheet "${tab.name}" (gid=${tab.gid}):`, error);
+    results.forEach((result, i) => {
+        const tab = tabs[i];
+        if (result.status === 'rejected') {
+            console.warn(`[GoogleSheetsAPI] Failed to load sheet "${tab.name}" (gid=${tab.gid}):`, result.reason);
+            return;
         }
-    }
+        result.value.forEach(row => {
+            if (row['$row'] !== undefined) row['$row'] = `${tab.gid}-${row['$row']}`;
+            row['$sheet'] = tab.name;
+        });
+        allRows.push(...result.value);
+    });
     return allRows;
 }
 
