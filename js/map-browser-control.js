@@ -414,7 +414,7 @@ export class MapBrowserControl {
 
         const updateHandler = (e) => {
             if (e.data.type === 'update-layer') {
-                this._handleLayerUpdate(e.data.layer);
+                this._handleLayerUpdate(e.data.layer, layer.id);
                 modal.style.display = 'none';
                 iframe.src = '';
                 window.removeEventListener('message', closeHandler);
@@ -437,7 +437,10 @@ export class MapBrowserControl {
         document.addEventListener('keydown', keyHandler);
     }
 
-    _handleLayerUpdate(updatedLayer) {
+    // originalId is the layer's id *before* this edit — needed to find its
+    // existing URL segment when the edit itself renames the id (updatedLayer.id
+    // would otherwise never match anything already in the URL).
+    _handleLayerUpdate(updatedLayer, originalId = updatedLayer.id) {
         console.log('[MapBrowserControl] Updating layer:', updatedLayer);
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -455,7 +458,7 @@ export class MapBrowserControl {
             try {
                 if (layerStr.startsWith('{') || layerStr.startsWith("{'")) {
                     const parsed = JSON.parse(layerStr.replace(/'/g, '"'));
-                    if (parsed.id === updatedLayer.id) {
+                    if (parsed.id === originalId) {
                         foundAndReplaced = true;
                         let jsonString = JSON.stringify(updatedLayer);
                         jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
@@ -466,7 +469,7 @@ export class MapBrowserControl {
                     }
                     return layerStr;
                 } else {
-                    if (layerStr === updatedLayer.id) {
+                    if (layerStr === originalId) {
                         foundAndReplaced = true;
                         let jsonString = JSON.stringify(updatedLayer);
                         jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
@@ -479,7 +482,7 @@ export class MapBrowserControl {
                 }
             } catch (e) {
                 console.error('[MapBrowserControl] Error parsing layer:', e);
-                if (layerStr === updatedLayer.id) {
+                if (layerStr === originalId) {
                     foundAndReplaced = true;
                     let jsonString = JSON.stringify(updatedLayer);
                     jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {

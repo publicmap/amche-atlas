@@ -519,31 +519,22 @@ export class MapExportControl {
         }
     }
 
+    /**
+     * Renders the exact same map+footer raster as _exportPNG/_exportJPEG (via
+     * _addFooterToRaster) and drops it into a single full-bleed page image,
+     * so the PDF layout (title, legend, QR, scale bar, north arrow) is
+     * pixel-identical to the image exports instead of a separately
+     * hand-drawn jsPDF footer.
+     */
     async _exportPDF(config) {
         const { jsPDF } = await import('jspdf');
 
         const widthMm = config.width;
         const heightMm = config.height;
         const dpi = config.dpi || 96;
-        const includeLegend = config.includeLegend || false;
 
-        const margins = this._parseMargin(config.margin || '10mm');
-
-        let shareUrl = window.location.href;
-        if (window.urlManager) {
-            shareUrl = window.urlManager.getShareableURL();
-        }
-
-        let attributionText = '';
-        const attribCtrl = this._map._controls.find(c => c._container && c._container.classList.contains('mapboxgl-ctrl-attrib'));
-        if (attribCtrl) {
-            attributionText = attribCtrl._container.textContent;
-        }
-
-        const contentWidthMm = widthMm - margins.left - margins.right;
-        const contentHeightMm = heightMm - margins.top - margins.bottom;
-        const targetWidth = Math.round((contentWidthMm * dpi) / 25.4);
-        const targetHeight = Math.round((contentHeightMm * dpi) / 25.4);
+        const targetWidth = Math.round((widthMm * dpi) / 25.4);
+        const targetHeight = Math.round((heightMm * dpi) / 25.4);
 
         const frameBounds = this._frame.getBounds();
         const frameCenter = frameBounds.getCenter();
@@ -558,157 +549,6 @@ export class MapExportControl {
 
         this._frame.hide();
 
-        this._sendProgress(10, 'Generating QR code');
-        let qrDataUrl = null;
-        if (config.includeQRCode !== false) {
-            try {
-                qrDataUrl = await this._getQRCodeDataUrl(shareUrl);
-                this._sendProgress(20, 'QR code generated');
-            } catch (e) {
-                console.warn('Failed to generate QR for PDF', e);
-                this._sendProgress(20, 'Skipping QR code');
-            }
-        } else {
-            this._sendProgress(20, 'Skipping QR code');
-        }
-
-        this._sendProgress(25, 'Preparing legend');
-        let overlayDataUrl = null;
-        let overlayWidthMm = 0;
-        let overlayHeightMm = 0;
-
-        if (includeLegend) {
-            const featurePanelLayers = document.querySelector('.feature-control-layers.map-feature-panel-layers') ||
-                document.querySelector('.map-feature-panel-layers');
-
-            const hasContent = featurePanelLayers && (
-                featurePanelLayers.children.length > 0 ||
-                featurePanelLayers.textContent.trim().length > 0
-            );
-
-            if (hasContent) {
-                try {
-                    const html2canvas = (await import('html2canvas')).default;
-                    const parentPanel = featurePanelLayers.closest('.map-feature-panel');
-                    const wasHidden = parentPanel && parentPanel.style.display === 'none';
-                    const originalDisplay = wasHidden ? 'none' : null;
-
-                    if (wasHidden && parentPanel) {
-                        parentPanel.style.display = 'flex';
-                        parentPanel.offsetHeight;
-                    }
-
-                    const clone = featurePanelLayers.cloneNode(true);
-
-                    const allDetails = clone.querySelectorAll('sl-details');
-                    allDetails.forEach(detail => {
-                        detail.open = true;
-                        const contentContainer = detail.querySelector('.layer-content');
-                        if (contentContainer) {
-                            contentContainer.style.display = 'block';
-                        }
-                    });
-
-                    const allTabPanels = clone.querySelectorAll('sl-tab-panel');
-                    allTabPanels.forEach(panel => {
-                        panel.removeAttribute('hidden');
-                        panel.style.display = 'block';
-                        panel.style.visibility = 'visible';
-                    });
-
-                    const computedStyle = window.getComputedStyle(featurePanelLayers);
-                    const targetWidth = parentPanel && parentPanel.offsetWidth > 0
-                        ? Math.min(parentPanel.offsetWidth, 350)
-                        : 300;
-
-                    clone.style.position = 'absolute';
-                    clone.style.left = '0px';
-                    clone.style.top = '0px';
-                    clone.style.width = `${targetWidth}px`;
-                    clone.style.maxWidth = 'none';
-                    clone.style.maxHeight = 'none';
-                    clone.style.overflow = 'visible';
-                    clone.style.backgroundColor = '#ffffff';
-                    clone.style.padding = computedStyle.padding;
-                    clone.style.margin = '0';
-                    clone.style.boxSizing = 'border-box';
-                    clone.style.zIndex = '99999';
-                    clone.style.fontFamily = computedStyle.fontFamily;
-                    clone.style.fontSize = computedStyle.fontSize;
-                    clone.style.color = computedStyle.color;
-                    clone.style.lineHeight = computedStyle.lineHeight;
-
-                    document.body.appendChild(clone);
-
-                    await new Promise(resolve => requestAnimationFrame(resolve));
-                    await new Promise(resolve => requestAnimationFrame(resolve));
-                    await new Promise(resolve => setTimeout(resolve, 200));
-
-                    const cloneRect = clone.getBoundingClientRect();
-                    const allElements = Array.from(clone.querySelectorAll('*'));
-                    let maxBottom = 0;
-
-                    for (const el of allElements) {
-                        const style = window.getComputedStyle(el);
-                        if (style.display === 'none' || style.visibility === 'hidden') {
-                            continue;
-                        }
-
-                        const rect = el.getBoundingClientRect();
-                        const relativeBottom = rect.bottom - cloneRect.top;
-
-                        const hasText = el.textContent && el.textContent.trim().length > 0;
-                        const hasImage = el.querySelector && (el.querySelector('img') || el.querySelector('svg'));
-                        const hasVisibleContent = rect.height > 0 && (hasText || hasImage || el.children.length > 0);
-
-                        if (hasVisibleContent && relativeBottom > maxBottom) {
-                            maxBottom = relativeBottom;
-                        }
-                    }
-
-                    const contentHeight = Math.max(maxBottom, clone.scrollHeight);
-                    const finalHeight = contentHeight < clone.scrollHeight * 0.8
-                        ? contentHeight + 10
-                        : clone.scrollHeight;
-
-                    clone.style.left = '-9999px';
-
-                    const canvas = await html2canvas(clone, {
-                        backgroundColor: '#ffffff',
-                        scale: 2,
-                        logging: false,
-                        useCORS: true,
-                        width: targetWidth,
-                        height: finalHeight,
-                        windowWidth: targetWidth,
-                        windowHeight: finalHeight
-                    });
-
-                    document.body.removeChild(clone);
-
-                    overlayDataUrl = canvas.toDataURL('image/png');
-
-                    const logicWidth = canvas.width / 2;
-                    const logicHeight = canvas.height / 2;
-                    overlayWidthMm = logicWidth * 0.26458;
-                    overlayHeightMm = logicHeight * 0.26458;
-
-                    this._sendProgress(40, 'Legend captured');
-
-                    if (wasHidden && parentPanel) {
-                        parentPanel.style.display = originalDisplay;
-                    }
-                } catch (e) {
-                    console.warn('Failed to capture overlay', e);
-                    this._sendProgress(40, 'Legend capture failed');
-                }
-            } else {
-                this._sendProgress(40, 'No legend to capture');
-            }
-        } else {
-            this._sendProgress(40, 'Skipping legend');
-        }
-
         return new Promise((resolve, reject) => {
             const capture = async () => {
                 try {
@@ -718,116 +558,32 @@ export class MapExportControl {
 
                     this._sendProgress(50, 'Capturing map');
                     const canvas = this._map.getCanvas();
-                    let imgData = canvas.toDataURL('image/png');
+                    let dataUrl = canvas.toDataURL('image/png');
 
+                    const actualPixelWidth = canvas.width;
+                    const actualPixelHeight = canvas.height;
+
+                    let markersDataUrl = null;
                     if (config.includeMarkers !== false) {
                         this._sendProgress(55, 'Capturing markers');
                         try {
-                            const markersDataUrl = await this._captureMarkersOverlay(targetWidth, targetHeight, canvas.width, canvas.height);
-                            if (markersDataUrl) {
-                                imgData = await this._mergeMarkersOntoRaster(imgData, markersDataUrl, canvas.width, canvas.height);
-                            }
+                            markersDataUrl = await this._captureMarkersOverlay(targetWidth, targetHeight, actualPixelWidth, actualPixelHeight);
                         } catch (e) {
                             console.warn('Failed to capture markers for PDF export', e);
                         }
                     }
 
+                    this._sendProgress(60, 'Adding attribution');
+                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
+
+                    this._sendProgress(85, 'Building PDF');
                     const doc = new jsPDF({
                         orientation: widthMm > heightMm ? 'l' : 'p',
                         unit: 'mm',
                         format: [widthMm, heightMm]
                     });
 
-                    doc.addImage(imgData, 'PNG', margins.left, margins.top, contentWidthMm, contentHeightMm);
-
-                    if (overlayDataUrl && overlayWidthMm > 0 && overlayHeightMm > 0) {
-                        const overlayX = margins.left + 5;
-                        const overlayY = margins.top + 5;
-                        doc.addImage(overlayDataUrl, 'PNG', overlayX, overlayY, overlayWidthMm, overlayHeightMm);
-                    }
-
-                    this._sendProgress(70, 'Adding footer');
-
-                    const footerPadding = 2;
-                    const elementGap = 4;
-                    const textGap = 1.2;
-                    const qrSizeMm = 20;
-                    const scaleNorthWidthMm = 30;
-
-                    const footerY = heightMm - margins.bottom - qrSizeMm - footerPadding;
-
-                    if (qrDataUrl) {
-                        doc.setFillColor(255, 255, 255);
-                        doc.setGState(new doc.GState({ opacity: 0.5 }));
-                        doc.roundedRect(margins.left + footerPadding, footerY, qrSizeMm, qrSizeMm, 0.5, 0.5, 'F');
-                        doc.addImage(qrDataUrl, 'PNG', margins.left + footerPadding, footerY, qrSizeMm, qrSizeMm);
-                        doc.setGState(new doc.GState({ opacity: 1.0 }));
-                    }
-
-                    const textStartX = margins.left + footerPadding + qrSizeMm + elementGap;
-                    const textWidth = contentWidthMm - qrSizeMm - scaleNorthWidthMm - (elementGap * 3) - (footerPadding * 2);
-                    let textY = footerY + 1;
-
-                    doc.setGState(new doc.GState({ opacity: 0.5 }));
-
-                    if (this._title) {
-                        doc.setFontSize(10);
-                        doc.setFont(undefined, 'bold');
-                        const titleLines = doc.splitTextToSize(this._title.replace(/<br\s*\/?>/gi, '\n'), textWidth - 4);
-                        const titleHeight = titleLines.length * 3.5 + 2;
-
-                        doc.setFillColor(255, 255, 255);
-                        doc.roundedRect(textStartX, textY - 1, textWidth, titleHeight, 0.5, 0.5, 'F');
-
-                        doc.setGState(new doc.GState({ opacity: 1.0 }));
-                        doc.setTextColor(0, 0, 0);
-                        doc.text(titleLines, textStartX + 2, textY + 2);
-                        textY += titleHeight + textGap;
-                        doc.setGState(new doc.GState({ opacity: 0.5 }));
-                    }
-
-                    const date = new Date();
-                    const timestamp = date.toLocaleString('en-GB', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-
-                    doc.setFillColor(255, 255, 255);
-                    doc.roundedRect(textStartX, textY - 0.5, textWidth, 3.5, 0.5, 0.5, 'F');
-                    doc.setGState(new doc.GState({ opacity: 1.0 }));
-                    doc.setFontSize(8);
-                    doc.setFont(undefined, 'normal');
-                    doc.setTextColor(0, 0, 0);
-                    doc.text(`Exported at ${timestamp}`, textStartX + 2, textY + 1.5);
-                    textY += 3.5 + textGap;
-
-                    if (attributionText) {
-                        doc.setGState(new doc.GState({ opacity: 0.5 }));
-                        doc.setFillColor(255, 255, 255);
-                        doc.roundedRect(textStartX, textY - 0.5, textWidth, 3, 0.5, 0.5, 'F');
-                        doc.setGState(new doc.GState({ opacity: 1.0 }));
-                        doc.setFontSize(7);
-                        doc.setTextColor(0, 0, 0);
-                        doc.text(`Data: ${attributionText}`, textStartX + 2, textY + 1.2);
-                        textY += 3 + textGap;
-                    }
-
-                    doc.setGState(new doc.GState({ opacity: 0.5 }));
-                    doc.setFillColor(255, 255, 255);
-                    doc.roundedRect(textStartX, textY - 0.5, textWidth, 3, 0.5, 0.5, 'F');
-                    doc.setGState(new doc.GState({ opacity: 0.8 }));
-                    doc.setFontSize(7);
-                    doc.setTextColor(0, 0, 0);
-                    const urlLines = doc.splitTextToSize(shareUrl, textWidth - 4);
-                    doc.text(urlLines.slice(0, 1), textStartX + 2, textY + 1.2);
-
-                    this._addPDFScaleBar(doc, margins.left + contentWidthMm - scaleNorthWidthMm, footerY, scaleNorthWidthMm);
-                    this._addPDFNorthArrow(doc, margins.left + contentWidthMm - scaleNorthWidthMm / 2, footerY + 11, originalBearing);
-
-                    doc.setGState(new doc.GState({ opacity: 1.0 }));
+                    doc.addImage(dataUrl, 'PNG', 0, 0, widthMm, heightMm);
 
                     this._sendProgress(90, 'Saving PDF');
 
@@ -958,38 +714,6 @@ export class MapExportControl {
         });
     }
 
-    _parseMargin(marginStr) {
-        const parts = marginStr.trim().split(/\s+/);
-        const values = parts.map(part => {
-            const match = part.match(/^([\d.]+)(in|mm|cm|pt|px)?$/);
-            if (!match) return 0;
-
-            const value = parseFloat(match[1]);
-            const unit = match[2] || 'mm';
-
-            switch (unit) {
-                case 'in': return value * 25.4;
-                case 'cm': return value * 10;
-                case 'pt': return value * 0.3527778;
-                case 'px': return value * 0.2645833;
-                case 'mm':
-                default: return value;
-            }
-        });
-
-        if (values.length === 1) {
-            return { top: values[0], right: values[0], bottom: values[0], left: values[0] };
-        } else if (values.length === 2) {
-            return { top: values[0], right: values[1], bottom: values[0], left: values[1] };
-        } else if (values.length === 3) {
-            return { top: values[0], right: values[1], bottom: values[2], left: values[1] };
-        } else if (values.length >= 4) {
-            return { top: values[0], right: values[1], bottom: values[2], left: values[3] };
-        }
-
-        return { top: 10, right: 10, bottom: 10, left: 10 };
-    }
-
     async _exportGeoTIFF(config) {
         this._sendProgress(10, 'Preparing GeoTIFF export');
 
@@ -1105,84 +829,6 @@ export class MapExportControl {
                 pitch: pitch
             };
         }
-    }
-
-    _addPDFScaleBar(doc, x, y, widthMm) {
-        const center = this._map.getCenter();
-        const zoom = this._map.getZoom();
-        const metersPerPixel = 40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
-        const pixelsPerMm = 96 / 25.4;
-        const scaleBarWidthMm = widthMm * 0.8;
-        const scaleMeters = Math.round(metersPerPixel * scaleBarWidthMm * pixelsPerMm);
-
-        let scaleText;
-        if (scaleMeters >= 1000) {
-            scaleText = `${(scaleMeters / 1000).toFixed(0)} km`;
-        } else {
-            scaleText = `${scaleMeters} m`;
-        }
-
-        doc.setGState(new doc.GState({ opacity: 0.5 }));
-        doc.setFillColor(255, 255, 255);
-        doc.roundedRect(x, y, widthMm, 8, 0.5, 0.5, 'F');
-
-        doc.setGState(new doc.GState({ opacity: 1.0 }));
-        doc.setFontSize(6);
-        doc.setTextColor(0, 0, 0);
-        doc.text(scaleText, x + widthMm / 2, y + 2.5, { align: 'center' });
-
-        doc.setFillColor(0, 0, 0);
-        doc.rect(x + (widthMm - scaleBarWidthMm) / 2, y + 4, scaleBarWidthMm, 0.3, 'F');
-        doc.rect(x + (widthMm - scaleBarWidthMm) / 2, y + 4, 0.3, 2, 'F');
-        doc.rect(x + (widthMm - scaleBarWidthMm) / 2 + scaleBarWidthMm - 0.3, y + 4, 0.3, 2, 'F');
-    }
-
-    _addPDFNorthArrow(doc, x, y, bearing) {
-        const arrowSize = 12;
-
-        doc.setGState(new doc.GState({ opacity: 0.5 }));
-        doc.setFillColor(255, 255, 255);
-        doc.circle(x, y, arrowSize / 2, 'F');
-
-        doc.setGState(new doc.GState({ opacity: 1.0 }));
-
-        const centerX = x;
-        const centerY = y;
-        const radius = arrowSize / 2 * 0.8;
-        const angleRad = -bearing * Math.PI / 180;
-
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.15);
-        doc.setGState(new doc.GState({ opacity: 0.3 }));
-        doc.circle(centerX, centerY, radius, 'S');
-
-        doc.setGState(new doc.GState({ opacity: 1.0 }));
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 0, 0);
-
-        const northX = centerX + radius * Math.sin(angleRad);
-        const northY = centerY - radius * Math.cos(angleRad);
-        doc.text('N', northX, northY - 1.5, { align: 'center' });
-
-        doc.setGState(new doc.GState({ opacity: 0.3 }));
-        doc.setFillColor(0, 0, 0);
-
-        const southX = centerX - radius * 0.6 * Math.sin(angleRad);
-        const southY = centerY + radius * 0.6 * Math.cos(angleRad);
-        doc.rect(southX - 0.125, southY - 1.5, 0.25, 3, 'F');
-
-        const eastAngle = angleRad + Math.PI / 2;
-        const eastX = centerX + radius * 0.6 * Math.sin(eastAngle);
-        const eastY = centerY - radius * 0.6 * Math.cos(eastAngle);
-        doc.rect(eastX - 1.5, eastY - 0.125, 3, 0.25, 'F');
-
-        const westAngle = angleRad - Math.PI / 2;
-        const westX = centerX + radius * 0.6 * Math.sin(westAngle);
-        const westY = centerY - radius * 0.6 * Math.cos(westAngle);
-        doc.rect(westX - 1.5, westY - 0.125, 3, 0.25, 'F');
-
-        doc.setGState(new doc.GState({ opacity: 1.0 }));
     }
 
     async _exportPNG(config) {
@@ -2124,6 +1770,12 @@ export class MapExportControl {
         markerEls.forEach(el => {
             const rect = el.getBoundingClientRect();
             const clone = this._prepareMarkerCloneForExport(el);
+            // getBoundingClientRect() already resolved Mapbox's own positioning
+            // transform on `el` into a final on-screen rect — cloneNode copies
+            // that same transform inline style, so it must be cleared here or
+            // it gets re-applied on top of the left/top below, doubling the
+            // marker's offset and pushing it outside the captured canvas.
+            clone.style.transform = 'none';
             clone.style.position = 'absolute';
             clone.style.left = `${rect.left - containerRect.left}px`;
             clone.style.top = `${rect.top - containerRect.top}px`;
@@ -2162,7 +1814,18 @@ export class MapExportControl {
      * into shadow roots — without this the pin and badge icons render blank.
      */
     _prepareMarkerCloneForExport(el) {
+        // Tag every live icon with a stable id before cloning, so each clone
+        // icon can be paired with its exact original after chrome below (the
+        // layer actions dropdown, etc. — itself full of <sl-icon>s) is
+        // stripped from the clone: a plain index pairing breaks the moment
+        // the two trees end up with a different number of <sl-icon>s.
+        const liveIcons = Array.from(el.querySelectorAll('sl-icon'));
+        liveIcons.forEach((icon, i) => { icon.dataset.exportIconId = String(i); });
+
         const clone = el.cloneNode(true);
+
+        liveIcons.forEach(icon => { delete icon.dataset.exportIconId; });
+
         clone.querySelectorAll('.layer-actions-dropdown, .more-layers-shortcut-btn, .marker-comment-save-btn, .pending-layer-badge')
             .forEach(node => node.remove());
 
@@ -2173,9 +1836,10 @@ export class MapExportControl {
             if (liveTextareas[i]) ta.value = liveTextareas[i].value;
         });
 
-        const liveIcons = el.querySelectorAll('sl-icon');
-        clone.querySelectorAll('sl-icon').forEach((iconEl, i) => {
-            const svg = liveIcons[i]?.shadowRoot?.querySelector('svg');
+        clone.querySelectorAll('sl-icon').forEach(iconEl => {
+            const liveIcon = liveIcons[Number(iconEl.dataset.exportIconId)];
+            delete iconEl.dataset.exportIconId;
+            const svg = liveIcon?.shadowRoot?.querySelector('svg');
             if (!svg) {
                 iconEl.remove();
                 return;
@@ -2191,6 +1855,19 @@ export class MapExportControl {
             wrapper.setAttribute('style', `${iconEl.getAttribute('style') || ''}; display:inline-block; width:1em; height:1em; line-height:0;`);
             wrapper.appendChild(svgClone);
             iconEl.replaceWith(wrapper);
+        });
+
+        // html2canvas paints text with its own (re-implemented) glyph metrics
+        // rather than the browser's, which run taller than the line-height
+        // these labels are laid out with live — so the line box they sit in
+        // (and the flex-column balloon that auto-sizes around it) ends up a
+        // few pixels too short, clipping the bottom of the text. Freeing the
+        // vertical overflow and giving the line real breathing room fixes it
+        // without disturbing the horizontal ellipsis truncation these same
+        // labels rely on.
+        clone.querySelectorAll('[style*="text-overflow: ellipsis"], [style*="text-overflow:ellipsis"]').forEach(node => {
+            node.style.overflowY = 'visible';
+            node.style.lineHeight = '2';
         });
 
         return clone;
@@ -2538,7 +2215,7 @@ export class MapExportControl {
                             const timeout = setTimeout(() => {
                                 console.warn(`[Export] Image load timeout: ${actualUrl}`);
                                 resolve(null);
-                            }, 10000);
+                            }, 6000);
 
                             img.onload = () => {
                                 clearTimeout(timeout);
@@ -2573,31 +2250,51 @@ export class MapExportControl {
                         });
                     };
 
-                    let thumbnailCount = 0;
-                    for (const [layerId, layerData] of activeLayersMap.entries()) {
-                        try {
-                            const config = { ...layerData.config };
+                    // Resolve every layer's config (including any remote headerImage
+                    // fetch + CORS-proxy fallback) concurrently. This used to be a
+                    // sequential for-loop with an await per layer, so a handful of
+                    // third-party thumbnails that fail CORS (e.g. mapwarper.net
+                    // uploads) would serialize into a near-minute stall.
+                    const resolvedLayers = await Promise.all(
+                        Array.from(activeLayersMap.entries()).map(async ([layerId, layerData]) => {
+                            try {
+                                const layerConfig = { ...layerData.config };
 
-                            if (window.layerRegistry) {
-                                const registryLayer = window.layerRegistry.getLayer(config.id);
-                                if (registryLayer && registryLayer.tags) {
-                                    if (!config.tags) {
-                                        config.tags = registryLayer.tags;
-                                    } else if (Array.isArray(config.tags) && Array.isArray(registryLayer.tags)) {
-                                        config.tags = [...new Set([...config.tags, ...registryLayer.tags])];
+                                if (window.layerRegistry) {
+                                    const registryLayer = window.layerRegistry.getLayer(layerConfig.id);
+                                    if (registryLayer && registryLayer.tags) {
+                                        if (!layerConfig.tags) {
+                                            layerConfig.tags = registryLayer.tags;
+                                        } else if (Array.isArray(layerConfig.tags) && Array.isArray(registryLayer.tags)) {
+                                            layerConfig.tags = [...new Set([...layerConfig.tags, ...registryLayer.tags])];
+                                        }
                                     }
                                 }
-                            }
 
-                            if (config.headerImage && (config.headerImage.startsWith('http://') || config.headerImage.startsWith('https://'))) {
-                                const dataURL = await imageToDataURL(config.headerImage);
-                                if (dataURL) {
-                                    config.headerImage = dataURL;
-                                } else {
-                                    console.warn(`[Export] Removing headerImage due to CORS/loading failure: ${config.headerImage}`);
-                                    delete config.headerImage;
+                                if (layerConfig.headerImage && (layerConfig.headerImage.startsWith('http://') || layerConfig.headerImage.startsWith('https://'))) {
+                                    const dataURL = await imageToDataURL(layerConfig.headerImage);
+                                    if (dataURL) {
+                                        layerConfig.headerImage = dataURL;
+                                    } else {
+                                        console.warn(`[Export] Removing headerImage due to CORS/loading failure: ${layerConfig.headerImage}`);
+                                        delete layerConfig.headerImage;
+                                    }
                                 }
+
+                                return { layerId, config: layerConfig };
+                            } catch (thumbError) {
+                                console.warn(`[Export] Failed to prepare thumbnail for layer ${layerId}:`, thumbError);
+                                return null;
                             }
+                        })
+                    );
+
+                    let thumbnailCount = 0;
+                    for (const resolved of resolvedLayers) {
+                        if (!resolved) continue;
+
+                        try {
+                            const { layerId, config } = resolved;
 
                             const row = document.createElement('div');
                             row.className = 'layer-thumbnail-row';
@@ -2633,7 +2330,7 @@ export class MapExportControl {
                             layerThumbnailsEl.appendChild(row);
                             thumbnailCount++;
                         } catch (thumbError) {
-                            console.warn(`[Export] Failed to generate thumbnail for layer ${layerId}:`, thumbError);
+                            console.warn(`[Export] Failed to generate thumbnail for layer ${resolved.layerId}:`, thumbError);
                         }
                     }
                     console.log(`[Export] Generated ${thumbnailCount} layer thumbnails`);
