@@ -88,6 +88,10 @@ export class MapboxAPI {
      * @param {string} timeString - ISO time string
      */
     _updateLayerTime(groupId, config, timeString) {
+        if (config.timeProperty) {
+            this._updateVectorLayerTime(groupId, config, timeString);
+        }
+
         if (!config.urlTimeParam) {
             return;
         }
@@ -402,7 +406,7 @@ export class MapboxAPI {
             config = ConfigManager.applyDefaultMetadata(config);
 
             // Register time-based layers
-            if (config.urlTimeParam) {
+            if (config.urlTimeParam || config.timeProperty) {
                 this._timeBasedLayers.set(groupId, { config, visible });
             }
 
@@ -456,7 +460,7 @@ export class MapboxAPI {
     updateLayerGroupVisibility(groupId, config, visible) {
         try {
             // Update time-based layer visibility tracking
-            if (config.urlTimeParam && this._timeBasedLayers.has(groupId)) {
+            if ((config.urlTimeParam || config.timeProperty) && this._timeBasedLayers.has(groupId)) {
                 const layerInfo = this._timeBasedLayers.get(groupId);
                 layerInfo.visible = visible;
                 this._timeBasedLayers.set(groupId, layerInfo);
@@ -831,6 +835,36 @@ export class MapboxAPI {
                 this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));
             }
         }
+    }
+
+    /**
+     * Apply the TimeControl's selected "as of" date as a filter on a vector
+     * layer's numeric `timeProperty` (epoch ms), hiding features captured/
+     * first-seen after that date. Unlike `urlTimeParam`, this filters
+     * client-side rather than re-requesting tiles from a time-aware server.
+     */
+    _updateVectorLayerTime(groupId, config, timeString) {
+        const asOfMs = new Date(timeString).getTime();
+        if (Number.isNaN(asOfMs)) return;
+
+        const timeFilter = ['<=', ['get', config.timeProperty], asOfMs];
+        const combinedFilter = config.filter ? ['all', config.filter, timeFilter] : timeFilter;
+
+        this._getVariantPrefixes(config).forEach(prefix => {
+            const suffix = this._getVariantSuffix(prefix);
+            const layers = [
+                `vector-layer-${groupId}${suffix}`,
+                `vector-layer-${groupId}-outline${suffix}`,
+                `vector-layer-${groupId}-circle${suffix}`,
+                `vector-layer-${groupId}-text${suffix}`
+            ];
+
+            layers.forEach(layerId => {
+                if (this._map.getLayer(layerId)) {
+                    this._map.setFilter(layerId, combinedFilter);
+                }
+            });
+        });
     }
 
     _updateVectorLayerVisibility(groupId, config, visible) {

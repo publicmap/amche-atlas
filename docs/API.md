@@ -432,6 +432,7 @@ Goa renders with the atlas defaults, Maharashtra with the `highlighted` preset o
 - `title` — header text for the popup.
 - `label` — property whose value is shown as the popup heading.
 - `fields` — properties listed in the popup body.
+- `onClick` — name of a handler function exported from `config/{atlas}.js`'s `handlers` object. Called as `handler({ feature, layerId, layerConfig, map, lngLat })` and must return an HTML string (may include `<script>` tags, which are extracted and executed) appended into the popup. See `config/goa.js` (`getBhunakshaInfo`) and `config/mapillary.js` (`openMapillaryViewer`) for examples.
 
 #### Multi-pass style variants
 
@@ -559,6 +560,7 @@ Mapbox Vector Tiles (`.pbf` / `.mvt`). Renders as fill / line / circle / symbol 
 | `sourceLayer` | Name of the source-layer inside the tile. **Required.** |
 | `minzoom`, `maxzoom` | Vector tile zoom range. |
 | `inspect` | Popup configuration (see common properties). |
+| `timeProperty` | Name of a numeric (epoch ms) feature property. When set, the [`TimeControl`](#adding-a-new-url-parameter) clock control filters the layer client-side to `<= ` the control's selected date via `map.setFilter` — features are hidden once their `timeProperty` value is after the selected date. Unlike `urlTimeParam` (below), no tiles are re-requested. See `config/mapillary.atlas.json`'s `mapillary-coverage` layer (`timeProperty: "captured_at"`). |
 
 ```json
 {

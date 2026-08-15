@@ -507,6 +507,7 @@
         import { handlerLoader } from './js/inspection-handler-loader.js';
         import { LayerOrderManager } from './js/layer-order-manager.js';
         import { MapUtils } from './js/map-utils.js';
+        import { isFullyUrlValue, formatAttributeValue, buildLinkHTML } from './js/attribute-value-renderer.js';
 
         // State
         let activeLayers = [];
@@ -578,10 +579,22 @@
             requestLayerData();
         });
 
-        // Render a property value, turning URLs into links and image URLs into thumbnails
+        // Render a property value, turning URLs into service-icon links (via
+        // attribute-value-renderer.js, shared with the map badge's attribute
+        // table) and image URLs into thumbnails.
         function renderPropertyValue(value) {
             const $cell = $('<div>', { class: 'property-value' });
-            const str = String(value);
+            const str = String(value ?? '');
+
+            // The common case: the whole value is nothing but URL(s) - render
+            // straight from the shared formatter (service icon + truncated link).
+            if (isFullyUrlValue(str)) {
+                $cell.html(formatAttributeValue(str, { truncateMax: 70 }));
+                return $cell;
+            }
+
+            // Otherwise, scan for URLs embedded in free text (e.g. an
+            // attribution string) and linkify just those spans.
             const urlRegex = /https?:\/\/[^\s<>"')]+/gi;
             const imageExtRegex = /\.(png|jpe?g|gif|tiff?|svg|webp|bmp)(\?.*)?$/i;
 
@@ -617,13 +630,7 @@
                     }));
                     $cell.append($link);
                 } else {
-                    $cell.append($('<a>', {
-                        href: url,
-                        target: '_blank',
-                        rel: 'noopener noreferrer',
-                        text: url,
-                        css: { color: '#60a5fa', textDecoration: 'underline', wordBreak: 'break-all' }
-                    }));
+                    $cell.append($(buildLinkHTML(url, { truncateMax: 70 })));
                 }
                 lastIndex = match.index + url.length;
             }
@@ -633,6 +640,94 @@
                 $cell.append(document.createTextNode(str.substring(lastIndex)));
             }
             return $cell;
+        }
+
+        // Builds a selected feature's property table: the curated
+        // inspect.fields rows, plus - when there are more properties than
+        // shown - a toggle revealing every non-empty property. Shared by
+        // createSelectedFeatureCard and createLayerCard, which both display
+        // this identically regardless of their differing card chrome.
+        function buildPropertiesSection(feature, inspectConfig) {
+            const $propsContainer = $('<div>', { css: { marginTop: '4px' } });
+
+            if (inspectConfig.fields && inspectConfig.fields.length > 0) {
+                const $props = $('<div>', { class: 'properties-table' });
+                inspectConfig.fields.forEach((fieldName, index) => {
+                    const value = feature.properties?.[fieldName];
+                    if (value !== null && value !== undefined && value !== '') {
+                        const fieldTitle = inspectConfig.fieldTitles?.[index] || fieldName;
+                        const $row = $('<div>', { class: 'property-row' });
+                        $row.append($('<div>', { class: 'property-key', text: fieldTitle }));
+                        $row.append(renderPropertyValue(value));
+                        $props.append($row);
+                    }
+                });
+                $propsContainer.append($props);
+            }
+
+            const allProperties = feature.properties || {};
+            const totalPropsCount = Object.keys(allProperties).length;
+            const shownPropsCount = inspectConfig.fields ? inspectConfig.fields.length : 0;
+
+            if (totalPropsCount > shownPropsCount) {
+                const $allPropsContainer = $('<div>', {
+                    class: 'all-properties-container',
+                    css: { display: 'none', marginTop: '4px' }
+                });
+
+                Object.entries(allProperties).forEach(([key, value]) => {
+                    if (value !== null && value !== undefined && value !== '') {
+                        const $row = $('<div>', { class: 'property-row' });
+                        $row.append($('<div>', { class: 'property-key', text: key }));
+                        $row.append(renderPropertyValue(value));
+                        $allPropsContainer.append($row);
+                    }
+                });
+
+                const $toggleBtn = $('<button>', {
+                    class: 'show-all-props-btn',
+                    text: `Show all ${totalPropsCount} properties`,
+                    css: {
+                        marginTop: '4px',
+                        padding: '4px 8px',
+                        background: '#374151',
+                        color: '#d1d5db',
+                        border: '1px solid #4b5563',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        width: '100%',
+                        transition: 'all 0.2s'
+                    },
+                    click: function (e) {
+                        e.stopPropagation();
+                        const $btn = $(this);
+                        const $container = $btn.siblings('.all-properties-container');
+                        const $regularProps = $btn.siblings('.properties-table');
+
+                        if ($container.is(':visible')) {
+                            $container.hide();
+                            $regularProps.show();
+                            $btn.text(`Show all ${totalPropsCount} properties`);
+                        } else {
+                            $container.show();
+                            $regularProps.hide();
+                            $btn.text('Show Less');
+                        }
+                    }
+                });
+                $toggleBtn.on('mouseenter', function () {
+                    $(this).css({ background: '#4b5563', borderColor: '#6b7280' });
+                }).on('mouseleave', function () {
+                    $(this).css({ background: '#374151', borderColor: '#4b5563' });
+                });
+
+                $propsContainer.append($toggleBtn);
+                $propsContainer.append($allPropsContainer);
+            }
+
+            return $propsContainer;
         }
 
         // Request layer data from parent
@@ -1970,89 +2065,7 @@
                         $featureInfo.append($customSection);
                     }
 
-                    // Show metadata table (inspect fields with titles)
-                    const $propsContainer = $('<div>', { css: { marginTop: '4px' } });
-
-                    if (inspectConfig.fields && inspectConfig.fields.length > 0) {
-                        const $props = $('<div>', { class: 'properties-table' });
-                        inspectConfig.fields.forEach((fieldName, index) => {
-                            const value = feature.properties?.[fieldName];
-                            if (value !== null && value !== undefined && value !== '') {
-                                const fieldTitle = inspectConfig.fieldTitles?.[index] || fieldName;
-                                const $row = $('<div>', { class: 'property-row' });
-                                $row.append($('<div>', { class: 'property-key', text: fieldTitle }));
-                                $row.append(renderPropertyValue(value));
-                                $props.append($row);
-                            }
-                        });
-                        $propsContainer.append($props);
-                    }
-
-                    // Count all properties
-                    const allProperties = feature.properties || {};
-                    const totalPropsCount = Object.keys(allProperties).length;
-                    const shownPropsCount = inspectConfig.fields ? inspectConfig.fields.length : 0;
-
-                    // Show "Show all properties" button if there are more properties than shown
-                    if (totalPropsCount > shownPropsCount) {
-                        const $allPropsContainer = $('<div>', {
-                            class: 'all-properties-container',
-                            css: { display: 'none', marginTop: '4px' }
-                        });
-
-                        Object.entries(allProperties).forEach(([key, value]) => {
-                            if (value !== null && value !== undefined && value !== '') {
-                                const $row = $('<div>', { class: 'property-row' });
-                                $row.append($('<div>', { class: 'property-key', text: key }));
-                                $row.append(renderPropertyValue(value));
-                                $allPropsContainer.append($row);
-                            }
-                        });
-
-                        const $toggleBtn = $('<button>', {
-                            class: 'show-all-props-btn',
-                            text: `Show all ${totalPropsCount} properties`,
-                            css: {
-                                marginTop: '4px',
-                                padding: '4px 8px',
-                                background: '#374151',
-                                color: '#d1d5db',
-                                border: '1px solid #4b5563',
-                                borderRadius: '4px',
-                                fontSize: '10px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                width: '100%',
-                                transition: 'all 0.2s'
-                            },
-                            click: function (e) {
-                                e.stopPropagation();
-                                const $btn = $(this);
-                                const $container = $btn.siblings('.all-properties-container');
-                                const $regularProps = $btn.siblings('.properties-table');
-
-                                if ($container.is(':visible')) {
-                                    $container.hide();
-                                    $regularProps.show();
-                                    $btn.text(`Show all ${totalPropsCount} properties`);
-                                } else {
-                                    $container.show();
-                                    $regularProps.hide();
-                                    $btn.text('Show Less');
-                                }
-                            }
-                        });
-                        $toggleBtn.on('mouseenter', function () {
-                            $(this).css({ background: '#4b5563', borderColor: '#6b7280' });
-                        }).on('mouseleave', function () {
-                            $(this).css({ background: '#374151', borderColor: '#4b5563' });
-                        });
-
-                        $propsContainer.append($toggleBtn);
-                        $propsContainer.append($allPropsContainer);
-                    }
-
-                    $featureInfo.append($propsContainer);
+                    $featureInfo.append(buildPropertiesSection(feature, inspectConfig));
 
                     $featureContainer.append($featureInfo);
 
@@ -2540,89 +2553,7 @@
                             $featureInfo.append($customSection);
                         }
 
-                        // Show metadata table (inspect fields with titles)
-                        const $propsContainer = $('<div>', { css: { marginTop: '4px' } });
-
-                        if (inspectConfig.fields && inspectConfig.fields.length > 0) {
-                            const $props = $('<div>', { class: 'properties-table' });
-                            inspectConfig.fields.forEach((fieldName, index) => {
-                                const value = feature.properties?.[fieldName];
-                                if (value !== null && value !== undefined && value !== '') {
-                                    const fieldTitle = inspectConfig.fieldTitles?.[index] || fieldName;
-                                    const $row = $('<div>', { class: 'property-row' });
-                                    $row.append($('<div>', { class: 'property-key', text: fieldTitle }));
-                                    $row.append(renderPropertyValue(value));
-                                    $props.append($row);
-                                }
-                            });
-                            $propsContainer.append($props);
-                        }
-
-                        // Count all properties
-                        const allProperties = feature.properties || {};
-                        const totalPropsCount = Object.keys(allProperties).length;
-                        const shownPropsCount = inspectConfig.fields ? inspectConfig.fields.length : 0;
-
-                        // Show "Show all properties" button if there are more properties than shown
-                        if (totalPropsCount > shownPropsCount) {
-                            const $allPropsContainer = $('<div>', {
-                                class: 'all-properties-container',
-                                css: { display: 'none', marginTop: '4px' }
-                            });
-
-                            Object.entries(allProperties).forEach(([key, value]) => {
-                                if (value !== null && value !== undefined && value !== '') {
-                                    const $row = $('<div>', { class: 'property-row' });
-                                    $row.append($('<div>', { class: 'property-key', text: key }));
-                                    $row.append(renderPropertyValue(value));
-                                    $allPropsContainer.append($row);
-                                }
-                            });
-
-                            const $toggleBtn = $('<button>', {
-                                class: 'show-all-props-btn',
-                                text: `Show all ${totalPropsCount} properties`,
-                                css: {
-                                    marginTop: '4px',
-                                    padding: '4px 8px',
-                                    background: '#374151',
-                                    color: '#d1d5db',
-                                    border: '1px solid #4b5563',
-                                    borderRadius: '4px',
-                                    fontSize: '10px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
-                                    width: '100%',
-                                    transition: 'all 0.2s'
-                                },
-                                click: function (e) {
-                                    e.stopPropagation();
-                                    const $btn = $(this);
-                                    const $container = $btn.siblings('.all-properties-container');
-                                    const $regularProps = $btn.siblings('.properties-table');
-
-                                    if ($container.is(':visible')) {
-                                        $container.hide();
-                                        $regularProps.show();
-                                        $btn.text(`Show all ${totalPropsCount} properties`);
-                                    } else {
-                                        $container.show();
-                                        $regularProps.hide();
-                                        $btn.text(`Show ${shownPropsCount} properties`);
-                                    }
-                                }
-                            });
-                            $toggleBtn.on('mouseenter', function () {
-                                $(this).css({ background: '#4b5563', borderColor: '#6b7280' });
-                            }).on('mouseleave', function () {
-                                $(this).css({ background: '#374151', borderColor: '#4b5563' });
-                            });
-
-                            $propsContainer.append($toggleBtn);
-                            $propsContainer.append($allPropsContainer);
-                        }
-
-                        $featureInfo.append($propsContainer);
+                        $featureInfo.append(buildPropertiesSection(feature, inspectConfig));
 
                         $featureContainer.append($featureInfo);
                         $expanded.append($featureContainer);

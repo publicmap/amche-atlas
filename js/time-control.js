@@ -519,7 +519,7 @@ export class TimeControl {
             const activeLayers = this._stateManager.getActiveLayers();
 
             for (const [layerId, layerData] of activeLayers) {
-                if (layerData.config && layerData.config.urlTimeParam) {
+                if (layerData.config && (layerData.config.urlTimeParam || layerData.config.timeProperty)) {
                     return true;
                 }
             }
@@ -564,7 +564,7 @@ export class TimeControl {
                     layerConfig = layerControl._state.groups.find(group => group.id === layerId);
                 }
 
-                if (layerConfig && layerConfig.urlTimeParam) {
+                if (layerConfig && (layerConfig.urlTimeParam || layerConfig.timeProperty)) {
                     return true;
                 }
             }

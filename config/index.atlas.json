@@ -33,6 +33,7 @@
     "telangana",
     "kerala",
     "parivesh",
+    "mapillary",
     "https://raw.githubusercontent.com/alansaviolobo/dfes-dmp/refs/heads/main/config/dfes-dmp.atlas.json"
   ],
   "geojson": {
