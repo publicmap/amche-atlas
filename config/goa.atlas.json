@@ -771,11 +771,8 @@
           [
             "zoom"
           ],
-          [
-            "get",
-            "$sheet"
-          ],
-          14,
+          "39A",
+          15,
           [
             "get",
             "Name of Applicant"
