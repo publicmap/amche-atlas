@@ -1652,10 +1652,10 @@
       "maxzoom": 14,
       "attribution": "<a href='https://goawrd.gov.in/goakhazan.pdf'>Khazan Land, WRD, Goa</a> - via <a href='https://www.maphub.co/map/ece88d0e-2c10-4b78-a163-904a4cf16dd4'>Maphub</a>",
       "style": {
-        "fill-opacity": 0.5,
+        "fill-opacity": 0.2,
         "text-halo-color": "#b3ff0f",
         "fill-color": "#b3ff0f",
-        "line-width": 1,
+        "line-width": 0.1,
         "line-color": "#b3ff0f",
         "text-color": "darkgreen",
         "text-padding": 50,
