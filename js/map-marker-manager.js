@@ -328,8 +328,12 @@ export class MapMarkerManager {
             .replace(/>/g, '&gt;');
     }
 
+    // Cell values pulled into a URL by a spreadsheet formula (e.g. a village
+    // name spliced into a form-prefill query param) often contain a literal,
+    // un-percent-encoded space - still a valid link once encoded, so only
+    // line breaks are disallowed here, not all whitespace.
     _isUrlValue(value) {
-        return /^https?:\/\/\S+$/i.test(String(value ?? '').trim());
+        return /^https?:\/\/\S[^\r\n]*$/i.test(String(value ?? '').trim());
     }
 
     /** Splits a `url1, url2` / `url1; url2` value into its parts, only if every part is itself a URL. */
@@ -340,7 +344,11 @@ export class MapMarkerManager {
 
     _buildLinkValueHTML(value) {
         const url = String(value).trim();
-        const safeUrl = this._escapeAttr(url);
+        // Only raw whitespace is escaped (a plain encodeURI/encodeURIComponent
+        // would double-encode the `%` in URLs that are already percent-encoded,
+        // e.g. a deep link with a JSON `layers` param baked in) - the label
+        // below stays unencoded and human-readable.
+        const safeUrl = this._escapeAttr(url.replace(/\s/g, c => encodeURIComponent(c)));
         const label = this._escapeAttr(this._truncateName(url, 40));
         return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;text-decoration:underline;word-break:break-all;">${label}</a>` +
             `<sl-icon name="box-arrow-up-right" style="font-size:9px;vertical-align:middle;margin-left:3px;color:#60a5fa;"></sl-icon>`;
