@@ -767,8 +767,19 @@
       "attribution": "<a href='https://archive.org/details/gazetteofindia?tab=collection&query=39a&sin=TXT&and%5B%5D=subject%3A%22Goa+Gazette%22'>Govt. of Goa Gazettes</a> via <a href='https://bharatlas.com/api/r2/community/nL7zNStsW3/39A.geojson'>bharatlas community</a>",
       "style": {
         "text-field": [
-          "get",
-          "Name of Applicant"
+          "step",
+          [
+            "zoom"
+          ],
+          [
+            "get",
+            "$sheet"
+          ],
+          14,
+          [
+            "get",
+            "Name of Applicant"
+          ]
         ],
         "text-color": [
           "match",
