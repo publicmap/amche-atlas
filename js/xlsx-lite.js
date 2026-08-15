@@ -91,14 +91,100 @@ async function readZipTextFiles(buffer, predicate) {
 }
 
 /**
- * Resolves the URL argument of a `HYPERLINK(url, label)` formula string
- * (already XML-entity-decoded). Handles Google's habit of splitting long
- * URL literals into `"a"&"b"&"c"` concatenation chunks. Returns null if the
- * formula isn't a HYPERLINK() call, or if its first argument isn't built
- * purely from string literals and `&` (e.g. it references other cells) -
- * evaluating arbitrary formulas is out of scope here.
+ * Tokenizes a formula-argument expression into string literals, cell
+ * references (e.g. `B3`), `&`/`,`/`(`/`)` punctuation and bare identifiers
+ * (function names). Returns null on any character it can't classify.
  */
-function extractHyperlinkTarget(formula) {
+function tokenizeFormulaExpr(str) {
+    const tokenPattern = /\s*(?:"((?:[^"]|"")*)"|([A-Za-z_][A-Za-z0-9_]*)(?=\s*\()|([A-Z]+[0-9]+)|(&)|(,)|(\()|(\)))\s*/y;
+    const tokens = [];
+    let pos = 0;
+    while (pos < str.length) {
+        tokenPattern.lastIndex = pos;
+        const m = tokenPattern.exec(str);
+        if (!m || m[0].length === 0) return null;
+        if (m[1] !== undefined) tokens.push({ type: 'STRING', value: m[1].replace(/""/g, '"') });
+        else if (m[2] !== undefined) tokens.push({ type: 'FUNC', value: m[2].toUpperCase() });
+        else if (m[3] !== undefined) tokens.push({ type: 'CELLREF', value: m[3] });
+        else if (m[4] !== undefined) tokens.push({ type: 'AMP' });
+        else if (m[5] !== undefined) tokens.push({ type: 'COMMA' });
+        else if (m[6] !== undefined) tokens.push({ type: 'LPAREN' });
+        else tokens.push({ type: 'RPAREN' });
+        pos = tokenPattern.lastIndex;
+    }
+    return tokens;
+}
+
+/**
+ * Evaluates a tokenized formula-argument expression built from string
+ * literals, cell references, `&` concatenation, parenthesized groups and
+ * `CONCATENATE(...)` calls (its comma-separated args are joined with no
+ * separator, matching the spreadsheet function). Cell references are
+ * resolved via `resolveCellRef(ref)`. Returns null for anything else
+ * (other functions, arithmetic, IF, etc.) - full formula evaluation is out
+ * of scope here.
+ */
+function evaluateFormulaTokens(tokens, resolveCellRef) {
+    let pos = 0;
+    const peek = () => tokens[pos];
+    const consume = (type) => (tokens[pos] && tokens[pos].type === type) ? (pos++, true) : false;
+
+    function parseTerm() {
+        const t = peek();
+        if (!t) return null;
+        if (t.type === 'STRING') { pos++; return t.value; }
+        if (t.type === 'CELLREF') { pos++; return String(resolveCellRef(t.value) ?? ''); }
+        if (t.type === 'LPAREN') {
+            pos++;
+            const inner = parseExpr();
+            if (inner === null || !consume('RPAREN')) return null;
+            return inner;
+        }
+        if (t.type === 'FUNC' && t.value === 'CONCATENATE') {
+            pos++;
+            if (!consume('LPAREN')) return null;
+            let result = '';
+            if (peek() && peek().type !== 'RPAREN') {
+                for (; ;) {
+                    const argVal = parseExpr();
+                    if (argVal === null) return null;
+                    result += argVal;
+                    if (consume('COMMA')) continue;
+                    break;
+                }
+            }
+            return consume('RPAREN') ? result : null;
+        }
+        return null;
+    }
+
+    function parseExpr() {
+        let result = parseTerm();
+        if (result === null) return null;
+        while (consume('AMP')) {
+            const next = parseTerm();
+            if (next === null) return null;
+            result += next;
+        }
+        return result;
+    }
+
+    const value = parseExpr();
+    return (value !== null && pos === tokens.length) ? value : null;
+}
+
+/**
+ * Resolves the URL argument of a `HYPERLINK(url, label)` formula string
+ * (already XML-entity-decoded). Handles Google's habit of splitting long URL
+ * literals into `"a"&"b"&"c"` concatenation chunks, wrapping them in
+ * `CONCATENATE(...)`, and referencing other cells (e.g. `&B3&`) - the latter
+ * resolved against the sheet's cached values via `resolveCellRef(ref)`.
+ * Returns null if the formula isn't a HYPERLINK() call, or if its first
+ * argument uses anything beyond string literals, cell references, `&`,
+ * parentheses and CONCATENATE() - evaluating arbitrary formulas (other
+ * functions, arithmetic, IF, etc.) is out of scope here.
+ */
+function extractHyperlinkTarget(formula, resolveCellRef) {
     const trimmed = typeof formula === 'string' ? formula.trim() : '';
     const opensWith = trimmed.match(/^HYPERLINK\s*\(/i);
     if (!opensWith) return null;
@@ -124,25 +210,9 @@ function extractHyperlinkTarget(formula) {
     if (firstArgEnd === -1) return null;
     const firstArg = trimmed.slice(opensWith[0].length, firstArgEnd);
 
-    // Evaluate as a concatenation of quoted string literals joined by `&`.
-    const tokenPattern = /\s*(?:"((?:[^"]|"")*)"|(&))\s*/y;
-    let pos = 0;
-    let result = '';
-    let expectLiteral = true;
-    while (pos < firstArg.length) {
-        tokenPattern.lastIndex = pos;
-        const match = tokenPattern.exec(firstArg);
-        if (!match || match[0].length === 0) return null;
-        if (expectLiteral) {
-            if (match[1] === undefined) return null;
-            result += match[1].replace(/""/g, '"');
-        } else if (match[2] === undefined) {
-            return null;
-        }
-        expectLiteral = !expectLiteral;
-        pos = tokenPattern.lastIndex;
-    }
-    return expectLiteral ? null : result; // ended expecting a literal means a dangling trailing `&`
+    const tokens = tokenizeFormulaExpr(firstArg);
+    if (!tokens) return null;
+    return evaluateFormulaTokens(tokens, resolveCellRef || (() => ''));
 }
 
 function columnLettersToIndex(letters) {
@@ -169,14 +239,9 @@ function formatNumericCell(raw) {
     return String(Number(num.toPrecision(10)));
 }
 
-function readCellValue(cellEl, sharedStrings) {
+/** A cell's cached/computed value (shared string, inline string, number or bool) - ignores formula text. */
+function readCachedCellValue(cellEl, sharedStrings) {
     const type = cellEl.getAttribute('t');
-    const formulaEl = cellEl.getElementsByTagName('f')[0];
-    if (formulaEl) {
-        const hyperlinkUrl = extractHyperlinkTarget(formulaEl.textContent);
-        if (hyperlinkUrl !== null) return hyperlinkUrl;
-    }
-
     if (type === 'inlineStr') {
         const isEl = cellEl.getElementsByTagName('is')[0];
         return isEl ? Array.from(isEl.getElementsByTagName('t')).map(t => t.textContent).join('') : '';
@@ -192,15 +257,36 @@ function readCellValue(cellEl, sharedStrings) {
     return formatNumericCell(raw);
 }
 
+function readCellValue(cellEl, sharedStrings, resolveCellRef) {
+    const formulaEl = cellEl.getElementsByTagName('f')[0];
+    if (formulaEl) {
+        const hyperlinkUrl = extractHyperlinkTarget(formulaEl.textContent, resolveCellRef);
+        if (hyperlinkUrl !== null) return hyperlinkUrl;
+    }
+    return readCachedCellValue(cellEl, sharedStrings);
+}
+
 /** Parses one XLSX workbook's cell grid (assumes a single worksheet, as produced by a per-tab export) into records. */
 function parseWorksheetRecords(sheetXml, sharedStrings) {
     const doc = new DOMParser().parseFromString(sheetXml, 'application/xml');
+    const cellEls = Array.from(doc.getElementsByTagName('c'));
+
+    // Pre-pass: every cell's cached value, keyed by its ref (e.g. "B3"), so
+    // HYPERLINK formulas that concatenate in other cells' values (`&B3&`) can
+    // resolve them regardless of row/column traversal order below.
+    const cellValuesByRef = new Map();
+    cellEls.forEach(cellEl => {
+        const ref = cellEl.getAttribute('r');
+        if (ref) cellValuesByRef.set(ref, readCachedCellValue(cellEl, sharedStrings));
+    });
+    const resolveCellRef = (ref) => cellValuesByRef.get(ref) ?? '';
+
     return Array.from(doc.getElementsByTagName('row')).map(rowEl => {
         const record = [];
         Array.from(rowEl.getElementsByTagName('c')).forEach(cellEl => {
             const colLetters = (cellEl.getAttribute('r') || '').match(/^[A-Z]+/)?.[0];
             if (!colLetters) return;
-            record[columnLettersToIndex(colLetters)] = readCellValue(cellEl, sharedStrings);
+            record[columnLettersToIndex(colLetters)] = readCellValue(cellEl, sharedStrings, resolveCellRef);
         });
         for (let i = 0; i < record.length; i++) {
             if (record[i] === undefined) record[i] = '';
