@@ -757,7 +757,217 @@
     {
       "tags": [
         "2.Development Plans",
-        "Modifications"
+        "2.1.Zoning Changes"
+      ],
+      "id": "zoning-changes",
+      "title": "Zoning Changes 17(2),39A and FAR",
+      "description": "Plots have spot zoning changes for landuse and height. Data compiled from <a href='https://archive.org/details/gazetteofindia?tab=collection&query=39a&sin=TXT&and%5B%5D=subject%3A%22Goa+Gazette%22'>Govt. of Goa Gazettes</a> using pacel boundaries from <a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
+      "type": "sheet",
+      "url": "https://docs.google.com/spreadsheets/d/18L0ETYF3MXMyTlqMxaIHWMqeOOnnGLxB82yEpZTzpmI",
+      "attribution": "Goa Gazette Notifications compiled via <a href='https://docs.google.com/spreadsheets/d/18L0ETYF3MXMyTlqMxaIHWMqeOOnnGLxB82yEpZTzpmI' target='_blank'>Google Sheets</a>",
+      "style": {
+        "circle-color": [
+          "match",
+          [
+            "get",
+            "$sheet"
+          ],
+          "17(2)",
+          "red",
+          "39A",
+          "red",
+          "Ht & FAR",
+          "blue",
+          [
+            "coalesce",
+            [
+              "get",
+              "fill-color"
+            ],
+            [
+              "get",
+              "color"
+            ],
+            "#3b82f6"
+          ]
+        ],
+        "circle-radius": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          [
+            "match",
+            [
+              "get",
+              "Form Filled"
+            ],
+            "TRUE",
+            4,
+            [
+              "coalesce",
+              [
+                "get",
+                "circle-radius"
+              ],
+              [
+                "get",
+                "size"
+              ],
+              2
+            ]
+          ],
+          18,
+          [
+            "match",
+            [
+              "get",
+              "Form Filled"
+            ],
+            "true",
+            8,
+            [
+              "coalesce",
+              [
+                "*",
+                [
+                  "get",
+                  "circle-radius"
+                ],
+                2
+              ],
+              [
+                "*",
+                [
+                  "get",
+                  "size"
+                ],
+                2
+              ],
+              4
+            ]
+          ]
+        ],
+        "circle-stroke-color": [
+          "match",
+          [
+            "to-string",
+            [
+              "get",
+              "Form Filled"
+            ]
+          ],
+          "true",
+          "lime",
+          [
+            "coalesce",
+            [
+              "get",
+              "stroke-color"
+            ],
+            [
+              "get",
+              "color"
+            ],
+            "black"
+          ]
+        ],
+        "circle-stroke-width": [
+          "match",
+          [
+            "to-string",
+            [
+              "get",
+              "Form Filled"
+            ]
+          ],
+          "true",
+          4,
+          [
+            "coalesce",
+            [
+              "get",
+              "circle-stroke-width"
+            ],
+            [
+              "get",
+              "stroke-width"
+            ],
+            1
+          ]
+        ],
+        "text-color": [
+          "match",
+          [
+            "get",
+            "$sheet"
+          ],
+          "17(2)",
+          "red",
+          "39A",
+          "red",
+          "Ht & FAR",
+          "blue",
+          [
+            "coalesce",
+            [
+              "get",
+              "fill-color"
+            ],
+            [
+              "get",
+              "color"
+            ],
+            "#3b82f6"
+          ]
+        ],
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          13,
+          [
+            "get",
+            "$sheet"
+          ],
+          14,
+          [
+            "get",
+            "Plot"
+          ],
+          18,
+          [
+            "get",
+            "Geocode Status"
+          ]
+        ]
+      },
+      "inspect": {
+        "id": "$row",
+        "title": "Zoning Change",
+        "label": "$sheet",
+        "fields": [
+          "Form Filled",
+          "Photo",
+          "Survey Form",
+          "Google Maps",
+          "Village",
+          "Plot",
+          "Geocode Status",
+          "Zone"
+        ]
+      }
+    },
+    {
+      "tags": [
+        "2.Development Plans",
+        "2.1.Conversions"
       ],
       "id": "39a-landuse-change",
       "title": "Landuse Zone Changes (Under Section 39A)",
@@ -3000,14 +3210,12 @@
           [
             "zoom"
           ],
-          6,
-          0.95,
           12,
           0.8,
           16,
-          0.6,
-          20,
-          0.05
+          0.5,
+          19,
+          0.1
         ]
       },
       "initiallyChecked": true
