@@ -1494,6 +1494,13 @@ export class MapMarkerManager {
             .setLngLat([lngLat.lng, lngLat.lat])
             .addTo(this._map);
 
+        // Backreference so code rendered inside this marker's popup (e.g. an
+        // inspect.onClick handler in config/{atlas}.js) can reposition the pin
+        // itself — see config/mapillary.js's "Follow" mode, which walks up to
+        // `.selection-marker` and reads this to keep the marker glued to a
+        // location that updates after the popup opens.
+        el._mapboxMarker = marker;
+
         // While dragging, the marker behaves like the mouse pointer hovering the map
         // (live preview of whatever is beneath it) rather than selecting anything.
         // Only on release does it re-query and act like a click at the drop point.

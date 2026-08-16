@@ -12,6 +12,7 @@ import { MeasureControl } from './map-measure-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
 import { MapAttributionControl } from './map-attribution-control.js';
+import { StreetviewControl } from './streetview-control.js';
 import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
 import { ShortcutMenu } from './shortcut-menu.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
@@ -925,6 +926,8 @@ export class MapInitializer {
             // so its GPS auto-trigger runs in parallel with the rest of setup.)
             map.addControl(window.featureControl, 'top-right');
             map.addControl(new TimeControl(), 'top-right');
+            window.streetviewControl = new StreetviewControl();
+            map.addControl(window.streetviewControl, 'top-left');
             map.addControl(window.terrain3DControl, 'top-right');
             map.addControl(window.attributionControl, 'bottom-right');
             window.contextMessagesControl = new MapContextMessagesControl();
@@ -935,7 +938,7 @@ export class MapInitializer {
             map.addControl(window.exportControl, 'bottom-right');
             window.externalMapLinksControl = new ButtonExternalMapLinks();
             map.addControl(window.externalMapLinksControl, 'bottom-right');
-            map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: true }));
+            map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: false, visualizePitch: true }));
             map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
             // Added after ScaleControl so it stacks above it (bottom corners
             // insert each new control above the previous one).
