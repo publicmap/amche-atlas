@@ -10,30 +10,28 @@ export const MAPILLARY_ACCESS_TOKEN = 'MLY|8622412231200477|66830abef280d6a31948
  * A sequence's line geometry is dissolved into a single tile feature carrying
  * just one `image_id`, so every click along the same tiled segment resolves
  * to that one reference image regardless of where on the line it lands. To
- * open the image actually nearest a point, search by location instead
- * (optionally narrowed to a sequence via `sequence_ids`), and pick the
- * closest result by geometry.
+ * open the image actually nearest a point, search by location instead and
+ * pick the closest result by geometry.
+ *
+ * Mapillary's Graph API rejects `sequence_ids` combined with `lat`/`lng`
+ * outright ("Incompatible filters") regardless of whether the id is valid,
+ * so there's no way to narrow this location search to a single sequence in
+ * one request - it always searches by location alone.
  */
-export async function resolveNearestImageId({ lng, lat, sequenceId }) {
-    const search = async (withSequence) => {
-        const params = new URLSearchParams({
-            access_token: MAPILLARY_ACCESS_TOKEN,
-            fields: 'id,geometry',
-            lat: String(lat),
-            lng: String(lng),
-            radius: '30',
-            limit: '10'
-        });
-        if (withSequence && sequenceId) params.set('sequence_ids', sequenceId);
+export async function resolveNearestImageId({ lng, lat }) {
+    const params = new URLSearchParams({
+        access_token: MAPILLARY_ACCESS_TOKEN,
+        fields: 'id,geometry',
+        lat: String(lat),
+        lng: String(lng),
+        radius: '30',
+        limit: '10'
+    });
 
-        const response = await fetch(`https://graph.mapillary.com/images?${params.toString()}`);
-        if (!response.ok) throw new Error(`Mapillary image lookup failed (${response.status})`);
-        const data = await response.json();
-        return (data && data.data) || [];
-    };
-
-    let results = await search(true);
-    if (!results.length && sequenceId) results = await search(false);
+    const response = await fetch(`https://graph.mapillary.com/images?${params.toString()}`);
+    if (!response.ok) throw new Error(`Mapillary image lookup failed (${response.status})`);
+    const data = await response.json();
+    const results = (data && data.data) || [];
     if (!results.length) return null;
 
     let best = null;

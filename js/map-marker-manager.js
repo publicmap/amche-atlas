@@ -1055,6 +1055,20 @@ export class MapMarkerManager {
     }
 
     /**
+     * Location of the "current" marker — the one most recently added or
+     * navigated to via _navigateMarker (see `_currentMarkerIndex`) — or null
+     * if no marker is on the map. Used e.g. by the Street View toolbar button
+     * to search for imagery near an existing selection instead of falling
+     * back to the map center.
+     */
+    getCurrentMarkerLngLat() {
+        if (this._markers.size === 0) return null;
+        const markerArray = Array.from(this._markers.values());
+        const idx = Math.min(this._currentMarkerIndex, markerArray.length - 1);
+        return markerArray[idx]?.lngLat || null;
+    }
+
+    /**
      * Finds a marker within pixel tolerance of a lngLat, so callers like the
      * right-click shortcut menu can reuse a marker right-clicked directly on
      * it instead of creating a duplicate at (almost) the same spot.
@@ -1446,7 +1460,7 @@ export class MapMarkerManager {
     }
 
     addMarker(lngLat, features, options = {}) {
-        const { pendingLayerIds = null } = options;
+        const { pendingLayerIds = null, onRemove = null } = options;
         features = this._dedupeFeatures(features);
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
         const markerNumber = this._markers.size + 1;
@@ -1546,7 +1560,8 @@ export class MapMarkerManager {
             lngLat,
             features,
             contentEl: null,
-            panelLngLat: null
+            panelLngLat: null,
+            onRemove
         };
 
         // Only the pin (marker-action-row) should drag the actual location. The
@@ -1959,7 +1974,13 @@ export class MapMarkerManager {
         CameraUtils.fitBounds(this._map, bbox, { duration: 1000, maxZoom: 20 });
     }
 
-    removeMarker(markerId) {
+    /**
+     * `silent` skips the marker's `onRemove` callback (see addMarker's
+     * `options.onRemove`) — used when this manager's own caller is the one
+     * driving the removal (e.g. streetview-control.js tearing down its own
+     * tracking pin on panel close) and doesn't need to hear its own echo.
+     */
+    removeMarker(markerId, { silent = false } = {}) {
         const markerData = this._markers.get(markerId);
         if (!markerData) return;
 
@@ -1993,9 +2014,12 @@ export class MapMarkerManager {
 
         // Update selection layer
         this._updateSelectionLayer();
+
+        if (!silent) markerData.onRemove?.();
     }
 
     clearAllMarkers() {
+        const onRemoveCallbacks = [];
         this._markers.forEach((markerData, id) => {
             this._deselectMarkerBadges(markerData);
             const markerEl = markerData.marker?.getElement?.();
@@ -2004,10 +2028,32 @@ export class MapMarkerManager {
             }
             markerData.marker.remove();
             this._markers.delete(id);
+            if (markerData.onRemove) onRemoveCallbacks.push(markerData.onRemove);
         });
         this._currentMarkerIndex = 0;
 
         // Update selection layer
+        this._updateSelectionLayer();
+
+        onRemoveCallbacks.forEach(cb => cb());
+    }
+
+    /** Whether a given marker id is still present on the map. */
+    hasMarker(markerId) {
+        return this._markers.has(markerId);
+    }
+
+    /**
+     * Moves an existing marker to a new location in place, keeping its
+     * features/badges untouched — e.g. for a marker whose location tracks
+     * something external (see streetview-control.js's "Pin Location"
+     * checkbox, which glues a marker to the currently viewed Mapillary photo).
+     */
+    updateMarkerLocation(markerId, lngLat) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData) return;
+        markerData.lngLat = lngLat;
+        markerData.marker.setLngLat([lngLat.lng, lngLat.lat]);
         this._updateSelectionLayer();
     }
 

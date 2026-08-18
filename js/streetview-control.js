@@ -6,10 +6,14 @@
  * map-inspector.html.
  *
  * Owns everything the iframe itself has no access to: turning the Mapillary
- * coverage layers on/off, finding the photo nearest the map center for the
- * toolbar-button entry point, and reflecting the viewer's live position/
- * heading/tilt onto the main map (heading marker + optional follow/
- * perspective camera sync).
+ * coverage layers on/off, finding the photo nearest the existing selection
+ * marker (or the map center if there isn't one) for the toolbar-button entry
+ * point, reflecting the viewer's live position/heading/tilt onto the main map
+ * (heading marker + optional follow/perspective camera sync), and - while the
+ * panel's "Pin Location" checkbox is on - keeping a separate MapMarkerManager
+ * pin (see _syncPinMarker) glued to whatever photo is currently open, tied
+ * one-to-one with the panel: clearing that pin closes the panel, and closing
+ * the panel removes the pin.
  */
 
 import { resolveNearestImageId } from './mapillary-utils.js';
@@ -72,6 +76,9 @@ export class StreetviewControl {
         this._addedLayerIds = [];
         this._toggledOnLayerIds = [];
         this._lastPerspective = undefined;
+        this._collapsedForNoImage = false;
+        this._savedPanelSize = null;
+        this._pinMarkerId = null;
     }
 
     onAdd(map) {
@@ -176,8 +183,9 @@ export class StreetviewControl {
 
     /**
      * Opens the panel and shows a given image, or - when called with no
-     * imageId (the toolbar button path) - the photo nearest the current map
-     * center. Also called from config/mapillary.js's onClick handler for
+     * imageId (the toolbar button path) - the photo nearest the current
+     * selection marker, falling back to the map center if there isn't one.
+     * Also called from config/mapillary.js's onClick handler for
      * mapillary-coverage / mapillary-coverage-photos features.
      */
     async open({ imageId } = {}) {
@@ -186,9 +194,9 @@ export class StreetviewControl {
 
         let resolvedImageId = imageId;
         if (!resolvedImageId) {
-            const center = this._map.getCenter();
+            const { lng, lat } = window.featureControl?._markerManager?.getCurrentMarkerLngLat?.() || this._map.getCenter();
             try {
-                resolvedImageId = await resolveNearestImageId({ lng: center.lng, lat: center.lat });
+                resolvedImageId = await resolveNearestImageId({ lng, lat });
             } catch (error) {
                 console.error('[Streetview] Nearest-image lookup failed:', error);
             }
@@ -210,7 +218,81 @@ export class StreetviewControl {
             this._marker = null;
         }
         this._lastPerspective = undefined;
+        this._collapsedForNoImage = false;
+        this._savedPanelSize = null;
+        // Silent: this is the panel closing, not the pin being cleared by the
+        // user - no need to hear the "pin removed" echo and try to close again.
+        this._removePinMarker({ silent: true });
         this._disableAddedLayers();
+    }
+
+    /**
+     * Adds or moves this control's own tracking pin (the "Pin Location"
+     * checkbox in streetview.html) to the given location, or removes it if
+     * pinning is disabled. Reused across both a fresh pin and moving an
+     * existing one so the marker glues to whatever photo is currently open.
+     */
+    _syncPinMarker(enabled, lngLat) {
+        const markerManager = window.featureControl?._markerManager;
+        if (!markerManager) return;
+
+        if (!enabled) {
+            this._removePinMarker({ silent: true });
+            return;
+        }
+
+        if (this._pinMarkerId && markerManager.hasMarker(this._pinMarkerId)) {
+            markerManager.updateMarkerLocation(this._pinMarkerId, lngLat);
+        } else {
+            this._pinMarkerId = markerManager.addMarker(lngLat, [], {
+                onRemove: () => this._handlePinMarkerRemoved()
+            });
+        }
+    }
+
+    _removePinMarker({ silent = false } = {}) {
+        if (!this._pinMarkerId) return;
+        const markerManager = window.featureControl?._markerManager;
+        const id = this._pinMarkerId;
+        this._pinMarkerId = null;
+        markerManager?.removeMarker(id, { silent });
+    }
+
+    /**
+     * Called when the tracking pin is removed some other way than this
+     * control's own teardown - e.g. the user clicks its "Clear this marker"
+     * pin button directly on the map, or clears every selection at once.
+     * Per the "clearing this pin closes the panel, and vice versa" contract,
+     * that closes the Street View panel in turn.
+     */
+    _handlePinMarkerRemoved() {
+        this._pinMarkerId = null;
+        this.close();
+    }
+
+    /**
+     * Shrinks the panel to fit the short "no imagery here" message (see
+     * streetview-viewer.js's showNoImageMessage) instead of leaving it sized
+     * for a full photo. Remembers whatever size the panel had (default or
+     * user-resized via the `resize: both` handle) so _restorePanelSize can
+     * put it back once a real image opens.
+     */
+    _collapsePanelForNoImage() {
+        if (this._collapsedForNoImage) return;
+        this._collapsedForNoImage = true;
+        this._savedPanelSize = { width: this._panel.style.width, height: this._panel.style.height };
+        this._panel.style.width = '300px';
+        this._panel.style.height = '150px';
+    }
+
+    _restorePanelSize() {
+        if (!this._collapsedForNoImage) return;
+        this._collapsedForNoImage = false;
+        if (this._savedPanelSize) {
+            this._panel.style.width = this._savedPanelSize.width || '480px';
+            this._panel.style.height = this._savedPanelSize.height || '360px';
+        }
+        this._savedPanelSize = null;
     }
 
     async _ensureLayersActive() {
@@ -285,7 +367,10 @@ export class StreetviewControl {
                 this._isIframeReady = true;
                 this._flushMessageQueue();
             } else if (data.type === 'streetview-state') {
+                this._restorePanelSize();
                 this._handleState(data);
+            } else if (data.type === 'streetview-no-image') {
+                this._collapsePanelForNoImage();
             }
         };
         window.addEventListener('message', this._messageListener);
@@ -309,8 +394,16 @@ export class StreetviewControl {
     }
 
     _handleState(data) {
-        const { lng, lat, bearing, tilt, fov, follow, perspective } = data;
+        const { reason, lng, lat, bearing, tilt, fov, follow, perspective, pinLocation } = data;
         if (typeof lng !== 'number' || typeof lat !== 'number') return;
+
+        // Only sync the pin on an actual photo change or an explicit checkbox
+        // toggle - 'pov'/'fov' fire continuously while looking around/zooming
+        // within the same photo (same location, just a different camera angle),
+        // and would otherwise spam marker updates + URL writes on every tick.
+        if (reason === 'image' || reason === 'options') {
+            this._syncPinMarker(pinLocation, { lng, lat });
+        }
 
         if (!this._marker) {
             const el = createPositionMarkerEl();
@@ -336,17 +429,26 @@ export class StreetviewControl {
         const perspectiveJustDisabled = this._lastPerspective === true && perspective === false;
         this._lastPerspective = perspective;
 
-        if (follow || perspectiveJustDisabled) {
-            const flyTo = { duration: 500 };
-            if (follow) flyTo.center = [lng, lat];
-            if (perspective) {
-                flyTo.bearing = bearing;
-                flyTo.pitch = tiltToPitch(tilt);
-            } else if (perspectiveJustDisabled) {
-                flyTo.bearing = 0;
-                flyTo.pitch = 0;
-            }
-            this._map.easeTo(flyTo);
+        if (!follow && !perspectiveJustDisabled) return;
+
+        const cameraUpdate = {};
+        if (follow) cameraUpdate.center = [lng, lat];
+        if (follow && perspective) {
+            cameraUpdate.bearing = bearing;
+            cameraUpdate.pitch = tiltToPitch(tilt);
+        } else if (perspectiveJustDisabled) {
+            cameraUpdate.bearing = 0;
+            cameraUpdate.pitch = 0;
+        }
+
+        // 'pov'/'fov' fire continuously while the user looks around/zooms
+        // within the same image - jumpTo (no animation) so the map doesn't lag
+        // behind a live drag. 'image'/'options' (a discrete photo change, or a
+        // deliberate Follow/Perspective toggle) get an eased transition instead.
+        if (reason === 'pov' || reason === 'fov') {
+            this._map.jumpTo(cameraUpdate);
+        } else {
+            this._map.easeTo({ ...cameraUpdate, duration: 500 });
         }
     }
 }

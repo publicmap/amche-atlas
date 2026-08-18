@@ -16,10 +16,12 @@ const MAPILLARYJS_CSS_URL = `https://unpkg.com/mapillary-js@${MAPILLARYJS_VERSIO
 const viewerEl = document.getElementById('streetview-viewer');
 const followCheckbox = document.getElementById('streetview-follow');
 const perspectiveCheckbox = document.getElementById('streetview-perspective');
+const pinLocationCheckbox = document.getElementById('streetview-pin-location');
 
 let viewer = null;
 let followEnabled = true;
 let perspectiveEnabled = true;
+let pinLocationEnabled = true;
 
 function post(message) {
     window.parent.postMessage(message, '*');
@@ -27,6 +29,20 @@ function post(message) {
 
 function showMessage(text) {
     viewerEl.innerHTML = `<div style="padding:12px;color:#9ca3af;font-size:12px;">${text}</div>`;
+}
+
+// No image at all nearby - unlike showMessage(), also tells the parent panel
+// so it can shrink to fit this short message instead of staying sized for a
+// full photo (see streetview-control.js's _collapsePanelForNoImage).
+function showNoImageMessage() {
+    viewerEl.innerHTML = `
+        <div style="padding:14px;color:#9ca3af;font-size:12px;line-height:1.6;">
+            <div style="margin-bottom:8px;">No street-level imagery found near this location.</div>
+            <div>Try <a href="https://www.mapillary.com/app" target="_blank" style="color:#60a5fa;text-decoration:none;">browsing Mapillary's coverage map</a> for imagery elsewhere.</div>
+            <div style="margin-top:8px;">Missing here? <a href="https://www.mapillary.com/download" target="_blank" style="color:#60a5fa;text-decoration:none;">Capture some yourself</a> with the free Mapillary app.</div>
+        </div>
+    `;
+    post({ type: 'streetview-no-image' });
 }
 
 function showLoading(text) {
@@ -110,7 +126,8 @@ function emitState(reason, retriesLeft = 5) {
                 tilt: pov.tilt,
                 fov,
                 follow: followEnabled,
-                perspective: perspectiveEnabled
+                perspective: perspectiveEnabled,
+                pinLocation: pinLocationEnabled
             });
         })
         .catch(() => {
@@ -118,13 +135,34 @@ function emitState(reason, retriesLeft = 5) {
         });
 }
 
-async function openImage(imageId) {
+// A single click can match more than one Mapillary layer at the same point
+// (e.g. a coverage-photos point sitting on its own coverage line), so the
+// click dispatcher can invoke this twice in a row for one physical click.
+// Chaining calls onto this promise (rather than letting them run
+// concurrently) ensures a second call always waits for the first's viewer
+// construction/moveTo() to fully settle first - otherwise MapillaryJS's
+// internal request queue cancels the earlier one and rejects it with
+// "Request aborted by a subsequent request to id X".
+let openChain = Promise.resolve();
+
+function openImage(imageId) {
+    openChain = openChain.then(() => doOpenImage(imageId));
+    return openChain;
+}
+
+async function doOpenImage(imageId) {
     if (!imageId) {
-        showMessage('No nearby Mapillary imagery found.');
+        showNoImageMessage();
         return;
     }
 
-    showLoading('Loading street-level imagery...');
+    // Only show the loading placeholder (which replaces #streetview-viewer's
+    // innerHTML) before the viewer exists. Doing this on every call - even
+    // when just moving an already-open viewer to a new image - would rip
+    // MapillaryJS's own mounted canvas out of the DOM out from under it,
+    // permanently hanging that in-flight moveTo() since it depends on the
+    // canvas it no longer has a live reference to.
+    if (!viewer) showLoading('Loading street-level imagery...');
 
     try {
         const mapillary = await loadScriptOnce(MAPILLARYJS_JS_URL);
@@ -159,6 +197,10 @@ followCheckbox.addEventListener('change', () => {
 });
 perspectiveCheckbox.addEventListener('change', () => {
     perspectiveEnabled = perspectiveCheckbox.checked;
+    emitState('options');
+});
+pinLocationCheckbox.addEventListener('change', () => {
+    pinLocationEnabled = pinLocationCheckbox.checked;
     emitState('options');
 });
 

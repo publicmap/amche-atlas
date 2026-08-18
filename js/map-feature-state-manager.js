@@ -1432,7 +1432,8 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
-     * Update line layer sort keys for proper z-ordering of hover/selection outlines
+     * Update line layer sort keys for proper z-ordering of hover/selection outlines,
+     * and symbol layer icon sizes (e.g. doubling a selected Mapillary photo's cone).
      */
     _updateLineSortKeys() {
         if (!this._mapboxAPI) return;
@@ -1452,6 +1453,7 @@ export class MapFeatureStateManager extends EventTarget {
         });
 
         this._mapboxAPI.updateLineLayerSortKeys(selectedIds, hoveredIds);
+        this._mapboxAPI.updateSymbolLayerIconSizes(selectedIds);
     }
 
     /**

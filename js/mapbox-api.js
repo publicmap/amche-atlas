@@ -369,7 +369,7 @@ export class MapboxAPI {
                 common: ['visibility'],
                 fill: ['fill-sort-key'],
                 line: ['line-cap', 'line-join', 'line-miter-limit', 'line-round-limit', 'line-sort-key'],
-                symbol: ['icon-allow-overlap', 'icon-anchor', 'icon-image', 'icon-size', 'text-field', 'text-font', 'text-size', 'text-anchor', 'text-line-height', 'text-max-width', 'text-justify', 'text-allow-overlap', 'text-transform', 'text-offset', 'text-rotation-alignment', 'text-pitch-alignment', 'text-writing-mode', 'text-variable-anchor', 'text-radial-offset', 'text-keep-upright', 'text-padding', 'symbol-placement', 'symbol-spacing', 'symbol-avoid-edges', 'icon-rotation-alignment', 'icon-pitch-alignment', 'icon-keep-upright'],
+                symbol: ['icon-allow-overlap', 'icon-anchor', 'icon-image', 'icon-size', 'icon-rotate', 'text-field', 'text-font', 'text-size', 'text-anchor', 'text-line-height', 'text-max-width', 'text-justify', 'text-allow-overlap', 'text-transform', 'text-offset', 'text-rotation-alignment', 'text-pitch-alignment', 'text-writing-mode', 'text-variable-anchor', 'text-radial-offset', 'text-keep-upright', 'text-padding', 'symbol-placement', 'symbol-spacing', 'symbol-avoid-edges', 'icon-rotation-alignment', 'icon-pitch-alignment', 'icon-keep-upright'],
                 circle: ['circle-sort-key'],
                 raster: [],
                 background: [],
@@ -3523,6 +3523,12 @@ export class MapboxAPI {
             groupId: config.groupId || config.id,
             layerType: layerType
         };
+        // Captured so updateSymbolLayerIconSizes can double it for selected
+        // features later - icon-size itself can't be a feature-state
+        // expression since that's a layout property.
+        if (layerType === 'symbol' && layout['icon-image'] && typeof layout['icon-size'] === 'number') {
+            layerConfig.metadata.baseIconSize = layout['icon-size'];
+        }
         if (config.minzoom !== undefined) {
             layerConfig.minzoom = config.minzoom;
         }
@@ -3723,6 +3729,41 @@ export class MapboxAPI {
                     }
                 }
             });
+        });
+    }
+
+    /**
+     * Double icon-size for selected features on symbol layers whose base size
+     * was captured at creation (layer.metadata.baseIconSize - see
+     * _createLayerConfig). icon-size is a layout property, and Mapbox GL
+     * rejects feature-state expressions on layout properties, so selection is
+     * matched the same way updateLineLayerSortKeys matches it: a literal list
+     * of selected feature ids re-applied via setLayoutProperty.
+     * @param {Set} selectedFeatureIds - Set of selected feature IDs
+     */
+    updateSymbolLayerIconSizes(selectedFeatureIds) {
+        const style = this.getStyle();
+        if (!style || !style.layers) return;
+
+        const selectedIds = Array.from(selectedFeatureIds);
+
+        const signature = selectedIds.join(',');
+        if (signature === this._lastIconSizeSignature) return;
+        this._lastIconSizeSignature = signature;
+
+        style.layers.forEach(layer => {
+            const baseSize = layer.metadata?.baseIconSize;
+            if (layer.type !== 'symbol' || typeof baseSize !== 'number') return;
+
+            const sizeExpression = selectedIds.length
+                ? ['case', ['in', ['id'], ['literal', selectedIds]], baseSize * 2, baseSize]
+                : baseSize;
+
+            try {
+                this._map.setLayoutProperty(layer.id, 'icon-size', sizeExpression);
+            } catch (error) {
+                console.warn(`Failed to update icon size for ${layer.id}:`, error);
+            }
         });
     }
 

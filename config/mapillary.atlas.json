@@ -1,0 +1,239 @@
+{
+  "name": "Mapillary Street-level Imagery",
+  "description": "Crowdsourced street-level imagery from <a href='https://www.mapillary.com/'>Mapillary</a>. Click a coverage line or photo location to open the 360° street-level viewer. See <a href='https://www.mapillary.com/developer/api-documentation/'>Mapillary API documentation</a>.",
+  "areaOfInterest": "Global",
+  "tags": [
+    "opendata"
+  ],
+  "version": "0.1.0",
+  "color": "#05CB63",
+  "bbox": [
+    -180,
+    -90,
+    180,
+    90
+  ],
+  "map": {
+    "center": [
+      73.9414,
+      15.4121
+    ],
+    "zoom": 15
+  },
+  "layers": [
+    {
+      "id": "mapillary-coverage",
+      "title": "Street-level Coverage",
+      "description": "Mapillary street-level image sequences, rendered as coverage lines. Click a line to open the 360° street-level viewer at the nearest captured image. See <a href='https://www.mapillary.com/developer/api-documentation/#coverage-tiles'>coverage tiles</a>.",
+      "type": "vector",
+      "url": "https://tiles.mapillary.com/maps/vtp/mly1_public/2/{z}/{x}/{y}?access_token=MLY|8622412231200477|66830abef280d6a3194896f742927e78",
+      "sourceLayer": "sequence",
+      "minzoom": 6,
+      "maxzoom": 14,
+      "timeProperty": "captured_at",
+      "initiallyChecked": true,
+      "attribution": "<a href='https://www.mapillary.com/'>© Mapillary</a>",
+      "style": {
+        "line-color": "white",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          1,
+          14,
+          3
+        ],
+        "line-opacity": 0.85
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Mapillary Street View",
+        "label": "id",
+        "fields": [
+          "is_pano",
+          "quality_score"
+        ],
+        "fieldTitles": [
+          "360° Panorama",
+          "Quality Score"
+        ],
+        "onClick": "openMapillaryViewer"
+      }
+    },
+    {
+      "id": "mapillary-coverage-photos",
+      "title": "Photo Locations",
+      "description": "Individual Mapillary photo capture locations. Click a point to open the 360° street-level viewer at that exact photo. See <a href='https://www.mapillary.com/developer/api-documentation/#coverage-tiles'>coverage tiles</a>.",
+      "type": "vector",
+      "url": "https://tiles.mapillary.com/maps/vtp/mly1_public/2/{z}/{x}/{y}?access_token=MLY|8622412231200477|66830abef280d6a3194896f742927e78",
+      "sourceLayer": "image",
+      "minzoom": 14,
+      "maxzoom": 14,
+      "timeProperty": "captured_at",
+      "initiallyChecked": true,
+      "attribution": "<a href='https://www.mapillary.com/'>© Mapillary</a>",
+      "style": {
+        "top/circle-radius": 2,
+        "top/circle-stroke-width": 0.1,
+        "top/circle-color": "#05CB63",
+        "top/circle-stroke-color": "white",
+        "icon-image": "assets/img/icon-mapillary-cone.svg",
+        "icon-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          17,
+          0.1,
+          18,
+          0.4
+        ],
+        "icon-rotate": [
+          "get",
+          "compass_angle"
+        ],
+        "icon-rotation-alignment": "map",
+        "icon-pitch-alignment": "map",
+        "icon-allow-overlap": true,
+        "icon-opacity": [
+          "coalesce",
+          [
+            "get",
+            "quality_score"
+          ],
+          0.5
+        ]
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Mapillary Photo",
+        "label": "id",
+        "fields": [
+          "captured_at",
+          "compass_angle",
+          "is_pano",
+          "quality_score"
+        ],
+        "fieldTitles": [
+          "Captured",
+          "Compass Angle",
+          "360° Panorama",
+          "Quality Score"
+        ],
+        "onClick": "openMapillaryViewer"
+      }
+    },
+    {
+      "id": "mapillary-map-features",
+      "title": "Map Features",
+      "description": "Objects detected in Mapillary street-level imagery (signs, poles, hydrants, benches, etc). See <a href='https://www.mapillary.com/developer/api-documentation/#map-feature-tiles'>map feature tiles</a>.",
+      "type": "vector",
+      "url": "https://tiles.mapillary.com/maps/vtp/mly_map_feature_point/2/{z}/{x}/{y}?access_token=MLY|8622412231200477|66830abef280d6a3194896f742927e78",
+      "sourceLayer": "point",
+      "minzoom": 14,
+      "maxzoom": 14,
+      "timeProperty": "first_seen_at",
+      "attribution": "<a href='https://www.mapillary.com/'>© Mapillary</a>",
+      "style": {
+        "circle-radius": 4,
+        "circle-color": "#f59e0b",
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#ffffff",
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          15,
+          [
+            "to-string",
+            [
+              "get",
+              "value"
+            ]
+          ]
+        ],
+        "text-size": 11,
+        "text-anchor": "top",
+        "text-offset": [
+          0,
+          0.6
+        ]
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Mapillary Map Feature",
+        "label": "value",
+        "fields": [
+          "first_seen_at",
+          "last_seen_at"
+        ],
+        "fieldTitles": [
+          "First Seen",
+          "Last Seen"
+        ]
+      }
+    },
+    {
+      "id": "mapillary-traffic-signs",
+      "title": "Traffic Signs",
+      "description": "Traffic signs detected in Mapillary street-level imagery. See <a href='https://www.mapillary.com/developer/api-documentation/#traffic-sign-tiles'>traffic sign tiles</a>.",
+      "type": "vector",
+      "url": "https://tiles.mapillary.com/maps/vtp/mly_map_feature_traffic_sign/2/{z}/{x}/{y}?access_token=MLY|8622412231200477|66830abef280d6a3194896f742927e78",
+      "sourceLayer": "traffic_sign",
+      "minzoom": 14,
+      "maxzoom": 14,
+      "timeProperty": "first_seen_at",
+      "attribution": "<a href='https://www.mapillary.com/'>© Mapillary</a>",
+      "style": {
+        "circle-radius": 4,
+        "circle-color": "#ef4444",
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#ffffff",
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          15,
+          [
+            "to-string",
+            [
+              "get",
+              "value"
+            ]
+          ]
+        ],
+        "text-size": 11,
+        "text-anchor": "top",
+        "text-offset": [
+          0,
+          0.6
+        ]
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Mapillary Traffic Sign",
+        "label": "value",
+        "fields": [
+          "first_seen_at",
+          "last_seen_at"
+        ],
+        "fieldTitles": [
+          "First Seen",
+          "Last Seen"
+        ]
+      }
+    }
+  ]
+}
