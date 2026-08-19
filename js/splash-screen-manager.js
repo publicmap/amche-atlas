@@ -7,6 +7,8 @@
  * renderable.
  */
 
+import { DataUtils } from './map-utils.js';
+
 export class SplashScreenManager {
     constructor() {
         this.elements = {};
@@ -216,9 +218,10 @@ export class SplashScreenManager {
         const layers = [];
         for (const item of items) {
             if (item.startsWith('{') && item.endsWith('}')) {
-                try {
-                    layers.push(JSON.parse(item));
-                } catch (e) {
+                const parsed = DataUtils.parseDirtyJson(item);
+                if (parsed) {
+                    layers.push(parsed);
+                } else {
                     console.warn('[SplashScreen] Failed to parse layer JSON:', item);
                 }
             } else {

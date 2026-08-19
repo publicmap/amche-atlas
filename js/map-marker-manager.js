@@ -10,6 +10,12 @@ import { GeoLibreAPI } from './geolibre-api.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { formatAttributeValue } from './attribute-value-renderer.js';
 
+// How long to ignore map clicks after a touch marker/balloon drag ends. Covers
+// the browser's phantom click (fired from touch-to-mouse-event emulation,
+// which mapbox-gl's Marker never suppresses — see `_suppressClickUntil` in
+// MapFeatureStateManager) plus this app's own 60ms touchend tap-fallback timer.
+const MARKER_DRAG_CLICK_SUPPRESS_MS = 400;
+
 export class MapMarkerManager {
     constructor(map, stateManager, mapboxAPI = null) {
         this._map = map;
@@ -1683,6 +1689,13 @@ export class MapMarkerManager {
     _handleMarkerDragEnd(marker, markerId) {
         this._draggingMarkerId = null;
 
+        // Touch browsers fire a phantom click at the drop point shortly after this
+        // (see `_suppressClickUntil`'s definition) that would otherwise undo the
+        // re-query this method is about to do on its own. Suppress it.
+        if (this._isTouch) {
+            this._stateManager._suppressClickUntil = Date.now() + MARKER_DRAG_CLICK_SUPPRESS_MS;
+        }
+
         const lngLat = marker.getLngLat();
         const point = this._map.project(lngLat);
 
@@ -1739,6 +1752,15 @@ export class MapMarkerManager {
 
         const onUp = () => {
             if (moved) {
+                // Touch browsers fire a phantom click after this release (see
+                // `_suppressClickUntil`'s definition) that can land outside
+                // contentEl (e.g. the map canvas) and slip past the click-swallow
+                // listener below, which only catches clicks targeting contentEl
+                // or its descendants.
+                if (this._isTouch) {
+                    this._stateManager._suppressClickUntil = Date.now() + MARKER_DRAG_CLICK_SUPPRESS_MS;
+                }
+
                 offsetX += lastDx;
                 offsetY += lastDy;
 

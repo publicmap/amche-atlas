@@ -13,12 +13,13 @@ import osmtogeojson from 'https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0-beta.5
 const DEFAULT_ENDPOINT = 'https://overpass-api.de/api/interpreter';
 
 export class OverpassLoader {
-    constructor({ map, groupId, config, onData, onError }) {
+    constructor({ map, groupId, config, onData, onError, onZoomGate }) {
         this._map = map;
         this._groupId = groupId;
         this._config = config;
         this._onData = onData;
         this._onError = onError || ((err) => console.error(`Overpass layer ${groupId}:`, err));
+        this._onZoomGate = onZoomGate;
 
         this._endpoint = config.endpoint || DEFAULT_ENDPOINT;
         this._minzoom = config.minzoom ?? 0;
@@ -34,6 +35,7 @@ export class OverpassLoader {
         this._enabled = false;
         this._inflight = false;
         this._rateLimitedUntil = 0;
+        this._belowMinZoom = false;
 
         this._handleMoveEnd = this._handleMoveEnd.bind(this);
     }
@@ -57,6 +59,18 @@ export class OverpassLoader {
             this._abortController.abort();
             this._abortController = null;
         }
+        this._setBelowMinZoom(false);
+    }
+
+    // Bypasses the minzoom gate and the fetched-bbox cache for an explicit,
+    // user-triggered refresh (e.g. clicking "Refresh" on the zoom-gate message).
+    refreshNow() {
+        if (!this._enabled) return;
+        if (this._debounceTimer) {
+            clearTimeout(this._debounceTimer);
+            this._debounceTimer = null;
+        }
+        this._maybeFetch(true);
     }
 
     destroy() {
@@ -78,16 +92,18 @@ export class OverpassLoader {
         }, delay);
     }
 
-    async _maybeFetch() {
+    async _maybeFetch(force = false) {
         if (!this._enabled) return;
 
         const zoom = this._map.getZoom();
-        if (zoom < this._minzoom) return;
+        const belowMinZoom = zoom < this._minzoom;
+        this._setBelowMinZoom(belowMinZoom);
+        if (belowMinZoom && !force) return;
 
         if (Date.now() < this._rateLimitedUntil) return;
 
         const viewBbox = this._getViewportBbox();
-        if (this._fetchedBboxes.some(b => containsBbox(b, viewBbox))) return;
+        if (!force && this._fetchedBboxes.some(b => containsBbox(b, viewBbox))) return;
 
         const fetchBbox = expandBbox(viewBbox, this._bboxBuffer);
 
@@ -127,6 +143,12 @@ export class OverpassLoader {
             this._inflight = false;
             this._abortController = null;
         }
+    }
+
+    _setBelowMinZoom(belowMinZoom) {
+        if (belowMinZoom === this._belowMinZoom) return;
+        this._belowMinZoom = belowMinZoom;
+        this._onZoomGate?.(belowMinZoom);
     }
 
     _getViewportBbox() {

@@ -2156,6 +2156,9 @@ export class MapFeatureControl {
      */
     _processClickAtPoint(point, lngLat, { force = false } = {}) {
         if (!force && !this._autoSelectEnabled) return;
+        // Swallow the browser's phantom click that follows a touch marker/balloon
+        // drag release — see `_suppressClickUntil`'s definition for why it happens.
+        if (!force && Date.now() < this._stateManager._suppressClickUntil) return;
 
         let interactiveFeatures = [];
         try {

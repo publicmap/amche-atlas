@@ -51,6 +51,19 @@ export class MapFeatureStateManager extends EventTarget {
         // thread (visible jank) and flipping hover state on unrelated features.
         this._isDraggingMarkerPanel = false;
 
+        // Timestamp (ms, Date.now()) until which a map click should be ignored.
+        // Set by MapMarkerManager right after a marker-pin drag or balloon drag
+        // ends. Touch browsers synthesize their own mousedown/mouseup/click after
+        // touchend regardless of any preventDefault() Mapbox's Marker calls
+        // internally (it only flags its own wrapped event, never the real
+        // TouchEvent) — and Marker also sets the dragged element's pointer-events
+        // to "none" mid-drag, so that synthetic click's hit-test lands on the map
+        // canvas (or a badge) underneath instead of being swallowed by the marker.
+        // That phantom click arrives just after the deliberate drop-point
+        // re-query dragend already performs, and re-toggles/closes what dragend
+        // just built. See map-feature-control-iframe.js's `_processClickAtPoint`.
+        this._suppressClickUntil = 0;
+
         // Update event listeners for keydown and keyup to track Cmd/Ctrl key state
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Meta' || event.key === 'Control') {

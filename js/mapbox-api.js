@@ -7,6 +7,7 @@ import { DataUtils, GeoUtils } from './map-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { OverpassLoader } from './overpass-loader.js';
+import { MapContextMessagesControl } from './map-context-messages-control.js';
 import ConfigManager from './config-manager.js';
 import { handlerLoader } from './inspection-handler-loader.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
@@ -2343,6 +2344,7 @@ export class MapboxAPI {
             loader.destroy();
             this._overpassLoaders.delete(groupId);
         }
+        MapContextMessagesControl.close(this._overpassZoomGateMessageId(groupId));
         return this._removeGeoJSONLayer(groupId, config);
     }
 
@@ -2363,11 +2365,39 @@ export class MapboxAPI {
                 onData: (geojson) => {
                     const source = this._map.getSource(sourceId);
                     if (source) source.setData(geojson);
-                }
+                },
+                onZoomGate: (belowMinZoom) => this._handleOverpassZoomGate(groupId, config, belowMinZoom)
             });
             this._overpassLoaders.set(groupId, loader);
         }
         loader.start();
+    }
+
+    _overpassZoomGateMessageId(groupId) {
+        return `overpass-zoom-gate-${groupId}`;
+    }
+
+    // Below the layer's minzoom, OverpassLoader stops auto-refreshing (to
+    // avoid huge queries) - surface that as a dismissible message with a
+    // manual refresh link rather than silently doing nothing.
+    _handleOverpassZoomGate(groupId, config, belowMinZoom) {
+        const messageId = this._overpassZoomGateMessageId(groupId);
+        if (!belowMinZoom) {
+            MapContextMessagesControl.close(messageId);
+            return;
+        }
+        const title = GeoUtils.escapeXml(config.title || groupId);
+        const jsEscapedGroupId = groupId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        MapContextMessagesControl.show(
+            `[Update] ${title} &middot; <a href="#" onclick="window.layerControl?._mapboxAPI?.refreshOverpassLayer('${jsEscapedGroupId}');return false;">Refresh</a>`,
+            { id: messageId, duration: 0 }
+        );
+    }
+
+    // Manually forces an Overpass layer to refetch the current viewport,
+    // bypassing the minzoom gate - used by the zoom-gate message's "Refresh" link.
+    refreshOverpassLayer(groupId) {
+        this._overpassLoaders.get(groupId)?.refreshNow();
     }
 
     /**
