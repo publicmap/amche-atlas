@@ -162,18 +162,23 @@ export class OSMApi {
 
     // A relation's members can mix points/lines/polygons (e.g. a route
     // relation's ways stay LineStrings, only multipolygon/boundary relations
-    // get assembled into Polygons by osmtogeojson) — so the default style
-    // only includes the paint properties for geometry types actually present,
-    // rather than always defining circle/line/fill regardless of geometry.
-    static styleForGeometryTypes(geojson) {
+    // get assembled into Polygons by osmtogeojson) — so callers only include
+    // the paint properties for geometry types actually present, rather than
+    // always defining circle/line/fill regardless of geometry.
+    static detectGeometryTypes(geojson) {
         const types = new Set();
         (geojson.features || []).forEach(feature => {
             if (feature.geometry && feature.geometry.type) types.add(feature.geometry.type);
         });
+        return {
+            hasPoint: types.has('Point') || types.has('MultiPoint'),
+            hasLine: types.has('LineString') || types.has('MultiLineString'),
+            hasPolygon: types.has('Polygon') || types.has('MultiPolygon')
+        };
+    }
 
-        const hasPoint = types.has('Point') || types.has('MultiPoint');
-        const hasLine = types.has('LineString') || types.has('MultiLineString');
-        const hasPolygon = types.has('Polygon') || types.has('MultiPolygon');
+    static styleForGeometryTypes(geojson) {
+        const { hasPoint, hasLine, hasPolygon } = this.detectGeometryTypes(geojson);
 
         const style = {};
         if (hasPoint) {
@@ -189,6 +194,26 @@ export class OSMApi {
             style['fill-color'] = 'rgba(16,185,129,0.25)';
         }
         return style;
+    }
+
+    /**
+     * Like styleForGeometryTypes, but layers a caller-supplied style on top —
+     * a user-declared paint property only survives if the geometry type it
+     * applies to is actually present (e.g. a fixed "fill-color" in a layer's
+     * config is dropped unless the result actually contains a
+     * Polygon/MultiPolygon feature), so a style authored without knowing the
+     * query's real geometry mix can't paint a fill/circle with nothing to draw.
+     */
+    static mergeStyleForGeometryTypes(geojson, userStyle = {}) {
+        const { hasPoint, hasLine, hasPolygon } = this.detectGeometryTypes(geojson);
+        const merged = this.styleForGeometryTypes(geojson);
+        for (const [key, value] of Object.entries(userStyle)) {
+            if (key.startsWith('circle-') && !hasPoint) continue;
+            if (key.startsWith('fill-') && !key.startsWith('fill-extrusion-') && !hasPolygon) continue;
+            if (key.startsWith('line-') && !(hasLine || hasPolygon)) continue;
+            merged[key] = value;
+        }
+        return merged;
     }
 
     static async createConfig(type, id, geojson, source = 'osm-api') {

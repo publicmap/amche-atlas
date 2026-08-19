@@ -9,6 +9,7 @@
  */
 
 import osmtogeojson from 'https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0-beta.5/+esm';
+import { OSMApi } from './osm-url-api.js';
 
 const DEFAULT_ENDPOINT = 'https://overpass-api.de/api/interpreter';
 
@@ -123,14 +124,25 @@ export class OverpassLoader {
             }
 
             for (const f of features) {
-                if (f.id != null) this._features.set(String(f.id), f);
+                if (f.id == null) continue;
+                // $-prefixed, like $row/$table/$sheet elsewhere - a synthetic
+                // field, not real OSM data - linking each feature back to its
+                // own OSM API object (works for relation members too, not
+                // just the queried element type).
+                const ref = OSMApi.extractRef(f.id);
+                if (ref) {
+                    f.properties = f.properties || {};
+                    f.properties.$url = OSMApi.osmUrlToObject(ref.type, ref.id);
+                }
+                this._features.set(String(f.id), f);
             }
             this._fetchedBboxes.push(fetchBbox);
 
-            this._onData({
+            const merged = {
                 type: 'FeatureCollection',
                 features: Array.from(this._features.values())
-            });
+            };
+            this._onData(merged, OSMApi.mergeStyleForGeometryTypes(merged, this._config.style));
         } catch (err) {
             if (err.name === 'AbortError') return;
             if (err.isRateLimit) {

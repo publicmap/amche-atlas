@@ -961,18 +961,22 @@ Live OSM data fetched from an [Overpass API](https://wiki.openstreetmap.org/wiki
 
 The layer refetches on map `moveend` (debounced 750ms). A bbox-containment cache skips the network call when the current viewport already lies inside a previously-fetched (buffered) bbox, and merges results across fetches deduped by OSM ID, so panning around the same area is free.
 
-`feature.id` is set by `osmtogeojson` to the canonical `"node/123"` / `"way/456"` / `"relation/789"` form, which works directly with `?selected=<layerId>:<featureId>` deep links.
+`feature.id` is set by `osmtogeojson` to the canonical `"node/123"` / `"way/456"` / `"relation/789"` form, which works directly with `?selected=<layerId>:<featureId>` deep links. `inspect.id` defaults to `"id"` if not set. Every feature also gets a synthetic `$url` property (same `$`-prefixed convention as `csv`/`sheet`'s `$row`/`$table`/`$sheet` — not real OSM data) linking to that feature's own page on openstreetmap.org.
+
+Below `minzoom`, the layer stops auto-refreshing (to avoid expensive worldwide queries) and shows a dismissible message with a manual "Refresh" link instead of silently doing nothing — click it to fetch the current viewport once regardless of zoom.
+
+`style`'s paint properties are filtered by the geometry types actually present in each fetch — same logic as the `osm:` dynamic layer shorthand (see `OSMApi.mergeStyleForGeometryTypes` in `js/osm-url-api.js`). A `fill-color` in `style` only takes effect once the result contains a Polygon/MultiPolygon feature, `circle-*` only once it contains a Point, and so on — so a style written without knowing the query's exact geometry mix (e.g. a `power=line` query that's almost entirely LineStrings) can't paint a fill/circle layer with nothing to draw. Because of this, paint layers are created lazily on the first batch of data rather than at layer-add time.
 
 | Field | Notes |
 |---|---|
 | `query` | Overpass QL query. **Required.** Supports placeholders `{{bbox}}` (south,west,north,east — Overpass order), `{{center}}` (lat,lng), `{{zoom}}`. If the query does not begin with a setting block (`[...]`), `[out:json][timeout:N];` is auto-prepended. If you write your own settings block, **you must include `[out:json]`** — other output formats cannot be parsed. |
 | `endpoint` | Overpass API endpoint. Default: `https://overpass-api.de/api/interpreter`. Use a mirror (e.g. `https://overpass.kumi.systems/api/interpreter`) or self-hosted instance for higher rate limits. |
-| `minzoom` | Below this zoom, the layer makes no requests and shows no data. Use to avoid expensive worldwide queries. Recommended ≥ 12 for point queries, ≥ 10 for areas. |
+| `minzoom` | Below this zoom, the layer doesn't auto-fetch (see above — the user can still manually refresh). Use to avoid expensive worldwide queries. Recommended ≥ 12 for point queries, ≥ 10 for areas. |
 | `bboxBuffer` | Multiplier applied to the viewport bbox before fetching, so small pans don't trigger refetches. Default `1.5` (50% extra on each axis). |
 | `timeout` | Overpass `[timeout:N]` seconds, used only when the header is auto-prepended. Default `25`. |
 | `maxFeatures` | Hard cap on features kept from a single response. Default `5000`. Excess features are dropped with a console warning. |
 | `debounce` | Milliseconds to wait after `moveend` before issuing a fetch. Default `750`. |
-| `style`, `inspect`, `clustered`, `attribution` | Same semantics as the `geojson` type. |
+| `style`, `inspect`, `clustered`, `attribution` | Same semantics as the `geojson` type, except `style` is geometry-filtered as described above. |
 
 ```json
 {

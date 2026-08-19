@@ -35,6 +35,7 @@ export class MapboxAPI {
         this._eventListeners = new Map(); // Cache for event listeners
         this._timeBasedLayers = new Map(); // Cache for layers with time parameters
         this._overpassLoaders = new Map(); // OverpassLoader instances keyed by groupId
+        this._overpassPaintLayersCreated = new Set(); // groupIds whose fill/line/circle layers have been created
         this._layerDataPrefetch = new Map(); // url -> in-flight/resolved GeoJSON promise, see prefetchLayerData
 
         // Initialize style property mapping for different layer types
@@ -2313,13 +2314,21 @@ export class MapboxAPI {
     async _createOverpassLayer(groupId, config, visible) {
         const sourceId = `geojson-${groupId}`;
 
+        // `feature.id` is the canonical "type/id" OSM ref (see OverpassLoader),
+        // so it's always a reliable feature identifier — default inspect.id to
+        // it, same as OSMApi.createConfig does for the "osm:" dynamic layer.
+        config.inspect = { id: 'id', ...config.inspect };
+
         if (!this._map.getSource(sourceId) && visible) {
             this._map.addSource(sourceId, {
                 type: 'geojson',
                 data: { type: 'FeatureCollection', features: [] },
                 ...(config.attribution ? { attribution: config.attribution } : {})
             });
-            await this._addGeoJSONLayers(groupId, config, sourceId, visible);
+            // Paint layers (fill/line/circle) are created lazily on the first
+            // batch of data — see _startOverpassLoader's onData handler —
+            // since which of them are relevant depends on the geometry types
+            // actually returned by the query, unknown before the first fetch.
         }
 
         this._startOverpassLoader(groupId, config, visible);
@@ -2344,6 +2353,7 @@ export class MapboxAPI {
             loader.destroy();
             this._overpassLoaders.delete(groupId);
         }
+        this._overpassPaintLayersCreated.delete(groupId);
         MapContextMessagesControl.close(this._overpassZoomGateMessageId(groupId));
         return this._removeGeoJSONLayer(groupId, config);
     }
@@ -2362,9 +2372,14 @@ export class MapboxAPI {
                 map: this._map,
                 groupId,
                 config,
-                onData: (geojson) => {
+                onData: (geojson, style) => {
                     const source = this._map.getSource(sourceId);
-                    if (source) source.setData(geojson);
+                    if (!source) return;
+                    if (!this._overpassPaintLayersCreated.has(groupId)) {
+                        this._overpassPaintLayersCreated.add(groupId);
+                        this._addGeoJSONLayers(groupId, { ...config, style }, sourceId, visible);
+                    }
+                    source.setData(geojson);
                 },
                 onZoomGate: (belowMinZoom) => this._handleOverpassZoomGate(groupId, config, belowMinZoom)
             });
@@ -2389,7 +2404,7 @@ export class MapboxAPI {
         const title = GeoUtils.escapeXml(config.title || groupId);
         const jsEscapedGroupId = groupId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         MapContextMessagesControl.show(
-            `[Update] ${title} &middot; <a href="#" onclick="window.layerControl?._mapboxAPI?.refreshOverpassLayer('${jsEscapedGroupId}');return false;">Refresh</a>`,
+            `${title} &middot; <a href="#" onclick="window.layerControl?._mapboxAPI?.refreshOverpassLayer('${jsEscapedGroupId}');return false;">Refresh</a>`,
             { id: messageId, duration: 0 }
         );
     }
