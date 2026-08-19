@@ -7,7 +7,7 @@ import { DataUtils, GeoUtils } from './map-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { OverpassLoader } from './overpass-loader.js';
-import { MapContextMessagesControl } from './map-context-messages-control.js';
+import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
 import ConfigManager from './config-manager.js';
 import { handlerLoader } from './inspection-handler-loader.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
@@ -36,6 +36,7 @@ export class MapboxAPI {
         this._timeBasedLayers = new Map(); // Cache for layers with time parameters
         this._overpassLoaders = new Map(); // OverpassLoader instances keyed by groupId
         this._overpassPaintLayersCreated = new Set(); // groupIds whose fill/line/circle layers have been created
+        this._overpassConfigs = new Map(); // groupId -> config, for rebuilding the zoom-gate message on manual refresh
         this._layerDataPrefetch = new Map(); // url -> in-flight/resolved GeoJSON promise, see prefetchLayerData
 
         // Initialize style property mapping for different layer types
@@ -2354,12 +2355,14 @@ export class MapboxAPI {
             this._overpassLoaders.delete(groupId);
         }
         this._overpassPaintLayersCreated.delete(groupId);
+        this._overpassConfigs.delete(groupId);
         MapContextMessagesControl.close(this._overpassZoomGateMessageId(groupId));
         return this._removeGeoJSONLayer(groupId, config);
     }
 
     _startOverpassLoader(groupId, config, visible) {
         let loader = this._overpassLoaders.get(groupId);
+        this._overpassConfigs.set(groupId, config);
 
         if (!visible) {
             if (loader) loader.stop();
@@ -2392,6 +2395,17 @@ export class MapboxAPI {
         return `overpass-zoom-gate-${groupId}`;
     }
 
+    // Shared markup for the zoom-gate message so the initial "Refresh" link
+    // and the in-flight spinner (refreshOverpassLayer) stay in sync.
+    _overpassZoomGateMessageHtml(groupId, config, { loading = false } = {}) {
+        const title = GeoUtils.escapeXml(config.title || groupId);
+        if (loading) {
+            return `${title} &middot; Refresh ${LOADING_ICON_HTML}`;
+        }
+        const jsEscapedGroupId = groupId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return `${title} &middot; <a href="#" onclick="window.layerControl?._mapboxAPI?.refreshOverpassLayer('${jsEscapedGroupId}');return false;">Refresh</a>`;
+    }
+
     // Below the layer's minzoom, OverpassLoader stops auto-refreshing (to
     // avoid huge queries) - surface that as a dismissible message with a
     // manual refresh link rather than silently doing nothing.
@@ -2401,18 +2415,30 @@ export class MapboxAPI {
             MapContextMessagesControl.close(messageId);
             return;
         }
-        const title = GeoUtils.escapeXml(config.title || groupId);
-        const jsEscapedGroupId = groupId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         MapContextMessagesControl.show(
-            `${title} &middot; <a href="#" onclick="window.layerControl?._mapboxAPI?.refreshOverpassLayer('${jsEscapedGroupId}');return false;">Refresh</a>`,
+            this._overpassZoomGateMessageHtml(groupId, config),
             { id: messageId, duration: 0 }
         );
     }
 
     // Manually forces an Overpass layer to refetch the current viewport,
-    // bypassing the minzoom gate - used by the zoom-gate message's "Refresh" link.
+    // bypassing the minzoom gate - used by the zoom-gate message's "Refresh"
+    // link. Swaps the link for a spinner while in flight, then closes the
+    // message once a response (success or error) comes back.
     refreshOverpassLayer(groupId) {
-        this._overpassLoaders.get(groupId)?.refreshNow();
+        const loader = this._overpassLoaders.get(groupId);
+        if (!loader) return;
+
+        const config = this._overpassConfigs.get(groupId) || {};
+        const messageId = this._overpassZoomGateMessageId(groupId);
+        MapContextMessagesControl.show(
+            this._overpassZoomGateMessageHtml(groupId, config, { loading: true }),
+            { id: messageId, duration: 0 }
+        );
+
+        loader.refreshNow().then(() => {
+            MapContextMessagesControl.close(messageId);
+        });
     }
 
     /**

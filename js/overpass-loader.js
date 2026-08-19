@@ -65,13 +65,16 @@ export class OverpassLoader {
 
     // Bypasses the minzoom gate and the fetched-bbox cache for an explicit,
     // user-triggered refresh (e.g. clicking "Refresh" on the zoom-gate message).
+    // Returns a promise that settles once the fetch finishes (success or
+    // error - _maybeFetch handles its own errors internally, so this never
+    // rejects), so the caller can show/clear a loading indicator.
     refreshNow() {
-        if (!this._enabled) return;
+        if (!this._enabled) return Promise.resolve();
         if (this._debounceTimer) {
             clearTimeout(this._debounceTimer);
             this._debounceTimer = null;
         }
-        this._maybeFetch(true);
+        return this._maybeFetch(true);
     }
 
     destroy() {
