@@ -1756,11 +1756,11 @@ export class MapMarkerManager {
                 }
             }
             this._stateManager._isDraggingMarkerPanel = false;
-            window.removeEventListener('mousemove', onMove);
-            window.removeEventListener('mouseup', onUp);
-            window.removeEventListener('touchmove', onMove);
-            window.removeEventListener('touchend', onUp);
-            window.removeEventListener('touchcancel', onUp);
+            window.removeEventListener('mousemove', onMove, true);
+            window.removeEventListener('mouseup', onUp, true);
+            window.removeEventListener('touchmove', onMove, true);
+            window.removeEventListener('touchend', onUp, true);
+            window.removeEventListener('touchcancel', onUp, true);
         };
 
         const onDown = (e) => {
@@ -1777,17 +1777,21 @@ export class MapMarkerManager {
             // on whatever feature happens to be underneath.
             this._stateManager._isDraggingMarkerPanel = true;
             this._stateManager.handleMapMouseLeave();
-            window.addEventListener('mousemove', onMove);
-            window.addEventListener('mouseup', onUp);
-            window.addEventListener('touchmove', onMove, { passive: false });
-            window.addEventListener('touchend', onUp);
+            // Capture phase, not bubble: a release over a feature-badge hits the
+            // badge's own touchend handler, which calls stopPropagation() (see
+            // _attachBadgeHandlers) and would otherwise stop this touchend from ever
+            // bubbling up to window, leaking these listeners permanently — see below.
+            window.addEventListener('mousemove', onMove, true);
+            window.addEventListener('mouseup', onUp, true);
+            window.addEventListener('touchmove', onMove, { passive: false, capture: true });
+            window.addEventListener('touchend', onUp, true);
             // Without this, a touch drag interrupted mid-gesture (e.g. the browser
-            // reclassifying it as a native page pan partway through) leaves these
-            // window-level listeners attached forever. The next unrelated touch —
-            // like panning the map somewhere else entirely — then gets misread as a
-            // continuation of this drag, yanking the balloon to wherever that new
-            // touch happens to land.
-            window.addEventListener('touchcancel', onUp);
+            // reclassifying it as a native page pan partway through, or its touchend
+            // landing on a descendant that stops propagation) leaves these window-level
+            // listeners attached forever. The next unrelated touch — like panning the
+            // map somewhere else entirely — then gets misread as a continuation of
+            // this drag, yanking the balloon to wherever that new touch happens to land.
+            window.addEventListener('touchcancel', onUp, true);
         };
 
         contentEl.addEventListener('mousedown', onDown);
