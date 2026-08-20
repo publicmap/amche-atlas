@@ -468,7 +468,7 @@ export class MapMarkerManager {
         const layerConfig = this._stateManager.getLayerConfig(f.layerId);
         if (!layerConfig) return '';
 
-        const thumbnail = LayerThumbnail.generate(layerConfig, 18, { useHeaderImage: false, interactive: false });
+        const thumbnail = LayerThumbnail.generate(layerConfig, 18, { interactive: false });
         let thumbnailHTML = '';
         if (thumbnail) {
             thumbnail.style.borderRadius = '3px';
@@ -1181,7 +1181,7 @@ export class MapMarkerManager {
                         isInView = window.MapUtils.isLayerInView(layer, bounds);
                     }
 
-                    const thumbnail = LayerThumbnail.generate(layer, 24, { isInView, useHeaderImage: false });
+                    const thumbnail = LayerThumbnail.generate(layer, 24, { isInView });
                     thumbnail.style.margin = '0';
                     thumbnail.style.borderRadius = '3px';
                     thumbnail.style.flexShrink = '0';

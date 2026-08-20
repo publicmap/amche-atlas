@@ -13,10 +13,12 @@ export class LayerThumbnail {
      * @returns {HTMLElement} Thumbnail element
      */
     static generate(layer, size = 80, options = {}) {
-        const { isInView = true, layerDefaults = {}, interactive = true, title = null, useHeaderImage = true } = options;
-        // headerImage is rendered as the card's header banner by callers like the
-        // inspector, so they can opt out of repeating it as the thumbnail background.
-        const headerImage = useHeaderImage ? layer.headerImage : null;
+        const { isInView = true, layerDefaults = {}, interactive = true, title = null } = options;
+        // Same priority everywhere this is used: a curated headerImage wins,
+        // then a curated legendImage, then an auto-generated preview (sample
+        // tile for raster layers, or a style-derived/default SVG).
+        const legendImage = Array.isArray(layer.legendImage) ? layer.legendImage[0] : layer.legendImage;
+        const thumbnailImage = layer.headerImage || legendImage;
         const container = document.createElement('div');
         container.className = 'layer-thumbnail';
         if (title) {
@@ -34,8 +36,8 @@ export class LayerThumbnail {
         `;
 
         // Set background image if available
-        if (headerImage) {
-            container.style.backgroundImage = `url('${headerImage}')`;
+        if (thumbnailImage) {
+            container.style.backgroundImage = `url('${thumbnailImage}')`;
             container.style.backgroundSize = 'cover';
             container.style.backgroundPosition = 'center';
             container.style.backgroundColor = '#f3f4f6';
@@ -65,7 +67,7 @@ export class LayerThumbnail {
             if (overlay) {
                 container.appendChild(overlay);
             }
-        } else if (!headerImage) {
+        } else if (!thumbnailImage) {
             // No style and no background - show default
             const svg = this._generateDefaultThumbnail(layer, size);
             container.appendChild(svg);

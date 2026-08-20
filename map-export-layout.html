@@ -177,7 +177,7 @@
             overflow-wrap: break-word;
         }
 
-        .text-data {
+        .text-description {
             font-size: 7pt;
             line-height: 1.4;
             color: #333;
@@ -303,7 +303,7 @@
             <!-- Left: Text Metadata -->
             <div class="metadata-left">
                 <div class="text-title" data-export-title>Map Title Goes Here</div>
-                <div class="text-data" data-export-attribution>Data Sources: Attribution text here</div>
+                <div class="text-description" data-export-description>Map description goes here</div>
                 <div class="text-export-info" data-export-info>Exported 15 January 2024, 15:45 | https://example.com/ ?terrain=1.5 & selected=goa-plots:8029467;goa-local-body:253;india-state:10 & layers=mapbox-streets, goa-plots, goa-local-body, goa-2021-regional-plan, india-state, mapbox-satellite #15.85/15.59787/73.812073</div>
             </div>
 
@@ -376,7 +376,7 @@
         <ul>
             <li><code>data-export-qr</code> - QR code container (auto-sizes based on URL length, contains full unmodified URL)</li>
             <li><code>data-export-title</code> - Map title (single line with ellipsis)</li>
-            <li><code>data-export-attribution</code> - Data attribution</li>
+            <li><code>data-export-description</code> - Map description</li>
             <li><code>data-export-info</code> - Formatted export info: timestamp | base URL | params (selection layer completely filtered out including geojson, URL decoded, separated by &) | hash. Text wraps as needed to show full URL.</li>
             <li><code>data-export-scale-label</code> - Scale bar distance label (right end, e.g., "1 km"). Left end shows "0" by default.</li>
             <li><code>data-export-north-arrow</code> - North arrow (rotates with map bearing)</li>

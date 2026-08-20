@@ -72,13 +72,12 @@
             "zoom"
           ],
           13,
-          30,
+          200,
           17,
           2
         ],
         "text-font": [
-          "Courier New",
-          "Open Sans SemiBold"
+          "PT Sans Narrow Bold"
         ],
         "text-field": [
           "step",
@@ -86,29 +85,7 @@
             "zoom"
           ],
           "",
-          13,
-          [
-            "format",
-            [
-              "get",
-              "SUBDIV_NM"
-            ],
-            {
-              "text-color": "white",
-              "font-scale": 1.4
-            },
-            "\n",
-            {},
-            [
-              "get",
-              "VILL_NM"
-            ],
-            {
-              "text-color": "white",
-              "font-scale": 1.2
-            }
-          ],
-          15,
+          17,
           [
             "format",
             [
@@ -141,115 +118,10 @@
             }
           ]
         ],
-        "text-color": "white",
-        "text-halo-color": "black",
-        "text-halo-width": [
-          "case",
-          [
-            "boolean",
-            [
-              "feature-state",
-              "selected"
-            ],
-            false
-          ],
-          2,
-          1
-        ],
-        "text-opacity": [
-          "case",
-          [
-            "boolean",
-            [
-              "feature-state",
-              "selected"
-            ],
-            false
-          ],
-          1,
-          [
-            "boolean",
-            [
-              "feature-state",
-              "hover"
-            ],
-            false
-          ],
-          1,
-          0.6
-        ],
-        "text-size": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          13,
-          6,
-          16,
-          10,
-          18,
-          14
-        ],
-        "fill-color": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          15,
-          "rgba(0, 0, 0, 0.05)",
-          18,
-          [
-            "case",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            "rgba(0, 0, 0, 0)",
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            "rgba(0, 0, 0, 0.3)",
-            "rgba(0, 0, 0, 0.4)"
-          ]
-        ],
-        "line-opacity": [
-          "case",
-          [
-            "boolean",
-            [
-              "feature-state",
-              "selected"
-            ],
-            false
-          ],
-          1,
-          [
-            "boolean",
-            [
-              "feature-state",
-              "hover"
-            ],
-            false
-          ],
-          1,
-          0.4
-        ],
-        "line-color": "#eee",
+        "text-color": "black",
+        "text-halo-width": 0,
+        "fill-color": "rgba(255, 255, 255, 0.2)",
+        "line-color": "#444",
         "line-width": [
           "interpolate",
           [
@@ -264,22 +136,22 @@
             [
               "boolean",
               [
+                "boolean",
+                [
+                  "feature-state",
+                  "hover"
+                ],
+                false
+              ],
+              2,
+              [
                 "feature-state",
                 "selected"
               ],
               false
             ],
             2,
-            [
-              "boolean",
-              [
-                "feature-state",
-                "hover"
-              ],
-              false
-            ],
-            1,
-            0
+            0.1
           ],
           18,
           [
@@ -288,20 +160,20 @@
               "boolean",
               [
                 "feature-state",
-                "selected"
-              ],
-              false
-            ],
-            2,
-            [
-              "boolean",
-              [
-                "feature-state",
                 "hover"
               ],
               false
             ],
-            1.2,
+            4,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            4,
             1
           ]
         ]
@@ -312,14 +184,14 @@
         "title": "Khasra Number",
         "label": "M_KHASRA_N",
         "fields": [
-          "villagenam",
-          "talname",
-          "shape_area"
+          "VILL_NM",
+          "SUBDIV_NM",
+          "DIST_NM"
         ],
         "fieldTitles": [
           "Village",
-          "Taluk",
-          "Shape Area (sqm)"
+          "Sub Division",
+          "District"
         ],
         "onClick": "getBhunakshaInfo"
       }

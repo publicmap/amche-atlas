@@ -16,6 +16,7 @@ export class MapExportControl {
         this._descriptionCustomized = false;
         this._moveendHandler = null;
         this._footerTemplateCache = null;
+        this._headerImageDataUrlCache = new Map();
         this._exportSettings = null;
         this._isPanelOpen = false;
     }
@@ -573,7 +574,7 @@ export class MapExportControl {
                         }
                     }
 
-                    this._sendProgress(60, 'Adding attribution');
+                    this._sendProgress(60, 'Adding footer');
                     dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
 
                     this._sendProgress(85, 'Building PDF');
@@ -880,7 +881,7 @@ export class MapExportControl {
                         }
                     }
 
-                    this._sendProgress(60, 'Adding attribution');
+                    this._sendProgress(60, 'Adding footer');
                     dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
 
                     const blob = await fetch(dataUrl).then(r => r.blob());
@@ -978,7 +979,7 @@ export class MapExportControl {
                         }
                     }
 
-                    this._sendProgress(60, 'Adding attribution');
+                    this._sendProgress(60, 'Adding footer');
                     dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
 
                     this._sendProgress(70, 'Converting to JPEG');
@@ -1636,7 +1637,7 @@ export class MapExportControl {
         const actualPixelWidth = canvas.width;
         const actualPixelHeight = canvas.height;
 
-        this._sendProgress(52, 'Adding attribution');
+        this._sendProgress(52, 'Adding footer');
 
         // Markers are excluded here: this raster becomes a georeferenced DXF
         // background image, not a presentation graphic, so it shouldn't carry
@@ -2002,8 +2003,16 @@ export class MapExportControl {
     }
 
     async _addFooterToRaster(mapImageDataUrl, width, height, center, bearing, dpi = 96, config = {}, markersDataUrl = null) {
+        const __profileStart = performance.now();
+        let __lastMark = __profileStart;
+        const __step = (label) => {
+            const now = performance.now();
+            console.log(`[Export][timing] ${label}: +${(now - __lastMark).toFixed(0)}ms (total ${(now - __profileStart).toFixed(0)}ms)`);
+            __lastMark = now;
+        };
         try {
             const html2canvas = (await import('html2canvas')).default;
+            __step('import html2canvas');
 
             let shareUrl = window.location.href;
             if (window.urlManager) {
@@ -2035,63 +2044,36 @@ export class MapExportControl {
 
             const titleFontSize = Math.round(footerHeight * 0.25);
             const descFontSize = Math.round(footerHeight * 0.18);
-            const attrFontSize = Math.round(footerHeight * 0.15);
             const urlFontSize = Math.round(footerHeight * 0.13);
 
             const qrDataUrl = config.includeQRCode !== false
                 ? await this._getQRCodeDataUrl(shareUrl, qrGenerationSize)
                 : null;
+            __step(`QR code generation (size ${qrGenerationSize}px, urlLength ${urlLength})`);
 
-            let attributionText = '';
-            const attribCtrl = this._map._controls.find(c => c._container && c._container.classList.contains('mapboxgl-ctrl-attrib'));
-            if (attribCtrl) {
-                attributionText = attribCtrl._container.textContent;
-            }
-
-            const container = document.createElement('div');
-            container.style.position = 'fixed';
-            container.style.left = '-9999px';
-            container.style.top = '0';
-            container.style.width = width + 'px';
-            container.style.height = height + 'px';
-            container.style.background = '#ffffff';
-            document.body.appendChild(container);
-
-            const mapImg = document.createElement('img');
-            mapImg.src = mapImageDataUrl;
-            mapImg.style.width = '100%';
-            mapImg.style.height = '100%';
-            mapImg.style.display = 'block';
-            container.appendChild(mapImg);
-
-            await new Promise(resolve => {
-                mapImg.onload = resolve;
-                if (mapImg.complete) resolve();
+            const loadImage = (src) => new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = src;
+                if (img.complete) resolve(img);
             });
 
-            if (markersDataUrl) {
-                const markersImg = document.createElement('img');
-                markersImg.src = markersDataUrl;
-                markersImg.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;display:block;';
-                container.appendChild(markersImg);
+            const mapImg = await loadImage(mapImageDataUrl);
+            __step('map image decode');
 
-                await new Promise(resolve => {
-                    markersImg.onload = resolve;
-                    if (markersImg.complete) resolve();
-                });
+            let markersImg = null;
+            if (markersDataUrl) {
+                markersImg = await loadImage(markersDataUrl);
+                __step('markers overlay image decode');
             }
 
             const template = await this._loadFooterTemplate();
+            __step('load footer template');
             if (!template) {
                 console.warn('Could not load footer template, using plain map');
-                document.body.removeChild(container);
                 return mapImageDataUrl;
             }
-
-            const head = document.createElement('head');
-            const styleEl = template.styles.cloneNode(true);
-            head.appendChild(styleEl);
-            container.insertBefore(head, container.firstChild);
 
             const footerBox = template.footer.cloneNode(true);
             footerBox.style.cssText = 'position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important;';
@@ -2142,12 +2124,12 @@ export class MapExportControl {
                 minute: '2-digit'
             });
 
-            const attrEl = footerBox.querySelector('[data-export-attribution]');
-            if (attrEl) {
-                if (attributionText) {
-                    attrEl.textContent = `Data: ${attributionText}`;
+            const descEl = footerBox.querySelector('[data-export-description]');
+            if (descEl) {
+                if (this._description) {
+                    descEl.textContent = this._description;
                 } else {
-                    attrEl.remove();
+                    descEl.remove();
                 }
             }
 
@@ -2205,6 +2187,7 @@ export class MapExportControl {
                     ];
 
                     const imageToDataURL = async (url, useProxy = false) => {
+                        const __imgStart = performance.now();
                         return new Promise((resolve) => {
                             const img = new Image();
                             img.crossOrigin = 'anonymous';
@@ -2226,7 +2209,7 @@ export class MapExportControl {
                                     const ctx = canvas.getContext('2d');
                                     ctx.drawImage(img, 0, 0);
                                     const dataURL = canvas.toDataURL('image/png');
-                                    console.log(`[Export] Successfully converted image${useProxy ? ' (via proxy)' : ''}: ${url.substring(0, 50)}...`);
+                                    console.log(`[Export][timing] headerImage ${useProxy ? '(via proxy) ' : ''}${url.substring(0, 60)}...: ${(performance.now() - __imgStart).toFixed(0)}ms`);
                                     resolve(dataURL);
                                 } catch (e) {
                                     console.warn(`[Export] Failed to convert image to canvas: ${actualUrl}`, e);
@@ -2272,7 +2255,15 @@ export class MapExportControl {
                                 }
 
                                 if (layerConfig.headerImage && (layerConfig.headerImage.startsWith('http://') || layerConfig.headerImage.startsWith('https://'))) {
-                                    const dataURL = await imageToDataURL(layerConfig.headerImage);
+                                    const cacheKey = layerConfig.headerImage;
+                                    let dataURLPromise = this._headerImageDataUrlCache.get(cacheKey);
+                                    if (!dataURLPromise) {
+                                        dataURLPromise = imageToDataURL(cacheKey);
+                                        this._headerImageDataUrlCache.set(cacheKey, dataURLPromise);
+                                    } else {
+                                        console.log(`[Export] Reusing cached headerImage conversion: ${cacheKey.substring(0, 60)}...`);
+                                    }
+                                    const dataURL = await dataURLPromise;
                                     if (dataURL) {
                                         layerConfig.headerImage = dataURL;
                                     } else {
@@ -2288,6 +2279,7 @@ export class MapExportControl {
                             }
                         })
                     );
+                    __step(`resolve ${resolvedLayers.length} layer configs/headerImages`);
 
                     let thumbnailCount = 0;
                     for (const resolved of resolvedLayers) {
@@ -2334,39 +2326,88 @@ export class MapExportControl {
                         }
                     }
                     console.log(`[Export] Generated ${thumbnailCount} layer thumbnails`);
+                    __step(`build ${thumbnailCount} thumbnail DOM rows`);
                 } catch (e) {
                     console.error('[Export] Failed to generate layer thumbnails:', e);
                 }
             }
 
-            container.appendChild(footerBox);
+            // Render only the footer into an isolated same-origin iframe so html2canvas
+            // clones/style-computes a tiny standalone document instead of the entire
+            // live app (Shoelace shadow DOM, Mapbox GL controls, jQuery, Tailwind CDN
+            // styles), which is what made the whole-document html2canvas call slow.
+            const iframe = document.createElement('iframe');
+            iframe.style.cssText = `position:fixed; left:-9999px; top:0; width:${width}px; height:${height}px; border:none;`;
+            document.body.appendChild(iframe);
 
-            await new Promise(resolve => requestAnimationFrame(resolve));
-            await new Promise(resolve => requestAnimationFrame(resolve));
+            let compositeCanvas;
+            try {
+                const idoc = iframe.contentDocument;
+                idoc.open();
+                idoc.write('<!DOCTYPE html><html><head></head><body style="margin:0;padding:0;"></body></html>');
+                idoc.close();
 
-            const compositeCanvas = await html2canvas(container, {
-                backgroundColor: '#ffffff',
-                scale: 1,
-                logging: false,
-                useCORS: true,
-                allowTaint: true,
-                foreignObjectRendering: false,
-                width: width,
-                height: height,
-                onclone: (clonedDoc) => {
-                    const clonedContainer = clonedDoc.querySelector('div[style*="position: fixed"]');
-                    if (clonedContainer) {
-                        const clonedFooter = clonedContainer.querySelector('[id="export-footer-template"]');
-                        if (clonedFooter) {
-                            clonedFooter.style.display = 'flex';
-                        }
-                    }
+                const fontLinkEl = idoc.createElement('link');
+                fontLinkEl.rel = 'stylesheet';
+                fontLinkEl.href = 'https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap';
+                idoc.head.appendChild(fontLinkEl);
+
+                const styleEl = idoc.createElement('style');
+                styleEl.textContent = template.styles.textContent;
+                idoc.head.appendChild(styleEl);
+
+                const wrapper = idoc.createElement('div');
+                wrapper.style.cssText = `position:relative; width:${width}px; height:${height}px;`;
+                idoc.body.appendChild(wrapper);
+
+                const importedFooter = idoc.importNode(footerBox, true);
+                importedFooter.style.cssText = 'position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important;';
+                wrapper.appendChild(importedFooter);
+                __step('build isolated footer iframe');
+
+                if (idoc.fonts && idoc.fonts.ready) {
+                    await Promise.race([
+                        idoc.fonts.ready,
+                        new Promise(resolve => setTimeout(resolve, 1000))
+                    ]);
                 }
-            });
+                await new Promise(resolve => iframe.contentWindow.requestAnimationFrame(resolve));
+                await new Promise(resolve => iframe.contentWindow.requestAnimationFrame(resolve));
+                __step('footer fonts + rAF settle');
 
-            document.body.removeChild(container);
+                compositeCanvas = await html2canvas(wrapper, {
+                    backgroundColor: null,
+                    scale: 1,
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true,
+                    foreignObjectRendering: false,
+                    width: width,
+                    height: height
+                });
+                __step(`html2canvas footer composite (${width}x${height}px, isolated document)`);
+            } finally {
+                document.body.removeChild(iframe);
+            }
 
-            return compositeCanvas.toDataURL('image/png');
+            const outputCanvas = document.createElement('canvas');
+            outputCanvas.width = width;
+            outputCanvas.height = height;
+            const ctx = outputCanvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(mapImg, 0, 0, width, height);
+            if (markersImg) {
+                ctx.drawImage(markersImg, 0, 0, width, height);
+            }
+            ctx.drawImage(compositeCanvas, 0, 0, width, height);
+            __step('final canvas composite');
+
+            const result = outputCanvas.toDataURL('image/png');
+            __step('outputCanvas.toDataURL');
+            console.log(`[Export][timing] TOTAL _addFooterToRaster: ${(performance.now() - __profileStart).toFixed(0)}ms`);
+
+            return result;
         } catch (e) {
             console.warn('Failed to add footer to raster, using plain map', e);
             return mapImageDataUrl;
