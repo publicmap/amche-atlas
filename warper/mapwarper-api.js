@@ -149,6 +149,18 @@ class MapwarperAPI {
         return data;
     }
 
+    async validateToken(baseUrl) {
+        if (!this.auth.token || !this.auth.userId) return false;
+        try {
+            const response = await fetch(`${baseUrl}/api/v1/auth/validate_token`, {
+                headers: this._authHeaders()
+            });
+            return response.ok;
+        } catch (e) {
+            return false;
+        }
+    }
+
     async getMap(baseUrl, mapId) {
         const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}.json`);
         if (!response.ok) throw new Error(`Failed to fetch map: ${response.status}`);
@@ -195,10 +207,27 @@ class MapwarperAPI {
         return response.json();
     }
 
-    async syncGCPs(baseUrl, mapId, gcps) {
+    async syncGCPs(baseUrl, mapId, gcps, knownGcpIds) {
         const existingData = await this.getGCPs(baseUrl, mapId);
         const existingIds = new Set((existingData.data || []).map(g => String(g.id)));
         const submittedIds = new Set(gcps.filter(g => g.gcpId).map(g => String(g.gcpId)));
+
+        // If the caller tells us which GCP ids it knew about as of its last load/save,
+        // detect whether the server's set has since diverged (someone else deleted,
+        // recreated, or added GCPs out from under us). Blindly diffing against a stale
+        // baseline would misclassify a locally-edited-but-now-deleted point as neither
+        // an update nor a create (silently dropping it) while treating every GCP the
+        // server actually still has as "not submitted" and deleting it. Bail out instead
+        // of destroying remote data we never saw.
+        if (knownGcpIds) {
+            const hasStaleLocalRef = gcps.some(g => g.gcpId && !existingIds.has(String(g.gcpId)));
+            const hasUnknownRemote = [...existingIds].some(id => !knownGcpIds.has(id));
+            if (hasStaleLocalRef || hasUnknownRemote) {
+                const err = new Error('Control points on the server have changed since this map was loaded. Reload the map before saving to avoid overwriting those changes.');
+                err.code = 'STALE_GCPS';
+                throw err;
+            }
+        }
 
         const toDelete = (existingData.data || []).filter(g => !submittedIds.has(String(g.id)));
         const toUpdate = gcps.filter(g => g.gcpId && existingIds.has(String(g.gcpId)));
@@ -207,7 +236,8 @@ class MapwarperAPI {
         await Promise.all(toDelete.map(g => this.deleteGCP(baseUrl, g.id)));
         await Promise.all(toUpdate.map(g => this.updateGCP(baseUrl, g.gcpId, g)));
         const created = await Promise.all(toCreate.map(g => this.createGCP(baseUrl, mapId, g)));
-        return { deleted: toDelete.length, updated: toUpdate.length, created: toCreate.length, createdData: created };
+        const createdLinks = toCreate.map((g, i) => ({ localId: g.localId, gcpId: String(created[i].data.id) }));
+        return { deleted: toDelete.length, updated: toUpdate.length, created: toCreate.length, createdData: created, createdLinks };
     }
 
     async getUserActivity(baseUrl, userId, page = 1) {

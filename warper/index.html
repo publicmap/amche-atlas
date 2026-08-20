@@ -373,7 +373,7 @@
             <button class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700" id="map-list-btn">Map
                 List</button>
             or
-            <input type="text" id="mapwarper-url" value="https://mapwarper.net/layers/2054"
+            <input type="text" id="mapwarper-url" value="https://mapwarper.net/layers/2054" autocomplete="off"
                 placeholder="Enter MapWarper URL (e.g., https://mapwarper.net/maps/12345 or https://mapwarper.net/layers/2054)"
                 class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
             <button class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -538,7 +538,7 @@
         <!-- Layer Panel (mosaic viewer mode) -->
         <div id="layer-panel">
             <div style="padding:12px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
-                <input type="text" id="layer-map-filter" placeholder="Search maps…"
+                <input type="text" id="layer-map-filter" placeholder="Search maps…" autocomplete="off"
                     oninput="filterLayerMaps(this.value)"
                     style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;outline:none;">
                 <div id="layer-map-count" style="font-size:11px;color:#9ca3af;margin-top:6px;"></div>
@@ -586,13 +586,13 @@
             <div class="modal-header">Add Vector Layer</div>
             <div class="input-group">
                 <label>URL:</label>
-                <input type="text" id="layer-url"
+                <input type="text" id="layer-url" autocomplete="off"
                     value="https://indianopenmaps.fly.dev/not-so-open/cadastrals/goa/onemapgoagis/{z}/{x}/{y}.pbf"
                     style="width: 100%;">
             </div>
             <div class="input-group">
                 <label>Source Layer:</label>
-                <input type="text" id="source-layer" value="Onemapgoa_GA_Cadastrals" style="width: 100%;">
+                <input type="text" id="source-layer" value="Onemapgoa_GA_Cadastrals" autocomplete="off" style="width: 100%;">
             </div>
             <div class="input-group">
                 <label>Max Zoom:</label>
@@ -625,16 +625,16 @@
                 </div>
 
                 <!-- Email sign-in form -->
-                <div id="auth-email-form">
+                <form id="auth-email-form" autocomplete="off" onsubmit="event.preventDefault(); loginToMapWarper();">
                     <div style="margin-bottom:12px;">
                         <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Email</label>
-                        <input type="email" id="auth-email" autocomplete="off" placeholder="email@example.com"
+                        <input type="email" id="auth-email" autocomplete="username" placeholder="email@example.com"
                             style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:13px; box-sizing:border-box;">
                     </div>
                     <div style="margin-bottom:12px;">
                         <label
                             style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Password</label>
-                        <input type="password" id="auth-password" autocomplete="off"
+                        <input type="password" id="auth-password" autocomplete="current-password"
                             style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:13px; box-sizing:border-box;">
                     </div>
                     <div style="margin-bottom:14px;">
@@ -650,12 +650,12 @@
                     </p>
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div id="auth-signin-buttons" style="display:flex; gap:6px;"></div>
-                        <button id="auth-login-btn" onclick="loginToMapWarper()"
+                        <button id="auth-login-btn" type="submit"
                             style="padding:8px 20px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:500;">
                             Sign In
                         </button>
                     </div>
-                </div>
+                </form>
 
                 <!-- OAuth in-progress state -->
                 <div id="auth-oauth-progress"
@@ -679,13 +679,13 @@
                     <div style="margin-bottom:10px;">
                         <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">Authentication
                             Token</label>
-                        <input type="text" id="auth-manual-token" placeholder="authentication_token"
+                        <input type="text" id="auth-manual-token" placeholder="authentication_token" autocomplete="off"
                             style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; box-sizing:border-box; font-family:monospace;">
                     </div>
                     <div style="margin-bottom:14px;">
                         <label style="display:block; font-size:13px; font-weight:500; margin-bottom:4px;">User
                             ID</label>
-                        <input type="text" id="auth-manual-userid" placeholder="numeric user ID"
+                        <input type="text" id="auth-manual-userid" placeholder="numeric user ID" autocomplete="off"
                             style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; box-sizing:border-box; font-family:monospace;">
                     </div>
                     <p id="auth-manual-error" style="display:none; font-size:13px; color:#dc2626; margin-bottom:8px;">
@@ -718,7 +718,7 @@
                 <div id="auth-user-content" style="margin-bottom:16px;">
                     <div id="auth-content-loading"
                         style="text-align:center; padding:10px; color:#6b7280; font-size:12px;">Loading your maps…</div>
-                    <input id="auth-list-filter" type="text" placeholder="Filter…" oninput="_filterUserLists()"
+                    <input id="auth-list-filter" type="text" placeholder="Filter…" autocomplete="off" oninput="_filterUserLists()"
                         style="display:none; width:100%; padding:5px 8px; margin-bottom:8px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; box-sizing:border-box;">
                     <div id="auth-maps-section" style="display:none; margin-bottom:10px;">
                         <div
@@ -786,6 +786,9 @@
         let sourceMap, referenceMap;
         let currentMode = 'pan';
         let controlPoints = [];
+        // Snapshot of GCP ids known to exist on the server as of the last load/save,
+        // used to detect if someone else changed the remote GCPs before we save again.
+        let loadedGcpIds = new Set();
         let selectedPointIndex = -1;
         let zoomedToPointIndex = -1;
         let focusedMap = null;
@@ -1971,6 +1974,7 @@
         }
 
         async function fetchExistingControlPoints(mapId, baseUrl) {
+            loadedGcpIds = new Set();
             try {
                 console.log(`Fetching existing control points for map ${mapId}...`);
 
@@ -2195,6 +2199,7 @@
                 };
 
                 controlPoints.push(point);
+                loadedGcpIds.add(String(gcp.id));
                 nextPointId++;
             });
 
@@ -3446,6 +3451,7 @@
             providers.forEach(provider => {
                 const cfg = PROVIDER_CONFIG[provider] || { name: provider, color: '#6b7280', icon: '' };
                 const btn = document.createElement('button');
+                btn.type = 'button';
                 btn.title = `Sign in with ${cfg.name}`;
                 btn.style.cssText = `display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:6px; border:1px solid #e5e7eb; cursor:pointer; background:white; transition:all .15s;`;
                 btn.innerHTML = cfg.icon;
@@ -3833,6 +3839,7 @@
                         y = (bounds.north - p.sourceCoords[1]) / (bounds.north - bounds.south) * height;
                     }
                     return {
+                        localId: p.id,
                         gcpId: p.gcpId || null,
                         mapid: parseInt(warpMapId),
                         x: parseFloat(x.toFixed(1)),
@@ -3867,9 +3874,29 @@
                 saveBtn.disabled = true;
                 if (warpSelect) warpSelect.disabled = true;
 
+                // MapWarper invalidates the previous auth token every time a user logs in
+                // again elsewhere, so a token cached from an earlier session can go stale.
+                // Check it here (a clean /api/* endpoint) rather than letting a write request
+                // fail with an opaque CORS error (auth failures redirect to /u/sign_in, which
+                // isn't covered by MapWarper's CORS config).
+                setSaveBtn('Checking session…', 'bg-gray-400 cursor-not-allowed');
+                if (!(await mapwarperAPI.validateToken(warpBaseUrl))) {
+                    throw new Error('SESSION_EXPIRED');
+                }
+
                 // Step 1: sync control points to MapWarper
                 setSaveBtn('Saving points…', 'bg-gray-400 cursor-not-allowed');
-                await mapwarperAPI.syncGCPs(warpBaseUrl, warpMapId, gcps);
+                const syncResult = await mapwarperAPI.syncGCPs(warpBaseUrl, warpMapId, gcps, loadedGcpIds);
+
+                // Back-fill gcpIds for newly-created points and refresh the known-ids
+                // baseline so the next save in this session diffs against what the
+                // server actually has now, not the stale snapshot from page load.
+                (syncResult.createdLinks || []).forEach(({ localId, gcpId }) => {
+                    const point = controlPoints.find(p => p.id === localId);
+                    if (point) point.gcpId = gcpId;
+                });
+                loadedGcpIds = new Set(controlPoints.filter(p => p.gcpId).map(p => String(p.gcpId)));
+
                 pointsSynced = true;
                 unsavedChangeCount = 0;
 
@@ -3909,6 +3936,29 @@
                     markPointsSynced();
                 }, 1000);
             } catch (error) {
+                if (error.message === 'SESSION_EXPIRED') {
+                    mapwarperAPI.clearAuth();
+                    updateAuthUI();
+                    setSaveBtn('Session expired', 'bg-red-600 cursor-not-allowed');
+                    setTimeout(() => {
+                        delete saveBtn.dataset.busy;
+                        if (warpSelect) warpSelect.disabled = false;
+                        updateSaveButtonUI();
+                        showAuthModal();
+                    }, 1200);
+                    return;
+                }
+                if (error.code === 'STALE_GCPS') {
+                    console.error('Save aborted:', error.message);
+                    setSaveBtn('Failed', 'bg-red-600 cursor-not-allowed');
+                    alert('Someone else changed the control points on MapWarper since this map was loaded. Reload the map (Load button) to see their changes before saving, so your save doesn\'t overwrite them.');
+                    setTimeout(() => {
+                        delete saveBtn.dataset.busy;
+                        if (warpSelect) warpSelect.disabled = false;
+                        updateSaveButtonUI();
+                    }, 1200);
+                    return;
+                }
                 setSaveBtn('Failed', 'bg-red-600 cursor-not-allowed');
                 console.error('Save error:', error);
                 setTimeout(() => {
