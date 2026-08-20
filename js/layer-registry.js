@@ -10,6 +10,17 @@ export class LayerRegistry {
         this._atlasMetadata = new Map(); // atlasId -> atlas metadata (color, name, etc.)
         this._currentAtlas = 'index'; // default atlas
         this._initialized = false;
+        // External (cross-repo) atlases known about but not yet fetched — see
+        // _doInitialize's deferred-loading logic and ensureAtlasLoaded().
+        this._pendingAtlases = new Map(); // atlasId -> { url, baseUrl }
+        this._loadingAtlases = new Map(); // atlasId -> in-flight ensureAtlasLoaded() promise
+        // Cross-atlas references that carry their own overrides (e.g. goa referencing
+        // `india-district` with a custom title/style). Appended to by both the initial
+        // eager load and any later on-demand atlas load, and re-applied in full each
+        // time (cheap — this list stays small — and idempotent, since it always
+        // overwrites the same computed variant key).
+        this._pendingCrossAtlasOverrides = [];
+        this._knownAtlases = new Set(); // every local + external atlas id declared in index.atlas.json
     }
 
     async initialize() {
@@ -46,172 +57,49 @@ export class LayerRegistry {
         }
 
         // Create a Set for fast lookup of known atlas IDs
-        const knownAtlases = new Set(atlasEntries.map(e => e.atlasId));
+        this._knownAtlases = new Set(atlasEntries.map(e => e.atlasId));
 
-        // Load all atlas configurations in parallel
-        const atlasPromises = atlasEntries.map(async ({ atlasId, url, baseUrl }) => {
-            const isExternal = !!url && (url.startsWith('http://') || url.startsWith('https://'));
-            try {
-                const fetchUrl = url || `config/${atlasId}.atlas.json`;
-                const response = await fetch(fetchUrl);
-                if (response.ok) {
-                    // Check Content-Type to ensure we're getting JSON, not HTML (e.g., 404 page).
-                    // Skip for external URLs since hosts like raw.githubusercontent.com serve
-                    // .json files as text/plain.
-                    if (!isExternal) {
-                        const contentType = response.headers.get('content-type') || '';
-                        if (!contentType.includes('application/json') && !contentType.includes('text/json')) {
-                            return {
-                                atlasId,
-                                error: `Invalid content type: ${contentType} (expected JSON)`,
-                                success: false
-                            };
-                        }
-                    }
+        // Cross-repo atlases (referenced by full URL, e.g. dfes-dmp) are the slow part of
+        // startup — a third-party host, outside our control. Local atlases stay eagerly
+        // loaded exactly as before (same-origin, cheap, and several UI surfaces —
+        // the atlas switcher dropdown, the cross-atlas layer search index, the
+        // streetview toggle — assume every LOCAL atlas is already registered). Only
+        // defer external entries, and only the ones not needed immediately: the one
+        // explicitly targeted via `?atlas=<id>`, or referenced by an id in `?layers=`,
+        // still loads eagerly so a direct link to it isn't broken.
+        const params = new URLSearchParams(window.location.search);
+        const atlasParam = params.get('atlas');
+        const layersParam = params.get('layers');
+        const eagerExternalIds = new Set();
+        if (atlasParam) eagerExternalIds.add(atlasParam);
+        if (layersParam) {
+            layersParam.split(',').forEach(item => {
+                const prefix = item.trim().split('-')[0];
+                if (prefix) eagerExternalIds.add(prefix);
+            });
+        }
 
-                    const config = await response.json();
-                    return { atlasId, config, baseUrl, url: fetchUrl, success: true };
-                } else {
-                    return { atlasId, error: `HTTP ${response.status}`, success: false };
-                }
-            } catch (error) {
-                // Handle JSON parsing errors specifically
-                if (error.message.includes('JSON') || error.message.includes('DOCTYPE')) {
-                    return {
-                        atlasId,
-                        error: `Invalid JSON response (likely HTML/404 page)`,
-                        success: false
-                    };
-                }
-                return { atlasId, error: error.message, success: false };
+        // Fetch eager entries now; record deferred external entries for later
+        // on-demand loading via ensureAtlasLoaded()/ensureAllAtlasesLoaded().
+        const atlasPromises = atlasEntries.map(async (entry) => {
+            const isExternalEntry = !!entry.baseUrl;
+            if (isExternalEntry && !eagerExternalIds.has(entry.atlasId)) {
+                this._pendingAtlases.set(entry.atlasId, { url: entry.url, baseUrl: entry.baseUrl });
+                return { atlasId: entry.atlasId, deferred: true };
             }
+            return this._fetchAtlasConfig(entry.atlasId, entry.url, entry.baseUrl);
         });
 
-        // Wait for all atlas fetches to complete (whether successful or not)
+        // Wait for all eager atlas fetches to complete (whether successful or not)
         const atlasResults = await Promise.allSettled(atlasPromises);
-
-        // Cross-atlas references that carry their own overrides (e.g. goa referencing
-        // `india-district` with a custom title/style). Collected during registration and
-        // resolved after all atlases load, since the base definition may load later.
-        const crossAtlasOverrides = [];
 
         // Process all successfully loaded atlas configurations
         for (const result of atlasResults) {
+            if (result.status === 'fulfilled' && result.value.deferred) {
+                continue;
+            }
             if (result.status === 'fulfilled' && result.value.success) {
-                const { atlasId, config, baseUrl, url } = result.value;
-
-                // Store atlas metadata (color, name, etc.)
-                this._atlasMetadata.set(atlasId, {
-                    // Resolved URL the config was loaded from (external URL for cross-repo
-                    // atlases, local config/<id>.atlas.json otherwise). Lets other modules
-                    // re-fetch the correct source instead of assuming a local file.
-                    url: url || `config/${atlasId}.atlas.json`,
-                    // True for cross-repo atlases referenced by full URL in index's
-                    // `atlases` array. Used to exclude them from location-based
-                    // ?atlas auto-detection (see SplashScreenManager).
-                    isExternal: !!url && (url.startsWith('http://') || url.startsWith('https://')),
-                    color: config.color || '#2563eb', // Default to blue if not specified
-                    name: config.name || atlasId,
-                    map: config.map || null,
-                    areaOfInterest: config.areaOfInterest || '',
-                    description: config.description || '',
-                    bbox: this._extractBbox(config),
-                    geojson: config.geojson || null,
-                    tags: config.tags || [],
-                    icon: config.icon || null,
-                    headerImage: config.headerImage || null,
-                    // Atlas-level style/inspect defaults cascaded to every layer in this atlas
-                    // (see _resolveLayer). `stylePresets` is a named-preset dictionary that layers
-                    // may opt into via `stylePreset: "<name>"`.
-                    style: config.style || null,
-                    inspect: config.inspect || null,
-                    stylePresets: config.stylePresets || null,
-                    cadastralSearch: config.cadastralSearch || null
-                });
-
-                if (config.layers && Array.isArray(config.layers)) {
-                    this._atlasLayers.set(atlasId, config.layers);
-
-                    // Register each layer with appropriate ID
-                    config.layers.forEach(layer => {
-                        const resolvedLayer = this._resolveLayer(layer, atlasId);
-                        // Resolve relative URLs in external atlas layers against the source base URL
-                        if (resolvedLayer && baseUrl) {
-                            this._resolveRelativeUrls(resolvedLayer, baseUrl);
-                        }
-                        if (resolvedLayer) {
-                            // Check if the layer ID already has an atlas prefix
-                            const layerId = resolvedLayer.id;
-                            let prefixedId;
-                            let sourceAtlas = atlasId; // Default to current atlas
-
-                            // If the ID already contains a dash and might be prefixed, check if it's a valid atlas prefix
-                            if (layerId.includes('-')) {
-                                const potentialPrefix = layerId.split('-')[0];
-                                // If it's a known atlas prefix, use the ID as-is (it's already prefixed)
-                                if (knownAtlases.has(potentialPrefix)) {
-                                    prefixedId = layerId;
-                                    // The source atlas should be the prefix, not the current atlas
-                                    sourceAtlas = potentialPrefix;
-                                } else {
-                                    // Not a valid prefix, add the atlas prefix
-                                    prefixedId = `${atlasId}-${layerId}`;
-                                }
-                            } else {
-                                // No dash, definitely not prefixed
-                                prefixedId = `${atlasId}-${layerId}`;
-                            }
-
-                            // A reference to a layer owned by another atlas that also
-                            // carries overrides: register a per-atlas variant keyed
-                            // `<atlas>-<prefixedId>` that cascades the overrides over the
-                            // base definition (mirrors map-init's runtime merge). Resolved
-                            // after all atlases load. Bare references (id only) fall through
-                            // to the shared-entry logic below.
-                            if (sourceAtlas !== atlasId && this._hasLayerOverrides(layer)) {
-                                crossAtlasOverrides.push({ atlasId, prefixedId, override: resolvedLayer });
-                                return;
-                            }
-
-                            // Check if layer is already in registry
-                            const existingEntry = this._registry.get(prefixedId);
-
-                            if (!existingEntry) {
-                                // Not in registry yet, add it
-                                this._registry.set(prefixedId, {
-                                    ...resolvedLayer,
-                                    _sourceAtlas: sourceAtlas,
-                                    _prefixedId: prefixedId,
-                                    // Store the original unprefixed ID for reference
-                                    _originalId: layerId
-                                });
-                            } else if (!resolvedLayer.type && !resolvedLayer.title) {
-                                // This is a reference to a layer defined elsewhere, skip it
-                                // The actual layer definition will be/has been loaded from its source atlas
-                                // Do nothing - the complete layer definition takes precedence
-                            } else if (existingEntry && (!existingEntry.type || !existingEntry.title)) {
-                                // Registry has an incomplete entry (from a cross-atlas reference loaded earlier)
-                                // Update it with the complete definition from the source atlas
-                                // Merge tags from both entries to preserve cascaded tags
-                                const mergedTags = existingEntry.tags && resolvedLayer.tags
-                                    ? [...new Set([...existingEntry.tags, ...resolvedLayer.tags])]
-                                    : (existingEntry.tags || resolvedLayer.tags || []);
-
-                                this._registry.set(prefixedId, {
-                                    ...resolvedLayer,
-                                    tags: mergedTags,
-                                    _sourceAtlas: sourceAtlas,
-                                    _prefixedId: prefixedId,
-                                    _originalId: layerId,
-                                    // Preserve any metadata from the incomplete entry
-                                    ...(existingEntry._crossAtlasReference && { _crossAtlasReference: existingEntry._crossAtlasReference })
-                                });
-                            }
-                            // If entry exists and is complete, leave it as-is (first complete definition wins)
-
-                        }
-                    });
-                }
+                this._registerAtlasConfig(result.value);
             } else {
                 // Handle failed atlas loads
                 const atlasId = result.status === 'fulfilled'
@@ -224,26 +112,217 @@ export class LayerRegistry {
             }
         }
 
-        // After all atlases are loaded, resolve cross-atlas references
+        // After all eager atlases are loaded, resolve cross-atlas references
         this._resolveCrossAtlasReferences();
 
         // Apply per-atlas overrides on top of their (now-loaded) base definitions
-        this._applyCrossAtlasOverrides(crossAtlasOverrides);
-
-        // Create consolidated index of atlas to layer IDs
-        const layerIndex = {};
-        for (const [layerId, layer] of this._registry.entries()) {
-            const atlasId = layer._sourceAtlas || 'unknown';
-            if (!layerIndex[atlasId]) {
-                layerIndex[atlasId] = [];
-            }
-            layerIndex[atlasId].push({
-                id: layerId,
-                title: layer.title || layer.name || layerId
-            });
-        }
+        this._applyCrossAtlasOverrides(this._pendingCrossAtlasOverrides);
 
         this._initialized = true;
+    }
+
+    /**
+     * Fetch and parse a single atlas config. Pure fetch/parse — does not touch
+     * registry state. Shared by the eager load in _doInitialize() and the
+     * on-demand load in ensureAtlasLoaded().
+     * @returns {Promise<{atlasId: string, config?: object, baseUrl?: string|null, url?: string, success: boolean, error?: string}>}
+     */
+    async _fetchAtlasConfig(atlasId, url, baseUrl) {
+        const isExternal = !!url && (url.startsWith('http://') || url.startsWith('https://'));
+        try {
+            const fetchUrl = url || `config/${atlasId}.atlas.json`;
+            const response = await fetch(fetchUrl);
+            if (response.ok) {
+                // Check Content-Type to ensure we're getting JSON, not HTML (e.g., 404 page).
+                // Skip for external URLs since hosts like raw.githubusercontent.com serve
+                // .json files as text/plain.
+                if (!isExternal) {
+                    const contentType = response.headers.get('content-type') || '';
+                    if (!contentType.includes('application/json') && !contentType.includes('text/json')) {
+                        return {
+                            atlasId,
+                            error: `Invalid content type: ${contentType} (expected JSON)`,
+                            success: false
+                        };
+                    }
+                }
+
+                const config = await response.json();
+                return { atlasId, config, baseUrl, url: fetchUrl, success: true };
+            } else {
+                return { atlasId, error: `HTTP ${response.status}`, success: false };
+            }
+        } catch (error) {
+            // Handle JSON parsing errors specifically
+            if (error.message.includes('JSON') || error.message.includes('DOCTYPE')) {
+                return {
+                    atlasId,
+                    error: `Invalid JSON response (likely HTML/404 page)`,
+                    success: false
+                };
+            }
+            return { atlasId, error: error.message, success: false };
+        }
+    }
+
+    /**
+     * Register a fetched atlas config: store its metadata and register each of
+     * its layers into the shared registry. Shared by the eager load in
+     * _doInitialize() and the on-demand load in ensureAtlasLoaded().
+     */
+    _registerAtlasConfig({ atlasId, config, baseUrl, url }) {
+        // Store atlas metadata (color, name, etc.)
+        this._atlasMetadata.set(atlasId, {
+            // Resolved URL the config was loaded from (external URL for cross-repo
+            // atlases, local config/<id>.atlas.json otherwise). Lets other modules
+            // re-fetch the correct source instead of assuming a local file.
+            url: url || `config/${atlasId}.atlas.json`,
+            // True for cross-repo atlases referenced by full URL in index's
+            // `atlases` array. Used to exclude them from location-based
+            // ?atlas auto-detection (see SplashScreenManager).
+            isExternal: !!url && (url.startsWith('http://') || url.startsWith('https://')),
+            color: config.color || '#2563eb', // Default to blue if not specified
+            name: config.name || atlasId,
+            map: config.map || null,
+            areaOfInterest: config.areaOfInterest || '',
+            description: config.description || '',
+            bbox: this._extractBbox(config),
+            geojson: config.geojson || null,
+            tags: config.tags || [],
+            icon: config.icon || null,
+            headerImage: config.headerImage || null,
+            // Atlas-level style/inspect defaults cascaded to every layer in this atlas
+            // (see _resolveLayer). `stylePresets` is a named-preset dictionary that layers
+            // may opt into via `stylePreset: "<name>"`.
+            style: config.style || null,
+            inspect: config.inspect || null,
+            stylePresets: config.stylePresets || null,
+            cadastralSearch: config.cadastralSearch || null
+        });
+
+        if (config.layers && Array.isArray(config.layers)) {
+            this._atlasLayers.set(atlasId, config.layers);
+
+            // Register each layer with appropriate ID
+            config.layers.forEach(layer => {
+                const resolvedLayer = this._resolveLayer(layer, atlasId);
+                // Resolve relative URLs in external atlas layers against the source base URL
+                if (resolvedLayer && baseUrl) {
+                    this._resolveRelativeUrls(resolvedLayer, baseUrl);
+                }
+                if (resolvedLayer) {
+                    // Check if the layer ID already has an atlas prefix
+                    const layerId = resolvedLayer.id;
+                    let prefixedId;
+                    let sourceAtlas = atlasId; // Default to current atlas
+
+                    // If the ID already contains a dash and might be prefixed, check if it's a valid atlas prefix
+                    if (layerId.includes('-')) {
+                        const potentialPrefix = layerId.split('-')[0];
+                        // If it's a known atlas prefix, use the ID as-is (it's already prefixed)
+                        if (this._knownAtlases.has(potentialPrefix)) {
+                            prefixedId = layerId;
+                            // The source atlas should be the prefix, not the current atlas
+                            sourceAtlas = potentialPrefix;
+                        } else {
+                            // Not a valid prefix, add the atlas prefix
+                            prefixedId = `${atlasId}-${layerId}`;
+                        }
+                    } else {
+                        // No dash, definitely not prefixed
+                        prefixedId = `${atlasId}-${layerId}`;
+                    }
+
+                    // A reference to a layer owned by another atlas that also
+                    // carries overrides: register a per-atlas variant keyed
+                    // `<atlas>-<prefixedId>` that cascades the overrides over the
+                    // base definition (mirrors map-init's runtime merge). Resolved
+                    // once the base atlas has loaded (eager or on-demand — see
+                    // _pendingCrossAtlasOverrides). Bare references (id only) fall
+                    // through to the shared-entry logic below.
+                    if (sourceAtlas !== atlasId && this._hasLayerOverrides(layer)) {
+                        this._pendingCrossAtlasOverrides.push({ atlasId, prefixedId, override: resolvedLayer });
+                        return;
+                    }
+
+                    // Check if layer is already in registry
+                    const existingEntry = this._registry.get(prefixedId);
+
+                    if (!existingEntry) {
+                        // Not in registry yet, add it
+                        this._registry.set(prefixedId, {
+                            ...resolvedLayer,
+                            _sourceAtlas: sourceAtlas,
+                            _prefixedId: prefixedId,
+                            // Store the original unprefixed ID for reference
+                            _originalId: layerId
+                        });
+                    } else if (!resolvedLayer.type && !resolvedLayer.title) {
+                        // This is a reference to a layer defined elsewhere, skip it
+                        // The actual layer definition will be/has been loaded from its source atlas
+                        // Do nothing - the complete layer definition takes precedence
+                    } else if (existingEntry && (!existingEntry.type || !existingEntry.title)) {
+                        // Registry has an incomplete entry (from a cross-atlas reference loaded earlier)
+                        // Update it with the complete definition from the source atlas
+                        // Merge tags from both entries to preserve cascaded tags
+                        const mergedTags = existingEntry.tags && resolvedLayer.tags
+                            ? [...new Set([...existingEntry.tags, ...resolvedLayer.tags])]
+                            : (existingEntry.tags || resolvedLayer.tags || []);
+
+                        this._registry.set(prefixedId, {
+                            ...resolvedLayer,
+                            tags: mergedTags,
+                            _sourceAtlas: sourceAtlas,
+                            _prefixedId: prefixedId,
+                            _originalId: layerId,
+                            // Preserve any metadata from the incomplete entry
+                            ...(existingEntry._crossAtlasReference && { _crossAtlasReference: existingEntry._crossAtlasReference })
+                        });
+                    }
+                    // If entry exists and is complete, leave it as-is (first complete definition wins)
+                }
+            });
+        }
+    }
+
+    /**
+     * Load a deferred external atlas on demand (e.g. when the map browser overlay
+     * opens, a cross-atlas search/filter targets it, or the atlas dropdown opens).
+     * Safe to call for an atlas that's already loaded (no-op) or already loading
+     * (returns the in-flight promise). No-op for unknown ids.
+     * @param {string} atlasId
+     */
+    async ensureAtlasLoaded(atlasId) {
+        if (!atlasId || !this._pendingAtlases.has(atlasId)) return;
+        const existing = this._loadingAtlases.get(atlasId);
+        if (existing) return existing;
+
+        const pending = this._pendingAtlases.get(atlasId);
+        const promise = (async () => {
+            const result = await this._fetchAtlasConfig(atlasId, pending.url, pending.baseUrl);
+            if (result.success) {
+                this._registerAtlasConfig(result);
+                this._pendingAtlases.delete(atlasId);
+                this._resolveCrossAtlasReferences();
+                this._applyCrossAtlasOverrides(this._pendingCrossAtlasOverrides);
+            } else {
+                console.warn(`[LayerRegistry] Failed to load atlas ${atlasId}:`, result.error);
+            }
+        })();
+        this._loadingAtlases.set(atlasId, promise);
+        try {
+            await promise;
+        } finally {
+            this._loadingAtlases.delete(atlasId);
+        }
+    }
+
+    /**
+     * Load every remaining deferred external atlas. Used by UI that needs to see
+     * everything at once (map browser overlay, atlas switcher dropdown).
+     */
+    async ensureAllAtlasesLoaded() {
+        return Promise.all([...this._pendingAtlases.keys()].map(id => this.ensureAtlasLoaded(id)));
     }
 
     /**

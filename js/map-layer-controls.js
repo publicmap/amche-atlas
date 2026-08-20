@@ -1499,6 +1499,14 @@ export class MapLayerControl {
                     searchIcon.style.marginLeft = '10px';
                 }
 
+                // Cross-atlas free-text search (searchLayers) reads whatever's
+                // currently in the registry, so it would silently miss deferred
+                // external atlases. Warm them in the background on first focus —
+                // by the time the user finishes typing, they're usually loaded.
+                searchInput.addEventListener('sl-focus', () => {
+                    window.layerRegistry?.ensureAllAtlasesLoaded?.();
+                }, { once: true });
+
                 searchInput.addEventListener('sl-input', (e) => {
                     this._applyAllFilters();
                 });
@@ -1512,10 +1520,15 @@ export class MapLayerControl {
                 // Set initial text to current atlas name
                 this._updateAtlasButtonText();
 
-                // Defer dropdown creation until first click (lazy loading)
-                atlasFilterBtn.addEventListener('click', () => {
+                // Defer dropdown creation until first click (lazy loading). Also the
+                // natural point to backfill any deferred external (cross-repo) atlas —
+                // ensureAllAtlasesLoaded() is a no-op once everything's already loaded.
+                atlasFilterBtn.addEventListener('click', async () => {
                     if (!atlasFilterBtn.hasAttribute('data-dropdown-initialized')) {
                         atlasFilterBtn.setAttribute('data-dropdown-initialized', 'true');
+                        if (window.layerRegistry?.ensureAllAtlasesLoaded) {
+                            await window.layerRegistry.ensureAllAtlasesLoaded();
+                        }
                         requestAnimationFrame(() => {
                             this._createAtlasDropdownMenu(atlasFilterBtn);
                         });

@@ -258,7 +258,11 @@ export class MapBrowserControl {
     _setupMessageListener() {
         window.addEventListener('message', (event) => {
             if (event.data.type === 'request-layer-data') {
-                this._sendLayerData();
+                if (window.layerRegistry?.ensureAllAtlasesLoaded) {
+                    window.layerRegistry.ensureAllAtlasesLoaded().then(() => this._sendLayerData());
+                } else {
+                    this._sendLayerData();
+                }
             }
 
             if (event.data.type === 'browser-ready') {
@@ -817,7 +821,14 @@ export class MapBrowserControl {
         this._isOpen = true;
         this._updateButtonState(true);
 
-        setTimeout(() => {
+        setTimeout(async () => {
+            // Deferred external (cross-repo) atlases aren't fetched at startup — the
+            // browser overlay lists everything, so load whatever's still pending
+            // before sending the full layer/atlas data across.
+            if (window.layerRegistry?.ensureAllAtlasesLoaded) {
+                await window.layerRegistry.ensureAllAtlasesLoaded();
+            }
+
             this._sendLayerData();
 
             // Focus search input in browser

@@ -325,6 +325,12 @@ export class StreetviewControl {
             return;
         }
 
+        // mapillary-* layers live in a local atlas (always eagerly loaded), but
+        // guard with ensureAtlasLoaded in case that atlas is ever made external/deferred.
+        if (window.layerRegistry?.ensureAtlasLoaded) {
+            await window.layerRegistry.ensureAtlasLoaded(layerId.split('-')[0]);
+        }
+
         if (window.layerRegistry && window.layerRegistry._registry.has(layerId)) {
             const layerConfig = window.layerRegistry._registry.get(layerId);
             await layerControl._addLayerDirectly(layerConfig);
