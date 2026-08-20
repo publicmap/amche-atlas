@@ -149,18 +149,6 @@ class MapwarperAPI {
         return data;
     }
 
-    async validateToken(baseUrl) {
-        if (!this.auth.token || !this.auth.userId) return false;
-        try {
-            const response = await fetch(`${baseUrl}/api/v1/auth/validate_token`, {
-                headers: this._authHeaders()
-            });
-            return response.ok;
-        } catch (e) {
-            return false;
-        }
-    }
-
     async getMap(baseUrl, mapId) {
         const response = await fetch(`${baseUrl}/api/v1/maps/${mapId}.json`);
         if (!response.ok) throw new Error(`Failed to fetch map: ${response.status}`);

@@ -3874,16 +3874,6 @@
                 saveBtn.disabled = true;
                 if (warpSelect) warpSelect.disabled = true;
 
-                // MapWarper invalidates the previous auth token every time a user logs in
-                // again elsewhere, so a token cached from an earlier session can go stale.
-                // Check it here (a clean /api/* endpoint) rather than letting a write request
-                // fail with an opaque CORS error (auth failures redirect to /u/sign_in, which
-                // isn't covered by MapWarper's CORS config).
-                setSaveBtn('Checking session…', 'bg-gray-400 cursor-not-allowed');
-                if (!(await mapwarperAPI.validateToken(warpBaseUrl))) {
-                    throw new Error('SESSION_EXPIRED');
-                }
-
                 // Step 1: sync control points to MapWarper
                 setSaveBtn('Saving points…', 'bg-gray-400 cursor-not-allowed');
                 const syncResult = await mapwarperAPI.syncGCPs(warpBaseUrl, warpMapId, gcps, loadedGcpIds);
@@ -3936,6 +3926,14 @@
                     markPointsSynced();
                 }, 1000);
             } catch (error) {
+                // An expired/invalid token makes MapWarper's write endpoints (gcps,
+                // rectify) redirect to /u/sign_in, which isn't covered by MapWarper's
+                // CORS config — fetch() surfaces that as a bare TypeError rather than
+                // an HTTP error we can inspect. Treat that specific failure shape as
+                // session expiry.
+                if (error instanceof TypeError) {
+                    error = new Error('SESSION_EXPIRED');
+                }
                 if (error.message === 'SESSION_EXPIRED') {
                     mapwarperAPI.clearAuth();
                     updateAuthUI();
