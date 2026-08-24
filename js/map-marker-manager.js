@@ -575,7 +575,7 @@ export class MapMarkerManager {
                 }
                 const [action, format] = value.split(':');
                 if (!format) return;
-                this._handleLayerExportAction(action, format, dropdown.dataset.layerId);
+                this._handleLayerExportAction(action, format, dropdown.dataset.layerId, dropdown.dataset.featureData);
             });
         });
     }
@@ -1901,18 +1901,30 @@ export class MapMarkerManager {
 
     /**
      * Shortcut export triggered from the layer actions menu in a marker badge.
-     * "export-selected" reuses the app's current selection (same as the "selected
-     * only" export in map-export.html); "export-layer" pulls every feature currently
-     * loaded for that layer's source, regardless of selection.
+     * "export-selected" exports only the single feature the menu was opened
+     * from; "export-layer" pulls every feature currently loaded for that
+     * layer's source, regardless of selection.
      */
-    async _handleLayerExportAction(action, format, layerId) {
+    async _handleLayerExportAction(action, format, layerId, featureData) {
         const exportControl = window.exportControl;
         if (!exportControl || !layerId || !format) return;
 
         const config = { format, exportSelectedOnly: true };
+        const layerConfig = this._stateManager.getLayerConfig(layerId);
+
+        if (action === 'export-selected') {
+            if (!featureData) return;
+            let feature;
+            try {
+                feature = JSON.parse(decodeURIComponent(featureData));
+            } catch (err) {
+                console.warn('[MapMarkerManager] Could not parse feature for export:', err);
+                return;
+            }
+            config.customSelectedFeatures = [{ feature, layerId, layerConfig }];
+        }
 
         if (action === 'export-layer') {
-            const layerConfig = this._stateManager.getLayerConfig(layerId);
             const sourceId = layerConfig?.source || `${layerConfig?.type}-${layerId}`;
             let features = [];
             try {

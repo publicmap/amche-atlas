@@ -2520,7 +2520,8 @@ export class MapExportControl {
             for (const feature of group.features) {
                 const featureTitle = this._getFeatureTitle(feature, group.layerConfig);
                 const sanitizedFeature = featureTitle
-                    .replace(/[<>:"/\\|?*]/g, '')
+                    .replace(/\//g, '-')
+                    .replace(/[<>:"\\|?*]/g, '')
                     .replace(/\s+/g, '_');
                 parts.push(sanitizedFeature);
             }
