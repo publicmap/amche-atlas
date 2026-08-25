@@ -135,6 +135,38 @@ export function parseIndianOpenMapsViewerUrl(url) {
     return `https://indianopenmaps.com${firstSource}`;
 }
 
+export function isIndianOpenMapsTileUrl(url) {
+    if (!url) return false;
+    return /^https?:\/\/(www\.)?indianopenmaps\.(com|fly\.dev)\//i.test(url);
+}
+
+// Reverses parseIndianOpenMapsViewerUrl(): turns a resolved indianopenmaps
+// tile URL (…/{z}/{x}/{y}.pbf) back into a viewer link pointing at the same
+// source, for use in attribution. The map= location is left empty for
+// MapAttributionControl to fill in with the current view on every moveend
+// (see _replaceLocationHash in map-attribution-control.js).
+export function buildIndianOpenMapsViewerUrl(tileUrl) {
+    if (!isIndianOpenMapsTileUrl(tileUrl)) return null;
+    // Matched on the raw string (not URL.pathname) since the latter
+    // percent-encodes the literal "{z}/{x}/{y}" template braces.
+    const match = tileUrl.match(/^https?:\/\/(?:www\.)?indianopenmaps\.(?:com|fly\.dev)(\/.*?)\/\{z\}\/\{x\}\/\{y\}\.\w+/i);
+    if (!match) return null;
+    return `https://indianopenmaps.com/viewer#source=${match[1]}/&map=`;
+}
+
+// IndianOpenMaps' tiles.json already returns an attribution linking the
+// source and Datameet Community (e.g. "Source: <a href='...'>TNGIS</a> -
+// Collected by <a href='...'>Datameet Community</a>"). Drop the redundant
+// "Source: " label and append a live-updating "via IndianOpenMaps" link
+// back to the viewer.
+export function formatIndianOpenMapsAttribution(attribution, tileUrl) {
+    if (!attribution || typeof attribution !== 'string') return attribution;
+    const viewerUrl = buildIndianOpenMapsViewerUrl(tileUrl);
+    if (!viewerUrl) return attribution;
+    const attr = attribution.replace(/^Source:\s*/i, '');
+    return `${attr} via <a href='${viewerUrl}' target='_blank' rel='noopener noreferrer'>IndianOpenMaps</a>`;
+}
+
 // Match pattern like /12/2875/1827.pbf or /12/2875/1827.mvt
 export function isPbfTileUrl(url) {
     return /\/\d+\/\d+\/\d+\.(pbf|mvt)($|\?)/i.test(url);
@@ -273,6 +305,10 @@ export function makeLayerConfig(url, tilejson, metadata = null) {
 
         if (attribution && typeof attribution === 'string') {
             attribution = attribution.replace(/"/g, "'");
+        }
+
+        if (isIndianOpenMapsTileUrl(url)) {
+            attribution = formatIndianOpenMapsAttribution(attribution, url);
         }
 
         config = {

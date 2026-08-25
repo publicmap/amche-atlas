@@ -509,10 +509,12 @@ export class MapAttributionControl {
                 const hash = urlObj.hash;
 
                 if (hash) {
-                    // Format 1: #map=zoom/lat/lng
-                    const mapFormatMatch = hash.match(/^#map=([\d.]+)\/([\d.-]+)\/([\d.-]+)$/);
-                    if (mapFormatMatch) {
-                        urlObj.hash = `#map=${zoomRounded}/${lat}/${lng}`;
+                    // Format 1: a `map=` key anywhere in the (possibly multi-param,
+                    // &-joined) hash, e.g. "#map=zoom/lat/lng" or IndianOpenMaps'
+                    // "#source=...&map=zoom/lat/lng&terrain=...&base=...". The value
+                    // may also be empty ("&map=") — filled in here on first move.
+                    if (/(^#|&)map=/.test(hash)) {
+                        urlObj.hash = hash.replace(/(^#|&)map=[^&]*/, `$1map=${zoomRounded}/${lat}/${lng}`);
                         return urlObj.toString();
                     }
 
@@ -528,9 +530,9 @@ export class MapAttributionControl {
             }
 
             // Fallback: regex replacement for relative URLs or malformed URLs
-            // Format 1: #map=zoom/lat/lng
-            if (url.includes('#map=')) {
-                url = url.replace(/#map=([\d.]+)\/([\d.-]+)\/([\d.-]+)/g, `#map=${zoomRounded}/${lat}/${lng}`);
+            // Format 1: a `map=` key anywhere in the hash (see comment above)
+            if (/[#&]map=/.test(url)) {
+                url = url.replace(/([#&])map=[^&]*/, `$1map=${zoomRounded}/${lat}/${lng}`);
             } else {
                 // Format 2: #zoom/lat/lng
                 // Match hash pattern: # followed by numbers, slash, numbers, slash, numbers
