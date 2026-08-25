@@ -3551,7 +3551,7 @@
       ],
       "title": "Goa Harbour Admiralty Chart (1775)",
       "description": "Nautical chart of the West Coast of India from Achra River to Cape Ramas. Surveyed by Lieut. A.D. Taylor 1853-4 for Eat India Company. Not current - not to be used for navigation!",
-      "headerImage": "assets/map-layers/goa/map-layer-1775-admiralty-chart.png",
+      "headerImage": "https://commons.wikimedia.org/wiki/Special:FilePath/Admiralty_Chart_No_793_Goa_Harbour,_with_a_View,_Published_1775.jpg",
       "type": "tms",
       "id": "1775-admiralty-chart",
       "url": "https://warper.wmflabs.org/maps/tile/8717/{z}/{x}/{y}.png",

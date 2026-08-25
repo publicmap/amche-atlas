@@ -37,7 +37,11 @@
 
     <title>amche.in - Interactive 3D Atlas</title>
     <link rel="canonical" href="https://amche.in" />
-    <link rel="manifest" href="/manifest.json">
+    <script>
+        // Injected at runtime so Vite's build doesn't hash/relocate manifest.json,
+        // which would break the relative icon paths inside it.
+        document.head.insertAdjacentHTML('beforeend', '<link rel="manifest" href="manifest.json">');
+    </script>
 
     <!-- Favicon -->
     <link rel="icon" href="assets/img/favicon.ico" type="image/x-icon">

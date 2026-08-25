@@ -62,7 +62,7 @@
       "sourceLayer": "TNGIS_TN_Cadastrals",
       "minzoom": 12,
       "maxzoom": 14,
-      "attribution": "Source: <a href='https://tngis.tn.gov.in' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "attribution": "<a href='https://tngis.tn.gov.in' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a> via <a href='https://indianopenmaps.com/viewer#source=/not-so-open/cadastrals/tamil-nadu/tngis/&map=' target='_blank' rel='noopener noreferrer'>IndianOpenMaps</a>",
       "style": {
         "line-width": 0.5,
         "text-padding": [
@@ -139,7 +139,7 @@
       "sourceLayer": "TNGIS_GCC_Chennai_buildings",
       "minzoom": 1,
       "maxzoom": 15,
-      "attribution": "Source: <a href='https://tngis.tn.gov.in/' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "attribution": "<a href='https://tngis.tn.gov.in/' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a> via <a href='https://indianopenmaps.com/viewer#source=/not-so-open/urban/chennai/buildings/tngis/&map=' target='_blank' rel='noopener noreferrer'>IndianOpenMaps</a>",
       "initiallyChecked": false,
       "style": {
         "text-padding": [
@@ -335,6 +335,7 @@
           "Area"
         ]
       },
+      "attribution": "<a href='https://www.chennaicorporation.gov.in/' target='_blank' rel='noopener noreferrer'>GCC</a> via <a href='https://raw.githubusercontent.com/datameet/Municipal_Spatial_Data/refs/heads/master/Chennai/Wards.geojson' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
       "url": "https://raw.githubusercontent.com/datameet/Municipal_Spatial_Data/refs/heads/master/Chennai/Wards.geojson",
       "style": {
         "fill-color": [
@@ -384,7 +385,7 @@
       "sourceLayer": "TNGIS_TN_Police_Station_Boundaries",
       "minzoom": 0,
       "maxzoom": 10,
-      "attribution": "Source: <a href='https://tngis.tn.gov.in/' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "attribution": "<a href='https://tngis.tn.gov.in/' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a> via <a href='https://indianopenmaps.com/viewer#source=/not-so-open/police/tamil-nadu/station-boundaries/tngis/&map=' target='_blank' rel='noopener noreferrer'>IndianOpenMaps</a>",
       "initiallyChecked": true,
       "inspect": {
         "id": "object_id",
@@ -451,7 +452,7 @@
       "sourceLayer": "TNGIS_TN_Traffic_Police_Station_Boundaries",
       "minzoom": 0,
       "maxzoom": 10,
-      "attribution": "Source: <a href='https://tngis.tn.gov.in/' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "attribution": "<a href='https://tngis.tn.gov.in/' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a> via <a href='https://indianopenmaps.com/viewer#source=/not-so-open/police/tamil-nadu/traffic/station-boundaries/tngis/&map=' target='_blank' rel='noopener noreferrer'>IndianOpenMaps</a>",
       "initiallyChecked": false,
       "inspect": {
         "id": "object_id",
