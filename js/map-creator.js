@@ -220,6 +220,14 @@ export class MapCreator {
 
         $('#label-field-select').on('change', () => {
             this._styleManuallyEdited = false;
+            const labelField = $('#label-field-select').val();
+            if (labelField) {
+                const $nameSelect = $('#feature-name-field');
+                const hasOption = $nameSelect.find('option').toArray().some(o => o.value === labelField);
+                if (hasOption) {
+                    $nameSelect.val(labelField);
+                }
+            }
             this.updateConfigPreview();
         });
 
@@ -398,6 +406,7 @@ export class MapCreator {
         this._styleManuallyEdited = false;
         this._styleTypesUserModified = false;
         this._lastLabelFieldsKey = undefined;
+        this._lastDataFieldsKey = undefined;
         $('#config-json-status').html('');
         $('#reset-config-json-btn').addClass('hidden');
     }
@@ -1316,8 +1325,10 @@ export class MapCreator {
 
             const fields = config.inspect?.fields || [];
             this.populateLabelFieldOptions(fields, config.inspect?.label);
+            this.populateDataFields(fields, config.inspect?.id, config.inspect?.label);
         } else {
             $('#style-controls').hide();
+            $('#data-fields-section').hide();
         }
 
         this.updateTileConfigPreview(config);
@@ -1556,12 +1567,14 @@ export class MapCreator {
     // the JSON box (or an open label dropdown) if so.
     _handleTileInfoDetected(geometryTypes, fields) {
         const active = document.activeElement;
-        if (active && (active.id === 'config-preview' || active.id === 'label-field-select')) {
+        if (active && (active.id === 'config-preview' || active.id === 'label-field-select' ||
+            active.id === 'feature-id-field' || active.id === 'feature-name-field')) {
             return;
         }
 
         if (fields && fields.length > 0) {
             this.populateLabelFieldOptions(fields);
+            this.populateDataFields(fields);
         }
         if (!this._styleTypesUserModified) {
             this.autoCheckStyleTypes(geometryTypes);
@@ -1790,6 +1803,30 @@ export class MapCreator {
             config.style = this.buildStyleFromControls();
         }
 
+        // Feature ID / Feature Name only get options once fields are known
+        // (see _handleTileInfoDetected / showTileLayerSuccess) — until then,
+        // leave whatever inspect config the layer already had untouched.
+        if ($('#data-fields-section').is(':visible')) {
+            const idField = $('#feature-id-field').val() || baseConfig.inspect?.id || 'id';
+            const nameField = $('#feature-name-field').val() || baseConfig.inspect?.label || 'name';
+            const selectedFields = [];
+            $('#inspect-fields-list input:checked').each(function() {
+                selectedFields.push($(this).val());
+            });
+            const inspectFields = selectedFields.length > 0 ? selectedFields : [idField, nameField];
+
+            config.inspect = {
+                ...(baseConfig.inspect || {}),
+                id: idField,
+                title: baseConfig.inspect?.title || 'Name',
+                label: nameField,
+                fields: inspectFields,
+                fieldTitles: inspectFields.map(f =>
+                    f.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                )
+            };
+        }
+
         this.currentData = config;
         $('#config-preview').val(JSON.stringify(config, null, 2));
     }
@@ -1922,7 +1959,7 @@ export class MapCreator {
         });
     }
 
-    populateDataFields(fields) {
+    populateDataFields(fields, preferredId, preferredName) {
         console.log('[MapCreator] populateDataFields called', {
             fieldsCount: fields?.length,
             currentLayerType: this.currentLayerType,
@@ -1933,6 +1970,15 @@ export class MapCreator {
             $('#data-fields-section').hide();
             return;
         }
+
+        // Same rebuild-avoidance as populateLabelFieldOptions: skip re-rendering
+        // (and clobbering the user's in-progress selection) when the field list
+        // hasn't actually changed and no preferred value was passed in.
+        const fieldsKey = JSON.stringify(fields);
+        if (!preferredId && !preferredName && this._lastDataFieldsKey === fieldsKey) {
+            return;
+        }
+        this._lastDataFieldsKey = fieldsKey;
 
         $('#data-fields-section').show();
 
@@ -1956,6 +2002,9 @@ export class MapCreator {
         const $nameSelect = $('#feature-name-field');
         const $fieldsList = $('#inspect-fields-list');
 
+        const currentId = $idSelect.val();
+        const currentName = $nameSelect.val();
+
         $latSelect.empty().append('<option value="">Auto-detect or select...</option>');
         $lonSelect.empty().append('<option value="">Auto-detect or select...</option>');
         $idSelect.empty().append('<option value="">Select field...</option>');
@@ -1967,6 +2016,17 @@ export class MapCreator {
         const defaultId = this.getDefaultIdField(fields);
         const defaultName = this.getDefaultNameField(fields);
         const defaultInspectFields = this.getDefaultInspectFields(fields);
+
+        // preferredId/preferredName win when still valid (e.g. an existing
+        // layer's inspect.id/inspect.label); otherwise keep the current
+        // selection if it survives the field list change, then fall back
+        // to the best-guess default.
+        const idValue = (preferredId && fields.includes(preferredId)) ? preferredId
+            : (currentId && fields.includes(currentId)) ? currentId
+            : defaultId;
+        const nameValue = (preferredName && fields.includes(preferredName)) ? preferredName
+            : (currentName && fields.includes(currentName)) ? currentName
+            : defaultName;
 
         console.log('[MapCreator] Default fields detected:', {
             lat: defaultLat,
@@ -1986,8 +2046,8 @@ export class MapCreator {
                 );
             }
 
-            $idSelect.append(`<option value="${field}" ${field === defaultId ? 'selected' : ''}>${field}</option>`);
-            $nameSelect.append(`<option value="${field}" ${field === defaultName ? 'selected' : ''}>${field}</option>`);
+            $idSelect.append(`<option value="${field}" ${field === idValue ? 'selected' : ''}>${field}</option>`);
+            $nameSelect.append(`<option value="${field}" ${field === nameValue ? 'selected' : ''}>${field}</option>`);
 
             const isChecked = defaultInspectFields.includes(field);
             const $checkbox = $(`
