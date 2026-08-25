@@ -52,13 +52,12 @@
   "layers": [
     {
       "tags": [
-        "Boundaries",
-        "Survey"
+        "1.Boundaries"
       ],
-      "title": "TNGIS_TN_Cadastrals",
-      "description": "TNGIS_TN_Cadastrals",
+      "title": "TNGIS Cadastral Boundaries",
+      "description": "Survey and subdivision cadastral boundaries from TNGIS",
       "type": "vector",
-      "id": "tngis_tn_cadastrals-cug5wy",
+      "id": "plots",
       "url": "https://indianopenmaps.com/not-so-open/cadastrals/tamil-nadu/tngis/{z}/{x}/{y}.pbf",
       "sourceLayer": "TNGIS_TN_Cadastrals",
       "minzoom": 12,
@@ -126,7 +125,7 @@
           "lgd_district_code"
         ]
       },
-      "initiallyChecked": true
+      "initiallyChecked": false
     },
     {
       "tags": [
@@ -314,6 +313,204 @@
       }
     },
     {
+      "tags": [
+        "1.Boundaries"
+      ],
+      "id": "wards",
+      "title": "GCC Ward Boundaries",
+      "type": "geojson",
+      "initiallyChecked": true,
+      "inspect": {
+        "id": "Ward_No",
+        "title": "Ward No.",
+        "label": "Ward_No",
+        "fields": [
+          "Zone_Name",
+          "Zone_No",
+          "AREA"
+        ],
+        "fieldTitles": [
+          "Zone",
+          "Zone No.",
+          "Area"
+        ]
+      },
+      "url": "https://raw.githubusercontent.com/datameet/Municipal_Spatial_Data/refs/heads/master/Chennai/Wards.geojson",
+      "style": {
+        "fill-color": [
+          "coalesce",
+          [
+            "get",
+            "fill-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#3b82f6"
+        ],
+        "fill-opacity": 0.05,
+        "line-color": [
+          "coalesce",
+          [
+            "get",
+            "stroke-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#8f1eae"
+        ],
+        "line-width": 1,
+        "text-field": [
+          "to-string",
+          [
+            "get",
+            "Ward_No"
+          ]
+        ]
+      }
+    },
+    {
+      "tags": [
+        "1.Boundaries"
+      ],
+      "title": "Police Station Boundaries",
+      "description": "Jurisdictional boundaries of Tamil Nadu Police",
+      "type": "vector",
+      "id": "police_station_boundaries",
+      "url": "https://indianopenmaps.com/not-so-open/police/tamil-nadu/station-boundaries/tngis/{z}/{x}/{y}.pbf",
+      "sourceLayer": "TNGIS_TN_Police_Station_Boundaries",
+      "minzoom": 0,
+      "maxzoom": 10,
+      "attribution": "Source: <a href='https://tngis.tn.gov.in/' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "initiallyChecked": true,
+      "inspect": {
+        "id": "object_id",
+        "title": "Police Station",
+        "label": "police_station_name",
+        "fields": [
+          "district_name",
+          "e_district_code",
+          "ed_taluk_code",
+          "police_station_code"
+        ],
+        "fieldTitles": [
+          "District Name",
+          "E District Code",
+          "Ed Taluk Code",
+          "Police Station Code"
+        ]
+      },
+      "style": {
+        "fill-color": [
+          "coalesce",
+          [
+            "get",
+            "fill-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#3b82f6"
+        ],
+        "fill-opacity": 0.05,
+        "line-color": [
+          "coalesce",
+          [
+            "get",
+            "stroke-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#ae1e8f"
+        ],
+        "line-width": 1.5,
+        "text-field": [
+          "to-string",
+          [
+            "get",
+            "police_station_name"
+          ]
+        ]
+      }
+    },
+    {
+      "tags": [
+        "1.Boundaries"
+      ],
+      "title": "Traffic Police Station Boundaries",
+      "description": "Jurisdictional boundaries of Tamil Nadu Traffic Police",
+      "type": "vector",
+      "id": "traffic-police",
+      "url": "https://indianopenmaps.com/not-so-open/police/tamil-nadu/traffic/station-boundaries/tngis/{z}/{x}/{y}.pbf",
+      "sourceLayer": "TNGIS_TN_Traffic_Police_Station_Boundaries",
+      "minzoom": 0,
+      "maxzoom": 10,
+      "attribution": "Source: <a href='https://tngis.tn.gov.in/' target='_blank' rel='noopener noreferrer'>TNGIS</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "initiallyChecked": false,
+      "inspect": {
+        "id": "object_id",
+        "title": "Traffic Police Station",
+        "label": "police_station",
+        "fields": [
+          "district_name",
+          "police_station",
+          "police_station_code",
+          "taluk_name"
+        ],
+        "fieldTitles": [
+          "District Name",
+          "Police Station",
+          "Police Station Code",
+          "Taluk Name"
+        ]
+      },
+      "style": {
+        "fill-color": [
+          "coalesce",
+          [
+            "get",
+            "fill-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#c2d0e5"
+        ],
+        "fill-opacity": 0.2,
+        "line-color": [
+          "coalesce",
+          [
+            "get",
+            "stroke-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#ae331e"
+        ],
+        "line-width": 2,
+        "text-field": [
+          "to-string",
+          [
+            "get",
+            "police_station"
+          ]
+        ]
+      }
+    },
+    {
+      "tags": [
+        "1.Boundaries",
+        "basemap"
+      ],
       "title": "Greater Chennai Traffic Police Jurisdiction Map - 2025",
       "description": "From https://data.opencity.in",
       "type": "tms",
