@@ -303,7 +303,7 @@ export class MapFeatureControl {
         // Close panel when clicking outside
         setTimeout(() => {
             document.addEventListener('click', (e) => {
-                if (!e.target.closest('.map-feature-panel, .mapboxgl-ctrl-icon, .mapboxgl-canvas-container, .map-browser-panel, #map-browser-modal, .mapboxgl-ctrl-group, .mapboxgl-popup, .selection-popup')) {
+                if (!e.target.closest('.map-feature-panel, .mapboxgl-ctrl-icon, .mapboxgl-canvas-container, .map-browser-panel, #map-browser-modal, .mapboxgl-ctrl-group, .mapboxgl-popup, .selection-popup, #nearby-features-panel')) {
                     this._hidePanel();
                 }
             });

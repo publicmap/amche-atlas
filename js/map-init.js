@@ -17,6 +17,7 @@ import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-mess
 import { ShortcutMenu } from './shortcut-menu.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
+import { NearbyFeaturesControl } from './map-nearby-features-control.js';
 import { ButtonGeolocationManager } from './button-geolocation-manager.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 import { CameraUtils } from './map-camera-utils.js';
@@ -925,6 +926,8 @@ export class MapInitializer {
             // (Geolocation control already mounted at the top of map.on('load')
             // so its GPS auto-trigger runs in parallel with the rest of setup.)
             map.addControl(window.featureControl, 'top-right');
+            window.nearbyFeaturesControl = new NearbyFeaturesControl(stateManager);
+            map.addControl(window.nearbyFeaturesControl, 'top-right');
             map.addControl(new TimeControl(), 'top-right');
             window.streetviewControl = new StreetviewControl();
             map.addControl(window.streetviewControl, 'top-left');

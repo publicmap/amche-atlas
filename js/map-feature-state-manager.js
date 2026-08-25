@@ -5,6 +5,12 @@
 import { MapboxAPI } from './mapbox-api.js';
 import { handlerLoader } from './inspection-handler-loader.js';
 import { trackEvent } from './analytics.js';
+import { CameraUtils } from './map-camera-utils.js';
+
+// Cap on how many features getFeaturesInView() returns, so a dense layer
+// (thousands of parcels, etc.) can't turn the "Nearby features" list into an
+// unusably long swipe/tab order for the screen-reader/keyboard users it exists for.
+const MAX_FEATURES_IN_VIEW = 200;
 
 export class MapFeatureStateManager extends EventTarget {
     constructor(map, mapboxAPI = null) {
@@ -891,6 +897,58 @@ export class MapFeatureStateManager extends EventTarget {
                 } catch (error) {
                     if (!(error instanceof RangeError)) {
                         console.warn(`[StateManager] Error querying center features for ${actualLayerId}:`, error);
+                    }
+                }
+            });
+        });
+
+        return features;
+    }
+
+    /**
+     * Every feature from all registered (non-raster) layers currently rendered
+     * anywhere in the viewport, not just under a single point. Powers the
+     * "Nearby features" list (see NearbyFeaturesControl) — the touch/keyboard
+     * alternative to tapping a spot on the map canvas, for screen-reader users
+     * who can't hit-test the canvas at all. Deduplicates repeated geometries
+     * across tile boundaries via the same composite key used elsewhere, and
+     * stops early at MAX_FEATURES_IN_VIEW to keep the list swipeable.
+     */
+    getFeaturesInView() {
+        const seen = new Set();
+        const features = [];
+
+        this._registeredLayers.forEach((layerConfig) => {
+            if (features.length >= MAX_FEATURES_IN_VIEW) return;
+            if (this._isRasterLayer(layerConfig)) return;
+
+            const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
+            matchingLayerIds.forEach(actualLayerId => {
+                if (features.length >= MAX_FEATURES_IN_VIEW) return;
+                try {
+                    const layerFeatures = this._map.queryRenderedFeatures(undefined, {
+                        layers: [actualLayerId]
+                    });
+
+                    layerFeatures.forEach(feature => {
+                        if (features.length >= MAX_FEATURES_IN_VIEW) return;
+
+                        const featureId = this._getFeatureId(feature);
+                        const compositeKey = this._getCompositeKey(layerConfig.id, featureId);
+                        if (seen.has(compositeKey)) return;
+                        seen.add(compositeKey);
+
+                        const bbox = CameraUtils.computeGeojsonBbox(feature);
+                        const center = this._map.getCenter();
+                        const lngLat = bbox
+                            ? { lng: (bbox[0] + bbox[2]) / 2, lat: (bbox[1] + bbox[3]) / 2 }
+                            : { lng: center.lng, lat: center.lat };
+
+                        features.push({ feature, layerId: layerConfig.id, lngLat });
+                    });
+                } catch (error) {
+                    if (!(error instanceof RangeError)) {
+                        console.warn(`[StateManager] Error querying in-view features for ${actualLayerId}:`, error);
                     }
                 }
             });
