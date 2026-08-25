@@ -510,7 +510,7 @@ export class ButtonExternalMapLinks {
             },
             {
                 id: 'bharatmaps',
-                icon: '<div style="background: rgba(235, 235, 235, 1);"><img src="https://bharatmaps.gov.in/BharatMaps/Assets/img/logo/logo-dark.png"></div>',
+                icon: 'https://bharatmaps.gov.in/BharatMapsMVC/Assets/img/logo/logo-white.png',
                 name: 'NIC Bharatmaps',
                 url: `https://bharatmaps.gov.in/BharatMaps/Home/Map?long=${lat}&lat=${lng}`,
                 category: 'india',
@@ -548,6 +548,7 @@ export class ButtonExternalMapLinks {
                 id: 'urbanistmap',
                 name: 'UrbanistMap',
                 url: `https://urbanistmap.org/#map=${zoom}/${lat}/${lng}`,
+                icon: 'https://urbanistmap.org/favicon.svg',
                 category: 'global',
                 description: 'Minimalist basemap focused on urban form, transit networks, and the built environment. Clean cartography highlighting streets, rail, and density patterns for urban planning and analysis.',
                 tags: ['Basemap', 'Urban', 'Transit']
@@ -565,6 +566,7 @@ export class ButtonExternalMapLinks {
                 id: 'sentinel-search',
                 name: 'Sentinel-2 Viewer',
                 url: `https://sentinel.spatialty.io/#${zoom}/${lat}/${lng}`,
+                icon: 'https://spatialty.io/favicon.ico',
                 category: 'global',
                 description: 'Cloud-optimized search and preview interface for Sentinel-2 satellite imagery from the European Space Agency. Browse and compare recent high-resolution optical imagery (10m resolution) with filtering by cloud coverage and acquisition date.',
                 tags: ['Satellite', 'Archive']
@@ -579,8 +581,26 @@ export class ButtonExternalMapLinks {
                 tags: ['Basemap', 'Navigation', 'Satellite', 'Street View']
             },
             {
+                id: 'apple-maps',
+                name: 'Apple Maps',
+                url: `https://maps.apple.com/?ll=${lat},${lng}&z=${zoom}`,
+                icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Apple_Maps_logo.svg/120px-Apple_Maps_logo.svg.png',
+                category: 'global',
+                description: 'Apple\'s mapping service with satellite imagery, Look Around street-level views, and turn-by-turn navigation. Features detailed 3D city maps, indoor maps for major venues, and business listings.',
+                tags: ['Basemap', 'Navigation', 'Satellite', 'Street View']
+            },
+            {
+                id: 'here-maps',
+                name: 'HERE Maps',
+                url: `https://maps.here.com/?map=${lat}%2C${lng}%2C${zoom}`,
+                icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Here_WeGo_logo.svg/120px-Here_WeGo_logo.svg.png',
+                category: 'global',
+                description: 'HERE\'s mapping and navigation service with global coverage of roads, traffic, and points of interest. Features satellite imagery, public transit routing, and detailed venue maps.',
+                tags: ['Basemap', 'Navigation', 'Satellite']
+            },
+            {
                 id: 'google-earth',
-                icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Google_Earth_icon.svg/100px-Google_Earth_icon.svg.png',
+                icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Google_Earth_Icon.png/120px-Google_Earth_Icon.png',
                 name: 'Google Earth',
                 url: `https://earth.google.com/web/@${lat},${lng},67.01062587a,1688.30584472d,35y,-0h,0t,0r/data=CgwqBggBEgAYAUICCAFCAggASg0I____________ARAA`,
                 text: 'GE',
@@ -592,7 +612,7 @@ export class ButtonExternalMapLinks {
                 id: 'esri-landcover',
                 name: 'ESRI Sentinel-2 Land Cover Explorer',
                 url: `https://livingatlas.arcgis.com/landcoverexplorer/#mapCenter=${lng}%2C${lat}%2C${zoom}.79&mode=step&timeExtent=2017%2C2023&year=2023`,
-                text: 'ESRI',
+                icon: 'https://upload.wikimedia.org/wikipedia/en/thumb/6/6e/Esri_logo.svg/120px-Esri_logo.svg.png',
                 category: 'global',
                 description: 'ESRI Living Atlas land cover classification viewer showing global land use patterns at 10m resolution. Explore change over time with annual updates from 2017-2023, comparing urban growth, deforestation, and agricultural expansion across regions.',
                 tags: ['Thematic', 'LULC', 'Archive']
@@ -630,10 +650,19 @@ export class ButtonExternalMapLinks {
                 id: 'landsat',
                 name: 'ESRI Landsat Explorer',
                 url: `https://livingatlas.arcgis.com/landsatexplorer/#mapCenter=${lng}%2C${lat}%2C${zoom}&mode=dynamic&mainScene=%7CColor+Infrared+for+Visualization%7C`,
-                icon: 'ESRI',
+                icon: 'https://upload.wikimedia.org/wikipedia/en/thumb/6/6e/Esri_logo.svg/120px-Esri_logo.svg.png',
                 category: 'global',
                 description: 'USGS/NASA Landsat program explorer with 50+ years of continuous Earth observation imagery at 30m resolution. Access multispectral data from Landsat 1-9, create custom band combinations, analyze vegetation health, and track land cover changes since 1972.',
                 tags: ['Satellite', 'Archive']
+            },
+            {
+                id: 'wayback',
+                name: 'ESRI Wayback',
+                url: `https://livingatlas.arcgis.com/wayback/#mapCenter=${lng}%2C${lat}%2C${zoom}&mode=explore&active=15084`,
+                icon: 'https://upload.wikimedia.org/wikipedia/en/thumb/6/6e/Esri_logo.svg/120px-Esri_logo.svg.png',
+                category: 'global',
+                description: 'ESRI Living Atlas archive of historical World Imagery basemap releases, letting you compare satellite imagery captures over time at the same location. Browse and swipe between hundreds of dated imagery versions to spot changes.',
+                tags: ['Satellite', 'Archive', 'Time series']
             },
             {
                 id: 'shademap',
