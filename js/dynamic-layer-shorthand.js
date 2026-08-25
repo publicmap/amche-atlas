@@ -14,12 +14,13 @@
  * layerToURL).
  *
  * Each service's actual API calls live in its own module (allmaps-url-api.js,
- * mapwarper-url-api.js, osm-url-api.js) — this file only dispatches to them,
- * so adding a new service means adding one `case` here plus its own module.
+ * mapwarper-url-api.js, osm-url-api.js) — this file dispatches to them via
+ * js/layer-source-resolver.js's DYNAMIC_SHORTHAND_PROVIDERS table, the same
+ * one map-creator.js's "Add Layer" URL box resolves full URLs through, so
+ * adding a new service means adding one entry there plus its own module.
  */
 
-import { AllmapsAPI } from './allmaps-url-api.js';
-import { MapWarperAPI } from './mapwarper-url-api.js';
+import { DYNAMIC_SHORTHAND_PROVIDERS } from './layer-source-resolver.js';
 import { OSMApi } from './osm-url-api.js';
 
 const SHORTHAND_TYPES = new Set(['allmaps', 'mapwarper', 'osm']);
@@ -54,22 +55,10 @@ export async function expandDynamicLayerShorthand(layerConfig) {
     const { type, id } = layerConfig;
 
     try {
-        let expanded;
-        switch (type) {
-            case 'allmaps':
-                expanded = await AllmapsAPI.createConfigFromId(id);
-                break;
-            case 'mapwarper':
-                expanded = await MapWarperAPI.createConfigFromId(id);
-                break;
-            case 'osm':
-                expanded = await OSMApi.createConfigFromRef(id);
-                break;
-            default:
-                return null;
-        }
+        const provider = DYNAMIC_SHORTHAND_PROVIDERS[type];
+        if (!provider) return null;
 
-        return expanded;
+        return await provider.resolveFromId(id);
     } catch (error) {
         console.warn(`[Dynamic Layer] Failed to resolve "${type}:${id}":`, error);
         return null;

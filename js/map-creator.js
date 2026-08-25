@@ -3,9 +3,8 @@ import { CameraUtils } from './map-camera-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { StreamingGPKGReader } from './streaming-gpkg-reader.js';
-import { AllmapsAPI } from './allmaps-url-api.js';
-import { OSMApi } from './osm-url-api.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
+import * as SourceResolver from './layer-source-resolver.js';
 
 export class MapCreator {
     constructor() {
@@ -59,9 +58,9 @@ export class MapCreator {
                 try {
                     let geojson;
                     if (ext === 'gpkg') {
-                        geojson = await this.parseGPKG(arrayBuffer);
+                        geojson = await SourceResolver.parseGPKG(arrayBuffer);
                     } else if (ext === 'zip') {
-                        geojson = await this.parseShapefile(arrayBuffer);
+                        geojson = await SourceResolver.parseShapefile(arrayBuffer);
                     } else if (ext === 'kml') {
                         geojson = await KMLConverter.kmlToGeoJson(content);
                     } else if (ext === 'csv') {
@@ -70,7 +69,7 @@ export class MapCreator {
                         geojson = GeoUtils.rowsToGeoJSON(rows);
                         if (!geojson) throw new Error('Could not find lat/lng columns in CSV');
                     } else if (ext === 'geojsonl' || ext === 'ndjson' || ext === 'jsonl') {
-                        geojson = this.parseGeoJSONL(content);
+                        geojson = SourceResolver.parseGeoJSONL(content);
                     } else {
                         geojson = JSON.parse(content);
                         if (!geojson.type || (geojson.type !== 'FeatureCollection' && geojson.type !== 'Feature')) {
@@ -467,204 +466,18 @@ export class MapCreator {
     }
 
     detectUrlFormat(url) {
-        const urlLower = url.toLowerCase();
-
-        if (this.isOverpassShareUrl(url)) {
-            return 'Overpass';
-        }
-        if (this.isBharatlasUrl(url)) {
-            return 'Bharatlas';
-        }
-        if (this.isGistUrl(url)) {
-            return 'GeoJSON';
-        }
-        if (this.isWMSUrl(url)) {
-            return 'WMS';
-        }
-        if (this.isCSVUrl(url)) {
-            return 'CSV';
-        }
-        if (AllmapsAPI.isAllmapsUrl(url)) {
-            return 'Allmaps';
-        }
-        if (OSMApi.isOsmUrl(url)) {
-            return 'OSM';
-        }
-        if (urlLower.includes('jsonkeeper.com/b/')) {
-            return 'Amche Atlas JSON';
-        }
-        if (urlLower.endsWith('.geojson')) {
-            return 'GeoJSON';
-        }
-        if (urlLower.endsWith('.json')) {
-            return 'Amche Atlas JSON';
-        }
-        if (urlLower.endsWith('.kml')) {
-            return 'KML';
-        }
-        if (urlLower.endsWith('.geojsonl') || urlLower.endsWith('.ndjson') || urlLower.endsWith('.jsonl')) {
-            return 'GeoJSONL';
-        }
-        if (urlLower.endsWith('.gpkg')) {
-            return 'GeoPackage';
-        }
-        if (urlLower.endsWith('.zip')) {
-            return 'Shapefile';
-        }
-        if (urlLower.includes('{z}') && (urlLower.includes('.pbf') || urlLower.includes('.mvt'))) {
-            return 'Vector Tiles';
-        }
-        if (urlLower.includes('{z}') && (urlLower.includes('.png') || urlLower.includes('.jpg'))) {
-            return 'Raster Tiles';
-        }
-        if (urlLower.includes('{x}') && urlLower.includes('{y}') && urlLower.includes('{z}')) {
-            return 'Raster Tiles';
-        }
-        if (/\/\d+\/\d+\/\d+\.(pbf|mvt)($|\?)/i.test(url)) {
-            return 'Vector Tiles';
-        }
-        if (/\/\d+\/\d+\/\d+(\.(png|jpg|jpeg|webp))?($|\?)/i.test(url)) {
-            return 'Raster Tiles';
-        }
-        if (urlLower.includes('mapwarper.net/maps/') || urlLower.includes('warper.wmflabs.org/maps/')) {
-            return 'MapWarper';
-        }
-        return null;
+        const type = SourceResolver.detectLayerSourceType(url);
+        return type ? SourceResolver.SOURCE_TYPE_LABELS[type] : null;
     }
 
-    isGistUrl(url) {
-        if (!url) return false;
-        return /^https?:\/\/gist\.github\.com\/(?:[^/]+\/)?[0-9a-f]{16,}/i.test(url);
-    }
-
-    async resolveGistRawUrl(url) {
-        const match = url.match(/^https?:\/\/gist\.github\.com\/(?:[^/]+\/)?([0-9a-f]{16,})/i);
-        if (!match) return url;
-
-        const response = await fetch(`https://api.github.com/gists/${match[1]}`);
-        if (!response.ok) {
-            throw new Error(`Could not resolve Gist (${response.status})`);
-        }
-        const data = await response.json();
-        const files = Object.values(data.files || {});
-        if (files.length === 0) {
-            throw new Error('Gist has no files');
-        }
-
-        const geoFile = files.find(f => /\.(geojson|json|csv|kml|geojsonl|ndjson|jsonl)$/i.test(f.filename));
-        return (geoFile || files[0]).raw_url;
-    }
-
-    isBharatlasUrl(url) {
-        if (!url) return false;
-        const urlLower = url.toLowerCase();
-        if (!urlLower.includes('bharatlas.com')) return false;
-        if (/bharatlas\.com\/c\/[a-z0-9]+/i.test(url)) return true;
-        if (/bharatlas\.com\/api\/r2\/community\/[a-z0-9]+\//i.test(url)) return true;
-        return false;
-    }
-
-    parseBharatlasUrl(url) {
-        const communityMatch = url.match(/bharatlas\.com\/c\/([A-Za-z0-9]+)/i);
-        if (communityMatch) {
-            return { communityId: communityMatch[1], pageUrl: `https://bharatlas.com/c/${communityMatch[1]}`, geojsonUrl: null };
-        }
-        const apiMatch = url.match(/bharatlas\.com\/api\/r2\/community\/([A-Za-z0-9]+)\/([^?#]+)/i);
-        if (apiMatch) {
-            return {
-                communityId: apiMatch[1],
-                pageUrl: `https://bharatlas.com/c/${apiMatch[1]}`,
-                geojsonUrl: url
-            };
-        }
-        return null;
-    }
-
-    parseBharatlasPage(html, fallbackPageUrl) {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-
-        const titleEl = doc.querySelector('h2');
-        const descEl = doc.querySelector('p.desc');
-        const title = titleEl ? titleEl.textContent.trim() : '';
-        const description = descEl ? descEl.textContent.trim() : '';
-
-        let geojsonUrl = null;
-        const downloadLink = doc.querySelector('.actions a[download], .actions a.btn[href*="/api/"]');
-        if (downloadLink) {
-            const href = downloadLink.getAttribute('href');
-            geojsonUrl = href.startsWith('http') ? href : `https://bharatlas.com${href}`;
-        }
-
-        let sourceText = '';
-        let sourceUrl = '';
-        let attributionText = '';
-        const dts = doc.querySelectorAll('dl.kv dt');
-        dts.forEach(dt => {
-            const label = (dt.textContent || '').trim().toLowerCase();
-            const dd = dt.nextElementSibling;
-            if (!dd) return;
-            if (label === 'source') {
-                const a = dd.querySelector('a');
-                if (a) {
-                    sourceUrl = a.getAttribute('href') || '';
-                    sourceText = (a.textContent || '').trim();
-                } else {
-                    sourceText = (dd.textContent || '').trim();
-                }
-            } else if (label === 'attribution') {
-                attributionText = (dd.textContent || '').trim();
-            }
-        });
-
-        return {
-            title,
-            description,
-            geojsonUrl,
-            sourceText,
-            sourceUrl,
-            attributionText,
-            pageUrl: fallbackPageUrl
-        };
-    }
-
-    buildBharatlasAttribution(meta) {
-        const label = meta.attributionText || meta.sourceText || 'Source';
-        const labelPart = meta.sourceUrl
-            ? `<a href='${meta.sourceUrl}'>${label}</a>`
-            : label;
-        const viaPart = meta.pageUrl
-            ? ` via <a href='${meta.pageUrl}'>bharatlas community</a>`
-            : '';
-        return `${labelPart}${viaPart}`;
+    isOverpassShareUrl(url) {
+        return SourceResolver.isOverpassShareUrl(url);
     }
 
     async handleBharatlasImport(url) {
-        const parsed = this.parseBharatlasUrl(url);
-        if (!parsed) {
-            throw new Error('Unrecognized bharatlas URL');
-        }
+        const { geojson, meta } = await SourceResolver.resolveBharatlas(url);
 
-        const pageResp = await fetch(parsed.pageUrl);
-        if (!pageResp.ok) {
-            throw new Error(`Could not fetch bharatlas page (${pageResp.status})`);
-        }
-        const html = await pageResp.text();
-        const meta = this.parseBharatlasPage(html, parsed.pageUrl);
-
-        const geojsonUrl = parsed.geojsonUrl || meta.geojsonUrl;
-        if (!geojsonUrl) {
-            throw new Error('Could not find GeoJSON download URL on bharatlas page');
-        }
-        meta.geojsonUrl = geojsonUrl;
-
-        const geojsonResp = await fetch(geojsonUrl);
-        if (!geojsonResp.ok) {
-            throw new Error(`Could not fetch bharatlas GeoJSON (${geojsonResp.status})`);
-        }
-        const geojson = await geojsonResp.json();
-
-        this.processGeoJSON(geojson, geojsonUrl);
+        this.processGeoJSON(geojson, meta.geojsonUrl);
 
         if (meta.title) {
             $('#layer-title').val(meta.title);
@@ -673,63 +486,11 @@ export class MapCreator {
         if (meta.description) {
             $('#layer-description').val(meta.description);
         }
-        const attribution = this.buildBharatlasAttribution(meta);
-        if (attribution) {
-            $('#layer-attribution').val(attribution);
+        if (meta.attribution) {
+            $('#layer-attribution').val(meta.attribution);
         }
 
         this.updateConfigPreview();
-    }
-
-    isWMSUrl(url) {
-        const urlLower = url.toLowerCase();
-        if (urlLower.includes('service=wms')) {
-            return true;
-        }
-        if (urlLower.includes('/wms') && (urlLower.includes('request=getmap') || urlLower.includes('getmap'))) {
-            return true;
-        }
-        return false;
-    }
-
-    createWMSConfig(url) {
-        const urlParts = url.split('?');
-        const baseUrl = urlParts[0];
-        const params = new URLSearchParams(urlParts[1] || '');
-
-        const paramsObj = {};
-        for (const [key, value] of params.entries()) {
-            paramsObj[key.toLowerCase()] = value;
-        }
-
-        const layers = paramsObj.layers || paramsObj.layer || '';
-        const version = paramsObj.version || '1.3.0';
-        const format = paramsObj.format || 'image/png';
-        const srs = paramsObj.srs || paramsObj.crs || 'EPSG:3857';
-
-        const title = layers.split(':').pop() || 'WMS Layer';
-        const id = this.generateId(title);
-
-        return {
-            id: id,
-            title: title,
-            type: 'wms',
-            url: url,
-            tileSize: parseInt(paramsObj.width || paramsObj.height || '256'),
-            maxzoom: 18,
-            srs: srs,
-            attribution: baseUrl
-        };
-    }
-
-    isOverpassShareUrl(url) {
-        if (!url) return false;
-        return /^https?:\/\/overpass-turbo\.eu\/s\/[A-Za-z0-9_-]+\/?$/i.test(url.trim());
-    }
-
-    parseOverpassShareId(url) {
-        const m = url.trim().match(/overpass-turbo\.eu\/s\/([A-Za-z0-9_-]+)/i);
-        return m ? m[1] : null;
     }
 
     looksLikeOverpassQuery(text) {
@@ -776,87 +537,6 @@ export class MapCreator {
         $('#overpass-section').addClass('hidden');
     }
 
-    async resolveOverpassShareUrl(url) {
-        // Browsers cannot read cross-origin redirect Location headers (the
-        // response becomes opaqueredirect), so we route through the Railway-
-        // hosted proxy server which resolves the redirect server-side and
-        // returns the underlying Overpass QL query.
-        const id = this.parseOverpassShareId(url);
-        if (!id) throw new Error('Invalid Overpass Turbo share URL');
-
-        $('#overpass-status').text('Resolving share URL…');
-
-        const response = await fetch(`https://amche-atlas-production.up.railway.app/overpass-share?id=${encodeURIComponent(id)}`);
-
-        if (!response.ok) {
-            let errMsg = `HTTP ${response.status}`;
-            try {
-                const errBody = await response.json();
-                if (errBody.error) errMsg = errBody.error;
-            } catch (_) { /* ignore */ }
-            throw new Error(`Could not resolve share URL: ${errMsg}. Open the URL in overpass-turbo.eu and paste the query text here instead.`);
-        }
-
-        const data = await response.json();
-        if (!data.query) {
-            throw new Error(data.error || 'Empty response from resolver');
-        }
-        return data.query;
-    }
-
-    extractOverpassWizardSearch(query) {
-        // Overpass-Turbo wizard queries embed the original search string in a
-        // leading /* */ block, between curly (or straight) quotes:
-        //   The original search was:
-        //   “cafe”
-        const m = query.match(/original search was:\s*\n\s*[“"']([^”"'\n]+)[”"']/i);
-        return m ? m[1].trim() : null;
-    }
-
-    createOverpassConfig(query, sourceUrl) {
-        const id = `overpass-${Math.floor(Math.random() * 90) + 10}`;
-        const title = 'OSM Overpass API Query';
-
-        const wizardSearch = this.extractOverpassWizardSearch(query);
-        let description = 'Live OpenStreetMap features fetched from the Overpass API; refreshes as the viewport changes.';
-        if (wizardSearch) {
-            description = `Live OSM features matching <code>${wizardSearch}</code>, fetched from the Overpass API as the viewport changes.`;
-        }
-        if (sourceUrl) {
-            description += ` Source query: <a href='${sourceUrl}' target='_blank'>${sourceUrl}</a>.`;
-        }
-
-        const viaLink = sourceUrl
-            ? `<a href='${sourceUrl}'>Overpass Turbo</a>`
-            : `<a href='https://overpass-api.de/'>Overpass API</a>`;
-        const attribution = `© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a> via ${viaLink}`;
-
-        return {
-            id,
-            title,
-            type: 'overpass',
-            description,
-            query,
-            minzoom: 13,
-            attribution,
-            style: {
-                'circle-color': '#10b981',
-                'circle-radius': 5,
-                'circle-stroke-color': '#fff',
-                'circle-stroke-width': 1,
-                'line-color': '#10b981',
-                'line-width': 2,
-                'fill-color': 'rgba(16,185,129,0.25)'
-            },
-            inspect: {
-                id: 'id',
-                title: wizardSearch || 'OSM Feature',
-                label: 'name'
-            },
-            _sourceUrl: sourceUrl || undefined
-        };
-    }
-
     async handleOverpassImport(input, { withPreview = false } = {}) {
         const raw = String(input || '').trim();
         if (!raw) return;
@@ -868,7 +548,8 @@ export class MapCreator {
             let sourceUrl;
             if (this.isOverpassShareUrl(raw)) {
                 sourceUrl = raw;
-                query = await this.resolveOverpassShareUrl(raw);
+                $('#overpass-status').text('Resolving share URL…');
+                query = await SourceResolver.resolveOverpassShareQuery(raw);
                 $('#overpass-query').val(query);
             } else if (this.looksLikeOverpassQuery(raw)) {
                 query = this.extractOverpassQuery(raw);
@@ -877,7 +558,7 @@ export class MapCreator {
                 return;
             }
 
-            const config = this.createOverpassConfig(query, sourceUrl);
+            const config = SourceResolver.buildOverpassLayerConfig(query, sourceUrl);
             this.currentLayerType = 'overpass';
             this.currentData = config;
             this.currentDataSource = sourceUrl || null;
@@ -1020,20 +701,6 @@ export class MapCreator {
         return url;
     }
 
-    isCSVUrl(url) {
-        const urlLower = url.toLowerCase();
-        if (urlLower.endsWith('.csv')) {
-            return true;
-        }
-        if (urlLower.includes('output=csv')) {
-            return true;
-        }
-        if (urlLower.includes('docs.google.com/spreadsheets')) {
-            return true;
-        }
-        return false;
-    }
-
     isGoogleSheetUrl(url) {
         return GoogleSheetsAPI.isGoogleSheetUrl(url);
     }
@@ -1042,20 +709,8 @@ export class MapCreator {
         return GoogleSheetsAPI.extractSpreadsheetId(url);
     }
 
-    buildGoogleSheetCsvUrl(spreadsheetId, gid) {
-        return GoogleSheetsAPI.buildCsvUrl(spreadsheetId, gid);
-    }
-
     async fetchGoogleSheetTabs(spreadsheetId) {
         return GoogleSheetsAPI.fetchSheetTabs(spreadsheetId);
-    }
-
-    async fetchCsvRows(url) {
-        return GoogleSheetsAPI.fetchCsvRows(url);
-    }
-
-    async fetchAllGoogleSheetRows(spreadsheetId, tabs) {
-        return GoogleSheetsAPI.fetchAllSheetRows(spreadsheetId, tabs);
     }
 
     onUrlInputForGoogleSheets(url) {
@@ -1137,38 +792,7 @@ export class MapCreator {
     }
 
     isValidDataUrl(url) {
-        if (!url || url.length < 10) return false;
-
-        const urlLower = url.toLowerCase();
-
-        if (!urlLower.startsWith('http://') && !urlLower.startsWith('https://') && !urlLower.startsWith('mapbox://')) {
-            return false;
-        }
-
-        if (this.isOverpassShareUrl(url)) return true;
-        if (this.isBharatlasUrl(url)) return true;
-        if (this.isGistUrl(url)) return true;
-        if (this.isWMSUrl(url)) return true;
-        if (this.isCSVUrl(url)) return true;
-        if (AllmapsAPI.isAllmapsUrl(url)) return true;
-        if (OSMApi.isOsmUrl(url)) return true;
-        if (urlLower.includes('jsonkeeper.com/b/')) return true;
-        if (urlLower.endsWith('.geojson')) return true;
-        if (urlLower.endsWith('.json')) return true;
-        if (urlLower.endsWith('.kml')) return true;
-        if (urlLower.endsWith('.geojsonl') || urlLower.endsWith('.ndjson') || urlLower.endsWith('.jsonl')) return true;
-        if (urlLower.endsWith('.gpkg')) return true;
-        if (urlLower.endsWith('.zip')) return true;
-        if (urlLower.includes('{z}') && (urlLower.includes('.pbf') || urlLower.includes('.mvt'))) return true;
-        if (urlLower.includes('{z}') && (urlLower.includes('.png') || urlLower.includes('.jpg'))) return true;
-        if (/\/\d+\/\d+\/\d+(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i.test(url)) return true;
-        if (urlLower.includes('mapwarper.net/maps/') || urlLower.includes('warper.wmflabs.org/maps/')) return true;
-        if (urlLower.includes('vector.openstreetmap.org')) return true;
-        if (urlLower.includes('earthengine.googleapis.com') && urlLower.includes('/tiles/')) return true;
-        if (urlLower.startsWith('mapbox://')) return true;
-        if (/^[a-z0-9_-]+\.[a-z0-9_-]+$/i.test(url)) return true;
-
-        return false;
+        return SourceResolver.detectLayerSourceType(url) !== null;
     }
 
     async handleURLImport() {
@@ -1183,8 +807,8 @@ export class MapCreator {
         this.setLoadingState('loading');
 
         try {
-            if (this.isGistUrl(url)) {
-                url = await this.resolveGistRawUrl(url);
+            if (SourceResolver.isGistUrl(url)) {
+                url = await SourceResolver.resolveGistRawUrl(url);
                 $('#url-input').val(url);
             }
 
@@ -1194,130 +818,20 @@ export class MapCreator {
                 return;
             }
 
-            if (this.isBharatlasUrl(url)) {
+            if (SourceResolver.isBharatlasUrl(url)) {
                 await this.handleBharatlasImport(url);
                 return;
             }
 
-            if (AllmapsAPI.isAllmapsUrl(url)) {
-                const config = await AllmapsAPI.createConfigFromUrl(url);
-                this.currentLayerType = 'tms';
-                this.currentData = config;
-                this.currentDataSource = url;
-                this.showTileLayerSuccess(config);
-                return;
-            }
-
-            if (OSMApi.isOsmUrl(url)) {
-                // Mirrors the "overpass" type's handling below: a fixed geometry
-                // whose style is already fully resolved (mixed point/line/polygon
-                // geometry, so the Point/Line/Area checkboxes don't apply) — use
-                // the generic tile-config path and preview it as inline GeoJSON.
-                const config = await OSMApi.createConfigFromRef(url);
-                const ref = OSMApi.extractRef(url);
-                this.currentLayerType = 'osm';
-                this.currentData = config;
-                this.currentDataSource = url;
-                this._osmRef = ref ? `${ref.type}/${ref.id}` : null;
-                this._dataMode = 'dynamic';
-                this.showTileLayerSuccess(config);
-
-                const geojson = config.geojson;
-                window.parent.postMessage({
-                    type: 'creator-preview',
-                    geojson,
-                    style: config.style,
-                    geometryType: this.detectGeometryType(geojson),
-                    bbox: this.calculateBBox(geojson),
-                    fitBounds: true
-                }, '*');
-                return;
-            }
-
-            if (url.includes('jsonkeeper.com/b/') || url.toLowerCase().endsWith('.json')) {
-                const response = await fetch(url);
-                const data = await response.json();
-
-                if (data.type === 'FeatureCollection' || data.type === 'Feature') {
-                    this.processGeoJSON(data, url);
-                } else if (data.layers && Array.isArray(data.layers)) {
-                    // Atlas configuration with multiple layers
-                    this.handleAtlasImport(data, url);
-                } else if (data.type && data.id) {
-                    this.currentLayerType = data.type;
-                    this.currentData = data;
-                    this.currentDataSource = url;
-                    this.showTileLayerSuccess(data);
-                } else {
-                    throw new Error('Invalid layer configuration from JSON URL');
-                }
-                return;
-            }
-
-            if (url.includes('mapwarper.net/maps/') || url.includes('warper.wmflabs.org/maps/')) {
-                const config = await LayerConfigGenerator.handleUrlInput(url);
-                this.currentLayerType = 'raster';
-                this.currentData = config;
-                this.currentDataSource = url;
-                this.showTileLayerSuccess(config);
-                return;
-            }
-
-            if (this.isWMSUrl(url)) {
-                const config = this.createWMSConfig(url);
-                this.currentLayerType = 'wms';
-                this.currentData = config;
-                this.currentDataSource = url;
-                this.showTileLayerSuccess(config);
-                return;
-            }
-
-            if (url.toLowerCase().endsWith('.gpkg')) {
-                const response = await fetch(url);
-                const buffer = await response.arrayBuffer();
-                const geojson = await this.parseGPKG(buffer);
-                this.processGeoJSON(geojson, url);
-                return;
-            }
-
-            if (url.toLowerCase().endsWith('.zip')) {
-                const response = await fetch(url);
-                const buffer = await response.arrayBuffer();
-                const geojson = await this.parseShapefile(buffer);
-                this.processGeoJSON(geojson, url);
-                return;
-            }
-
-            if (url.toLowerCase().endsWith('.geojsonl') || url.toLowerCase().endsWith('.ndjson') || url.toLowerCase().endsWith('.jsonl')) {
-                const response = await fetch(url);
-                const text = await response.text();
-                const geojson = this.parseGeoJSONL(text);
-                this.processGeoJSON(geojson, url);
-                return;
-            }
-
-            const layerType = LayerConfigGenerator.guessLayerType(url);
-
-            if (layerType === 'vector' || layerType === 'raster' || layerType === 'mapbox-tileset') {
-                const config = await LayerConfigGenerator.handleUrlInput(url);
-                this.currentLayerType = layerType;
-                this.currentData = config;
-                this.currentDataSource = url;
-                this.showTileLayerSuccess(config);
-            } else if (layerType === 'geojson') {
-                const response = await fetch(url);
-                const geojson = await response.json();
-                this.processGeoJSON(geojson, url);
-            } else if (this.isCSVUrl(url)) {
+            if (SourceResolver.isCSVUrl(url)) {
                 // The `input` event's tab-discovery is debounced 400ms in the
                 // background (onUrlInputForGoogleSheets) - clicking "Load Data"
                 // before it resolves would otherwise read a stale/empty
-                // `_sheetTabs` here and silently fall back to a single-tab
-                // fetch, even though the selector goes on to show "All Sheets"
-                // moments later once that background fetch finally completes.
-                // Await it directly (reusing the cache if already loaded for
-                // this spreadsheet) so the fetch below always matches what's
-                // selected.
+                // `_sheetTabs` here, even though the selector goes on to show
+                // "All Sheets" moments later once that background fetch finally
+                // completes. Await it directly (reusing the cache if already
+                // loaded for this spreadsheet) so the fetch below always
+                // matches what's selected.
                 let spreadsheetId = null;
                 if (this.isGoogleSheetUrl(url)) {
                     spreadsheetId = this.extractGoogleSpreadsheetId(url);
@@ -1329,44 +843,81 @@ export class MapCreator {
 
                 const isMultiTabSheet = spreadsheetId && this._sheetTabs && this._sheetTabs.length > 1
                     && !$('#google-sheet-section').hasClass('hidden');
-                const selectedGid = isMultiTabSheet ? $('#google-sheet-select').val() : null;
+                const googleSheetGid = isMultiTabSheet ? $('#google-sheet-select').val() : null;
 
-                if (selectedGid === 'all') {
-                    const rows = await this.fetchAllGoogleSheetRows(spreadsheetId, this._sheetTabs);
-                    this.finishCSVLoad(GoogleSheetsAPI.buildEditUrl(spreadsheetId), rows, true);
+                const result = await SourceResolver.resolveCsvSource(url, {
+                    sheetSpreadsheetId: this._sheetSpreadsheetId,
+                    sheetTabs: this._sheetTabs,
+                    googleSheetGid
+                });
+                this.finishCSVLoad(result.resolvedUrl, result.rows, result.combined);
+                return;
+            }
+
+            const result = await SourceResolver.resolveLayerSource(url);
+
+            if (result.status === 'needs-input' && result.kind === 'atlas-layers') {
+                this.handleAtlasImport(result.atlasData, url);
+                return;
+            }
+
+            if (result.status === 'ok' && result.layerType === 'geojson' && result.geojson) {
+                this.processGeoJSON(result.geojson, url);
+                return;
+            }
+
+            if (result.status === 'ok' && result.layerType === 'osm') {
+                // Mirrors the "overpass" type's handling below: a fixed geometry
+                // whose style is already fully resolved (mixed point/line/polygon
+                // geometry, so the Point/Line/Area checkboxes don't apply) — use
+                // the generic tile-config path and preview it as inline GeoJSON.
+                this.currentLayerType = 'osm';
+                this.currentData = result.config;
+                this.currentDataSource = url;
+                this._osmRef = result.osmRef;
+                this._dataMode = 'dynamic';
+                this.showTileLayerSuccess(result.config);
+
+                const geojson = result.config.geojson;
+                window.parent.postMessage({
+                    type: 'creator-preview',
+                    geojson,
+                    style: result.config.style,
+                    geometryType: this.detectGeometryType(geojson),
+                    bbox: this.calculateBBox(geojson),
+                    fitBounds: true
+                }, '*');
+                return;
+            }
+
+            if (result.status === 'ok' && result.config) {
+                this.currentLayerType = result.layerType;
+                this.currentData = result.config;
+                this.currentDataSource = url;
+                this.showTileLayerSuccess(result.config);
+                return;
+            }
+
+            // Unrecognized URL — last-resort content-type sniff.
+            const response = await fetch(url);
+            const contentType = response.headers.get('content-type');
+
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                if (data.type === 'FeatureCollection' || data.type === 'Feature') {
+                    this.processGeoJSON(data, url);
                 } else {
-                    if (selectedGid) {
-                        url = this.buildGoogleSheetCsvUrl(spreadsheetId, selectedGid);
-                    }
-                    const rows = await this.fetchCsvRows(url);
-                    this.finishCSVLoad(url, rows, false);
+                    throw new Error('Unknown JSON format');
                 }
-            } else if (url.toLowerCase().endsWith('.kml')) {
-                const response = await fetch(url);
-                const kmlText = await response.text();
-                const geojson = await KMLConverter.kmlToGeoJson(kmlText);
-                this.processGeoJSON(geojson, url);
+            } else if (contentType && (contentType.includes('text/csv') || contentType.includes('text/plain'))) {
+                const csvText = await response.text();
+                const looksLikeHTML = /^\s*<(!doctype|html|head|meta)/i.test(csvText);
+                const rows = (looksLikeHTML && this.isGoogleSheetUrl(url))
+                    ? GoogleSheetsAPI.parseSheetsHTML(csvText)
+                    : DataUtils.parseCSV(csvText);
+                this.finishCSVLoad(url, rows, false);
             } else {
-                const response = await fetch(url);
-                const contentType = response.headers.get('content-type');
-
-                if (contentType && contentType.includes('application/json')) {
-                    const data = await response.json();
-                    if (data.type === 'FeatureCollection' || data.type === 'Feature') {
-                        this.processGeoJSON(data, url);
-                    } else {
-                        throw new Error('Unknown JSON format');
-                    }
-                } else if (contentType && (contentType.includes('text/csv') || contentType.includes('text/plain'))) {
-                    const csvText = await response.text();
-                    const looksLikeHTML = /^\s*<(!doctype|html|head|meta)/i.test(csvText);
-                    const rows = (looksLikeHTML && this.isGoogleSheetUrl(url))
-                        ? GoogleSheetsAPI.parseSheetsHTML(csvText)
-                        : DataUtils.parseCSV(csvText);
-                    this.finishCSVLoad(url, rows, false);
-                } else {
-                    throw new Error('Unsupported file type');
-                }
+                throw new Error('Unsupported file type');
             }
         } catch (error) {
             alert('Could not load URL: ' + error.message);
@@ -1527,7 +1078,7 @@ export class MapCreator {
             const reader = new FileReader();
             reader.onload = async (e) => {
                 try {
-                    const geojson = await this.parseShapefile(e.target.result);
+                    const geojson = await SourceResolver.parseShapefile(e.target.result);
                     this.processGeoJSON(geojson, file.name);
                 } catch (error) {
                     alert('Shapefile error: ' + error.message);
@@ -1561,7 +1112,7 @@ export class MapCreator {
                         throw new Error('Could not find lat/lng columns in CSV');
                     }
                 } else if (ext === 'geojsonl' || ext === 'ndjson' || ext === 'jsonl') {
-                    geojson = this.parseGeoJSONL(content);
+                    geojson = SourceResolver.parseGeoJSONL(content);
                 } else {
                     geojson = JSON.parse(content);
                     if (!geojson.type || (geojson.type !== 'FeatureCollection' && geojson.type !== 'Feature')) {
@@ -2596,110 +2147,6 @@ export class MapCreator {
         }, '*');
     }
 
-    parseGeoJSONL(content) {
-        const features = content.split('\n')
-            .filter(line => line.trim())
-            .map(line => {
-                try {
-                    const obj = JSON.parse(line);
-                    if (obj.type === 'Feature') return obj;
-                    if (obj.coordinates) return { type: 'Feature', geometry: obj, properties: {} };
-                    return null;
-                } catch {
-                    return null;
-                }
-            })
-            .filter(Boolean);
-        return { type: 'FeatureCollection', features };
-    }
-
-    async loadSqlJs() {
-        if (window._sqlJs) return window._sqlJs;
-        await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js';
-            script.onload = resolve;
-            script.onerror = () => reject(new Error('Failed to load sql.js'));
-            document.head.appendChild(script);
-        });
-        window._sqlJs = await window.initSqlJs({
-            locateFile: f => `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${f}`
-        });
-        return window._sqlJs;
-    }
-
-    _parseGPKGHeader(data) {
-        if (data[0] !== 0x47 || data[1] !== 0x50) {
-            // No GP header — treat as plain WKB directly
-            return { isEmpty: false, wkbOffset: 0 };
-        }
-        const flags = data[3];
-        // bit 0: byte order for SRS/envelope (0=big-endian, 1=little-endian)
-        // bits 1-3: envelope type (0=none, 1=2D, 2=3DZ, 3=3DM, 4=3DZM)
-        // bit 5: is_empty flag
-        const envBytes = [0, 32, 48, 48, 64];
-        return {
-            isEmpty: (flags & 0x20) !== 0,
-            wkbOffset: 8 + (envBytes[(flags >> 1) & 0x07] || 0)
-        };
-    }
-
-    _wkbRead(data, state) {
-        const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-        const le = data[state.pos++] === 1;
-        const rawType = view.getUint32(state.pos, le);
-        state.pos += 4;
-
-        const isoBase = rawType & 0xFFFF;
-        const baseType = isoBase > 3000 ? isoBase - 3000 :
-                         isoBase > 2000 ? isoBase - 2000 :
-                         isoBase > 1000 ? isoBase - 1000 : isoBase;
-        const hasZ = (rawType & 0x80000000) !== 0 || (isoBase > 1000 && isoBase <= 1007) || isoBase > 3000;
-        const hasM = (rawType & 0x40000000) !== 0 || (isoBase > 2000 && isoBase <= 2007) || isoBase > 3000;
-
-        const readF64 = () => { const v = view.getFloat64(state.pos, le); state.pos += 8; return v; };
-        const readU32 = () => { const v = view.getUint32(state.pos, le); state.pos += 4; return v; };
-        const readPt = () => { const x = readF64(), y = readF64(); if (hasZ) readF64(); if (hasM) readF64(); return [x, y]; };
-        const readRing = () => { const n = readU32(); return Array.from({ length: n }, readPt); };
-
-        switch (baseType) {
-            case 1: return { type: 'Point', coordinates: readPt() };
-            case 2: return { type: 'LineString', coordinates: readRing() };
-            case 3: { const n = readU32(); return { type: 'Polygon', coordinates: Array.from({ length: n }, readRing) }; }
-            case 4: case 5: case 6: {
-                const types = ['MultiPoint', 'MultiLineString', 'MultiPolygon'];
-                const n = readU32();
-                const coords = [];
-                for (let i = 0; i < n; i++) { const g = this._wkbRead(data, state); if (g) coords.push(g.coordinates); }
-                return { type: types[baseType - 4], coordinates: coords };
-            }
-            default: return null;
-        }
-    }
-
-    async loadShpJs() {
-        if (window.shp) return window.shp;
-        await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/shpjs@4.0.4/dist/shp.js';
-            script.onload = resolve;
-            script.onerror = () => reject(new Error('Failed to load shpjs'));
-            document.head.appendChild(script);
-        });
-        if (!window.shp) throw new Error('shpjs did not initialise');
-        return window.shp;
-    }
-
-    async parseShapefile(arrayBuffer) {
-        const shpFn = await this.loadShpJs();
-        const result = await shpFn(arrayBuffer);
-        if (Array.isArray(result)) {
-            const features = result.flatMap(fc => fc.features || []);
-            return { type: 'FeatureCollection', features };
-        }
-        return result;
-    }
-
     async parseGPKGStreaming(file, onProgress) {
         const reader = new StreamingGPKGReader(file);
         await reader.open();
@@ -2718,73 +2165,4 @@ export class MapCreator {
         return { type: 'FeatureCollection', features };
     }
 
-    async parseGPKG(arrayBuffer) {
-        const SQL = await this.loadSqlJs();
-        const db = new SQL.Database(new Uint8Array(arrayBuffer));
-
-        const tableResult = db.exec('SELECT table_name, column_name FROM gpkg_geometry_columns');
-        if (!tableResult.length || !tableResult[0].values.length) {
-            db.close();
-            throw new Error('No geometry tables found in this GeoPackage');
-        }
-
-        const tables = tableResult[0].values.map(r => ({
-            tableName: String(r[0]).trim(),
-            geomColumn: String(r[1]).trim()
-        }));
-        console.log('[GPKG] geometry tables:', tables.map(t => t.tableName));
-
-        const allRows = [];
-        for (const { tableName, geomColumn } of tables) {
-            const result = db.exec(`SELECT * FROM "${tableName}"`);
-            if (!result.length) continue;
-
-            const { columns, values } = result[0];
-            const geomIdx = columns.findIndex(c => c.toLowerCase() === geomColumn.toLowerCase());
-            if (geomIdx === -1) {
-                console.warn('[GPKG] geom column not found in', tableName, columns);
-                continue;
-            }
-
-            console.log('[GPKG] table:', tableName, 'columns:', columns, 'rows:', values.length);
-
-            for (const row of values) {
-                const geom = row[geomIdx];
-                allRows.push({
-                    geom: geom instanceof Uint8Array ? new Uint8Array(geom) : geom,
-                    props: row,
-                    columns,
-                    geomIdx,
-                    layer: tables.length > 1 ? tableName : null
-                });
-            }
-        }
-
-        db.close();
-
-        if (allRows.length > 0) {
-            const g = allRows[0].geom;
-            console.log('[GPKG] row[0] geom:', g instanceof Uint8Array ? `len=${g.length} bytes[0..3]=[${Array.from(g.slice(0, 4))}]` : g);
-        }
-
-        const features = allRows.map(({ geom: geomData, props: row, columns, geomIdx, layer }, i) => {
-            if (!geomData) return null;
-            try {
-                const { isEmpty, wkbOffset } = this._parseGPKGHeader(geomData);
-                if (isEmpty) return null;
-                const geometry = this._wkbRead(geomData, { pos: wkbOffset });
-                if (!geometry) return null;
-                const properties = {};
-                columns.forEach((col, j) => { if (j !== geomIdx) properties[col] = row[j]; });
-                if (layer) properties._layer = layer;
-                return { type: 'Feature', geometry, properties };
-            } catch (err) {
-                if (i === 0) console.warn('[GPKG] Row 0 parse error:', err.message);
-                return null;
-            }
-        }).filter(Boolean);
-
-        console.log('[GPKG] parsed features:', features.length);
-        return { type: 'FeatureCollection', features };
-    }
 }
