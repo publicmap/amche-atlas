@@ -784,6 +784,80 @@ export class MapBrowserControl {
         });
     }
 
+    // Resolved ids of an atlas's own `initiallyChecked: true` layers, mirroring
+    // the atlasInitiallyChecked map built in _sendLayerData().
+    _getAtlasInitiallyCheckedIds(atlasId) {
+        const knownAtlases = window.layerRegistry?._atlasMetadata ? new Set(window.layerRegistry._atlasMetadata.keys()) : new Set();
+        const atlasLayerConfigs = window.layerRegistry?._atlasLayers?.get(atlasId) || [];
+        return atlasLayerConfigs
+            .filter(l => l.initiallyChecked === true)
+            .map(l => {
+                const layerId = l.id;
+                if (layerId && layerId.includes('-') && knownAtlases.has(layerId.split('-')[0])) {
+                    return layerId;
+                }
+                return `${atlasId}-${layerId}`;
+            });
+    }
+
+    // Default visible layers for an atlas: its own initiallyChecked layers,
+    // followed by the index atlas's initiallyChecked layers (shared base layers
+    // like selection / admin lines / satellite), de-duplicated and atlas-first.
+    // Mirrors getAtlasDefaultLayers() in map-browser.html.
+    _getAtlasDefaultLayerIds(atlasId) {
+        const atlasLayers = this._getAtlasInitiallyCheckedIds(atlasId);
+        if (atlasId === 'index') return atlasLayers;
+        const indexLayers = this._getAtlasInitiallyCheckedIds('index');
+        return [...atlasLayers, ...indexLayers.filter(id => !atlasLayers.includes(id))];
+    }
+
+    // Whether a layer's extent no longer overlaps the current viewport, using
+    // the same bounds resolution/intersection logic as MapLayerControl's "maps
+    // in view" filter. A layer whose extent can't be determined (global base
+    // layers like selection/admin-lines/satellite have no bbox) is never
+    // considered out of view - there's nothing geographic to compare.
+    _isLayerOutOfView(layerId) {
+        if (!window.layerControl || !window.layerRegistry) return false;
+        const layer = window.layerRegistry.getLayer(layerId);
+        if (!layer) return false;
+        const bounds = window.layerControl._getLayerBounds(layer);
+        if (!bounds) return false;
+        return !window.layerControl._boundsIntersectViewport(bounds);
+    }
+
+    // Switches the active atlas live (layer visibility only, no page reload) -
+    // the same outcome as map-browser.html's atlas dropdown/[Select] buttons,
+    // but usable from contexts with no browser iframe open (e.g. the "you've
+    // panned outside this atlas" suggestion in map-init.js). Hides the previous
+    // atlas's own layers that aren't part of the new atlas's defaults, or that
+    // are out of view even if they are (e.g. a shared base layer scoped to the
+    // old atlas's extent), shows the new atlas's defaults, then hands off to
+    // _handleUpdateAtlasParam() for the URL/registry/notification bookkeeping.
+    switchAtlasLive(newAtlasId) {
+        const previousAtlasId = window.layerRegistry?.getCurrentAtlas() || 'index';
+        const newDefaults = new Set(this._getAtlasDefaultLayerIds(newAtlasId));
+        const activeLayers = this._getActiveLayers();
+        const previousReferencedIds = new Set(this._getAtlasLayerReferenceIds(previousAtlasId));
+
+        activeLayers.forEach(id => {
+            const belongsToPreviousAtlas = previousReferencedIds.has(id)
+                || window.layerRegistry?.getLayer(id)?._sourceAtlas === previousAtlasId;
+            if (!belongsToPreviousAtlas) return;
+
+            if (!newDefaults.has(id) || this._isLayerOutOfView(id)) {
+                this._handleLayerToggle(id, false);
+            }
+        });
+
+        newDefaults.forEach(id => {
+            if (!activeLayers.has(id)) {
+                this._handleLayerToggle(id, true);
+            }
+        });
+
+        this._handleUpdateAtlasParam(newAtlasId);
+    }
+
     // Turns off every active layer except the index atlas's own base layers
     // (selection / admin lines / satellite etc.) — the same layers the "Hide all
     // maps" button in the map browser's atlas header (map-browser.html

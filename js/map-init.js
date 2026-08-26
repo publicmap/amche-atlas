@@ -1115,23 +1115,12 @@ export class MapInitializer {
             setTimeout(() => { atlasBoundsCheckReady = true; }, 6000);
             let atlasBoundsCheckTimeout = null;
 
-            // Switches the active atlas via a full reload (same mechanism as
-            // MapBrowserControl._handleLoadAtlas) so the new atlas's own default
-            // layers/config load cleanly; the current hash (center/zoom) is kept
-            // so the map lands right back where the user already was.
+            // Switches the active atlas live (layer visibility only, no reload) -
+            // the same mechanism map-browser.html's atlas dropdown/[Select]
+            // buttons use (MapBrowserControl.switchAtlasLive), so the map stays
+            // exactly where the user already was.
             window.__amcheSwitchAtlas = (targetAtlasId) => {
-                MapContextMessagesControl.close(ATLAS_BOUNDS_MESSAGE_ID);
-                const url = new URL(window.location.origin + window.location.pathname);
-                const params = new URLSearchParams(window.location.search);
-                const newParams = [`atlas=${encodeURIComponent(targetAtlasId)}`];
-                for (const [key, value] of params.entries()) {
-                    if (key !== 'atlas' && key !== 'layers') {
-                        newParams.push(`${key}=${value}`);
-                    }
-                }
-                let finalUrl = `${url.origin}${url.pathname}?${newParams.join('&')}`;
-                if (window.location.hash) finalUrl += window.location.hash;
-                window.location.href = finalUrl;
+                window.browserControl?.switchAtlasLive(targetAtlasId);
             };
 
             const checkAtlasBounds = () => {
@@ -1159,11 +1148,12 @@ export class MapInitializer {
                     return;
                 }
 
+                const currentName = MapInitializer._escapeHtml(currentMetadata.name || currentAtlasId);
                 const suggestedName = MapInitializer._escapeHtml(
                     layerRegistry.getAtlasMetadata(suggestedAtlasId)?.name || suggestedAtlasId
                 );
                 MapContextMessagesControl.show(
-                    `You've panned outside this atlas. Switch to <a href="#" onclick="window.__amcheSwitchAtlas('${suggestedAtlasId}');return false;">${suggestedName}</a>?`,
+                    `You've panned outside the <strong>${currentName}</strong> atlas. Switch to <a href="#" onclick="window.__amcheSwitchAtlas('${suggestedAtlasId}');return false;">${suggestedName}</a>?`,
                     { id: ATLAS_BOUNDS_MESSAGE_ID }
                 );
             };
