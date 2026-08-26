@@ -860,7 +860,8 @@
                 formats: [
                     { value: 'jpeg', label: 'JPEG', shortcut: 'j', icon: 'filetype-jpg', description: 'Compressed image, smaller file size' },
                     { value: 'png', label: 'PNG', shortcut: 'p', icon: 'filetype-png', description: 'Lossless image, transparent backgrounds' },
-                    { value: 'pdf', label: 'PDF', shortcut: 'd', icon: 'filetype-pdf', description: 'Vector graphics, best for printing' }
+                    { value: 'svg', label: 'SVG', shortcut: 's', icon: 'filetype-svg', description: 'Scalable image, map embedded at full resolution' },
+                    { value: 'pdf', label: 'PDF', shortcut: 'd', icon: 'filetype-pdf', description: 'Georeferenced GeoPDF, best for printing and GIS apps like Avenza Maps' }
                 ]
             },
             web: {
@@ -1139,12 +1140,12 @@
             let showAdvanced = false;
 
             // Show relevant options based on format
-            if (currentFormat === 'pdf' || currentFormat === 'geotiff' || currentFormat === 'png' || currentFormat === 'jpeg') {
+            if (currentFormat === 'pdf' || currentFormat === 'geotiff' || currentFormat === 'png' || currentFormat === 'jpeg' || currentFormat === 'svg') {
                 $pageSettings.show();
                 $metadataSettings.show();
                 showAdvanced = true;
 
-                if (currentFormat === 'pdf' || currentFormat === 'png' || currentFormat === 'jpeg') {
+                if (currentFormat === 'pdf' || currentFormat === 'png' || currentFormat === 'jpeg' || currentFormat === 'svg') {
                     $printOverlaySettings.show();
                 }
             }
@@ -1207,12 +1208,13 @@
                 $exportBtn.text('Download');
             }
 
-            // Show/hide export frame for PDF, GeoTIFF, PNG, JPEG, and DXF with raster
+            // Show/hide export frame for PDF, GeoTIFF, PNG, JPEG, SVG, and DXF with raster
             const shouldShowFrame =
                 currentFormat === 'pdf' ||
                 currentFormat === 'geotiff' ||
                 currentFormat === 'png' ||
                 currentFormat === 'jpeg' ||
+                currentFormat === 'svg' ||
                 (currentFormat === 'dxf' && $('#dxf-include-raster').is(':checked'));
 
             if (shouldShowFrame) {
@@ -1349,7 +1351,7 @@
                 exportConfig.includeMarkers = $('#include-markers').is(':checked');
             }
 
-            if (currentFormat === 'png' || currentFormat === 'jpeg') {
+            if (currentFormat === 'png' || currentFormat === 'jpeg' || currentFormat === 'svg') {
                 const pageSize = $('#page-size').val();
                 const orientation = $('input[name="orientation"]:checked').val();
 
@@ -1441,6 +1443,7 @@
                 currentFormat === 'geotiff' ||
                 currentFormat === 'png' ||
                 currentFormat === 'jpeg' ||
+                currentFormat === 'svg' ||
                 (currentFormat === 'dxf' && exportConfig.includeRaster);
 
             if (needsProcessing) {
@@ -1984,7 +1987,7 @@
             }
 
             if (currentUseFor === 'print') {
-                const printFormatShortcuts = { 'j': 'jpeg', 'p': 'png', 'd': 'pdf' };
+                const printFormatShortcuts = { 'j': 'jpeg', 'p': 'png', 's': 'svg', 'd': 'pdf' };
                 const formatValue = printFormatShortcuts[key];
                 if (formatValue) {
                     e.preventDefault();
@@ -2027,7 +2030,7 @@
                 format: currentFormat
             };
 
-            if (currentFormat === 'pdf' || currentFormat === 'geotiff' || currentFormat === 'png' || currentFormat === 'jpeg') {
+            if (currentFormat === 'pdf' || currentFormat === 'geotiff' || currentFormat === 'png' || currentFormat === 'jpeg' || currentFormat === 'svg') {
                 settings.pageSize = $('#page-size').val();
                 settings.orientation = $('input[name="orientation"]:checked').val();
                 settings.dpi = parseInt($('#dpi-select').val());
@@ -2092,6 +2095,7 @@
                 'link': 'link',
                 'jpeg': 'print',
                 'png': 'print',
+                'svg': 'print',
                 'pdf': 'print',
                 'html': 'web',
                 'iframe': 'web',

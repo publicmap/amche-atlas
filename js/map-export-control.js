@@ -462,6 +462,8 @@ export class MapExportControl {
                 await this._exportPNG(config);
             } else if (format === 'jpeg') {
                 await this._exportJPEG(config);
+            } else if (format === 'svg') {
+                await this._exportSVG(config);
             } else if (format === 'html') {
                 await this._exportHTML(config);
             } else if (format === 'geojson') {
@@ -503,6 +505,7 @@ export class MapExportControl {
             config.format === 'geotiff' ||
             config.format === 'png' ||
             config.format === 'jpeg' ||
+            config.format === 'svg' ||
             (config.format === 'dxf' && config.includeRaster);
 
         if (shouldShowFrame && this._iframe && this._iframe.style.display !== 'none') {
@@ -518,6 +521,38 @@ export class MapExportControl {
                 message: message
             }, '*');
         }
+    }
+
+    /**
+     * Embeds an ISO 32000-2 geospatial Viewport/Measure dictionary into the
+     * PDF's page object so GIS tools (Avenza Maps, QGIS, ArcGIS, GDAL) can
+     * read it as a GeoPDF. Assumes a north-up capture (same bounding-box
+     * assumption used by the GeoTIFF world file export), mapping the four
+     * page corners to the corresponding WGS84 lat/lng corners of bounds.
+     */
+    _addGeoreferencing(doc, bounds, widthMm, heightMm) {
+        const sw = bounds.getSouthWest();
+        const ne = bounds.getNorthEast();
+        const ptsPerMm = 72 / 25.4;
+        const widthPt = (widthMm * ptsPerMm).toFixed(2);
+        const heightPt = (heightMm * ptsPerMm).toFixed(2);
+
+        // Corner order: bottom-left, top-left, top-right, bottom-right
+        const gpts = [
+            sw.lat, sw.lng,
+            ne.lat, sw.lng,
+            ne.lat, ne.lng,
+            sw.lat, ne.lng
+        ].map(v => v.toFixed(8)).join(' ');
+
+        doc.internal.events.subscribe('putPage', () => {
+            doc.internal.write(
+                `/VP [ << /Type /Viewport /BBox [0 0 ${widthPt} ${heightPt}] ` +
+                `/Measure << /Type /Measure /Subtype /GEO ` +
+                `/Bounds [0 0 0 1 1 1 1 0] /LPTS [0 0 0 1 1 1 1 0] ` +
+                `/GPTS [${gpts}] /GCS << /Type /GEOGCS /EPSG 4326 >> >> >> ]`
+            );
+        });
     }
 
     /**
@@ -583,6 +618,8 @@ export class MapExportControl {
                         unit: 'mm',
                         format: [widthMm, heightMm]
                     });
+
+                    this._addGeoreferencing(doc, frameBounds, widthMm, heightMm);
 
                     doc.addImage(dataUrl, 'PNG', 0, 0, widthMm, heightMm);
 
@@ -1043,6 +1080,120 @@ export class MapExportControl {
                 });
             });
         });
+    }
+
+    /**
+     * Wraps the same map+footer raster used by _exportPNG/_exportJPEG in an
+     * SVG document (an <image> element sized to the physical page). The map
+     * itself is a WebGL canvas, so this isn't a true vector export of the
+     * map layers — it's a scalable container around the raster, matching
+     * how the PDF export also embeds the raster rather than redrawing it.
+     */
+    async _exportSVG(config) {
+        this._sendProgress(10, 'Preparing SVG export');
+
+        const widthMm = config.width;
+        const heightMm = config.height;
+        const dpi = config.dpi || 96;
+
+        const targetWidth = Math.round((widthMm * dpi) / 25.4);
+        const targetHeight = Math.round((heightMm * dpi) / 25.4);
+
+        const frameBounds = this._frame.getBounds();
+        const frameCenter = frameBounds.getCenter();
+
+        const container = this._map.getContainer();
+        const originalWidth = container.style.width;
+        const originalHeight = container.style.height;
+        const originalCenter = this._map.getCenter();
+        const originalZoom = this._map.getZoom();
+        const originalBearing = this._map.getBearing();
+        const originalPitch = this._map.getPitch();
+
+        this._frame.hide();
+
+        return new Promise((resolve, reject) => {
+            const capture = async () => {
+                try {
+                    if (this._exportCancelled) {
+                        throw new Error('Export cancelled');
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    this._sendProgress(50, 'Capturing map');
+                    const canvas = this._map.getCanvas();
+                    let dataUrl = canvas.toDataURL('image/png');
+
+                    const actualPixelWidth = canvas.width;
+                    const actualPixelHeight = canvas.height;
+
+                    let markersDataUrl = null;
+                    if (config.includeMarkers !== false) {
+                        this._sendProgress(55, 'Capturing markers');
+                        try {
+                            markersDataUrl = await this._captureMarkersOverlay(targetWidth, targetHeight, actualPixelWidth, actualPixelHeight);
+                        } catch (e) {
+                            console.warn('Failed to capture markers for SVG export', e);
+                        }
+                    }
+
+                    this._sendProgress(60, 'Adding footer');
+                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
+
+                    this._sendProgress(80, 'Building SVG');
+                    const svgContent = this._buildSVGDocument(dataUrl, widthMm, heightMm, actualPixelWidth, actualPixelHeight);
+
+                    this._sendProgress(85, 'Downloading file');
+                    const filename = this._generateFilename('svg');
+                    this._downloadFile(svgContent, filename, 'image/svg+xml');
+
+                    this._sendProgress(95, 'Restoring map');
+
+                    container.style.width = originalWidth;
+                    container.style.height = originalHeight;
+                    this._map.resize();
+                    this._map.jumpTo({
+                        center: originalCenter,
+                        zoom: originalZoom,
+                        bearing: originalBearing,
+                        pitch: originalPitch
+                    });
+
+                    resolve();
+                } catch (error) {
+                    container.style.width = originalWidth;
+                    container.style.height = originalHeight;
+                    this._map.resize();
+                    reject(error);
+                }
+            };
+
+            container.style.width = targetWidth + 'px';
+            container.style.height = targetHeight + 'px';
+            this._map.resize();
+
+            this._map.once('idle', () => {
+                const camera = this._calculateCameraForBounds(frameBounds, targetWidth, targetHeight, originalBearing, originalPitch);
+
+                this._map.jumpTo({
+                    ...camera,
+                    animate: false
+                });
+
+                this._map.once('idle', () => {
+                    capture().then(resolve).catch(reject);
+                });
+            });
+        });
+    }
+
+    _buildSVGDocument(imageDataUrl, widthMm, heightMm, pixelWidth, pixelHeight) {
+        return `<?xml version="1.0" encoding="UTF-8"?>\n` +
+            `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ` +
+            `width="${widthMm}mm" height="${heightMm}mm" viewBox="0 0 ${pixelWidth} ${pixelHeight}">\n` +
+            `<image width="${pixelWidth}" height="${pixelHeight}" xlink:href="${imageDataUrl}" href="${imageDataUrl}" />\n` +
+            `</svg>`;
     }
 
     async _exportHTML(config) {
