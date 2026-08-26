@@ -527,8 +527,17 @@ export class MapExportControl {
      * Embeds an ISO 32000-2 geospatial Viewport/Measure dictionary into the
      * PDF's page object so GIS tools (Avenza Maps, QGIS, ArcGIS, GDAL) can
      * read it as a GeoPDF. Assumes a north-up capture (same bounding-box
-     * assumption used by the GeoTIFF world file export), mapping the four
-     * page corners to the corresponding WGS84 lat/lng corners of bounds.
+     * assumption used by the GeoTIFF export), mapping the four page corners
+     * to the corresponding WGS84 lat/lng corners of bounds.
+     *
+     * GCS is declared as PROJCS/EPSG:3857 (Web Mercator) rather than a plain
+     * GEOGCS/4326: the raster was rendered by Mapbox GL in Web Mercator, so
+     * pixel position is linear in Mercator-projected meters, not in raw
+     * lat/lng degrees. Declaring GEOGCS/4326 tells readers to interpolate
+     * linearly in degrees (i.e. treat the raster as equirectangular), which
+     * introduces real curvature distortion that grows with the extent's
+     * size and latitude — GDAL/QGIS instead interpolate linearly in the
+     * declared CRS's own units, so PROJCS/3857 matches the raster exactly.
      */
     _addGeoreferencing(doc, bounds, widthMm, heightMm) {
         const sw = bounds.getSouthWest();
@@ -550,7 +559,7 @@ export class MapExportControl {
                 `/VP [ << /Type /Viewport /BBox [0 0 ${widthPt} ${heightPt}] ` +
                 `/Measure << /Type /Measure /Subtype /GEO ` +
                 `/Bounds [0 0 0 1 1 1 1 0] /LPTS [0 0 0 1 1 1 1 0] ` +
-                `/GPTS [${gpts}] /GCS << /Type /GEOGCS /EPSG 4326 >> >> >> ]`
+                `/GPTS [${gpts}] /GCS << /Type /PROJCS /EPSG 3857 >> >> >> ]`
             );
         });
     }
@@ -619,7 +628,16 @@ export class MapExportControl {
                         format: [widthMm, heightMm]
                     });
 
-                    this._addGeoreferencing(doc, frameBounds, widthMm, heightMm);
+                    // Corner-based georeferencing can only represent a
+                    // north-up, unpitched raster, and cameraForBounds's fit
+                    // can differ slightly from the requested frame — so use
+                    // the map's actual post-fit bounds (what was really
+                    // captured), and skip embedding geo metadata entirely
+                    // when rotated/tilted rather than ship geometry that
+                    // would render distorted.
+                    if (Math.abs(originalBearing) < 0.01 && Math.abs(originalPitch) < 0.01) {
+                        this._addGeoreferencing(doc, this._map.getBounds(), widthMm, heightMm);
+                    }
 
                     doc.addImage(dataUrl, 'PNG', 0, 0, widthMm, heightMm);
 
@@ -752,6 +770,17 @@ export class MapExportControl {
         });
     }
 
+    /**
+     * Converts WGS84 lng/lat (degrees) to Web Mercator (EPSG:3857) meters,
+     * matching the projection Mapbox GL actually rendered the map in.
+     */
+    _lngLatToWebMercator(lng, lat) {
+        const R = 6378137;
+        const x = (lng * Math.PI / 180) * R;
+        const y = Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2)) * R;
+        return { x, y };
+    }
+
     async _exportGeoTIFF(config) {
         this._sendProgress(10, 'Preparing GeoTIFF export');
 
@@ -763,7 +792,6 @@ export class MapExportControl {
         const height = Math.round((heightMm * dpi) / 25.4);
 
         const bounds = this._frame.getBounds();
-        const center = bounds.getCenter();
         const canvas = this._map.getCanvas();
 
         const container = this._map.getContainer();
@@ -786,10 +814,17 @@ export class MapExportControl {
             this._map.once('idle', resolve);
         });
 
-        const camera = this._calculateCameraForBounds(bounds, width, height, originalBearing, originalPitch);
+        // GeoTIFF's ModelTiepoint/ModelPixelScale can only represent an
+        // axis-aligned, north-up raster, so the capture always ignores the
+        // map's current bearing/pitch (restored afterward) — a rotated or
+        // tilted capture georeferenced this way would render skewed/squished
+        // in GIS software.
+        const camera = this._calculateCameraForBounds(bounds, width, height, 0, 0);
 
         this._map.jumpTo({
             ...camera,
+            bearing: 0,
+            pitch: 0,
             animate: false
         });
 
@@ -797,32 +832,64 @@ export class MapExportControl {
             this._map.once('idle', resolve);
         });
 
-        this._sendProgress(60, 'Generating image');
+        this._sendProgress(50, 'Reading pixel data');
 
-        const imageData = canvas.toDataURL('image/png');
-        const imageBlob = await fetch(imageData).then(r => r.blob());
+        const pixelWidth = canvas.width;
+        const pixelHeight = canvas.height;
+        const offscreen = document.createElement('canvas');
+        offscreen.width = pixelWidth;
+        offscreen.height = pixelHeight;
+        const ctx = offscreen.getContext('2d');
+        ctx.drawImage(canvas, 0, 0);
+        const imageData = ctx.getImageData(0, 0, pixelWidth, pixelHeight);
 
-        this._sendProgress(80, 'Creating world file');
+        // Strip alpha: RGBA -> RGB, since the writer infers band count from
+        // array length and a georeferenced raster has no use for alpha.
+        const pixelCount = pixelWidth * pixelHeight;
+        const rgb = new Uint8Array(pixelCount * 3);
+        for (let i = 0, j = 0; i < imageData.data.length; i += 4, j += 3) {
+            rgb[j] = imageData.data[i];
+            rgb[j + 1] = imageData.data[i + 1];
+            rgb[j + 2] = imageData.data[i + 2];
+        }
 
-        const sw = bounds.getSouthWest();
-        const ne = bounds.getNorthEast();
-        const pixelSizeX = (ne.lng - sw.lng) / width;
-        const pixelSizeY = (ne.lat - sw.lat) / height;
+        this._sendProgress(70, 'Encoding GeoTIFF');
 
-        const worldFileContent = [
-            pixelSizeX.toFixed(8),
-            '0.0',
-            '0.0',
-            (-pixelSizeY).toFixed(8),
-            sw.lng.toFixed(8),
-            ne.lat.toFixed(8)
-        ].join('\n');
+        // Georeferenced in Web Mercator (matching how Mapbox GL rendered the
+        // raster) rather than plain lat/lng, so pixel position is genuinely
+        // linear in the declared CRS's units — see _addGeoreferencing for
+        // why a lat/lng-linear (equirectangular) assumption would distort.
+        //
+        // Uses the map's actual bounds after the camera fit (what was truly
+        // captured) rather than the originally requested frame bounds:
+        // cameraForBounds's fit isn't pixel-exact, so anchoring to the
+        // request instead of the result would declare an extent slightly
+        // off from the real one, shrinking/growing the raster around a
+        // correct-looking center once opened in GIS software.
+        const actualBounds = this._map.getBounds();
+        const sw = actualBounds.getSouthWest();
+        const ne = actualBounds.getNorthEast();
+        const nwMerc = this._lngLatToWebMercator(sw.lng, ne.lat);
+        const seMerc = this._lngLatToWebMercator(ne.lng, sw.lat);
 
-        const filename = this._generateFilename('png');
-        const worldFilename = filename.replace('.png', '.pgw');
+        const pixelSizeX = (seMerc.x - nwMerc.x) / pixelWidth;
+        const pixelSizeY = (nwMerc.y - seMerc.y) / pixelHeight;
 
-        this._downloadFile(imageBlob, filename, 'image/png');
-        this._downloadFile(worldFileContent, worldFilename, 'text/plain');
+        const { writeArrayBuffer } = await import('geotiff');
+        const tiffBuffer = await writeArrayBuffer(rgb, {
+            width: pixelWidth,
+            height: pixelHeight,
+            ModelPixelScale: [pixelSizeX, pixelSizeY, 0],
+            ModelTiepoint: [0, 0, 0, nwMerc.x, nwMerc.y, 0],
+            GTModelTypeGeoKey: 1, // ModelTypeProjected
+            GTRasterTypeGeoKey: 1, // RasterPixelIsArea
+            ProjectedCSTypeGeoKey: 3857
+        });
+
+        this._sendProgress(90, 'Downloading file');
+
+        const filename = this._generateFilename('tif');
+        this._downloadFile(tiffBuffer, filename, 'image/tiff');
 
         this._sendProgress(95, 'Restoring map');
 
@@ -1083,14 +1150,18 @@ export class MapExportControl {
     }
 
     /**
-     * Wraps the same map+footer raster used by _exportPNG/_exportJPEG in an
-     * SVG document (an <image> element sized to the physical page). The map
-     * itself is a WebGL canvas, so this isn't a true vector export of the
-     * map layers — it's a scalable container around the raster, matching
-     * how the PDF export also embeds the raster rather than redrawing it.
+     * Builds an SVG document containing a rasterized basemap/footer (an
+     * <image> element, same raster used by _exportPNG/_exportJPEG) with the
+     * atlas's own overlay layers (fill/line/circle/symbol-text) redrawn on
+     * top as real <path>/<circle>/<text> elements — see js/svg-vector-export.js.
+     * Those layers are hidden from the raster snapshot itself so they aren't
+     * duplicated. The basemap stays raster since it isn't the atlas's data.
      */
     async _exportSVG(config) {
         this._sendProgress(10, 'Preparing SVG export');
+
+        const { getVectorLayers, captureVectorLayers, hideVectorLayersForRaster, buildVectorSVGGroup } =
+            await import('./svg-vector-export.js');
 
         const widthMm = config.width;
         const heightMm = config.height;
@@ -1113,6 +1184,8 @@ export class MapExportControl {
         this._frame.hide();
 
         return new Promise((resolve, reject) => {
+            let restoreVectorLayers = null;
+
             const capture = async () => {
                 try {
                     if (this._exportCancelled) {
@@ -1121,12 +1194,25 @@ export class MapExportControl {
 
                     await new Promise(resolve => setTimeout(resolve, 100));
 
+                    this._sendProgress(45, 'Preparing vector overlay');
+                    const activeLayerIds = this._getActiveStyleLayerIds();
+                    const vectorLayers = getVectorLayers(this._map, activeLayerIds);
+                    const capturedVectorLayers = captureVectorLayers(this._map, vectorLayers);
+                    restoreVectorLayers = hideVectorLayersForRaster(this._map, capturedVectorLayers);
+
+                    if (capturedVectorLayers.length) {
+                        await new Promise(resolve => this._map.once('idle', resolve));
+                    }
+
                     this._sendProgress(50, 'Capturing map');
                     const canvas = this._map.getCanvas();
                     let dataUrl = canvas.toDataURL('image/png');
 
                     const actualPixelWidth = canvas.width;
                     const actualPixelHeight = canvas.height;
+
+                    restoreVectorLayers();
+                    restoreVectorLayers = null;
 
                     let markersDataUrl = null;
                     if (config.includeMarkers !== false) {
@@ -1141,8 +1227,12 @@ export class MapExportControl {
                     this._sendProgress(60, 'Adding footer');
                     dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
 
+                    this._sendProgress(75, 'Building vector overlay');
+                    const scaleFactor = actualPixelWidth / targetWidth;
+                    const vectorGroupMarkup = buildVectorSVGGroup(this._map, capturedVectorLayers, scaleFactor);
+
                     this._sendProgress(80, 'Building SVG');
-                    const svgContent = this._buildSVGDocument(dataUrl, widthMm, heightMm, actualPixelWidth, actualPixelHeight);
+                    const svgContent = this._buildSVGDocument(dataUrl, widthMm, heightMm, actualPixelWidth, actualPixelHeight, vectorGroupMarkup);
 
                     this._sendProgress(85, 'Downloading file');
                     const filename = this._generateFilename('svg');
@@ -1162,6 +1252,10 @@ export class MapExportControl {
 
                     resolve();
                 } catch (error) {
+                    if (restoreVectorLayers) {
+                        restoreVectorLayers();
+                        restoreVectorLayers = null;
+                    }
                     container.style.width = originalWidth;
                     container.style.height = originalHeight;
                     this._map.resize();
@@ -1188,11 +1282,12 @@ export class MapExportControl {
         });
     }
 
-    _buildSVGDocument(imageDataUrl, widthMm, heightMm, pixelWidth, pixelHeight) {
+    _buildSVGDocument(imageDataUrl, widthMm, heightMm, pixelWidth, pixelHeight, vectorGroupMarkup = '') {
         return `<?xml version="1.0" encoding="UTF-8"?>\n` +
             `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ` +
             `width="${widthMm}mm" height="${heightMm}mm" viewBox="0 0 ${pixelWidth} ${pixelHeight}">\n` +
             `<image width="${pixelWidth}" height="${pixelHeight}" xlink:href="${imageDataUrl}" href="${imageDataUrl}" />\n` +
+            `${vectorGroupMarkup}\n` +
             `</svg>`;
     }
 

@@ -124,7 +124,15 @@ export class ExportFrame {
             rect.bottom - mapCanvas.top
         ]);
 
-        return new mapboxgl.LngLatBounds(p1, p2);
+        // p1 (screen top-left) is the geographic north-west corner and p2
+        // (screen bottom-right) is the south-east corner, not sw/ne as their
+        // variable names might suggest — min/max here picks the true sw/ne
+        // so LngLatBounds isn't constructed with north and south swapped
+        // (which flipped every raster/PDF export's georeferencing).
+        const sw = new mapboxgl.LngLat(Math.min(p1.lng, p2.lng), Math.min(p1.lat, p2.lat));
+        const ne = new mapboxgl.LngLat(Math.max(p1.lng, p2.lng), Math.max(p1.lat, p2.lat));
+
+        return new mapboxgl.LngLatBounds(sw, ne);
     }
 
     _updatePosition() {
