@@ -23,6 +23,11 @@ export class KeyboardController {
     }
 
     async autoFocusSearch() {
+        // Programmatically focusing the search input opens the on-screen
+        // keyboard on touch devices, which then reappears if the user is
+        // mid-pan when a retry fires. Autofocus is a desktop-only convenience.
+        if (window.matchMedia('(pointer: coarse)').matches) return;
+
         try {
             const waitForLoadingOverlayRemoval = () => {
                 return new Promise((resolve) => {
@@ -416,6 +421,8 @@ export class KeyboardController {
 }
 
 export function initializeKeyboardController() {
+    if (window.keyboardController) return window.keyboardController;
+
     const controller = new KeyboardController();
     controller.enhanceAccessibility();
     window.keyboardController = controller;

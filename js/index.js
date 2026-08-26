@@ -62,7 +62,6 @@ $(window).on('load', async function () {
 
     MapInitializer.initializeMap().then(() => {
         MapInitializer.initializeSearch();
-        initializeKeyboardController();
     });
 
     if (window.amche.ENABLE_INTRO_CONTENT === true) {
