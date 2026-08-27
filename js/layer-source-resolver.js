@@ -17,8 +17,11 @@ import { MapUtils } from './map-utils.js';
 import { MapWarperAPI } from './mapwarper-url-api.js';
 import { AllmapsAPI } from './allmaps-url-api.js';
 import { OSMApi } from './osm-url-api.js';
+import { StacAPI } from './stac-url-api.js';
 import { KMLConverter } from './kml-converter.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
+
+export { StacAPI };
 
 export const SOURCE_TYPES = {
     OVERPASS_SHARE: 'overpass-share',
@@ -29,6 +32,8 @@ export const SOURCE_TYPES = {
     ALLMAPS: 'allmaps',
     OSM: 'osm',
     MAPWARPER: 'mapwarper',
+    STAC_VIEWER: 'stac-viewer',
+    COG: 'cog',
     JSON_FILE: 'json',
     GEOJSON_FILE: 'geojson',
     KML: 'kml',
@@ -50,6 +55,8 @@ export const SOURCE_TYPE_LABELS = {
     [SOURCE_TYPES.ALLMAPS]: 'Allmaps',
     [SOURCE_TYPES.OSM]: 'OSM',
     [SOURCE_TYPES.MAPWARPER]: 'MapWarper',
+    [SOURCE_TYPES.STAC_VIEWER]: 'STAC',
+    [SOURCE_TYPES.COG]: 'COG',
     [SOURCE_TYPES.JSON_FILE]: 'Amche Atlas JSON',
     [SOURCE_TYPES.GEOJSON_FILE]: 'GeoJSON',
     [SOURCE_TYPES.KML]: 'KML',
@@ -238,6 +245,8 @@ export function detectLayerSourceType(url) {
     if (isCSVUrl(url)) return SOURCE_TYPES.CSV;
     if (AllmapsAPI.isAllmapsUrl(url)) return SOURCE_TYPES.ALLMAPS;
     if (OSMApi.isOsmUrl(url)) return SOURCE_TYPES.OSM;
+    if (StacAPI.isStacMapViewerUrl(url)) return SOURCE_TYPES.STAC_VIEWER;
+    if (StacAPI.isCogUrl(url)) return SOURCE_TYPES.COG;
     if (urlLower.includes('jsonkeeper.com/b/')) return SOURCE_TYPES.JSON_FILE;
     if (/\.geojson($|\?)/i.test(url)) return SOURCE_TYPES.GEOJSON_FILE;
     if (urlLower.endsWith('.json')) return SOURCE_TYPES.JSON_FILE;
@@ -1034,7 +1043,8 @@ export async function resolveCsvSource(url, urlOptions = {}) {
 export const DYNAMIC_SHORTHAND_PROVIDERS = {
     allmaps: { resolveFromId: (id) => AllmapsAPI.createConfigFromId(id) },
     mapwarper: { resolveFromId: (id) => MapWarperAPI.createConfigFromId(id) },
-    osm: { resolveFromId: (id) => OSMApi.createConfigFromRef(id) }
+    osm: { resolveFromId: (id) => OSMApi.createConfigFromRef(id) },
+    stac: { resolveFromId: (id) => StacAPI.createConfigFromShorthandId(id) }
 };
 
 // ---------------------------------------------------------------------------
@@ -1094,6 +1104,14 @@ export async function resolveLayerSource(url, urlOptions = {}) {
             const config = await MapWarperAPI.createConfigFromUrl(resolvedUrl);
             return { status: 'ok', layerType: 'raster', config, resolvedUrl };
         }
+        case SOURCE_TYPES.STAC_VIEWER: {
+            const config = await StacAPI.createConfigFromViewerUrl(resolvedUrl);
+            return { status: 'ok', layerType: 'cog', config, resolvedUrl };
+        }
+        case SOURCE_TYPES.COG: {
+            const config = StacAPI.createCogConfigFromUrl(resolvedUrl);
+            return { status: 'ok', layerType: 'cog', config, resolvedUrl };
+        }
         case SOURCE_TYPES.GPKG: {
             const response = await fetch(resolvedUrl);
             const buffer = await response.arrayBuffer();
@@ -1126,6 +1144,14 @@ export async function resolveLayerSource(url, urlOptions = {}) {
         case SOURCE_TYPES.JSON_FILE: {
             const response = await fetch(resolvedUrl);
             const data = await response.json();
+            if (StacAPI.isStacItem(data)) {
+                const config = StacAPI.createCogConfigFromItem(data, { sourceUrl: resolvedUrl });
+                return { status: 'ok', layerType: 'cog', config, resolvedUrl };
+            }
+            if (StacAPI.isStacCatalogOrCollection(data)) {
+                const children = StacAPI.listChildren(data, resolvedUrl);
+                return { status: 'needs-input', kind: 'stac-children', stacData: data, children, resolvedUrl };
+            }
             if (data.type === 'FeatureCollection' || data.type === 'Feature') {
                 return { status: 'ok', layerType: 'geojson', geojson: data, resolvedUrl };
             }

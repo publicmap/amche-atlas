@@ -12,7 +12,8 @@ import {
     resolveTileSource,
     resolveCsvSource,
     resolveLayerSource,
-    DYNAMIC_SHORTHAND_PROVIDERS
+    DYNAMIC_SHORTHAND_PROVIDERS,
+    StacAPI
 } from '../layer-source-resolver.js';
 
 function mockFetchJson(map) {
@@ -105,6 +106,16 @@ describe('detectLayerSourceType', () => {
 
     it('detects a vector tile template URL', () => {
         expect(detectLayerSourceType('https://example.com/{z}/{x}/{y}.pbf')).toBe(SOURCE_TYPES.VECTOR_TILE);
+    });
+
+    it('detects a bare COG .tif URL', () => {
+        expect(detectLayerSourceType('https://example.com/scene.tif')).toBe(SOURCE_TYPES.COG);
+        expect(detectLayerSourceType('https://example.com/scene.tiff')).toBe(SOURCE_TYPES.COG);
+    });
+
+    it('detects a stac-map viewer share URL', () => {
+        const viewerUrl = 'https://developmentseed.org/stac-map/?href=https%3A%2F%2Fexample.com%2Fitem.json&bbox=1%2C2%2C3%2C4&viz=asset%3Avisual';
+        expect(detectLayerSourceType(viewerUrl)).toBe(SOURCE_TYPES.STAC_VIEWER);
     });
 
     it('detects a raster tile template URL', () => {
@@ -247,13 +258,120 @@ describe('resolveLayerSource — needs-input cases', () => {
         const result = await resolveLayerSource('https://example.com/whatever-unrecognized');
         expect(result.status).toBe('unknown');
     });
+
+    it('returns a needs-input stac-children result for a STAC Collection JSON', async () => {
+        const collection = {
+            type: 'Collection',
+            stac_version: '1.0.0',
+            id: 'nepal-flooding',
+            links: [
+                { rel: 'item', href: 'item-a.json', title: 'Item A' },
+                { rel: 'child', href: 'sub-collection.json' },
+                { rel: 'self', href: 'collection.json' }
+            ]
+        };
+        global.fetch = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(collection) }));
+
+        const result = await resolveLayerSource('https://example.com/events/collection.json');
+        expect(result.status).toBe('needs-input');
+        expect(result.kind).toBe('stac-children');
+        expect(result.children).toEqual([
+            { rel: 'item', href: 'https://example.com/events/item-a.json', title: 'Item A' },
+            { rel: 'child', href: 'https://example.com/events/sub-collection.json', title: 'Sub Collection' }
+        ]);
+    });
+
+    it('labels untitled child collections by their directory, not the shared "collection.json" filename', async () => {
+        const catalog = {
+            type: 'Catalog',
+            stac_version: '1.0.0',
+            id: 'events',
+            links: [
+                { rel: 'child', href: 'https://example.com/events/Nepal-Flooding-Aug-2026/collection.json' },
+                { rel: 'child', href: 'https://example.com/events/Indonesia-Earthquakes-Aug-2026/collection.json' }
+            ]
+        };
+        global.fetch = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(catalog) }));
+
+        const result = await resolveLayerSource('https://example.com/events/catalog.json');
+        expect(result.children.map(c => c.title)).toEqual(['Nepal Flooding Aug 2026', 'Indonesia Earthquakes Aug 2026']);
+    });
+
+    it('resolves a STAC Item JSON URL to an ok cog result', async () => {
+        const item = {
+            type: 'Feature',
+            stac_version: '1.0.0',
+            id: 'scene-1',
+            properties: {},
+            assets: {
+                visual: { href: 'https://example.com/scene-1.tif', type: 'image/tiff; application=geotiff', roles: ['visual'] }
+            }
+        };
+        global.fetch = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(item) }));
+
+        const result = await resolveLayerSource('https://example.com/scene-1.json');
+        expect(result.status).toBe('ok');
+        expect(result.layerType).toBe('cog');
+        expect(result.config.type).toBe('cog');
+        expect(result.config.url).toBe('https://example.com/scene-1.tif');
+    });
+
+    it('resolves a bare .tif URL to an ok cog result without fetching', async () => {
+        global.fetch = vi.fn(() => Promise.reject(new Error('should not fetch')));
+
+        const result = await resolveLayerSource('https://example.com/scene-1.tif');
+        expect(result.status).toBe('ok');
+        expect(result.layerType).toBe('cog');
+        expect(result.config.url).toBe('https://example.com/scene-1.tif');
+    });
+
+    it('resolves a stac-map viewer URL honoring viz=asset:<key>', async () => {
+        const item = {
+            type: 'Feature',
+            stac_version: '1.0.0',
+            id: 'scene-1',
+            properties: {},
+            assets: {
+                thumbnail: { href: 'https://example.com/thumb.png', type: 'image/png' },
+                data: { href: 'https://example.com/scene-1.tif', type: 'image/tiff; application=geotiff' }
+            }
+        };
+        global.fetch = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(item) }));
+
+        const viewerUrl = 'https://developmentseed.org/stac-map/?href=https%3A%2F%2Fexample.com%2Fitem.json&viz=asset%3Adata';
+        const result = await resolveLayerSource(viewerUrl);
+        expect(result.status).toBe('ok');
+        expect(result.layerType).toBe('cog');
+        expect(result.config.url).toBe('https://example.com/scene-1.tif');
+    });
+});
+
+describe('StacAPI.pickCogAsset', () => {
+    it('prefers an explicit asset key', () => {
+        const assets = { a: { href: 'a.tif' }, b: { href: 'b.tif' } };
+        expect(StacAPI.pickCogAsset(assets, 'b').key).toBe('b');
+    });
+
+    it('prefers a visual-role GeoTIFF asset over others', () => {
+        const assets = {
+            thumbnail: { href: 't.png', type: 'image/png' },
+            visual: { href: 'v.tif', type: 'image/tiff; application=geotiff', roles: ['visual'] }
+        };
+        expect(StacAPI.pickCogAsset(assets).key).toBe('visual');
+    });
+
+    it('falls back to the first asset with an href', () => {
+        const assets = { thumbnail: { href: 't.png', type: 'image/png' } };
+        expect(StacAPI.pickCogAsset(assets).key).toBe('thumbnail');
+    });
 });
 
 describe('DYNAMIC_SHORTHAND_PROVIDERS', () => {
-    it('exposes exactly the allmaps/mapwarper/osm providers dynamic-layer-shorthand.js dispatches to', () => {
-        expect(Object.keys(DYNAMIC_SHORTHAND_PROVIDERS).sort()).toEqual(['allmaps', 'mapwarper', 'osm']);
+    it('exposes exactly the allmaps/mapwarper/osm/stac providers dynamic-layer-shorthand.js dispatches to', () => {
+        expect(Object.keys(DYNAMIC_SHORTHAND_PROVIDERS).sort()).toEqual(['allmaps', 'mapwarper', 'osm', 'stac']);
         expect(typeof DYNAMIC_SHORTHAND_PROVIDERS.allmaps.resolveFromId).toBe('function');
         expect(typeof DYNAMIC_SHORTHAND_PROVIDERS.mapwarper.resolveFromId).toBe('function');
         expect(typeof DYNAMIC_SHORTHAND_PROVIDERS.osm.resolveFromId).toBe('function');
+        expect(typeof DYNAMIC_SHORTHAND_PROVIDERS.stac.resolveFromId).toBe('function');
     });
 });

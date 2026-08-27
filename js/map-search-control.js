@@ -1,8 +1,16 @@
 import { reverseGeocodeNominatim } from './nominatim-search.js'
 import { trackEvent } from './analytics.js'
 import { parseCoordinateInput } from './search/coordinate-parser.js'
+import { parseDirectionsQuery } from './search/directions-query.js'
 import { createNominatimProvider } from './search/providers/nominatim-provider.js'
 import { createCadastralProvider } from './search/providers/cadastral-provider.js'
+import { createAtlasLayerProvider } from './search/providers/atlas-layer-provider.js'
+import { createFeatureInViewProvider } from './search/providers/feature-in-view-provider.js'
+import { createMarkerProvider } from './search/providers/marker-provider.js'
+import { createCountryProvider } from './search/providers/country-provider.js'
+import { createDirectionsProvider } from './search/providers/directions-provider.js'
+import { fetchRoute } from './search/directions-router.js'
+import { DirectionsLayer } from './search/directions-layer.js'
 import { SearchSuggestionsPanel } from './search/search-suggestions-panel.js'
 
 /**
@@ -24,7 +32,12 @@ export class MapSearchControl {
 
         this.isCoordinateInput = false;
         this.coordinateSuggestion = null;
-        this.localSuggestions = [];
+        this.localSuggestions = []; // place/parcel/current-location features - marker-eligible
+        this.mapSuggestions = []; // atlas/layer matches - never marker-eligible
+        this.mapFeatureSuggestions = []; // rendered features currently in view
+        this.markerSuggestions = []; // user-added markers/notes
+        this.countrySuggestions = []; // bundled country-name matches
+        this.directionsSuggestions = []; // "X to Y" route matches
         this.currentQuery = '';
         this.injectionTimeout = null;
 
@@ -37,6 +50,12 @@ export class MapSearchControl {
 
         this.cadastralProvider = createCadastralProvider();
         this.nominatimProvider = createNominatimProvider();
+        this.atlasLayerProvider = createAtlasLayerProvider();
+        this.featureInViewProvider = createFeatureInViewProvider();
+        this.markerProvider = createMarkerProvider();
+        this.countryProvider = createCountryProvider();
+        this.directionsProvider = createDirectionsProvider();
+        this.directionsLayer = new DirectionsLayer(this.map);
         this._fetchingCurrentLocation = false;
 
         // Feature state manager reference (will be set externally)
@@ -51,8 +70,8 @@ export class MapSearchControl {
         // The single, shared suggestions dropdown - see search-suggestions-panel.js
         // for why owning this DOM node in one place matters.
         this.suggestionsPanel = new SearchSuggestionsPanel(this.searchBox, {
-            onSelect: (index) => this._selectLocalSuggestion(index),
-            onHover: (index, isHovering) => this.handleSuggestionHover(index, isHovering)
+            onSelect: (item) => this._selectSuggestion(item),
+            onHover: (item, index, isHovering) => this.handleSuggestionHover(item, isHovering)
         });
 
         // Set up mapbox integration
@@ -80,7 +99,14 @@ export class MapSearchControl {
         // The fetch() patch in index.html (installed before the search-js CDN script loads,
         // since that library caches globalThis.fetch at load time) consults this to decide
         // whether to bypass the suggest endpoint's network request for the current input.
-        window.amche.shouldBypassSearchSuggest = () => this.isCoordinateInput;
+        // Also bypassed for a directions-shaped query ("X to Y"): otherwise Mapbox's own
+        // native place suggest keeps running in the background regardless of what we show,
+        // and can independently resolve and fire its own 'retrieve' well after the user
+        // picked our Directions result - flying the camera to an unrelated place and
+        // undoing the route view (confirmed live: it fired seconds after a route was
+        // already drawn and fitted).
+        window.amche.shouldBypassSearchSuggest = () =>
+            this.isCoordinateInput || !!parseDirectionsQuery(this.currentQuery);
         this.searchBox.bindMap(this.map);
 
         // Add required ARIA attributes for the combobox input
@@ -192,6 +218,11 @@ export class MapSearchControl {
      */
     resetSearchState() {
         this.localSuggestions = [];
+        this.mapSuggestions = [];
+        this.mapFeatureSuggestions = [];
+        this.markerSuggestions = [];
+        this.countrySuggestions = [];
+        this.directionsSuggestions = [];
         this.currentQuery = '';
         this.isCoordinateInput = false;
         this.coordinateSuggestion = null;
@@ -487,6 +518,8 @@ export class MapSearchControl {
         this.resetSearchState();
 
         this.removeSearchMarker();
+        this.directionsProvider.cancel();
+        this.directionsLayer.clear();
 
         if (this.featureStateManager) {
             this.featureStateManager.clearAllSelections();
@@ -507,25 +540,33 @@ export class MapSearchControl {
         // the dropdown when it's active - don't also show our own suggestion
         // underneath/behind it.
         if (window.cadastralSearchUI?.isActive()) return;
+
+        // Show "what's on the map right now" immediately (synchronous, no
+        // network) - the current-location suggestion joins it once its
+        // reverse-geocode call resolves.
+        this.mapSuggestions = this.atlasLayerProvider.getActiveLayers();
+        this._renderSuggestions();
         this.showCurrentLocationSuggestion();
     }
 
     /**
-     * On blur, drop the current-location suggestion if it's still the only
-     * thing showing (a short delay so a click on the suggestion itself, which
-     * blurs the input first, still gets to run its own handler).
+     * On blur, drop the focus-triggered suggestions (current-location default
+     * and/or currently-active-layers) if the user never typed a query (a short
+     * delay so a click on a suggestion itself, which blurs the input first,
+     * still gets to run its own handler).
      */
     handleSearchBoxBlur() {
         setTimeout(() => {
             if (this.currentQuery) return;
 
-            const onlyShowingCurrentLocation = this.localSuggestions.length === 1 &&
-                this.localSuggestions[0]?.properties?._isCurrentLocation;
-            if (onlyShowingCurrentLocation) {
-                this.clearInjectedSuggestions();
-                this.clearSuggestionMarkers();
-                this.localSuggestions = [];
-            }
+            this.clearInjectedSuggestions();
+            this.clearSuggestionMarkers();
+            this.localSuggestions = [];
+            this.mapSuggestions = [];
+            this.mapFeatureSuggestions = [];
+            this.markerSuggestions = [];
+            this.countrySuggestions = [];
+            this.directionsSuggestions = [];
         }, 200);
     }
 
@@ -625,6 +666,13 @@ export class MapSearchControl {
             };
 
             this.localSuggestions = [];
+            this.mapSuggestions = [];
+            this.mapFeatureSuggestions = [];
+            this.markerSuggestions = [];
+            this.countrySuggestions = [];
+            this.directionsSuggestions = [];
+            this.directionsProvider.cancel();
+            this.directionsLayer.clear();
 
             this.addSearchMarker([lng, lat], this.coordinateSuggestion.properties.place_name);
 
@@ -639,6 +687,24 @@ export class MapSearchControl {
             this.coordinateSuggestion = null;
 
             this.removeSearchMarker();
+            this.directionsLayer.clear();
+
+            // Atlas/layer matches, on-screen feature matches, and marker
+            // matches are all synchronous (in-memory) and apply regardless of
+            // which async place-search path runs below.
+            this.mapSuggestions = this.atlasLayerProvider.search(query);
+            this.mapFeatureSuggestions = this.featureInViewProvider.search(query);
+            this.markerSuggestions = this.markerProvider.search(query);
+            this.countrySuggestions = this.countryProvider.search(query);
+
+            this.directionsSuggestions = [];
+            this.directionsProvider.search(query, {
+                map: this.map,
+                onResult: (items) => {
+                    this.directionsSuggestions = items;
+                    this._renderSuggestions();
+                }
+            });
 
             const cadastralParsed = this.cadastralProvider.isEnabled() && !window.cadastralSearchUI?.isActive()
                 ? this.cadastralProvider.parseQuery(query)
@@ -657,6 +723,7 @@ export class MapSearchControl {
 
         this.localSuggestions = [];
         this.clearSuggestionMarkers();
+        this._renderSuggestions(); // show any Maps matches immediately
 
         this.cadastralProvider.search(query, parsed, (features) => {
             this.localSuggestions = features;
@@ -676,7 +743,7 @@ export class MapSearchControl {
     startNominatimSearch(query) {
         this.localSuggestions = [];
         this.clearSuggestionMarkers();
-        this.clearInjectedSuggestions();
+        this._renderSuggestions(); // show any Maps matches immediately, drop stale places
 
         this.nominatimProvider.search(query, {
             bounds: this.map.getBounds(),
@@ -718,7 +785,9 @@ export class MapSearchControl {
 
         if (this.isCoordinateInput) return;
 
-        if (this.localSuggestions.length > 0) {
+        if (this.localSuggestions.length > 0 || this.mapSuggestions.length > 0 ||
+            this.mapFeatureSuggestions.length > 0 || this.markerSuggestions.length > 0 ||
+            this.countrySuggestions.length > 0 || this.directionsSuggestions.length > 0) {
             clearTimeout(this.injectionTimeout);
             this.scheduleSuggestionInjection();
         }
@@ -790,6 +859,8 @@ export class MapSearchControl {
         this.suggestionsPanel.clear();
         this.cadastralProvider.cancel();
         this.nominatimProvider.cancel();
+        this.directionsProvider.cancel();
+        this.directionsLayer.remove();
 
         if (this.injectionTimeout) {
             clearTimeout(this.injectionTimeout);
@@ -853,55 +924,209 @@ export class MapSearchControl {
      * document-wide fallback.
      */
     _getMapboxListbox() {
-        const scoped = (this.searchBox.shadowRoot || this.searchBox).querySelector('[role="listbox"]');
-        if (scoped) return $(scoped);
-        const el = [...document.querySelectorAll('[role="listbox"]')]
-            .find(node => node.id !== this.suggestionsPanel.id);
+        // This widget doesn't set role="listbox" and its CSS classes are
+        // per-build-hashed (e.g. "mbx0cedb16f--Results") - substring-match on
+        // the stable "Results" suffix, same fallback suppressSuggestions()
+        // above already uses when aria-controls isn't pointing at it.
+        const el = this.searchBox.shadowRoot?.querySelector('[class*="Results"]') ||
+            this.searchBox.querySelector('[class*="Results"]');
         return el ? $(el) : $();
     }
 
     /**
-     * Render this.localSuggestions into the shared suggestions panel, labeling
-     * the section based on what kind of results these are.
+     * Render this.mapSuggestions (atlas/layer matches) and this.localSuggestions
+     * (place/parcel/current-location features) into the shared suggestions
+     * panel as separate labeled sections.
      */
     _renderSuggestions() {
-        if (!this.localSuggestions.length) {
+        const sections = [];
+
+        // Shown first - a resolved "X to Y" match is a strong, deliberate
+        // signal when present, ahead of the more incidental result types.
+        if (this.directionsSuggestions.length) {
+            sections.push({ ariaLabel: 'Directions', items: this.directionsSuggestions });
+        }
+
+        if (this.mapSuggestions.length) {
+            sections.push({ ariaLabel: 'Maps', items: this.mapSuggestions });
+        }
+
+        if (this.mapFeatureSuggestions.length) {
+            sections.push({ ariaLabel: 'On the map', items: this.mapFeatureSuggestions });
+        }
+
+        if (this.markerSuggestions.length) {
+            sections.push({ ariaLabel: 'Your markers', items: this.markerSuggestions });
+        }
+
+        if (this.countrySuggestions.length) {
+            sections.push({ ariaLabel: 'Countries', items: this.countrySuggestions });
+        }
+
+        if (this.localSuggestions.length) {
+            const isCurrentLocation = this.localSuggestions.some(s => s.properties._isCurrentLocation);
+            const isNominatim = this.localSuggestions.some(s => s.properties._isNominatim);
+            const ariaLabel = isCurrentLocation
+                ? 'Current location'
+                : (isNominatim ? 'Place suggestions' : 'Cadastral plot suggestions');
+
+            sections.push({
+                ariaLabel,
+                items: this.localSuggestions.slice(0, 5),
+                attribution: isNominatim ? 'Powered by Nominatim' : undefined
+            });
+        }
+
+        if (!sections.length) {
             this.suggestionsPanel.clear();
             return;
         }
 
-        const isCurrentLocation = this.localSuggestions.some(s => s.properties._isCurrentLocation);
-        const isNominatim = this.localSuggestions.some(s => s.properties._isNominatim);
-        const ariaLabel = isCurrentLocation
-            ? 'Current location'
-            : (isNominatim ? 'Place suggestions' : 'Cadastral plot suggestions');
-
-        this.suggestionsPanel.render([{
-            ariaLabel,
-            items: this.localSuggestions.slice(0, 5),
-            attribution: isNominatim ? 'Powered by Nominatim' : undefined
-        }]);
+        this.suggestionsPanel.render(sections);
     }
 
     /**
-     * Handle a click/keyboard selection of one of our own local suggestions
-     * (cadastral plot, Nominatim place, or the current-location default).
+     * Handle a click/keyboard selection of one of our own suggestions - a
+     * place/parcel/current-location feature, an atlas/layer match, an
+     * on-screen feature, or a marker.
      */
-    _selectLocalSuggestion(index) {
-        const selectedSuggestion = this.localSuggestions[index];
-        if (!selectedSuggestion) return;
+    _selectSuggestion(item) {
+        if (!item) return;
 
-        this.clearSuggestionMarkers();
+        // Reset first (clears currentQuery, all suggestion arrays, markers,
+        // and the panel): without this, scheduleSuggestionInjection()'s
+        // already-scheduled staggered re-render timers from this same
+        // keystroke (see its 0/100/300/600/1500/3000ms delays) would still
+        // see the old currentQuery unchanged, and resurrect this exact panel
+        // moments after selection.
+        this.resetSearchState();
 
-        // Remove our own panel and, best-effort, close Mapbox's own dropdown
-        // too (never mutating it — just hiding its container).
-        this.suggestionsPanel.clear();
-        this._getMapboxListbox().parent().hide();
+        // Best-effort close of Mapbox's own dropdown too (never mutating it —
+        // just hiding its container, which _getMapboxListbox() already
+        // resolves to - see its comment for why no .parent() is needed here).
+        this._getMapboxListbox().hide();
+
+        // Reflect the pick in the input (silently, no 'input' event) so
+        // leftover typed text doesn't sit there and let Mapbox's own native
+        // autosuggest independently complete its own retrieve later on that
+        // stale text.
+        this.updateSearchBoxInput(item.properties.name, { silent: true });
+
+        if (item._searchResultType === 'atlas') {
+            trackEvent('search_select', { search_type: 'atlas', result_name: item.properties.name });
+            window.layerControl?._navigateToAtlas(item.atlasId);
+            return;
+        }
+
+        if (item._searchResultType === 'layer') {
+            this._toggleLayerSuggestion(item);
+            return;
+        }
+
+        if (item._searchResultType === 'map-feature') {
+            this._selectMapFeatureSuggestion(item);
+            return;
+        }
+
+        if (item._searchResultType === 'marker') {
+            this._selectMarkerSuggestion(item);
+            return;
+        }
+
+        if (item._searchResultType === 'country') {
+            trackEvent('search_select', { search_type: 'country', result_name: item.properties.name });
+            this.map.flyTo({ center: item.center, zoom: item.zoom, essential: true });
+            return;
+        }
+
+        if (item._searchResultType === 'directions') {
+            this._selectDirectionsSuggestion(item);
+            return;
+        }
 
         const retrieveEvent = new CustomEvent('retrieve', {
-            detail: { features: [selectedSuggestion] }
+            detail: { features: [item] }
         });
         this.searchBox.dispatchEvent(retrieveEvent);
+    }
+
+    /**
+     * Add or remove a layer search result, reusing the existing cross-atlas
+     * add/remove machinery in map-layer-controls.js (the same code path the
+     * layer control drawer's own cross-atlas search results use). Which
+     * action to take is fixed by which section the item came from (see
+     * search/providers/atlas-layer-provider.js) rather than re-detected here.
+     */
+    _toggleLayerSuggestion(item) {
+        const control = window.layerControl;
+        if (!control) return;
+
+        trackEvent('search_select', { search_type: 'layer', result_name: item.properties.name });
+
+        if (item.action === 'remove') {
+            control._removeCrossAtlasLayer(item.layer._prefixedId || item.layer.id);
+        } else {
+            control._addCrossAtlasLayer(item.layer);
+        }
+    }
+
+    /**
+     * Select a feature that's already rendered in the current view, via the
+     * same handleFeatureClicks() pipeline a real map click uses (see
+     * js/map-nearby-features-control.js's _selectFeature for the identical
+     * pattern) - marker creation, the inspector panel, and URL state all
+     * behave exactly as if the user had clicked the feature on the map. No
+     * camera movement needed since the feature is already on screen.
+     */
+    _selectMapFeatureSuggestion(item) {
+        trackEvent('search_select', { search_type: 'map_feature', result_name: item.properties.name });
+
+        window.featureControl?._stateManager?.handleFeatureClicks([item.mapFeature]);
+        window.featureControl?._markerManager?._openInspectorPanel();
+    }
+
+    /**
+     * Fly to and focus an existing user-added marker/note, mirroring
+     * map-marker-manager.js's own prev/next marker navigation
+     * (_navigateMarker) and its focusCommentInput() helper.
+     */
+    _selectMarkerSuggestion(item) {
+        // Marker labels are often user-authored note text (or another feature's
+        // properties) - never sent to analytics, same reasoning as cadastral
+        // plot names in handleRetrieve below.
+        trackEvent('search_select', { search_type: 'marker' });
+
+        this.map.flyTo({
+            center: [item.markerLngLat.lng, item.markerLngLat.lat],
+            duration: 500
+        });
+        window.featureControl?._markerManager?.focusCommentInput(item.markerId);
+    }
+
+    /**
+     * Fetch and draw the route for a resolved "X to Y" match (see
+     * search/directions-router.js for the Mapbox-then-OSRM fallback).
+     */
+    async _selectDirectionsSuggestion(item) {
+        trackEvent('search_select', { search_type: 'directions' });
+
+        try {
+            const route = await fetchRoute(item.from, item.to);
+            this.directionsLayer.show(route.geometry);
+            this.map.fitBounds(this.directionsLayer.bounds(route.geometry), {
+                padding: 60,
+                duration: 1000
+            });
+
+            const distanceKm = (route.distance / 1000).toFixed(1);
+            const durationMin = Math.round(route.duration / 60);
+            window.keyboardController?.announceToScreenReader(
+                `Route found: ${distanceKm} kilometers, about ${durationMin} minutes`
+            );
+        } catch (error) {
+            console.error('[directions]', error);
+            window.keyboardController?.announceToScreenReader('Could not find a route');
+        }
     }
 
     /**
@@ -984,11 +1209,14 @@ export class MapSearchControl {
     }
 
     /**
-     * Handle hover effects on suggestion markers
-     * @param {number} suggestionIndex - Index of the suggestion being hovered
+     * Handle hover effects on suggestion markers.
+     * @param {object} item - The hovered suggestion item. Only place/parcel/
+     *   current-location items (present in this.localSuggestions) have a map
+     *   marker; atlas/layer items resolve to index -1 and are a no-op below.
      * @param {boolean} isHovering - Whether currently hovering (true) or leaving (false)
      */
-    handleSuggestionHover(suggestionIndex, isHovering) {
+    handleSuggestionHover(item, isHovering) {
+        const suggestionIndex = item ? this.localSuggestions.indexOf(item) : -1;
         try {
             if (this.hoveredMarkerIndex !== -1 && this.hoveredMarkerIndex !== suggestionIndex) {
                 const prevMarkerData = this.suggestionMarkers[this.hoveredMarkerIndex];

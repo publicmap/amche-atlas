@@ -982,6 +982,15 @@ export class LayerRegistry {
     }
 
     /**
+     * All known atlases as [atlasId, metadata] pairs, for search/listing UIs
+     * (e.g. atlas-name search in the map search box).
+     * @returns {Array<[string, object]>}
+     */
+    getAllAtlasMetadata() {
+        return Array.from(this._atlasMetadata.entries());
+    }
+
+    /**
      * Get the color for an atlas by ID
      * @param {string} atlasId - The atlas ID
      * @returns {string} The color hex code (defaults to blue if not found)

@@ -41,13 +41,26 @@ export function createNominatimProvider() {
 
             const controller = new AbortController()
             abortController = controller
+            const viewbox = nominatimViewboxFromBounds(bounds)
 
-            queryNominatim(query, {
-                viewbox: nominatimViewboxFromBounds(bounds),
-                signal: controller.signal
-            })
-                .then(features => {
+            queryNominatim(query, { viewbox, signal: controller.signal })
+                .then(async features => {
                     if (pendingQuery !== query) return
+
+                    // Default scope is "around the current view", narrowed to
+                    // India (queryNominatim's own default) - auto-widen to an
+                    // unscoped global search only when that finds nothing, so
+                    // a genuinely worldwide query still works without adding
+                    // any scope UI to the search box itself.
+                    if (features.length === 0) {
+                        features = await queryNominatim(query, {
+                            viewbox,
+                            countrycodes: null,
+                            signal: controller.signal
+                        })
+                        if (pendingQuery !== query) return
+                    }
+
                     onResult(features)
                 })
                 .catch(err => {

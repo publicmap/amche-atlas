@@ -364,7 +364,7 @@ export class MapBrowserControl {
             }
 
             if (event.data.type === 'creator-tile-preview') {
-                this._handleCreatorTilePreview(event.data.config);
+                this._handleCreatorTilePreview(event.data.config, { bbox: event.data.bbox, fitBounds: event.data.fitBounds });
             }
 
             if (event.data.type === 'creator-clear-preview') {
@@ -925,10 +925,9 @@ export class MapBrowserControl {
             this._map.off('moveend', this._onMapMove);
         }
 
-        // Return focus to main search box
-        if (window.keyboardController) {
-            window.keyboardController.focusSearch();
-        }
+        // Return focus to the button that opened this panel, not the main
+        // search box - closing this panel isn't the same as wanting to search.
+        this._button?.focus();
     }
 
     _onMapMove = () => {
@@ -1306,23 +1305,28 @@ export class MapBrowserControl {
         this._clearCreatorTilePreview();
     }
 
-    // Live preview for tile-based layer configs (vector/tms/wms) being edited
-    // in the creator's Configuration JSON box.
+    // Live preview for tile-based layer configs (vector/tms/wms/cog) being
+    // edited in the creator's Configuration JSON box.
     //
-    // Vector previews render through the real MapboxAPI.createLayerGroup() /
+    // Vector and COG previews render through the real MapboxAPI.createLayerGroup() /
     // removeLayerGroup() — the exact code path used for every real layer —
-    // so the preview always matches fill/line/circle/symbol (labels),
-    // layout properties, and default styling exactly, with no separate
-    // paint-only reimplementation to keep in sync (see _renderVectorTilePreview).
+    // so the preview always matches fill/line/circle/symbol (labels) or the
+    // geotiff.js TileProvider exactly, with no separate reimplementation to
+    // keep in sync (see _renderVectorTilePreview / _renderCogPreview).
     //
     // Raster (tms/wms) previews stay a simple opacity-only render here since
     // that's all MapboxAPI does for raster tiles anyway.
-    _handleCreatorTilePreview(config) {
+    _handleCreatorTilePreview(config, { bbox, fitBounds } = {}) {
         if (!this._map || !config || !config.url) return;
 
         if (config.type === 'vector') {
             if (!config.sourceLayer) return;
             this._renderVectorTilePreview(config);
+            return;
+        }
+
+        if (config.type === 'cog') {
+            this._renderCogPreview(config, { bbox, fitBounds });
             return;
         }
 
@@ -1423,6 +1427,45 @@ export class MapBrowserControl {
         this._vectorPreviewGeneration = (this._vectorPreviewGeneration || 0) + 1;
     }
 
+    // COG previews have no XYZ tile template (see _handleCreatorTilePreview's
+    // comment on the tms/wms branch above), so — like vector — this goes
+    // through the real MapboxAPI.createLayerGroup()/removeLayerGroup(), which
+    // already knows how to register the geotiff.js-backed TileProvider (see
+    // js/mapbox-api.js's _createCOGLayer / js/cog-tile-provider.js).
+    async _renderCogPreview(config, { bbox, fitBounds } = {}) {
+        const mapboxAPI = window.layerControl?._mapboxAPI;
+        if (!mapboxAPI) return;
+
+        const groupId = '__creator_cog_preview__';
+
+        try {
+            if (this._cogPreviewActive) {
+                mapboxAPI.removeLayerGroup(groupId, this._cogPreviewConfig);
+            }
+            this._cogPreviewActive = true;
+            this._cogPreviewConfig = config;
+
+            await mapboxAPI.createLayerGroup(groupId, config, { visible: true });
+
+            if (fitBounds && Array.isArray(bbox) && bbox.length === 4) {
+                const [west, south, east, north] = bbox;
+                this._map.fitBounds([[west, south], [east, north]], { padding: 50, maxZoom: 16, duration: 500 });
+            }
+        } catch (e) {
+            console.warn('[MapBrowserControl] COG preview failed:', e);
+        }
+    }
+
+    _clearCogPreview() {
+        if (!this._cogPreviewActive) return;
+        const mapboxAPI = window.layerControl?._mapboxAPI;
+        if (mapboxAPI && this._cogPreviewConfig) {
+            mapboxAPI.removeLayerGroup('__creator_cog_preview__', this._cogPreviewConfig);
+        }
+        this._cogPreviewActive = false;
+        this._cogPreviewConfig = null;
+    }
+
     _clearCreatorRasterPreview() {
         if (!this._map) return;
         this._tilePreviewSourceKey = null;
@@ -1507,6 +1550,7 @@ export class MapBrowserControl {
         if (!this._map) return;
         this._tileInfoToken = (this._tileInfoToken || 0) + 1;
         this._clearVectorTilePreview();
+        this._clearCogPreview();
         this._clearCreatorRasterPreview();
     }
 

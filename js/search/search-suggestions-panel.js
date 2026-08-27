@@ -4,9 +4,10 @@ const PANEL_ID = 'amche-search-suggestions'
  * The single, shared fixed-position suggestions dropdown for the map search
  * box. Owns the DOM, positioning, ARIA (role="listbox" > role="group" per
  * section > role="option" per item, aria-activedescendant, aria-expanded),
- * and keyboard highlighting. Callers only ever provide data (GeoJSON-like
- * features, grouped into labeled sections) and get index-based callbacks
- * back - marker/camera behavior stays in map-search-control.js.
+ * and keyboard highlighting. Callers provide data (GeoJSON-feature-like items,
+ * grouped into labeled sections; an optional top-level `icon` string overrides
+ * the default 📍) and get the selected/hovered item (plus its flat index)
+ * back - marker/camera/layer-toggle behavior stays in map-search-control.js.
  *
  * Being the one owner of this DOM node (rather than each suggestion source
  * injecting its own independently-positioned panel) is what prevents two
@@ -37,6 +38,29 @@ export class SearchSuggestionsPanel {
             this.searchBoxEl.querySelector('input')
     }
 
+    /**
+     * Where our panel should start: below Mapbox's own native suggestions
+     * dropdown when it's currently showing something (it can run
+     * concurrently with ours - see map-search-control.js's
+     * shouldBypassSearchSuggest), so the two stack instead of ours covering
+     * it. Never touches that dropdown itself, only reads its position - same
+     * "don't mutate Mapbox's own listbox" rule as _getMapboxListbox() in
+     * map-search-control.js, and the same substring-matched selector (this
+     * widget doesn't set role="listbox"; its classes are per-build-hashed,
+     * e.g. "mbx0cedb16f--Results").
+     */
+    _getAnchorBottom(searchBoxRect) {
+        const mapboxResults = this.searchBoxEl.shadowRoot?.querySelector('[class*="Results"]') ||
+            this.searchBoxEl.querySelector('[class*="Results"]')
+        if (mapboxResults) {
+            const resultsRect = mapboxResults.getBoundingClientRect()
+            if (resultsRect.height > 0) {
+                return Math.max(searchBoxRect.bottom, resultsRect.bottom)
+            }
+        }
+        return searchBoxRect.bottom
+    }
+
     _escapeHtml(text) {
         return String(text ?? '')
             .replace(/&/g, '&amp;')
@@ -58,6 +82,17 @@ export class SearchSuggestionsPanel {
             return
         }
 
+        // Rebuilds happen often and asynchronously (debounced place results
+        // arriving, the staggered re-render retries in
+        // map-search-control.js's scheduleSuggestionInjection) while the user
+        // may be mid-keyboard-navigation. Losing the highlight on every
+        // rebuild would make Enter silently do nothing (or fall through to
+        // Mapbox's own native suggest handling) - so carry it forward by
+        // object identity if that item is still present in the new content.
+        const previouslyHighlighted = this.highlightedIndex >= 0
+            ? this.flatItems[this.highlightedIndex]?.item
+            : null
+
         this._teardownDom()
         this.flatItems = []
 
@@ -69,6 +104,7 @@ export class SearchSuggestionsPanel {
 
                 const name = this._escapeHtml(feature.properties?.name)
                 const desc = this._escapeHtml(feature.properties?.place_name)
+                const icon = this._escapeHtml(feature.icon || '📍')
                 const isCadastralPlot = !!feature.properties?._isCadastralParquet
 
                 return `
@@ -89,7 +125,7 @@ export class SearchSuggestionsPanel {
                              min-height: 40px;
                              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                          ">
-                        <div class="mbx09bc48e7--SuggestionIcon" aria-hidden="true" style="margin-right: 8px; font-size: 16px;">📍</div>
+                        <div class="mbx09bc48e7--SuggestionIcon" aria-hidden="true" style="margin-right: 8px; font-size: 16px;">${icon}</div>
                         <div class="mbx09bc48e7--SuggestionText" style="flex: 1; overflow: hidden;">
                             <div class="mbx09bc48e7--SuggestionName" style="font-weight: 500; color: #f3f4f6; font-size: 14px; line-height: 1.2;">${name}</div>
                             <div class="mbx09bc48e7--SuggestionDesc" style="color: #9ca3af; font-size: 12px; line-height: 1.2; margin-top: 2px;">${desc}</div>
@@ -117,7 +153,7 @@ export class SearchSuggestionsPanel {
         const $panel = $(`<div id="${PANEL_ID}" role="listbox" aria-label="Search suggestions"></div>`)
         $panel.css({
             position: 'fixed',
-            top: `${rect.bottom}px`,
+            top: `${this._getAnchorBottom(rect)}px`,
             left: `${rect.left}px`,
             width: `${rect.width}px`,
             zIndex: 9999
@@ -136,26 +172,41 @@ export class SearchSuggestionsPanel {
             })
             .on('mouseleave', (event) => {
                 $(event.currentTarget).css('background-color', '#1f2937')
-                this.onHover(parseInt($(event.currentTarget).data('flat-index'), 10), false)
+                const index = parseInt($(event.currentTarget).data('flat-index'), 10)
+                this.onHover(this.flatItems[index]?.item, index, false)
             })
 
-        this.highlightedIndex = -1
+        // Restore the previous highlight if that item is still here (by
+        // reference - see the comment above). Set directly rather than via
+        // _setHighlight() so a silent background rebuild doesn't re-fire
+        // onHover() (which would spuriously move the map/toggle a marker
+        // popup the user never asked to hover again).
+        this.highlightedIndex = previouslyHighlighted
+            ? this.flatItems.findIndex(entry => entry.item === previouslyHighlighted)
+            : -1
+        if (this.highlightedIndex >= 0) {
+            const input = this._getComboboxInput()
+            if (input) input.setAttribute('aria-activedescendant', this.flatItems[this.highlightedIndex].id)
+        }
+
         this._updateComboboxAria(true)
     }
 
     _select(index) {
-        if (!this.flatItems[index]) return
-        this.onSelect(index)
+        const entry = this.flatItems[index]
+        if (!entry) return
+        this.onSelect(entry.item, index)
     }
 
     _setHighlight(index) {
-        if (!this.flatItems[index]) return
+        const entry = this.flatItems[index]
+        if (!entry) return
         this.highlightedIndex = index
         const input = this._getComboboxInput()
         if (input) {
-            input.setAttribute('aria-activedescendant', this.flatItems[index].id)
+            input.setAttribute('aria-activedescendant', entry.id)
         }
-        this.onHover(index, true)
+        this.onHover(entry.item, index, true)
     }
 
     /**

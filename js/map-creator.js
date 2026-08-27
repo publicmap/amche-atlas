@@ -870,6 +870,11 @@ export class MapCreator {
                 return;
             }
 
+            if (result.status === 'needs-input' && result.kind === 'stac-children') {
+                this.handleStacImport(result.stacData, result.children, result.resolvedUrl);
+                return;
+            }
+
             if (result.status === 'ok' && result.layerType === 'geojson' && result.geojson) {
                 this.processGeoJSON(result.geojson, url);
                 return;
@@ -1024,6 +1029,83 @@ export class MapCreator {
             this.currentAtlasUrl = null;
             this.currentAtlasData = null;
             this.currentAtlasLayers = null;
+            this.setLoadingState('default');
+        });
+
+        this.setLoadingState('success');
+    }
+
+    // A STAC Catalog/Collection has no data of its own — just `item` links
+    // (leaf assets) and `child` links (nested catalogs/collections). Lets the
+    // user drill into children and pick one item, which is then resolved to
+    // a `cog` config the same way a direct Item URL would be.
+    handleStacImport(stacData, children, url) {
+        if (!children || children.length === 0) {
+            alert('No items or collections found in this STAC catalog.');
+            this.setLoadingState('error');
+            return;
+        }
+
+        const title = stacData.title || stacData.id || 'STAC Catalog';
+        const options = children.map((child, index) => {
+            const label = child.title || child.href.split('/').pop() || child.href;
+            const icon = child.rel === 'child' ? '📁' : '🛰️';
+            return `<option value="${index}">${icon} ${label}</option>`;
+        }).join('');
+
+        const html = `
+            <div id="stac-selector-container" class="mt-4 p-4 border border-gray-300 rounded bg-gray-50">
+                <p class="mb-2 font-semibold text-gray-900">STAC: ${title}</p>
+                <p class="mb-3 text-sm text-gray-600">Contains ${children.length} entr${children.length > 1 ? 'ies' : 'y'}. Collections (📁) can be opened further; items (🛰️) can be imported directly.</p>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Choose an entry</label>
+                    <select id="stac-child-select" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        ${options}
+                    </select>
+                </div>
+
+                <div class="flex gap-2">
+                    <button id="stac-open-btn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">Open</button>
+                    <button id="cancel-stac-import-btn" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        $('#stac-selector-container').remove();
+        $('#load-data-btn').after(html);
+        $('#settings-section').hide();
+        $('#add-to-map-btn').prop('disabled', true);
+
+        $('#stac-open-btn').on('click', async () => {
+            const child = children[parseInt($('#stac-child-select').val())];
+            this.setLoadingState('loading');
+            try {
+                if (child.rel === 'item') {
+                    const result = await SourceResolver.resolveLayerSource(child.href);
+                    if (result.status !== 'ok' || !result.config) {
+                        throw new Error('Could not resolve STAC item');
+                    }
+                    $('#stac-selector-container').remove();
+                    $('#url-input').val(child.href);
+                    this.currentLayerType = result.layerType;
+                    this.currentData = result.config;
+                    this.currentDataSource = child.href;
+                    this.showTileLayerSuccess(result.config);
+                } else {
+                    const childData = await SourceResolver.StacAPI.fetchJson(child.href);
+                    const childChildren = SourceResolver.StacAPI.listChildren(childData, child.href);
+                    this.handleStacImport(childData, childChildren, child.href);
+                }
+            } catch (error) {
+                alert('Could not open STAC entry: ' + error.message);
+                this.setLoadingState('error');
+            }
+        });
+
+        $('#cancel-stac-import-btn').on('click', () => {
+            $('#stac-selector-container').remove();
+            $('#settings-section').hide();
             this.setLoadingState('default');
         });
 
@@ -1904,15 +1986,26 @@ export class MapCreator {
             return;
         }
 
-        // Tile-based layer types (vector/tms/wms): render actual tiles on the
-        // parent map so styling/zoom edits made in the JSON below are visible live.
+        // Tile-based layer types (vector/tms/wms/cog): render actual tiles on
+        // the parent map so styling/zoom edits made in the JSON below are
+        // visible live.
         const config = this.currentData;
         if (!config || !config.type || !config.url) return;
-        if (!['vector', 'tms', 'wms'].includes(config.type)) return;
+        if (!['vector', 'tms', 'wms', 'cog'].includes(config.type)) return;
+
+        // COG previews have no XYZ tile template to eyeball scale from (unlike
+        // vector/tms/wms), and the source bbox (e.g. a STAC item's, far from
+        // wherever the creator map happens to be pointed) is usually the only
+        // way the raster is even in view — fit to it once per distinct URL.
+        const fitBounds = config.type === 'cog' && Array.isArray(config.bbox) &&
+            this._cogPreviewFittedUrl !== config.url;
+        if (fitBounds) this._cogPreviewFittedUrl = config.url;
 
         window.parent.postMessage({
             type: 'creator-tile-preview',
-            config: config
+            config: config,
+            bbox: fitBounds ? config.bbox : undefined,
+            fitBounds
         }, '*');
     }
 

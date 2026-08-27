@@ -172,7 +172,8 @@ export class KeyboardController {
             } else {
                 window.postMessage({ type: 'close-browser' }, '*');
             }
-            this.focusMap();
+            // No focusMap() here - MapBrowserControl.closeBrowser() already
+            // returns focus to the trigger button that opened this panel.
             return;
         }
 
@@ -266,7 +267,7 @@ export class KeyboardController {
     }
 
     toggleMapBrowser() {
-        const trigger = document.querySelector('[data-action="toggle-map-browser"]');
+        const trigger = document.querySelector('.map-browser-btn');
         if (trigger) {
             trigger.click();
         }
