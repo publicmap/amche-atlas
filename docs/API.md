@@ -52,6 +52,7 @@ Instead of pasting a full external URL into the map creator to build a complete 
 | `allmaps` | Allmaps image ID (e.g. `bca064e512c963f0`) | `annotations.allmaps.org/images/<id>` | `tms` layer — georeferenced historic map tiles |
 | `mapwarper` | MapWarper map ID (e.g. `108838`) | `mapwarper.net/api/v1/maps/<id>` | `tms` layer — georeferenced historic map tiles |
 | `osm` | OSM element reference, `<node\|way\|relation>/<id>` (e.g. `relation/21057460`) | Overpass API (fetched once, not re-queried on pan) | `geojson` layer with the element's geometry inlined |
+| `stac` | A STAC Item JSON URL, or a `developmentseed.org/stac-map/` viewer share link — URL-encoded (see [`cog` — STAC support](#stac-support)) | Fetches the STAC Item JSON directly | `cog` layer pointing at the item's best-matching COG asset |
 
 **Examples:**
 ```
@@ -59,6 +60,7 @@ Instead of pasting a full external URL into the map creator to build a complete 
 ?layers=mapwarper:108838
 ?layers=osm:relation/21057460
 ?layers=mapbox-streets,osm:way/28845634
+?layers=stac:https%3A%2F%2Fexample.com%2Fitems%2Fscene.json
 ```
 
 **Opacity:** the plain string form has no room for extra properties. To set opacity on a dynamic layer, use the equivalent `{"type":"<service>","id":"<id>","opacity":<0-1>}` object form instead — this is also what the app writes back to the URL automatically when you adjust opacity on a dynamically-resolved layer:
@@ -70,8 +72,11 @@ Instead of pasting a full external URL into the map creator to build a complete 
 - Allmaps: `https://viewer.allmaps.org/?url=...`, `https://annotations.allmaps.org/images/<id>`, or `https://allmaps.xyz/images/<id>/{z}/{x}/{y}@2x.png`
 - MapWarper: `https://mapwarper.net/maps/<id>`
 - OSM: `https://www.openstreetmap.org/<node|way|relation>/<id>`
+- STAC: a STAC Item JSON URL, or a `https://developmentseed.org/stac-map/?href=...` viewer share link
 
-**Implementation:** each service's API calls live in its own module — `js/allmaps-url-api.js`, `js/mapwarper-url-api.js`, `js/osm-url-api.js`. `js/layer-source-resolver.js` exports a `DYNAMIC_SHORTHAND_PROVIDERS` table (`{allmaps, mapwarper, osm} -> {resolveFromId}`) wrapping those three modules — it's also where `map-creator.html`'s "Add Layer" URL box resolves the same services' *full URL* forms (via `resolveLayerSource()`/`detectLayerSourceType()`), so there's one place that knows about each service rather than two. `js/dynamic-layer-shorthand.js`'s `expandDynamicLayerShorthand()` looks up the shorthand's `type` in that table; adding a new service means adding one module plus one entry in `DYNAMIC_SHORTHAND_PROVIDERS`. The `type:id` string is parsed by `parseDynamicLayerShorthandString()` (in `dynamic-layer-shorthand.js`) wherever `?layers=` is split into individual entries — `js/map-utils.js`'s `URLUtils.parseLayersFromUrl()` (startup) and `js/url-manager.js`'s `parseLayersFromUrl()` (runtime). Resolution happens once, during `js/map-init.js`'s `loadConfiguration()`, before the layer ever reaches `MapboxAPI`; the compact shorthand — not the resolved config — is what's kept in the shareable URL.
+**Implementation:** each service's API calls live in its own module — `js/allmaps-url-api.js`, `js/mapwarper-url-api.js`, `js/osm-url-api.js`, `js/stac-url-api.js`. `js/layer-source-resolver.js` exports a `DYNAMIC_SHORTHAND_PROVIDERS` table (`{allmaps, mapwarper, osm, stac} -> {resolveFromId}`) wrapping those modules — it's also where `map-creator.html`'s "Add Layer" URL box resolves the same services' *full URL* forms (via `resolveLayerSource()`/`detectLayerSourceType()`), so there's one place that knows about each service rather than two. `js/dynamic-layer-shorthand.js`'s `expandDynamicLayerShorthand()` looks up the shorthand's `type` in that table; adding a new service means adding one module plus one entry in `DYNAMIC_SHORTHAND_PROVIDERS`. The `type:id` string is parsed by `parseDynamicLayerShorthandString()` (in `dynamic-layer-shorthand.js`) wherever `?layers=` is split into individual entries — `js/map-utils.js`'s `URLUtils.parseLayersFromUrl()` (startup) and `js/url-manager.js`'s `parseLayersFromUrl()` (runtime). Resolution happens once, during `js/map-init.js`'s `loadConfiguration()`, before the layer ever reaches `MapboxAPI`; the compact shorthand — not the resolved config — is what's kept in the shareable URL.
+
+**A note on the `stac` shorthand's id:** unlike `allmaps`/`mapwarper`/`osm` (short opaque IDs), the `stac` shorthand's id is itself a full URL. A bare STAC Item URL with no query string (e.g. `https://host/items/scene.json`) can be used as-is. A `stac-map` viewer link carries its own `&`-separated query params (`href=`, `bbox=`, `viz=`), which would otherwise be parsed as top-level `?layers=`-sibling parameters — percent-encode the whole viewer URL (as in the example above) before appending it after `stac:`.
 
 ### `selected`
 
@@ -655,7 +660,7 @@ A single COG `.tif` served over HTTP. Reads the COG's overview pyramid via HTTP 
 **Requirements on the COG:**
 - Properly tiled with internal overviews (use `gdal_translate -of COG` or `rio cogeo create`).
 - CRS in EPSG:3857 (web mercator) **or** EPSG:4326. Other CRSes will be misregistered.
-- Pixel data must be 8-bit RGB, RGBA, or single-band grayscale. Floating-point DEMs / multi-band scientific data are not yet supported.
+- Pixel data must be 8-bit RGB, RGBA, or single-band grayscale — JPEG-compressed (YCbCr) versions of any of these are also fine and are auto-converted to RGB (the common case for satellite "visual" COGs, including STAC-sourced ones — see [STAC support](#stac-support)). Floating-point DEMs / multi-band scientific data are not yet supported.
 
 ```json
 {
@@ -667,6 +672,35 @@ A single COG `.tif` served over HTTP. Reads the COG's overview pyramid via HTTP 
   "attribution": "<a href='https://dpremarks.mcgm.gov.in/dp2034/'>MCGM</a>"
 }
 ```
+
+#### STAC support
+
+`cog` layers are also produced automatically from [STAC](https://stacspec.org/) (SpatioTemporal Asset Catalog) sources — you don't need to know a COG's direct `.tif` URL up front if it's published as a STAC Item. Resolution lives in `js/stac-url-api.js`'s `StacAPI`, wired into `js/layer-source-resolver.js` the same way as the other dynamic sources above.
+
+**Recognized inputs** (in `map-creator.html`'s "Add Layer" URL box, and as the `stac:` [dynamic layer shortcut](#dynamic-layer-shortcuts)):
+
+| Input | Resolves via | Result |
+|---|---|---|
+| A bare `.tif`/`.tiff` URL | Used directly, no fetch | `cog` layer, `url` set to the file |
+| A STAC Item JSON URL (`"type": "Feature"`, has `assets`) | Fetches the Item JSON | `cog` layer, `url` set to the best-matching asset's `href` |
+| A `https://developmentseed.org/stac-map/?href=<item-json-url>&bbox=...&viz=asset:<key>` viewer share link | Fetches the `href` Item JSON, honoring `viz=asset:<key>` | `cog` layer, `url` set to the named asset's `href` |
+| A STAC Collection or Catalog JSON URL (`"type": "Collection"` / `"Catalog"`) | Fetches the JSON, lists its `item`/`child` links | `map-creator.html` shows a picker to drill into a child collection or pick an item to import (see `handleStacImport` in `js/map-creator.js`) |
+
+**Asset selection** (`StacAPI.pickCogAsset`): an explicit asset key (from `viz=asset:<key>`) wins if present; otherwise the first asset is picked in this preference order — `roles` includes `visual` **and** a GeoTIFF media type, then any GeoTIFF-typed asset, then any `visual`-role asset, then simply the first asset with an `href`.
+
+**Examples:**
+```
+Direct COG:
+?layers=stac:https%3A%2F%2Fvantor-opendata.s3.amazonaws.com%2Fevents%2FNepal-Flooding-Aug-2026%2FB040001100882F10.tif
+
+STAC Item:
+?layers=stac:https%3A%2F%2Fvantor-opendata.s3.amazonaws.com%2Fevents%2FNepal-Flooding-Aug-2026%2FB040001100882F10.json
+
+stac-map viewer share link (percent-encoded, see note above):
+?layers=stac:https%3A%2F%2Fdevelopmentseed.org%2Fstac-map%2F%3Fhref%3Dhttps%253A%252F%252Fvantor-opendata.s3.amazonaws.com%252Fevents%252FNepal-Flooding-Aug-2026%252FB040001100882F10.json%26viz%3Dasset%253Avisual
+```
+
+Pasting a STAC Collection (`collection.json`) or Catalog (`catalog.json`) URL only works through `map-creator.html`'s picker UI, not the `stac:` shorthand — a catalog has no single resulting layer to encode compactly, so there's nothing for the URL API to point at until a specific item is chosen.
 
 ### `geojson` — GeoJSON / KML
 
@@ -1097,7 +1131,7 @@ All other parameters (`terrain`, `geolocate`, `q`, `selected`, etc.) are applied
 | `js/map-layer-controls.js` | Calls `window.urlManager.onLayersChanged()` when layer visibility or opacity changes. |
 | `js/dynamic-layer-shorthand.js` | Parses and expands the `type:id` dynamic layer shortcuts (see [Dynamic layer shortcuts](#dynamic-layer-shortcuts)), dispatching via `layer-source-resolver.js`'s `DYNAMIC_SHORTHAND_PROVIDERS` table. `parseDynamicLayerShorthandString()` is called from `map-utils.js` and `url-manager.js` while splitting `?layers=`; `isDynamicLayerShorthand()`/`expandDynamicLayerShorthand()` are called from `map-init.js`'s per-layer loop in `loadConfiguration()`. |
 | `js/layer-source-resolver.js` | Single place that detects a pasted URL's source type (`detectLayerSourceType()`) and resolves it into a layer config (`resolveLayerSource()`) — used by both `map-creator.js`'s "Add Layer" URL box and `dynamic-layer-shorthand.js`'s shortcut dispatcher. Wraps the per-service API modules below plus WMS/GeoPackage/Shapefile/GeoJSONL/CSV/indianopenmaps/Mapbox-tileset/tile-template handling. A handful of formats (a multi-layer atlas JSON, a Google Sheet with several tabs) return `{status:'needs-input', kind, ...}` instead of a config — the caller's own picker UI re-resolves with the pick supplied via `urlOptions`. |
-| `js/allmaps-url-api.js`, `js/mapwarper-url-api.js`, `js/osm-url-api.js` | One module per external service backing the dynamic layer shortcuts — each resolves an ID/URL into a full layer config via that service's API. Wrapped by `layer-source-resolver.js`, not called directly by `map-creator.js`/`dynamic-layer-shorthand.js` anymore. |
+| `js/allmaps-url-api.js`, `js/mapwarper-url-api.js`, `js/osm-url-api.js`, `js/stac-url-api.js` | One module per external service backing the dynamic layer shortcuts — each resolves an ID/URL into a full layer config via that service's API. Wrapped by `layer-source-resolver.js`, not called directly by `map-creator.js`/`dynamic-layer-shorthand.js` anymore. |
 
 ### URL Write Flow
 

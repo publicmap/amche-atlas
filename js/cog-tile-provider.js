@@ -13,6 +13,9 @@
  *   - 3-band uint8 RGB
  *   - 4-band uint8 RGBA
  *   - 1-band uint8 grayscale (rendered as grayscale RGB)
+ *   - Any of the above JPEG-compressed (PhotometricInterpretation YCbCr,
+ *     Compression 7) — the common case for satellite "visual" COGs — is
+ *     converted to RGB via geotiff.js's readRGB() (see readRgbRasters()).
  *
  * CRS: COG must be in EPSG:3857 (web mercator) OR EPSG:4326. Tiles outside the
  * COG bounds (or where reprojection would degrade quality) are returned as
@@ -54,6 +57,24 @@ function detectCrs(image) {
         return 'EPSG:4326';
     }
     return 'EPSG:3857';
+}
+
+// Reads a window as RGB(A), converting non-RGB photometric interpretations
+// (most commonly YCbCr — the norm for JPEG-compressed satellite COGs) to RGB
+// first. Plain readRasters() returns YCbCr's raw luma/chroma planes verbatim,
+// which paints as a red/magenta-tinted image (bright luma channel splashed
+// into "red", chroma left near its neutral ~128 midpoint in "green"/"blue").
+// readRGB() does the same window/resample/pool read but runs the appropriate
+// colorspace conversion (YCbCr/CMYK/Palette/WhiteIsZero/BlackIsZero -> RGB)
+// before returning; plain RGB/RGBA imagery passes through unchanged. Falls
+// back to readRasters for any photometric interpretation readRGB doesn't
+// recognize (missing/non-standard tag) so those COGs keep working as before.
+async function readRgbRasters(image, options) {
+    try {
+        return await image.readRGB({ ...options, enableAlpha: true });
+    } catch (error) {
+        return image.readRasters(options);
+    }
 }
 
 function makeCanvas(w, h) {
@@ -197,7 +218,7 @@ export default class COGTileProvider {
         const dstW = Math.max(1, dstX1 - dstX0);
         const dstH = Math.max(1, dstY1 - dstY0);
 
-        const rasters = await image.readRasters({
+        const rasters = await readRgbRasters(image, {
             window: [wMin, hMin, wMax, hMax],
             width: dstW,
             height: dstH,

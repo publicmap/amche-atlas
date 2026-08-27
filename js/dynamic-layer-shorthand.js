@@ -7,6 +7,7 @@
  *   allmaps:bca064e512c963f0
  *   mapwarper:108838
  *   osm:relation/21057460
+ *   stac:<url-encoded STAC Item or stac-map viewer URL>
  *
  * The equivalent `{"type":"...","id":"..."}` object form is still accepted
  * on read (and is what opacity gets embedded into on write, since the plain
@@ -23,8 +24,8 @@
 import { DYNAMIC_SHORTHAND_PROVIDERS } from './layer-source-resolver.js';
 import { OSMApi } from './osm-url-api.js';
 
-const SHORTHAND_TYPES = new Set(['allmaps', 'mapwarper', 'osm']);
-const SHORTHAND_STRING_RE = /^(allmaps|mapwarper|osm):(.+)$/;
+const SHORTHAND_TYPES = new Set(['allmaps', 'mapwarper', 'osm', 'stac']);
+const SHORTHAND_STRING_RE = /^(allmaps|mapwarper|osm|stac):(.+)$/;
 
 /**
  * Parses the compact `type:id` string form (e.g. "osm:relation/21057460")
