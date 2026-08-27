@@ -1,6 +1,7 @@
 import { ExportFrame } from './export-frame.js';
 import { InspectionHandlerLoader } from './inspection-handler-loader.js';
 import { trackEvent } from './analytics.js';
+import { isNominatimBackedOff, reportNominatimFailure } from './nominatim-search.js';
 
 export class MapExportControl {
     constructor() {
@@ -408,6 +409,8 @@ export class MapExportControl {
     }
 
     async _reverseGeocode(lat, lng, zoom) {
+        if (isNominatimBackedOff()) return null;
+
         try {
             const latRounded = Math.round(lat * 100000) / 100000;
             const lngRounded = Math.round(lng * 100000) / 100000;
@@ -419,6 +422,7 @@ export class MapExportControl {
             });
 
             if (!response.ok) {
+                reportNominatimFailure();
                 throw new Error(`Nominatim API error: ${response.status}`);
             }
 
@@ -439,6 +443,7 @@ export class MapExportControl {
             const lastFourParts = parts.slice(parts.length - 4);
             return firstLineParts.join(', ') + '<br>' + lastFourParts.join(', ');
         } catch (e) {
+            reportNominatimFailure();
             console.error('Reverse geocoding failed', e);
             return null;
         }
@@ -581,9 +586,6 @@ export class MapExportControl {
         const targetWidth = Math.round((widthMm * dpi) / 25.4);
         const targetHeight = Math.round((heightMm * dpi) / 25.4);
 
-        const frameBounds = this._frame.getBounds();
-        const frameCenter = frameBounds.getCenter();
-
         const container = this._map.getContainer();
         const originalWidth = container.style.width;
         const originalHeight = container.style.height;
@@ -591,6 +593,27 @@ export class MapExportControl {
         const originalZoom = this._map.getZoom();
         const originalBearing = this._map.getBearing();
         const originalPitch = this._map.getPitch();
+
+        // Corner-based georeferencing can only represent a north-up,
+        // unpitched raster — so georeferencing is only embedded when the
+        // view is already (close to) flat. In that case, snap to exactly
+        // 0/0 before reading the frame's bounds (not after): the frame is a
+        // screen-space rectangle, and unprojecting its corners while the
+        // camera is even slightly tilted/rotated gives points that don't
+        // form a valid axis-aligned rectangle — which is what was producing
+        // an extent that didn't quite match the captured frame (and,
+        // separately, didn't match _exportGeoTIFF's identical logic for the
+        // same frame). When genuinely rotated/tilted, the visual capture
+        // still follows the user's chosen view — georeferencing is simply
+        // omitted for that case (see isNorthUp below).
+        const isNorthUp = Math.abs(originalBearing) < 0.01 && Math.abs(originalPitch) < 0.01;
+        if (isNorthUp) {
+            this._map.jumpTo({ bearing: 0, pitch: 0, animate: false });
+            await new Promise(resolve => this._map.once('idle', resolve));
+        }
+
+        const frameBounds = this._frame.getBounds();
+        const frameCenter = frameBounds.getCenter();
 
         this._frame.hide();
 
@@ -628,15 +651,18 @@ export class MapExportControl {
                         format: [widthMm, heightMm]
                     });
 
-                    // Corner-based georeferencing can only represent a
-                    // north-up, unpitched raster, and cameraForBounds's fit
-                    // can differ slightly from the requested frame — so use
-                    // the map's actual post-fit bounds (what was really
-                    // captured), and skip embedding geo metadata entirely
-                    // when rotated/tilted rather than ship geometry that
-                    // would render distorted.
-                    if (Math.abs(originalBearing) < 0.01 && Math.abs(originalPitch) < 0.01) {
-                        this._addGeoreferencing(doc, this._map.getBounds(), widthMm, heightMm);
+                    // Reads the corners of what was actually rendered by
+                    // directly unprojecting the CSS-pixel corners of the
+                    // capture viewport — the same method _exportGeoTIFF uses
+                    // for the identical frame, so the two formats agree.
+                    if (isNorthUp) {
+                        const nwLngLat = this._map.unproject([0, 0]);
+                        const seLngLat = this._map.unproject([targetWidth, targetHeight]);
+                        const actualBounds = new mapboxgl.LngLatBounds(
+                            [Math.min(nwLngLat.lng, seLngLat.lng), Math.min(nwLngLat.lat, seLngLat.lat)],
+                            [Math.max(nwLngLat.lng, seLngLat.lng), Math.max(nwLngLat.lat, seLngLat.lat)]
+                        );
+                        this._addGeoreferencing(doc, actualBounds, widthMm, heightMm);
                     }
 
                     doc.addImage(dataUrl, 'PNG', 0, 0, widthMm, heightMm);
@@ -672,10 +698,14 @@ export class MapExportControl {
             this._map.resize();
 
             this._map.once('idle', () => {
-                const camera = this._calculateCameraForBounds(frameBounds, targetWidth, targetHeight, originalBearing, originalPitch);
+                const fitBearing = isNorthUp ? 0 : originalBearing;
+                const fitPitch = isNorthUp ? 0 : originalPitch;
+                const camera = this._calculateCameraForBounds(frameBounds, targetWidth, targetHeight, fitBearing, fitPitch);
 
                 this._map.jumpTo({
                     ...camera,
+                    bearing: fitBearing,
+                    pitch: fitPitch,
                     animate: false
                 });
 
@@ -791,7 +821,6 @@ export class MapExportControl {
         const width = Math.round((widthMm * dpi) / 25.4);
         const height = Math.round((heightMm * dpi) / 25.4);
 
-        const bounds = this._frame.getBounds();
         const canvas = this._map.getCanvas();
 
         const container = this._map.getContainer();
@@ -801,6 +830,25 @@ export class MapExportControl {
         const originalZoom = this._map.getZoom();
         const originalBearing = this._map.getBearing();
         const originalPitch = this._map.getPitch();
+
+        // GeoTIFF's ModelTiepoint/ModelPixelScale can only represent an
+        // axis-aligned, north-up raster, so the capture always ignores the
+        // map's current bearing/pitch (restored afterward) — a rotated or
+        // tilted capture georeferenced this way would render skewed/squished
+        // in GIS software.
+        //
+        // Reset bearing/pitch to 0 BEFORE reading the frame's bounds (not
+        // after): the frame is a screen-space rectangle, and unprojecting
+        // its corners while the camera is still tilted/rotated gives points
+        // that don't form a valid axis-aligned rectangle at all — fitting
+        // that distorted request into a flat capture is what was producing
+        // an extent that didn't match the frame the user actually selected.
+        this._map.jumpTo({ bearing: 0, pitch: 0, animate: false });
+        await new Promise(resolve => {
+            this._map.once('idle', resolve);
+        });
+
+        const bounds = this._frame.getBounds();
 
         this._frame.hide();
 
@@ -814,11 +862,6 @@ export class MapExportControl {
             this._map.once('idle', resolve);
         });
 
-        // GeoTIFF's ModelTiepoint/ModelPixelScale can only represent an
-        // axis-aligned, north-up raster, so the capture always ignores the
-        // map's current bearing/pitch (restored afterward) — a rotated or
-        // tilted capture georeferenced this way would render skewed/squished
-        // in GIS software.
         const camera = this._calculateCameraForBounds(bounds, width, height, 0, 0);
 
         this._map.jumpTo({
@@ -860,17 +903,19 @@ export class MapExportControl {
         // linear in the declared CRS's units — see _addGeoreferencing for
         // why a lat/lng-linear (equirectangular) assumption would distort.
         //
-        // Uses the map's actual bounds after the camera fit (what was truly
-        // captured) rather than the originally requested frame bounds:
-        // cameraForBounds's fit isn't pixel-exact, so anchoring to the
-        // request instead of the result would declare an extent slightly
-        // off from the real one, shrinking/growing the raster around a
-        // correct-looking center once opened in GIS software.
-        const actualBounds = this._map.getBounds();
-        const sw = actualBounds.getSouthWest();
-        const ne = actualBounds.getNorthEast();
-        const nwMerc = this._lngLatToWebMercator(sw.lng, ne.lat);
-        const seMerc = this._lngLatToWebMercator(ne.lng, sw.lat);
+        // Reads the corners of what was actually rendered — by directly
+        // unprojecting the CSS-pixel corners of the capture viewport itself
+        // — rather than the originally requested frame bounds or
+        // map.getBounds(): cameraForBounds's fit isn't pixel-exact, so
+        // anchoring to the request instead of the true result would declare
+        // an extent slightly off from reality. Direct corner unprojection is
+        // what map.getBounds() should be equivalent to, but this is the
+        // same primitive ExportFrame.getBounds() itself relies on, so it's
+        // the most direct, assumption-free way to read what's on screen.
+        const nwLngLat = this._map.unproject([0, 0]);
+        const seLngLat = this._map.unproject([width, height]);
+        const nwMerc = this._lngLatToWebMercator(nwLngLat.lng, nwLngLat.lat);
+        const seMerc = this._lngLatToWebMercator(seLngLat.lng, seLngLat.lat);
 
         const pixelSizeX = (seMerc.x - nwMerc.x) / pixelWidth;
         const pixelSizeY = (nwMerc.y - seMerc.y) / pixelHeight;
