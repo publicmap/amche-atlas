@@ -9,6 +9,7 @@
  */
 
 import { LayerThumbnail } from './layer-thumbnail.js';
+import { isNominatimBackedOff, reportNominatimFailure } from './nominatim-search.js';
 
 export class MapAttributionControl {
     constructor() {
@@ -114,6 +115,8 @@ export class MapAttributionControl {
             return;
         }
 
+        if (isNominatimBackedOff()) return;
+
         // If a fetch is already in flight for this location, just wait on it.
         // Don't abort on hover-out — let it finish so the cache fills and
         // subsequent hovers of the same location are instant.
@@ -121,12 +124,19 @@ export class MapAttributionControl {
         if (!promise) {
             const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=${zoom}`;
             promise = fetch(url, { headers: { 'Accept-Language': 'en' } })
-                .then(r => r.ok ? r.json() : null)
+                .then(r => {
+                    if (!r.ok) {
+                        reportNominatimFailure();
+                        return null;
+                    }
+                    return r.json();
+                })
                 .then(data => {
                     if (data) this._nominatimCache.set(cacheKey, data);
                     return data;
                 })
                 .catch(err => {
+                    reportNominatimFailure();
                     console.warn('[MapAttributionControl] Nominatim fetch failed:', err);
                     return null;
                 })

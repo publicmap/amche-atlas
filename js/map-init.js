@@ -5,6 +5,7 @@ import { LayerOrderManager } from './layer-order-manager.js';
 import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
 import { configureCadastralSearch, prewarmCadastral, isCadastralSearchEnabled } from './cadastral-search.js';
+import { isNominatimBackedOff, reportNominatimFailure } from './nominatim-search.js';
 import { initCadastralSearchUI } from './cadastral-search-ui.js';
 import { MapExportControl } from './map-export-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
@@ -1029,6 +1030,8 @@ export class MapInitializer {
             // Update attribution with location name on map movement
             let reverseGeocodeTimeout;
             const updateAttributionLocation = async () => {
+                if (isNominatimBackedOff()) return;
+
                 try {
                     const center = map.getCenter();
                     const zoom = map.getZoom();
@@ -1046,13 +1049,21 @@ export class MapInitializer {
                         if (data.display_name && window.attributionControl) {
                             window.attributionControl.setLocation(data.display_name);
                         }
+                    } else {
+                        reportNominatimFailure();
                     }
                 } catch (e) {
+                    reportNominatimFailure();
                     console.debug('Reverse geocoding failed', e);
                 }
             };
 
-            map.on('moveend', () => {
+            map.on('moveend', (e) => {
+                // Search suggestion hover/typing previews (map-search-control.js) tag
+                // their fitBounds calls with this so they don't spam the reverse-geocode
+                // call below on every hovered result.
+                if (e && e._isSearchPreview) return;
+
                 clearTimeout(reverseGeocodeTimeout);
                 reverseGeocodeTimeout = setTimeout(updateAttributionLocation, 1000);
             });

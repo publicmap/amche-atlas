@@ -1,5 +1,9 @@
 import { queryCadastralPlots, parseCadastralQuery, isCadastralSearchEnabled } from './cadastral-search.js'
+import { queryNominatim, nominatimViewboxFromBounds, reverseGeocodeNominatim } from './nominatim-search.js'
 import { trackEvent } from './analytics.js'
+
+const NOMINATIM_DEBOUNCE_MS = 1000
+const MIN_NOMINATIM_QUERY_LENGTH = 3
 
 /**
  * MapSearchControl - Mapbox search with coordinate search and Goa cadastral
@@ -40,6 +44,10 @@ export class MapSearchControl {
         this.hoveredMarkerIndex = -1; // Track which marker is currently being hovered
 
         this._pendingCadastralQuery = null;
+        this._pendingNominatimQuery = null;
+        this.nominatimDebounceTimeout = null;
+        this.nominatimAbortController = null;
+        this._fetchingCurrentLocation = false;
 
         // Feature state manager reference (will be set externally)
         this.featureStateManager = null;
@@ -63,6 +71,14 @@ export class MapSearchControl {
         this.searchBox.addEventListener('input', this.handleInput.bind(this));
         this.searchBox.addEventListener('keydown', this.handleKeyDown.bind(this));
         this.searchBox.addEventListener('clear', this.handleClear.bind(this));
+
+        // 'focusin'/'focusout' are composed events, so listening on the host
+        // element still catches focus moving in/out of the input inside its
+        // shadow root.
+        this._boundHandleSearchBoxFocus = this.handleSearchBoxFocus.bind(this);
+        this._boundHandleSearchBoxBlur = this.handleSearchBoxBlur.bind(this);
+        this.searchBox.addEventListener('focusin', this._boundHandleSearchBoxFocus);
+        this.searchBox.addEventListener('focusout', this._boundHandleSearchBoxBlur);
 
         // The fetch() patch in index.html (installed before the search-js CDN script loads,
         // since that library caches globalThis.fetch at load time) consults this to decide
@@ -447,18 +463,24 @@ export class MapSearchControl {
 
         // Clear any injected suggestions from the DOM
         try {
-            const $resultsList = this.searchBox.shadowRoot ?
-                $(this.searchBox.shadowRoot.querySelector('[role="listbox"]')) :
-                $('[role="listbox"]').first();
-
-            if ($resultsList.length > 0) {
-                const removedCount = $resultsList.find('.local-suggestion').length;
-                $resultsList.find('.local-suggestion').remove();
+            const $panel = this._getLocalSuggestionsPanel();
+            if ($panel.length > 0) {
+                $panel.remove();
                 this.updateComboboxAriaExpanded(false); // Update aria-expanded on clear
             }
         } catch (error) {
             console.error('Error clearing injected suggestions:', error);
         }
+    }
+
+    /**
+     * Find our own local-suggestions panel (a sibling of Mapbox's listbox, never a
+     * descendant of it — see injectLocalSuggestionsIntoUI for why).
+     */
+    _getLocalSuggestionsPanel() {
+        const root = this.searchBox.shadowRoot || document;
+        const el = root.querySelector('#amche-local-suggestions');
+        return el ? $(el) : $();
     }
 
     /**
@@ -662,12 +684,9 @@ export class MapSearchControl {
      */
     clearInjectedSuggestions() {
         try {
-            const $resultsList = this.searchBox.shadowRoot ?
-                $(this.searchBox.shadowRoot.querySelector('[role="listbox"]')) :
-                $('[role="listbox"]').first();
-
-            if ($resultsList.length > 0) {
-                $resultsList.find('.local-suggestion').remove();
+            const $panel = this._getLocalSuggestionsPanel();
+            if ($panel.length > 0) {
+                $panel.remove();
                 this.updateComboboxAriaExpanded(false);
             }
         } catch (error) {
@@ -758,6 +777,64 @@ export class MapSearchControl {
     }
 
     /**
+     * When the (empty) search box gains focus, offer the current map center's
+     * reverse-geocoded address as a one-click default suggestion.
+     */
+    handleSearchBoxFocus() {
+        if (this.currentQuery || this.isCoordinateInput) return;
+        this.showCurrentLocationSuggestion();
+    }
+
+    /**
+     * On blur, drop the current-location suggestion if it's still the only
+     * thing showing (a short delay so a click on the suggestion itself, which
+     * blurs the input first, still gets to run its own handler).
+     */
+    handleSearchBoxBlur() {
+        setTimeout(() => {
+            if (this.currentQuery) return;
+
+            const onlyShowingCurrentLocation = this.localSuggestions.length === 1 &&
+                this.localSuggestions[0]?.properties?._isCurrentLocation;
+            if (onlyShowingCurrentLocation) {
+                this.clearInjectedSuggestions();
+                this.clearSuggestionMarkers();
+                this.localSuggestions = [];
+            }
+        }, 200);
+    }
+
+    /**
+     * Reverse-geocode the current map center (single request per focus, not
+     * tied to typing — see startNominatimSearch for why that distinction
+     * matters for Nominatim's usage policy) and show it as a selectable
+     * "Current location" suggestion.
+     */
+    async showCurrentLocationSuggestion() {
+        if (this._fetchingCurrentLocation) return;
+        this._fetchingCurrentLocation = true;
+
+        try {
+            const center = this.map.getCenter();
+            const feature = await reverseGeocodeNominatim(center.lat, center.lng, this.map.getZoom());
+
+            // Bail if the user started typing or moved on while this was in flight.
+            if (!feature || this.currentQuery || this.isCoordinateInput) return;
+
+            feature.properties.name = `Current location: ${feature.properties.name}`;
+            feature.properties._isCurrentLocation = true;
+
+            this.localSuggestions = [feature];
+            this.lastInjectedQuery = null; // force injection even though currentQuery is still ''
+            this.injectLocalSuggestionsIntoUI();
+        } catch (error) {
+            // Best-effort only; a failed/backed-off reverse geocode just means no default entry.
+        } finally {
+            this._fetchingCurrentLocation = false;
+        }
+    }
+
+    /**
      * Handle input events to detect coordinate patterns and query local suggestions
      * @param {Event} event - The input event
      */
@@ -792,6 +869,11 @@ export class MapSearchControl {
         }
 
         this.currentQuery = query;
+
+        // Drop any suggestion already showing (e.g. the focus-triggered "current
+        // location" entry) — the branches below only redraw the panel once their
+        // own (async) results are ready.
+        this.clearInjectedSuggestions();
 
         if (window.urlManager) {
             window.urlManager.updateSearchParam(query);
@@ -841,15 +923,19 @@ export class MapSearchControl {
                 this.startCadastralParquetSearch(query, cadastralParsed);
             } else {
                 this._pendingCadastralQuery = null;
-                this.localSuggestions = [];
-                this.clearSuggestionMarkers();
-                this.clearInjectedSuggestions();
+                this.startNominatimSearch(query);
             }
         }
     }
 
     startCadastralParquetSearch(query, parsed) {
         this._pendingCadastralQuery = query;
+        this._pendingNominatimQuery = null;
+        clearTimeout(this.nominatimDebounceTimeout);
+        if (this.nominatimAbortController) {
+            this.nominatimAbortController.abort();
+        }
+
         this.localSuggestions = [];
         this.clearSuggestionMarkers();
 
@@ -862,9 +948,52 @@ export class MapSearchControl {
                 this.lastInjectedQuery = '';
                 this.createSuggestionMarkers();
                 clearTimeout(this.injectionTimeout);
-                this.scheduleCadastralSuggestionInjection();
+                this.scheduleSuggestionInjection();
             })
             .catch(err => console.error('[cadastral]', err));
+    }
+
+    /**
+     * Query Nominatim for general place search, debounced and rate-capped to
+     * respect its usage policy (max ~1 request/second, no raw autocomplete spam).
+     */
+    startNominatimSearch(query) {
+        this._pendingNominatimQuery = query;
+        this.localSuggestions = [];
+        this.clearSuggestionMarkers();
+        this.clearInjectedSuggestions();
+
+        clearTimeout(this.nominatimDebounceTimeout);
+        if (this.nominatimAbortController) {
+            this.nominatimAbortController.abort();
+        }
+
+        if (query.trim().length < MIN_NOMINATIM_QUERY_LENGTH) return;
+
+        this.nominatimDebounceTimeout = setTimeout(() => {
+            if (this._pendingNominatimQuery !== query) return;
+
+            const controller = new AbortController();
+            this.nominatimAbortController = controller;
+
+            queryNominatim(query, {
+                viewbox: nominatimViewboxFromBounds(this.map.getBounds()),
+                signal: controller.signal
+            })
+                .then(features => {
+                    if (this._pendingNominatimQuery !== query) return;
+                    this.localSuggestions = features;
+                    if (!features.length) return;
+
+                    this.lastInjectedQuery = '';
+                    this.createSuggestionMarkers();
+                    clearTimeout(this.injectionTimeout);
+                    this.scheduleSuggestionInjection();
+                })
+                .catch(err => {
+                    if (err.name !== 'AbortError') console.error('[nominatim]', err);
+                });
+        }, NOMINATIM_DEBOUNCE_MS);
     }
 
     /**
@@ -894,12 +1023,9 @@ export class MapSearchControl {
 
         if (this.isCoordinateInput) return;
 
-        const cadastralParsed = isCadastralSearchEnabled() && !window.cadastralSearchUI?.isActive()
-            ? parseCadastralQuery(this.currentQuery)
-            : null;
-        if (cadastralParsed && this.localSuggestions.length > 0) {
+        if (this.localSuggestions.length > 0) {
             clearTimeout(this.injectionTimeout);
-            this.scheduleCadastralSuggestionInjection();
+            this.scheduleSuggestionInjection();
         }
     }
 
@@ -913,12 +1039,13 @@ export class MapSearchControl {
             const coordinates = feature.geometry.coordinates;
 
             const isLocalSuggestion = feature.properties && feature.properties._isLocalSuggestion;
+            const isCurrentLocation = feature.properties && feature.properties._isCurrentLocation;
 
             // Cadastral plot selections are deliberately not named in analytics:
             // plot identifiers can reveal personal interest in specific parcels.
             trackEvent('search_select', {
-                search_type: isLocalSuggestion ? 'cadastral' : 'place',
-                result_name: isLocalSuggestion ? undefined : feature.properties?.name
+                search_type: isCurrentLocation ? 'current_location' : (isLocalSuggestion ? 'cadastral' : 'place'),
+                result_name: (isLocalSuggestion && !isCurrentLocation) ? undefined : feature.properties?.name
             });
 
             if (isLocalSuggestion) {
@@ -928,13 +1055,17 @@ export class MapSearchControl {
                 // Add a marker at the location
                 this.addSearchMarker(coordinates, feature.properties.name);
 
-                // For cadastral plots, zoom in closer to see the plot boundaries
-                this.map.flyTo({
-                    center: coordinates,
-                    zoom: 18, // Zoom in closer for cadastral plots
-                    essential: true,
-                    duration: 2000
-                });
+                if (!isCurrentLocation) {
+                    // For cadastral plots, zoom in closer to see the plot boundaries
+                    this.map.flyTo({
+                        center: coordinates,
+                        zoom: 18, // Zoom in closer for cadastral plots
+                        essential: true,
+                        duration: 2000
+                    });
+                }
+                // "Current location" is, by definition, already where the map is
+                // centered — leave the camera alone and just drop the marker.
 
                 if (this.featureStateManager) {
                     this.featureStateManager.clearAllSelections();
@@ -985,6 +1116,8 @@ export class MapSearchControl {
             this.searchBox.removeEventListener('input', this.handleInput.bind(this));
             this.searchBox.removeEventListener('keydown', this.handleKeyDown.bind(this));
             this.searchBox.removeEventListener('clear', this.handleClear.bind(this));
+            this.searchBox.removeEventListener('focusin', this._boundHandleSearchBoxFocus);
+            this.searchBox.removeEventListener('focusout', this._boundHandleSearchBoxBlur);
         }
 
         this.map.off('moveend', this.handleMapMoveEnd.bind(this));
@@ -1000,11 +1133,13 @@ export class MapSearchControl {
         }
     }
 
-    scheduleCadastralSuggestionInjection() {
+    scheduleSuggestionInjection() {
         const delays = [0, 100, 300, 600, 1500, 3000];
         delays.forEach(delay => {
             setTimeout(() => {
-                if (this._pendingCadastralQuery !== this.currentQuery) return;
+                const isPending = this._pendingCadastralQuery === this.currentQuery ||
+                    this._pendingNominatimQuery === this.currentQuery;
+                if (!isPending) return;
                 this.lastInjectedQuery = '';
                 this.injectLocalSuggestionsIntoUI();
                 this.showSuggestionMarkers();
@@ -1014,7 +1149,30 @@ export class MapSearchControl {
     }
 
     /**
-     * Inject local suggestions directly into the search results UI using jQuery
+     * Best-effort lookup of Mapbox's own listbox, used only to close its dropdown
+     * when the user picks one of OUR suggestions instead. Never used for our own
+     * panel's placement or visibility — see injectLocalSuggestionsIntoUI.
+     */
+    _getMapboxListbox() {
+        const el = (this.searchBox.shadowRoot || this.searchBox).querySelector('[role="listbox"]') ||
+            document.querySelector('[role="listbox"]');
+        return el ? $(el) : $();
+    }
+
+    /**
+     * Inject local suggestions into the UI as our own fixed-position overlay,
+     * anchored to the search box's bounding rect via getBoundingClientRect().
+     *
+     * This panel is never inserted inside Mapbox's own listbox/results container:
+     * that listbox is a Preact-rendered widget (@mapbox/search-js-web) that owns
+     * and reconciles its own children, so injecting/removing raw elements inside
+     * it collides with its re-renders and throws deep in its internals (e.g.
+     * "Cannot read properties of null (reading 'setAttribute')"). It's also not
+     * inserted as a plain sibling of that listbox either, because Mapbox collapses
+     * that listbox's container (display: none) whenever it has no suggestions of
+     * its own — which would hide ours too (e.g. the focus-triggered "current
+     * location" suggestion, shown before the user has typed anything Mapbox could
+     * suggest on). A fixed overlay appended to <body> is independent of both.
      */
     injectLocalSuggestionsIntoUI() {
         try {
@@ -1022,115 +1180,33 @@ export class MapSearchControl {
                 return;
             }
 
-            // Find the results list in the shadow DOM or regular DOM
-            let $resultsList = null;
-            let $resultsContainer = null;
+            // Remove any previously injected panel first.
+            this._getLocalSuggestionsPanel().remove();
 
-            const findResultsContainer = () => {
-                if (this.searchBox.shadowRoot) {
-                    const shadowResults = this.searchBox.shadowRoot.querySelector('[role="listbox"]');
-                    if (shadowResults) {
-                        $resultsList = $(shadowResults);
-                        $resultsContainer = $resultsList.parent();
-                        return true;
-                    }
-                }
+            const hasNominatimResults = this.localSuggestions.some(
+                s => s.properties._isNominatim
+            );
 
-                $resultsList = $('[role="listbox"]').first();
-                if ($resultsList.length > 0) {
-                    $resultsContainer = $resultsList.parent();
-                    return true;
-                }
-
-                const searchResultsContainers = $('.mapboxgl-ctrl-geocoder, [class*="search"], [class*="suggest"], [class*="result"]');
-                for (let i = 0; i < searchResultsContainers.length; i++) {
-                    const $container = $(searchResultsContainers[i]);
-                    const listbox = $container.find('[role="listbox"]');
-                    if (listbox.length > 0) {
-                        $resultsList = listbox.first();
-                        $resultsContainer = $container;
-                        return true;
-                    }
-                }
-
-                // Method 4: Create a results container if none exists
-                if (this.searchBox.shadowRoot) {
-                    const shadowRoot = this.searchBox.shadowRoot;
-                    let listbox = shadowRoot.querySelector('[role="listbox"]');
-                    if (!listbox) {
-                        // Create a new listbox
-                        listbox = document.createElement('div');
-                        listbox.setAttribute('role', 'listbox');
-                        listbox.style.cssText = `
-                            position: absolute;
-                            top: 100%;
-                            left: 0;
-                            right: 0;
-                            background: #1f2937;
-                            border: 1px solid #374151;
-                            border-radius: 4px;
-                            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                            max-height: 200px;
-                            overflow-y: auto;
-                            z-index: 1000;
-                        `;
-
-                        // Find the input container and append the listbox
-                        const inputContainer = shadowRoot.querySelector('div') || shadowRoot;
-                        inputContainer.appendChild(listbox);
-                    }
-
-                    $resultsList = $(listbox);
-                    $resultsContainer = $resultsList.parent();
-                    return true;
-                }
-
-                return false;
-            };
-
-            if (!findResultsContainer()) {
+            const localSuggestionsToAdd = Math.min(5, this.localSuggestions.length);
+            if (localSuggestionsToAdd === 0) {
+                this.updateComboboxAriaExpanded(false);
+                this.lastInjectedQuery = this.currentQuery;
                 return;
             }
 
-            // Remove any previously injected local suggestions
-            $resultsList.find('.local-suggestion').remove();
-
-            const hasCadastralPlots = this.localSuggestions.some(
-                s => s.properties._isCadastralParquet
-            );
-
-            let mapboxOptions = $resultsList.find('[role="option"]:not(.local-suggestion)');
-            if (hasCadastralPlots && mapboxOptions.length > 1) {
-                mapboxOptions.slice(1).remove();
-                mapboxOptions = $resultsList.find('[role="option"]:not(.local-suggestion)');
-            }
-
-            const remainingMapboxSuggestions = mapboxOptions.length;
-            const localSuggestionsToAdd = Math.min(5, this.localSuggestions.length);
-            const totalCount = remainingMapboxSuggestions + localSuggestionsToAdd;
-
-            // Make sure the results container is visible
-            if ($resultsContainer) {
-                $resultsContainer.show();
-            }
-            $resultsList.show();
-
-            const batch = this.localSuggestions.slice(0, localSuggestionsToAdd)
-            for (let index = batch.length - 1; index >= 0; index--) {
-                const suggestion = batch[index]
-                const plotName = suggestion.properties.name;
-                const plotDesc = suggestion.properties.place_name;
+            const batch = this.localSuggestions.slice(0, localSuggestionsToAdd);
+            const itemsHtml = batch.map((suggestion, index) => {
+                const plotName = this._escapeHtml(suggestion.properties.name);
+                const plotDesc = this._escapeHtml(suggestion.properties.place_name);
                 const isCadastralPlot = suggestion.properties._isCadastralParquet;
 
-                // Create the suggestion HTML with robust styling
-                const suggestionHtml = `
+                return `
                     <div class="mbx09bc48e7--Suggestion local-suggestion${isCadastralPlot ? ' cadastral-plot-suggestion' : ''}"
                          role="option"
                          tabindex="-1"
-                         id="mbx09bc48e7-ResultsList-${index}"
+                         id="amche-local-suggestion-${index}"
                          aria-posinset="${index + 1}"
-                         aria-setsize="${totalCount}"
-                         data-suggestion-index="${index}"
+                         aria-setsize="${batch.length}"
                          data-local-index="${index}"
                          data-local-suggestion="true"
                          style="
@@ -1150,19 +1226,37 @@ export class MapSearchControl {
                         </div>
                     </div>
                 `;
+            }).join('');
 
-                // Insert at the beginning (before Mapbox suggestions)
-                $resultsList.prepend(suggestionHtml);
-            }
+            const attributionHtml = hasNominatimResults ? `
+                <div class="local-suggestion-attribution" aria-hidden="true" style="
+                    padding: 4px 12px;
+                    font-size: 11px;
+                    color: #6b7280;
+                    text-align: right;
+                    background: #1f2937;
+                    border-bottom: 1px solid #374151;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                ">Powered by Nominatim</div>
+            ` : '';
 
-            // Update aria-setsize for all suggestions
-            $resultsList.find('[role="option"]').each((index, element) => {
-                $(element).attr('aria-posinset', index + 1);
-                $(element).attr('aria-setsize', totalCount);
+            // Not role="listbox" — giving it that role would make it the FIRST DOM
+            // match for the various `[role="listbox"]` lookups elsewhere in this
+            // file that expect to find Mapbox's own listbox.
+            const rect = this.searchBox.getBoundingClientRect();
+            const $panel = $('<div id="amche-local-suggestions" role="group" aria-label="Local suggestions"></div>');
+            $panel.css({
+                position: 'fixed',
+                top: `${rect.bottom}px`,
+                left: `${rect.left}px`,
+                width: `${rect.width}px`,
+                zIndex: 9999
             });
+            $panel.html(itemsHtml + attributionHtml);
+            $('body').append($panel);
 
             // Add click and hover handlers for local suggestions
-            $resultsList.find('.local-suggestion')
+            $panel.find('.local-suggestion')
                 .on('click', (event) => {
                     const localIndex = parseInt($(event.currentTarget).data('local-index'));
 
@@ -1171,9 +1265,10 @@ export class MapSearchControl {
 
                         this.clearSuggestionMarkers();
 
-                        // Clear the results list immediately to prevent UI issues
-                        $resultsList.empty();
-                        $resultsList.parent().hide();
+                        // Remove our own panel and, best-effort, close Mapbox's own
+                        // dropdown too (never mutating it — just hiding its container).
+                        $panel.remove();
+                        this._getMapboxListbox().parent().hide();
 
                         // Create a retrieve event
                         const retrieveEvent = new CustomEvent('retrieve', {
@@ -1410,6 +1505,9 @@ export class MapSearchControl {
             const bounds = this.calculateContextBounds(suggestionCoordinates);
 
             if (bounds) {
+                // Tag this as a search preview so map-init.js's reverse-geocode-on-move
+                // listener can skip it — hovering/typing through suggestions can fire
+                // this repeatedly and would otherwise spam Nominatim's reverse endpoint.
                 this.map.fitBounds(bounds, {
                     padding: {
                         top: 50,
@@ -1419,7 +1517,7 @@ export class MapSearchControl {
                     },
                     maxZoom: 16,
                     duration: 1000
-                });
+                }, { _isSearchPreview: true });
             }
         } catch (error) {
             console.error('Error fitting to context with all suggestions:', error);
@@ -1453,7 +1551,7 @@ export class MapSearchControl {
                     },
                     maxZoom: 16,
                     duration: 500
-                });
+                }, { _isSearchPreview: true });
             }
         } catch (error) {
             console.error('Error fitting to context with hovered suggestion:', error);
