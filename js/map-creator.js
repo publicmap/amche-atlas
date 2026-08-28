@@ -821,6 +821,11 @@ export class MapCreator {
                 $('#url-input').val(url);
             }
 
+            if (SourceResolver.isTextbUrl(url)) {
+                url = SourceResolver.resolveTextbRawUrl(url);
+                $('#url-input').val(url);
+            }
+
             if (this.isOverpassShareUrl(url)) {
                 await this.handleOverpassImport(url, { withPreview: true });
                 this.setLoadingState('success');

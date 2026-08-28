@@ -4,6 +4,7 @@ import { MapLayerControl } from './map-layer-controls.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
+import { SearchBoxControl } from './search-box-control.js';
 import { configureCadastralSearch, prewarmCadastral, isCadastralSearchEnabled } from './cadastral-search.js';
 import { isNominatimBackedOff, reportNominatimFailure } from './nominatim-search.js';
 import { initCadastralSearchUI } from './cadastral-search-ui.js';
@@ -12,6 +13,7 @@ import { Terrain3DControl } from './terrain-3d-control.js';
 import { MeasureControl } from './map-measure-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
+import { AtlasLayerMenuControl } from './atlas-layer-menu-control.js';
 import { MapAttributionControl } from './map-attribution-control.js';
 import { StreetviewControl } from './streetview-control.js';
 import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
@@ -799,12 +801,19 @@ export class MapInitializer {
                 `${userLoc.lat.toFixed(6)}, ${userLoc.lng.toFixed(6)} at t=${Math.round(performance.now())}ms`
             );
         }
+        // Built immediately (not via map.addControl) so its GPS auto-trigger
+        // starts in parallel with style/tile loading, same as before - but the
+        // returned element is held detached until SearchBoxControl mounts it
+        // into the same row as the search input (see initializeSearch below).
         window.geolocationControl = new ButtonGeolocationManager();
-        const geolocationControlContainer = document.getElementById('geolocation-control-container');
-        if (geolocationControlContainer) {
-            const controlElement = window.geolocationControl.onAdd(map);
-            geolocationControlContainer.appendChild(controlElement);
-        }
+        window._geolocationControlEl = window.geolocationControl.onAdd(map);
+
+        // Also added immediately (rather than inside map.on('load') below) so
+        // it exists before initializeSearch()'s searchSetup can possibly run -
+        // that fires on the 'style.load' event, which can happen before our
+        // own 'load' handler below gets to set up the other chrome controls.
+        window.searchBoxControl = new SearchBoxControl();
+        map.addControl(window.searchBoxControl, 'top-right');
 
         // Setup proper cursor handling for map dragging
         map.on('load', async () => {
@@ -880,13 +889,25 @@ export class MapInitializer {
             // Initialize the feature control with state manager and config
             window.featureControl = new MapFeatureControl();
 
-            // Add map browser control to header instead of map
+            // Top-left controls, in visual (stacking) order: map browser,
+            // feature/layer inspector, then street view.
             window.browserControl = new MapBrowserControl();
-            const browserControlContainer = document.getElementById('map-browser-control-container');
-            if (browserControlContainer) {
-                const controlElement = window.browserControl.onAdd(map);
-                browserControlContainer.appendChild(controlElement);
-            }
+            map.addControl(window.browserControl, 'top-left');
+            map.addControl(window.featureControl, 'top-left');
+            window.streetviewControl = new StreetviewControl();
+            map.addControl(window.streetviewControl, 'top-left');
+
+            // Header-nav atlas + layers nested menu (top-left of the header,
+            // not a map control) - reuses browserControl's layer-toggle logic
+            // so it behaves exactly like map-browser.html.
+            window.atlasLayerMenuControl = new AtlasLayerMenuControl(window.browserControl);
+            window.atlasLayerMenuControl.mount(document.getElementById('atlas-layer-menu-container'));
+
+            // Top-right: the search row (added earlier, see above) already
+            // claims the topmost slot. Compass and terrain-3D follow, in that
+            // order; everything else comes after.
+            map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: false, visualizePitch: true }), 'top-right');
+            map.addControl(window.terrain3DControl, 'top-right');
 
             // Right-click / long-press shortcut menu, relies on the controls above
             window.shortcutMenu = new ShortcutMenu();
@@ -926,13 +947,9 @@ export class MapInitializer {
 
             // (Geolocation control already mounted at the top of map.on('load')
             // so its GPS auto-trigger runs in parallel with the rest of setup.)
-            map.addControl(window.featureControl, 'top-right');
             window.nearbyFeaturesControl = new NearbyFeaturesControl(stateManager);
             map.addControl(window.nearbyFeaturesControl, 'top-right');
             map.addControl(new TimeControl(), 'top-right');
-            window.streetviewControl = new StreetviewControl();
-            map.addControl(window.streetviewControl, 'top-left');
-            map.addControl(window.terrain3DControl, 'top-right');
             map.addControl(window.attributionControl, 'bottom-right');
             window.contextMessagesControl = new MapContextMessagesControl();
             window.contextMessagesControl.onAdd(map);
@@ -942,7 +959,6 @@ export class MapInitializer {
             map.addControl(window.exportControl, 'bottom-right');
             window.externalMapLinksControl = new ButtonExternalMapLinks();
             map.addControl(window.externalMapLinksControl, 'bottom-right');
-            map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: false, visualizePitch: true }));
             map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
             // Added after ScaleControl so it stacks above it (bottom corners
             // insert each new control above the previous one).
@@ -1484,6 +1500,11 @@ export class MapInitializer {
     static initializeSearch() {
         const searchSetup = () => {
             if (window.searchControl) return;
+
+            // Populate the search row (already added to the map, top-right)
+            // with the search box and the geolocation button, before
+            // MapSearchControl looks up the search box via document.querySelector.
+            window.searchBoxControl.mount({ geolocationEl: window._geolocationControlEl });
 
             const featureStateManager = new MapFeatureStateManager(window.map);
 

@@ -92,6 +92,25 @@ export function isGistUrl(url) {
     return /^https?:\/\/gist\.github\.com\/(?:[^/]+\/)?[0-9a-f]{16,}/i.test(url);
 }
 
+// Any textb.org pad link (the live editor at `/<id>/`, its `/t/<id>/` text
+// view, or already the raw `/r/<id>/` mirror) - see resolveTextbRawUrl below.
+export function isTextbUrl(url) {
+    if (!url) return false;
+    return /^https?:\/\/textb\.org\//i.test(url);
+}
+
+/**
+ * Rewrites any textb.org pad URL to its CORS-enabled `/r/<id>/` raw-text
+ * mirror (see js/textb-sync.js) - the only one of the pad's views a
+ * cross-origin page can actually fetch. Pasting the live editor link
+ * (`/<id>/`) or its `/t/<id>/` variant instead 404s/CORS-fails on fetch.
+ */
+export function resolveTextbRawUrl(url) {
+    const match = url.match(/^https?:\/\/textb\.org\/(?:[a-z]\/)?([^/?#]+)/i);
+    if (!match) return url;
+    return `https://textb.org/r/${match[1]}/`;
+}
+
 export function isWMSUrl(url) {
     const urlLower = url.toLowerCase();
     if (urlLower.includes('service=wms')) return true;
@@ -206,7 +225,7 @@ export function guessLayerType(url) {
     if (isMapboxTilesetId(url)) return 'mapbox-tileset';
     if (url.startsWith('mapbox://')) return 'mapbox-tileset';
     if (url.includes('earthengine.googleapis.com') && url.includes('/tiles/')) return 'raster';
-    if (/\.geojson($|\?)/i.test(url)) return 'geojson';
+    if (/\.geojson\/?($|\?)/i.test(url)) return 'geojson';
     if (isPbfTileUrl(url)) return 'vector';
     if (url.includes('{z}') && (url.includes('.pbf') || url.includes('.mvt') || url.includes('vector.openstreetmap.org') || url.includes('/vector/'))) return 'vector';
     if (url.includes('{z}') && (url.includes('.png') || url.includes('.jpg') || url.includes('.webp'))) return 'raster';
@@ -215,7 +234,7 @@ export function guessLayerType(url) {
         const hasVectorExt = /\.(pbf|mvt)($|\?)/i.test(url);
         return hasVectorExt ? 'vector' : 'raster';
     }
-    if (/\.json($|\?)/i.test(url)) return 'atlas';
+    if (/\.json\/?($|\?)/i.test(url)) return 'atlas';
     return 'unknown';
 }
 
@@ -248,12 +267,15 @@ export function detectLayerSourceType(url) {
     if (StacAPI.isStacMapViewerUrl(url)) return SOURCE_TYPES.STAC_VIEWER;
     if (StacAPI.isCogUrl(url)) return SOURCE_TYPES.COG;
     if (urlLower.includes('jsonkeeper.com/b/')) return SOURCE_TYPES.JSON_FILE;
-    if (/\.geojson($|\?)/i.test(url)) return SOURCE_TYPES.GEOJSON_FILE;
-    if (urlLower.endsWith('.json')) return SOURCE_TYPES.JSON_FILE;
-    if (urlLower.endsWith('.kml')) return SOURCE_TYPES.KML;
-    if (urlLower.endsWith('.geojsonl') || urlLower.endsWith('.ndjson') || urlLower.endsWith('.jsonl')) return SOURCE_TYPES.GEOJSONL;
-    if (urlLower.endsWith('.gpkg')) return SOURCE_TYPES.GPKG;
-    if (urlLower.endsWith('.zip')) return SOURCE_TYPES.SHAPEFILE;
+    if (/\.geojson\/?($|\?)/i.test(url)) return SOURCE_TYPES.GEOJSON_FILE;
+    // Trailing slash tolerated: textb.org pad URLs (see stac-url-api.js's
+    // hashToPadId / textb-sync.js's rawUrl/editUrl) are always of the form
+    // `.../<name>.json/`, since that host's pad URLs end in `/` by convention.
+    if (/\.json\/?$/i.test(urlLower)) return SOURCE_TYPES.JSON_FILE;
+    if (/\.kml\/?$/i.test(urlLower)) return SOURCE_TYPES.KML;
+    if (/\.(geojsonl|ndjson|jsonl)\/?$/i.test(urlLower)) return SOURCE_TYPES.GEOJSONL;
+    if (/\.gpkg\/?$/i.test(urlLower)) return SOURCE_TYPES.GPKG;
+    if (/\.zip\/?$/i.test(urlLower)) return SOURCE_TYPES.SHAPEFILE;
     if (isIndianOpenMapsViewerUrl(url) || isIndianOpenMapsFlyDevViewUrl(url)) return SOURCE_TYPES.INDIANOPENMAPS;
     if (urlLower.includes('{z}') && (urlLower.includes('.pbf') || urlLower.includes('.mvt'))) return SOURCE_TYPES.VECTOR_TILE;
     if (urlLower.includes('{z}') && (urlLower.includes('.png') || urlLower.includes('.jpg'))) return SOURCE_TYPES.RASTER_TILE;
@@ -1073,6 +1095,9 @@ export async function resolveLayerSource(url, urlOptions = {}) {
     let resolvedUrl = url;
     if (isGistUrl(resolvedUrl)) {
         resolvedUrl = await resolveGistRawUrl(resolvedUrl);
+    }
+    if (isTextbUrl(resolvedUrl)) {
+        resolvedUrl = resolveTextbRawUrl(resolvedUrl);
     }
 
     const type = detectLayerSourceType(resolvedUrl);

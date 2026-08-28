@@ -218,7 +218,7 @@ export class MapFeatureControl {
         this._panel.style.cssText = `
             display: none;
             position: fixed;
-            top: 52px;
+            top: 24px;
             right: ${panelRight};
             width: ${panelWidth};
             max-width: ${panelMaxWidth};

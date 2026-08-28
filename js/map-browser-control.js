@@ -97,7 +97,7 @@ export class MapBrowserControl {
     onAdd(map) {
         this._map = map;
         this._container = document.createElement('div');
-        this._container.className = 'map-browser-control';
+        this._container.className = 'map-browser-control mapboxgl-ctrl';
 
         this._button = document.createElement('button');
         this._button.className = 'map-browser-btn flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white rounded transition-colors border border-gray-700 text-sm font-medium';

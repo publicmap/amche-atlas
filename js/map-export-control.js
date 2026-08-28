@@ -104,7 +104,7 @@ export class MapExportControl {
         const isMobile = window.innerWidth <= 768;
         const panelWidth = isMobile ? '100%' : '400px';
         const panelRight = isMobile ? '0' : '8px';
-        const panelTop = '52px';
+        const panelTop = '24px';
         const panelHeight = isMobile ? '60vh' : '85vh';
 
         this._iframe.style.cssText = `
