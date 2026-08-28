@@ -3,7 +3,7 @@ export class KeyboardController {
         this.activeModal = null;
         this.modalStack = [];
         this.setupEventListeners();
-        this.autoFocusSearch();
+        this.autoFocusMapBrowser();
     }
 
     setupEventListeners() {
@@ -22,10 +22,10 @@ export class KeyboardController {
         });
     }
 
-    async autoFocusSearch() {
-        // Programmatically focusing the search input opens the on-screen
-        // keyboard on touch devices, which then reappears if the user is
-        // mid-pan when a retry fires. Autofocus is a desktop-only convenience.
+    async autoFocusMapBrowser() {
+        // Programmatically focusing an element opens the on-screen keyboard
+        // on touch devices, which then reappears if the user is mid-pan when
+        // a retry fires. Autofocus is a desktop-only convenience.
         if (window.matchMedia('(pointer: coarse)').matches) return;
 
         try {
@@ -62,34 +62,25 @@ export class KeyboardController {
             };
 
             await waitForLoadingOverlayRemoval();
-            await customElements.whenDefined('mapbox-search-box');
 
-            const searchBox = document.querySelector('mapbox-search-box');
-            if (!searchBox) return;
-
+            // A plain button (created by MapBrowserControl.onAdd() in
+            // map-init.js), not a custom element, so no whenDefined() wait -
+            // just retry in case it isn't mounted yet at this exact instant.
             const tryFocus = (attempt = 1) => {
-                if (typeof searchBox.focus === 'function') {
-                    searchBox.focus();
+                const trigger = document.querySelector('.map-browser-btn');
+                trigger?.focus();
 
-                    setTimeout(() => {
-                        const activeEl = document.activeElement;
-
-                        const isFocused = activeEl === searchBox ||
-                                        activeEl?.closest?.(searchBox.tagName.toLowerCase()) === searchBox ||
-                                        searchBox.contains(activeEl) ||
-                                        (searchBox.shadowRoot && searchBox.shadowRoot.activeElement);
-
-                        if (!isFocused && attempt < 3) {
-                            setTimeout(() => tryFocus(attempt + 1), 300);
-                        }
-                    }, 100);
-                }
+                setTimeout(() => {
+                    if (document.activeElement !== trigger && attempt < 3) {
+                        setTimeout(() => tryFocus(attempt + 1), 300);
+                    }
+                }, 100);
             };
 
             setTimeout(() => tryFocus(), 300);
 
         } catch (error) {
-            console.error('[KeyboardController] Error in autoFocusSearch:', error);
+            console.error('[KeyboardController] Error in autoFocusMapBrowser:', error);
         }
     }
 
