@@ -165,6 +165,10 @@
           "sourceLayer": "hillshade"
         },
         {
+          "title": "Address",
+          "sourceLayer": "housenum_label"
+        },
+        {
           "title": "Places Labels",
           "sourceLayer": "place_label"
         },
@@ -228,6 +232,10 @@
         {
           "title": "Boundaries",
           "sourceLayer": "admin"
+        },
+        {
+          "title": "Country Boundaries",
+          "sourceLayer": "country_boundaries"
         },
         {
           "title": "Bathymetry",

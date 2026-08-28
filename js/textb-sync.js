@@ -73,6 +73,15 @@ export class TextbSync {
     }
 
     /**
+     * The pad's live collaborative editor page (plain `/<padId>/`, as opposed
+     * to `rawUrl`'s `/r/<padId>/` plain-text mirror) — open this to read the
+     * published text with the ability to edit it in place.
+     */
+    static editUrl(padId) {
+        return `https://textb.org/${padId}/`;
+    }
+
+    /**
      * Overwrites the pad at `padId` with `text`. Resolves once `/r/<padId>/`
      * reflects the new text; rejects if it still doesn't after one retry.
      */

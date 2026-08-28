@@ -14,15 +14,46 @@
  * const config = StacAPI.createCogConfigFromUrl(url);              // bare .tif
  * ```
  */
+import { TextbSync } from './textb-sync.js';
 
-function generateId(prefix) {
+// textb.org pads used as the transport for STAC bulk-import atlases — same
+// trick js/geolibre-api.js uses to hand GeoLibre a whole-map project via its
+// `?url=` loader, here handing this app's own `?atlas=` loader a freshly
+// built atlas it has no other public URL for. Publishing overwrites the pad
+// (see textb-sync.js), which is fine: it's a "publish, then immediately load"
+// transport, not a durable link.
+//
+// The pad id is derived from the source STAC URL (catalog or collection)
+// rather than fixed, so importing the *same* STAC URL always resolves to the
+// *same* pad/URL — independently, anyone else importing that URL lands on
+// the pad this run just published, without coordinating an id.
+async function hashToPadId(sourceUrl) {
+    const bytes = new TextEncoder().encode(sourceUrl);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const hex = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+    return `amche-atlas-stac-${hex.slice(0, 32)}.json`;
+}
+
+// developmentseed.org's STAC viewer - used to build attribution links that
+// open a STAC Item somewhere explorable (footprint, asset list, a preview of
+// the picked asset) rather than straight at its raw Item JSON. Also the
+// target of isStacMapViewerUrl()/parseStacMapViewerUrl() below (share links
+// this same viewer produces).
+const STAC_MAP_VIEWER_URL = 'https://developmentseed.org/stac-map/';
+
+// `random: false` is used by buildAtlasFromCatalog(), which needs stable ids
+// (deduplicated against everything already generated for that catalog) rather
+// than the random suffix that keeps a single interactively-added layer from
+// colliding with whatever's already on the map.
+function generateId(prefix, { random = true } = {}) {
     const base = String(prefix || 'stac')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
-        .slice(0, 40);
-    const random = String(Math.floor(Math.random() * 90) + 10);
-    return `${base || 'stac'}-${random}`;
+        .slice(0, 40) || 'stac';
+    if (!random) return base;
+    const suffix = String(Math.floor(Math.random() * 90) + 10);
+    return `${base}-${suffix}`;
 }
 
 // Filenames STAC catalogs/collections conventionally use for every entry —
@@ -110,11 +141,23 @@ export class StacAPI {
         return found ? { key: found[0], asset: found[1] } : null;
     }
 
-    static buildAttribution(item, sourceUrl) {
+    /**
+     * Builds the attribution HTML for a STAC Item. Links through
+     * developmentseed.org's stac-map viewer (`?href=<sourceUrl>&viz=asset:<key>`)
+     * rather than straight to `sourceUrl`'s raw Item JSON, so clicking
+     * attribution opens something explorable — footprint, asset list, and a
+     * preview of the picked asset — instead of a JSON blob.
+     */
+    static buildAttribution(item, sourceUrl, assetKey) {
         const providers = Array.isArray(item.properties?.providers) ? item.properties.providers : [];
         const named = providers.find(p => p.name)?.name;
         const label = named || 'STAC Item';
-        return sourceUrl ? `<a href='${sourceUrl}' target='_blank' rel='noopener noreferrer'>${label}</a>` : label;
+        if (!sourceUrl) return label;
+
+        const params = new URLSearchParams({ href: sourceUrl });
+        if (assetKey) params.set('viz', `asset:${assetKey}`);
+        const viewerUrl = `${STAC_MAP_VIEWER_URL}?${params.toString()}`;
+        return `<a href='${viewerUrl}' target='_blank' rel='noopener noreferrer'>${label}</a>`;
     }
 
     static buildDescription(item, assetKey) {
@@ -122,6 +165,18 @@ export class StacAPI {
         if (item.properties?.datetime) parts.push(`Captured ${item.properties.datetime}`);
         parts.push(`Asset: <code>${assetKey}</code>`);
         return parts.join(' — ');
+    }
+
+    /**
+     * Prefixes a STAC Item's title with its capture date as `[YYYY-MM-DD]`
+     * (sliced straight off `properties.datetime`, an RFC 3339 timestamp that
+     * always starts with a plain date — no parsing/timezone conversion
+     * needed) so layer lists sort/scan chronologically at a glance.
+     */
+    static buildTitle(item) {
+        const rawTitle = item.properties?.title || item.id || 'STAC Item';
+        const datetime = item.properties?.datetime;
+        return datetime ? `[${datetime.slice(0, 10)}] ${rawTitle}` : rawTitle;
     }
 
     /**
@@ -138,25 +193,43 @@ export class StacAPI {
         return null;
     }
 
-    /** Builds a `cog` layer config from an already-fetched STAC Item object. */
-    static createCogConfigFromItem(item, { assetKey, sourceUrl } = {}) {
+    /**
+     * Builds a `cog` layer config from an already-fetched STAC Item object.
+     * When the item has a `geometry`, it's carried through as `config.geojson`
+     * so the cog layer draws it as a footprint outline (see `_addSimpleStyleGeoJSONOverlay`
+     * in js/mapbox-api.js) — the item's `bbox` alone can span a lot of empty
+     * area for a narrow/diagonal scene footprint.
+     *
+     * `id` and `tags` are overridable so buildAtlasFromCatalog() can assign a
+     * stable, deduplicated id and a collection-derived tag per item instead of
+     * the random single-layer id this generates by default.
+     */
+    static createCogConfigFromItem(item, { assetKey, sourceUrl, id, tags } = {}) {
         const picked = this.pickCogAsset(item.assets, assetKey);
         if (!picked) {
             throw new Error('No usable COG asset found in this STAC item');
         }
 
-        const title = item.properties?.title || item.id || 'STAC Item';
+        const title = this.buildTitle(item);
         const bbox = this.toBboxArray(item.bbox);
 
         return {
-            id: generateId(title),
+            id: id || generateId(title),
             type: 'cog',
             title,
             description: this.buildDescription(item, picked.key),
             url: picked.asset.href,
-            attribution: this.buildAttribution(item, sourceUrl),
+            attribution: this.buildAttribution(item, sourceUrl, picked.key),
             initiallyChecked: false,
-            ...(bbox && { bbox })
+            ...(bbox && { bbox }),
+            // `properties.id` is what map-marker-manager.js's hover/inspect badge
+            // shows by default (layerConfig.inspect.label/id, falling back to
+            // 'id') when a layer has no `inspect` config of its own, which cog
+            // layers never do here — without this the footprint's inspect badge
+            // falls back to an opaque generated feature id instead of anything
+            // recognizable.
+            ...(item.geometry && { geojson: { type: 'Feature', properties: { id: title }, geometry: item.geometry } }),
+            ...(tags && tags.length && { tags })
         };
     }
 
@@ -256,6 +329,112 @@ export class StacAPI {
                 return { rel: link.rel, href, title: link.title || this.labelForHref(href) };
             })
             .filter(Boolean);
+    }
+
+    /**
+     * Builds a full atlas config `{ name, description, layers }` from a STAC
+     * Catalog by walking every child Collection and turning each Item into a
+     * `cog` layer, tagged with its owning collection's title so the layer
+     * list can be searched/filtered by event (see `tags` handling in
+     * js/map-layer-controls.js). A Collection URL (or a Catalog whose items
+     * are linked directly, with no sub-collections) is treated as the one
+     * collection to import. Used by map-creator.html's "Import entire
+     * catalog" bulk-import flow (see `handleStacBulkImport` in js/map-creator.js).
+     *
+     * Items that fail to fetch or resolve (missing/broken asset, network
+     * error, ...) are skipped with a console warning rather than aborting
+     * the whole import — a bad item shouldn't block the other ~90.
+     *
+     * `onProgress({ done, total, collection })` is called after each
+     * collection finishes, for a "collection 3 of 10" style status line.
+     */
+    static async buildAtlasFromCatalog(catalogUrl, { onProgress } = {}) {
+        const catalog = await this.fetchJson(catalogUrl);
+        if (!this.isStacCatalogOrCollection(catalog)) {
+            throw new Error('URL does not point to a STAC Catalog or Collection');
+        }
+
+        const childLinks = this.listChildren(catalog, catalogUrl);
+        const collectionLinks = childLinks.filter(link => link.rel === 'child');
+        const directItemLinks = childLinks.filter(link => link.rel === 'item');
+
+        const collections = collectionLinks.length
+            ? collectionLinks
+            : [{ href: catalogUrl, title: catalog.title || catalog.id || this.labelForHref(catalogUrl), isSelf: true }];
+
+        const seenIds = new Set();
+        const uniqueId = (base) => {
+            let id = base;
+            for (let n = 2; seenIds.has(id); n++) id = `${base}-${n}`;
+            seenIds.add(id);
+            return id;
+        };
+
+        const layers = [];
+        const total = collections.length;
+        let done = 0;
+
+        for (const collectionLink of collections) {
+            let itemLinks, tag;
+            if (collectionLink.isSelf) {
+                itemLinks = directItemLinks;
+                tag = collectionLink.title;
+            } else {
+                const collectionData = await this.fetchJson(collectionLink.href);
+                itemLinks = this.listChildren(collectionData, collectionLink.href).filter(link => link.rel === 'item');
+                tag = collectionData.title || collectionData.id || collectionLink.title;
+            }
+
+            const itemConfigs = await Promise.all(itemLinks.map(async (itemLink) => {
+                try {
+                    const item = await this.fetchJson(itemLink.href);
+                    if (!this.isStacItem(item)) return null;
+                    const config = this.createCogConfigFromItem(item, {
+                        sourceUrl: itemLink.href,
+                        id: uniqueId(generateId(item.id || item.properties?.title, { random: false })),
+                        tags: [tag]
+                    });
+                    // Unlike a single interactive import (left unchecked so the
+                    // user opts in), a bulk-built atlas has nothing else on it —
+                    // leaving every layer off would load an "atlas" that shows
+                    // nothing until the user manually checks each one.
+                    config.initiallyChecked = true;
+                    return config;
+                } catch (error) {
+                    console.warn(`[STAC] Skipping item ${itemLink.href}: ${error.message}`);
+                    return null;
+                }
+            }));
+
+            layers.push(...itemConfigs.filter(Boolean));
+            done++;
+            onProgress?.({ done, total, collection: tag });
+        }
+
+        return {
+            name: catalog.title || catalog.id || this.labelForHref(catalogUrl),
+            ...(catalog.description && { description: catalog.description }),
+            layers
+        };
+    }
+
+    /**
+     * Publishes an atlas built by buildAtlasFromCatalog(sourceUrl) to a
+     * textb.org pad keyed off `sourceUrl` (see hashToPadId above). Returns
+     * `atlasUrl` (the `/r/<id>/` plain-text mirror — pass this straight to
+     * `?atlas=`, or the `load-atlas` postMessage map-creator.html's
+     * bulk-import button sends its parent, to open it immediately with no
+     * hosting step of your own) and `editUrl` (the live collaborative editor
+     * page at the same pad, for a human to read/tweak the JSON directly).
+     * Mirrors GeoLibreAPI.publishProject/PROJECT_RAW_URL in
+     * js/geolibre-api.js, except the pad id is content-addressed by the STAC
+     * URL rather than fixed, so everyone importing the same catalog/collection
+     * converges on one pad.
+     */
+    static async publishAtlas(atlasData, sourceUrl) {
+        const padId = await hashToPadId(sourceUrl);
+        await TextbSync.publish(padId, JSON.stringify(atlasData, null, 2));
+        return { atlasUrl: TextbSync.rawUrl(padId), editUrl: TextbSync.editUrl(padId) };
     }
 
     /**

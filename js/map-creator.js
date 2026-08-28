@@ -1053,6 +1053,16 @@ export class MapCreator {
             return `<option value="${index}">${icon} ${label}</option>`;
         }).join('');
 
+        // A Catalog's children are sub-collections (📁) to bulk-import across;
+        // a Collection's (or a Catalog-with-direct-items') children are the
+        // items (🛰️) themselves - either way buildAtlasFromCatalog() (called
+        // with `url`, this level's own URL) handles it, just the button
+        // wording differs.
+        const collectionCount = children.filter(c => c.rel === 'child').length;
+        const bulkImportLabel = collectionCount > 0
+            ? `Load atlas from all ${collectionCount} collections`
+            : `Load atlas from this collection (${children.length} image${children.length > 1 ? 's' : ''})`;
+
         const html = `
             <div id="stac-selector-container" class="mt-4 p-4 border border-gray-300 rounded bg-gray-50">
                 <p class="mb-2 font-semibold text-gray-900">STAC: ${title}</p>
@@ -1068,6 +1078,19 @@ export class MapCreator {
                 <div class="flex gap-2">
                     <button id="stac-open-btn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">Open</button>
                     <button id="cancel-stac-import-btn" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">Cancel</button>
+                </div>
+
+                <div class="mt-3 pt-3 border-t border-gray-200">
+                    <button id="stac-bulk-import-btn" class="w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors text-sm font-medium">
+                        🚀 ${bulkImportLabel}
+                    </button>
+                    <p class="mt-1 text-xs text-gray-500">
+                        Fetches every item${collectionCount > 0 ? ' in every collection' : ''} and opens them as one
+                        atlas (one <code>cog</code> layer per image, tagged by collection, described with its
+                        capture date).
+                    </p>
+                    <div id="stac-bulk-import-status" class="mt-2 text-xs text-gray-600"></div>
+                    <div id="stac-bulk-import-result" class="mt-2"></div>
                 </div>
             </div>
         `;
@@ -1103,6 +1126,8 @@ export class MapCreator {
             }
         });
 
+        $('#stac-bulk-import-btn').on('click', () => this.handleStacBulkImport(url, title));
+
         $('#cancel-stac-import-btn').on('click', () => {
             $('#stac-selector-container').remove();
             $('#settings-section').hide();
@@ -1110,6 +1135,101 @@ export class MapCreator {
         });
 
         this.setLoadingState('success');
+    }
+
+    // Walks a STAC Catalog (all collections) or a single Collection (its own
+    // items) and builds one atlas out of it (StacAPI.buildAtlasFromCatalog in
+    // js/stac-url-api.js). The built atlas is held in memory so the result
+    // panel's two actions don't each re-fetch every item: "Load in map" (the
+    // primary action) publishes it to a shared textb.org pad and tells the
+    // parent to open `?atlas=<that pad's URL>`, the same way GeoLibreAPI
+    // publishes whole-map projects for GeoLibre's `?url=` loader; "Download
+    // JSON" is the fallback for anyone who wants a durable, self-hosted link
+    // instead of the ephemeral pad.
+    async handleStacBulkImport(catalogUrl, title) {
+        const $btn = $('#stac-bulk-import-btn');
+        const $status = $('#stac-bulk-import-status');
+        const $result = $('#stac-bulk-import-result');
+
+        $btn.prop('disabled', true).addClass('opacity-60');
+        $status.text('Fetching…');
+        $result.empty();
+
+        let atlasData;
+        try {
+            atlasData = await SourceResolver.StacAPI.buildAtlasFromCatalog(catalogUrl, {
+                onProgress: ({ done, total, collection }) => {
+                    $status.text(`Fetched ${done}/${total} collections… (${collection})`);
+                }
+            });
+        } catch (error) {
+            $status.text('');
+            alert('Could not build atlas from STAC catalog: ' + error.message);
+            $btn.prop('disabled', false).removeClass('opacity-60');
+            return;
+        }
+
+        $btn.prop('disabled', false).removeClass('opacity-60');
+
+        if (atlasData.layers.length === 0) {
+            $status.text('');
+            alert('No importable items found in this STAC catalog.');
+            return;
+        }
+
+        const collectionsFound = new Set(atlasData.layers.map(l => l.tags?.[0])).size;
+        $status.text(`Publishing ${atlasData.layers.length} layers across ${collectionsFound} collection${collectionsFound > 1 ? 's' : ''}…`);
+
+        // Publish right away (rather than on click) so "Load in map" is a
+        // single instant postMessage, and so the pad link below is ready to
+        // open as soon as the result panel appears.
+        let atlasUrl, editUrl;
+        try {
+            ({ atlasUrl, editUrl } = await SourceResolver.StacAPI.publishAtlas(atlasData, catalogUrl));
+        } catch (error) {
+            $status.text('');
+            alert('Could not publish atlas: ' + error.message);
+            return;
+        }
+
+        $status.text(`Built ${atlasData.layers.length} layers across ${collectionsFound} collection${collectionsFound > 1 ? 's' : ''}.`);
+
+        $result.html(`
+            <div class="flex gap-2">
+                <button id="stac-bulk-load-btn" class="flex-1 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium">
+                    🚀 Load in map
+                </button>
+                <button id="stac-bulk-download-btn" class="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors text-sm">
+                    ⬇ Download JSON
+                </button>
+            </div>
+            <div class="mt-2 text-xs">
+                <a href="${editUrl}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">
+                    🔗 Open the generated pad
+                </a>
+                <span class="text-gray-500"> — view or hand-edit the atlas JSON before/after loading it.</span>
+            </div>
+        `);
+
+        $('#stac-bulk-load-btn').on('click', () => {
+            // preserveHash: false - a bulk-imported catalog/collection is
+            // rarely anywhere near wherever the map was previously centered,
+            // so drop the stale #zoom/lat/lng instead of carrying it into the
+            // new atlas; map-init.js's "no hash" path picks the camera itself.
+            window.parent.postMessage({ type: 'load-atlas', atlasUrl, preserveHash: false }, '*');
+        });
+
+        $('#stac-bulk-download-btn').on('click', () => {
+            const blob = new Blob([JSON.stringify(atlasData, null, 2)], { type: 'application/json' });
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = `${this.generateId(title) || 'stac-catalog'}.atlas.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+        });
     }
 
     setLoadingState(state) {

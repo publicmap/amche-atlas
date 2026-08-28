@@ -335,7 +335,7 @@ export class MapBrowserControl {
 
             if (event.data.type === 'load-atlas') {
                 console.log('[MapBrowserControl] Received load-atlas message');
-                this._handleLoadAtlas(event.data.atlasUrl);
+                this._handleLoadAtlas(event.data.atlasUrl, { preserveHash: event.data.preserveHash !== false });
             }
 
             if (event.data.type === 'zoom-to-bounds') {
@@ -1171,7 +1171,7 @@ export class MapBrowserControl {
         );
     }
 
-    _handleLoadAtlas(atlasUrl) {
+    _handleLoadAtlas(atlasUrl, { preserveHash = true } = {}) {
         console.log('[MapBrowserControl] Loading atlas:', atlasUrl);
 
         // Build new URL with atlas parameter
@@ -1202,8 +1202,11 @@ export class MapBrowserControl {
             finalUrl += '?' + newParams.join('&');
         }
 
-        // Add hash if it exists
-        if (window.location.hash) {
+        // Add hash if it exists - unless the caller wants a clean load (no
+        // stale #zoom/lat/lng carried over) so map-init.js's "no hash" path
+        // can auto-fit the camera to the new atlas instead of keeping
+        // whatever position the user was previously looking at.
+        if (preserveHash && window.location.hash) {
             finalUrl += window.location.hash;
         }
 

@@ -1033,7 +1033,7 @@ export class MapboxAPI {
         }
 
         if (config.geojson) {
-            const geojsonSourceId = `tms-geojson-${groupId}`;
+            const geojsonSourceId = `geojson-overlay-${groupId}`;
             if (visible && !this._map.getSource(geojsonSourceId)) {
                 this._addSimpleStyleGeoJSONOverlay(groupId, config.geojson, visible);
             } else {
@@ -1117,6 +1117,10 @@ export class MapboxAPI {
             }, 'raster');
 
             this._addLayerWithSlot(layerConfig, LayerOrderManager.getInsertPosition(this._map, 'cog', null, config, this._orderedGroups));
+
+            if (config.geojson && visible) {
+                this._addSimpleStyleGeoJSONOverlay(groupId, config.geojson, visible);
+            }
         } else {
             this._updateCOGLayerVisibility(groupId, config, visible);
         }
@@ -1129,6 +1133,16 @@ export class MapboxAPI {
         if (this._map.getLayer(layerId)) {
             this._map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
         }
+
+        if (config.geojson) {
+            const geojsonSourceId = `geojson-overlay-${groupId}`;
+            if (visible && !this._map.getSource(geojsonSourceId)) {
+                this._addSimpleStyleGeoJSONOverlay(groupId, config.geojson, visible);
+            } else {
+                this._updateSimpleStyleGeoJSONOverlayVisibility(groupId, visible);
+            }
+        }
+
         return true;
     }
 
@@ -1142,6 +1156,11 @@ export class MapboxAPI {
         if (this._map.getSource(sourceId)) {
             this._map.removeSource(sourceId);
         }
+
+        if (config.geojson) {
+            this._removeSimpleStyleGeoJSONOverlay(groupId);
+        }
+
         return true;
     }
 
@@ -1158,7 +1177,7 @@ export class MapboxAPI {
     }
 
     _addSimpleStyleGeoJSONOverlay(groupId, geojson, visible) {
-        const sourceId = `tms-geojson-${groupId}`;
+        const sourceId = `geojson-overlay-${groupId}`;
 
         if (this._map.getSource(sourceId)) {
             return;
@@ -1202,7 +1221,7 @@ export class MapboxAPI {
     }
 
     _updateSimpleStyleGeoJSONOverlayVisibility(groupId, visible) {
-        const sourceId = `tms-geojson-${groupId}`;
+        const sourceId = `geojson-overlay-${groupId}`;
         const fillLayerId = `${sourceId}-fill`;
         const lineLayerId = `${sourceId}-line`;
 
@@ -1215,7 +1234,7 @@ export class MapboxAPI {
     }
 
     _removeSimpleStyleGeoJSONOverlay(groupId) {
-        const sourceId = `tms-geojson-${groupId}`;
+        const sourceId = `geojson-overlay-${groupId}`;
         const fillLayerId = `${sourceId}-fill`;
         const lineLayerId = `${sourceId}-line`;
 

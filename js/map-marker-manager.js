@@ -360,9 +360,9 @@ export class MapMarkerManager {
                 transition: background 0.15s, opacity 0.15s;
             ">
                 <div class="feature-badge-header" style="display: flex; flex-direction: row; align-items: center; gap: 4px; width: 100%;">
-                    <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 0;">
-                        <span style="font-size: 8px; line-height: 1.1; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap;">${this._escapeAttr(fieldName)}</span>
-                        <span class="badge-value" data-full="${this._escapeAttr(value)}" data-short="${this._escapeAttr(display)}" style="font-size: 11px; line-height: 1.2; font-weight: 700; color: #f3f4f6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this._escapeAttr(display)}</span>
+                    <div style="display: flex; flex-direction: column; align-items: flex-start; width: 100%; min-width: 0;">
+                        <span style="font-size: 8px; line-height: 1.1; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; min-width: 0;">${this._escapeAttr(fieldName)}</span>
+                        <span class="badge-value" data-full="${this._escapeAttr(value)}" data-short="${this._escapeAttr(display)}" style="font-size: 11px; line-height: 1.2; font-weight: 700; color: #f3f4f6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; min-width: 0;">${this._escapeAttr(display)}</span>
                     </div>
                 </div>
                 ${detailsHTML}
@@ -1218,6 +1218,12 @@ export class MapMarkerManager {
         valueSpan.style.whiteSpace = 'normal';
         valueSpan.style.overflow = 'visible';
         valueSpan.style.textOverflow = 'clip';
+        // A single long unbroken token (an id-like string with no spaces)
+        // would otherwise ignore the normal wrap and push past the badge's
+        // width even with max-width set — force a mid-word break so it wraps
+        // within the container instead.
+        valueSpan.style.overflowWrap = 'anywhere';
+        valueSpan.style.wordBreak = 'break-word';
     }
 
     _collapseBadgeValue(valueSpan) {

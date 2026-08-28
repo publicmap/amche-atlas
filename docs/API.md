@@ -688,6 +688,12 @@ A single COG `.tif` served over HTTP. Reads the COG's overview pyramid via HTTP 
 
 **Asset selection** (`StacAPI.pickCogAsset`): an explicit asset key (from `viz=asset:<key>`) wins if present; otherwise the first asset is picked in this preference order — `roles` includes `visual` **and** a GeoTIFF media type, then any GeoTIFF-typed asset, then any `visual`-role asset, then simply the first asset with an `href`.
 
+**Title** (`StacAPI.buildTitle`): every resulting `cog` layer's `title` is prefixed with its capture date as `[YYYY-MM-DD]` (from `properties.datetime`), e.g. `[2026-08-27] Vantor WV03 Image B040001100882F10` — so layer lists (single import or the bulk atlas below) sort/scan chronologically at a glance.
+
+**Footprint outline:** when the STAC Item has a `geometry`, it's carried into the resulting `cog` config's `geojson` field and drawn as a fill+line outline (the same `config.geojson` overlay mechanism `tms` layers use for mapwarper mosaics — see `_addSimpleStyleGeoJSONOverlay` in `js/mapbox-api.js`). This matters because a scene's `bbox` is an axis-aligned rectangle that can cover a lot of empty area for a narrow or diagonal footprint — the outline traces the actual scene geometry. The footprint feature's `properties.id` is set to the layer's title, so hovering it in the inspect badge (`js/map-marker-manager.js`, which falls back to a feature's `id` property when the layer has no `inspect` config of its own) shows the title rather than an opaque generated feature id.
+
+**Attribution** (`StacAPI.buildAttribution`): the layer's `attribution` links through developmentseed.org's stac-map viewer — `https://developmentseed.org/stac-map/?href=<item-json-url>&viz=asset:<picked-key>` — rather than straight at the raw Item JSON, so clicking it opens something explorable (footprint, asset list, a preview of the picked asset) instead of a JSON blob.
+
 **Examples:**
 ```
 Direct COG:
@@ -701,6 +707,21 @@ stac-map viewer share link (percent-encoded, see note above):
 ```
 
 Pasting a STAC Collection (`collection.json`) or Catalog (`catalog.json`) URL only works through `map-creator.html`'s picker UI, not the `stac:` shorthand — a catalog has no single resulting layer to encode compactly, so there's nothing for the URL API to point at until a specific item is chosen.
+
+**Bulk import (catalog or a single collection → atlas):** every level of the picker also offers a **"Load atlas from…"** button — "…all N collections" when browsing a Catalog, or "…this collection (N images)" once you've drilled into one. Either walks the relevant Collection(s), fetches every Item, and turns each into a `cog` layer (`StacAPI.buildAtlasFromCatalog` in `js/stac-url-api.js`), scoped to whichever level's URL the button was clicked from — the whole catalog, or just that one collection.
+
+- Every layer is tagged (`tags: [collectionTitle]`) with its owning collection's title, so the layer list can be searched/filtered by event once loaded.
+- Every layer's `description` includes `Captured <datetime>` from the item's `properties.datetime`, same as a single-item import (see `buildDescription` above).
+- A Collection URL (or a Catalog whose items are linked directly with no sub-collections) is treated as the one collection to import — every layer gets that collection's tag.
+- Items that fail to fetch or have no usable COG asset are skipped (logged to the console) rather than aborting the whole import.
+- Layer ids are deterministic (derived from the STAC item's own `id`, deduplicated within the run) rather than the random suffix a single interactive import gets — reflects the fact that this list is regenerated in bulk rather than added to a live map one at a time.
+- Unlike a single interactive import (added unchecked, so the user opts in), every layer in a bulk-built atlas is `initiallyChecked: true` — there's nothing else on this atlas, so leaving everything off would load a map that visibly shows nothing until each layer is checked by hand.
+
+Once built, `StacAPI.publishAtlas(atlasData, sourceUrl)` immediately publishes the atlas to a textb.org pad (see `js/textb-sync.js`) and the result panel offers:
+
+- **🚀 Load in map** (the primary action) — tells the parent window to navigate to `?atlas=<the pad's `/r/` raw-text URL>`, the way `js/geolibre-api.js` publishes whole-map projects to GeoLibre's `?url=` loader. No hosting step of your own — the map just opens with the new atlas. The pad id is a SHA-256 hash of `sourceUrl` (the catalog/collection URL being imported), not fixed — so importing the *same* STAC URL always resolves to the *same* pad, and anyone else who imports that URL converges on it too without coordinating an id. It's still just a "publish, then immediately load" transport, not a durable link: the next bulk import of that same URL overwrites it.
+- **🔗 Open the generated pad** — a link to the pad's live collaborative editor page (`TextbSync.editUrl`, plain `/<id>/` rather than `/r/<id>/`), so the atlas JSON can be inspected or hand-edited directly — e.g. to prune layers or fix a title — before/after loading it.
+- **⬇ Download JSON** — saves the atlas as a `.atlas.json` file instead, for anyone who wants a durable, self-hosted link (jsonkeeper.com, a gist, ...) rather than the pad.
 
 ### `geojson` — GeoJSON / KML
 
