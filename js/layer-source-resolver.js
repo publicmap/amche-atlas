@@ -260,6 +260,12 @@ export function detectLayerSourceType(url) {
     if (isOverpassShareUrl(url)) return SOURCE_TYPES.OVERPASS_SHARE;
     if (isBharatlasUrl(url)) return SOURCE_TYPES.BHARATLAS;
     if (isGistUrl(url)) return SOURCE_TYPES.GIST;
+    // Every textb.org pad this app reads/writes holds JSON (atlas configs,
+    // GeoLibre projects, STAC-built atlases) regardless of whether the pad
+    // id happens to end in ".json" - hand-named pads (e.g. shared via the
+    // `/t/<name>/` view) don't follow that convention. Must be checked before
+    // the generic `\.json$` fallback below, which only catches generated ids.
+    if (isTextbUrl(url)) return SOURCE_TYPES.JSON_FILE;
     if (isWMSUrl(url)) return SOURCE_TYPES.WMS;
     if (isCSVUrl(url)) return SOURCE_TYPES.CSV;
     if (AllmapsAPI.isAllmapsUrl(url)) return SOURCE_TYPES.ALLMAPS;
@@ -268,9 +274,8 @@ export function detectLayerSourceType(url) {
     if (StacAPI.isCogUrl(url)) return SOURCE_TYPES.COG;
     if (urlLower.includes('jsonkeeper.com/b/')) return SOURCE_TYPES.JSON_FILE;
     if (/\.geojson\/?($|\?)/i.test(url)) return SOURCE_TYPES.GEOJSON_FILE;
-    // Trailing slash tolerated: textb.org pad URLs (see stac-url-api.js's
-    // hashToPadId / textb-sync.js's rawUrl/editUrl) are always of the form
-    // `.../<name>.json/`, since that host's pad URLs end in `/` by convention.
+    // Trailing slash tolerated for hosts (other than textb.org, caught above)
+    // that serve JSON from a directory-style URL ending in `.json/`.
     if (/\.json\/?$/i.test(urlLower)) return SOURCE_TYPES.JSON_FILE;
     if (/\.kml\/?$/i.test(urlLower)) return SOURCE_TYPES.KML;
     if (/\.(geojsonl|ndjson|jsonl)\/?$/i.test(urlLower)) return SOURCE_TYPES.GEOJSONL;

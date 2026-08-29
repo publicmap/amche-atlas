@@ -69,21 +69,30 @@
     gap: 4px;
     height: 16px;
     max-width: 160px;
-    padding: 0;
+    padding: 2px 5px;
     margin: 0;
     background: transparent;
     border: none;
+    border-radius: 3px;
     color: #f3f4f6;
     font-size: 0.625rem;
     font-weight: 600;
     line-height: 1;
     cursor: pointer;
-    transition: color 0.15s;
+    transition: color 0.15s, background 0.15s;
 }
 
-.atlas-layer-menu-btn:hover,
-.atlas-layer-menu-btn.active {
+.atlas-layer-menu-btn:hover {
     color: var(--primary-color);
+}
+
+/* Explicit background (not just text color) so this doesn't depend on the
+   unrelated sitewide `button.active` rule - which sets an opaque amber
+   background too, but via a specificity collision left the text amber as
+   well, making it invisible against its own background. */
+.atlas-layer-menu-btn.active {
+    background: var(--primary-color);
+    color: #000;
 }
 
 .atlas-layer-menu-label {
@@ -248,12 +257,57 @@
     background: var(--primary-hover) !important;
 }
 
-/* Search Box Control - floating top-right mapboxgl control (see js/search-box-control.js).
-   Holds the search input and the geolocation button in a single row. */
+/* Primary top-left row control (see js/search-box-control.js): the Maps
+   button, the search box, and the geolocation button together. Both the
+   search box custom element itself (not just its ::part(input)) and the
+   geolocation button are pinned to the same 36px "top row" height so their
+   icons/text line up exactly instead of just being flex-centered against
+   whatever intrinsic height each one happens to render at. */
 .search-box-row {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* Mapbox's own corner-stacking rule (`.mapboxgl-ctrl-top-left .mapboxgl-ctrl
+   { margin: 10px 0 0 10px }`) is a descendant selector, so it still matches
+   the Maps button and geolocation button here even though they're nested
+   inside this row rather than being direct corner children - reset it so
+   the row's own `gap` is the only spacing between them. */
+.search-box-row>.map-browser-control,
+.search-box-row>.map-inspector-control,
+.search-box-row>.geolocation-control-header {
+    margin: 0 !important;
+}
+
+/* The inspector button sits in the same row (see mountInspectorControl in
+   js/search-box-control.js) rather than in the stacked top-left corner, so
+   size it to the row's 36px height instead of the 31px Mapbox control
+   default, and drop the control-group shadow the row's other buttons don't
+   carry either. */
+.search-box-row>.map-inspector-control {
+    box-shadow: none !important;
+}
+
+.search-box-row>.map-inspector-control.mapboxgl-ctrl-group button.map-feature-control-btn {
+    width: 36px !important;
+    height: 36px !important;
+}
+
+/* @mapbox/search-js-web inserts this as a sibling of <mapbox-search-box>
+   (its default, unused suggestions listbox - this app renders its own via
+   js/search/search-suggestions-panel.js instead). Its own CSS hides its
+   inner content, but the host element itself is left at its default
+   `display: inline`, so it still counts as a flex item in the row - adding
+   an extra `gap` worth of empty space between the search box and whatever
+   follows it. `display: none` removes it from the flex flow entirely. */
+mapbox-search-listbox {
+    display: none;
+}
+
+mapbox-search-box {
+    height: 36px;
+    box-sizing: border-box;
 }
 
 #mapbox-search-box {
@@ -1194,6 +1248,34 @@ main {
     display: none !important;
 }
 
+/* Standard-tier map control theme: one dark/amber look + one size (30px
+   square) shared by every floating map-canvas control EXCEPT:
+   - MapAttributionControl (.mapboxgl-ctrl-attrib), which keeps its own
+     light theme by design - excluded via :not() below.
+   - The "top row" controls (map-browser's Maps button, the search-box row,
+     and the geolocation button embedded in it), which are intentionally
+     larger (36px) and already fully self-styled with their own !important
+     rules, so this generic rule never overrides them.
+   Covers: StreetviewControl, Terrain3DControl, NearbyFeaturesControl,
+   TimeControl, MapExportControl, ButtonExternalMapLinks, MeasureControl,
+   and Mapbox's own NavigationControl (compass) and ScaleControl chrome. */
+.mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button:not(.geolocation-btn-header) {
+    width: 30px !important;
+    height: 30px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    background-color: #1f2937 !important;
+    color: var(--primary-color) !important;
+    border: none !important;
+}
+
+.mapboxgl-ctrl:not(.mapboxgl-ctrl-attrib) button:not(:disabled):not(.geolocation-btn-header):hover {
+    background-color: #374151 !important;
+    color: var(--primary-hover) !important;
+}
+
 /* Measure control: single toggle that expands to reveal the draw/clear tools */
 .maplibregl-measures .measure-tools button svg {
     width: 100%;
@@ -1201,10 +1283,11 @@ main {
 }
 
 .maplibregl-measures .measure-toggle-btn sl-icon {
-    color: #333;
+    color: inherit;
 }
 
-/* Toggled-on state: black background with the brand yellow icon */
+/* Toggled-on state: black background with the brand yellow icon, matching
+   the same solid-fill-when-active convention as the other map controls */
 .maplibregl-measures .measure-toggle-btn.active {
     background-color: #000 !important;
 }
@@ -1215,23 +1298,13 @@ main {
 
 /* Separator lines between the expanded sub-tool buttons */
 .maplibregl-measures .measure-tools button {
-    border-top: 1px solid #ddd;
+    border-top: 1px solid #374151;
 }
 
 /* The currently active draw mode highlights its icon in the brand yellow */
 .maplibregl-measures .measure-tools button.active svg,
 .maplibregl-measures .measure-tools button.active svg path {
     fill: #f4cb00 !important;
-}
-
-/* Only apply white background to non-geolocation buttons */
-.mapboxgl-ctrl-group button:not(.geolocation-btn-header) {
-    background-color: white;
-    color: black;
-}
-
-.mapboxgl-ctrl button:not(:disabled):not(.geolocation-btn-header):hover {
-    background-color: white;
 }
 
 /* Add new styles for layer group cards */
@@ -4858,32 +4931,17 @@ Styles moved from layer-settings.js
    Map Feature Control Styles
    ======================================== */
 
-/* Main Panel */
+/* Main Panel - docked to the left below the header nav, with the same geometry
+   as the map browser's overlay. Position, offset and width are set inline by
+   js/map-feature-control-iframe.js (_createPanel / _handleResize), including
+   the 40%/75% desktop-vs-mobile width, so only the shared chrome lives here. */
 .map-feature-panel {
-    position: absolute;
-    top: 24px;
-    right: 50px;
-    width: 350px;
-    max-width: 85vw;
-    max-height: calc(100vh - 120px);
-    min-width: 200px;
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
+    z-index: 999;
     display: flex;
     flex-direction: column;
     font-size: 12px;
     overflow: hidden;
-    resize: both;
-}
-
-@media (max-width: 768px) {
-    .map-feature-panel {
-        width: 100%;
-        max-width: 100%;
-        right: 0;
-        left: 0;
-    }
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .map-feature-panel-content {
@@ -4963,33 +5021,18 @@ Styles moved from layer-settings.js
     background: #e0f2fe;
 }
 
-/* Control Button */
+/* Control Button - sizing/theme come from the shared standard-tier map
+   control rule (.mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button); this
+   only sets what's specific to this control's icon markup. */
 .map-feature-control-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
     font-size: 12px;
     font-weight: bold;
-    color: #666;
     background-image: none !important;
 }
 
 .map-feature-control-btn sl-icon {
-    font-size: 18px;
     color: inherit;
     display: flex !important;
-    width: 18px;
-    height: 18px;
-}
-
-.map-feature-control-btn:hover {
-    background-color: #f0f0f0;
-}
-
-.map-feature-control-btn:not(:hover) {
-    background-color: #ffffff;
 }
 
 /* Header Actions - Primary Action Buttons (shared styling) */

@@ -1,14 +1,20 @@
 /**
- * SearchBoxControl - Mapbox GL JS control that hosts the <mapbox-search-box>
- * web component (and the geolocation button, in the same row) as a floating
- * top-right map control.
+ * SearchBoxControl - Mapbox GL JS control hosting the primary top-left row:
+ * the map-browser "Maps" button, the map-inspector button, the
+ * <mapbox-search-box> web component, and the geolocation button, all in one
+ * row, in that order.
  *
  * onAdd() only builds the empty row and returns it - it's added to the map
- * early (alongside the other top-right controls) purely to claim its slot at
- * the top of the top-right stack, since Mapbox stacks controls in insertion
- * order and the actual search behavior (MapSearchControl) can't initialize
- * until much later (map style loaded, layer registry ready, etc). Once ready,
- * the caller populates the row via mount({ geolocationEl }).
+ * immediately (before map.on('load')) purely to claim its slot at the top of
+ * the top-left stack, since Mapbox stacks controls in insertion order and the
+ * other two pieces aren't ready yet at that point:
+ *   - MapBrowserControl's element is built around the same time (see
+ *     map-init.js) and inserted via mountBrowserControl() right away.
+ *   - MapFeatureControl's element is built on map load and inserted via
+ *     mountInspectorControl().
+ *   - The search box itself can't initialize until much later (map style
+ *     loaded, layer registry ready, etc) - see mount({ geolocationEl }),
+ *     called once MapSearchControl is ready.
  *
  * MapSearchControl (see map-search-control.js) looks up the search box via
  * document.querySelector('mapbox-search-box'), so mount() must run before
@@ -35,12 +41,37 @@ export class SearchBoxControl {
     }
 
     getDefaultPosition() {
-        return 'top-right';
+        return 'top-left';
+    }
+
+    // Inserts MapBrowserControl's element (its own onAdd() return value) as
+    // the first item in the row.
+    mountBrowserControl(browserControlEl) {
+        if (this._browserEl || !browserControlEl) return; // already mounted
+        this._browserEl = browserControlEl;
+        this._row.insertBefore(browserControlEl, this._row.firstChild);
+    }
+
+    // Inserts MapFeatureControl's element (its own onAdd() return value)
+    // directly after the Maps button, so the inspector sits between the map
+    // browser and the search box. Position-based rather than order-based, so
+    // it works whether or not the browser button and search box are mounted
+    // yet.
+    mountInspectorControl(inspectorEl) {
+        if (this._inspectorEl || !inspectorEl) return; // already mounted
+        this._inspectorEl = inspectorEl;
+        inspectorEl.classList.add('map-inspector-control');
+
+        if (this._browserEl && this._browserEl.parentNode === this._row) {
+            this._browserEl.insertAdjacentElement('afterend', inspectorEl);
+        } else {
+            this._row.insertBefore(inspectorEl, this._row.firstChild);
+        }
     }
 
     // Populates the row with the search box and, when provided, the
     // geolocation control's element (already built via its own onAdd) so it
-    // renders in the same row as the search input.
+    // renders after the Maps button, in the same row as the search input.
     mount({ geolocationEl } = {}) {
         if (this._searchBox) return; // already mounted
 

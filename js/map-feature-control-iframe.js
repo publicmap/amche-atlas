@@ -38,6 +38,15 @@ export class MapFeatureControl {
     }
 
     /**
+     * Height of the page header the panel docks below, matching the offset
+     * map-browser-control.js applies to its own overlay.
+     */
+    _getHeaderHeight() {
+        const header = document.querySelector('.header-nav');
+        return header ? header.offsetHeight : 0;
+    }
+
+    /**
      * Standard Mapbox GL JS control method - called when control is added to map
      */
     onAdd(map) {
@@ -179,7 +188,7 @@ export class MapFeatureControl {
         const button = document.createElement('button');
         button.className = 'mapboxgl-ctrl-icon map-feature-control-btn map-control-dark';
         button.type = 'button';
-        button.setAttribute('aria-label', 'Map Inspector');
+        button.setAttribute('aria-label', 'Order layers');
         button.style.cssText = `
             width: 31px;
             height: 31px;
@@ -188,7 +197,7 @@ export class MapFeatureControl {
             justify-content: center;
             padding: 0;
         `;
-        button.innerHTML = '<span style="font-size: 20px; line-height: 1;"><sl-icon name="layers" style="font-size: 14px;" aria-hidden="true" library="default"></sl-icon></span>';
+        button.innerHTML = '<span style="font-size: 20px; line-height: 1;"><sl-icon name="arrow-down-up" style="font-size: 14px;" aria-hidden="true" library="default"></sl-icon></span>';
 
         // Add event handlers
         button.addEventListener('click', () => {
@@ -208,28 +217,23 @@ export class MapFeatureControl {
         this._panel = document.createElement('div');
         this._panel.className = 'map-feature-panel';
 
-        const isMobile = window.innerWidth <= 768;
-        const initialHeight = isMobile ? '40vh' : '500px';
-        const maxHeight = isMobile ? '40vh' : '85vh';
-        const panelWidth = isMobile ? '100%' : this.options.maxWidth;
-        const panelMaxWidth = isMobile ? '100%' : 'calc(100vw - 70px)';
-        const panelRight = isMobile ? '0' : '8px';
-
+        // Docked to the left below the header nav, with the same geometry the
+        // map browser uses (see _createOverlay in map-browser-control.js): full
+        // height, 40% wide on desktop / 75% on mobile. _handleResize keeps the
+        // width and header offset in sync.
         this._panel.style.cssText = `
             display: none;
             position: fixed;
-            top: 24px;
-            right: ${panelRight};
-            width: ${panelWidth};
-            max-width: ${panelMaxWidth};
-            height: ${initialHeight};
-            max-height: ${maxHeight};
-            background: #111827;
-            border-radius: 8px;
+            top: ${this._getHeaderHeight()}px;
+            left: 0;
+            bottom: 0;
+            width: ${window.matchMedia('(min-width: 768px)').matches ? '40%' : '75%'};
+            background: #1f2937;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            z-index: 1000;
+            border-right: 1px solid #374151;
+            border-bottom: 1px solid #374151;
+            z-index: 999;
             overflow: hidden;
-            transition: height 0.3s ease;
         `;
 
         // Create iframe element but defer setting src until preload() or first
@@ -283,23 +287,6 @@ export class MapFeatureControl {
         this._loadingOverlay.appendChild(loadingText);
         this._panel.appendChild(this._loadingOverlay);
 
-        // Create drag handle overlay (invisible, sits on top of iframe header "Map Layers" text only)
-        this._dragHandle = document.createElement('div');
-        this._dragHandle.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 120px;
-            height: 48px;
-            cursor: move;
-            z-index: 10;
-            background: transparent;
-        `;
-        this._panel.appendChild(this._dragHandle);
-
-        // Setup drag on the panel itself
-        this._setupPanelDrag();
-
         // Close panel when clicking outside
         setTimeout(() => {
             document.addEventListener('click', (e) => {
@@ -309,70 +296,12 @@ export class MapFeatureControl {
             });
         }, 100);
 
-        // Add panel to map container
-        this._map.getContainer().appendChild(this._panel);
+        // Docked to the page, not the map canvas, so it sits beside the map the
+        // way the browser panel does rather than floating over it.
+        document.body.appendChild(this._panel);
 
         // Apply initial responsive sizing
         this._handleResize();
-    }
-
-    /**
-     * Setup drag functionality on the panel
-     */
-    _setupPanelDrag() {
-        let isDragging = false;
-        let currentX = 0;
-        let currentY = 0;
-        let initialX = 0;
-        let initialY = 0;
-        let xOffset = 0;
-        let yOffset = 0;
-
-        const dragStart = (e) => {
-            initialX = e.clientX - xOffset;
-            initialY = e.clientY - yOffset;
-            isDragging = true;
-
-            // Disable iframe pointer events during drag
-            this._iframe.style.pointerEvents = 'none';
-            this._dragHandle.style.cursor = 'grabbing';
-        };
-
-        const dragEnd = () => {
-            initialX = currentX;
-            initialY = currentY;
-            isDragging = false;
-
-            // Re-enable iframe pointer events
-            this._iframe.style.pointerEvents = 'auto';
-            this._dragHandle.style.cursor = 'move';
-        };
-
-        const drag = (e) => {
-            if (isDragging) {
-                e.preventDefault();
-
-                currentX = e.clientX - initialX;
-                currentY = e.clientY - initialY;
-
-                xOffset = currentX;
-                yOffset = currentY;
-
-                this._panel.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
-            }
-        };
-
-        // Listen on the drag handle overlay
-        this._dragHandle.addEventListener('mousedown', dragStart);
-        document.addEventListener('mouseup', dragEnd);
-        document.addEventListener('mousemove', drag);
-
-        // Store listeners for cleanup
-        this._panelDragListeners = {
-            dragStart,
-            dragEnd,
-            drag
-        };
     }
 
     /**
@@ -602,15 +531,27 @@ export class MapFeatureControl {
             return;
         }
 
-        const layerJson = encodeURIComponent(JSON.stringify(layer));
-        const editParam = options.edit ? '&edit=true' : '';
-        iframe.src = `map-information.html?layer=${layerJson}${editParam}`;
+        // The config is handed over via postMessage rather than a ?layer= query
+        // param: a layer with inline GeoJSON serializes to far more than the
+        // browser's URL length limit.
+        iframe.src = 'map-information.html';
         modal.style.display = 'block';
+
+        const readyHandler = (e) => {
+            if (e.data?.type !== 'layer-info-ready') return;
+            if (!iframe.contentWindow || e.source !== iframe.contentWindow) return;
+            iframe.contentWindow.postMessage({
+                type: 'layer-info-data',
+                layer: layer,
+                edit: !!options.edit
+            }, '*');
+        };
 
         const closeHandler = (e) => {
             if (e.data.type === 'close-layer-info') {
                 modal.style.display = 'none';
                 iframe.src = '';
+                window.removeEventListener('message', readyHandler);
                 window.removeEventListener('message', closeHandler);
             }
         };
@@ -620,10 +561,12 @@ export class MapFeatureControl {
                 modal.style.display = 'none';
                 iframe.src = '';
                 document.removeEventListener('keydown', keyHandler);
+                window.removeEventListener('message', readyHandler);
                 window.removeEventListener('message', closeHandler);
             }
         };
 
+        window.addEventListener('message', readyHandler);
         window.addEventListener('message', closeHandler);
         document.addEventListener('keydown', keyHandler);
     }
@@ -1892,6 +1835,11 @@ export class MapFeatureControl {
     _showPanel() {
         this.preload();
 
+        // Both panels dock to the same left slot, so only one can be open.
+        if (window.browserControl?._isOpen) {
+            window.browserControl.closeBrowser();
+        }
+
         // Only show loading overlay if inspector hasn't been initialized yet
         if (this._loadingOverlay && !this._inspectorInitialized) {
             this._loadingOverlay.style.display = 'flex';
@@ -1916,25 +1864,24 @@ export class MapFeatureControl {
     }
 
     /**
+     * Public close, for callers that need to dismiss the panel without knowing
+     * its internals (e.g. the map browser claiming the same dock slot).
+     */
+    closePanel() {
+        if (this._panel && this._panel.style.display !== 'none') {
+            this._hidePanel();
+        }
+    }
+
+    /**
      * Handle resize events
      */
     _handleResize() {
         if (!this._panel) return;
 
-        // Adjust panel size on mobile
-        if (window.innerWidth <= 768) {
-            this._panel.style.width = '100%';
-            this._panel.style.maxWidth = '100%';
-            this._panel.style.maxHeight = '40vh';
-            this._panel.style.left = 'auto';
-            this._panel.style.right = '0';
-        } else {
-            this._panel.style.width = this.options.maxWidth;
-            this._panel.style.maxWidth = 'calc(100vw - 70px)';
-            this._panel.style.maxHeight = '85vh';
-            this._panel.style.left = 'auto';
-            this._panel.style.right = '8px';
-        }
+        // Same breakpoints the map browser docks at
+        this._panel.style.top = `${this._getHeaderHeight()}px`;
+        this._panel.style.width = window.matchMedia('(min-width: 768px)').matches ? '40%' : '75%';
 
         // Request iframe to recalculate height
         if (this._iframe && this._iframe.contentWindow) {
@@ -1956,13 +1903,6 @@ export class MapFeatureControl {
 
         window.removeEventListener('resize', this._resizeListener);
         window.removeEventListener('orientationchange', this._resizeListener);
-
-        // Clean up drag listeners
-        if (this._panelDragListeners && this._dragHandle) {
-            this._dragHandle.removeEventListener('mousedown', this._panelDragListeners.dragStart);
-            document.removeEventListener('mouseup', this._panelDragListeners.dragEnd);
-            document.removeEventListener('mousemove', this._panelDragListeners.drag);
-        }
 
         // Clean up map event listeners
         if (this._map && this._boundsUpdateListener) {
@@ -2485,18 +2425,11 @@ export class MapFeatureControl {
     }
 
     /**
-     * Adjust panel height based on content
+     * The panel is docked full-height (see _createPanel), so the iframe's
+     * content-height messages no longer drive its size. Kept as a no-op so the
+     * inspector's existing inspector-height-change messages stay harmless.
      */
-    _adjustPanelHeight(data) {
-        if (!this._panel) return;
-
-        const { height } = data;
-        if (!height) return;
-
-        const isMobile = window.innerWidth <= 768;
-        const maxHeight = isMobile ? window.innerHeight * 0.4 : window.innerHeight * 0.85;
-
-        this._panel.style.height = `${Math.min(height, maxHeight)}px`;
+    _adjustPanelHeight() {
     }
 
     /**

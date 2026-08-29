@@ -1,5 +1,5 @@
 /**
- * StreetviewControl - top-left Mapbox GL control that opens a resizable panel
+ * StreetviewControl - top-right Mapbox GL control that opens a resizable panel
  * embedding streetview.html (a standalone MapillaryJS viewer, see
  * js/streetview-viewer.js). Communicates with that iframe purely via
  * postMessage, mirroring the convention used by MapFeatureControl /
@@ -100,7 +100,7 @@ export class StreetviewControl {
     }
 
     getDefaultPosition() {
-        return 'top-left';
+        return 'top-right';
     }
 
     _createContainer() {

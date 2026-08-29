@@ -418,22 +418,40 @@
             }
         })();
 
+        function loadLayer(layer, options = {}) {
+            currentLayer = layer;
+            if (options.edit !== undefined) editModeRequested = !!options.edit;
+            if (LayerThumbnail) {
+                renderLayerInfo(currentLayer);
+                maybeEnterEditMode();
+            }
+        }
+
+        // Embedded in the map, the layer config arrives by postMessage — a layer
+        // with inline GeoJSON is far too large for a ?layer= query param. The
+        // parent sends it in reply to the layer-info-ready ping below.
+        window.addEventListener('message', function (event) {
+            if (event.data?.type === 'layer-info-data' && event.data.layer) {
+                loadLayer(event.data.layer, { edit: event.data.edit });
+            }
+        });
+
         $(document).ready(function () {
             const urlParams = new URLSearchParams(window.location.search);
             const layerJson = urlParams.get('layer');
             editModeRequested = urlParams.get('edit') === 'true';
 
             if (layerJson) {
+                // Standalone / deep-linked use, and the reload applyChanges() does
+                // when this page is opened outside the map.
                 try {
-                    currentLayer = JSON.parse(decodeURIComponent(layerJson));
-                    if (LayerThumbnail) {
-                        renderLayerInfo(currentLayer);
-                        maybeEnterEditMode();
-                    }
+                    loadLayer(JSON.parse(decodeURIComponent(layerJson)), { edit: editModeRequested });
                 } catch (error) {
                     console.error('Error parsing layer data:', error);
                     $('#layer-title').text('Error loading layer information');
                 }
+            } else if (window.self !== window.top) {
+                window.parent.postMessage({ type: 'layer-info-ready' }, '*');
             }
 
             $('#close-layer-info').on('click', closePanel);
@@ -778,6 +796,15 @@
         }
 
         function renderLayerInfo(layer) {
+            // Both MapBrowserControl and MapFeatureControl answer an open-layer-info
+            // message, so this can run more than once for the same panel — clear the
+            // append-target containers so nothing is rendered twice.
+            $('#thumbnail-container').empty();
+            $('#legend-content').empty();
+            $('#metadata-content').empty();
+            $('#legend-section, #attribution-section, #metadata-section-view, #header-url-section').hide();
+            $('#description-content').empty();
+
             $('#layer-title').text(layer.title || layer.id || 'Unknown Layer');
             const atlasId = layer._sourceAtlas || 'default';
             const layerId = layer.id || 'no-id';
@@ -882,7 +909,7 @@
                 $('#header-url-input').val(layerUrl);
                 $('#header-url-section').show();
 
-                $('#header-copy-btn').on('click', function() {
+                $('#header-copy-btn').off('click').on('click', function() {
                     $('#header-url-input')[0].select();
                     navigator.clipboard.writeText(layerUrl).then(() => {
                         const $btn = $(this);

@@ -402,15 +402,28 @@ export class MapBrowserControl {
             return;
         }
 
-        const layerJson = encodeURIComponent(JSON.stringify(layer));
-        const editParam = options.edit ? '&edit=true' : '';
-        iframe.src = `map-information.html?layer=${layerJson}${editParam}`;
+        // The config is handed over via postMessage rather than a ?layer= query
+        // param: a layer with inline GeoJSON serializes to far more than the
+        // browser's URL length limit.
+        iframe.src = 'map-information.html';
         modal.style.display = 'block';
+
+        const readyHandler = (e) => {
+            if (e.data?.type !== 'layer-info-ready') return;
+            if (!iframe.contentWindow || e.source !== iframe.contentWindow) return;
+            iframe.contentWindow.postMessage({
+                type: 'layer-info-data',
+                layer: layer,
+                edit: !!options.edit
+            }, '*');
+        };
+        window.addEventListener('message', readyHandler);
 
         const closeHandler = (e) => {
             if (e.data.type === 'close-layer-info') {
                 modal.style.display = 'none';
                 iframe.src = '';
+                window.removeEventListener('message', readyHandler);
                 window.removeEventListener('message', closeHandler);
                 window.removeEventListener('message', updateHandler);
             }
@@ -421,6 +434,7 @@ export class MapBrowserControl {
                 this._handleLayerUpdate(e.data.layer, layer.id);
                 modal.style.display = 'none';
                 iframe.src = '';
+                window.removeEventListener('message', readyHandler);
                 window.removeEventListener('message', closeHandler);
                 window.removeEventListener('message', updateHandler);
             }
@@ -431,6 +445,7 @@ export class MapBrowserControl {
                 modal.style.display = 'none';
                 iframe.src = '';
                 document.removeEventListener('keydown', keyHandler);
+                window.removeEventListener('message', readyHandler);
                 window.removeEventListener('message', closeHandler);
                 window.removeEventListener('message', updateHandler);
             }
@@ -522,38 +537,35 @@ export class MapBrowserControl {
         const layers = [];
         const activeLayers = this._getActiveLayers();
 
+        // Send the layer's full resolved config, not a whitelist of fields, so
+        // map-information.html's raw-config panel shows everything (url,
+        // sourceLayer, zoom range, opacity, ...) and edits round-trip intact.
         window.layerRegistry._registry.forEach((layer, layerId) => {
             const layerData = {
+                ...layer,
                 id: layerId,
                 title: layer.title || layer.id,
-                type: layer.type,
-                description: layer.description,
-                attribution: layer.attribution,
-                headerImage: layer.headerImage,
-                legendImage: layer.legendImage,
                 tags: layer.tags || [],
-                _sourceAtlas: layer._sourceAtlas,
                 bbox: this._getLayerBbox(layer)
             };
-
-            // Include style information for thumbnails
-            if (layer.style) {
-                layerData.style = layer.style;
+            // postMessage's structured clone rejects functions/circular refs, and
+            // one bad layer would drop the whole payload — round-trip through JSON
+            // so only the offending layer degrades.
+            try {
+                layers.push(JSON.parse(JSON.stringify(layerData)));
+            } catch (e) {
+                console.warn('[MapBrowserControl] Layer config not serializable, sending minimal config:', layerId, e);
+                layers.push({
+                    id: layerId,
+                    title: layerData.title,
+                    type: layer.type,
+                    description: layer.description,
+                    attribution: layer.attribution,
+                    tags: layerData.tags,
+                    _sourceAtlas: layer._sourceAtlas,
+                    bbox: layerData.bbox
+                });
             }
-
-            // Include top-level style properties
-            const styleProps = ['icon-image', 'icon-size', 'circle-radius', 'circle-color',
-                'circle-stroke-color', 'circle-stroke-width', 'circle-opacity',
-                'line-color', 'line-width', 'line-opacity', 'line-dasharray',
-                'fill-color', 'fill-opacity', 'fill-outline-color'];
-
-            styleProps.forEach(prop => {
-                if (layer[prop] !== undefined) {
-                    layerData[prop] = layer[prop];
-                }
-            });
-
-            layers.push(layerData);
         });
 
         const atlasMetadata = {};
@@ -885,6 +897,9 @@ export class MapBrowserControl {
     }
 
     openBrowser() {
+        // Both panels dock to the same left slot, so only one can be open.
+        window.featureControl?.closePanel?.();
+
         // Show loading overlay immediately
         if (this._loadingOverlay) {
             this._loadingOverlay.style.display = 'flex';

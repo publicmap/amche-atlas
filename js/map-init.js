@@ -500,6 +500,21 @@ export class MapInitializer {
             console.warn('Default configuration values not found or invalid:', error);
         }
 
+        // Imported atlases (`?atlas=<url>` / inline JSON) loaded with no `?layers=`
+        // override are meant to show the whole map they were shared as - same
+        // rationale as bulk STAC atlases (see docs/API.md: "every layer in a
+        // bulk-built atlas is initiallyChecked:true ... otherwise the map
+        // visibly shows nothing"). Without this, an atlas whose author forgot
+        // `initiallyChecked` on every layer silently renders an empty map.
+        // Only kicks in when NONE of the atlas's layers opted in explicitly,
+        // so an atlas that intentionally checks a subset is left alone.
+        if (isImportedAtlas && !layersParam && Array.isArray(config.layers) &&
+            !config.layers.some(l => l.initiallyChecked === true)) {
+            console.log('[MapInit] Imported atlas has no initiallyChecked layers - defaulting all to visible:',
+                config.layers.map(l => l.id));
+            config.layers.forEach(l => { l.initiallyChecked = true; });
+        }
+
         // Process each layer in the config using the layer registry
         if (config.layers && Array.isArray(config.layers)) {
             const validLayers = [];
@@ -540,14 +555,32 @@ export class MapInitializer {
                     continue;
                 }
 
-                // If the layer only has an id (or minimal properties), look it up using the registry
-                if (layerConfig.id && !layerConfig.type) {
+                // If the layer only has an id (or minimal properties), look it up using the registry.
+                // Also route through registry resolution when `type` is present but the type's
+                // required tile source is missing (e.g. a "vector" entry with no `url`/`tiles`) -
+                // that shape shows up when an atlas embeds cross-atlas metadata (title/style/
+                // attribution, often alongside a prefixed id like "osm-landuse" and a `_sourceAtlas`
+                // hint) without the actual source, expecting it to be resolved the same way a bare
+                // `{id: "osm-landuse"}` reference is. Passing it straight to MapboxAPI as a "full
+                // definition" would crash on the missing url instead of rendering anything.
+                if (layerConfig.id && (!layerConfig.type || MapInitializer._isUnresolvedTypeStub(layerConfig))) {
                     // Try to resolve the layer from the registry
                     // This handles both current atlas layers and cross-atlas references
                     // Silent: cross-config loading follows and the final outcome is
                     // reported below, so suppress the premature "not found" warning.
                     // getLayer already falls back to the index atlas for system layers.
                     let resolvedLayer = layerRegistry.getLayer(layerConfig.id, atlasId, true);
+
+                    // An imported atlas pre-registers its own layers verbatim under its
+                    // atlas-prefixed key (see markImportedAtlas), so `getLayer`'s first
+                    // lookup - `${atlasId}-${layerConfig.id}` - can shadow a real
+                    // cross-atlas definition with a copy of this same unresolved stub
+                    // (e.g. "imported-osm-landuse" matching before "osm-landuse" ever
+                    // gets tried). Discard a stub hit and keep looking instead of
+                    // treating it as a real answer.
+                    if (resolvedLayer && MapInitializer._isUnresolvedTypeStub(resolvedLayer)) {
+                        resolvedLayer = null;
+                    }
 
                     // If still not found, try cross-config loading
                     if (!resolvedLayer) {
@@ -617,6 +650,10 @@ export class MapInitializer {
             }
 
             config.layers = validLayers;
+
+            console.log(`[MapInit] Parsed ${validLayers.length} layer(s) from atlas "${atlasId}"` +
+                (invalidLayers.length ? ` (${invalidLayers.length} invalid: ${invalidLayers.join(', ')})` : ''),
+                validLayers.map(l => ({ id: l.id, type: l.type, initiallyChecked: !!l.initiallyChecked })));
 
             // Ensure the selection layer (system layer for map markers) is always present
             if (!config.layers.find(l => l.id === 'selection')) {
@@ -812,8 +849,17 @@ export class MapInitializer {
         // it exists before initializeSearch()'s searchSetup can possibly run -
         // that fires on the 'style.load' event, which can happen before our
         // own 'load' handler below gets to set up the other chrome controls.
+        // This is the single top-left row hosting the Maps button, the
+        // search box, and the geolocation button together, in that order.
         window.searchBoxControl = new SearchBoxControl();
-        map.addControl(window.searchBoxControl, 'top-right');
+        map.addControl(window.searchBoxControl, 'top-left');
+
+        // Built immediately too (same reasoning as above) so it can be
+        // inserted as the row's first item right away - MapBrowserControl's
+        // onAdd() only wires up DOM/message-listeners/overlay, none of which
+        // need the map to have fully loaded.
+        window.browserControl = new MapBrowserControl();
+        window.searchBoxControl.mountBrowserControl(window.browserControl.onAdd(map));
 
         // Setup proper cursor handling for map dragging
         map.on('load', async () => {
@@ -889,13 +935,10 @@ export class MapInitializer {
             // Initialize the feature control with state manager and config
             window.featureControl = new MapFeatureControl();
 
-            // Top-left controls, in visual (stacking) order: map browser,
-            // feature/layer inspector, then street view.
-            window.browserControl = new MapBrowserControl();
-            map.addControl(window.browserControl, 'top-left');
-            map.addControl(window.featureControl, 'top-left');
-            window.streetviewControl = new StreetviewControl();
-            map.addControl(window.streetviewControl, 'top-left');
+            // The inspector lives inside the primary top-left row (added
+            // earlier, see above), between the Maps button and the search box,
+            // rather than as its own stacked top-left control.
+            window.searchBoxControl.mountInspectorControl(window.featureControl.onAdd(map));
 
             // Header-nav atlas + layers nested menu (top-left of the header,
             // not a map control) - reuses browserControl's layer-toggle logic
@@ -903,9 +946,8 @@ export class MapInitializer {
             window.atlasLayerMenuControl = new AtlasLayerMenuControl(window.browserControl);
             window.atlasLayerMenuControl.mount(document.getElementById('atlas-layer-menu-container'));
 
-            // Top-right: the search row (added earlier, see above) already
-            // claims the topmost slot. Compass and terrain-3D follow, in that
-            // order; everything else comes after.
+            // Top-right: compass and terrain-3D first, in that order;
+            // everything else comes after.
             map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: false, visualizePitch: true }), 'top-right');
             map.addControl(window.terrain3DControl, 'top-right');
 
@@ -950,6 +992,9 @@ export class MapInitializer {
             window.nearbyFeaturesControl = new NearbyFeaturesControl(stateManager);
             map.addControl(window.nearbyFeaturesControl, 'top-right');
             map.addControl(new TimeControl(), 'top-right');
+            // Street view goes last in the top-right stack
+            window.streetviewControl = new StreetviewControl();
+            map.addControl(window.streetviewControl, 'top-right');
             map.addControl(window.attributionControl, 'bottom-right');
             window.contextMessagesControl = new MapContextMessagesControl();
             window.contextMessagesControl.onAdd(map);
@@ -1461,6 +1506,16 @@ export class MapInitializer {
         const lng = parseFloat(parts[2]);
         if (isNaN(zoom) || isNaN(lat) || isNaN(lng)) return null;
         return { zoom, lat, lng };
+    }
+
+    // True for a layer whose `type` requires a tile/asset `url` (per
+    // docs/API.md's Layer Source Formats) but doesn't have one - a sign the
+    // entry is really a reference to a registry layer, not a self-contained
+    // definition. See the atlas-layer-resolution loop in loadConfiguration().
+    static _isUnresolvedTypeStub(layerConfig) {
+        const URL_REQUIRED_TYPES = new Set(['vector', 'tms', 'wmts', 'wms', 'cog', 'img']);
+        if (!URL_REQUIRED_TYPES.has(layerConfig.type)) return false;
+        return !layerConfig.url && !(Array.isArray(layerConfig.tiles) && layerConfig.tiles.length > 0);
     }
 
     static _escapeHtml(text) {
