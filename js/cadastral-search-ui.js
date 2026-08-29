@@ -107,7 +107,7 @@ export class CadastralSearchUI {
             this.userPickedVillage = true
             this.selectedVillage = parseVillageEntryKey(this.villageSelect.value)
             sessionStorage.setItem('cadastral-village', this.villageSelect.value)
-            this._flyToVillage(this.selectedVillage?.village)
+            this._flyToVillage(this.selectedVillage)
             this._runSearch()
         })
 
@@ -247,9 +247,9 @@ export class CadastralSearchUI {
         this.villageSelect.value = villageEntryKey(entry)
     }
 
-    _flyToVillage(villageName) {
-        if (!villageName) return
-        getVillageCenter(villageName).then(center => {
+    _flyToVillage(villageEntry) {
+        if (!villageEntry?.village) return
+        getVillageCenter(villageEntry.village, villageEntry.taluka).then(center => {
             if (!center) return
             this.map.flyTo({ center: [center.lon, center.lat], zoom: 14 })
         }).catch(() => {})
@@ -267,7 +267,7 @@ export class CadastralSearchUI {
         }
 
         this._pendingSurvey = surveyRaw
-        queryCadastralPlotsByVillage(this.selectedVillage.village, surveyRaw)
+        queryCadastralPlotsByVillage(this.selectedVillage.village, this.selectedVillage.taluka, surveyRaw)
             .then(features => {
                 if (this._pendingSurvey !== surveyRaw) return
                 this._renderResults(features)
