@@ -88,6 +88,15 @@ export default defineConfig({
     environment: 'node',
     include: ['**/js/tests/**/*.test.js', '**/tests/**/*.test.js'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/coverage/**'],
+    // The browser resolves these straight from a CDN, but the Node test runner
+    // only handles file: and data: URLs, so point them at local stubs to keep
+    // the app's module graph importable from tests.
+    alias: [
+      {
+        find: 'https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0-beta.5/+esm',
+        replacement: path.resolve('./js/tests/stubs/osmtogeojson.js'),
+      },
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
