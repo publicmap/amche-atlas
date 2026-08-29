@@ -111,6 +111,23 @@ export function formatCadastralLabel({ village, taluka, survey, subdiv }) {
     return `${village} — ${surveyPart} — ${taluka}`
 }
 
+export function formatSurveyLabel({ survey, subdiv }) {
+    return subdiv ? `${survey}/${subdiv}` : String(survey ?? '')
+}
+
+function labelToSurveyRow(label) {
+    const slashIdx = label.indexOf('/')
+    if (slashIdx === -1) return { survey: label, subdiv: '' }
+    return { survey: label.slice(0, slashIdx), subdiv: label.slice(slashIdx + 1) }
+}
+
+export function sortSurveyOptionLabels(a, b) {
+    return sortSurveyMatches(
+        { row: labelToSurveyRow(a), score: 0 },
+        { row: labelToSurveyRow(b), score: 0 },
+    )
+}
+
 export function normalizeSurveySegment(str) {
     return String(str ?? '').replace(/[^a-z0-9]/gi, '').toLowerCase()
 }
@@ -333,6 +350,40 @@ export async function queryCadastralPlotsByVillage(villageName, taluka, surveyRa
     const matches = await collectMatchesForVillage(villageName, taluka, parsed)
     matches.sort(sortSurveyMatches)
     return matches.slice(0, limit).map(({ row }) => rowToFeature(row))
+}
+
+export async function listSurveyOptionsForVillage(villageName, taluka, filterRaw = '', limit = 100) {
+    if (!isCadastralSearchEnabled() || !villageName) return []
+    await lazyInit()
+
+    const parsed = parseSurveyQuery(filterRaw)
+    if (!parsed.surveyPrefix) return []
+
+    const seen = new Set()
+    const labels = []
+    const ranges = getMatchingRowGroupRanges(villageName)
+
+    for (const range of ranges) {
+        const rows = await parquetReadObjects({
+            file: parquetFile,
+            compressors,
+            columns: ['village', 'taluka', 'survey', 'subdiv'],
+            rowStart: range.start,
+            rowEnd: range.end,
+        })
+
+        for (const row of rows) {
+            if (!matchesVillageTaluka(row, villageName, taluka)) continue
+            if (scoreSurveyMatch(row, parsed) === null) continue
+            const label = formatSurveyLabel(row)
+            if (!label || seen.has(label)) continue
+            seen.add(label)
+            labels.push(label)
+        }
+    }
+
+    labels.sort(sortSurveyOptionLabels)
+    return labels.slice(0, limit)
 }
 
 export async function queryCadastralPlots(villagePart, surveyRaw, limit = 5) {
