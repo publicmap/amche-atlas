@@ -106,6 +106,11 @@ export default defineConfig({
         'dist/',
         'coverage/',
         '**/*.config.js',
+        // Vite names its virtual modules with a leading null byte (e.g.
+        // `\0vite/dynamic-import-helper.js`, pulled in by any dynamic import).
+        // The HTML reporter mkdirs a directory per path segment and throws on
+        // the null byte, so keep these out of the report.
+        '**/\u0000**',
       ],
     },
     testTimeout: 10000,
