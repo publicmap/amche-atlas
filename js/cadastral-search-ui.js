@@ -4,7 +4,6 @@ import {
     getVillageCenter,
     getVillageList,
     isCadastralSearchEnabled,
-    listSurveyOptionsForVillage,
     parseVillageEntryKey,
     queryCadastralPlotsByVillage,
     villageEntryKey,
@@ -26,6 +25,7 @@ export class CadastralSearchUI {
         this._villageList = []
         this._pickerMode = null
         this._pickerTrigger = null
+        this._pendingPickerSurvey = null
         this._mobileMq = window.matchMedia(MOBILE_BREAKPOINT)
 
         this._buildDOM()
@@ -83,9 +83,9 @@ export class CadastralSearchUI {
 
         this.pickerDrawer = document.createElement('sl-drawer')
         this.pickerDrawer.id = 'cadastral-picker-drawer'
-        this.pickerDrawer.className = 'cadastral-picker-drawer'
-        this.pickerDrawer.setAttribute('placement', 'bottom')
-        this.pickerDrawer.setAttribute('label', 'Select')
+        this.pickerDrawer.className = 'cadastral-picker-drawer drawer-placement-bottom'
+        this.pickerDrawer.placement = 'bottom'
+        this.pickerDrawer.label = 'Select'
         this.pickerDrawer.innerHTML = `
             <div class="cadastral-picker-body">
                 <sl-input id="cadastral-picker-search" class="cadastral-picker-search"
@@ -128,6 +128,10 @@ export class CadastralSearchUI {
             this._syncVillageFromMap()
         }
         this._syncTriggerLabels()
+    }
+
+    _isPickerOpen() {
+        return Boolean(this.pickerDrawer?.open)
     }
 
     _setupMobilePicker() {
@@ -222,7 +226,7 @@ export class CadastralSearchUI {
         this.dropdown?.classList.add('cadastral-dropdown--picker-open')
 
         const title = mode === 'village' ? 'Select village' : 'Select survey number'
-        this.pickerDrawer.setAttribute('label', title)
+        this.pickerDrawer.label = title
 
         const placeholder = mode === 'village' ? 'Search villages' : 'Type to search survey numbers'
         this.pickerSearch.placeholder = placeholder
@@ -290,16 +294,54 @@ export class CadastralSearchUI {
             return
         }
 
-        listSurveyOptionsForVillage(this.selectedVillage.village, query)
-            .then(labels => {
+        this._pendingPickerSurvey = query
+        queryCadastralPlotsByVillage(this.selectedVillage.village, query, 50)
+            .then(features => {
                 if (this._pickerMode !== 'survey') return
-                const items = labels.map(label => ({ label, value: label }))
-                this._renderPickerList(items, ({ value }) => {
-                    this._selectSurvey(value)
-                    this._closePicker()
-                })
+                if (this._pendingPickerSurvey !== query) return
+                this._renderPickerPlotResults(features)
             })
             .catch(err => console.error('[cadastral-ui]', err))
+    }
+
+    _renderPickerPlotResults(features) {
+        if (!features.length) {
+            this.pickerList.innerHTML = `
+                <div class="cadastral-picker-hint">No matches found</div>
+            `
+            return
+        }
+
+        this.pickerList.innerHTML = features.map((feature, index) => `
+            <button type="button" class="cadastral-result cadastral-picker-plot-result" role="option"
+                data-index="${index}" tabindex="-1">
+                <span class="cadastral-result__icon" aria-hidden="true">📍</span>
+                <span class="cadastral-result__text">${this.searchControl._escapeHtml(feature.properties.name)}</span>
+            </button>
+        `).join('')
+
+        this.pickerList.querySelectorAll('.cadastral-picker-plot-result').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const index = Number(btn.dataset.index)
+                const feature = features[index]
+                if (feature) this._selectPlotResult(feature)
+            })
+        })
+    }
+
+    _selectPlotResult(feature) {
+        const surveyRaw = feature.properties._surveyRaw || ''
+        if (surveyRaw) {
+            this.surveyInput.value = surveyRaw
+            this._syncTriggerLabels()
+        }
+        this._clearResults()
+        this._closePicker()
+        this._hide()
+        this.searchControl.handleRetrieve(new CustomEvent('retrieve', {
+            detail: { features: [feature] },
+        }))
+        this.searchControl.suppressSuggestions()
     }
 
     _selectVillage(entry) {
@@ -310,12 +352,6 @@ export class CadastralSearchUI {
         sessionStorage.setItem('cadastral-village', key)
         this._syncTriggerLabels()
         this._flyToVillage(this.selectedVillage?.village)
-        this._runSearch()
-    }
-
-    _selectSurvey(value) {
-        this.surveyInput.value = value
-        this._syncTriggerLabels()
         this._runSearch()
     }
 
@@ -403,7 +439,7 @@ export class CadastralSearchUI {
         const active = document.activeElement
         if (!active || !this.dropdown) return false
         if (this.dropdown.contains(active)) return true
-        if (this.pickerDrawer?.open && this.pickerDrawer.contains(active)) return true
+        if (this._isPickerOpen() && this.pickerDrawer.contains(active)) return true
         const host = active.getRootNode?.()?.host
         return Boolean(host && (this.dropdown.contains(host) || this.pickerDrawer?.contains(host)))
     }
@@ -551,7 +587,10 @@ export class CadastralSearchUI {
             return
         }
 
-        if (this._isMobileLayout() && this.pickerDrawer?.open) {
+        if (this._isMobileLayout()) {
+            if (this._isPickerOpen() && this._pickerMode === 'survey') {
+                this._renderPickerPlotResults(features)
+            }
             return
         }
 

@@ -249,17 +249,20 @@
 
 .cadastral-picker-drawer {
     --size: 70vh;
+    --header-spacing: 0.75rem;
+    --body-spacing: 0.5rem 0.75rem 0.75rem;
     z-index: 10000;
 }
 
 .cadastral-picker-drawer::part(panel) {
     width: 100%;
     max-width: 100%;
-    max-height: 70vh;
     border-radius: 0.75rem 0.75rem 0 0;
+    border-right: 0;
     background: #111827;
     color: #f3f4f6;
     border-top: 1px solid #374151;
+    padding: 0;
 }
 
 .cadastral-picker-drawer::part(header) {
@@ -285,7 +288,6 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: 0.5rem 0.75rem 0.75rem;
 }
 
 .cadastral-picker-body {
@@ -350,6 +352,10 @@
     }
 
     .cadastral-desktop-only {
+        display: none !important;
+    }
+
+    .cadastral-results {
         display: none !important;
     }
 
@@ -1663,19 +1669,19 @@ header h1 {
     opacity: 0.9;
 }
 
-sl-drawer {
+sl-drawer:not(.cadastral-picker-drawer) {
     --header-spacing: 5px;
     --body-spacing: 5px;
     color: white;
 }
 
-sl-drawer::part(overlay) {
+sl-drawer:not(.cadastral-picker-drawer)::part(overlay) {
     background: none;
     pointer-events: none;
     /* Prevent overlay from capturing clicks */
 }
 
-sl-drawer::part(panel) {
+sl-drawer:not(.cadastral-picker-drawer)::part(panel) {
     background: hsla(0, 0%, 35%, 0.902);
     backdrop-filter: blur(8px);
     border-right: 1px solid rgba(0, 0, 0, 0.1);
@@ -1684,7 +1690,7 @@ sl-drawer::part(panel) {
     padding: 5px 10px;
 }
 
-sl-drawer::part(close-button) {
+sl-drawer:not(.cadastral-picker-drawer)::part(close-button) {
     color: #fdfdfd;
     font-size: 1.5rem;
 }
@@ -2042,13 +2048,13 @@ sl-details::part(content) {
     padding: 0px;
 }
 
-sl-drawer sl-details::part(base) {
+sl-drawer:not(.cadastral-picker-drawer) sl-details::part(base) {
     padding: 0;
     border: 1px solid #535353;
     box-shadow: inset 0px 0px 3px rgb(69 69 69);
 }
 
-sl-drawer sl-details::part(content) {
+sl-drawer:not(.cadastral-picker-drawer) sl-details::part(content) {
     padding: 10px;
     box-shadow: inset 0px 0px 3px rgb(69 69 69);
     background-color: rgb(255, 251, 243);

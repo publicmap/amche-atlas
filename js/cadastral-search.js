@@ -205,6 +205,7 @@ function rowToFeature(r) {
             place_name: formatCadastralLabel(r),
             place_type: ['cadastral', 'plot'],
             text: formatCadastralLabel(r),
+            _surveyRaw: formatSurveyLabel(r),
             _isLocalSuggestion: true,
             _isCadastralParquet: true,
         },
