@@ -990,7 +990,7 @@ export class MapCreator {
 
         // Set default title and type
         if (!$('#layer-title').val()) {
-            $('#layer-title').val(atlasData.name || 'Imported Atlas');
+            $('#layer-title').val(atlasData.name || atlasData.title || 'Imported Atlas');
         }
         $('#layer-type').val('atlas');
 
@@ -1014,7 +1014,7 @@ export class MapCreator {
 
                 // Update title if not manually changed
                 const currentTitle = $('#layer-title').val();
-                if (!currentTitle || currentTitle === this.currentAtlasData.name || currentTitle === 'Imported Atlas') {
+                if (!currentTitle || currentTitle === this.currentAtlasData.name || currentTitle === this.currentAtlasData.title || currentTitle === 'Imported Atlas') {
                     $('#layer-title').val(selectedLayer.title || selectedLayer.id);
                 }
 

@@ -22,6 +22,8 @@ Load a specific atlas configuration.
 ?atlas={"name":"Custom Map","layers":[{"id":"mapbox-streets"}]}
 ```
 
+**Note:** The atlas display name comes from the config's top-level `name`; `title` is accepted as an alias for configs authored elsewhere (e.g. STAC-derived atlases). If neither is present, an imported atlas falls back to "Imported Map".
+
 ### `layers`
 
 Override visible layers from the atlas configuration.

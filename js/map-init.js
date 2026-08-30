@@ -290,7 +290,9 @@ export class MapInitializer {
         // Mark as imported atlas if loaded via URL
         if (isImportedAtlas) {
             // Store the imported atlas metadata with '*' prefix and register layers
-            const atlasName = config.name || 'Imported Map';
+            // `title` is accepted as an alias for `name` - externally authored
+            // atlases (e.g. STAC-derived configs) commonly use it.
+            const atlasName = config.name || config.title || 'Imported Map';
             layerRegistry.markImportedAtlas(atlasId, {
                 name: `* ${atlasName}`,
                 originalName: atlasName,

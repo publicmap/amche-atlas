@@ -182,7 +182,7 @@ export class LayerRegistry {
             // ?atlas auto-detection (see SplashScreenManager).
             isExternal: !!url && (url.startsWith('http://') || url.startsWith('https://')),
             color: config.color || '#2563eb', // Default to blue if not specified
-            name: config.name || atlasId,
+            name: config.name || config.title || atlasId,
             map: config.map || null,
             areaOfInterest: config.areaOfInterest || '',
             description: config.description || '',

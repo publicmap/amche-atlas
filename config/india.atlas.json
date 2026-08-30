@@ -110,46 +110,12 @@
           "get",
           "height"
         ],
-        "fill-extrusion-base": [
-          "get",
-          "base"
-        ],
-        "fill-extrusion-color": "#333",
+        "fill-extrusion-color": "orange",
         "fill-extrusion-opacity": 0.4,
         "line-opacity": 0,
         "line-join": "round",
-        "line-width": 0,
-        "fill-color": [
-          "case",
-          [
-            ">",
-            [
-              "get",
-              "confidence"
-            ],
-            0.8
-          ],
-          "black",
-          [
-            ">",
-            [
-              "get",
-              "confidence"
-            ],
-            0.6
-          ],
-          "#222",
-          [
-            ">",
-            [
-              "get",
-              "confidence"
-            ],
-            0.2
-          ],
-          "#444",
-          "#777"
-        ],
+        "line-width": 1,
+        "fill-color": "orange",
         "fill-opacity": [
           "interpolate",
           [
@@ -160,6 +126,8 @@
           ],
           14,
           0.9,
+          18,
+          0.6,
           19,
           0.2
         ]

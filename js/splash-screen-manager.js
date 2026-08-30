@@ -262,7 +262,7 @@ export class SplashScreenManager {
     _atlasFromConfig(id, config) {
         return {
             id,
-            name: config.name || 'Map',
+            name: config.name || config.title || 'Map',
             description: config.description || '',
             color: config.color || '#3b82f6',
             headerImage: config.headerImage || null,
