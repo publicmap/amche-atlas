@@ -913,11 +913,11 @@ export class MapInitializer {
                 e.preventDefault();
                 dragCounter = 0;
                 dropOverlay.style.display = 'none';
-                const file = e.dataTransfer?.files?.[0];
-                if (!file) return;
-                const ext = file.name.split('.').pop().toLowerCase();
-                if (supportedExts.includes(ext)) {
-                    window.browserControl.openCreatorWithFile(file);
+                const files = Array.from(e.dataTransfer?.files || []).filter(file =>
+                    supportedExts.includes(file.name.split('.').pop().toLowerCase())
+                );
+                if (files.length > 0) {
+                    window.browserControl.openCreatorWithFiles(files);
                 }
             });
 

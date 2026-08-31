@@ -353,18 +353,20 @@
                     </div>
                     <button type="button" id="upload-file-btn"
                         class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium whitespace-nowrap flex items-center gap-1 border border-gray-600"
-                        title="Upload a local file">
-                        <span>📁</span> Upload File
+                        title="Upload one or more local files - each becomes its own layer">
+                        <span>📁</span> Upload Files
                     </button>
-                    <input type="file" id="file-input"
+                    <input type="file" id="file-input" multiple
                         accept=".csv,.geojson,.json,.kml,.geojsonl,.ndjson,.jsonl,.gpkg,.zip,.tif,.tiff,.png,.jpg,.jpeg"
                         class="hidden">
                 </div>
 
-                <div id="selected-file-info" class="hidden mb-2 px-3 py-2 rounded text-xs flex items-center justify-between"
+                <div id="selected-file-info" class="hidden mb-2 px-3 py-2 rounded text-xs flex items-center justify-between gap-2"
                     style="background:#111827;border:1px solid #374151;color:#d1d5db;">
-                    <span><strong class="text-white">File:</strong> <span id="selected-file-name"></span></span>
-                    <button type="button" id="clear-file-btn" class="text-gray-400 hover:text-gray-200" title="Clear">✕</button>
+                    <span class="min-w-0 truncate"><strong class="text-white">File:</strong> <span id="selected-file-name"></span></span>
+                    <span id="file-queue-progress" class="hidden px-2 py-0.5 rounded whitespace-nowrap"
+                        style="background:rgba(59,130,246,0.18);border:1px solid rgba(59,130,246,0.45);color:#bfdbfe;"></span>
+                    <button type="button" id="clear-file-btn" class="text-gray-400 hover:text-gray-200 ml-auto" title="Clear">✕</button>
                 </div>
 
                 <!-- Notice: uploaded files are temporary -->
@@ -1085,9 +1087,10 @@ File upload only: .zip containing shapefile">
 
         fileInput.addEventListener('change', function (e) {
             if (this.files.length > 0) {
-                const fileName = this.files[0].name.toLowerCase();
                 const imageExtensions = ['.tif', '.tiff', '.png', '.jpg', '.jpeg'];
-                const isImageFile = imageExtensions.some(ext => fileName.endsWith(ext));
+                const isImageFile = Array.from(this.files).some(file =>
+                    imageExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
+                );
 
                 if (isImageFile) {
                     georefNotice.classList.remove('hidden');

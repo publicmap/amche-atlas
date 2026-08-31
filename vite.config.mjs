@@ -88,6 +88,15 @@ export default defineConfig({
     environment: 'node',
     include: ['**/js/tests/**/*.test.js', '**/tests/**/*.test.js'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/coverage/**'],
+    // The browser resolves these straight from a CDN, but the Node test runner
+    // only handles file: and data: URLs, so point them at local stubs to keep
+    // the app's module graph importable from tests.
+    alias: [
+      {
+        find: 'https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0-beta.5/+esm',
+        replacement: path.resolve('./js/tests/stubs/osmtogeojson.js'),
+      },
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -97,6 +106,11 @@ export default defineConfig({
         'dist/',
         'coverage/',
         '**/*.config.js',
+        // Vite names its virtual modules with a leading null byte (e.g.
+        // `\0vite/dynamic-import-helper.js`, pulled in by any dynamic import).
+        // The HTML reporter mkdirs a directory per path segment and throws on
+        // the null byte, so keep these out of the report.
+        '**/\u0000**',
       ],
     },
     testTimeout: 10000,
