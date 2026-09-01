@@ -126,6 +126,8 @@ git tag v1.x.x && git push origin main --tags
 
 **Parquet read:** for each candidate village, row groups are selected using Parquet `village` column min/max statistics, then rows are filtered and ranked in JS. Up to 200 candidates are scored; exact survey match ranks highest, shorter survey numbers beat longer prefix matches (`1` beats `101`), exact subdiv beats subdiv prefix (`1/1` beats `1/11`). At most 5 results are returned.
 
+When a village is selected from the plot search dropdown (village + taluka), plot and survey queries are scoped to that taluka so duplicate village names across talukas do not cross-match. Village fly-to uses the mean of valid plot centroids for that village/taluka pair.
+
 Duplicate village names across talukas (e.g. Verlem in Sanguem and Quepem) appear as separate suggestions distinguished by taluka in the label.
 
 ## Deployment notes

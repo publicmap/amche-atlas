@@ -111,6 +111,23 @@ export function formatCadastralLabel({ village, taluka, survey, subdiv }) {
     return `${village} — ${surveyPart} — ${taluka}`
 }
 
+export function formatSurveyLabel({ survey, subdiv }) {
+    return subdiv ? `${survey}/${subdiv}` : String(survey ?? '')
+}
+
+function labelToSurveyRow(label) {
+    const slashIdx = label.indexOf('/')
+    if (slashIdx === -1) return { survey: label, subdiv: '' }
+    return { survey: label.slice(0, slashIdx), subdiv: label.slice(slashIdx + 1) }
+}
+
+export function sortSurveyOptionLabels(a, b) {
+    return sortSurveyMatches(
+        { row: labelToSurveyRow(a), score: 0 },
+        { row: labelToSurveyRow(b), score: 0 },
+    )
+}
+
 export function normalizeSurveySegment(str) {
     return String(str ?? '').replace(/[^a-z0-9]/gi, '').toLowerCase()
 }
@@ -185,9 +202,19 @@ function rowToFeature(r) {
     }
 }
 
-async function collectMatchesForVillage(villageName, parsed) {
+function matchesVillageTaluka(row, villageName, taluka) {
+    if (row.village.toLowerCase() !== villageName.toLowerCase()) return false
+    if (taluka && row.taluka.toLowerCase() !== taluka.toLowerCase()) return false
+    return true
+}
+
+export function isValidPlotCoord(lon, lat) {
+    return Number.isFinite(lon) && Number.isFinite(lat)
+        && lon > 73.5 && lon < 74.5 && lat > 14.8 && lat < 15.9
+}
+
+async function collectMatchesForVillage(villageName, taluka, parsed) {
     const matches = []
-    const candidateLower = villageName.toLowerCase()
     const ranges = getMatchingRowGroupRanges(villageName)
 
     for (const range of ranges) {
@@ -200,7 +227,8 @@ async function collectMatchesForVillage(villageName, parsed) {
         })
 
         for (const row of rows) {
-            if (row.village.toLowerCase() !== candidateLower) continue
+            if (!matchesVillageTaluka(row, villageName, taluka)) continue
+            if (!isValidPlotCoord(row.lon, row.lat)) continue
             const score = scoreSurveyMatch(row, parsed)
             if (score === null) continue
             matches.push({ row, score })
@@ -281,38 +309,81 @@ export function detectVillageFromMapCenter(map) {
     return findVillageEntry(name, taluka)
 }
 
-export async function getVillageCenter(villageName) {
+export async function getVillageCenter(villageName, taluka) {
     if (!isCadastralSearchEnabled() || !villageName) return null
     await lazyInit()
 
     const ranges = getMatchingRowGroupRanges(villageName)
-    const candidateLower = villageName.toLowerCase()
+    let lonSum = 0
+    let latSum = 0
+    let count = 0
 
     for (const range of ranges) {
         const rows = await parquetReadObjects({
             file: parquetFile,
             compressors,
-            columns: ['village', 'lon', 'lat'],
+            columns: ['village', 'taluka', 'lon', 'lat'],
             rowStart: range.start,
             rowEnd: range.end,
         })
-        const match = rows.find(r => r.village.toLowerCase() === candidateLower)
-        if (match) return { lon: match.lon, lat: match.lat }
+
+        for (const row of rows) {
+            if (!matchesVillageTaluka(row, villageName, taluka)) continue
+            if (!isValidPlotCoord(row.lon, row.lat)) continue
+            lonSum += row.lon
+            latSum += row.lat
+            count += 1
+        }
     }
 
-    return null
+    if (!count) return null
+    return { lon: lonSum / count, lat: latSum / count }
 }
 
-export async function queryCadastralPlotsByVillage(villageName, surveyRaw, limit = 5) {
+export async function queryCadastralPlotsByVillage(villageName, taluka, surveyRaw, limit = 5) {
     if (!isCadastralSearchEnabled() || !villageName) return []
     await lazyInit()
 
     const parsed = parseSurveyQuery(surveyRaw)
     if (!parsed.surveyPrefix) return []
 
-    const matches = await collectMatchesForVillage(villageName, parsed)
+    const matches = await collectMatchesForVillage(villageName, taluka, parsed)
     matches.sort(sortSurveyMatches)
     return matches.slice(0, limit).map(({ row }) => rowToFeature(row))
+}
+
+export async function listSurveyOptionsForVillage(villageName, taluka, filterRaw = '', limit = 100) {
+    if (!isCadastralSearchEnabled() || !villageName) return []
+    await lazyInit()
+
+    const parsed = parseSurveyQuery(filterRaw)
+    if (!parsed.surveyPrefix) return []
+
+    const seen = new Set()
+    const labels = []
+    const ranges = getMatchingRowGroupRanges(villageName)
+
+    for (const range of ranges) {
+        const rows = await parquetReadObjects({
+            file: parquetFile,
+            compressors,
+            columns: ['village', 'taluka', 'survey', 'subdiv'],
+            rowStart: range.start,
+            rowEnd: range.end,
+        })
+
+        for (const row of rows) {
+            if (!matchesVillageTaluka(row, villageName, taluka)) continue
+            if (scoreSurveyMatch(row, parsed) === null) continue
+            const label = formatSurveyLabel(row)
+            if (!label || seen.has(label)) continue
+            seen.add(label)
+            labels.push(label)
+        }
+    }
+
+    labels.sort(sortSurveyOptionLabels)
+    return labels.slice(0, limit)
 }
 
 export async function queryCadastralPlots(villagePart, surveyRaw, limit = 5) {
@@ -326,7 +397,7 @@ export async function queryCadastralPlots(villagePart, surveyRaw, limit = 5) {
     const matches = []
 
     for (const candidate of candidates) {
-        const villageMatches = await collectMatchesForVillage(candidate.village, parsed)
+        const villageMatches = await collectMatchesForVillage(candidate.village, candidate.taluka, parsed)
         matches.push(...villageMatches)
     }
 
