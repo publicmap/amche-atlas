@@ -56,12 +56,21 @@ function lazyInit() {
     return initPromise
 }
 
-function findMatchingVillages(typedVillage) {
-    const q = typedVillage.toLowerCase()
+export function filterVillageList(villages, typedVillage) {
+    const q = typedVillage.trim().toLowerCase()
+    const sorted = villages.slice().sort((a, b) => a.village.localeCompare(b.village))
+    if (!q) return sorted
+
     const threshold = q.length <= 4 ? 1 : 2
-    const prefixMatches = villageList.filter(v => v.village.toLowerCase().startsWith(q))
-    if (prefixMatches.length) return prefixMatches
-    return villageList.filter(v => levenshtein.get(v.village.toLowerCase(), q) <= threshold)
+    const prefixMatches = villages.filter(v => v.village.toLowerCase().startsWith(q))
+    const matches = prefixMatches.length
+        ? prefixMatches
+        : villages.filter(v => levenshtein.get(v.village.toLowerCase(), q) <= threshold)
+    return matches.sort((a, b) => a.village.localeCompare(b.village))
+}
+
+function findMatchingVillages(typedVillage) {
+    return filterVillageList(villageList, typedVillage)
 }
 
 function decodeStatValue(val) {
@@ -196,6 +205,7 @@ function rowToFeature(r) {
             place_name: formatCadastralLabel(r),
             place_type: ['cadastral', 'plot'],
             text: formatCadastralLabel(r),
+            _surveyRaw: formatSurveyLabel(r),
             _isLocalSuggestion: true,
             _isCadastralParquet: true,
         },
@@ -361,6 +371,7 @@ export async function listSurveyOptionsForVillage(villageName, taluka, filterRaw
 
     const seen = new Set()
     const labels = []
+    const candidateLower = villageName.toLowerCase()
     const ranges = getMatchingRowGroupRanges(villageName)
 
     for (const range of ranges) {
@@ -373,6 +384,7 @@ export async function listSurveyOptionsForVillage(villageName, taluka, filterRaw
         })
 
         for (const row of rows) {
+            if (row.village.toLowerCase() !== candidateLower) continue
             if (!matchesVillageTaluka(row, villageName, taluka)) continue
             if (scoreSurveyMatch(row, parsed) === null) continue
             const label = formatSurveyLabel(row)

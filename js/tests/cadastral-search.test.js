@@ -5,6 +5,7 @@ import {
     scoreSurveyMatch,
     villageEntryKey,
     parseVillageEntryKey,
+    filterVillageList,
     isValidPlotCoord,
     formatSurveyLabel,
     sortSurveyOptionLabels,
@@ -124,5 +125,35 @@ describe('sortSurveyOptionLabels', () => {
     it('orders shorter survey numbers before longer prefix matches', () => {
         const sorted = ['101/3', '1/1', '1/11'].sort(sortSurveyOptionLabels)
         expect(sorted).toEqual(['1/1', '1/11', '101/3'])
+    })
+})
+
+describe('filterVillageList', () => {
+    const villages = [
+        { village: 'Verlem', taluka: 'SANGUEM' },
+        { village: 'Verna', taluka: 'SALCETE' },
+        { village: 'Panaji', taluka: 'TISWADI' },
+    ]
+
+    it('returns all villages sorted when query is empty', () => {
+        expect(filterVillageList(villages, '')).toEqual([
+            { village: 'Panaji', taluka: 'TISWADI' },
+            { village: 'Verlem', taluka: 'SANGUEM' },
+            { village: 'Verna', taluka: 'SALCETE' },
+        ])
+    })
+
+    it('filters by prefix', () => {
+        expect(filterVillageList(villages, 'Ver')).toEqual([
+            { village: 'Verlem', taluka: 'SANGUEM' },
+            { village: 'Verna', taluka: 'SALCETE' },
+        ])
+    })
+
+    it('tolerates typos via levenshtein', () => {
+        expect(filterVillageList(villages, 'verlam')).toEqual([
+            { village: 'Verlem', taluka: 'SANGUEM' },
+            { village: 'Verna', taluka: 'SALCETE' },
+        ])
     })
 })
