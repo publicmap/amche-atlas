@@ -85,6 +85,7 @@ export class MapLayerControl {
      * Initialize the control with map and container
      */
     async renderToContainer(container, map) {
+        this._containerRef = container;
         this._container = $(container)[0];
         this._map = map;
         this._initialized = false;
@@ -131,6 +132,18 @@ export class MapLayerControl {
         }
 
         $(container).append($('<div>', { class: 'layer-control' }));
+    }
+
+    /**
+     * The container may not exist yet when renderToContainer runs (some pages
+     * mount the layer panel later, others never mount one), so resolve it on
+     * demand instead of trusting the reference captured at startup.
+     */
+    _getContainer() {
+        if (!this._container && this._containerRef) {
+            this._container = $(this._containerRef)[0];
+        }
+        return this._container;
     }
 
     /**
@@ -363,7 +376,7 @@ export class MapLayerControl {
         this._sourceControls[groupIndex] = $groupHeader[0];
 
         // Set up event handlers
-        this._setupGroupHeaderEvents($groupHeader, group, groupIndex);
+        this._setupGroupHeaderEvents($groupHeader, group);
 
         // Create summary section
         const $summary = this._createGroupSummary(group);
@@ -389,9 +402,9 @@ export class MapLayerControl {
     /**
      * Set up group header event handlers
      */
-    _setupGroupHeaderEvents($groupHeader, group, groupIndex) {
+    _setupGroupHeaderEvents($groupHeader, group) {
         $groupHeader[0].addEventListener('sl-show', (event) => {
-            this._handleGroupShow(event, group, groupIndex);
+            this._handleGroupShow(event, group);
 
             // Load legend image when details panel is expanded (if layer is enabled)
             const toggleInput = event.target.querySelector('.toggle-switch input[type="checkbox"]');
@@ -401,14 +414,26 @@ export class MapLayerControl {
         });
 
         $groupHeader[0].addEventListener('sl-hide', (event) => {
-            this._handleGroupHide(event, group, groupIndex);
+            this._handleGroupHide(event, group);
         });
+    }
+
+    /**
+     * Resolve a group's current position in `_state.groups`.
+     *
+     * Positions shift whenever a layer is inserted at runtime (adding a map from
+     * the creator splices in at index 0), so handlers must look the index up when
+     * they fire rather than reusing one captured when the row was built.
+     */
+    _getGroupIndex(group) {
+        if (!group || !group.id) return -1;
+        return this._state.groups.findIndex(g => g.id === group.id);
     }
 
     /**
      * Handle group show event
      */
-    _handleGroupShow(event, group, groupIndex) {
+    _handleGroupShow(event, group) {
         const toggleInput = event.target.querySelector('.toggle-switch input[type="checkbox"]');
 
         if (toggleInput && !toggleInput.checked) {
@@ -422,7 +447,7 @@ export class MapLayerControl {
 
         // Determine if this is a cross-atlas layer
         const isCrossAtlas = $(event.target).hasClass('cross-atlas-layer');
-        const effectiveGroupIndex = isCrossAtlas ? -1 : groupIndex;
+        const effectiveGroupIndex = isCrossAtlas ? -1 : this._getGroupIndex(group);
 
         this._toggleLayerGroup(effectiveGroupIndex, true);
 
@@ -440,7 +465,7 @@ export class MapLayerControl {
     /**
      * Handle group hide event
      */
-    _handleGroupHide(event, group, groupIndex) {
+    _handleGroupHide(event, group) {
         const toggleInput = event.target.querySelector('.toggle-switch input[type="checkbox"]');
 
         if (toggleInput && toggleInput.checked) {
@@ -454,7 +479,7 @@ export class MapLayerControl {
 
         // Determine if this is a cross-atlas layer
         const isCrossAtlas = $(event.target).hasClass('cross-atlas-layer');
-        const effectiveGroupIndex = isCrossAtlas ? -1 : groupIndex;
+        const effectiveGroupIndex = isCrossAtlas ? -1 : this._getGroupIndex(group);
 
         this._toggleLayerGroup(effectiveGroupIndex, false);
 
@@ -778,6 +803,7 @@ export class MapLayerControl {
             }
 
             this._state.groups.splice(insertPosition, 0, layerWithChecked);
+            this._insertGroupControl(layerWithChecked, insertPosition);
 
             // Create the layer on the map
             await this._mapboxAPI.createLayerGroup(layerConfig.id, layerConfig, { visible: true });
@@ -810,6 +836,46 @@ export class MapLayerControl {
             }
         } catch (error) {
             throw error;
+        }
+    }
+
+    /**
+     * Build a layer control row for a dynamically added layer and insert it at
+     * `insertPosition`, keeping `_sourceControls` index-parallel with
+     * `_state.groups`.
+     *
+     * Without this the two arrays drift apart on every add, and every
+     * index-based lookup built on that pairing resolves against the wrong
+     * layer — the URL serialiser reads a neighbouring layer's checkbox and
+     * drops the added layer from `?layers=`, and toggling one row hides
+     * another.
+     */
+    _insertGroupControl(group, insertPosition) {
+        // Reserve the slot before building the row so _createGroupHeader's
+        // assignment lands in it rather than overwriting the existing neighbour.
+        this._sourceControls.splice(insertPosition, 0, null);
+
+        const $groupHeader = this._createGroupHeader(group, insertPosition);
+
+        // The layer is added already visible, so the row starts switched on.
+        const toggleInput = $groupHeader[0].querySelector('.toggle-switch input[type="checkbox"]');
+        if (toggleInput) {
+            toggleInput.checked = true;
+        }
+        $groupHeader.addClass('active');
+
+        // Mirror the array position in the DOM, but only when the rows are
+        // actually mounted — pages without a layer panel keep them detached, and
+        // there the _sourceControls entry above is all that is needed.
+        const nextControl = this._sourceControls[insertPosition + 1];
+        if (nextControl && nextControl.parentNode) {
+            $groupHeader.insertBefore(nextControl);
+            return;
+        }
+
+        const container = this._getContainer();
+        if (container) {
+            $(container).append($groupHeader);
         }
     }
 

@@ -301,14 +301,11 @@ export class MapBrowserControl {
             }
 
             if (event.data.type === 'creator-ready') {
-                if (this._pendingFileData && this._iframe && this._iframe.contentWindow) {
-                    const msg = {
-                        type: 'load-file-data',
-                        fileName: this._pendingFileData.fileName,
-                        content: this._pendingFileData.content,
-                        arrayBuffer: this._pendingFileData.arrayBuffer
-                    };
-                    const transfer = this._pendingFileData.arrayBuffer ? [this._pendingFileData.arrayBuffer] : [];
+                if (this._pendingFileData?.length && this._iframe && this._iframe.contentWindow) {
+                    const msg = { type: 'load-file-data', files: this._pendingFileData };
+                    const transfer = this._pendingFileData
+                        .map(file => file.arrayBuffer)
+                        .filter(Boolean);
                     this._iframe.contentWindow.postMessage(msg, '*', transfer);
                     this._pendingFileData = null;
                 }
@@ -326,7 +323,7 @@ export class MapBrowserControl {
 
             if (event.data.type === 'add-custom-layer') {
                 console.log('[MapBrowserControl] Received add-custom-layer message');
-                this._handleAddCustomLayer(event.data.config);
+                this._handleAddCustomLayer(event.data.config, { keepOpen: !!event.data.keepOpen });
             }
 
             if (event.data.type === 'open-layer-info') {
@@ -995,26 +992,39 @@ export class MapBrowserControl {
         }, 100);
     }
 
-    openCreatorWithFile(file) {
-        const ext = file.name.split('.').pop().toLowerCase();
-        const isBinary = ext === 'gpkg' || ext === 'zip';
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            this._pendingFileData = {
+    /**
+     * Read dropped files and hand them to the creator, which walks them one at a
+     * time so each becomes its own layer.
+     */
+    async openCreatorWithFiles(files) {
+        const readFile = (file) => new Promise((resolve, reject) => {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const isBinary = ext === 'gpkg' || ext === 'zip';
+            const reader = new FileReader();
+            reader.onload = (e) => resolve({
                 fileName: file.name,
                 content: isBinary ? null : e.target.result,
                 arrayBuffer: isBinary ? e.target.result : null
-            };
-            if (!this._isOpen) {
-                this.openBrowser();
+            });
+            reader.onerror = () => reject(reader.error);
+            if (isBinary) {
+                reader.readAsArrayBuffer(file);
+            } else {
+                reader.readAsText(file);
             }
-            this._switchToCreator();
-        };
-        if (isBinary) {
-            reader.readAsArrayBuffer(file);
-        } else {
-            reader.readAsText(file);
+        });
+
+        try {
+            this._pendingFileData = await Promise.all(files.map(readFile));
+        } catch (error) {
+            console.error('[MapBrowserControl] Failed to read dropped files:', error);
+            return;
         }
+
+        if (!this._isOpen) {
+            this.openBrowser();
+        }
+        this._switchToCreator();
     }
 
     _handleZoomToBounds(bounds, toggle = false) {
@@ -1156,7 +1166,7 @@ export class MapBrowserControl {
         }
     }
 
-    async _handleAddCustomLayer(config) {
+    async _handleAddCustomLayer(config, { keepOpen = false } = {}) {
         console.log('[MapBrowserControl] Adding custom layer:', config);
 
         const mapLayerControl = window.layerControl;
@@ -1174,8 +1184,12 @@ export class MapBrowserControl {
 
         // Close the browser/creator overlay so the new layer is visible on the
         // live map, then show the same "Added map" confirmation (with a zoom
-        // shortcut when a bbox is known) used for regular layer toggles.
-        this.closeBrowser();
+        // shortcut when a bbox is known) used for regular layer toggles. The
+        // creator keeps the overlay open while it still has queued files to
+        // walk the user through.
+        if (!keepOpen) {
+            this.closeBrowser();
+        }
 
         const layerTitle = mapLayerControl._escapeHtml?.(config.title || config.id) || (config.title || config.id);
         const labelHtml = mapLayerControl._buildLayerLabelHTML?.(config, layerTitle) || `<strong>${layerTitle}</strong>`;
