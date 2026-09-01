@@ -10,6 +10,7 @@ import { isNominatimBackedOff, reportNominatimFailure } from './nominatim-search
 import { initCadastralSearchUI } from './cadastral-search-ui.js';
 import { MapExportControl } from './map-export-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
+import { MapCompassControl } from './map-compass-control.js';
 import { MeasureControl } from './map-measure-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
@@ -948,9 +949,13 @@ export class MapInitializer {
             window.atlasLayerMenuControl = new AtlasLayerMenuControl(window.browserControl);
             window.atlasLayerMenuControl.mount(document.getElementById('atlas-layer-menu-container'));
 
-            // Top-right: compass and terrain-3D first, in that order;
-            // everything else comes after.
-            map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: false, visualizePitch: true }), 'top-right');
+            // The compass joins the primary top-left row, to the right of
+            // the geolocation button, since the two share the bearing lock
+            // (see js/map-compass-control.js).
+            window.mapCompassControl = new MapCompassControl({ visualizePitch: true });
+            window.searchBoxControl.mountCompassControl(window.mapCompassControl.onAdd(map));
+
+            // Top-right: terrain-3D first; everything else comes after.
             map.addControl(window.terrain3DControl, 'top-right');
 
             // Right-click / long-press shortcut menu, relies on the controls above

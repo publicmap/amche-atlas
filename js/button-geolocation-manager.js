@@ -66,7 +66,6 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         this.on('trackuserlocationstart', () => {
             this.isTracking = true;
             idleText = 'GPS Off';
-            $(window).on('deviceorientationabsolute', this.handleOrientation);
             $(document).trigger('update_url', { geolocate: true });
             this._showStatusMessage('Location tracking active', 3000);
         });
@@ -76,8 +75,10 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
             // Allow re-triggering from a subsequent URL update (e.g. share link
             // applied later) now that the previous tracking session has ended.
             this._initialTriggerSent = false;
-            $(window).off('deviceorientationabsolute', this.handleOrientation);
             $(document).trigger('update_url', { geolocate: false });
+            // Release the device-bearing lock first, so the reset below isn't
+            // immediately overridden by an incoming orientation event.
+            this._syncCompassBearingLock(false);
             // Reset map orientation
             map.easeTo({
                 bearing: 0,
@@ -195,21 +196,25 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
                             button.style.borderColor = '#404040 !important';
                             if (icon) { icon.name = 'crosshair2'; icon.style.color = '#3b82f6'; }
                             if (textSpan) { textSpan.textContent = 'GPS Locked'; textSpan.style.color = 'white'; }
+                            this._syncCompassBearingLock(true);
                         } else if (button.classList.contains('mapboxgl-ctrl-geolocate-background')) {
                             button.style.background = '#202020 !important';
                             button.style.borderColor = '#404040 !important';
                             if (icon) { icon.name = 'crosshair2'; icon.style.color = '#3b82f6'; }
                             if (textSpan) { textSpan.textContent = 'GPS Unlocked'; textSpan.style.color = 'white'; }
+                            this._syncCompassBearingLock(false);
                         } else if (button.classList.contains('mapboxgl-ctrl-geolocate-active-error')) {
                             button.style.background = '#ef4444 !important';
                             button.style.borderColor = '#dc2626 !important';
                             if (icon) { icon.name = 'crosshair'; icon.style.color = 'white'; }
                             if (textSpan) { textSpan.textContent = 'GPS Off'; textSpan.style.color = 'white'; }
+                            this._syncCompassBearingLock(false);
                         } else {
                             button.style.background = '#202020 !important';
                             button.style.borderColor = '#404040 !important';
                             if (icon) { icon.name = 'crosshair'; icon.style.color = 'white'; }
                             if (textSpan) { textSpan.textContent = idleText; textSpan.style.color = 'white'; }
+                            this._syncCompassBearingLock(false);
                         }
                     };
 
@@ -278,15 +283,15 @@ export class ButtonGeolocationManager extends mapboxgl.GeolocateControl {
         return container;
     }
 
-    handleOrientation = (event) => {
-        if (event.alpha != null && this.isTracking) {
-            // Mapbox expects bearing in [0, 360)
-            let bearing = (360 - event.alpha) % 360;
-            this.map.easeTo({
-                bearing: bearing,
-                duration: 100
-            });
-        }
+    // GPS locked means the camera follows the device, so the compass follows the
+    // device heading too. Unlocking or turning GPS off releases that lock, but
+    // only if the compass is still the one holding it - a bearing the user set
+    // by hand is left alone.
+    _syncCompassBearingLock(locked) {
+        const compass = window.mapCompassControl;
+        if (!compass) return;
+        if (locked) compass.lockToDevice();
+        else compass.unlockFromDevice();
     }
 
     handleUrlUpdate = (event, params) => {

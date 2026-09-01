@@ -276,8 +276,45 @@
    the row's own `gap` is the only spacing between them. */
 .search-box-row>.map-browser-control,
 .search-box-row>.map-inspector-control,
-.search-box-row>.geolocation-control-header {
+.search-box-row>.geolocation-control-header,
+.search-box-row>.map-compass-control {
     margin: 0 !important;
+}
+
+/* The compass sits at the right end of the same row (see mountCompassControl
+   in js/search-box-control.js), so it wears the row's 36px height and the
+   geolocation button's dark chrome instead of the 30px/#1f2937 treatment the
+   stacked map-canvas controls get further down this file. The extra
+   .mapboxgl-ctrl-group in the selector is what outweighs that generic rule,
+   which is also !important and comes later. */
+.search-box-row>.map-compass-control.mapboxgl-ctrl-group {
+    box-shadow: none !important;
+}
+
+.search-box-row>.map-compass-control.mapboxgl-ctrl-group button.mapboxgl-ctrl-compass {
+    width: 36px !important;
+    height: 36px !important;
+    background-color: #202020 !important;
+    border: 1px solid #404040 !important;
+    border-radius: 4px;
+    box-shadow: none !important;
+    cursor: pointer;
+}
+
+/* Fill the button with the needle so it centers on the 36px box and reads at
+   the same weight as the neighbouring 18px icons. */
+.search-box-row>.map-compass-control.mapboxgl-ctrl-group button.mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background-size: contain;
+}
+
+/* Bearing locked to the device compass (driven by the GPS button): solid black
+   fill, matching the active-state convention of the other map controls. */
+.search-box-row>.map-compass-control button.mapboxgl-ctrl-compass.compass-locked-device {
+    background-color: #000 !important;
+    border-color: #f4cb00 !important;
 }
 
 /* The inspector button sits in the same row (see mountInspectorControl in
