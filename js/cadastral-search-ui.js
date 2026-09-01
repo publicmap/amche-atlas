@@ -547,9 +547,9 @@ export class CadastralSearchUI {
         this._syncTriggerLabels()
     }
 
-    _flyToVillage(villageName) {
-        if (!villageName) return
-        getVillageCenter(villageName).then(center => {
+    _flyToVillage(villageEntry) {
+        if (!villageEntry?.village) return
+        getVillageCenter(villageEntry.village, villageEntry.taluka).then(center => {
             if (!center) return
             this.map.flyTo({ center: [center.lon, center.lat], zoom: 14 })
         }).catch(() => {})
@@ -567,7 +567,7 @@ export class CadastralSearchUI {
         }
 
         this._pendingSurvey = surveyRaw
-        queryCadastralPlotsByVillage(this.selectedVillage.village, surveyRaw)
+        queryCadastralPlotsByVillage(this.selectedVillage.village, this.selectedVillage.taluka, surveyRaw)
             .then(features => {
                 if (this._pendingSurvey !== surveyRaw) return
                 this._renderResults(features)

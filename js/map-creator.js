@@ -33,6 +33,10 @@ export class MapCreator {
         // style checkboxes/pickers stop overwriting config.style until the
         // user touches one of them again (see setupEventListeners).
         this._styleManuallyEdited = false;
+        // Files picked together are walked one at a time so each keeps its own
+        // title, style and inspect settings and lands as a separate layer.
+        this._fileQueue = [];
+        this._fileQueueIndex = 0;
     }
 
     init() {
@@ -53,33 +57,17 @@ export class MapCreator {
                 return;
             }
             if (event.data.type === 'load-file-data') {
-                const { fileName, content, arrayBuffer } = event.data;
-                const ext = fileName.split('.').pop().toLowerCase();
-                this.showSelectedFile(fileName);
-                try {
-                    let geojson;
-                    if (ext === 'gpkg') {
-                        geojson = await this.parseGPKG(arrayBuffer);
-                    } else if (ext === 'zip') {
-                        geojson = await this.parseShapefile(arrayBuffer);
-                    } else if (ext === 'kml') {
-                        geojson = await KMLConverter.kmlToGeoJson(content);
-                    } else if (ext === 'csv') {
-                        const rows = DataUtils.parseCSV(content);
-                        if (!rows || rows.length === 0) throw new Error('CSV file is empty');
-                        geojson = GeoUtils.rowsToGeoJSON(rows);
-                        if (!geojson) throw new Error('Could not find lat/lng columns in CSV');
-                    } else if (ext === 'geojsonl' || ext === 'ndjson' || ext === 'jsonl') {
-                        geojson = this.parseGeoJSONL(content);
-                    } else {
-                        geojson = JSON.parse(content);
-                        if (!geojson.type || (geojson.type !== 'FeatureCollection' && geojson.type !== 'Feature')) {
-                            throw new Error('Invalid GeoJSON format');
-                        }
-                    }
-                    this.processGeoJSON(geojson, fileName);
-                } catch (error) {
-                    alert('Parse error: ' + error.message);
+                // Rebuild File objects from the transferred contents so dropped
+                // files go through exactly the same queue and parsing path as
+                // files picked from the upload dialog.
+                this._fileQueue = (event.data.files || []).map(({ fileName, content, arrayBuffer }) =>
+                    new File([arrayBuffer || content || ''], fileName)
+                );
+                this._fileQueueIndex = 0;
+
+                if (this._fileQueue.length > 0) {
+                    this.resetLayerSettings();
+                    await this.processFile(this._fileQueue[0]);
                 }
             }
         });
@@ -88,13 +76,64 @@ export class MapCreator {
     showSelectedFile(fileName) {
         $('#selected-file-name').text(fileName);
         $('#selected-file-info').removeClass('hidden');
+
+        const total = this._fileQueue.length;
+        if (total > 1) {
+            $('#file-queue-progress')
+                .text(`File ${this._fileQueueIndex + 1} of ${total}`)
+                .removeClass('hidden');
+        } else {
+            $('#file-queue-progress').addClass('hidden');
+        }
+
+        $('#add-to-map-btn').text(this.hasMoreQueuedFiles() ? 'Add Layer & Next File' : 'Add Map Layer');
     }
 
     clearSelectedFile() {
         $('#file-input').val('');
         $('#selected-file-info').addClass('hidden');
         $('#selected-file-name').text('');
+        $('#file-queue-progress').addClass('hidden');
         $('#georef-notice').addClass('hidden');
+        $('#add-to-map-btn').text('Add Map Layer');
+        this._fileQueue = [];
+        this._fileQueueIndex = 0;
+    }
+
+    /**
+     * True while files from the same selection are still waiting their turn.
+     */
+    hasMoreQueuedFiles() {
+        return this._fileQueueIndex < this._fileQueue.length - 1;
+    }
+
+    /**
+     * Clear the per-layer settings so the next file gets its own generated
+     * title and id. showConfigSection() only fills in a default title when the
+     * field is empty, so without this a file would inherit the previous one's
+     * name — both between queued files and when the creator is reopened, since
+     * the iframe keeps its state between visits.
+     */
+    resetLayerSettings() {
+        $('#layer-title').val('');
+        $('#layer-id').val('');
+        $('#layer-description').val('');
+        $('#layer-attribution').val('');
+        $('#data-preview-details').hide();
+        $('#settings-section').hide();
+        $('#add-to-map-btn').prop('disabled', true);
+        this.setLoadingState('default');
+        this._resetConfigEditorState();
+        this.clearPreview();
+    }
+
+    /**
+     * Move on to the next queued file.
+     */
+    advanceFileQueue() {
+        this._fileQueueIndex++;
+        this.resetLayerSettings();
+        return this.processFile(this._fileQueue[this._fileQueueIndex]);
     }
 
     setupEventListeners() {
@@ -192,7 +231,6 @@ export class MapCreator {
                 $('#url-validation').html('');
                 $('.format-chip').removeClass('active-format');
                 this.hideGoogleSheetSelector();
-                this.showSelectedFile(e.target.files[0].name);
             }
             this.handleFileUpload(e);
         });
@@ -974,7 +1012,8 @@ export class MapCreator {
         if (url) {
             this.handleURLImport();
         } else if (hasFile) {
-            this.handleFileUpload({ target: fileInput });
+            // Re-run the file the user is currently on, not the start of the queue.
+            this.processFile(this._fileQueue[this._fileQueueIndex] || fileInput.files[0]);
         } else if (overpassSectionOpen && overpassText) {
             this.handleOverpassImport(overpassText, { withPreview: true });
         } else {
@@ -1501,8 +1540,20 @@ export class MapCreator {
     }
 
     async handleFileUpload(event) {
-        const file = event.target.files[0];
+        const files = Array.from(event.target.files || []);
+        if (files.length === 0) return;
+
+        this._fileQueue = files;
+        this._fileQueueIndex = 0;
+        this.resetLayerSettings();
+
+        await this.processFile(this._fileQueue[0]);
+    }
+
+    async processFile(file) {
         if (!file) return;
+
+        this.showSelectedFile(file.name);
 
         const ext = file.name.split('.').pop().toLowerCase();
 
@@ -2574,12 +2625,22 @@ export class MapCreator {
             }
         }
 
+        // Keep the creator open while files from the same selection are still
+        // queued, so the user configures each one in turn instead of having to
+        // reopen the creator per file.
+        const hasMore = this.hasMoreQueuedFiles();
+
         console.log('[MapCreator] Sending add-custom-layer message to parent');
         this.clearPreview();
         window.parent.postMessage({
             type: 'add-custom-layer',
-            config: config
+            config: config,
+            keepOpen: hasMore
         }, '*');
+
+        if (hasMore) {
+            this.advanceFileQueue();
+        }
     }
 
     returnToBrowser() {
