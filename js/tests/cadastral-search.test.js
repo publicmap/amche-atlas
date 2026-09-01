@@ -5,6 +5,9 @@ import {
     scoreSurveyMatch,
     villageEntryKey,
     parseVillageEntryKey,
+    isValidPlotCoord,
+    formatSurveyLabel,
+    sortSurveyOptionLabels,
 } from '../cadastral-search.js'
 
 describe('parseSurveyQuery', () => {
@@ -94,5 +97,32 @@ describe('normalizeSurveySegment', () => {
     it('strips non-alphanumeric characters', () => {
         expect(normalizeSurveySegment('2-A')).toBe('2a')
         expect(normalizeSurveySegment('')).toBe('')
+    })
+})
+
+describe('isValidPlotCoord', () => {
+    it('accepts coordinates within Goa bounds', () => {
+        expect(isValidPlotCoord(73.964, 15.253)).toBe(true)
+    })
+
+    it('rejects null and out-of-state outliers', () => {
+        expect(isValidPlotCoord(null, 15.253)).toBe(false)
+        expect(isValidPlotCoord(73.964, null)).toBe(false)
+        expect(isValidPlotCoord(145.21, -1.52)).toBe(false)
+        expect(isValidPlotCoord(76.5, 15.137)).toBe(false)
+    })
+})
+
+describe('formatSurveyLabel', () => {
+    it('formats survey with and without subdiv', () => {
+        expect(formatSurveyLabel({ survey: '1', subdiv: '2-A' })).toBe('1/2-A')
+        expect(formatSurveyLabel({ survey: '42', subdiv: '' })).toBe('42')
+    })
+})
+
+describe('sortSurveyOptionLabels', () => {
+    it('orders shorter survey numbers before longer prefix matches', () => {
+        const sorted = ['101/3', '1/1', '1/11'].sort(sortSurveyOptionLabels)
+        expect(sorted).toEqual(['1/1', '1/11', '101/3'])
     })
 })
