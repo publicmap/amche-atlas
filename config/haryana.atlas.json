@@ -1,0 +1,305 @@
+{
+  "name": "Haryana",
+  "areaOfInterest": "Haryana, India",
+  "version": "0.1.0",
+  "url": "https://github.com/publicmap/amche-atlas/blob/main/config/haryana.atlas.json",
+  "color": "#0d9488",
+  "map": {
+    "center": [
+      76.1,
+      29.3
+    ],
+    "zoom": 7
+  },
+  "geojson": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                75.9167386,
+                27.8648439
+              ],
+              [
+                76.2850418,
+                27.8364088
+              ],
+              [
+                76.3166676,
+                28.0401764
+              ],
+              [
+                76.8089408,
+                28.0230114
+              ],
+              [
+                76.8518345,
+                27.6278573
+              ],
+              [
+                77.5792911,
+                27.9451147
+              ],
+              [
+                77.5099623,
+                28.4903049
+              ],
+              [
+                77.342809,
+                28.5169615
+              ],
+              [
+                77.2161932,
+                28.4748569
+              ],
+              [
+                77.1888168,
+                28.4237073
+              ],
+              [
+                77.1135317,
+                28.5079405
+              ],
+              [
+                76.9903379,
+                28.5350012
+              ],
+              [
+                76.8808323,
+                28.5049333
+              ],
+              [
+                76.8431897,
+                28.5680659
+              ],
+              [
+                76.9629615,
+                28.6822096
+              ],
+              [
+                76.9595394,
+                28.8202173
+              ],
+              [
+                77.0827332,
+                28.8681772
+              ],
+              [
+                77.2127711,
+                28.8621834
+              ],
+              [
+                77.2230373,
+                28.9251008
+              ],
+              [
+                77.1072227,
+                29.5470129
+              ],
+              [
+                77.3210328,
+                30.0186674
+              ],
+              [
+                77.6150236,
+                30.4036058
+              ],
+              [
+                77.1428565,
+                30.5571586
+              ],
+              [
+                77.1517653,
+                30.7257864
+              ],
+              [
+                76.8221393,
+                30.9094081
+              ],
+              [
+                76.8488657,
+                30.6491738
+              ],
+              [
+                76.9112274,
+                30.3574928
+              ],
+              [
+                76.5281484,
+                30.057229
+              ],
+              [
+                76.2584609,
+                30.1715513
+              ],
+              [
+                76.1159199,
+                29.7702416
+              ],
+              [
+                75.2816319,
+                29.8775164
+              ],
+              [
+                74.8238337,
+                29.9950503
+              ],
+              [
+                74.5771183,
+                29.9106154
+              ],
+              [
+                74.5154739,
+                29.3819103
+              ],
+              [
+                75.3187065,
+                29.1551226
+              ],
+              [
+                75.5770621,
+                28.6403571
+              ],
+              [
+                75.9868675,
+                28.1937432
+              ],
+              [
+                75.9167386,
+                27.8648439
+              ]
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "title": "HSAC Cadastrals",
+      "description": "Cadastral boundaries from Haryana Space Applications Center (HSAC)",
+      "type": "vector",
+      "id": "plots",
+      "url": "https://indianopenmaps.com/not-so-open/cadastrals/haryana/hrsac/{z}/{x}/{y}.pbf",
+      "sourceLayer": "HRSAC_HR_Cadastrals",
+      "minzoom": 0,
+      "maxzoom": 14,
+      "attribution": "<a href='https://hsac.in/eodb/map' target='_blank' rel='noopener noreferrer'>Haryan Space Applications Center</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a> via <a href='https://indianopenmaps.com/viewer#source=/not-so-open/cadastrals/haryana/hrsac/&map=' target='_blank' rel='noopener noreferrer'>IndianOpenMaps</a>",
+      "initiallyChecked": true,
+      "inspect": {
+        "id": "OBJECTID",
+        "onClick": "getHaryanaLandRecord",
+        "title": "Khasra No.",
+        "label": "n_khas_no",
+        "fields": [
+          "n_murr_no",
+          "n_v_name",
+          "n_t_name",
+          "n_d_name",
+          "uq",
+          "shape.STArea()"
+        ],
+        "fieldTitles": [
+          "Murabba No.",
+          "Village",
+          "Taluka",
+          "District",
+          "Code",
+          "Shape Area (sqm.)"
+        ]
+      },
+      "style": {
+        "text-padding": 10,
+        "text-font": [
+          "Open Sans SemiBold"
+        ],
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          14,
+          [
+            "format",
+            "Khasra.No.\n",
+            {
+              "text-color": "white",
+              "font-scale": 0.8
+            },
+            [
+              "get",
+              "n_khas_no"
+            ],
+            {
+              "text-color": "white",
+              "font-scale": 1
+            }
+          ]
+        ],
+        "fill-color": "rgba(255, 255, 255, 0.2)",
+        "line-color": "#444",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "boolean",
+                [
+                  "feature-state",
+                  "hover"
+                ],
+                false
+              ],
+              2,
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            2,
+            0.5
+          ],
+          18,
+          [
+            "case",
+            [
+              "boolean",
+              [
+                "feature-state",
+                "hover"
+              ],
+              false
+            ],
+            4,
+            [
+              "boolean",
+              [
+                "feature-state",
+                "selected"
+              ],
+              false
+            ],
+            4,
+            1
+          ]
+        ]
+      }
+    }
+  ]
+}

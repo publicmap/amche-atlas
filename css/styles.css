@@ -1423,6 +1423,13 @@ main {
     color: var(--primary-hover) !important;
 }
 
+/* Compass needle: Mapbox's default north arrow is #333, which is invisible
+   against the dark (#1f2937) control background set above. Repaint north red
+   and south light grey so both halves read on the dark button. */
+.mapboxgl-ctrl button.mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%23ef4444' viewBox='0 0 29 29'%3E%3Cpath d='M10.5 14l4-8 4 8h-8z'/%3E%3Cpath id='south' d='M10.5 16l4 8 4-8h-8z' fill='%23e5e7eb'/%3E%3C/svg%3E") !important;
+}
+
 /* Measure control: single toggle that expands to reveal the draw/clear tools */
 .maplibregl-measures .measure-tools button svg {
     width: 100%;
