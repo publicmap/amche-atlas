@@ -505,14 +505,14 @@
                 <!-- MapWarper Account -->
                 <div>
                     <h3 class="text-sm font-semibold mb-3 text-gray-700">MapWarper</h3>
-                    <select id="warp-method-select" class="w-full mb-2 px-2 py-1.5 border border-gray-300 rounded text-sm bg-white hidden">
+                    <select id="warp-method-select" class="w-full mb-2 px-2 py-1.5 border border-gray-300 rounded text-sm bg-white">
                         <option value="auto">Auto</option>
                         <option value="p1">Polynomial 1</option>
                         <option value="p2">Polynomial 2</option>
                         <option value="p3">Polynomial 3</option>
                         <option value="tps">Thin Plate Spline</option>
                     </select>
-                    <div id="sync-warp-btn-group" class="hidden">
+                    <div id="sync-warp-btn-group">
                         <p id="unsaved-changes-info" class="text-xs text-gray-500 mb-1 hidden"></p>
                         <button id="save-warp-btn"
                             class="w-full px-3 py-2 bg-gray-300 text-gray-500 rounded text-sm cursor-not-allowed"
@@ -3004,13 +3004,19 @@
         }
 
         function saveCSV() {
-            const csv = document.getElementById('csv-output').value;
+            // MapWarper's /gcps/bulk_import form ignores rows without a mapid
+            // column, so append it when a map is loaded. Column order is
+            // irrelevant to its header-based CSV parser.
+            const lines = document.getElementById('csv-output').value.split('\n').filter(l => l.trim());
+            const csv = warpMapId
+                ? lines.map((l, i) => `${l},${i === 0 ? 'mapid' : warpMapId}`).join('\n')
+                : lines.join('\n');
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
 
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'control_points.csv';
+            a.download = warpMapId ? `control_points_${warpMapId}.csv` : 'control_points.csv';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -3755,18 +3761,17 @@
             const authStatus = document.getElementById('auth-status');
             const loginBtn = document.getElementById('mapwarper-login-btn');
 
+            if (btnGroup) btnGroup.classList.remove('hidden');
+            if (warpSelect) warpSelect.classList.remove('hidden');
+
             if (mapwarperAPI.isAuthenticated) {
-                if (btnGroup) btnGroup.classList.remove('hidden');
-                if (warpSelect) warpSelect.classList.remove('hidden');
                 if (authStatus) { authStatus.textContent = mapwarperAPI.auth.login; authStatus.classList.remove('hidden'); }
                 if (loginBtn) loginBtn.textContent = mapwarperAPI.auth.login || 'Account';
-                updateSaveButtonUI();
             } else {
-                if (btnGroup) btnGroup.classList.add('hidden');
-                if (warpSelect) warpSelect.classList.add('hidden');
                 if (authStatus) authStatus.classList.add('hidden');
                 if (loginBtn) loginBtn.textContent = 'Mapwarper Login';
             }
+            updateSaveButtonUI();
         }
 
         function getAutoWarpMethod(gcpCount) {
@@ -3807,18 +3812,23 @@
             ).length;
             const enoughPoints = completeCount >= 3;
             const hasChanges = unsavedChangeCount > 0;
+            const signedIn = mapwarperAPI.isAuthenticated;
 
             if (info) {
-                if (hasChanges) {
-                    info.textContent = `${unsavedChangeCount} unsaved change${unsavedChangeCount === 1 ? '' : 's'}`;
-                    info.classList.remove('hidden');
-                } else {
-                    info.classList.add('hidden');
+                let msg = '';
+                if (!enoughPoints) {
+                    msg = `${completeCount} of 3 control points needed to warp`;
+                } else if (!signedIn) {
+                    msg = 'Sign in to save control points and warp';
+                } else if (hasChanges) {
+                    msg = `${unsavedChangeCount} unsaved change${unsavedChangeCount === 1 ? '' : 's'}`;
                 }
+                info.textContent = msg;
+                info.classList.toggle('hidden', !msg);
             }
 
-            const canSave = hasChanges && enoughPoints;
-            saveBtn.textContent = hasChanges ? 'Save' : 'Saved';
+            const canSave = signedIn ? (hasChanges && enoughPoints) : enoughPoints;
+            saveBtn.textContent = !signedIn ? 'Sign in to Save & Warp' : (hasChanges ? 'Save & Warp' : 'Saved');
             saveBtn.disabled = !canSave;
             saveBtn.className = canSave
                 ? 'w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm cursor-pointer'
