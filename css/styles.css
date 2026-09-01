@@ -223,9 +223,150 @@
     line-height: 1.25;
 }
 
+.cadastral-field-trigger {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 36px;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid #374151;
+    border-radius: 0.375rem;
+    background: #1f2937;
+    color: #9ca3af;
+    font-size: 0.875rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cadastral-field-trigger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.cadastral-field-trigger__label--filled {
+    color: #f3f4f6;
+}
+
+.cadastral-picker-drawer {
+    --size: 70vh;
+    --header-spacing: 0.75rem;
+    --body-spacing: 0.5rem 0.75rem 0.75rem;
+    z-index: 10000;
+}
+
+.cadastral-picker-drawer::part(panel) {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0.75rem 0.75rem 0 0;
+    border-right: 0;
+    background: #111827;
+    color: #f3f4f6;
+    border-top: 1px solid #374151;
+    padding: 0;
+}
+
+.cadastral-picker-drawer::part(header) {
+    border-bottom: 1px solid #374151;
+}
+
+.cadastral-picker-drawer::part(title) {
+    color: #f3f4f6;
+}
+
+.cadastral-picker-drawer::part(close-button) {
+    color: #f3f4f6;
+}
+
+.cadastral-picker-drawer::part(overlay) {
+    background: rgba(0, 0, 0, 0.5);
+    pointer-events: auto;
+}
+
+.cadastral-picker-drawer::part(body) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.cadastral-picker-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.cadastral-picker-search {
+    flex-shrink: 0;
+}
+
+.cadastral-picker-search::part(base) {
+    background: #1f2937;
+    border-color: #374151;
+    color: #f3f4f6;
+}
+
+.cadastral-picker-list {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 12rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.cadastral-picker-item {
+    display: block;
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border: 0;
+    background: transparent;
+    color: #f3f4f6;
+    font-size: 0.875rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cadastral-picker-item:hover,
+.cadastral-picker-item:focus {
+    background: #374151;
+    outline: none;
+}
+
+.cadastral-picker-hint {
+    padding: 1rem 0.75rem;
+    color: #9ca3af;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
 @media (max-width: 768px) {
     #mapbox-search-box {
         max-width: 100%;
+    }
+
+    .cadastral-search-panel {
+        flex-direction: column;
+        gap: 0.375rem;
+    }
+
+    .cadastral-desktop-only {
+        display: none !important;
+    }
+
+    .cadastral-results {
+        display: none !important;
+    }
+
+    .cadastral-dropdown--picker-open .cadastral-results {
+        display: none !important;
+    }
+}
+
+@media (min-width: 769px) {
+    .cadastral-mobile-only {
+        display: none !important;
     }
 }
 
@@ -1528,19 +1669,19 @@ header h1 {
     opacity: 0.9;
 }
 
-sl-drawer {
+sl-drawer:not(.cadastral-picker-drawer) {
     --header-spacing: 5px;
     --body-spacing: 5px;
     color: white;
 }
 
-sl-drawer::part(overlay) {
+sl-drawer:not(.cadastral-picker-drawer)::part(overlay) {
     background: none;
     pointer-events: none;
     /* Prevent overlay from capturing clicks */
 }
 
-sl-drawer::part(panel) {
+sl-drawer:not(.cadastral-picker-drawer)::part(panel) {
     background: hsla(0, 0%, 35%, 0.902);
     backdrop-filter: blur(8px);
     border-right: 1px solid rgba(0, 0, 0, 0.1);
@@ -1549,7 +1690,7 @@ sl-drawer::part(panel) {
     padding: 5px 10px;
 }
 
-sl-drawer::part(close-button) {
+sl-drawer:not(.cadastral-picker-drawer)::part(close-button) {
     color: #fdfdfd;
     font-size: 1.5rem;
 }
@@ -1907,13 +2048,13 @@ sl-details::part(content) {
     padding: 0px;
 }
 
-sl-drawer sl-details::part(base) {
+sl-drawer:not(.cadastral-picker-drawer) sl-details::part(base) {
     padding: 0;
     border: 1px solid #535353;
     box-shadow: inset 0px 0px 3px rgb(69 69 69);
 }
 
-sl-drawer sl-details::part(content) {
+sl-drawer:not(.cadastral-picker-drawer) sl-details::part(content) {
     padding: 10px;
     box-shadow: inset 0px 0px 3px rgb(69 69 69);
     background-color: rgb(255, 251, 243);
