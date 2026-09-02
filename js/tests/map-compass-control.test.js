@@ -152,7 +152,7 @@ describe('MapCompassControl', () => {
 
         expect(control.lockedToDevice).toBe(true);
         expect(map.resetNorthPitch).not.toHaveBeenCalled();
-        expect(map.easeTo).toHaveBeenCalledWith({ bearing: 168, duration: 100 });
+        expect(map.easeTo).toHaveBeenCalledWith({ bearing: 168, duration: 100 }, { geolocateSource: true });
         expect(tooltipOf(control)[1]).toBe('Map Bearing locked to device');
     });
 
@@ -181,7 +181,7 @@ describe('MapCompassControl', () => {
         control.lockToDevice();
         control._lastDeviceEaseAt = -Infinity;
         sendHeading(200);
-        expect(map.easeTo).toHaveBeenLastCalledWith({ bearing: 200, duration: 100 });
+        expect(map.easeTo).toHaveBeenLastCalledWith({ bearing: 200, duration: 100 }, { geolocateSource: true });
 
         control.unlockFromDevice();
         map.easeTo.mockClear();

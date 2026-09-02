@@ -170,7 +170,11 @@ export class MapCompassControl extends mapboxgl.NavigationControl {
             if (delta < 1) return;
         }
         this._lastDeviceEaseAt = now;
-        this._map.easeTo({ bearing: this._deviceBearing, duration: 100 });
+        // geolocateSource marks the move as programmatic. Without it
+        // GeolocateControl reads this rotation as the user panning away and
+        // drops from ACTIVE_LOCK to BACKGROUND - which unlocks GPS, and the
+        // geolocation button then releases this very lock.
+        this._map.easeTo({ bearing: this._deviceBearing, duration: 100 }, { geolocateSource: true });
     }
 
     // iOS 13+ withholds orientation events until asked, so a device lock is

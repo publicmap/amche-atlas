@@ -286,19 +286,25 @@
       "attribution": "<a href='https://bhuvan-app3.nrsc.gov.in/data/download/index.php'>ISRO CartoDEM 30m v3r1</a> - Collected by <a href='https://github.com/ramSeraph/indian_land_features/releases/tag/cartodem-30m-v3r1'>Datameet Community</a>",
       "initiallyChecked": false,
       "style": {
+        "text-field": [
+          "concat",
+          [
+            "get",
+            "ele_m"
+          ],
+          "m"
+        ],
+        "text-size": 12,
+        "text-color": "black",
+        "text-halo-color": "white",
+        "text-halo-width": 1,
         "line-color": "brown",
         "line-width": 2
       },
       "inspect": {
         "id": "gid",
-        "title": "Name",
-        "label": "mon_name",
-        "fields": [
-          "ele_m"
-        ],
-        "fieldTitles": [
-          "Ele M"
-        ]
+        "title": "Elevation",
+        "label": "Ele M"
       }
     },
     {
