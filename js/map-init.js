@@ -10,7 +10,6 @@ import { isNominatimBackedOff, reportNominatimFailure } from './nominatim-search
 import { initCadastralSearchUI } from './cadastral-search-ui.js';
 import { MapExportControl } from './map-export-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
-import { MapCompassControl } from './map-compass-control.js';
 import { MeasureControl } from './map-measure-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
@@ -22,7 +21,7 @@ import { ShortcutMenu } from './shortcut-menu.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { NearbyFeaturesControl } from './map-nearby-features-control.js';
-import { ButtonGeolocationManager } from './button-geolocation-manager.js';
+import { MapOrientationControl } from './map-orientation-control.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 import { CameraUtils } from './map-camera-utils.js';
 import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands } from './dynamic-layer-shorthand.js';
@@ -841,12 +840,16 @@ export class MapInitializer {
                 `${userLoc.lat.toFixed(6)}, ${userLoc.lng.toFixed(6)} at t=${Math.round(performance.now())}ms`
             );
         }
-        // Built immediately (not via map.addControl) so its GPS auto-trigger
-        // starts in parallel with style/tile loading, same as before - but the
-        // returned element is held detached until SearchBoxControl mounts it
-        // into the same row as the search input (see initializeSearch below).
-        window.geolocationControl = new ButtonGeolocationManager();
-        window._geolocationControlEl = window.geolocationControl.onAdd(map);
+        // One button covers both GPS tracking and map bearing; window
+        // .geolocationControl stays as an alias for the callers that used to
+        // talk to the separate geolocation button.
+        // onAdd is called directly here, rather than waiting for the
+        // map.addControl() that mounts it bottom-right on load, so its GPS
+        // auto-trigger starts in parallel with style/tile loading. The element
+        // stays detached until then; the second onAdd returns the same one.
+        window.orientationControl = new MapOrientationControl();
+        window.geolocationControl = window.orientationControl;
+        window.orientationControl.onAdd(map);
 
         // Also added immediately (rather than inside map.on('load') below) so
         // it exists before initializeSearch()'s searchSetup can possibly run -
@@ -949,14 +952,13 @@ export class MapInitializer {
             window.atlasLayerMenuControl = new AtlasLayerMenuControl(window.browserControl);
             window.atlasLayerMenuControl.mount(document.getElementById('atlas-layer-menu-container'));
 
-            // The compass joins the primary top-left row, to the right of
-            // the geolocation button, since the two share the bearing lock
-            // (see js/map-compass-control.js).
-            window.mapCompassControl = new MapCompassControl({ visualizePitch: true });
-            window.searchBoxControl.mountCompassControl(window.mapCompassControl.onAdd(map));
-
-            // Top-right: terrain-3D first; everything else comes after.
-            map.addControl(window.terrain3DControl, 'top-right');
+            // Bottom-right, in stacking order from the corner up: attribution
+            // sits lowest, the orientation button next (nearest the thumb), and
+            // the 3D panel's toggle above it. Bottom corners insert each new
+            // control above the previous one, so add order is bottom-to-top.
+            map.addControl(window.attributionControl, 'bottom-right');
+            map.addControl(window.orientationControl, 'bottom-right');
+            map.addControl(window.terrain3DControl, 'bottom-right');
 
             // Right-click / long-press shortcut menu, relies on the controls above
             window.shortcutMenu = new ShortcutMenu();
@@ -1002,15 +1004,16 @@ export class MapInitializer {
             // Street view goes last in the top-right stack
             window.streetviewControl = new StreetviewControl();
             map.addControl(window.streetviewControl, 'top-right');
-            map.addControl(window.attributionControl, 'bottom-right');
             window.contextMessagesControl = new MapContextMessagesControl();
             window.contextMessagesControl.onAdd(map);
             const shortcutHintId = MapContextMessagesControl.show('Long press/right click map for shortcuts');
             setTimeout(() => MapContextMessagesControl.close(shortcutHintId), 8000);
+            // Both open top-anchored panels, so they live in the top-right
+            // stack, below the controls added above.
             window.exportControl = new MapExportControl();
-            map.addControl(window.exportControl, 'bottom-right');
+            map.addControl(window.exportControl, 'top-right');
             window.externalMapLinksControl = new ButtonExternalMapLinks();
-            map.addControl(window.externalMapLinksControl, 'bottom-right');
+            map.addControl(window.externalMapLinksControl, 'top-right');
             map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
             // Added after ScaleControl so it stacks above it (bottom corners
             // insert each new control above the previous one).
@@ -1163,7 +1166,7 @@ export class MapInitializer {
             const applyGpsLock = (lat, lng) => {
                 map.flyTo({ center: [lng, lat], zoom: 17, pitch: 0, bearing: 0, duration: 2000, essential: true });
                 MapContextMessagesControl.show(
-                    'Locked to <a href="#" onclick="window.geolocationControl?.trigger();return false;">GPS</a>. ' +
+                    'Locked to <a href="#" onclick="window.orientationControl?.turnOff();return false;">GPS</a>. ' +
                     'Switch to <a href="#" onclick="window.__amcheSwitchToAtlasDefault?.();return false;">map default</a>',
                     { id: 'gps-lock-status' }
                 );
@@ -1171,7 +1174,7 @@ export class MapInitializer {
                 gpsLockMessageTimer = setTimeout(() => MapContextMessagesControl.close('gps-lock-status'), 10000);
             };
             window.__amcheSwitchToAtlasDefault = () => {
-                if (window.geolocationControl?.isTracking) window.geolocationControl.trigger();
+                if (window.orientationControl?.isTracking) window.orientationControl.turnOff();
                 MapContextMessagesControl.close('gps-lock-status');
                 const view = window.__amcheAtlasDefaultView;
                 map.flyTo({ center: view.center, zoom: view.zoom, pitch: 28, bearing: 0, duration: 1500, essential: true });
@@ -1563,10 +1566,10 @@ export class MapInitializer {
         const searchSetup = () => {
             if (window.searchControl) return;
 
-            // Populate the search row (already added to the map, top-right)
-            // with the search box and the geolocation button, before
-            // MapSearchControl looks up the search box via document.querySelector.
-            window.searchBoxControl.mount({ geolocationEl: window._geolocationControlEl });
+            // Populate the search row (already added to the map, top-left)
+            // with the search box, before MapSearchControl looks it up via
+            // document.querySelector.
+            window.searchBoxControl.mount();
 
             const featureStateManager = new MapFeatureStateManager(window.map);
 

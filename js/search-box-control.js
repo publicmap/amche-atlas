@@ -1,8 +1,7 @@
 /**
  * SearchBoxControl - Mapbox GL JS control hosting the primary top-left row:
- * the map-browser "Maps" button, the map-inspector button, the
- * <mapbox-search-box> web component, the geolocation button, and the compass,
- * all in one row, in that order.
+ * the map-browser "Maps" button, the map-inspector button and the
+ * <mapbox-search-box> web component, all in one row, in that order.
  *
  * onAdd() only builds the empty row and returns it - it's added to the map
  * immediately (before map.on('load')) purely to claim its slot at the top of
@@ -13,8 +12,8 @@
  *   - MapFeatureControl's element is built on map load and inserted via
  *     mountInspectorControl().
  *   - The search box itself can't initialize until much later (map style
- *     loaded, layer registry ready, etc) - see mount({ geolocationEl }),
- *     called once MapSearchControl is ready.
+ *     loaded, layer registry ready, etc) - see mount(), called once
+ *     MapSearchControl is ready.
  *
  * MapSearchControl (see map-search-control.js) looks up the search box via
  * document.querySelector('mapbox-search-box'), so mount() must run before
@@ -69,31 +68,13 @@ export class SearchBoxControl {
         }
     }
 
-    // Inserts the compass control's element (its own onAdd() return value) at
-    // the end of the row, to the right of the geolocation button. The compass
-    // is built on map load, which can be before or after mount() runs, so the
-    // row keeps it last from either direction (see mount() below).
-    mountCompassControl(compassEl) {
-        if (this._compassEl || !compassEl) return; // already mounted
-        this._compassEl = compassEl;
-        compassEl.classList.add('map-compass-control');
-        this._row.appendChild(compassEl);
-    }
-
-    // Populates the row with the search box and, when provided, the
-    // geolocation control's element (already built via its own onAdd) so it
-    // renders after the Maps button, in the same row as the search input.
-    mount({ geolocationEl } = {}) {
+    // Adds the search box at the end of the row, after the Maps and inspector
+    // buttons.
+    mount() {
         if (this._searchBox) return; // already mounted
 
         this._searchBox = document.createElement('mapbox-search-box');
         this._searchBox.id = 'mapbox-search-box';
-        // insertBefore(x, null) is appendChild, so both pieces land at the end
-        // of the row unless the compass is already there to stay right of them.
-        this._row.insertBefore(this._searchBox, this._compassEl || null);
-
-        if (geolocationEl) {
-            this._row.insertBefore(geolocationEl, this._compassEl || null);
-        }
+        this._row.appendChild(this._searchBox);
     }
 }

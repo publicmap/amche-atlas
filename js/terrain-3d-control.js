@@ -31,7 +31,9 @@ export class Terrain3DControl {
         this._pitchListener = null; // Track pitch change listener for cleanup
         this._autoPitchAnimationFrame = null;
         this._autoPitchAnimating = false;
-        this._autoPitchUserOverrode = false;
+        // Last pitch the panel's own animation wrote, so a pitch that no
+        // longer matches it can be recognised as the user's own choice.
+        this._autoPitchLastSet = null;
         this._pitchBeforePanel = null;
         this._syncCallback = null; // Optional callback fired after visual updates (e.g. compare/swipe)
         this._autoEnableMessageId = null; // Context message shown when terrain auto-enables from a tilt gesture
@@ -152,14 +154,17 @@ export class Terrain3DControl {
 
     _createPanel() {
         // Create panel container with scrolling
+        // Anchored to the bottom-right corner, where the control's button now
+        // lives (see map-init.js). It opens to the left of that button column
+        // and above the attribution bar, so it covers neither.
         this._panel = $('<div>', {
             class: 'terrain-3d-panel',
             css: {
                 position: 'absolute',
-                top: '40px',
-                right: '10px',
+                bottom: '40px',
+                right: '48px',
                 width: '280px',
-                maxHeight: '600px',
+                maxHeight: 'min(600px, calc(100vh - 100px))',
                 backgroundColor: 'white',
                 border: '1px solid #ccc',
                 borderRadius: '4px',
@@ -174,7 +179,7 @@ export class Terrain3DControl {
         // Create scrollable content container
         const $scrollContent = $('<div>', {
             css: {
-                maxHeight: '600px',
+                maxHeight: 'min(600px, calc(100vh - 100px))',
                 overflowY: 'auto',
                 overflowX: 'hidden',
                 padding: '15px',
@@ -758,7 +763,6 @@ export class Terrain3DControl {
         $pitchSlider.on('input', (e) => {
             // Cancel auto-animation if user manually moves slider
             if (this._autoPitchAnimating) {
-                this._autoPitchUserOverrode = true;
                 this._autoPitchAnimating = false;
                 if (this._autoPitchAnimationFrame) {
                     cancelAnimationFrame(this._autoPitchAnimationFrame);
@@ -853,13 +857,21 @@ export class Terrain3DControl {
             this.setEnabled(true);
         }
 
-        // Auto-animate pitch to 50° if pitch is at default (0)
-        if (Math.abs(this._pitch) < 0.5) {
-            this._pitchBeforePanel = this._pitch;
-            this._autoPitchUserOverrode = false;
-            this._animatePitch(this._pitch, 50, 2000);
+        // Auto-animate pitch to 50° if the map is flat. Read the pitch off the
+        // map rather than this._pitch, which only tracks changes made through
+        // this panel and goes stale the moment the map is tilted by a drag.
+        const currentPitch = this._map ? this._map.getPitch() : this._pitch;
+        if (Math.abs(currentPitch) < 0.5) {
+            this._pitchBeforePanel = currentPitch;
+            this._animatePitch(currentPitch, 50, 2000);
         } else {
             this._pitchBeforePanel = null;
+            this._autoPitchLastSet = null;
+            // Already tilted: show that tilt on the slider instead of whatever
+            // this panel last set.
+            this._pitch = currentPitch;
+            $('#terrain-3d-pitch-slider').val(currentPitch);
+            $('#terrain-3d-pitch-value').text(currentPitch.toFixed(0) + '°');
         }
     }
 
@@ -871,9 +883,17 @@ export class Terrain3DControl {
             this._autoPitchAnimating = false;
         }
 
-        // Reverse-animate pitch back if user didn't manually override
-        if (this._pitchBeforePanel !== null && !this._autoPitchUserOverrode) {
-            this._animatePitch(this._pitch, this._pitchBeforePanel, 2000);
+        // Undo the tilt the panel introduced, but only while it is still the
+        // tilt the panel set. Moving the slider, dragging the map or hitting
+        // the camera Reset button all leave the pitch somewhere this control
+        // didn't put it, and that choice is the user's to keep. Compare
+        // against the map rather than this._pitch, since a drag on the map
+        // never reaches this control's own copy.
+        const currentPitch = this._map ? this._map.getPitch() : this._pitch;
+        const stillOurs = this._autoPitchLastSet !== null
+            && Math.abs(currentPitch - this._autoPitchLastSet) < 0.5;
+        if (this._pitchBeforePanel !== null && stillOurs) {
+            this._animatePitch(currentPitch, this._pitchBeforePanel, 2000);
         }
         this._pitchBeforePanel = null;
 
@@ -894,6 +914,7 @@ export class Terrain3DControl {
             const pitch = from + (to - from) * easeOut(t);
 
             this._pitch = pitch;
+            this._autoPitchLastSet = pitch;
             $('#terrain-3d-pitch-slider').val(pitch);
             $('#terrain-3d-pitch-value').text(pitch.toFixed(0) + '°');
             this._updatePitch();

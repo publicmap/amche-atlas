@@ -275,46 +275,91 @@
    inside this row rather than being direct corner children - reset it so
    the row's own `gap` is the only spacing between them. */
 .search-box-row>.map-browser-control,
-.search-box-row>.map-inspector-control,
-.search-box-row>.geolocation-control-header,
-.search-box-row>.map-compass-control {
+.search-box-row>.map-inspector-control {
     margin: 0 !important;
 }
 
-/* The compass sits at the right end of the same row (see mountCompassControl
-   in js/search-box-control.js), so it wears the row's 36px height and the
-   geolocation button's dark chrome instead of the 30px/#1f2937 treatment the
-   stacked map-canvas controls get further down this file. The extra
-   .mapboxgl-ctrl-group in the selector is what outweighs that generic rule,
-   which is also !important and comes later. */
-.search-box-row>.map-compass-control.mapboxgl-ctrl-group {
-    box-shadow: none !important;
-}
+/* Orientation button: one control covering both GPS tracking and map bearing
+   (see js/map-orientation-control.js), stacked in the bottom-right corner with
+   the 3D toggle and the attribution. The compass rose reports the map bearing,
+   the dial reports the GPS mode, and `data-mode` on the button is the single
+   switch driving both.
 
-.search-box-row>.map-compass-control.mapboxgl-ctrl-group button.mapboxgl-ctrl-compass {
-    width: 36px !important;
-    height: 36px !important;
-    background-color: #202020 !important;
-    border: 1px solid #404040 !important;
-    border-radius: 4px;
-    box-shadow: none !important;
-    cursor: pointer;
-}
-
-/* Fill the button with the needle so it centers on the 36px box and reads at
-   the same weight as the neighbouring 18px icons. */
-.search-box-row>.map-compass-control.mapboxgl-ctrl-group button.mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
+   Sizing and the dark idle/hover chrome come from the shared corner-control
+   theme further down this file, so only the icon and the GPS states are set
+   here - with !important, since that theme uses it too. With GPS on the dial
+   takes the location puck's own look (Mapbox's #1da1f2 fill inside a white
+   stroke), so the button reads as the same object as the dot it is holding the
+   map to. */
+.map-orientation-icon {
     width: 28px;
     height: 28px;
-    padding: 0;
-    background-size: contain;
+    display: block;
 }
 
-/* Bearing locked to the device compass (driven by the GPS button): solid black
-   fill, matching the active-state convention of the other map controls. */
-.search-box-row>.map-compass-control button.mapboxgl-ctrl-compass.compass-locked-device {
+/* At a steep pitch the leaning rose is wider than the 30px button (the scale
+   term in _pitchTransform grows as the tilt flattens it), so let it spill over
+   the button edge rather than have Mapbox's control group crop the needle. */
+.map-orientation-control.mapboxgl-ctrl-group,
+.map-orientation-btn {
+    overflow: visible;
+}
+
+/* The needle, its red/white split and the heading cone are painted by
+   presentation attributes on the SVG itself (see js/map-orientation-control.js)
+   so the symbol survives without this stylesheet. Only the dial changes with
+   the GPS mode, so only the dial is styled here. */
+.map-orientation-dial {
+    transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+/* GPS locked to the user's position: the filled puck, on the solid black fill
+   the other map controls use for their active state. */
+.map-orientation-btn[data-mode="follow-heading"],
+.map-orientation-btn[data-mode="follow-north"] {
     background-color: #000 !important;
-    border-color: #f4cb00 !important;
+}
+
+.map-orientation-btn[data-mode="follow-heading"]:hover,
+.map-orientation-btn[data-mode="follow-north"]:hover {
+    background-color: #111 !important;
+}
+
+.map-orientation-btn[data-mode="follow-heading"] .map-orientation-dial,
+.map-orientation-btn[data-mode="follow-north"] .map-orientation-dial {
+    fill: #1da1f2;
+    stroke: #ffffff;
+}
+
+/* GPS still on, camera free: the puck empties out to show the map is no
+   longer held to the dot. */
+.map-orientation-btn[data-mode="unlocked"] .map-orientation-dial {
+    fill: none;
+    stroke: #1da1f2;
+}
+
+/* Waiting on a fix: a single arc chasing round the dial. */
+.map-orientation-btn[data-mode="locating"] .map-orientation-dial {
+    fill: none;
+    stroke: #1da1f2;
+    stroke-dasharray: 20 62;
+    transform-box: view-box;
+    transform-origin: 18px 18px;
+    animation: map-orientation-spin 1.1s linear infinite;
+}
+
+@keyframes map-orientation-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.map-orientation-btn[data-mode="error"] {
+    background-color: #ef4444 !important;
+}
+
+.map-orientation-btn[data-mode="error"] .map-orientation-dial {
+    stroke: #ffffff;
 }
 
 /* The inspector button sits in the same row (see mountInspectorControl in
@@ -623,14 +668,6 @@ mapbox-search-box::part(input):focus {
 
 mapbox-search-box::part(input)::placeholder {
     color: #9ca3af !important;
-}
-
-/* Geolocation Control */
-.geolocation-btn-header {
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
-    min-height: 36px !important;
 }
 
 /* Navigation menu trigger - override default button styles */
@@ -1313,113 +1350,10 @@ main {
     background-color: #f0f0f0;
 }
 
-/* Add these to your existing styles */
-.mapboxgl-ctrl-geolocate {
-    display: flex !important;
-    align-items: center;
-    width: auto !important;
-    min-width: 30px;
-    white-space: nowrap;
-    padding: 6px 10px;
-}
-
-.mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
-    margin-right: 0;
-    width: 30px !important;
-    height: 30px !important;
-}
-
-/* Geolocation Button Styling (floating top-left map control) */
-.geolocation-control-header {
-    display: flex;
-    align-items: center;
-}
-
-.geolocation-control-header.mapboxgl-ctrl-group {
-    box-shadow: none !important;
-}
-
-/* Base button styling - override Mapbox defaults with high specificity */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate {
-    background: #202020 !important;
-    border: 1px solid #404040 !important;
-    padding: 0 !important;
-    width: 36px !important;
-    height: 36px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    transition: all 0.2s ease !important;
-    box-shadow: none !important;
-}
-
-/* Hover state (only when not active) */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate:hover:not(.mapboxgl-ctrl-geolocate-active):not(.mapboxgl-ctrl-geolocate-background):not(.mapboxgl-ctrl-geolocate-active-error) {
-    background: #303030 !important;
-    border-color: #505050 !important;
-}
-
-/* Active/tracking state */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active,
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active:hover {
-    background: #202020 !important;
-    border-color: #404040 !important;
-}
-
-/* Active background tracking state */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active-error,
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active-error:hover {
-    background: #ef4444 !important;
-    border-color: #dc2626 !important;
-}
-
-/* Background tracking state */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-background,
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-background:hover {
-    background: #202020 !important;
-    border-color: #404040 !important;
-}
-
-/* Suppress Mapbox's spin animation on waiting state */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-waiting .mapboxgl-ctrl-icon {
-    animation: none !important;
-}
-
-/* Icon styling - override Mapbox's background-image */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
-    background-image: none !important;
-    background: transparent !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 100% !important;
-    height: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-
-/* Text color */
-.geolocation-btn-header.mapboxgl-ctrl-geolocate .geolocation-text {
-    color: white !important;
-}
-
-.mapboxgl-ctrl-geolocate span.error {
-    color: #d9534f;
-}
-
 /* Responsive: hide button text on small screens */
 @media (max-width: 640px) {
-
-    .map-browser-text,
-    .geolocation-text {
+    .map-browser-text {
         display: none !important;
-    }
-
-    /* Adjust geolocation button for icon-only on mobile */
-    .geolocation-btn-header {
-        min-width: 36px !important;
-        padding: 0 !important;
     }
 }
 
@@ -1437,13 +1371,14 @@ main {
    - MapAttributionControl (.mapboxgl-ctrl-attrib), which keeps its own
      light theme by design - excluded via :not() below.
    - The "top row" controls (map-browser's Maps button, the search-box row,
-     and the geolocation button embedded in it), which are intentionally
-     larger (36px) and already fully self-styled with their own !important
-     rules, so this generic rule never overrides them.
+     and the orientation button embedded in it), which are intentionally
+     larger (36px) and already fully self-styled with their own rules, so this
+     generic rule never overrides them.
    Covers: StreetviewControl, Terrain3DControl, NearbyFeaturesControl,
    TimeControl, MapExportControl, ButtonExternalMapLinks, MeasureControl,
-   and Mapbox's own NavigationControl (compass) and ScaleControl chrome. */
-.mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button:not(.geolocation-btn-header) {
+   and Mapbox's own NavigationControl (compass, used by the export map) and
+   ScaleControl chrome. */
+.mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button {
     width: 30px !important;
     height: 30px !important;
     display: flex !important;
@@ -1455,7 +1390,7 @@ main {
     border: none !important;
 }
 
-.mapboxgl-ctrl:not(.mapboxgl-ctrl-attrib) button:not(:disabled):not(.geolocation-btn-header):hover {
+.mapboxgl-ctrl:not(.mapboxgl-ctrl-attrib) button:not(:disabled):hover {
     background-color: #374151 !important;
     color: var(--primary-hover) !important;
 }

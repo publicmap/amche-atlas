@@ -304,7 +304,7 @@
       "inspect": {
         "id": "gid",
         "title": "Elevation",
-        "label": "Ele M"
+        "label": "ele_m"
       }
     },
     {

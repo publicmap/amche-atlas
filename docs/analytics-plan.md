@@ -24,7 +24,7 @@ One new module, `js/analytics.js`:
 | `feature_inspect` | `layer_id` | Feature popup opened via map click | `map-feature-state-manager.js` |
 | `share_action` | `method` | Share/copy-link button used | share control |
 | `map_export` | `export_type` (geojson/style/image/pdf) | Export executed | `map-export-control.js` |
-| `geolocate` | `status` (success/error) | Geolocation resolves | `button-geolocation-manager.js` |
+| `geolocate` | `status` (success/error) | Geolocation resolves | `geolocation-watch.js` |
 | `measure_use` | — | Measure tool activated | `map-measure-control.js` |
 | `terrain_3d_toggle` | `enabled` | 3D terrain toggled | `terrain-3d-control.js` |
 | `atlas_load` | `atlas_id` | Map config loaded at init | `index.js` / `config-manager.js` |
