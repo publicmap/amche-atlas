@@ -367,7 +367,8 @@
     border-radius: 5px 5px 0 0 !important;
 }
 
-.layer-stack-item:last-child .layer-stack-cell {
+.layer-stack-item:last-child .layer-stack-cell,
+[data-layer-item]:has(+ .layer-stack-options) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 0 0 5px 5px !important;
 }
@@ -378,7 +379,9 @@
 }
 
 .layer-stack-item:only-child .layer-stack-cell,
-.layer-stack-browser+[data-layer-item]:last-child .layer-stack-cell {
+.layer-stack-browser+[data-layer-item]:last-child .layer-stack-cell,
+.layer-stack-browser+[data-layer-item]:has(+ .layer-stack-options) .layer-stack-cell,
+[data-layer-item]:first-child:has(+ .layer-stack-options) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 5px !important;
 }
@@ -416,9 +419,44 @@
 }
 
 /* A single basemap is the whole lower block, so it closes at both ends */
-.layer-stack-basemap-start:last-child .layer-stack-cell {
+.layer-stack-basemap-start:last-child .layer-stack-cell,
+.layer-stack-basemap-start:has(+ .layer-stack-options) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 5px !important;
+}
+
+/* Compared layer: the compare cell holds the row's slot in the column and the
+   thumbnail is pushed out to the right of the strip, so the layer being swiped
+   reads as stepped out of the stack. The thumbnail is absolutely positioned
+   rather than laid out inline, which would widen the whole panel. */
+.layer-stack-comparing .layer-thumbnail {
+    /* LayerThumbnail sets position:relative inline, and leaving the thumbnail in
+       flow here would widen every row in the column to fit two cells. */
+    position: absolute !important;
+    left: 100%;
+    top: -1px;
+    margin-left: 5px;
+    border-bottom-width: 1px !important;
+    border-radius: 5px !important;
+}
+
+.layer-stack-comparing .layer-stack-label {
+    /* Clear the displaced thumbnail (36px cell + its 5px offset) */
+    margin-left: 45px;
+}
+
+.layer-stack-compare-cell {
+    background: #1d4ed8;
+    color: #fff;
+    gap: 0;
+}
+
+.layer-stack-compare-cell:hover {
+    background: #2563eb;
+}
+
+.layer-stack-compare-cell sl-icon {
+    font-size: 12px;
 }
 
 /* Drag to reorder (mirrors map-inspector.html's card drag). The drop indicator
@@ -480,6 +518,56 @@
 
 .layer-stack-browser .map-browser-btn.active:hover {
     background: var(--primary-hover) !important;
+}
+
+/* Options control at the foot of the column (js/layer-stack-options-menu.js).
+   Only shown while the pointer is over the strip, so the column stays as short
+   as the layers themselves at rest - the welded block above already closes off
+   below its last cell (see the :has rules above), so nothing shifts when it
+   appears. Set off by a gap and fully rounded, like the browser toggle at the
+   head of the column. */
+.layer-stack-options {
+    display: none;
+    margin-top: 5px;
+}
+
+.layer-stack-strip:hover .layer-stack-options,
+.layer-stack-strip.options-open .layer-stack-options {
+    display: flex;
+}
+
+/* The flyouts hide during a drag; so does this, or it would sit under the
+   pointer as a drop target that is not a row. */
+.layer-stack-strip.dragging .layer-stack-options {
+    display: none;
+}
+
+.layer-stack-options .layer-stack-cell {
+    border-bottom-width: 1px !important;
+    border-radius: 5px !important;
+}
+
+/* Same chrome as the browser toggle. The hover/open rules need the full
+   ancestor chain and !important for the same reason the flyout's buttons do -
+   see the note further down. */
+.layer-stack-options-btn {
+    background: #1f2937;
+    color: #9ca3af;
+    cursor: pointer;
+}
+
+.layer-stack-options-btn sl-icon {
+    font-size: 17px;
+}
+
+.map-browser-control .layer-stack-strip button.layer-stack-options-btn:hover {
+    background: #374151 !important;
+    color: #fff !important;
+}
+
+.map-browser-control .layer-stack-strip button.layer-stack-options-btn.active {
+    background: var(--primary-color) !important;
+    color: #000 !important;
 }
 
 /* Flyout panel revealed on hover: the layer name, then the atlas name and the
@@ -1184,7 +1272,6 @@ button.large {
 #map-layer-filter {
     background-color: #1f2937;
     margin-bottom: 10px;
-    padding: 5px;
 }
 
 /* Add new styles for the opacity control */
@@ -1481,6 +1568,43 @@ body {
     height: 1px;
     margin: 4px 6px;
     background: #374151;
+}
+
+/* Plain readout rows (see js/map-location-menu-control.js) - coordinates,
+   bearing, pitch - not clickable, so they shouldn't look hoverable. */
+.shortcut-menu-item.shortcut-menu-item-static {
+    cursor: default;
+}
+
+.shortcut-menu-item.shortcut-menu-item-static:hover {
+    background: transparent;
+}
+
+/* Two-line address submenu rows (see js/map-location-menu-control.js) - a
+   value (e.g. "Panaji") with its address category as subtext (e.g. "City"). */
+.shortcut-menu-item-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: 1px;
+}
+
+.shortcut-menu-item-text span {
+    flex: none;
+}
+
+.shortcut-menu-item-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.shortcut-menu-item-subtext {
+    font-size: 10px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
 
 

@@ -120,7 +120,7 @@ export class MapBrowserControl {
         // control builds its groups well after this control is added, and 'idle'
         // is the one signal guaranteed to fire after it. render() no-ops unless
         // the visible set changed.
-        this._layerStack.mount(this._container, { browserButton: this._button });
+        this._layerStack.mount(this._container, { browserButton: this._button, map });
         map.on('idle', () => this._layerStack.render());
 
         this._createOverlay();

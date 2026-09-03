@@ -169,6 +169,24 @@
             border-color: #2563eb;
         }
 
+        /* Paired carets read as the swipe handle; kept tight so they act as one mark */
+        .compare-icons {
+            display: inline-flex;
+            align-items: center;
+            gap: 1px;
+        }
+
+        .info-header-action.comparing {
+            color: #fff;
+            background: #2563eb;
+            border-color: #2563eb;
+        }
+
+        .info-header-action.comparing:hover {
+            background: #1d4ed8;
+            border-color: #1d4ed8;
+        }
+
         .info-header-action.apply {
             color: #fff;
             background: #16a34a;
@@ -300,6 +318,10 @@
                     <input type="range" id="opacity-slider" min="0" max="100" value="100" class="flex-1">
                     <span id="opacity-value" class="text-xs text-gray-400 flex-shrink-0" style="width: 2.5rem; text-align: right;">100%</span>
                 </div>
+                <button class="info-header-action" id="compare-layer-btn" title="Swipe-compare this layer against the current map">
+                    <span class="compare-icons"><sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right"></sl-icon></span>
+                    <span>Compare</span>
+                </button>
                 <button class="info-header-action primary" id="edit-toggle-btn">
                     <sl-icon name="pencil"></sl-icon>
                     <span>Edit</span>
@@ -434,6 +456,9 @@
             if (event.data?.type === 'layer-info-data' && event.data.layer) {
                 loadLayer(event.data.layer, { edit: event.data.edit });
             }
+            if (event.data?.type === 'compare-enabled' || event.data?.type === 'compare-disabled') {
+                updateCompareButton();
+            }
         });
 
         $(document).ready(function () {
@@ -458,6 +483,7 @@
             $('#edit-toggle-btn').on('click', toggleEditMode);
             $('#config-copy-btn').on('click', copyRawConfig);
             $('#remove-layer-btn').on('click', removeLayer);
+            $('#compare-layer-btn').on('click', toggleCompare);
             $('#opacity-slider').on('input', handleOpacitySliderInput);
         });
 
@@ -554,6 +580,56 @@
             } else {
                 alert('Remove layer functionality requires the map to be embedded.');
             }
+        }
+
+        /**
+         * Swipe-compare this layer against the current map, using the same
+         * `toggle-compare` message as map-inspector.html - MapFeatureControl owns
+         * the mapbox-gl-compare instance and allows only one compared layer at a
+         * time, so enabling here tears down whatever was being compared before.
+         */
+        function toggleCompare() {
+            if (!currentLayer) return;
+
+            if (window.self === window.top) {
+                alert('Compare requires the map to be embedded.');
+                return;
+            }
+
+            const enabled = !isComparing();
+            window.parent.postMessage({
+                type: 'toggle-compare',
+                layerId: currentLayer.id,
+                enabled: enabled
+            }, '*');
+
+            // Paint the new state straight away, then re-read the parent once
+            // _enableCompare (which lazy-loads the plugin) has settled.
+            setCompareButtonState(enabled);
+            setTimeout(updateCompareButton, 600);
+        }
+
+        /**
+         * Whether this layer is the one currently being compared. The parent's
+         * MapFeatureControl holds that state; it only broadcasts changes to the
+         * inspector iframe, so read it directly - the same way getAtlasConfigUrl
+         * reaches into the parent's layerRegistry.
+         */
+        function isComparing() {
+            if (!currentLayer || window.self === window.top) return false;
+            return window.parent?.featureControl?._compareLayerId === currentLayer.id;
+        }
+
+        function setCompareButtonState(active) {
+            const $btn = $('#compare-layer-btn').toggleClass('comparing', active);
+            $btn.find('.compare-icons').html(active
+                ? '<sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right-fill"></sl-icon>'
+                : '<sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right"></sl-icon>');
+            $btn.find('span').not('.compare-icons').text(active ? 'Comparing' : 'Compare');
+        }
+
+        function updateCompareButton() {
+            setCompareButtonState(isComparing());
         }
 
         function toggleEditMode() {
@@ -848,6 +924,7 @@
             }
 
             updateOpacityUI(layer.opacity);
+            updateCompareButton();
 
             // Setup click handler for layer ID badge to copy shareable link
             $('#layer-id-display').off('click').on('click', function() {

@@ -12,6 +12,10 @@
  * (first = on top), so only the overlay/basemap split is applied - overlays
  * first, then basemaps - and the strip is painted top-to-bottom in that order.
  *
+ * The column ends with an options button, revealed while the pointer is over
+ * the strip, that opens the map/selection shortcuts shared with the right-click
+ * menu (see LayerStackOptionsMenu).
+ *
  * Each thumbnail is a LayerThumbnail, so clicking one opens that layer's info
  * panel (or zooms to it when it's out of view) exactly like the thumbnails in
  * map-browser.html. Hovering a thumbnail reveals a flyout with the layer name,
@@ -20,6 +24,7 @@
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
 import { LayerOrderManager } from './layer-order-manager.js';
+import { LayerStackOptionsMenu } from './layer-stack-options-menu.js';
 
 const THUMB_SIZE = 36;
 
@@ -32,6 +37,8 @@ export class LayerStackStrip {
         this._clearIsolationTimer = null;
         this._reorderTimer = null;
         this._draggedItem = null;
+        this._optionsItem = null;
+        this._optionsMenu = null;
         // Debounced: window.urlManager's active-layers state updates on its own
         // 300ms debounce (see CLAUDE.md), so reading it synchronously on
         // 'layer-toggled' would render from stale state.
@@ -45,8 +52,9 @@ export class LayerStackStrip {
      * @param {HTMLElement} hostEl - the map control container to render into
      * @param {HTMLElement} [browserButton] - MapBrowserControl's toggle button,
      *   adopted as the first item in the stack rather than sitting in the search row
+     * @param {Object} [map] - the map the options menu's actions act on
      */
-    mount(hostEl, { browserButton = null } = {}) {
+    mount(hostEl, { browserButton = null, map = null } = {}) {
         if (!hostEl || this._el) return;
 
         this._el = document.createElement('div');
@@ -68,6 +76,7 @@ export class LayerStackStrip {
         hostEl.appendChild(this._el);
 
         this._mountBrowserItem(browserButton);
+        this._mountOptionsItem(map);
 
         // 'layersInitialized' is the signal that MapLayerControl has finished
         // building the groups this strip reads (it fires well after the control
@@ -84,7 +93,10 @@ export class LayerStackStrip {
         if (!this._el) return;
         // Hiding the strip pulls it out from under the cursor, so no mouseleave
         // ever fires — drop any isolation it left applied.
-        if (!visible) this._clearIsolation({ immediate: true });
+        if (!visible) {
+            this._clearIsolation({ immediate: true });
+            this._optionsMenu?.close();
+        }
         this._el.style.display = visible ? '' : 'none';
     }
 
@@ -116,6 +128,9 @@ export class LayerStackStrip {
         clearTimeout(this._refreshTimer);
         clearTimeout(this._reorderTimer);
         this._clearIsolation({ immediate: true });
+        this._optionsMenu?.unmount();
+        this._optionsMenu = null;
+        this._optionsItem = null;
         if (this._el && this._el.parentNode) this._el.parentNode.removeChild(this._el);
         this._el = null;
     }
@@ -139,7 +154,8 @@ export class LayerStackStrip {
         this._pendingRender = false;
 
         const layers = this._getVisibleLayers();
-        const signature = layers.map(l => l.id).join(',');
+        const comparedId = this._getComparedLayerId();
+        const signature = layers.map(l => l.id).join(',') + `|compare:${comparedId}`;
         if (!force && signature === this._signature) return;
         this._signature = signature;
 
@@ -153,7 +169,7 @@ export class LayerStackStrip {
 
         [overlays, basemaps].forEach((list, section) => {
             list.forEach((layer, index) => {
-                const item = this._createItem(layer, { index, total: list.length });
+                const item = this._createItem(layer, { index, total: list.length, comparedId });
                 // The two groups meet at the first basemap, which carries the rule
                 if (section === 1 && index === 0 && overlays.length) {
                     item.classList.add('layer-stack-basemap-start');
@@ -161,6 +177,10 @@ export class LayerStackStrip {
                 this._el.appendChild(item);
             });
         });
+
+        // The options control belongs at the foot of the column, and the layer
+        // rows were just appended after it.
+        if (this._optionsItem) this._el.appendChild(this._optionsItem);
     }
 
     /**
@@ -232,6 +252,36 @@ export class LayerStackStrip {
     }
 
     /**
+     * The fixed control at the foot of the stack: revealed by CSS while the
+     * pointer is over the strip, and opening the shared shortcut actions. No
+     * flyout label - the menu opens into that same space beside the column.
+     */
+    _mountOptionsItem(map) {
+        const item = document.createElement('div');
+        item.className = 'layer-stack-item layer-stack-control layer-stack-options';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'layer-stack-cell layer-stack-options-btn';
+        button.title = 'Map and selection options';
+        button.setAttribute('aria-label', 'Map and selection options');
+        button.innerHTML = '<sl-icon name="three-dots"></sl-icon>';
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._optionsMenu?.toggle();
+        });
+
+        item.appendChild(button);
+        this._el.appendChild(item);
+        this._optionsItem = item;
+
+        this._optionsMenu = new LayerStackOptionsMenu({
+            onVisibilityChange: (open) => this._el?.classList.toggle('options-open', open)
+        });
+        this._optionsMenu.mount(map || window.map, button);
+    }
+
+    /**
      * Visible layers in URL/visual order (first = top of the map stack).
      * The group entries carry the live state (opacity, sublayers); the registry
      * entry carries the full resolved config the thumbnail draws from, so they
@@ -255,7 +305,7 @@ export class LayerStackStrip {
         return LayerOrderManager.mapOrderToUrlOrder(visible);
     }
 
-    _createItem(layer, position = { index: 0, total: 1 }) {
+    _createItem(layer, position = { index: 0, total: 1, comparedId: null }) {
         const item = document.createElement('div');
         item.className = 'layer-stack-item';
         item.dataset.layerItem = 'true';
@@ -272,6 +322,14 @@ export class LayerStackStrip {
         thumbnail.setAttribute('role', 'button');
         thumbnail.setAttribute('tabindex', '0');
         thumbnail.setAttribute('aria-label', atlasName ? `${title} (${atlasName})` : title);
+        // The compared layer steps out of the column: a compare cell takes its slot
+        // and the thumbnail is displaced to the right (see the CSS), so the layer
+        // being swiped is obvious at a glance and can be switched off from here.
+        if (position.comparedId && position.comparedId === layer.id) {
+            item.classList.add('layer-stack-comparing');
+            item.appendChild(this._createCompareCell(layer, title));
+        }
+
         item.appendChild(thumbnail);
 
         // Flyout: the layer name (opens map-information.html), then the atlas name
@@ -338,6 +396,36 @@ export class LayerStackStrip {
         this._setupItemDrag(item);
 
         return item;
+    }
+
+    /**
+     * The layer currently swiped via mapbox-gl-compare, owned by
+     * MapFeatureControl (and mirrored in the ?compare= URL param).
+     */
+    _getComparedLayerId() {
+        return window.featureControl?._compareLayerId || null;
+    }
+
+    /**
+     * Stand-in cell shown in the compared layer's slot: clicking it turns the
+     * comparison off, using the same `toggle-compare` message as the inspector
+     * and map-information.html.
+     */
+    _createCompareCell(layer, title) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'layer-stack-compare-cell layer-stack-cell';
+        button.title = `Stop comparing ${title}`;
+        button.setAttribute('aria-label', `Stop comparing ${title}`);
+        button.innerHTML = '<sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right-fill"></sl-icon>';
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._post({ type: 'toggle-compare', layerId: layer.id, enabled: false });
+            // Disabling rewrites the ?compare= param, but repaint on our own
+            // schedule rather than waiting on that debounce.
+            this._scheduleReorderRepaint();
+        });
+        return button;
     }
 
     /**

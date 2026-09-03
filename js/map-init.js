@@ -19,6 +19,7 @@ import { StreetviewControl } from './streetview-control.js';
 import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
 import { ShortcutMenu } from './shortcut-menu.js';
 import { HeaderShortcutMenuControl } from './header-shortcut-menu-control.js';
+import { MapLocationMenuControl } from './map-location-menu-control.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { NearbyFeaturesControl } from './map-nearby-features-control.js';
@@ -959,6 +960,12 @@ export class MapInitializer {
             window.headerShortcutMenuControl = new HeaderShortcutMenuControl();
             window.headerShortcutMenuControl.mount(document.getElementById('header-shortcut-menu-container'), map);
 
+            // Header-nav map location menu: coordinates, bearing, pitch, and
+            // the reverse-geocoded address for the current map center (see
+            // map-location-menu-control.js).
+            window.mapLocationMenuControl = new MapLocationMenuControl();
+            window.mapLocationMenuControl.mount(document.getElementById('map-location-menu-container'), map);
+
             // Bottom-right, in stacking order from the corner up: attribution
             // sits lowest, the orientation button next (nearest the thumb), and
             // the 3D panel's toggle above it. Bottom corners insert each new
@@ -1125,7 +1132,7 @@ export class MapInitializer {
                     if (response.ok) {
                         const data = await response.json();
                         if (data.display_name && window.attributionControl) {
-                            window.attributionControl.setLocation(data.display_name);
+                            window.attributionControl.setLocation(data.display_name, data.address || null);
                         }
                     } else {
                         reportNominatimFailure();

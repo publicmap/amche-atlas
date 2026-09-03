@@ -75,7 +75,46 @@ export class ShortcutMenuBase {
         this._menu.className = 'shortcut-menu';
         this._menu.style.display = 'none';
 
-        const items = [
+        const items = this._getMenuItems();
+
+        this._menuButtons = [];
+        this._buildMenuItems(this._menu, items, this._menuButtons, 0);
+        this._items = items;
+        document.body.appendChild(this._menu);
+
+        this._submenuLevels = [];
+        this._openSubmenuIds = [];
+    }
+
+    /**
+     * The item tree this menu renders. A subclass that offers only part of the
+     * shortcut set (LayerStackOptionsMenu) overrides this and picks from
+     * _getAllMenuItems() by id, so each action stays defined exactly once.
+     */
+    _getMenuItems() {
+        return this._getAllMenuItems();
+    }
+
+    /**
+     * Items looked up by id anywhere in the full tree, returned in the order
+     * the ids are given (unknown ids are dropped). Function-valued `children`
+     * are resolved to search them, the same way opening that flyout would.
+     */
+    _pickMenuItems(ids) {
+        const flat = [];
+        const walk = (items) => items.forEach(item => {
+            if (item.divider) return;
+            flat.push(item);
+            const children = typeof item.children === 'function' ? item.children() : item.children;
+            if (children) walk(children);
+        });
+        walk(this._getAllMenuItems());
+
+        return ids.map(id => flat.find(item => item.id === id)).filter(Boolean);
+    }
+
+    _getAllMenuItems() {
+        return [
             {
                 id: 'selection-menu',
                 icon: 'cursor',
@@ -233,14 +272,6 @@ export class ShortcutMenuBase {
                 action: () => this._toggleComments()
             }
         ];
-
-        this._menuButtons = [];
-        this._buildMenuItems(this._menu, items, this._menuButtons, 0);
-        this._items = items;
-        document.body.appendChild(this._menu);
-
-        this._submenuLevels = [];
-        this._openSubmenuIds = [];
     }
 
     /**

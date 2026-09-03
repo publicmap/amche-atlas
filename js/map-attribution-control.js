@@ -17,6 +17,7 @@ export class MapAttributionControl {
         this._container = $("<div class='mapboxgl-ctrl mapboxgl-ctrl-group mapboxgl-ctrl-attrib mapboxgl-ctrl-attrib-inner'></div>").get(0);
         this._layerAttributions = new Map();
         this._locationName = null;
+        this._address = null;
 
         this._centerMarker = null;
         this._centerPopup = null;
@@ -313,10 +314,15 @@ export class MapAttributionControl {
     }
 
     /**
-     * Set the current location name to display in attribution
+     * Set the current location name to display in attribution. `address` is
+     * the raw Nominatim `address` object (road/neighbourhood/state/country/...)
+     * from the same reverse-geocode response, kept here so other consumers
+     * (e.g. js/map-location-menu-control.js) can reuse it instead of issuing
+     * their own reverse-geocode call for the same map center.
      */
-    setLocation(locationName) {
+    setLocation(locationName, address = null) {
         this._locationName = locationName;
+        this._address = address;
         this._updateAttribution();
     }
 
