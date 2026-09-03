@@ -1075,6 +1075,44 @@ export class MapMarkerManager {
     }
 
     /**
+     * Every marker currently on the map as plain {id, lngLat, label} data —
+     * used by the "Markers" section of map-nearby-features-control.js's
+     * header-nav list. `label` reuses the same feature-label logic
+     * _updateSelectionLayer uses for its exported GeoJSON's `name` property.
+     */
+    getMarkers() {
+        return Array.from(this._markers.entries()).map(([id, markerData]) => ({
+            id,
+            lngLat: markerData.lngLat,
+            label: this._describeMarkerLabel(markerData)
+        }));
+    }
+
+    _describeMarkerLabel(markerData) {
+        if (markerData.features.length === 0) {
+            return `${markerData.lngLat.lat.toFixed(4)}, ${markerData.lngLat.lng.toFixed(4)}`;
+        }
+        return markerData.features.map(f => {
+            const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+            const inspectConfig = layerConfig?.inspect || {};
+            const labelField = inspectConfig.label || inspectConfig.id || 'id';
+            return f.feature.properties?.[labelField] || f.featureId;
+        }).join(', ');
+    }
+
+    /**
+     * Centers/fits the map on one marker (reusing zoomToSelected's
+     * features-bbox-or-point logic) — used to jump to a marker chosen from
+     * the "Markers" section of map-nearby-features-control.js's list rather
+     * than by clicking it directly on the map.
+     */
+    focusMarker(markerId) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData) return;
+        this.zoomToSelected(markerData.lngLat);
+    }
+
+    /**
      * Finds a marker within pixel tolerance of a lngLat, so callers like the
      * right-click shortcut menu can reuse a marker right-clicked directly on
      * it instead of creating a duplicate at (almost) the same spot.
@@ -2131,13 +2169,7 @@ export class MapMarkerManager {
         const features = [];
         this._markers.forEach((markerData, markerId) => {
             // Extract feature labels for the name property (or use location if no features)
-            const labels = markerData.features.length > 0 ? markerData.features.map(f => {
-                const layerConfig = this._stateManager.getLayerConfig(f.layerId);
-                const inspectConfig = layerConfig?.inspect || {};
-                const labelField = inspectConfig.label || inspectConfig.id || 'id';
-                return f.feature.properties?.[labelField] || f.featureId;
-            }) : [`${markerData.lngLat.lat.toFixed(4)}, ${markerData.lngLat.lng.toFixed(4)}`];
-            const name = labels.join(', ');
+            const name = this._describeMarkerLabel(markerData);
 
             // Store feature references for restoration (use raw feature IDs)
             const featureRefs = markerData.features.map(f => {

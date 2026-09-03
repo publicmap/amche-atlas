@@ -1,16 +1,28 @@
 /**
  * NearbyFeaturesControl - Accessible alternative to tapping/clicking the map
- * canvas. Lists features currently rendered in the viewport as a plain
- * button list, so touch screen-reader users (VoiceOver/TalkBack — no
- * keyboard, and canvas hit-testing via drag gestures isn't reliable for them)
- * and keyboard-only users can select a feature without needing to hit-test
- * the Mapbox GL canvas at all. Each row also live-updates its distance and
+ * canvas. Lists features currently rendered in the viewport as a header-nav
+ * menu, so touch screen-reader users (VoiceOver/TalkBack — no keyboard, and
+ * canvas hit-testing via drag gestures isn't reliable for them) and
+ * keyboard-only users can select a feature without needing to hit-test the
+ * Mapbox GL canvas at all. Each row also live-updates its distance and
  * compass bearing from the device's current position (reusing the app's
  * existing window.geolocationControl rather than a separate watchPosition),
  * so a VI user can walk toward a target and watch the distance shrink.
- * Selecting an item routes through the same stateManager.handleFeatureClicks()
+ * Selecting a feature routes through the same stateManager.handleFeatureClicks()
  * pipeline a mouse click uses, so marker creation, the inspector panel, and
  * URL state all behave identically.
+ *
+ * A "Markers" section is pinned at the top of the list (before the paginated
+ * feature rows) listing every marker already placed on the map (see
+ * map-marker-manager.js), sorted by proximity the same way feature rows are.
+ * Selecting one flies the map to it via MapMarkerManager.focusMarker() rather
+ * than re-running feature selection.
+ *
+ * Lives in the header-nav (next to the shortcuts menu — see
+ * header-shortcut-menu-control.js / shortcut-menu-base.js), sharing its
+ * `.header-shortcut-menu` / `.header-shortcut-menu-btn` container styling and
+ * rendering rows with the same `.shortcut-menu` classes as other header-nav
+ * menus (see map-location-menu-control.js). Not a mapboxgl control.
  */
 import { haversineDistanceMeters, initialBearingDeg, formatDistance, bearingToCompassAbbr, bearingToCompassWord } from './geo-distance-utils.js';
 
@@ -22,113 +34,106 @@ export class NearbyFeaturesControl {
         this._map = null;
         this._container = null;
         this._button = null;
-        this._panel = null;
-        this._heading = null;
-        this._list = null;
-        this._lastFocused = null;
+        this._menu = null;
+        this._isOpenState = false;
         this._allFeatures = [];
         this._rowRefs = [];
+        this._allMarkers = [];
+        this._markerRowRefs = [];
         this._visibleCount = PAGE_SIZE;
         this._userPosition = null;
         this._hasSortedByDistance = false;
         this._onKeydown = this._onKeydown.bind(this);
         this._onGeolocate = this._onGeolocate.bind(this);
+        this._handleOutsideEvent = this._handleOutsideEvent.bind(this);
+        this._hide = this._hide.bind(this);
     }
 
-    onAdd(map) {
+    mount(hostEl, map) {
+        if (!hostEl || !map) return;
         this._map = map;
 
         this._container = document.createElement('div');
-        this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+        this._container.className = 'header-shortcut-menu';
 
         this._button = document.createElement('button');
-        this._button.className = 'mapboxgl-ctrl-icon';
         this._button.type = 'button';
+        this._button.className = 'header-shortcut-menu-btn';
         this._button.setAttribute('aria-label', 'List features in view');
         this._button.title = 'List features in view (for screen readers or without a mouse)';
-        this._button.style.cssText = 'width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;';
-        this._button.innerHTML = '<sl-icon name="list-ul" style="font-size: 14px;"></sl-icon>';
-        this._button.addEventListener('click', () => this._togglePanel());
+        this._button.innerHTML = '<sl-icon name="geo-alt"></sl-icon>';
+        this._button.addEventListener('click', () => this.toggle());
+
         this._container.appendChild(this._button);
+        hostEl.appendChild(this._container);
 
-        this._buildPanel();
+        this._menu = document.createElement('div');
+        this._menu.className = 'shortcut-menu';
+        this._menu.style.display = 'none';
+        this._menu.setAttribute('role', 'dialog');
+        this._menu.setAttribute('aria-modal', 'true');
+        this._menu.setAttribute('aria-label', 'Features in view');
+        document.body.appendChild(this._menu);
+
+        document.addEventListener('mousedown', this._handleOutsideEvent, true);
+        document.addEventListener('touchstart', this._handleOutsideEvent, true);
         document.addEventListener('keydown', this._onKeydown, true);
-
-        return this._container;
+        window.addEventListener('resize', this._hide);
     }
 
-    onRemove() {
+    unmount() {
+        document.removeEventListener('mousedown', this._handleOutsideEvent, true);
+        document.removeEventListener('touchstart', this._handleOutsideEvent, true);
         document.removeEventListener('keydown', this._onKeydown, true);
+        window.removeEventListener('resize', this._hide);
         this._stopLocationTracking();
-        this._panel?.parentNode?.removeChild(this._panel);
+
+        this._menu?.parentNode?.removeChild(this._menu);
         this._container?.parentNode?.removeChild(this._container);
+        this._menu = null;
+        this._container = null;
+        this._button = null;
         this._map = null;
     }
 
-    _buildPanel() {
-        this._panel = document.createElement('div');
-        this._panel.id = 'nearby-features-panel';
-        this._panel.setAttribute('role', 'dialog');
-        this._panel.setAttribute('aria-modal', 'true');
-        this._panel.setAttribute('aria-label', 'Features in view');
-        this._panel.style.cssText = 'display:none;position:absolute;top:40px;right:8px;width:280px;max-height:70vh;overflow-y:auto;background:#111827;color:#f3f4f6;border:1px solid #374151;border-radius:8px;padding:8px;z-index:20;box-shadow:0 4px 16px rgba(0,0,0,0.4);font-size:12px;';
-
-        const header = document.createElement('div');
-        header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;';
-
-        this._heading = document.createElement('span');
-        this._heading.textContent = 'Features in view';
-        this._heading.style.cssText = 'font-weight:700;font-size:13px;';
-
-        this._closeBtn = document.createElement('button');
-        this._closeBtn.type = 'button';
-        this._closeBtn.setAttribute('aria-label', 'Close features list');
-        this._closeBtn.textContent = '✕';
-        this._closeBtn.style.cssText = 'background:transparent;border:none;color:#9ca3af;font-size:14px;line-height:1;cursor:pointer;padding:2px 6px;flex-shrink:0;';
-        this._closeBtn.addEventListener('click', () => this._closePanel());
-
-        header.appendChild(this._heading);
-        header.appendChild(this._closeBtn);
-
-        this._list = document.createElement('ul');
-        this._list.style.cssText = 'list-style:none;margin:0;padding:0;';
-
-        this._panel.appendChild(header);
-        this._panel.appendChild(this._list);
-        this._map.getContainer().appendChild(this._panel);
-    }
-
     _isOpen() {
-        return this._panel.style.display !== 'none';
+        return this._isOpenState;
     }
 
-    _togglePanel() {
-        if (this._isOpen()) {
-            this._closePanel();
+    toggle() {
+        if (this._isOpenState) {
+            this._hide();
         } else {
-            this._openPanel();
+            this._open();
         }
     }
 
-    _openPanel() {
-        this._lastFocused = document.activeElement;
+    _open() {
+        if (!this._map || !this._button || !this._menu) return;
+        this._isOpenState = true;
+        this._button.classList.add('active');
+        this._button.querySelector('sl-icon')?.setAttribute('name', 'geo-alt-fill');
+
         this._visibleCount = PAGE_SIZE;
         this._startLocationTracking();
         this._populateList();
-        this._panel.style.display = 'block';
 
-        const firstItem = this._list.querySelector('button');
-        (firstItem || this._closeBtn).focus();
+        this._menu.style.display = 'block';
+        const rect = this._button.getBoundingClientRect();
+        const menuRect = this._menu.getBoundingClientRect();
+        const maxLeft = window.innerWidth - menuRect.width - 8;
+        this._menu.style.left = `${Math.max(8, Math.min(rect.left, maxLeft))}px`;
+        this._menu.style.top = `${rect.bottom + 4}px`;
+
+        this._menu.querySelector('button.shortcut-menu-item')?.focus();
     }
 
-    _closePanel() {
-        this._panel.style.display = 'none';
+    _hide() {
+        this._isOpenState = false;
+        if (this._menu) this._menu.style.display = 'none';
+        this._button?.classList.remove('active');
+        this._button?.querySelector('sl-icon')?.setAttribute('name', 'geo-alt');
         this._stopLocationTracking();
-        if (this._lastFocused && document.body.contains(this._lastFocused)) {
-            this._lastFocused.focus();
-        } else {
-            this._button.focus();
-        }
     }
 
     // Reuses the app's shared GPS control (window.geolocationControl) instead of
@@ -155,14 +160,15 @@ export class NearbyFeaturesControl {
             // then leave row order stable so live updates below don't reshuffle
             // the list under a screen-reader/keyboard user mid-navigation.
             this._hasSortedByDistance = true;
-            const hadFocusInPanel = this._panel.contains(document.activeElement);
+            const hadFocusInMenu = this._menu.contains(document.activeElement);
             this._sortByDistance();
             this._renderVisible();
-            if (hadFocusInPanel) this._list.querySelector('button')?.focus();
+            if (hadFocusInMenu) this._menu.querySelector('button.shortcut-menu-item')?.focus();
             return;
         }
 
         this._rowRefs.forEach(row => this._updateRowDistance(row));
+        this._markerRowRefs.forEach(row => this._updateMarkerRowDistance(row));
     }
 
     _sortByDistance() {
@@ -171,14 +177,19 @@ export class NearbyFeaturesControl {
             f._distanceMeters = haversineDistanceMeters(this._userPosition, f.lngLat);
         });
         this._allFeatures.sort((a, b) => a._distanceMeters - b._distanceMeters);
+
+        this._allMarkers.forEach(m => {
+            m._distanceMeters = haversineDistanceMeters(this._userPosition, m.lngLat);
+        });
+        this._allMarkers.sort((a, b) => a._distanceMeters - b._distanceMeters);
     }
 
     _populateList() {
         this._allFeatures = this._stateManager.getFeaturesInView();
+        this._allMarkers = window.featureControl?._markerManager?.getMarkers() || [];
         this._hasSortedByDistance = !!this._userPosition;
         if (this._hasSortedByDistance) this._sortByDistance();
 
-        this._heading.textContent = `Features in view (${this._allFeatures.length})`;
         window.keyboardController?.announceToScreenReader(
             this._allFeatures.length > 0
                 ? `${this._allFeatures.length} feature${this._allFeatures.length === 1 ? '' : 's'} in view. Showing the nearest ${Math.min(PAGE_SIZE, this._allFeatures.length)}.`
@@ -190,34 +201,82 @@ export class NearbyFeaturesControl {
 
     _renderVisible({ focusFirstNew = false } = {}) {
         const previousCount = this._rowRefs.length;
-        this._list.innerHTML = '';
+        this._menu.innerHTML = '';
         this._rowRefs = [];
+        this._markerRowRefs = [];
+
+        if (this._allMarkers.length > 0) {
+            const markersHeading = document.createElement('div');
+            markersHeading.className = 'shortcut-menu-item shortcut-menu-item-static';
+            const markersHeadingIcon = document.createElement('sl-icon');
+            markersHeadingIcon.setAttribute('name', 'geo-alt-fill');
+            const markersHeadingLabel = document.createElement('span');
+            markersHeadingLabel.textContent = `Markers (${this._allMarkers.length})`;
+            markersHeading.appendChild(markersHeadingIcon);
+            markersHeading.appendChild(markersHeadingLabel);
+            this._menu.appendChild(markersHeading);
+
+            this._allMarkers.forEach((m) => {
+                const row = this._createMarkerRow(m);
+                this._menu.appendChild(row.button);
+                this._markerRowRefs.push(row);
+            });
+
+            const markersDivider = document.createElement('div');
+            markersDivider.className = 'shortcut-menu-divider';
+            this._menu.appendChild(markersDivider);
+        }
+
+        const heading = document.createElement('div');
+        heading.className = 'shortcut-menu-item shortcut-menu-item-static';
+        const headingIcon = document.createElement('sl-icon');
+        headingIcon.setAttribute('name', 'filter-circle');
+        const headingLabel = document.createElement('span');
+        headingLabel.textContent = `Features in view (${this._allFeatures.length})`;
+        heading.appendChild(headingIcon);
+        heading.appendChild(headingLabel);
+        this._menu.appendChild(heading);
+
+        const divider = document.createElement('div');
+        divider.className = 'shortcut-menu-divider';
+        this._menu.appendChild(divider);
 
         if (this._allFeatures.length === 0) {
-            const empty = document.createElement('li');
-            empty.textContent = 'No features in the current view.';
-            empty.style.cssText = 'color:#9ca3af;padding:6px 4px;';
-            this._list.appendChild(empty);
+            const empty = document.createElement('div');
+            empty.className = 'shortcut-menu-item shortcut-menu-item-static';
+            const emptyLabel = document.createElement('span');
+            emptyLabel.textContent = 'No features in the current view.';
+            empty.appendChild(emptyLabel);
+            this._menu.appendChild(empty);
             return;
         }
 
         const visible = this._allFeatures.slice(0, this._visibleCount);
         visible.forEach((f) => {
             const row = this._createRow(f);
-            this._list.appendChild(row.item);
+            this._menu.appendChild(row.button);
             this._rowRefs.push(row);
         });
 
         const remaining = this._allFeatures.length - visible.length;
         if (remaining > 0) {
-            const item = document.createElement('li');
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.textContent = `Show ${Math.min(PAGE_SIZE, remaining)} more (${remaining} remaining)`;
-            btn.style.cssText = 'display:block;width:100%;text-align:center;background:transparent;border:none;color:#93c5fd;padding:8px 4px;cursor:pointer;font-size:12px;font-weight:600;';
-            btn.addEventListener('click', () => this._showMore());
-            item.appendChild(btn);
-            this._list.appendChild(item);
+            const more = document.createElement('button');
+            more.type = 'button';
+            more.className = 'shortcut-menu-item';
+
+            const icon = document.createElement('sl-icon');
+            icon.setAttribute('name', 'three-dots');
+            more.appendChild(icon);
+
+            const label = document.createElement('span');
+            label.textContent = `Show ${Math.min(PAGE_SIZE, remaining)} more (${remaining} remaining)`;
+            more.appendChild(label);
+
+            more.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._showMore();
+            });
+            this._menu.appendChild(more);
         }
 
         if (focusFirstNew && this._rowRefs[previousCount]) {
@@ -231,26 +290,88 @@ export class NearbyFeaturesControl {
     }
 
     _createRow(f) {
-        const item = document.createElement('li');
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.style.cssText = 'display:block;width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid #1f2937;color:#f3f4f6;padding:6px 4px;cursor:pointer;font-size:12px;';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'shortcut-menu-item';
 
-        const titleLine = document.createElement('div');
-        const distanceLine = document.createElement('div');
-        distanceLine.style.cssText = 'color:#9ca3af;font-size:10px;margin-top:1px;';
+        const icon = document.createElement('sl-icon');
+        icon.setAttribute('name', 'geo-alt');
+        button.appendChild(icon);
 
-        btn.appendChild(titleLine);
-        btn.appendChild(distanceLine);
-        btn.addEventListener('mouseenter', () => { btn.style.background = '#1f2937'; });
-        btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; });
-        btn.addEventListener('click', () => this._selectFeature(f));
+        const text = document.createElement('div');
+        text.className = 'shortcut-menu-item-text';
 
-        item.appendChild(btn);
+        const label = document.createElement('span');
+        label.className = 'shortcut-menu-item-label';
+        const subtext = document.createElement('span');
+        subtext.className = 'shortcut-menu-item-subtext';
 
-        const row = { item, button: btn, titleLine, distanceLine, f };
+        text.appendChild(label);
+        text.appendChild(subtext);
+        button.appendChild(text);
+
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._selectFeature(f);
+        });
+
+        const row = { button, label, subtext, f };
         this._updateRowDistance(row);
         return row;
+    }
+
+    _createMarkerRow(m) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'shortcut-menu-item';
+
+        const icon = document.createElement('sl-icon');
+        icon.setAttribute('name', 'geo-alt-fill');
+        button.appendChild(icon);
+
+        const text = document.createElement('div');
+        text.className = 'shortcut-menu-item-text';
+
+        const label = document.createElement('span');
+        label.className = 'shortcut-menu-item-label';
+        const subtext = document.createElement('span');
+        subtext.className = 'shortcut-menu-item-subtext';
+
+        text.appendChild(label);
+        text.appendChild(subtext);
+        button.appendChild(text);
+
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._focusMarker(m);
+        });
+
+        const row = { button, label, subtext, m };
+        this._updateMarkerRowDistance(row);
+        return row;
+    }
+
+    _updateMarkerRowDistance(row) {
+        const { m, label, subtext, button } = row;
+        label.textContent = m.label;
+
+        if (!this._userPosition) {
+            subtext.textContent = 'Marker';
+            button.setAttribute('aria-label', m.label);
+            return;
+        }
+
+        const distanceMeters = haversineDistanceMeters(this._userPosition, m.lngLat);
+        const bearingDeg = initialBearingDeg(this._userPosition, m.lngLat);
+        const distanceText = formatDistance(distanceMeters);
+        subtext.textContent = `${distanceText} · ${bearingToCompassAbbr(bearingDeg)}`;
+        button.setAttribute('aria-label', `${m.label}, ${distanceText} away, ${bearingToCompassWord(bearingDeg)}`);
+    }
+
+    _focusMarker(m) {
+        this._hide();
+        window.featureControl?._markerManager?.focusMarker(m.id);
+        window.keyboardController?.announceToScreenReader(`Selected marker ${m.label}`);
     }
 
     _describeFeature(f) {
@@ -265,54 +386,61 @@ export class NearbyFeaturesControl {
     }
 
     _updateRowDistance(row) {
-        const { f, titleLine, distanceLine, button } = row;
-        const { label, layerTitle } = this._describeFeature(f);
-        titleLine.textContent = `${label} — ${layerTitle}`;
+        const { f, label, subtext, button } = row;
+        const { label: featureLabel, layerTitle } = this._describeFeature(f);
+        label.textContent = featureLabel;
 
         if (!this._userPosition) {
-            distanceLine.textContent = 'Location unavailable';
-            button.setAttribute('aria-label', `${label} — ${layerTitle}`);
+            subtext.textContent = layerTitle;
+            button.setAttribute('aria-label', `${featureLabel} — ${layerTitle}`);
             return;
         }
 
         const distanceMeters = haversineDistanceMeters(this._userPosition, f.lngLat);
         const bearingDeg = initialBearingDeg(this._userPosition, f.lngLat);
         const distanceText = formatDistance(distanceMeters);
-        distanceLine.textContent = `${distanceText} · ${bearingToCompassAbbr(bearingDeg)}`;
-        button.setAttribute('aria-label', `${label} — ${layerTitle}, ${distanceText} away, ${bearingToCompassWord(bearingDeg)}`);
+        subtext.textContent = `${layerTitle} · ${distanceText} · ${bearingToCompassAbbr(bearingDeg)}`;
+        button.setAttribute('aria-label', `${featureLabel} — ${layerTitle}, ${distanceText} away, ${bearingToCompassWord(bearingDeg)}`);
     }
 
     _selectFeature(f) {
         const { label } = this._describeFeature(f);
-        this._closePanel();
+        this._hide();
         this._stateManager.handleFeatureClicks([f]);
         window.featureControl?._markerManager?._openInspectorPanel();
         window.keyboardController?.announceToScreenReader(`Selected ${label}`);
     }
 
+    _handleOutsideEvent(e) {
+        if (!this._isOpenState) return;
+        if (this._container?.contains(e.target)) return;
+        if (this._menu?.contains(e.target)) return;
+        this._hide();
+    }
+
     /**
-     * Escape closes the panel; Space/Enter on a focused list button must reach
-     * the button's own native activation instead of the global keyboard
-     * shortcut for "query feature at map center" (both bind Space). Registered
-     * with `capture: true` so it runs — and can stopPropagation — before that
+     * Escape closes the menu; Space/Enter on a focused row must reach the
+     * button's own native activation instead of the global keyboard shortcut
+     * for "query feature at map center" (both bind Space). Registered with
+     * `capture: true` so it runs — and can stopPropagation — before that
      * bubble-phase document listener in keyboard-controller.js ever sees the key.
      */
     _onKeydown(e) {
-        if (!this._panel || !this._isOpen()) return;
+        if (!this._menu || !this._isOpenState) return;
 
         if (e.key === 'Escape') {
             e.stopPropagation();
-            this._closePanel();
+            this._hide();
             return;
         }
 
-        if (e.key === ' ' && this._panel.contains(document.activeElement)) {
+        if (e.key === ' ' && this._menu.contains(document.activeElement)) {
             e.stopPropagation();
             return;
         }
 
         if (e.key === 'Tab') {
-            const focusable = this._panel.querySelectorAll('button');
+            const focusable = this._menu.querySelectorAll('button');
             if (focusable.length === 0) return;
             const first = focusable[0];
             const last = focusable[focusable.length - 1];

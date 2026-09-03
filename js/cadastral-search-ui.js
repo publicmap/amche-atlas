@@ -95,7 +95,18 @@ export class CadastralSearchUI {
             </div>
         `
 
-        document.body.appendChild(this.dropdown)
+        // Into the map's top-left control corner rather than <body>, for the
+        // same reason as the search suggestions panel (see
+        // js/search/search-suggestions-panel.js): that corner is its own
+        // stacking context inside #map, so a body-level dropdown outranks every
+        // control in it - including the layer stack's hover flyouts
+        // (js/layer-stack-strip.js) - whatever z-index they carry. It stays
+        // position: fixed (see _positionDropdown), so sharing the corner changes
+        // nothing about where it sits. The picker drawer is a modal overlay and
+        // stays at body level.
+        const dropdownHost = this.searchBoxEl.closest('.mapboxgl-ctrl-top-left') ||
+            this.searchBoxEl.closest('.mapboxgl-map') || document.body
+        dropdownHost.appendChild(this.dropdown)
         document.body.appendChild(this.pickerDrawer)
 
         this.villageSelect = this.panel.querySelector('#cadastral-village-select')

@@ -956,6 +956,12 @@ export class MapInitializer {
             window.headerShortcutMenuControl = new HeaderShortcutMenuControl();
             window.headerShortcutMenuControl.mount(document.getElementById('header-shortcut-menu-container'), map);
 
+            // Header-nav "list features in view" menu, next to the shortcuts
+            // menu - accessible alternative to tapping/clicking the map canvas
+            // (see map-nearby-features-control.js).
+            window.nearbyFeaturesControl = new NearbyFeaturesControl(stateManager);
+            window.nearbyFeaturesControl.mount(document.getElementById('nearby-features-menu-container'), map);
+
             // Header-nav map location menu: coordinates, bearing, pitch, and
             // the reverse-geocoded address for the current map center (see
             // map-location-menu-control.js).
@@ -1008,8 +1014,6 @@ export class MapInitializer {
 
             // (Geolocation control already mounted at the top of map.on('load')
             // so its GPS auto-trigger runs in parallel with the rest of setup.)
-            window.nearbyFeaturesControl = new NearbyFeaturesControl(stateManager);
-            map.addControl(window.nearbyFeaturesControl, 'top-right');
             map.addControl(new TimeControl(), 'top-right');
             // Street view goes last in the top-right stack
             window.streetviewControl = new StreetviewControl();

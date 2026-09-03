@@ -908,6 +908,9 @@ mapbox-search-box {
 
 .cadastral-dropdown {
     z-index: 9999;
+    /* It lives in the map's top-left control corner, which takes no pointer
+       events of its own (see js/cadastral-search-ui.js) */
+    pointer-events: auto;
     background: #111827;
     border: 1px solid #374151;
     border-radius: 0.5rem;
@@ -1867,8 +1870,8 @@ main {
      and the orientation button embedded in it), which are intentionally
      larger (36px) and already fully self-styled with their own rules, so this
      generic rule never overrides them.
-   Covers: StreetviewControl, Terrain3DControl, NearbyFeaturesControl,
-   TimeControl, MapExportControl, ButtonExternalMapLinks, MeasureControl,
+   Covers: StreetviewControl, Terrain3DControl, TimeControl, MapExportControl,
+   ButtonExternalMapLinks, MeasureControl,
    and Mapbox's own NavigationControl (compass, used by the export map) and
    ScaleControl chrome. */
 .mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button {
