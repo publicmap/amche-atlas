@@ -12,9 +12,10 @@
  * (first = on top), so only the overlay/basemap split is applied - overlays
  * first, then basemaps - and the strip is painted top-to-bottom in that order.
  *
- * The column ends with an options button, revealed while the pointer is over
- * the strip, that opens the map/selection shortcuts shared with the right-click
- * menu (see LayerStackOptionsMenu).
+ * The column ends with an always-visible options button, that opens the
+ * map/selection shortcuts shared with the right-click menu (see
+ * LayerStackOptionsMenu), followed by an import and an export button that
+ * are only revealed while the pointer is over the strip.
  *
  * Each thumbnail is a LayerThumbnail, so clicking one opens that layer's info
  * panel (or zooms to it when it's out of view) exactly like the thumbnails in
@@ -37,6 +38,7 @@ export class LayerStackStrip {
         this._clearIsolationTimer = null;
         this._reorderTimer = null;
         this._draggedItem = null;
+        this._importItem = null;
         this._exportItem = null;
         this._optionsItem = null;
         this._optionsMenu = null;
@@ -77,8 +79,9 @@ export class LayerStackStrip {
         hostEl.appendChild(this._el);
 
         this._mountBrowserItem(browserButton);
-        this._mountExportItem();
         this._mountOptionsItem(map);
+        this._mountImportItem();
+        this._mountExportItem();
 
         // 'layersInitialized' is the signal that MapLayerControl has finished
         // building the groups this strip reads (it fires well after the control
@@ -134,6 +137,7 @@ export class LayerStackStrip {
         this._optionsMenu = null;
         this._optionsItem = null;
         this._exportItem = null;
+        this._importItem = null;
         if (this._el && this._el.parentNode) this._el.parentNode.removeChild(this._el);
         this._el = null;
     }
@@ -181,10 +185,12 @@ export class LayerStackStrip {
             });
         });
 
-        // The export and options controls belong at the foot of the column,
-        // and the layer rows were just appended after them.
-        if (this._exportItem) this._el.appendChild(this._exportItem);
+        // The options, import and export controls belong at the foot of the
+        // column, and the layer rows were just appended after them. Options
+        // is always visible; import/export only reveal on hover (see the CSS).
         if (this._optionsItem) this._el.appendChild(this._optionsItem);
+        if (this._importItem) this._el.appendChild(this._importItem);
+        if (this._exportItem) this._el.appendChild(this._exportItem);
     }
 
     /**
@@ -256,10 +262,46 @@ export class LayerStackStrip {
     }
 
     /**
-     * The export trigger, last layer-stack item before the options control.
-     * MapExportControl isn't mounted as a map control (see map-init.js) - its
-     * own message listener already handles 'toggle-export', so this button
-     * just posts that rather than reaching into the control directly.
+     * The import trigger, mounted right after the options control and before
+     * export - both hover-revealed (see the CSS), unlike the always-visible
+     * options button. Opens map-creator.html the same way the right-click
+     * shortcut menu's "Import Map" entry does (see shortcut-menu-base.js):
+     * the browser overlay has to be open for its iframe to be visible at all,
+     * so this opens it first if needed before switching that iframe to the
+     * creator.
+     */
+    _mountImportItem() {
+        const item = document.createElement('div');
+        item.className = 'layer-stack-item layer-stack-control layer-stack-import';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'layer-stack-cell layer-stack-import-btn';
+        button.title = 'Import map';
+        button.setAttribute('aria-label', 'Import map');
+        const icon = document.createElement('sl-icon');
+        icon.name = 'plus-circle';
+        button.appendChild(icon);
+        button.addEventListener('mouseenter', () => icon.setAttribute('name', 'plus-circle-fill'));
+        button.addEventListener('mouseleave', () => icon.setAttribute('name', 'plus-circle'));
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!window.browserControl?._isOpen) window.browserControl?.openBrowser();
+            window.browserControl?._switchToCreator();
+        });
+
+        item.appendChild(button);
+        item.appendChild(this._createFooterLabel('Import Map'));
+        this._el.appendChild(item);
+        this._importItem = item;
+    }
+
+    /**
+     * The export trigger, mounted last, after import - both hover-revealed
+     * (see the CSS). MapExportControl isn't mounted as a map control (see
+     * map-init.js) - its own message listener already handles 'toggle-export',
+     * so this button just posts that rather than reaching into the control
+     * directly.
      */
     _mountExportItem() {
         const item = document.createElement('div');
@@ -277,14 +319,27 @@ export class LayerStackStrip {
         });
 
         item.appendChild(button);
+        item.appendChild(this._createFooterLabel('Export Map'));
         this._el.appendChild(item);
         this._exportItem = item;
     }
 
+    /** Plain hover flyout (no atlas/shortcut-action row) for a footer control. */
+    _createFooterLabel(text) {
+        const label = document.createElement('div');
+        label.className = 'layer-stack-label';
+        const titleEl = document.createElement('div');
+        titleEl.className = 'layer-stack-label-title';
+        titleEl.textContent = text;
+        label.appendChild(titleEl);
+        return label;
+    }
+
     /**
-     * The fixed control at the foot of the stack: revealed by CSS while the
-     * pointer is over the strip, and opening the shared shortcut actions. No
-     * flyout label - the menu opens into that same space beside the column.
+     * The first fixed control at the foot of the stack, always visible
+     * (unlike the import/export buttons below it), opening the shared
+     * shortcut actions. No flyout label - the menu opens into that same
+     * space beside the column.
      */
     _mountOptionsItem(map) {
         const item = document.createElement('div');

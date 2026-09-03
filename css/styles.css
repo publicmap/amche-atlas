@@ -368,7 +368,7 @@
 }
 
 .layer-stack-item:last-child .layer-stack-cell,
-[data-layer-item]:has(+ .layer-stack-export, + .layer-stack-options) .layer-stack-cell {
+[data-layer-item]:has(+ .layer-stack-options) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 0 0 5px 5px !important;
 }
@@ -380,8 +380,8 @@
 
 .layer-stack-item:only-child .layer-stack-cell,
 .layer-stack-browser+[data-layer-item]:last-child .layer-stack-cell,
-.layer-stack-browser+[data-layer-item]:has(+ .layer-stack-export, + .layer-stack-options) .layer-stack-cell,
-[data-layer-item]:first-child:has(+ .layer-stack-export, + .layer-stack-options) .layer-stack-cell {
+.layer-stack-browser+[data-layer-item]:has(+ .layer-stack-options) .layer-stack-cell,
+[data-layer-item]:first-child:has(+ .layer-stack-options) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 5px !important;
 }
@@ -420,7 +420,7 @@
 
 /* A single basemap is the whole lower block, so it closes at both ends */
 .layer-stack-basemap-start:last-child .layer-stack-cell,
-.layer-stack-basemap-start:has(+ .layer-stack-export, + .layer-stack-options) .layer-stack-cell {
+.layer-stack-basemap-start:has(+ .layer-stack-options) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 5px !important;
 }
@@ -520,31 +520,40 @@
     background: var(--primary-hover) !important;
 }
 
-/* Export and options controls at the foot of the column (js/map-export-control.js,
-   js/layer-stack-options-menu.js). Only shown while the pointer is over the strip,
-   so the column stays as short as the layers themselves at rest - the welded
-   block above already closes off below its last cell (see the :has rules above),
-   so nothing shifts when they appear. Set off by a gap and fully rounded, like
-   the browser toggle at the head of the column. */
-.layer-stack-export,
-.layer-stack-options {
-    display: none;
+/* Options, import and export controls at the foot of the column
+   (js/layer-stack-options-menu.js, js/map-browser-control.js's creator,
+   js/map-export-control.js). Set off by a gap and fully rounded, like the
+   browser toggle at the head of the column - the welded block above already
+   closes off below its last cell (see the :has rules above), so nothing
+   shifts when import/export appear. */
+.layer-stack-options,
+.layer-stack-import,
+.layer-stack-export {
     margin-top: 5px;
 }
 
-.layer-stack-strip:hover .layer-stack-export,
-.layer-stack-strip:hover .layer-stack-options,
-.layer-stack-strip.options-open .layer-stack-options {
+/* Options is always visible; import/export only reveal on hover, so the
+   column stays as short as the layers themselves plus the options button
+   at rest. */
+.layer-stack-import,
+.layer-stack-export {
+    display: none;
+}
+
+.layer-stack-strip:hover .layer-stack-import,
+.layer-stack-strip:hover .layer-stack-export {
     display: flex;
 }
 
 /* The flyouts hide during a drag; so do these, or they would sit under the
    pointer as a drop target that is not a row. */
+.layer-stack-strip.dragging .layer-stack-import,
 .layer-stack-strip.dragging .layer-stack-export,
 .layer-stack-strip.dragging .layer-stack-options {
     display: none;
 }
 
+.layer-stack-import .layer-stack-cell,
 .layer-stack-export .layer-stack-cell,
 .layer-stack-options .layer-stack-cell {
     border-bottom-width: 1px !important;
@@ -554,6 +563,7 @@
 /* Same chrome as the browser toggle. The hover/open rules need the full
    ancestor chain and !important for the same reason the flyout's buttons do -
    see the note further down. */
+.layer-stack-import-btn,
 .layer-stack-export-btn,
 .layer-stack-options-btn {
     background: #1f2937;
@@ -561,11 +571,13 @@
     cursor: pointer;
 }
 
+.layer-stack-import-btn sl-icon,
 .layer-stack-export-btn sl-icon,
 .layer-stack-options-btn sl-icon {
     font-size: 17px;
 }
 
+.map-browser-control .layer-stack-strip button.layer-stack-import-btn:hover,
 .map-browser-control .layer-stack-strip button.layer-stack-export-btn:hover,
 .map-browser-control .layer-stack-strip button.layer-stack-options-btn:hover {
     background: #374151 !important;
