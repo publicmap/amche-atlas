@@ -1229,8 +1229,13 @@
 
     <!-- Header -->
     <header class="header-nav bg-gray-900 text-white flex items-center justify-between border-b border-gray-800">
-        <!-- Left: Atlas + Layers nested menu (see js/atlas-layer-menu-control.js) -->
-        <div id="atlas-layer-menu-container" class="flex items-center min-w-0"></div>
+        <!-- Left: Atlas + Layers nested menu, then the shortcuts menu (same
+             items as right-click/long-press on the map, see
+             js/shortcut-menu-base.js) -->
+        <div class="flex items-center min-w-0 gap-1">
+            <div id="atlas-layer-menu-container" class="flex items-center min-w-0"></div>
+            <div id="header-shortcut-menu-container" class="flex items-center flex-shrink-0"></div>
+        </div>
 
         <!-- Right: Logo + Hamburger. Map browser, search, and geolocation controls
              live on the map itself (top-left mapboxgl controls, see map-init.js) -->

@@ -18,6 +18,7 @@ import { MapAttributionControl } from './map-attribution-control.js';
 import { StreetviewControl } from './streetview-control.js';
 import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
 import { ShortcutMenu } from './shortcut-menu.js';
+import { HeaderShortcutMenuControl } from './header-shortcut-menu-control.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { NearbyFeaturesControl } from './map-nearby-features-control.js';
@@ -951,6 +952,12 @@ export class MapInitializer {
             // so it behaves exactly like map-browser.html.
             window.atlasLayerMenuControl = new AtlasLayerMenuControl(window.browserControl);
             window.atlasLayerMenuControl.mount(document.getElementById('atlas-layer-menu-container'));
+
+            // Header-nav shortcuts menu, next to the atlas + layers menu -
+            // same item tree/actions as the map's right-click/long-press menu
+            // (see shortcut-menu-base.js), acting on the current map center.
+            window.headerShortcutMenuControl = new HeaderShortcutMenuControl();
+            window.headerShortcutMenuControl.mount(document.getElementById('header-shortcut-menu-container'), map);
 
             // Bottom-right, in stacking order from the corner up: attribution
             // sits lowest, the orientation button next (nearest the thumb), and

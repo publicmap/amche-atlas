@@ -14,8 +14,9 @@
  *
  * Each thumbnail is a LayerThumbnail, so clicking one opens that layer's info
  * panel (or zooms to it when it's out of view) exactly like the thumbnails in
- * map-browser.html. Hovering reveals the full layer title and its atlas name,
- * and isolates that layer through MapLayerControl's shared LayerIsolationManager.
+ * map-browser.html. Hovering a thumbnail reveals a flyout with the layer name,
+ * its atlas and shortcut actions; hovering the name itself isolates that layer
+ * through MapLayerControl's shared LayerIsolationManager.
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
 import { LayerOrderManager } from './layer-order-manager.js';
@@ -26,8 +27,11 @@ export class LayerStackStrip {
     constructor() {
         this._el = null;
         this._signature = null;
+        this._pendingRender = false;
         this._refreshTimer = null;
         this._clearIsolationTimer = null;
+        this._reorderTimer = null;
+        this._draggedItem = null;
         // Debounced: window.urlManager's active-layers state updates on its own
         // 300ms debounce (see CLAUDE.md), so reading it synchronously on
         // 'layer-toggled' would render from stale state.
@@ -47,6 +51,20 @@ export class LayerStackStrip {
 
         this._el = document.createElement('div');
         this._el.className = 'layer-stack-strip';
+        // A refresh that arrived while the pointer was inside was deferred rather
+        // than yanking a row out from under it; run it once the pointer leaves.
+        // Nothing else fires here - the map may never go idle again on its own.
+        this._el.addEventListener('mouseleave', () => {
+            if (this._pendingRender) this.render();
+        });
+        // Dragging out of the column drops the indicator. Checked by coordinates
+        // because a drag event's relatedTarget is always null.
+        this._el.addEventListener('dragleave', (e) => {
+            const rect = this._el.getBoundingClientRect();
+            const outside = e.clientX < rect.left || e.clientX > rect.right ||
+                e.clientY < rect.top || e.clientY > rect.bottom;
+            if (outside) this._clearDropIndicators();
+        });
         hostEl.appendChild(this._el);
 
         this._mountBrowserItem(browserButton);
@@ -72,13 +90,14 @@ export class LayerStackStrip {
 
     /**
      * Isolation is applied straight away, but clearing it is deferred by a frame
-     * or two: moving the cursor from one thumbnail to the next fires mouseleave
+     * or two: moving the cursor from one layer name to the next fires mouseleave
      * before mouseenter, and letting that clear land would tear the whole stack
      * back on and immediately re-isolate - the visible lag between neighbours.
-     * A pending clear is cancelled by the next isolate, so a layer-to-layer move
+     * A pending clear is cancelled by the next isolate, so a name-to-name move
      * is a single re-isolation.
      */
     _isolate(layerId, isBasemap) {
+        if (this._draggedItem) return;
         clearTimeout(this._clearIsolationTimer);
         window.layerControl?.isolation?.hoverIsolate(layerId, isBasemap);
     }
@@ -95,6 +114,7 @@ export class LayerStackStrip {
         window.removeEventListener('layer-toggled', this._onChange);
         window.removeEventListener('urlUpdated', this._onChange);
         clearTimeout(this._refreshTimer);
+        clearTimeout(this._reorderTimer);
         this._clearIsolation({ immediate: true });
         if (this._el && this._el.parentNode) this._el.parentNode.removeChild(this._el);
         this._el = null;
@@ -105,33 +125,85 @@ export class LayerStackStrip {
      * changed - it is also called on every map 'idle' as a self-heal, so the
      * no-change case has to stay cheap.
      */
-    render() {
+    render({ force = false } = {}) {
         if (!this._el) return;
 
-        // Hover isolation hides sibling layers on the map without toggling them
-        // off; rebuilding mid-hover would drop the item under the cursor.
-        if (this._el.querySelector('.layer-stack-item:hover')) return;
+        // Rebuilding mid-hover would drop the row (and its open flyout) out from
+        // under the cursor - and with the isolation the hover applied still on the
+        // map. Defer to the strip's mouseleave instead. A reorder forces the
+        // rebuild, since the whole point of it is that the row moves.
+        if (!force && this._el.querySelector('.layer-stack-item:hover')) {
+            this._pendingRender = true;
+            return;
+        }
+        this._pendingRender = false;
 
         const layers = this._getVisibleLayers();
         const signature = layers.map(l => l.id).join(',');
-        if (signature === this._signature) return;
+        if (!force && signature === this._signature) return;
         this._signature = signature;
 
         // Layer items sit alongside the fixed toggle, so replace only the ones
         // this method owns.
         this._el.querySelectorAll('[data-layer-item]').forEach(el => el.remove());
 
-        // mapOrderToUrlOrder returns overlays first, then basemaps; the first
-        // basemap is where the two groups meet and carries the separator.
-        const firstBasemap = layers.findIndex(layer => LayerOrderManager.isBasemap(layer));
+        // Reordering happens within a section, so each row needs its position in
+        // its own list to know whether it can still move up or down.
+        const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(layers);
 
-        layers.forEach((layer, index) => {
-            const item = this._createItem(layer);
-            if (index === firstBasemap && index > 0) {
-                item.classList.add('layer-stack-basemap-start');
-            }
-            this._el.appendChild(item);
+        [overlays, basemaps].forEach((list, section) => {
+            list.forEach((layer, index) => {
+                const item = this._createItem(layer, { index, total: list.length });
+                // The two groups meet at the first basemap, which carries the rule
+                if (section === 1 && index === 0 && overlays.length) {
+                    item.classList.add('layer-stack-basemap-start');
+                }
+                this._el.appendChild(item);
+            });
         });
+    }
+
+    /**
+     * Move a layer one place up or down its own section of the stack, using the
+     * same `reorder-layers` message (and so the same code path) as the inspector's
+     * drag-to-reorder. Sections are independent lists in that protocol: an overlay
+     * cannot be dragged into the basemaps there either.
+     *
+     * @param {number} delta -1 to move up (towards the top of the map stack), +1 down
+     */
+    _moveLayer(layer, delta) {
+        const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(this._getVisibleLayers());
+        const isBasemap = LayerOrderManager.isBasemap(layer);
+        const ids = (isBasemap ? basemaps : overlays).map(l => l.id);
+
+        const from = ids.indexOf(layer.id);
+        const to = from + delta;
+        if (from === -1 || to < 0 || to >= ids.length) return;
+
+        ids.splice(to, 0, ids.splice(from, 1)[0]);
+
+        this._post({
+            type: 'reorder-layers',
+            overlayOrder: isBasemap ? overlays.map(l => l.id) : ids,
+            basemapOrder: isBasemap ? ids : basemaps.map(l => l.id)
+        });
+
+        this._scheduleReorderRepaint();
+    }
+
+    /**
+     * postMessage is async and the handler rewrites layerControl._state.groups,
+     * which is what _getVisibleLayers reads - repaint just after it lands so the
+     * rounding, the basemap rule and the arrows' disabled states all follow the
+     * new order. The isolation is dropped first because the rebuild replaces the
+     * row under the cursor; the fresh row's own mouseenter re-applies it.
+     */
+    _scheduleReorderRepaint() {
+        clearTimeout(this._reorderTimer);
+        this._reorderTimer = setTimeout(() => {
+            this._clearIsolation({ immediate: true });
+            this.render({ force: true });
+        }, 80);
     }
 
     /**
@@ -183,10 +255,12 @@ export class LayerStackStrip {
         return LayerOrderManager.mapOrderToUrlOrder(visible);
     }
 
-    _createItem(layer) {
+    _createItem(layer, position = { index: 0, total: 1 }) {
         const item = document.createElement('div');
         item.className = 'layer-stack-item';
         item.dataset.layerItem = 'true';
+        item.dataset.layerId = layer.id;
+        item.dataset.basemap = String(LayerOrderManager.isBasemap(layer));
 
         const title = layer.title || layer.id;
         const atlasName = this._getAtlasName(layer);
@@ -200,36 +274,209 @@ export class LayerStackStrip {
         thumbnail.setAttribute('aria-label', atlasName ? `${title} (${atlasName})` : title);
         item.appendChild(thumbnail);
 
+        // Flyout: the layer name (opens map-information.html), then the atlas name
+        // followed by shortcut actions for the layer.
         const label = document.createElement('div');
         label.className = 'layer-stack-label';
 
-        const titleEl = document.createElement('div');
-        titleEl.className = 'layer-stack-label-title';
-        titleEl.textContent = title;
-        label.appendChild(titleEl);
+        const titleBtn = document.createElement('button');
+        titleBtn.type = 'button';
+        titleBtn.className = 'layer-stack-label-title';
+        titleBtn.textContent = title;
+        titleBtn.title = `Open details for ${title}`;
+        titleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._post({ type: 'open-layer-info', layer: this._serializable(layer) });
+        });
+        label.appendChild(titleBtn);
+
+        const meta = document.createElement('div');
+        meta.className = 'layer-stack-label-meta';
 
         if (atlasName) {
-            const atlasEl = document.createElement('div');
+            const atlasEl = document.createElement('span');
             atlasEl.className = 'layer-stack-label-atlas';
             atlasEl.textContent = atlasName;
-            label.appendChild(atlasEl);
+            meta.appendChild(atlasEl);
         }
 
+        // Reorder within this layer's own section: up = towards the top of the
+        // map stack (first in the URL), matching the strip's paint order.
+        meta.appendChild(this._createLabelAction('arrow-up', '', `Move ${title} up`, () => {
+            this._moveLayer(layer, -1);
+        }, '', position.index === 0));
+        meta.appendChild(this._createLabelAction('arrow-down', '', `Move ${title} down`, () => {
+            this._moveLayer(layer, 1);
+        }, '', position.index === position.total - 1));
+        meta.appendChild(this._createLabelSeparator());
+
+        meta.appendChild(this._createLabelAction('zoom-in', 'Zoom', `Zoom to ${title}`, () => {
+            this._post({ type: 'zoom-to-layer', layerId: layer.id });
+        }));
+        meta.appendChild(this._createLabelSeparator());
+        meta.appendChild(this._createLabelAction('trash', 'Remove', `Remove ${title} from the map`, () => {
+            this._post({ type: 'remove-layer', layerId: layer.id });
+        }, 'layer-stack-label-action-danger'));
+
+        label.appendChild(meta);
         item.appendChild(label);
 
-        // Hovering isolates the layer on the map — the same effect (and the same
-        // messages) the feature control's marker badges use, so only this layer
-        // and the layers in the other section (overlay vs basemap) stay visible.
+        // Isolation is bound to the name alone, not the whole row: hovering the
+        // thumbnail only opens the flyout, and the map is left as it is until the
+        // pointer reaches the name. Same effect the feature control's marker
+        // badges apply - only this layer and the other section (overlay vs
+        // basemap) stay visible.
         const isBasemap = LayerOrderManager.isBasemap(layer);
         const isolate = () => this._isolate(layer.id, isBasemap);
         const clearIsolation = () => this._clearIsolation();
 
-        item.addEventListener('mouseenter', isolate);
-        item.addEventListener('mouseleave', clearIsolation);
-        item.addEventListener('focusin', isolate);
-        item.addEventListener('focusout', clearIsolation);
+        titleBtn.addEventListener('mouseenter', isolate);
+        titleBtn.addEventListener('mouseleave', clearIsolation);
+        titleBtn.addEventListener('focus', isolate);
+        titleBtn.addEventListener('blur', clearIsolation);
+
+        this._setupItemDrag(item);
 
         return item;
+    }
+
+    /**
+     * Drag a thumbnail to reorder, mirroring map-inspector.html's card drag: the
+     * drop indicator follows the midpoint of the row under the pointer, the DOM is
+     * reordered on drop, and dragend posts the resulting order as `reorder-layers`.
+     *
+     * Rows only accept a drop from their own section, exactly as the inspector's
+     * two lists do - overlays and basemaps are separate orders in that message.
+     */
+    _setupItemDrag(item) {
+        item.draggable = true;
+
+        const sameSection = () => this._draggedItem &&
+            this._draggedItem !== item &&
+            this._draggedItem.dataset.basemap === item.dataset.basemap;
+
+        // Which half of the row the pointer is in decides whether the dragged row
+        // lands above or below it.
+        const dropsAbove = (e) => {
+            const rect = item.getBoundingClientRect();
+            return e.clientY < rect.top + rect.height / 2;
+        };
+
+        item.addEventListener('dragstart', (e) => {
+            this._draggedItem = item;
+            item.classList.add('dragging');
+            this._el.classList.add('dragging');
+            // A hover isolation from the row we are picking up would otherwise
+            // stay applied for the whole drag.
+            this._clearIsolation({ immediate: true });
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', item.dataset.layerId || '');
+        });
+
+        // The row under the pointer owns the indicator and clears every other
+        // one. There is deliberately no per-row dragleave: during an HTML5 drag
+        // its relatedTarget is null, so a row cannot tell "pointer moved onto my
+        // own thumbnail" from "pointer left me", and clearing on it made the
+        // indicator flicker off the moment it appeared. Leaving the strip
+        // entirely is handled once, on the strip itself (see _setupStripDrag).
+        item.addEventListener('dragover', (e) => {
+            if (!sameSection()) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this._clearDropIndicators(item);
+            item.classList.toggle('drag-over-top', dropsAbove(e));
+            item.classList.toggle('drag-over-bottom', !dropsAbove(e));
+        });
+
+        item.addEventListener('drop', (e) => {
+            if (!sameSection()) return;
+            e.preventDefault();
+            item.parentNode.insertBefore(
+                this._draggedItem,
+                dropsAbove(e) ? item : item.nextSibling
+            );
+            this._clearDropIndicators();
+        });
+
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            this._el.classList.remove('dragging');
+            this._clearDropIndicators();
+            this._draggedItem = null;
+            this._commitDragOrder();
+        });
+    }
+
+    /** Drop indicator on every row except `keep`. */
+    _clearDropIndicators(keep = null) {
+        this._el.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+            if (el !== keep) el.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+    }
+
+    /**
+     * Read the order back out of the DOM after a drop and hand it to the same
+     * `reorder-layers` handler the arrows and the inspector use.
+     */
+    _commitDragOrder() {
+        const overlayOrder = [];
+        const basemapOrder = [];
+        this._el.querySelectorAll('[data-layer-item]').forEach(el => {
+            (el.dataset.basemap === 'true' ? basemapOrder : overlayOrder).push(el.dataset.layerId);
+        });
+
+        this._post({ type: 'reorder-layers', overlayOrder, basemapOrder });
+        this._scheduleReorderRepaint();
+    }
+
+    _createLabelAction(icon, text, title, onClick, variant = '', disabled = false) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'layer-stack-label-action' + (variant ? ` ${variant}` : '');
+        button.title = title;
+        button.innerHTML = `<sl-icon name="${icon}"></sl-icon>` + (text ? `<span>${text}</span>` : '');
+        // Kept in place rather than dropped when unavailable, so the row of
+        // actions doesn't shift as layers move to the ends of the stack.
+        if (disabled) {
+            button.disabled = true;
+        } else {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                onClick();
+            });
+        }
+        return button;
+    }
+
+    _createLabelSeparator() {
+        const separator = document.createElement('span');
+        separator.className = 'layer-stack-label-sep';
+        separator.setAttribute('aria-hidden', 'true');
+        separator.textContent = '|';
+        return separator;
+    }
+
+    /**
+     * These messages cross to handlers in the same window (MapBrowserControl for
+     * open-layer-info / zoom-to-layer, MapFeatureControl for remove-layer), but
+     * postMessage still structured-clones the payload, and a resolved layer config
+     * can carry values that will not clone.
+     */
+    _post(message) {
+        try {
+            window.postMessage(message, '*');
+        } catch (e) {
+            console.warn('[LayerStackStrip] Message not cloneable, sending id only:', e);
+            window.postMessage({ ...message, layer: undefined }, '*');
+        }
+    }
+
+    _serializable(layer) {
+        try {
+            return JSON.parse(JSON.stringify(layer));
+        } catch (e) {
+            return { id: layer.id, title: layer.title, type: layer.type, _sourceAtlas: layer._sourceAtlas };
+        }
     }
 
     _getAtlasName(layer) {

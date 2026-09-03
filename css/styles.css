@@ -229,6 +229,35 @@
     white-space: nowrap;
 }
 
+/* Header-nav shortcuts menu button (see js/header-shortcut-menu-control.js) -
+   opens the same menu as .shortcut-menu (styled further down), so only the
+   trigger button needs its own styling here. */
+.header-shortcut-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 16px;
+    width: 16px;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    color: #f3f4f6;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+}
+
+.header-shortcut-menu-btn:hover {
+    color: var(--primary-color);
+}
+
+.header-shortcut-menu-btn.active {
+    background: var(--primary-color);
+    color: #000;
+}
+
 /* Map Browser Control */
 .map-browser-btn {
     height: 36px !important;
@@ -392,6 +421,38 @@
     border-radius: 5px !important;
 }
 
+/* Drag to reorder (mirrors map-inspector.html's card drag). The drop indicator
+   is a pseudo-element rather than a border: the cells are flush, so a border on
+   the row would shift the whole column by 2px mid-drag. */
+.layer-stack-item.dragging {
+    opacity: 0.4;
+}
+
+.layer-stack-item.drag-over-top::after,
+.layer-stack-item.drag-over-bottom::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--primary-color);
+    z-index: 20;
+    pointer-events: none;
+}
+
+.layer-stack-item.drag-over-top::after {
+    top: -1px;
+}
+
+.layer-stack-item.drag-over-bottom::after {
+    bottom: -1px;
+}
+
+/* The flyout would sit between the pointer and the rows it needs to drag over */
+.layer-stack-strip.dragging .layer-stack-label {
+    display: none;
+}
+
 /* Hover accent is the same for the toggle and a layer */
 .layer-stack-item:hover .layer-stack-cell {
     border-color: var(--primary-color) !important;
@@ -421,23 +482,38 @@
     background: var(--primary-hover) !important;
 }
 
-/* Full layer name + atlas name, revealed to the right on hover */
+/* Flyout panel revealed on hover: the layer name, then the atlas name and the
+   layer's shortcut actions.
+
+   Designed as the row itself extending rather than a tooltip floating beside it:
+   it butts up against the cell (pulled 1px left so the shared edge is a single
+   black line), takes the same #1f2937 chrome and black border as the cells, is at
+   least as tall as the row, and rounds only its outer right corners. It is also
+   interactive, so it must stay inside the item's hover region - hence flush
+   against the cell, with no gap for the pointer to fall through. */
 .layer-stack-label {
     position: absolute;
     left: 100%;
-    margin-left: 6px;
-    padding: 4px 8px;
-    background: rgba(0, 0, 0, 0.88);
-    border: 1px solid var(--primary-color);
-    border-radius: 4px;
+    top: -1px;
+    margin-left: -1px;
+    min-height: 36px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 5px 10px;
+    background: #1f2937;
+    border: 1px solid #000;
+    border-left: none;
+    border-radius: 0 5px 5px 0;
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.45);
     color: #fff;
     white-space: nowrap;
     opacity: 0;
     visibility: hidden;
     transform: translateX(-4px);
-    transition: opacity 0.15s ease, transform 0.15s ease;
-    pointer-events: none;
-    z-index: 5;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    z-index: 15;
 }
 
 /* Hover only. Focus is not a reveal trigger: the browser toggle is focused
@@ -450,16 +526,99 @@
     transform: translateX(0);
 }
 
+/* The name opens map-information.html for the layer */
 .layer-stack-label-title {
+    display: block;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font: inherit;
     font-size: 12px;
     font-weight: 600;
     line-height: 1.3;
+    text-align: left;
+    color: #fff;
+}
+
+.layer-stack-item[data-layer-item] .layer-stack-label-title {
+    cursor: pointer;
+}
+
+/* The generic corner-control theme further down this file repaints ANY button
+   inside a .mapboxgl-ctrl on hover (grey fill, amber text) with !important, and
+   this strip lives in one. These hover rules therefore need both !important and
+   a selector specific enough to outrank it - hence the full ancestor chain. */
+.map-browser-control .layer-stack-strip .layer-stack-label button.layer-stack-label-title:hover {
+    background: transparent !important;
+    color: var(--primary-color) !important;
+    text-decoration: underline;
+}
+
+.layer-stack-label-meta {
+    display: flex;
+    align-items: center;
+    gap: 7px;
 }
 
 .layer-stack-label-atlas {
     font-size: 10px;
     color: #9ca3af;
     line-height: 1.3;
+}
+
+/* zoom | remove */
+.layer-stack-label-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 5px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #9ca3af;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.3;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+
+.layer-stack-label-action sl-icon {
+    font-size: 11px;
+}
+
+.map-browser-control .layer-stack-strip .layer-stack-label button.layer-stack-label-action:hover {
+    background: rgba(255, 255, 255, 0.12) !important;
+    color: #fff !important;
+}
+
+/* Scoped modifier, not a bare `.danger` - a global `button.danger` variant later
+   in this file paints that red by default, which would leave Remove looking armed
+   at rest. */
+.map-browser-control .layer-stack-strip .layer-stack-label button.layer-stack-label-action-danger:hover {
+    background: #dc2626 !important;
+    color: #fff !important;
+}
+
+/* Unavailable reorder arrow (layer already at the end of its section) */
+.layer-stack-label-action:disabled {
+    color: #4b5563;
+    cursor: default;
+}
+
+/* Icon-only actions (the reorder arrows) don't need the text gap */
+.layer-stack-label-action:not(:has(span)) {
+    padding: 2px 3px;
+}
+
+.layer-stack-label-sep {
+    color: #4b5563;
+    font-size: 10px;
+    user-select: none;
 }
 
 /* Primary top-left row control (see js/search-box-control.js): the Maps
