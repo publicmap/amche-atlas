@@ -38,6 +38,8 @@ export class MapboxAPI {
         this._overpassPaintLayersCreated = new Set(); // groupIds whose fill/line/circle layers have been created
         this._overpassConfigs = new Map(); // groupId -> config, for rebuilding the zoom-gate message on manual refresh
         this._layerDataPrefetch = new Map(); // url -> in-flight/resolved GeoJSON promise, see prefetchLayerData
+        this._dimSnapshots = new Map(); // groupId -> [[layerId, paintProp, originalValue]], see setLayerGroupDimmed
+        this._opacityRecorder = null; // active snapshot array while a dim is being applied
 
         // Initialize style property mapping for different layer types
         this._stylePropertyMapping = this._initializeStylePropertyMapping();
@@ -569,6 +571,61 @@ export class MapboxAPI {
      * @param {number} opacity - Opacity value (0-1)
      * @returns {boolean} - Success status
      */
+    /**
+     * Dim a layer group to fully transparent, or restore it.
+     *
+     * Used for layer isolation instead of layout.visibility: a hidden layer makes
+     * Mapbox GL release the tiles nothing visible needs any more and re-request
+     * them when it comes back, which turns a hover isolation into repeated
+     * tileset downloads. A transparent layer stays live and keeps its tiles.
+     *
+     * Restoring replays the exact paint values captured when the group was dimmed,
+     * rather than writing a flat opacity back. Opacity here is routinely a
+     * data-driven or zoom-interpolated expression (feature-state highlights,
+     * zoom ramps), and writing a constant over it would silently flatten the
+     * layer's styling for the rest of the session.
+     */
+    setLayerGroupDimmed(groupId, config, dimmed) {
+        if (dimmed) {
+            // Already dimmed - re-recording now would snapshot the zeroes.
+            if (this._dimSnapshots.has(groupId)) return true;
+
+            const snapshot = [];
+            this._opacityRecorder = snapshot;
+            try {
+                this.updateLayerOpacity(groupId, config, 0);
+            } finally {
+                this._opacityRecorder = null;
+            }
+            this._dimSnapshots.set(groupId, snapshot);
+            return true;
+        }
+
+        const snapshot = this._dimSnapshots.get(groupId);
+        // Nothing recorded: the group was never dimmed through here, so fall back
+        // to the ordinary "restore configured opacity" path.
+        if (!snapshot) return this.updateLayerOpacity(groupId, config, 1);
+
+        this._dimSnapshots.delete(groupId);
+        snapshot.forEach(([layerId, prop, value]) => {
+            if (this._map.getLayer(layerId)) {
+                this._map.setPaintProperty(layerId, prop, value);
+            }
+        });
+        return true;
+    }
+
+    /**
+     * setPaintProperty for the opacity setters, capturing the value it replaces
+     * whenever a dim snapshot is being recorded (see setLayerGroupDimmed).
+     */
+    _setOpacityPaint(layerId, prop, value) {
+        if (this._opacityRecorder) {
+            this._opacityRecorder.push([layerId, prop, this._map.getPaintProperty(layerId, prop)]);
+        }
+        this._map.setPaintProperty(layerId, prop, value);
+    }
+
     updateLayerOpacity(groupId, config, opacity) {
         try {
             switch (config.type) {
@@ -941,18 +998,18 @@ export class MapboxAPI {
             const fillLayer = this._map.getLayer(fillId);
             if (fillLayer) {
                 const fillOpacityProp = fillLayer.type === 'fill-extrusion' ? 'fill-extrusion-opacity' : 'fill-opacity';
-                this._map.setPaintProperty(fillId, fillOpacityProp, finalOpacity);
+                this._setOpacityPaint(fillId, fillOpacityProp, finalOpacity);
             }
             if (this._map.getLayer(outlineId)) {
-                this._map.setPaintProperty(outlineId, 'line-opacity', finalOpacity);
+                this._setOpacityPaint(outlineId, 'line-opacity', finalOpacity);
             }
             if (this._map.getLayer(circleId)) {
-                this._map.setPaintProperty(circleId, 'circle-opacity', finalOpacity);
-                this._map.setPaintProperty(circleId, 'circle-stroke-opacity', finalOpacity);
+                this._setOpacityPaint(circleId, 'circle-opacity', finalOpacity);
+                this._setOpacityPaint(circleId, 'circle-stroke-opacity', finalOpacity);
             }
             if (this._map.getLayer(textId)) {
-                this._map.setPaintProperty(textId, 'text-opacity', finalOpacity);
-                this._map.setPaintProperty(textId, 'icon-opacity', finalOpacity);
+                this._setOpacityPaint(textId, 'text-opacity', finalOpacity);
+                this._setOpacityPaint(textId, 'icon-opacity', finalOpacity);
             }
         });
         return true;
@@ -1070,7 +1127,7 @@ export class MapboxAPI {
 
         const layerId = `tms-layer-${groupId}`;
         if (this._map.getLayer(layerId)) {
-            this._map.setPaintProperty(layerId, 'raster-opacity', finalOpacity);
+            this._setOpacityPaint(layerId, 'raster-opacity', finalOpacity);
         }
         return true;
     }
@@ -1171,7 +1228,7 @@ export class MapboxAPI {
 
         const layerId = `cog-layer-${groupId}`;
         if (this._map.getLayer(layerId)) {
-            this._map.setPaintProperty(layerId, 'raster-opacity', finalOpacity);
+            this._setOpacityPaint(layerId, 'raster-opacity', finalOpacity);
         }
         return true;
     }
@@ -1390,7 +1447,7 @@ export class MapboxAPI {
 
         const layerId = `wmts-layer-${groupId}`;
         if (this._map.getLayer(layerId)) {
-            this._map.setPaintProperty(layerId, 'raster-opacity', finalOpacity);
+            this._setOpacityPaint(layerId, 'raster-opacity', finalOpacity);
         }
         return true;
     }
@@ -1591,7 +1648,7 @@ export class MapboxAPI {
 
         const layerId = `wms-layer-${groupId}`;
         if (this._map.getLayer(layerId)) {
-            this._map.setPaintProperty(layerId, 'raster-opacity', finalOpacity);
+            this._setOpacityPaint(layerId, 'raster-opacity', finalOpacity);
         }
         return true;
     }
@@ -2271,7 +2328,7 @@ export class MapboxAPI {
 
         const variantPrefixes = this._getVariantPrefixes(config);
         const setOp = (layer, prop, val) => {
-            if (this._map.getLayer(layer)) this._map.setPaintProperty(layer, prop, val);
+            if (this._map.getLayer(layer)) this._setOpacityPaint(layer, prop, val);
         };
 
         if (config.clusterSeparateBy) {
@@ -2310,16 +2367,16 @@ export class MapboxAPI {
             const fillLayer = this._map.getLayer(fillId);
             if (fillLayer) {
                 if (fillLayer.type === 'fill-extrusion') {
-                    this._map.setPaintProperty(fillId, 'fill-extrusion-opacity', finalOpacity);
+                    this._setOpacityPaint(fillId, 'fill-extrusion-opacity', finalOpacity);
                 } else {
-                    this._map.setPaintProperty(fillId, 'fill-opacity', finalOpacity * 0.5);
+                    this._setOpacityPaint(fillId, 'fill-opacity', finalOpacity * 0.5);
                 }
             }
             setOp(lineId, 'line-opacity', finalOpacity);
             setOp(labelId, 'text-opacity', finalOpacity);
             if (this._map.getLayer(symbolId)) {
-                this._map.setPaintProperty(symbolId, 'icon-opacity', finalOpacity);
-                this._map.setPaintProperty(symbolId, 'text-opacity', finalOpacity);
+                this._setOpacityPaint(symbolId, 'icon-opacity', finalOpacity);
+                this._setOpacityPaint(symbolId, 'text-opacity', finalOpacity);
             }
             setOp(circleId, 'circle-opacity', finalOpacity);
             setOp(clustersId, 'circle-opacity', finalOpacity);
@@ -3194,7 +3251,7 @@ export class MapboxAPI {
             : opacity;
 
         if (this._map.getLayer(groupId)) {
-            this._map.setPaintProperty(groupId, 'raster-opacity', finalOpacity);
+            this._setOpacityPaint(groupId, 'raster-opacity', finalOpacity);
         }
         return true;
     }
@@ -3259,7 +3316,7 @@ export class MapboxAPI {
         if (this._map.getLayer(styleLayerId)) {
             const existingLayer = this._map.getLayer(styleLayerId);
             if (existingLayer.type === 'raster') {
-                this._map.setPaintProperty(styleLayerId, 'raster-opacity', finalOpacity);
+                this._setOpacityPaint(styleLayerId, 'raster-opacity', finalOpacity);
             }
         }
         return true;

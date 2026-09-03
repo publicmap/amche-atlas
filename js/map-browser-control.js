@@ -5,6 +5,7 @@
  * a full-screen map browser overlay when clicked.
  */
 import { MapContextMessagesControl } from './map-context-messages-control.js';
+import { LayerStackStrip } from './layer-stack-strip.js';
 
 export class MapBrowserControl {
     constructor() {
@@ -16,6 +17,7 @@ export class MapBrowserControl {
         this._iframe = null;
         this._isOpen = false;
         this._pendingFileData = null;
+        this._layerStack = new LayerStackStrip();
         this._setupMessageListener();
         this._setupViewHistory();
     }
@@ -112,6 +114,15 @@ export class MapBrowserControl {
         });
 
         this._container.appendChild(this._button);
+
+        // Thumbnails of the currently visible layers, stacked below the button
+        // in the map's own visual order. Repainted on every 'idle' as well as on
+        // layer/URL changes: the layer control builds its groups well after this
+        // control is added, and 'idle' is the one signal guaranteed to fire after
+        // it. render() no-ops unless the visible set changed.
+        this._layerStack.mount(this._container);
+        map.on('idle', () => this._layerStack.render());
+
         this._createOverlay();
 
         return this._container;
@@ -906,6 +917,8 @@ export class MapBrowserControl {
         this._overlay.style.display = 'block';
         this._isOpen = true;
         this._updateButtonState(true);
+        // The browser panel lists the same layers - don't double up on them.
+        this._layerStack.setVisible(false);
 
         setTimeout(async () => {
             // Deferred external (cross-repo) atlases aren't fetched at startup — the
@@ -932,6 +945,8 @@ export class MapBrowserControl {
         this._overlay.style.display = 'none';
         this._isOpen = false;
         this._updateButtonState(false);
+        this._layerStack.setVisible(true);
+        this._layerStack.render();
 
         if (this._map) {
             this._map.off('moveend', this._onMapMove);
@@ -959,6 +974,7 @@ export class MapBrowserControl {
     }
 
     onRemove() {
+        this._layerStack.destroy();
         if (this._overlay && this._overlay.parentNode) {
             this._overlay.parentNode.removeChild(this._overlay);
         }

@@ -459,11 +459,19 @@
             "has",
             "index"
           ],
-          "rgba(138, 90, 43, 0.95)",
-          "rgba(163, 124, 84, 0.72)"
+          "rgba(255, 90, 43, 0.95)",
+          "rgba(255, 124, 84, 0.72)"
         ],
-        "overlay/line-width": 0.5,
-        "line-color": "rgba(255, 255, 255, 0.38)",
+        "overlay/line-width": [
+          "case",
+          [
+            "has",
+            "index"
+          ],
+          1,
+          0.5
+        ],
+        "line-color": "rgba(255, 120, 120, 0.38)",
         "line-width": [
           "interpolate",
           [

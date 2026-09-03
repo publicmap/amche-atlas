@@ -8,6 +8,22 @@
 import { MapMarkerManager } from './map-marker-manager.js';
 import ConfigManager from './config-manager.js';
 
+/**
+ * Layer types whose renderers hold their data in tiles fetched from the network.
+ * Hiding one of these with layout.visibility makes Mapbox GL release the tiles no
+ * visible layer needs any more and re-request them the moment it is shown again -
+ * on a hover isolation that means re-downloading whole tilesets several times a
+ * second. Isolation dims these to zero opacity instead: the layer stays live, its
+ * tiles stay resident, and only paint properties change.
+ *
+ * Everything else (Mapbox style layers, client-side CSV/sheet sources, layer-group
+ * toggles) has no opacity path in mapbox-api and costs no network traffic to hide,
+ * so those keep using visibility.
+ */
+const OPACITY_DIMMED_TYPES = new Set([
+    'vector', 'tms', 'wmts', 'wms', 'cog', 'geojson', 'js', 'overpass', 'img', 'raster-style-layer'
+]);
+
 export class MapFeatureControl {
     constructor() {
         this.options = {
@@ -30,6 +46,11 @@ export class MapFeatureControl {
         this._isIframeReady = false;
         this._messageQueue = [];
         this._inspectorInitialized = false;
+        this._hoverIsolation = null;
+        this._persistentIsolation = null;
+        // Layer ids the active isolation is hiding, so a change of isolation only
+        // has to touch the layers whose visibility actually differs.
+        this._isolationHidden = new Set();
 
         // Set up resize listener
         this._resizeListener = this._handleResize.bind(this);
@@ -1278,27 +1299,42 @@ export class MapFeatureControl {
 
     /**
      * Hide all toggled-on siblings in the same section as layerId.
-     * Always clears prior isolation first so we have a clean baseline —
-     * otherwise sibling layers hidden by a previous isolation stay invisible
-     * to _getToggledOnLayers' loop and we leave the section dark.
+     *
+     * Only the layers whose visibility actually has to change are touched, using
+     * _isolationHidden as the record of what this isolation is currently hiding.
+     * Moving between two layers therefore costs one show + one hide, instead of
+     * showing every sibling and hiding them all again - that intermediate
+     * "everything on" state made each layer re-render (and vector layers refetch
+     * tiles) for nothing, which is what made hopping between layers feel laggy
+     * next to isolating from a clean baseline.
      */
     _applyIsolation(layerId, isBasemap) {
         const mapboxAPI = this._getMapboxAPI();
         if (!mapboxAPI) return;
 
-        this._applyClearIsolation();
-
         const activeLayers = this._getToggledOnLayers();
-        for (const [id, layerData] of activeLayers.entries()) {
-            if (id === layerId) continue;
+        const hidden = this._isolationHidden;
 
-            const layerIsBasemap = layerData.config.tags &&
-                Array.isArray(layerData.config.tags) &&
-                layerData.config.tags.includes('basemap');
-
-            if (layerIsBasemap === isBasemap) {
-                mapboxAPI.updateLayerGroupVisibility(id, layerData.config, false);
+        // Show anything this isolation was hiding that the new one must not.
+        // A layer the user has since toggled off is just dropped from the record -
+        // showing it again would override their own choice.
+        for (const id of Array.from(hidden)) {
+            const layerData = activeLayers.get(id);
+            if (!layerData) {
+                hidden.delete(id);
+                continue;
             }
+            if (id !== layerId && this._isBasemapConfig(layerData.config) === isBasemap) continue;
+            this._setLayerDimmed(mapboxAPI, id, layerData.config, false);
+            hidden.delete(id);
+        }
+
+        // Hide the new isolation's same-section siblings.
+        for (const [id, layerData] of activeLayers.entries()) {
+            if (id === layerId || hidden.has(id)) continue;
+            if (this._isBasemapConfig(layerData.config) !== isBasemap) continue;
+            this._setLayerDimmed(mapboxAPI, id, layerData.config, true);
+            hidden.add(id);
         }
     }
 
@@ -1307,9 +1343,37 @@ export class MapFeatureControl {
         if (!mapboxAPI) return;
 
         const activeLayers = this._getToggledOnLayers();
-        for (const [id, layerData] of activeLayers.entries()) {
-            mapboxAPI.updateLayerGroupVisibility(id, layerData.config, true);
+        // Restore only what an isolation hid. On the first run of a session the
+        // record is empty but a prior isolation may still be applied (e.g. after
+        // a reload), so fall back to showing every toggled-on layer once.
+        const toRestore = this._isolationHidden.size ? this._isolationHidden : activeLayers.keys();
+
+        for (const id of Array.from(toRestore)) {
+            const layerData = activeLayers.get(id);
+            if (layerData) {
+                this._setLayerDimmed(mapboxAPI, id, layerData.config, false);
+            }
         }
+        this._isolationHidden.clear();
+    }
+
+    /**
+     * Take a layer out of / back into the isolated view. Tile-backed layers are
+     * dimmed with opacity so their tiles are never released (see
+     * OPACITY_DIMMED_TYPES); the rest fall back to layout visibility.
+     * setLayerGroupDimmed restores the paint values it captured, so opacity
+     * expressions survive the round trip untouched.
+     */
+    _setLayerDimmed(mapboxAPI, id, config, dimmed) {
+        if (OPACITY_DIMMED_TYPES.has(config.type)) {
+            mapboxAPI.setLayerGroupDimmed(id, config, dimmed);
+        } else {
+            mapboxAPI.updateLayerGroupVisibility(id, config, !dimmed);
+        }
+    }
+
+    _isBasemapConfig(config) {
+        return !!(config && Array.isArray(config.tags) && config.tags.includes('basemap'));
     }
 
     /**
