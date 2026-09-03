@@ -45,6 +45,8 @@ export class LayerStackOptionsMenu extends ShortcutMenuBase {
     mount(map, button) {
         this._button = button;
         this._attachMap(map);
+        // Raises this menu over the search box's suggestions panel; see the CSS
+        this._menu.classList.add('layer-stack-options-menu');
         this._excludeFromOutsideClose = [button];
         this._bindHover();
     }

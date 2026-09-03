@@ -942,11 +942,7 @@ export class MapInitializer {
             window.terrain3DControl = new Terrain3DControl();
             // Initialize the feature control with state manager and config
             window.featureControl = new MapFeatureControl();
-
-            // The inspector lives inside the primary top-left row (added
-            // earlier, see above), between the Maps button and the search box,
-            // rather than as its own stacked top-left control.
-            window.searchBoxControl.mountInspectorControl(window.featureControl.onAdd(map));
+            window.featureControl.onAdd(map);
 
             // Header-nav atlas + layers nested menu (top-left of the header,
             // not a map control) - reuses browserControl's layer-toggle logic
@@ -1051,14 +1047,13 @@ export class MapInitializer {
             window.layerControl.renderToContainer('#layer-controls-container', map);
             window.layerControl.setStateManager(stateManager);
 
-            // Initialize feature control (panel starts collapsed)
+            // Initialize feature control (click/hover engine + marker manager)
             window.featureControl.initialize(stateManager, config);
 
             // Preload iframe-backed controls once the map is idle, so their
-            // bundles (map-inspector.html, map-export.html, map-browser.html)
-            // load off the critical path but are ready before the user clicks.
+            // bundles (map-export.html, map-browser.html) load off the
+            // critical path but are ready before the user clicks.
             map.once('idle', () => {
-                window.featureControl?.preload?.();
                 window.exportControl?.preload?.();
                 window.browserControl?.preload?.();
             });

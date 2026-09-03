@@ -583,10 +583,9 @@
         }
 
         /**
-         * Swipe-compare this layer against the current map, using the same
-         * `toggle-compare` message as map-inspector.html - MapFeatureControl owns
-         * the mapbox-gl-compare instance and allows only one compared layer at a
-         * time, so enabling here tears down whatever was being compared before.
+         * Swipe-compare this layer against the current map. MapFeatureControl
+         * owns the mapbox-gl-compare instance and allows only one compared layer
+         * at a time, so enabling here tears down whatever was being compared before.
          */
         function toggleCompare() {
             if (!currentLayer) return;
@@ -611,9 +610,9 @@
 
         /**
          * Whether this layer is the one currently being compared. The parent's
-         * MapFeatureControl holds that state; it only broadcasts changes to the
-         * inspector iframe, so read it directly - the same way getAtlasConfigUrl
-         * reaches into the parent's layerRegistry.
+         * MapFeatureControl holds that state directly on the instance, so read
+         * it directly - the same way getAtlasConfigUrl reaches into the parent's
+         * layerRegistry.
          */
         function isComparing() {
             if (!currentLayer || window.self === window.top) return false;

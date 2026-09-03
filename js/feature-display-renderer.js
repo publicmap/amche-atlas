@@ -1,6 +1,5 @@
 /**
  * Feature Display Renderer - Shared module for rendering feature details
- * Used by both map-marker-manager.js and map-inspector.html
  */
 
 import { handlerLoader } from './inspection-handler-loader.js';
@@ -112,27 +111,6 @@ export class FeatureDisplayRenderer {
             html += '</div>';
         }
 
-        // Open in Inspector button (for popup context only)
-        if (isCollapsible) {
-            html += `
-                <button class="open-in-inspector" data-layer-id="${layerConfig.id}" data-feature-id="${featureId}" style="
-                    margin-top: 8px;
-                    padding: 6px 12px;
-                    background: #3b82f6;
-                    color: white;
-                    border: none;
-                    border-radius: 4px;
-                    font-size: 11px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    width: 100%;
-                    transition: background 0.2s;
-                " onmouseenter="this.style.background='#2563eb'" onmouseleave="this.style.background='#3b82f6'">
-                    Open in Inspector
-                </button>
-            `;
-        }
-
         html += `
                 </div>
             </div>
@@ -177,9 +155,8 @@ export class FeatureDisplayRenderer {
      * Setup event listeners for feature items
      * @param {HTMLElement} container - Container element
      * @param {Function} onExpand - Callback when feature is expanded
-     * @param {Function} onOpenInspector - Callback when "Open in Inspector" is clicked
      */
-    static setupEventListeners(container, onExpand, onOpenInspector) {
+    static setupEventListeners(container, onExpand) {
         // Toggle expand/collapse
         container.querySelectorAll('.feature-item-header').forEach(header => {
             const featureContainer = header.closest('.feature-item-container');
@@ -198,18 +175,6 @@ export class FeatureDisplayRenderer {
                     const layerId = featureContainer.dataset.layerId;
                     const featureId = featureContainer.dataset.featureId;
                     onExpand(layerId, featureId);
-                }
-            });
-        });
-
-        // Open in Inspector button
-        container.querySelectorAll('.open-in-inspector').forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const layerId = button.dataset.layerId;
-                const featureId = button.dataset.featureId;
-                if (onOpenInspector) {
-                    onOpenInspector(layerId, featureId);
                 }
             });
         });

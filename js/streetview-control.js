@@ -2,8 +2,7 @@
  * StreetviewControl - top-right Mapbox GL control that opens a resizable panel
  * embedding streetview.html (a standalone MapillaryJS viewer, see
  * js/streetview-viewer.js). Communicates with that iframe purely via
- * postMessage, mirroring the convention used by MapFeatureControl /
- * map-inspector.html.
+ * postMessage, the same convention other iframe-embedding controls use.
  *
  * Owns everything the iframe itself has no access to: turning the Mapillary
  * coverage layers on/off, finding the photo nearest the existing selection

@@ -173,13 +173,12 @@ export class MapMarkerManager {
     }
 
     /**
-     * Active layer configs, preferring MapFeatureControl's visibility check —
-     * the same one map-inspector.html's layer list is built from — over the
-     * plain checkbox check below. That check falls back to reading actual map
-     * layer visibility for `style`/`raster-style-layer` layers (e.g. basemap
-     * imagery), which don't necessarily expose a checkbox at a stable index in
-     * `_sourceControls`, so relying on the checkbox alone under-counts active
-     * layers here versus what the inspector shows.
+     * Active layer configs, preferring MapFeatureControl's visibility check
+     * over the plain checkbox check below. That check falls back to reading
+     * actual map layer visibility for `style`/`raster-style-layer` layers
+     * (e.g. basemap imagery), which don't necessarily expose a checkbox at a
+     * stable index in `_sourceControls`, so relying on the checkbox alone
+     * under-counts active layers here.
      */
     _getActiveLayerConfigs() {
         if (window.featureControl?._getActiveLayersFromConfig) {
@@ -198,8 +197,8 @@ export class MapMarkerManager {
 
     _handleSelection(data) {
         // Selections restored from a shared URL already had their markers created by
-        // restoreMarkersFromSelectionLayer; this event only notifies the inspector, so
-        // don't re-create the markers here.
+        // restoreMarkersFromSelectionLayer; this event only notifies other listeners
+        // (e.g. map-browser.html), so don't re-create the markers here.
         if (data.fromMarkerRestore) return;
 
         const features = data.selectedFeatures || [data];
@@ -399,8 +398,8 @@ export class MapMarkerManager {
 
     /**
      * Build the collapsible attribute table shown when a badge is selected.
-     * Mirrors the inspector's field-selection logic (inspect.fields / fieldTitles,
-     * falling back to all non-empty properties) but styled to match the yellow badge.
+     * Uses the layer's field-selection config (inspect.fields / fieldTitles,
+     * falling back to all non-empty properties), styled to match the yellow badge.
      */
     _buildBadgeAttributeTable(f) {
         if (!f || !f.feature) return '';
@@ -461,8 +460,8 @@ export class MapMarkerManager {
     }
 
     /**
-     * Footer for the expanded badge: layer thumbnail, atlas badge and layer name
-     * (mirrors the inspector's expanded-layer-header, restyled for the yellow badge).
+     * Footer for the expanded badge: layer thumbnail, atlas badge and layer name,
+     * styled for the yellow badge.
      */
     _buildBadgeLayerFooter(f) {
         const layerConfig = this._stateManager.getLayerConfig(f.layerId);
@@ -735,8 +734,9 @@ export class MapMarkerManager {
 
         // Layers still being queried (see MapMarkerManager.restoreMarkersFromSelectionLayer)
         // that haven't already produced a real badge — shown as a "Locating…" placeholder,
-        // interleaved with real feature badges in the same order the inspector displays
-        // layer cards, so the list doesn't jump around as each layer resolves.
+        // interleaved with real feature badges in the same layer order used elsewhere
+        // (see LayerOrderManager.getInspectorDisplayOrder), so the list doesn't jump
+        // around as each layer resolves.
         const foundLayerIds = new Set((features || []).map(f => f.layerId));
         const pendingIds = pendingLayerIds
             ? [...pendingLayerIds].filter(id => !foundLayerIds.has(id))
@@ -795,7 +795,7 @@ export class MapMarkerManager {
      * Trailing badge summarizing any other active layer at this location that
      * isn't among the clicked features (e.g. a raster basemap). Collapsed like
      * the feature badges above it; expanding lazily lists each layer with its
-     * LayerThumbnail, same as the inspector's layer cards.
+     * LayerThumbnail.
      *
      * Hidden by default — it's meta/decluttering info, not a selected feature,
      * so it should only reveal while this specific marker is the one being
@@ -828,13 +828,13 @@ export class MapMarkerManager {
         `;
     }
 
+    /**
+     * Called after promoting a hover badge to a selection (here and from
+     * map-search-control.js / map-nearby-features-control.js). There's no
+     * docked panel to open any more — the badge's own inline attribute
+     * display is the only view — so this is a kept no-op.
+     */
     _openInspectorPanel() {
-        if (window.featureControl) {
-            const isVisible = window.featureControl._panel?.style.display !== 'none';
-            if (!isVisible) {
-                window.featureControl._showPanel();
-            }
-        }
     }
 
     _attachBadgeHandlers(el, features, lngLat, isHover, clickedLayerIds = null, pendingLayerIds = null) {
@@ -904,7 +904,7 @@ export class MapMarkerManager {
                     if (f) {
                         this._stateManager.setFeatureHoverState(f.layerId, f.featureId, true);
                         if (!isHover) {
-                            // Mirror the inspector's hover isolation so hovering a badge dims sibling layers.
+                            // Hovering a badge dims sibling layers via the shared isolation manager.
                             window.layerControl?.isolation?.hoverIsolate(f.layerId, layerIsBasemap());
                         }
                     }
@@ -931,7 +931,7 @@ export class MapMarkerManager {
                 e.stopPropagation();
                 if (e.type === 'touchend') e.preventDefault();
                 // Hover markers aren't selected yet — clicking promotes them to a selection
-                // marker (which rebuilds the badges), so just select and open the inspector.
+                // marker, which rebuilds the badges.
                 if (isHover && f) {
                     this._stateManager.handleFeatureClicks([{ ...f, lngLat }]);
                     this._openInspectorPanel();
@@ -1551,7 +1551,7 @@ export class MapMarkerManager {
             this._handleMarkerDragEnd(marker, markerId);
         });
 
-        // Clicking a badge opens the inspector; selection markers are already selected.
+        // Selection markers are already selected; badge clicks just toggle their expanded state.
         this._attachBadgeHandlers(el, badgeFeatures, lngLat, false, clickedLayerIds, pendingLayerIds);
         this._attachCommentSectionHandlers(el, lngLat, noteEntry);
         this._blockMapHoverEvents(el);
@@ -1587,10 +1587,9 @@ export class MapMarkerManager {
         this._markers.set(markerId, markerData);
         this._currentMarkerIndex = this._markers.size - 1;
 
-        // Map pin at the click point — same icon as the layer inspector's trigger
-        // button (geo-alt-fill), so a real marker (not an abstract button) marks the
-        // spot. Clicking it (i.e. clicking the same spot again) clears this marker,
-        // toggling the selection off.
+        // Map pin at the click point (geo-alt-fill), so a real marker (not an
+        // abstract button) marks the spot. Clicking it (i.e. clicking the same
+        // spot again) clears this marker, toggling the selection off.
         const actionRow = el.querySelector('.marker-action-row');
         if (actionRow) {
             const pinBtn = document.createElement('span');
@@ -2040,8 +2039,8 @@ export class MapMarkerManager {
         }
 
         // Drop the feature selections anchored at this marker so closing it also
-        // clears the highlight and the inspector entry (not just the marker dot).
-        // Other markers keep their own selections.
+        // clears the highlight (not just the marker dot). Other markers keep their
+        // own selections.
         markerData.features.forEach(({ featureId, layerId }) => {
             if (featureId && layerId) {
                 this._stateManager._deselectFeature(featureId, layerId);
@@ -2247,8 +2246,8 @@ export class MapMarkerManager {
         const refLayerIds = new Set();
         withRefsState.forEach(state => state.refs.forEach(ref => refLayerIds.add(ref.layerId)));
 
-        // Tell the inspector which layers are still pending so it can show a spinner
-        // placeholder card for each, in the same order it displays real feature cards.
+        // Track which layers are still pending so a spinner placeholder card can be
+        // shown for each, in the same order real feature cards are displayed.
         const pendingLayerIds = this._getAllActiveLayersInInspectorOrder()
             .map(l => l.id)
             .filter(id => refLayerIds.has(id) || locationLayerIds.includes(id));
@@ -2341,7 +2340,7 @@ export class MapMarkerManager {
             this._stateManager._updateLineSortKeys();
         }
 
-        // Notify the inspector iframe (and other listeners, e.g. URL sync) of the full
+        // Notify other listeners (e.g. map-browser.html, URL sync) of the full
         // restoration so the status bar with the Clear / Add / Zoom buttons shows. Every
         // marker above was created manually (bypassing the normal click pipeline), so the
         // fromMarkerRestore flag tells _handleSelection not to re-add them — mirrors the
@@ -2405,8 +2404,8 @@ export class MapMarkerManager {
     }
 
     /**
-     * Order features the same way map-inspector.html displays layer cards, regardless of
-     * the order their layers actually resolved in.
+     * Order features by the shared layer display order, regardless of the order
+     * their layers actually resolved in.
      */
     _sortFeaturesByInspectorOrder(features) {
         const order = new Map(this._getAllActiveLayersInInspectorOrder().map((l, i) => [l.id, i]));

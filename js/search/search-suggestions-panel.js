@@ -156,10 +156,23 @@ export class SearchSuggestionsPanel {
             top: `${this._getAnchorBottom(rect)}px`,
             left: `${rect.left}px`,
             width: `${rect.width}px`,
+            // The control corner it now lives in does not take pointer events
+            pointerEvents: 'auto',
             zIndex: 9999
         })
         $panel.html(sectionsHtml)
-        $('body').append($panel)
+        // Into the map's top-left control corner rather than <body>: that corner
+        // is a stacking context of its own (Mapbox gives it position:absolute
+        // with z-index:2, inside #map's own z-index:1), so a body-level panel
+        // outranks every control in it no matter what z-index they carry - which
+        // put this dropdown over the layer stack's hover flyouts
+        // (js/layer-stack-strip.js). Sharing the corner, the two order by
+        // z-index as intended. It stays position:fixed - no ancestor here sets a
+        // transform - so the viewport coordinates above are unaffected, and it
+        // contributes nothing to the corner's layout.
+        const $host = $(this.searchBoxEl.closest('.mapboxgl-ctrl-top-left') ||
+            this.searchBoxEl.closest('.mapboxgl-map') || document.body)
+        $host.append($panel)
         this.$panel = $panel
 
         $panel.find('[role="option"]')

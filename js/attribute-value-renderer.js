@@ -1,9 +1,8 @@
 /**
- * Shared formatting for a single attribute/property value shown in a feature's
- * attribute table - used by both the map-marker-manager.js badge popup and
- * map-inspector.html's property panel, so the two stay visually consistent
- * and any future value-formatting enhancement (richer link previews,
- * type-specific renderers, etc.) only needs to be written once.
+ * Shared formatting for a single attribute/property value shown in the
+ * map-marker-manager.js badge popup's attribute table, so any future
+ * value-formatting enhancement (richer link previews, type-specific
+ * renderers, etc.) only needs to be written once.
  */
 
 export function escapeHtml(value) {
@@ -21,8 +20,7 @@ export function truncateText(value, max = 50) {
 
 // A value is treated as a link only when it's *entirely* a URL (after
 // trimming) - free text that merely mentions a URL falls through to plain
-// escaped text here (map-inspector.html's own linkify pass handles that case
-// by scanning for embedded URLs and calling buildLinkHTML per match).
+// escaped text here.
 export function isUrlValue(value) {
     return /^https?:\/\/\S[^\r\n]*$/i.test(String(value ?? '').trim());
 }

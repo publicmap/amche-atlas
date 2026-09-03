@@ -185,9 +185,9 @@ export class LayerStackStrip {
 
     /**
      * Move a layer one place up or down its own section of the stack, using the
-     * same `reorder-layers` message (and so the same code path) as the inspector's
-     * drag-to-reorder. Sections are independent lists in that protocol: an overlay
-     * cannot be dragged into the basemaps there either.
+     * same `reorder-layers` message (and so the same code path) as this strip's
+     * own drag-to-reorder below. Sections are independent lists in that protocol:
+     * an overlay cannot be dragged into the basemaps there either.
      *
      * @param {number} delta -1 to move up (towards the top of the map stack), +1 down
      */
@@ -408,8 +408,8 @@ export class LayerStackStrip {
 
     /**
      * Stand-in cell shown in the compared layer's slot: clicking it turns the
-     * comparison off, using the same `toggle-compare` message as the inspector
-     * and map-information.html.
+     * comparison off, using the same `toggle-compare` message map-information.html
+     * sends.
      */
     _createCompareCell(layer, title) {
         const button = document.createElement('button');
@@ -429,12 +429,12 @@ export class LayerStackStrip {
     }
 
     /**
-     * Drag a thumbnail to reorder, mirroring map-inspector.html's card drag: the
-     * drop indicator follows the midpoint of the row under the pointer, the DOM is
-     * reordered on drop, and dragend posts the resulting order as `reorder-layers`.
+     * Drag a thumbnail to reorder: the drop indicator follows the midpoint of
+     * the row under the pointer, the DOM is reordered on drop, and dragend
+     * posts the resulting order as `reorder-layers`.
      *
-     * Rows only accept a drop from their own section, exactly as the inspector's
-     * two lists do - overlays and basemaps are separate orders in that message.
+     * Rows only accept a drop from their own section - overlays and basemaps
+     * are separate orders in that message.
      */
     _setupItemDrag(item) {
         item.draggable = true;
@@ -504,7 +504,7 @@ export class LayerStackStrip {
 
     /**
      * Read the order back out of the DOM after a drop and hand it to the same
-     * `reorder-layers` handler the arrows and the inspector use.
+     * `reorder-layers` handler the arrows above use.
      */
     _commitDragOrder() {
         const overlayOrder = [];

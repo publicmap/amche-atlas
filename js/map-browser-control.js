@@ -906,9 +906,6 @@ export class MapBrowserControl {
     }
 
     openBrowser() {
-        // Both panels dock to the same left slot, so only one can be open.
-        window.featureControl?.closePanel?.();
-
         // Show loading overlay immediately
         if (this._loadingOverlay) {
             this._loadingOverlay.style.display = 'flex';

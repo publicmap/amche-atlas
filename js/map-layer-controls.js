@@ -69,10 +69,9 @@ const OPACITY_DIMMED_TYPES = new Set([
  * toggled-on layers in the same section (overlay vs basemap).
  *
  * Owned by MapLayerControl and reached as `window.layerControl.isolation`, so
- * every caller drives the same state machine: the inspector's layer cards
- * (map-inspector.html, via the feature control's postMessage bridge), the
- * feature marker badges (map-marker-manager.js) and the visible-layer strip
- * under the Maps button (layer-stack-strip.js).
+ * every caller drives the same state machine: the feature marker badges
+ * (map-marker-manager.js) and the visible-layer strip under the Maps button
+ * (layer-stack-strip.js).
  *
  * Two independent levels of isolation are tracked. A persistent one comes from
  * clicking/selecting, a hover one from pointing at a card or thumbnail; hover

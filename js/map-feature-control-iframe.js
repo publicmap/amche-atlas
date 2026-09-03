@@ -1,8 +1,12 @@
 /**
- * MapFeatureControl - Iframe-based version for layer inspection
+ * MapFeatureControl - the map's click/hover feature-selection engine.
  *
- * This control displays a toggle button and iframe panel for layer inspection.
- * Uses map-inspector.html for the UI instead of building it in JavaScript.
+ * Owns MapMarkerManager (the on-map attribute badges), the map's click/hover
+ * pipeline, swipe-compare mode, and the selection APIs the shortcut menu,
+ * search and URL restore drive. Also bridges a handful of postMessage types
+ * (open-layer-info, zoom-to-layer, remove-layer, toggle-compare,
+ * reorder-layers, update-layer-opacity) sent by layer-stack-strip.js and
+ * map-information.html.
  */
 
 import { MapMarkerManager } from './map-marker-manager.js';
@@ -20,30 +24,10 @@ export class MapFeatureControl {
         this._map = null;
         this._stateManager = null;
         this._markerManager = null;
-        this._container = null;
-        this._panel = null;
-        this._iframe = null;
         this._config = null;
         this._globalHandlersAdded = false;
         this._isMapDragging = false;
         this._autoSelectEnabled = true;
-        this._isIframeReady = false;
-        this._messageQueue = [];
-        this._inspectorInitialized = false;
-
-        // Set up resize listener
-        this._resizeListener = this._handleResize.bind(this);
-        window.addEventListener('resize', this._resizeListener);
-        window.addEventListener('orientationchange', this._resizeListener);
-    }
-
-    /**
-     * Height of the page header the panel docks below, matching the offset
-     * map-browser-control.js applies to its own overlay.
-     */
-    _getHeaderHeight() {
-        const header = document.querySelector('.header-nav');
-        return header ? header.offsetHeight : 0;
     }
 
     /**
@@ -51,11 +35,8 @@ export class MapFeatureControl {
      */
     onAdd(map) {
         this._map = map;
-        this._createContainer();
         this._setupMessageListener();
-        this._setupMapEventListeners();
-        this._setupKeyboardListeners();
-        return this._container;
+        return null;
     }
 
     /**
@@ -63,9 +44,6 @@ export class MapFeatureControl {
      */
     onRemove() {
         this._cleanup();
-        if (this._container && this._container.parentNode) {
-            this._container.parentNode.removeChild(this._container);
-        }
         this._map = null;
         this._stateManager = null;
     }
@@ -111,9 +89,6 @@ export class MapFeatureControl {
         // Set up global map interaction handlers for hover/click
         this._setupGlobalInteractionHandlers();
 
-        // Send initial data to iframe
-        this._sendDataToIframe();
-
         return this;
     }
 
@@ -122,7 +97,6 @@ export class MapFeatureControl {
      */
     setConfig(config) {
         this._config = config;
-        this._sendDataToIframe();
     }
 
     /**
@@ -178,216 +152,12 @@ export class MapFeatureControl {
     }
 
     /**
-     * Create the main container with toggle button and iframe panel
-     */
-    _createContainer() {
-        this._container = document.createElement('div');
-        this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
-
-        // Create button
-        const button = document.createElement('button');
-        button.className = 'mapboxgl-ctrl-icon map-feature-control-btn map-control-dark';
-        button.type = 'button';
-        button.setAttribute('aria-label', 'Order layers');
-        button.style.cssText = `
-            width: 31px;
-            height: 31px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-        `;
-        button.innerHTML = '<span style="font-size: 20px; line-height: 1;"><sl-icon name="arrow-down-up" style="font-size: 14px;" aria-hidden="true" library="default"></sl-icon></span>';
-
-        // Add event handlers
-        button.addEventListener('click', () => {
-            this._togglePanel();
-        });
-
-        this._container.appendChild(button);
-
-        // Create panel with iframe
-        this._createPanel();
-    }
-
-    /**
-     * Create panel with iframe
-     */
-    _createPanel() {
-        this._panel = document.createElement('div');
-        this._panel.className = 'map-feature-panel';
-
-        // Docked to the left below the header nav, with the same geometry the
-        // map browser uses (see _createOverlay in map-browser-control.js): full
-        // height, 40% wide on desktop / 75% on mobile. _handleResize keeps the
-        // width and header offset in sync.
-        this._panel.style.cssText = `
-            display: none;
-            position: fixed;
-            top: ${this._getHeaderHeight()}px;
-            left: 0;
-            bottom: 0;
-            width: ${window.matchMedia('(min-width: 768px)').matches ? '40%' : '75%'};
-            background: #1f2937;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            border-right: 1px solid #374151;
-            border-bottom: 1px solid #374151;
-            z-index: 999;
-            overflow: hidden;
-        `;
-
-        // Create iframe element but defer setting src until preload() or first
-        // open. This keeps the inspector bundle off the critical render path —
-        // the iframe loads map-inspector.html in the background once the map
-        // is idle (see preload()), so the panel opens instantly when clicked.
-        this._iframe = document.createElement('iframe');
-        this._iframe.style.cssText = `
-            width: 100%;
-            height: 100%;
-            border: none;
-            pointer-events: auto;
-        `;
-        this._iframeSrcLoaded = false;
-
-        this._panel.appendChild(this._iframe);
-
-        // Create loading overlay in parent
-        this._loadingOverlay = document.createElement('div');
-        this._loadingOverlay.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: #111827;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 20;
-            flex-direction: column;
-            gap: 16px;
-            border-radius: 8px;
-        `;
-
-        const spinner = document.createElement('div');
-        spinner.style.cssText = `
-            width: 32px;
-            height: 32px;
-            border: 3px solid #374151;
-            border-top-color: #3b82f6;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        `;
-
-        const loadingText = document.createElement('div');
-        loadingText.style.cssText = 'color: #9ca3af; font-size: 12px;';
-        loadingText.textContent = 'Loading inspector...';
-
-        this._loadingOverlay.appendChild(spinner);
-        this._loadingOverlay.appendChild(loadingText);
-        this._panel.appendChild(this._loadingOverlay);
-
-        // Close panel when clicking outside
-        setTimeout(() => {
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.map-feature-panel, .mapboxgl-ctrl-icon, .mapboxgl-canvas-container, .map-browser-panel, #map-browser-modal, .mapboxgl-ctrl-group, .mapboxgl-popup, .selection-popup, #nearby-features-panel')) {
-                    this._hidePanel();
-                }
-            });
-        }, 100);
-
-        // Docked to the page, not the map canvas, so it sits beside the map the
-        // way the browser panel does rather than floating over it.
-        document.body.appendChild(this._panel);
-
-        // Apply initial responsive sizing
-        this._handleResize();
-    }
-
-    /**
-     * Setup map event listeners to send updates to iframe
-     */
-    _setupMapEventListeners() {
-        if (!this._map) return;
-
-        // Send bounds updates when map moves
-        const sendBoundsUpdate = () => {
-            if (!this._iframe || !this._iframe.contentWindow) return;
-
-            const mapBounds = this._map.getBounds();
-            const bounds = [
-                mapBounds.getWest(),
-                mapBounds.getSouth(),
-                mapBounds.getEast(),
-                mapBounds.getNorth()
-            ];
-
-            this._iframe.contentWindow.postMessage({
-                type: 'bounds-update',
-                bounds: bounds
-            }, '*');
-        };
-
-        // Listen for map move end events
-        this._map.on('moveend', sendBoundsUpdate);
-        this._map.on('zoomend', sendBoundsUpdate);
-
-        // Store the listener for cleanup
-        this._boundsUpdateListener = sendBoundsUpdate;
-    }
-
-    _setupKeyboardListeners() {
-        this._keydownListener = (event) => {
-            if (event.key === 'Meta' || event.key === 'Control') {
-                if (this._iframe && this._iframe.contentWindow) {
-                    this._iframe.contentWindow.postMessage({
-                        type: 'add-selection-mode-changed',
-                        enabled: true
-                    }, '*');
-                }
-            }
-        };
-
-        this._keyupListener = (event) => {
-            if (event.key === 'Meta' || event.key === 'Control') {
-                if (this._iframe && this._iframe.contentWindow) {
-                    this._iframe.contentWindow.postMessage({
-                        type: 'add-selection-mode-changed',
-                        enabled: false
-                    }, '*');
-                }
-            }
-        };
-
-        document.addEventListener('keydown', this._keydownListener);
-        document.addEventListener('keyup', this._keyupListener);
-    }
-
-    /**
-     * Setup message listener for iframe communication
+     * Setup message listener for the postMessage bridge (layer-stack-strip.js,
+     * map-information.html and the layer-info modal all post into this window).
      */
     _setupMessageListener() {
         window.addEventListener('message', async (event) => {
-            if (event.data.type === 'inspector-ready') {
-                this._isIframeReady = true;
-                this._inspectorInitialized = true;
-                this._flushMessageQueue();
-
-                // Hide loading overlay when inspector is ready
-                if (this._loadingOverlay) {
-                    this._loadingOverlay.style.display = 'none';
-                }
-            } else if (event.data.type === 'request-inspector-data') {
-                this._sendDataToIframe();
-            } else if (event.data.type === 'isolate-layer') {
-                this._getIsolation()?.isolate(event.data.layerId, event.data.isBasemap);
-            } else if (event.data.type === 'clear-layer-isolation') {
-                this._getIsolation()?.clear();
-            } else if (event.data.type === 'hover-isolate-layer') {
-                this._getIsolation()?.hoverIsolate(event.data.layerId, event.data.isBasemap);
-            } else if (event.data.type === 'clear-hover-layer-isolation') {
-                this._getIsolation()?.clearHover();
-            } else if (event.data.type === 'update-layer-opacity') {
+            if (event.data.type === 'update-layer-opacity') {
                 this._updateLayerOpacity(event.data.layerId, event.data.opacity);
             } else if (event.data.type === 'toggle-compare') {
                 this._toggleCompare(event.data.layerId, event.data.enabled);
@@ -395,32 +165,8 @@ export class MapFeatureControl {
                 this._zoomToLayer(event.data.layerId);
             } else if (event.data.type === 'remove-layer') {
                 await this._removeLayer(event.data.layerId);
-            } else if (event.data.type === 'inspector-height-change') {
-                this._adjustPanelHeight(event.data);
-            } else if (event.data.type === 'close-panel') {
-                this._hidePanel();
-            } else if (event.data.type === 'clear-all-selections') {
-                if (this._stateManager) {
-                    this._stateManager.clearAllSelections();
-                }
-            } else if (event.data.type === 'set-add-selection-mode') {
-                if (this._markerManager) {
-                    this._markerManager.setSelectionMode(event.data.enabled ? 'add' : 'replace');
-                }
             } else if (event.data.type === 'open-layer-info') {
                 this._openLayerInfo(event.data.layer, { edit: event.data.edit });
-            } else if (event.data.type === 'hover-isolate-feature') {
-                this._hoverIsolateFeature(event.data.layerId, event.data.featureId, event.data.feature);
-            } else if (event.data.type === 'clear-feature-isolation') {
-                this._clearFeatureIsolation(event.data.layerId);
-            } else if (event.data.type === 'fit-bounds') {
-                this._fitBounds(event.data.bounds, event.data.padding);
-            } else if (event.data.type === 'zoom-to-selection') {
-                this._zoomToSelection();
-            } else if (event.data.type === 'zoom-to-feature') {
-                this._zoomToFeature(event.data.layerId, event.data.featureId, event.data.feature);
-            } else if (event.data.type === 'request-map-layer-stack') {
-                this._sendMapLayerStack();
             } else if (event.data.type === 'reorder-layers') {
                 this._reorderLayers(event.data.overlayOrder || [], event.data.basemapOrder || []);
             }
@@ -496,30 +242,6 @@ export class MapFeatureControl {
     }
 
     /**
-     * Send actual map layer stack to inspector for debugging
-     */
-    _sendMapLayerStack() {
-        if (!this._iframe || !this._iframe.contentWindow || !this._map) return;
-
-        const style = this._map.getStyle();
-        if (!style || !style.layers) return;
-
-        // Get all layers from the map style
-        const layerStack = style.layers.map(layer => ({
-            id: layer.id,
-            type: layer.type,
-            source: layer.source,
-            'source-layer': layer['source-layer'],
-            metadata: layer.metadata
-        }));
-
-        this._iframe.contentWindow.postMessage({
-            type: 'map-layer-stack',
-            layerStack: layerStack
-        }, '*');
-    }
-
-    /**
      * Open layer information modal
      */
     _openLayerInfo(layer, options = {}) {
@@ -569,230 +291,6 @@ export class MapFeatureControl {
         window.addEventListener('message', readyHandler);
         window.addEventListener('message', closeHandler);
         document.addEventListener('keydown', keyHandler);
-    }
-
-    /**
-     * Hover isolate a specific feature on the map
-     */
-    _hoverIsolateFeature(layerId, featureId, feature) {
-        if (!this._stateManager) return;
-
-        this._stateManager.setFeatureHoverState(layerId, featureId, true);
-    }
-
-    /**
-     * Clear feature isolation hover state
-     */
-    _clearFeatureIsolation(layerId) {
-        if (!this._stateManager) return;
-
-        this._stateManager.clearLayerHoverStates(layerId);
-    }
-
-    /**
-     * Fit map to bounds
-     */
-    _fitBounds(bounds, padding = 50) {
-        if (!this._map || !bounds) return;
-
-        this._map.fitBounds(bounds, {
-            padding: padding,
-            duration: 1000
-        });
-    }
-
-    /**
-     * Zoom to all selected features using state manager data
-     */
-    _zoomToSelection() {
-        if (!this._stateManager || !this._map) return;
-
-        try {
-            // Check if turf is available
-            if (typeof turf === 'undefined') {
-                console.error('[MapFeatureControl] Turf.js not loaded');
-                return;
-            }
-
-            // Collect all selected features from state manager
-            const features = [];
-            const activeLayers = this._stateManager.getActiveLayers();
-
-            activeLayers.forEach((layerData, layerId) => {
-                layerData.features.forEach((featureState, featureId) => {
-                    if (featureState.isSelected && featureState.feature) {
-                        const feature = featureState.feature;
-
-                        // Validate feature has geometry with coordinates
-                        if (feature.geometry &&
-                            feature.geometry.coordinates &&
-                            Array.isArray(feature.geometry.coordinates)) {
-                            features.push(feature);
-                        }
-                    }
-                });
-            });
-
-            if (features.length === 0) {
-                console.warn('[MapFeatureControl] No features with valid geometries to zoom to');
-                return;
-            }
-
-            // Use Turf.js to calculate bounding box
-            const featureCollection = turf.featureCollection(features);
-            const bbox = turf.bbox(featureCollection);
-
-            // Fit map to bounds
-            this._map.fitBounds([
-                [bbox[0], bbox[1]],
-                [bbox[2], bbox[3]]
-            ], {
-                padding: 50,
-                duration: 1000
-            });
-        } catch (error) {
-            console.error('[MapFeatureControl] Error zooming to selection:', error);
-        }
-    }
-
-    /**
-     * Zoom to a specific feature using its geometry
-     */
-    _zoomToFeature(layerId, featureId, feature) {
-        if (!this._map || !this._stateManager) return;
-
-        try {
-            if (typeof turf === 'undefined') {
-                console.error('[MapFeatureControl] Turf.js not loaded');
-                return;
-            }
-
-            // Get the feature from state manager which has full geometry
-            const activeLayers = this._stateManager.getActiveLayers();
-            const layerData = activeLayers.get(layerId);
-
-            if (!layerData || !layerData.features) {
-                console.warn('[MapFeatureControl] Layer not found in state manager');
-                return;
-            }
-
-            const featureState = layerData.features.get(featureId);
-            if (!featureState || !featureState.feature) {
-                console.warn('[MapFeatureControl] Feature not found in state manager');
-                return;
-            }
-
-            const featureWithGeometry = featureState.feature;
-
-            if (!featureWithGeometry.geometry || !featureWithGeometry.geometry.coordinates) {
-                console.warn('[MapFeatureControl] Feature has no valid geometry');
-                return;
-            }
-
-            const bbox = turf.bbox(featureWithGeometry);
-
-            this._map.fitBounds([
-                [bbox[0], bbox[1]],
-                [bbox[2], bbox[3]]
-            ], {
-                padding: 50,
-                duration: 1000
-            });
-        } catch (error) {
-            console.error('[MapFeatureControl] Error zooming to feature:', error);
-        }
-    }
-
-    /**
-     * Send data to iframe
-     */
-    _sendDataToIframe() {
-        if (!this._iframe || !this._iframe.contentWindow) return;
-
-        const activeLayers = this._getActiveLayersFromConfig();
-        const layerConfigs = [];
-
-        for (const [layerId, layerData] of activeLayers.entries()) {
-            // Fill in fallback title/description/attribution derived from the
-            // layer type and source URL so configs missing this metadata (e.g.
-            // a minimal inline layer passed via the ?layers= URL param) still
-            // display fully in the inspector.
-            const config = ConfigManager.applyDefaultMetadata({ ...layerData.config });
-
-            // Always resolve tags from registry to ensure cascaded tags are included
-            if (window.layerRegistry) {
-                const registryLayer = window.layerRegistry.getLayer(config.id);
-
-                if (registryLayer && registryLayer.tags) {
-                    if (!config.tags) {
-                        config.tags = registryLayer.tags;
-                    } else if (Array.isArray(config.tags) && Array.isArray(registryLayer.tags)) {
-                        // Merge tags from registry with config tags
-                        config.tags = [...new Set([...config.tags, ...registryLayer.tags])];
-                    }
-                }
-            }
-
-            layerConfigs.push(config);
-        }
-
-        // Sort layerConfigs by URL order to ensure inspector displays them correctly
-        const urlParams = new URLSearchParams(window.location.search);
-        const layersParam = urlParams.get('layers');
-        if (layersParam) {
-            // Parse URL layers to get order
-            const urlLayerIds = layersParam.split(',').map(id => id.trim());
-            const urlOrderMap = new Map();
-            urlLayerIds.forEach((id, index) => {
-                urlOrderMap.set(id, index);
-            });
-
-            // Sort layerConfigs by URL order. Dynamic shorthand layers (e.g.
-            // "allmaps:<id>") resolve to a different `.id` (e.g. "allmaps-<id>")
-            // than the literal URL token, so match on `_originalJson` first —
-            // it preserves the exact token that was in the `layers=` param.
-            const getUrlOrder = (config) => {
-                const originalOrder = urlOrderMap.get(config._originalJson);
-                return originalOrder !== undefined ? originalOrder : urlOrderMap.get(config.id);
-            };
-
-            layerConfigs.sort((a, b) => {
-                const aOrder = getUrlOrder(a);
-                const bOrder = getUrlOrder(b);
-
-                // If both have URL order, sort by it
-                if (aOrder !== undefined && bOrder !== undefined) {
-                    return aOrder - bOrder;
-                }
-                // Layers not in URL go to the end
-                if (aOrder !== undefined) return -1;
-                if (bOrder !== undefined) return 1;
-                return 0;
-            });
-        }
-
-        // Get current map bounds
-        let bounds = null;
-        if (this._map) {
-            const mapBounds = this._map.getBounds();
-            bounds = [
-                mapBounds.getWest(),
-                mapBounds.getSouth(),
-                mapBounds.getEast(),
-                mapBounds.getNorth()
-            ];
-        }
-
-        // Get URL search params from parent window
-        const urlSearchParams = window.location.search;
-
-        this._iframe.contentWindow.postMessage({
-            type: 'inspector-data',
-            activeLayers: layerConfigs,
-            layerRegistry: window.layerRegistry,
-            bounds: bounds,
-            urlSearchParams: urlSearchParams
-        }, '*');
     }
 
     /**
@@ -846,10 +344,6 @@ export class MapFeatureControl {
                 break;
             case 'selection-cleared':
                 this._sendLayerSelectionsClearedToIframe(data.layerId);
-                break;
-            case 'layer-registered':
-            case 'layer-unregistered':
-                this._sendDataToIframe();
                 break;
         }
     }
@@ -1210,9 +704,8 @@ export class MapFeatureControl {
 
     /**
      * Layer isolation is owned by MapLayerControl (see LayerIsolationManager in
-     * map-layer-controls.js) so the inspector, the feature marker badges and the
-     * visible-layer strip all drive one state machine. This control only bridges
-     * the inspector iframe's postMessage calls to it.
+     * map-layer-controls.js) so the feature marker badges, compare mode and the
+     * visible-layer strip all drive one state machine.
      */
     _getIsolation() {
         return window.layerControl?.isolation || null;
@@ -1685,12 +1178,6 @@ export class MapFeatureControl {
             if (window.urlManager) {
                 window.urlManager.updateURL({ updateSelections: true, updateLayers: true });
             }
-
-            setTimeout(() => {
-                this._sendDataToIframe();
-            }, 100);
-        } else {
-            this._sendDataToIframe();
         }
     }
 
@@ -1710,89 +1197,11 @@ export class MapFeatureControl {
     }
 
     /**
-     * Toggle panel visibility
-     */
-    _togglePanel() {
-        if (this._panel.style.display === 'none') {
-            this._showPanel();
-        } else {
-            this._hidePanel();
-        }
-    }
-
-    preload() {
-        if (this._iframeSrcLoaded || !this._iframe) return;
-        this._iframe.src = 'map-inspector.html';
-        this._iframeSrcLoaded = true;
-    }
-
-    /**
-     * Open the selected-features panel and expand/scroll to a specific layer's
-     * group within it. Used by hover actions elsewhere on the page (e.g. the
-     * attribution control) that want to jump straight to a layer's selection.
+     * Used by hover actions elsewhere on the page (e.g. the attribution
+     * control) that want to jump to a layer's selection. There's no docked
+     * panel to open any more, so this is currently a no-op kept for callers.
      */
     showLayerSelection(layerId) {
-        this._showPanel();
-        this._sendMessageToIframe({ type: 'expand-layer', layerId });
-    }
-
-    _showPanel() {
-        this.preload();
-
-        // Both panels dock to the same left slot, so only one can be open.
-        if (window.browserControl?._isOpen) {
-            window.browserControl.closeBrowser();
-        }
-
-        // Only show loading overlay if inspector hasn't been initialized yet
-        if (this._loadingOverlay && !this._inspectorInitialized) {
-            this._loadingOverlay.style.display = 'flex';
-        }
-
-        this._panel.style.display = 'block';
-        this._sendDataToIframe();
-
-        this._sendMessageToIframe({ type: 'open-overlay-section' });
-
-        setTimeout(() => {
-            if (this._iframe && this._iframe.contentWindow) {
-                this._iframe.contentWindow.postMessage({
-                    type: 'request-height-update'
-                }, '*');
-            }
-        }, 200);
-    }
-
-    _hidePanel() {
-        this._panel.style.display = 'none';
-    }
-
-    /**
-     * Public close, for callers that need to dismiss the panel without knowing
-     * its internals (e.g. the map browser claiming the same dock slot).
-     */
-    closePanel() {
-        if (this._panel && this._panel.style.display !== 'none') {
-            this._hidePanel();
-        }
-    }
-
-    /**
-     * Handle resize events
-     */
-    _handleResize() {
-        if (!this._panel) return;
-
-        // Same breakpoints the map browser docks at
-        this._panel.style.top = `${this._getHeaderHeight()}px`;
-        this._panel.style.width = window.matchMedia('(min-width: 768px)').matches ? '40%' : '75%';
-
-        // Request iframe to recalculate height
-        if (this._iframe && this._iframe.contentWindow) {
-            this._iframe.contentWindow.postMessage({
-                type: 'request-height-update'
-            }, '*');
-        }
     }
 
     /**
@@ -1803,23 +1212,6 @@ export class MapFeatureControl {
 
         if (this._stateChangeListener && this._stateManager) {
             this._stateManager.removeEventListener('state-change', this._stateChangeListener);
-        }
-
-        window.removeEventListener('resize', this._resizeListener);
-        window.removeEventListener('orientationchange', this._resizeListener);
-
-        // Clean up map event listeners
-        if (this._map && this._boundsUpdateListener) {
-            this._map.off('moveend', this._boundsUpdateListener);
-            this._map.off('zoomend', this._boundsUpdateListener);
-        }
-
-        // Clean up keyboard listeners
-        if (this._keydownListener) {
-            document.removeEventListener('keydown', this._keydownListener);
-        }
-        if (this._keyupListener) {
-            document.removeEventListener('keyup', this._keyupListener);
         }
     }
 
@@ -2329,14 +1721,6 @@ export class MapFeatureControl {
     }
 
     /**
-     * The panel is docked full-height (see _createPanel), so the iframe's
-     * content-height messages no longer drive its size. Kept as a no-op so the
-     * inspector's existing inspector-height-change messages stay harmless.
-     */
-    _adjustPanelHeight() {
-    }
-
-    /**
      * Check if inspect mode is enabled (for state manager compatibility)
      */
     isInspectModeEnabled() {
@@ -2344,25 +1728,15 @@ export class MapFeatureControl {
     }
 
     /**
-     * Send message to iframe, queueing if iframe not ready
+     * Historically sent to the docked inspector iframe; that panel is gone, so
+     * this is now permanently inert. Left in place rather than chased through
+     * every `_send*ToIframe` caller, several of which also forward the same
+     * event to window.browserControl's iframe (map-browser.html) and must
+     * keep doing so.
      */
     _sendMessageToIframe(message) {
-        if (this._isIframeReady && this._iframe && this._iframe.contentWindow) {
+        if (this._iframe && this._iframe.contentWindow) {
             this._iframe.contentWindow.postMessage(message, '*');
-        } else {
-            this._messageQueue.push(message);
-        }
-    }
-
-    /**
-     * Flush queued messages to iframe
-     */
-    _flushMessageQueue() {
-        while (this._messageQueue.length > 0) {
-            const message = this._messageQueue.shift();
-            if (this._iframe && this._iframe.contentWindow) {
-                this._iframe.contentWindow.postMessage(message, '*');
-            }
         }
     }
 }

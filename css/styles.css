@@ -459,9 +459,9 @@
     font-size: 12px;
 }
 
-/* Drag to reorder (mirrors map-inspector.html's card drag). The drop indicator
-   is a pseudo-element rather than a border: the cells are flush, so a border on
-   the row would shift the whole column by 2px mid-drag. */
+/* Drag to reorder. The drop indicator is a pseudo-element rather than a
+   border: the cells are flush, so a border on the row would shift the whole
+   column by 2px mid-drag. */
 .layer-stack-item.dragging {
     opacity: 0.4;
 }
@@ -726,9 +726,21 @@
    the Maps button and geolocation button here even though they're nested
    inside this row rather than being direct corner children - reset it so
    the row's own `gap` is the only spacing between them. */
-.search-box-row>.map-browser-control,
-.search-box-row>.map-inspector-control {
+.search-box-row>.map-browser-control {
     margin: 0 !important;
+}
+
+/* Everything the layer stack reveals - the hover flyouts, the displaced compare
+   thumbnail, the options control and its menu - extends to the right, over the
+   rest of this row. The search box and the geolocation button come later in the
+   DOM, and the search box's own suggestion dropdown carries a very high z-index
+   of its own (it is a descendant of a z-index:auto element, so that value lands
+   in this row's stacking context rather than being contained), so the column
+   needs a raised stacking context of its own to stay above all of it. This is
+   still inside #map, which is itself z-index:1, so it cannot climb over
+   body-level chrome such as dialogs however high the value goes. */
+.search-box-row>.map-browser-control {
+    z-index: 10000;
 }
 
 /* Orientation button: one control covering both GPS tracking and map bearing
@@ -812,20 +824,6 @@
 
 .map-orientation-btn[data-mode="error"] .map-orientation-dial {
     stroke: #ffffff;
-}
-
-/* The inspector button sits in the same row (see mountInspectorControl in
-   js/search-box-control.js) rather than in the stacked top-left corner, so
-   size it to the row's 36px height instead of the 31px Mapbox control
-   default, and drop the control-group shadow the row's other buttons don't
-   carry either. */
-.search-box-row>.map-inspector-control {
-    box-shadow: none !important;
-}
-
-.search-box-row>.map-inspector-control.mapboxgl-ctrl-group button.map-feature-control-btn {
-    width: 36px !important;
-    height: 36px !important;
 }
 
 /* @mapbox/search-js-web inserts this as a sibling of <mapbox-search-box>
@@ -1495,6 +1493,13 @@ body {
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
     padding: 4px;
+}
+
+/* The layer stack's own copy of this menu, opened from the column's options
+   button: it has to clear the search box's suggestions panel, which is appended
+   to <body> at z-index 9999 (js/search/search-suggestions-panel.js). */
+.shortcut-menu.layer-stack-options-menu {
+    z-index: 10000;
 }
 
 .shortcut-menu-item {
@@ -5539,114 +5544,6 @@ Styles moved from layer-settings.js
 
 .image-modal-content img:hover {
     transform: scale(1.01);
-}
-
-/* ========================================
-   Map Feature Control Styles
-   ======================================== */
-
-/* Main Panel - docked to the left below the header nav, with the same geometry
-   as the map browser's overlay. Position, offset and width are set inline by
-   js/map-feature-control-iframe.js (_createPanel / _handleResize), including
-   the 40%/75% desktop-vs-mobile width, so only the shared chrome lives here. */
-.map-feature-panel {
-    z-index: 999;
-    display: flex;
-    flex-direction: column;
-    font-size: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.map-feature-panel-content {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-}
-
-/* Panel Header */
-.map-feature-panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #1f2937;
-    flex-shrink: 0;
-    cursor: move;
-    gap: 8px;
-    padding: 2px;
-}
-
-.map-feature-panel-header-left {
-    flex: 0;
-    display: flex;
-    align-items: center;
-}
-
-.map-feature-panel-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-}
-
-/* Layers Container */
-.map-feature-panel-layers {
-    flex: 1;
-    overflow-y: auto;
-    background: transparent;
-    padding: 0;
-    min-height: 0;
-}
-
-/* Panel Footer */
-.map-feature-footer {
-    display: none;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    background: #f0f9ff;
-    border-top: 1px solid #bae6fd;
-    flex-shrink: 0;
-    transition: opacity 0.5s ease;
-    opacity: 0;
-}
-
-.map-feature-footer-text {
-    font-size: 12px;
-    color: #0369a1;
-    font-weight: 500;
-}
-
-.map-feature-footer-btn {
-    background: transparent;
-    border: 1px solid #0ea5e9;
-    color: #0284c7;
-    border-radius: 4px;
-    padding: 2px 8px;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.map-feature-footer-btn:hover {
-    background: #e0f2fe;
-}
-
-/* Control Button - sizing/theme come from the shared standard-tier map
-   control rule (.mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button); this
-   only sets what's specific to this control's icon markup. */
-.map-feature-control-btn {
-    font-size: 12px;
-    font-weight: bold;
-    background-image: none !important;
-}
-
-.map-feature-control-btn sl-icon {
-    color: inherit;
-    display: flex !important;
 }
 
 /* Header Actions - Primary Action Buttons (shared styling) */

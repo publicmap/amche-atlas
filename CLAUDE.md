@@ -101,7 +101,7 @@ The application supports multiple data layer types:
 `docs/API.md` → **Layer Source Formats** is the canonical reference for every type's fields and examples. **When adding a new layer type, you MUST update `docs/API.md` in the same change** — the doc has an "Adding a New Layer Type" checklist that enumerates every file to touch (dispatch switches in `js/mapbox-api.js`, `getInsertPosition` in `js/layer-order-manager.js`, the new type's docs section). Treat the doc update as part of the implementation, not a follow-up.
 
 **Layer Ordering Logic**
-The layer ordering system ensures consistent visual stacking between URL parameters, map rendering, and the inspector UI:
+The layer ordering system ensures consistent visual stacking between URL parameters, map rendering, and the layer-stack strip / marker badges:
 
 1. **URL Convention**: `?layers=layer1,layer2,layer3`
    - First layer in URL (`layer1`) appears **on top** visually
@@ -133,17 +133,10 @@ The layer ordering system ensures consistent visual stacking between URL paramet
    - URL layer order always takes precedence over config order
    - Layers in config are stored in visual order (first = top)
 
-6. **Inspector Display** (map-inspector.html):
-   - Shows layers in same order as URL (first = top)
-   - Gets layers from `_state.groups` which is already in URL/visual order
-   - Overlays section shows overlay layers in visual order
-   - Basemaps section shows basemap layers in visual order
-   - Active/selected layers are sorted to top within each section
-
-7. **Centralized Logic** (js/layer-order-manager.js):
+6. **Centralized Logic** (js/layer-order-manager.js):
    - `urlOrderToMapOrder()`: Converts URL order to map rendering order (reverses both groups)
    - `mapOrderToUrlOrder()`: Returns layers as-is (no reversal - already in URL order)
-   - `getInspectorDisplayOrder()`: Returns layers in URL/visual order for inspector
+   - `getInspectorDisplayOrder()`: Returns layers in URL/visual order, split into overlays/basemaps sections with active/selected layers sorted to top within each - used by the layer-stack strip (js/layer-stack-strip.js) and the marker badges (js/map-marker-manager.js)
    - All layer ordering must use these methods for consistency
 
 ### Key Files
