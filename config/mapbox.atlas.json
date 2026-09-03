@@ -248,6 +248,181 @@
       ]
     },
     {
+      "id": "3d-buildings",
+      "tags": [
+        "buildings"
+      ],
+      "type": "vector",
+      "title": "3D Buildings",
+      "description": "Building footprints extruded to their mapped height, from the <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-streets-v8/#building' target='_blank'>Mapbox Streets v8 building layer</a>. Only footprints flagged <code>extrude</code> are drawn, from zoom 15; heights come from OpenStreetMap <code>height</code>/<code>min_height</code> tags where surveyed and are estimated from floor counts otherwise. Faces are shaded from light to dark with height, so taller massing reads at a glance.",
+      "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+      "url": "mapbox://mapbox.mapbox-streets-v8",
+      "sourceLayer": "building",
+      "minzoom": 15,
+      "filter": [
+        "==",
+        [
+          "get",
+          "extrude"
+        ],
+        "true"
+      ],
+      "style": {
+        "fill-extrusion-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "number",
+            [
+              "get",
+              "height"
+            ],
+            0
+          ],
+          0,
+          "#eceff3",
+          10,
+          "#dbe0e7",
+          30,
+          "#bfc7d2",
+          75,
+          "#9aa5b5",
+          150,
+          "#77839a"
+        ],
+        "fill-extrusion-height": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          15,
+          0,
+          15.05,
+          [
+            "number",
+            [
+              "get",
+              "height"
+            ],
+            0
+          ]
+        ],
+        "fill-extrusion-base": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          15,
+          0,
+          15.05,
+          [
+            "number",
+            [
+              "get",
+              "min_height"
+            ],
+            0
+          ]
+        ],
+        "fill-extrusion-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          15,
+          0.6,
+          16.5,
+          0.92
+        ],
+        "fill-extrusion-vertical-gradient": true,
+        "line-color": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          "#ffcc4d",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          "#ffcc4d",
+          "#54617a"
+        ],
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          15,
+          0.4,
+          18,
+          1.2
+        ],
+        "line-opacity": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          1,
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          0.9,
+          0.35
+        ]
+      },
+      "inspect": {
+        "id": "height",
+        "title": "Building",
+        "label": "type",
+        "fields": [
+          "type",
+          "height",
+          "min_height",
+          "underground"
+        ],
+        "fieldTitles": [
+          "Type",
+          "Height (m)",
+          "Base height (m)",
+          "Underground"
+        ]
+      }
+    },
+    {
       "initiallyChecked": true,
       "id": "terrain-v2",
       "tags": [
@@ -256,19 +431,106 @@
       "type": "vector",
       "title": "Mapbox Terrain Contours",
       "sourceLayer": "contour",
-      "description": "Mapbox Terrain Contours. See <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-v2/'>Mapbox Terrain And Contours</a> for details.",
+      "description": "Elevation contour lines from <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-v2/' target='_blank'>Mapbox Terrain v2</a>. Index contours (every 5th and 10th line) are drawn heavier and carry the elevation label in metres; intermediate contours are lighter.",
       "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
       "url": "mapbox://mapbox.mapbox-terrain-v2",
       "style": {
-        "symbol-placement": "line",
-        "text-field": [
-          "get",
-          "ele"
+        "overlay/line-color": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          "#ffcc4d",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          "#ffcc4d",
+          [
+            "has",
+            "index"
+          ],
+          "rgba(138, 90, 43, 0.95)",
+          "rgba(163, 124, 84, 0.72)"
         ],
-        "line-color": "red",
-        "text-halo-color": "red",
-        "text-halo-width": 1,
-        "text-size": 8
+        "overlay/line-width": 0.5,
+        "line-color": "rgba(255, 255, 255, 0.38)",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          11,
+          [
+            "case",
+            [
+              "has",
+              "index"
+            ],
+            2.2,
+            1.4
+          ],
+          17,
+          [
+            "case",
+            [
+              "has",
+              "index"
+            ],
+            3.6,
+            2.2
+          ]
+        ],
+        "symbol-placement": "line",
+        "symbol-spacing": 300,
+        "text-field": [
+          "case",
+          [
+            "has",
+            "index"
+          ],
+          [
+            "concat",
+            [
+              "to-string",
+              [
+                "get",
+                "ele"
+              ]
+            ],
+            " m"
+          ],
+          ""
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          9,
+          17,
+          11
+        ],
+        "text-padding": 6,
+        "text-color": "#6b4423",
+        "text-halo-color": "rgba(255, 255, 255, 0.9)",
+        "text-halo-width": 1.4
       },
       "inspect": {
         "id": "ele",

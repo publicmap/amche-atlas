@@ -1757,7 +1757,13 @@
           "",
           14,
           [
-            "to-string",
+            "match",
+            [
+              "get",
+              "Class"
+            ],
+            "Hazard Line",
+            "High Flood Line",
             [
               "get",
               "Class"
@@ -1770,7 +1776,7 @@
             "get",
             "Class"
           ],
-          "High Flood Line",
+          "Hazard Line",
           "red",
           "High Tide Line",
           "blue",

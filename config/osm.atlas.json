@@ -792,6 +792,216 @@
       "inspect": false
     },
     {
+      "id": "3d-buildings",
+      "tags": [
+        "buildings"
+      ],
+      "type": "vector",
+      "title": "3D Buildings",
+      "description": "Building footprints extruded to their mapped height, straight from OpenStreetMap via the <a href='https://openmaptiles.org/schema/#building' target='_blank'>OpenMapTiles building layer</a>. Very few buildings carry a surveyed <code>height</code> tag, so heights are almost always estimated from <code>building:levels</code> - OpenMapTiles assumes a 3.66 m (12 ft) storey plus a roof allowance, which runs tall for Indian buildings, so the level count is recovered and re-derived at 3.1 m a storey to match the Mapbox Streets source. Faces are shaded from light to dark with height.",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "url": "https://tiles.openstreetmap.us/vector/openmaptiles/{z}/{x}/{y}.mvt",
+      "sourceLayer": "building",
+      "minzoom": 14,
+      "maxzoom": 14,
+      "filter": [
+        "!=",
+        [
+          "get",
+          "hide_3d"
+        ],
+        true
+      ],
+      "style": {
+        "fill-extrusion-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "max",
+            0,
+            [
+              "*",
+              [
+                "-",
+                [
+                  "number",
+                  [
+                    "get",
+                    "render_height"
+                  ],
+                  0
+                ],
+                1.4
+              ],
+              0.85
+            ]
+          ],
+          0,
+          "#eceff3",
+          10,
+          "#dbe0e7",
+          30,
+          "#bfc7d2",
+          75,
+          "#9aa5b5",
+          150,
+          "#77839a"
+        ],
+        "fill-extrusion-height": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          0,
+          14.05,
+          [
+            "max",
+            0,
+            [
+              "*",
+              [
+                "-",
+                [
+                  "number",
+                  [
+                    "get",
+                    "render_height"
+                  ],
+                  0
+                ],
+                1.4
+              ],
+              0.85
+            ]
+          ]
+        ],
+        "fill-extrusion-base": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          0,
+          14.05,
+          [
+            "max",
+            0,
+            [
+              "*",
+              [
+                "-",
+                [
+                  "number",
+                  [
+                    "get",
+                    "render_min_height"
+                  ],
+                  0
+                ],
+                1.4
+              ],
+              0.85
+            ]
+          ]
+        ],
+        "fill-extrusion-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          0.6,
+          15.5,
+          0.92
+        ],
+        "fill-extrusion-vertical-gradient": true,
+        "line-color": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          "#ffcc4d",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          "#ffcc4d",
+          "#54617a"
+        ],
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          0.4,
+          17,
+          1.2
+        ],
+        "line-opacity": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          1,
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          0.9,
+          0.35
+        ]
+      },
+      "inspect": {
+        "id": "render_height",
+        "title": "Building",
+        "label": "render_height",
+        "fields": [
+          "render_height",
+          "render_min_height",
+          "colour"
+        ],
+        "fieldTitles": [
+          "Height (m)",
+          "Base height (m)",
+          "Colour"
+        ]
+      }
+    },
+    {
       "id": "boundaries",
       "title": "Boundaries",
       "description": "Boundaries from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/Tag:boundary%3Dadministrative'>OSM Wiki</a> for details.",
@@ -801,10 +1011,8 @@
       "maxzoom": 13,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
       "style": {
-        "line-color": "#333",
-        "line-opacity": 1,
-        "line-join": "round",
-        "line-width": [
+        "overlay/line-color": "#333",
+        "overlay/line-width": [
           "interpolate",
           [
             "linear"
@@ -842,7 +1050,49 @@
             6,
             4
           ]
-        ]
+        ],
+        "overlay/line-join": "round",
+        "line-color": "rgba(255, 255, 255, 0.6)",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          3,
+          [
+            "match",
+            [
+              "get",
+              "admin_level"
+            ],
+            2,
+            5.0,
+            4,
+            3.5,
+            5,
+            3.3,
+            2.7
+          ],
+          14,
+          [
+            "match",
+            [
+              "get",
+              "admin_level"
+            ],
+            2,
+            14.5,
+            4,
+            10.5,
+            5,
+            8.5,
+            6.5
+          ]
+        ],
+        "line-join": "round"
       },
       "inspect": false
     },
