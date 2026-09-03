@@ -104,8 +104,8 @@ export class MapBrowserControl {
         this._button = document.createElement('button');
         this._button.className = 'map-browser-btn flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white rounded transition-colors border border-gray-700 text-sm font-medium';
         this._button.type = 'button';
-        this._button.setAttribute('aria-label', 'Browse Maps');
-        this._button.style.cssText = 'height: 36px; padding: 0 0.75rem; border-radius: 0.375rem; position: relative;';
+        this._button.setAttribute('aria-label', 'Browse all maps');
+        this._button.title = 'Browse all maps';
 
         this._updateButtonState(false);
 
@@ -113,14 +113,14 @@ export class MapBrowserControl {
             this.toggleBrowser();
         });
 
-        this._container.appendChild(this._button);
-
-        // Thumbnails of the currently visible layers, stacked below the button
-        // in the map's own visual order. Repainted on every 'idle' as well as on
-        // layer/URL changes: the layer control builds its groups well after this
-        // control is added, and 'idle' is the one signal guaranteed to fire after
-        // it. render() no-ops unless the visible set changed.
-        this._layerStack.mount(this._container);
+        // The vertical control column: this button, the active atlas, then a
+        // thumbnail per visible layer in the map's own visual order. The strip
+        // adopts the button as its first item, so it is not appended here.
+        // Repainted on every 'idle' as well as on layer/URL changes: the layer
+        // control builds its groups well after this control is added, and 'idle'
+        // is the one signal guaranteed to fire after it. render() no-ops unless
+        // the visible set changed.
+        this._layerStack.mount(this._container, { browserButton: this._button });
         map.on('idle', () => this._layerStack.render());
 
         this._createOverlay();
@@ -237,11 +237,12 @@ export class MapBrowserControl {
         } else {
             this._button.classList.remove('active');
         }
-        this._button.style.cssText = 'height: 36px; padding: 0 0.75rem; border-radius: 0.375rem; position: relative;';
-        this._button.innerHTML = `
-            <sl-icon name="map" style="font-size: 14px;"></sl-icon>
-            <span class="map-browser-text">Maps</span>
-        `;
+        // Geometry belongs to the stack's CSS; only the badge-anchoring context
+        // is set here, since this runs again on every open/close.
+        this._button.style.cssText = 'position: relative;';
+        // Icon only: the button is a 36px cell in the layer stack, and the hover
+        // label carries the name.
+        this._button.innerHTML = '<sl-icon name="stack"></sl-icon>';
     }
 
     _ensureIframe() {

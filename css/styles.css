@@ -257,26 +257,36 @@
     background: var(--primary-hover) !important;
 }
 
-/* Visible-layer stack strip (see js/layer-stack-strip.js): thumbnails of the
-   layers currently on the map, hanging vertically below the Maps button in the
-   same order they stack visually (first = on top, per js/layer-order-manager.js).
-   Absolutely positioned so the strip never stretches the 36px top row it lives
-   in, and so it overlays the map rather than displacing the search box. */
+/* Layer stack (see js/layer-stack-strip.js): the vertical control column at the
+   top-left of the map - the map-browser toggle, then one thumbnail per visible
+   layer in the order they stack visually (first = on top, per
+   js/layer-order-manager.js).
+
+   Every item is one 36px cell. The layer cells share black edges and weld into a
+   single block, with a 2px black rule where the overlays meet the basemaps; the
+   toggle sits above as its own rounded control.
+
+   Absolutely positioned so the column never stretches the 36px top row it lives
+   in, and so it overlays the map rather than displacing the search box. Its host
+   control keeps the first cell's footprint in that row, which is what the search
+   box aligns against. */
 .map-browser-control {
     position: relative;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
 }
 
 .layer-stack-strip {
     position: absolute;
-    top: 100%;
+    top: 0;
     left: 0;
-    margin-top: 8px;
     display: flex;
     flex-direction: column;
-    /* No gap, on a solid backing panel: hovering a thumbnail isolates its layer,
-       so any pixel of map showing between two thumbnails would clear the
-       isolation mid-move and make a neighbouring hover look laggy. The panel
-       also swallows those pointer events instead of passing them to the map. */
+    /* No gap, on a solid backing panel: hovering a cell isolates its layer, so
+       any pixel of map showing between two cells would clear the isolation
+       mid-move and make a neighbouring hover look laggy. The panel also swallows
+       those pointer events instead of passing them to the map. */
     gap: 0;
     padding: 4px;
     background: rgba(0, 0, 0, 0.6);
@@ -291,29 +301,124 @@
     align-items: center;
 }
 
-/* Square off the thumbnails so the strip reads as one stack. LayerThumbnail
-   sets its radius inline, hence the !important. */
-.layer-stack-item .layer-thumbnail {
-    border: 1px solid #000;
-    border-bottom-width: 0;
+/* One shared cell: the browser button and every layer thumbnail. LayerThumbnail
+   and .map-browser-btn both set their own size and radius (inline / with
+   !important), hence the overrides. */
+.layer-stack-cell {
+    width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    /* Neighbours share one edge, so only the last cell draws a bottom border */
+    border: 1px solid #000 !important;
+    border-bottom-width: 0 !important;
     border-radius: 0 !important;
+    box-shadow: none !important;
 }
 
-.layer-stack-item:first-child .layer-thumbnail {
-    border-radius: 5px 5px 0 0 !important;
+/* The browser toggle is its own control, not part of the layer group: fully
+   rounded, closed on all four sides, and set off by a gap. */
+.layer-stack-browser {
+    margin-bottom: 5px;
 }
 
-.layer-stack-item:last-child .layer-thumbnail {
-    border-bottom-width: 1px;
-    border-radius: 0 0 5px 5px !important;
-}
-
-.layer-stack-item:only-child .layer-thumbnail {
+.layer-stack-browser .layer-stack-cell {
+    border-bottom-width: 1px !important;
     border-radius: 5px !important;
 }
 
-.layer-stack-item:hover .layer-thumbnail {
-    border-color: var(--primary-color);
+/* The layer group below it is one welded block, so only its own outer corners
+   are rounded - the first layer cell's top and the last one's bottom. */
+.layer-stack-browser+[data-layer-item] .layer-stack-cell {
+    border-radius: 5px 5px 0 0 !important;
+}
+
+.layer-stack-item:last-child .layer-stack-cell {
+    border-bottom-width: 1px !important;
+    border-radius: 0 0 5px 5px !important;
+}
+
+/* A lone layer, or a layer group with no toggle above it, closes on both ends */
+[data-layer-item]:first-child .layer-stack-cell {
+    border-radius: 5px 5px 0 0 !important;
+}
+
+.layer-stack-item:only-child .layer-stack-cell,
+.layer-stack-browser+[data-layer-item]:last-child .layer-stack-cell {
+    border-bottom-width: 1px !important;
+    border-radius: 5px !important;
+}
+
+/* Overlays above, basemaps below: split the welded run into two rounded blocks
+   with a 2px black rule between them. A thicker shared border alone is invisible
+   here - every cell already carries a 1px black edge - so the overlay block has
+   to close off and the basemap block start fresh for the break to read. */
+.layer-stack-basemap-start {
+    margin-top: 2px;
+}
+
+/* Fills the 2px margin with solid black. The strip's own background is only
+   60% black, so the gap needs painting to read as a rule rather than a seam. */
+.layer-stack-basemap-start::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #000;
+    pointer-events: none;
+}
+
+/* Close the overlay block above the rule... */
+.layer-stack-item:has(+ .layer-stack-basemap-start) .layer-stack-cell {
+    border-bottom-width: 1px !important;
+    border-radius: 0 0 5px 5px !important;
+}
+
+/* ...and open the basemap block below it. */
+.layer-stack-basemap-start .layer-stack-cell {
+    border-radius: 5px 5px 0 0 !important;
+}
+
+/* A single basemap is the whole lower block, so it closes at both ends */
+.layer-stack-basemap-start:last-child .layer-stack-cell {
+    border-bottom-width: 1px !important;
+    border-radius: 5px !important;
+}
+
+/* Hover accent is the same for the toggle and a layer */
+.layer-stack-item:hover .layer-stack-cell {
+    border-color: var(--primary-color) !important;
+    cursor: pointer;
+}
+
+.layer-stack-browser .map-browser-btn {
+    background: #1f2937 !important;
+    color: var(--primary-color) !important;
+}
+
+.layer-stack-browser .map-browser-btn sl-icon {
+    font-size: 17px;
+}
+
+.layer-stack-browser .map-browser-btn:hover {
+    background: #374151 !important;
+}
+
+/* Browser open: the one filled state in the column */
+.layer-stack-browser .map-browser-btn.active {
+    background: var(--primary-color) !important;
+    color: #000 !important;
+}
+
+.layer-stack-browser .map-browser-btn.active:hover {
+    background: var(--primary-hover) !important;
 }
 
 /* Full layer name + atlas name, revealed to the right on hover */
@@ -335,8 +440,11 @@
     z-index: 5;
 }
 
-.layer-stack-item:hover .layer-stack-label,
-.layer-stack-item:focus-within .layer-stack-label {
+/* Hover only. Focus is not a reveal trigger: the browser toggle is focused
+   programmatically (closeBrowser returns focus to it, and it is the keyboard
+   controller's trigger), which would park its label open like a stuck tooltip.
+   Each cell carries a title/aria-label for non-pointer users instead. */
+.layer-stack-item:hover .layer-stack-label {
     opacity: 1;
     visibility: visible;
     transform: translateX(0);

@@ -1,7 +1,11 @@
 /**
- * LayerStackStrip - a vertical strip of thumbnail buttons for the layers
- * currently visible on the map, mounted directly below the map browser's
- * "Maps" button.
+ * LayerStackStrip - the vertical control column at the top-left of the map:
+ * the map-browser toggle (MapBrowserControl's own button, moved in here),
+ * followed by one thumbnail per layer currently visible on the map.
+ *
+ * The toggle is fixed and built once at mount; only the layer thumbnails are
+ * rebuilt by render(), so the button keeps its identity and open/closed state
+ * across refreshes.
  *
  * Order matches the map's visual stack as defined by LayerOrderManager:
  * MapLayerControl._state.groups is already held in config/visual/URL order
@@ -33,12 +37,19 @@ export class LayerStackStrip {
         };
     }
 
-    mount(hostEl) {
+    /**
+     * @param {HTMLElement} hostEl - the map control container to render into
+     * @param {HTMLElement} [browserButton] - MapBrowserControl's toggle button,
+     *   adopted as the first item in the stack rather than sitting in the search row
+     */
+    mount(hostEl, { browserButton = null } = {}) {
         if (!hostEl || this._el) return;
 
         this._el = document.createElement('div');
         this._el.className = 'layer-stack-strip';
         hostEl.appendChild(this._el);
+
+        this._mountBrowserItem(browserButton);
 
         // 'layersInitialized' is the signal that MapLayerControl has finished
         // building the groups this strip reads (it fires well after the control
@@ -96,6 +107,7 @@ export class LayerStackStrip {
      */
     render() {
         if (!this._el) return;
+
         // Hover isolation hides sibling layers on the map without toggling them
         // off; rebuilding mid-hover would drop the item under the cursor.
         if (this._el.querySelector('.layer-stack-item:hover')) return;
@@ -105,8 +117,46 @@ export class LayerStackStrip {
         if (signature === this._signature) return;
         this._signature = signature;
 
-        this._el.innerHTML = '';
-        layers.forEach(layer => this._el.appendChild(this._createItem(layer)));
+        // Layer items sit alongside the fixed toggle, so replace only the ones
+        // this method owns.
+        this._el.querySelectorAll('[data-layer-item]').forEach(el => el.remove());
+
+        // mapOrderToUrlOrder returns overlays first, then basemaps; the first
+        // basemap is where the two groups meet and carries the separator.
+        const firstBasemap = layers.findIndex(layer => LayerOrderManager.isBasemap(layer));
+
+        layers.forEach((layer, index) => {
+            const item = this._createItem(layer);
+            if (index === firstBasemap && index > 0) {
+                item.classList.add('layer-stack-basemap-start');
+            }
+            this._el.appendChild(item);
+        });
+    }
+
+    /**
+     * The fixed item at the head of the stack. The browser button is moved in
+     * rather than recreated, so MapBrowserControl keeps driving its icon and
+     * active state exactly as before.
+     */
+    _mountBrowserItem(browserButton) {
+        if (!browserButton) return;
+
+        const item = document.createElement('div');
+        item.className = 'layer-stack-item layer-stack-control layer-stack-browser';
+
+        browserButton.classList.add('layer-stack-cell');
+        item.appendChild(browserButton);
+
+        const label = document.createElement('div');
+        label.className = 'layer-stack-label';
+        const titleEl = document.createElement('div');
+        titleEl.className = 'layer-stack-label-title';
+        titleEl.textContent = 'Browse all maps';
+        label.appendChild(titleEl);
+        item.appendChild(label);
+
+        this._el.appendChild(item);
     }
 
     /**
@@ -136,6 +186,7 @@ export class LayerStackStrip {
     _createItem(layer) {
         const item = document.createElement('div');
         item.className = 'layer-stack-item';
+        item.dataset.layerItem = 'true';
 
         const title = layer.title || layer.id;
         const atlasName = this._getAtlasName(layer);
@@ -143,6 +194,7 @@ export class LayerStackStrip {
         const thumbnail = LayerThumbnail.generate(layer, THUMB_SIZE, {
             layerDefaults: window.layerControl?._defaultStyles || {}
         });
+        thumbnail.classList.add('layer-stack-cell');
         thumbnail.setAttribute('role', 'button');
         thumbnail.setAttribute('tabindex', '0');
         thumbnail.setAttribute('aria-label', atlasName ? `${title} (${atlasName})` : title);
