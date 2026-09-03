@@ -905,7 +905,7 @@ export class MapMarkerManager {
                         this._stateManager.setFeatureHoverState(f.layerId, f.featureId, true);
                         if (!isHover) {
                             // Mirror the inspector's hover isolation so hovering a badge dims sibling layers.
-                            window.postMessage({ type: 'hover-isolate-layer', layerId: f.layerId, isBasemap: layerIsBasemap() }, '*');
+                            window.layerControl?.isolation?.hoverIsolate(f.layerId, layerIsBasemap());
                         }
                     }
                 });
@@ -921,7 +921,7 @@ export class MapMarkerManager {
                     if (f) {
                         this._stateManager.setFeatureHoverState(f.layerId, f.featureId, false);
                         if (!isHover) {
-                            window.postMessage({ type: 'clear-hover-layer-isolation' }, '*');
+                            window.layerControl?.isolation?.clearHover();
                         }
                     }
                 });
@@ -1308,8 +1308,7 @@ export class MapMarkerManager {
         if (this._isTouch) {
             const lc = this._stateManager.getLayerConfig(f.layerId);
             const isBasemap = Array.isArray(lc?.tags) && lc.tags.includes('basemap');
-            window.postMessage({ type: 'clear-layer-isolation' }, '*');
-            window.postMessage({ type: 'isolate-layer', layerId: f.layerId, isBasemap }, '*');
+            window.layerControl?.isolation?.isolate(f.layerId, isBasemap);
             this._setSiblingBadgesDimmed(badge, true);
         }
 
@@ -1327,7 +1326,7 @@ export class MapMarkerManager {
 
         // On touch, isolation/dimming were applied on select, so clear them here.
         if (this._isTouch) {
-            window.postMessage({ type: 'clear-layer-isolation' }, '*');
+            window.layerControl?.isolation?.clear();
             this._setSiblingBadgesDimmed(badge, false);
         }
     }

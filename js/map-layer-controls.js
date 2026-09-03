@@ -48,6 +48,204 @@ import {LayerOrderManager} from './layer-order-manager.js';
 import {MapContextMessagesControl, LOADING_ICON_HTML} from './map-context-messages-control.js';
 import {LayerThumbnail} from './layer-thumbnail.js';
 
+/**
+ * Layer types whose renderers hold their data in tiles fetched from the network.
+ * Hiding one of these with layout.visibility makes Mapbox GL release the tiles no
+ * visible layer needs any more and re-request them the moment it is shown again -
+ * on a hover isolation that means re-downloading whole tilesets several times a
+ * second. Isolation dims these to zero opacity instead: the layer stays live, its
+ * tiles stay resident, and only paint properties change.
+ *
+ * Everything else (Mapbox style layers, client-side CSV/sheet sources, layer-group
+ * toggles) has no opacity path in mapbox-api and costs no network traffic to hide,
+ * so those keep using visibility.
+ */
+const OPACITY_DIMMED_TYPES = new Set([
+    'vector', 'tms', 'wmts', 'wms', 'cog', 'geojson', 'js', 'overpass', 'img', 'raster-style-layer'
+]);
+
+/**
+ * LayerIsolationManager - shows one layer on its own by dimming the other
+ * toggled-on layers in the same section (overlay vs basemap).
+ *
+ * Owned by MapLayerControl and reached as `window.layerControl.isolation`, so
+ * every caller drives the same state machine: the inspector's layer cards
+ * (map-inspector.html, via the feature control's postMessage bridge), the
+ * feature marker badges (map-marker-manager.js) and the visible-layer strip
+ * under the Maps button (layer-stack-strip.js).
+ *
+ * Two independent levels of isolation are tracked. A persistent one comes from
+ * clicking/selecting, a hover one from pointing at a card or thumbnail; hover
+ * wins while it lasts and restores the persistent isolation when it ends.
+ */
+export class LayerIsolationManager {
+    constructor(control) {
+        this._control = control;
+        this._hover = null;
+        this._persistent = null;
+        // Layer ids the active isolation is dimming, so a change of isolation
+        // only has to touch the layers whose state actually differs.
+        this._dimmed = new Set();
+    }
+
+    /**
+     * Persistent isolation (click/select). If a hover isolation is currently
+     * active the state is only recorded - it takes effect when the hover ends,
+     * so the map doesn't flash the wrong layer when the user clicks while the
+     * cursor is still over a card.
+     */
+    isolate(layerId, isBasemap) {
+        this._persistent = { layerId, isBasemap };
+        if (this._hover) return;
+        this._apply(layerId, isBasemap);
+    }
+
+    clear() {
+        this._persistent = null;
+        if (this._hover) return;
+        this._applyClear();
+    }
+
+    /**
+     * Temporary isolation while hovering a card or thumbnail. On hover-leave the
+     * prior persistent isolation (if any) is restored.
+     */
+    hoverIsolate(layerId, isBasemap) {
+        if (this._hover && this._hover.layerId === layerId) return;
+        this._hover = { layerId, isBasemap };
+        this._apply(layerId, isBasemap);
+    }
+
+    clearHover() {
+        if (!this._hover) return;
+        this._hover = null;
+
+        if (this._persistent) {
+            this._apply(this._persistent.layerId, this._persistent.isBasemap);
+        } else {
+            this._applyClear();
+        }
+    }
+
+    /**
+     * Drop both levels of isolation and undim everything. For callers that
+     * change the layer set out from under an active isolation (removing a layer,
+     * say), where clear() alone would bail out because a hover is still active.
+     */
+    reset() {
+        this._hover = null;
+        this._persistent = null;
+        this._applyClear();
+    }
+
+    /** Whether any isolation is currently applied. */
+    get isActive() {
+        return !!(this._hover || this._persistent);
+    }
+
+    /**
+     * Dim every toggled-on sibling in the same section as layerId.
+     *
+     * Only the layers whose state actually has to change are touched, using
+     * _dimmed as the record of what this isolation is currently dimming. Moving
+     * between two layers therefore costs one undim plus one dim, instead of
+     * undimming every sibling and dimming them all again - that intermediate
+     * "everything on" state made each layer re-render (and tile-backed layers
+     * refetch tiles) for nothing, which is what made hopping between layers feel
+     * laggy next to isolating from a clean baseline.
+     */
+    _apply(layerId, isBasemap) {
+        const mapboxAPI = this._control?._mapboxAPI;
+        if (!mapboxAPI) return;
+
+        const activeLayers = this._getToggledOnLayers();
+
+        // Undim anything this isolation was dimming that the new one must not.
+        // A layer the user has since toggled off is just dropped from the record -
+        // undimming it would override their own choice.
+        for (const id of Array.from(this._dimmed)) {
+            const config = activeLayers.get(id);
+            if (!config) {
+                this._dimmed.delete(id);
+                continue;
+            }
+            if (id !== layerId && this._isBasemap(config) === isBasemap) continue;
+            this._setDimmed(mapboxAPI, id, config, false);
+            this._dimmed.delete(id);
+        }
+
+        // Dim the new isolation's same-section siblings.
+        for (const [id, config] of activeLayers.entries()) {
+            if (id === layerId || this._dimmed.has(id)) continue;
+            if (this._isBasemap(config) !== isBasemap) continue;
+            this._setDimmed(mapboxAPI, id, config, true);
+            this._dimmed.add(id);
+        }
+    }
+
+    _applyClear() {
+        const mapboxAPI = this._control?._mapboxAPI;
+        if (!mapboxAPI) return;
+
+        const activeLayers = this._getToggledOnLayers();
+        // Restore only what an isolation dimmed. When the record is empty an
+        // isolation may still be applied from outside this manager, so fall back
+        // to undimming every toggled-on layer once.
+        const toRestore = this._dimmed.size ? this._dimmed : activeLayers.keys();
+
+        for (const id of Array.from(toRestore)) {
+            const config = activeLayers.get(id);
+            if (config) {
+                this._setDimmed(mapboxAPI, id, config, false);
+            }
+        }
+        this._dimmed.clear();
+    }
+
+    /**
+     * Take a layer out of / back into the isolated view. Tile-backed layers are
+     * dimmed with opacity so their tiles are never released (see
+     * OPACITY_DIMMED_TYPES); the rest fall back to layout visibility.
+     * setLayerGroupDimmed restores the paint values it captured, so opacity
+     * expressions survive the round trip untouched.
+     */
+    _setDimmed(mapboxAPI, id, config, dimmed) {
+        if (OPACITY_DIMMED_TYPES.has(config.type)) {
+            mapboxAPI.setLayerGroupDimmed(id, config, dimmed);
+        } else {
+            mapboxAPI.updateLayerGroupVisibility(id, config, !dimmed);
+        }
+    }
+
+    /**
+     * Every user-toggled-on layer keyed by id, read from checkbox state rather
+     * than map visibility - a layer dimmed by a prior isolation must still be
+     * found here, or it would be left dimmed forever.
+     */
+    _getToggledOnLayers() {
+        const layers = new Map();
+        const groups = this._control?._state?.groups;
+        const controls = this._control?._sourceControls;
+        if (!groups || !controls) return layers;
+
+        groups.forEach((group, index) => {
+            const controlElement = controls[index];
+            if (!controlElement) return;
+
+            const checkbox = controlElement.querySelector('.toggle-switch input[type="checkbox"]');
+            if (checkbox && checkbox.checked) {
+                layers.set(group.id, group);
+            }
+        });
+
+        return layers;
+    }
+
+    _isBasemap(config) {
+        return !!(config && Array.isArray(config.tags) && config.tags.includes('basemap'));
+    }
+}
+
 export class MapLayerControl {
     constructor(options) {
         // Handle options structure for groups and configuration
@@ -76,6 +274,9 @@ export class MapLayerControl {
         this._filterMapsInView = false;
         this._mapMoveListenerAdded = false;
         this._initializingLayers = false;
+        // Single owner of layer-isolation state, shared by the inspector, the
+        // feature marker badges and the visible-layer strip.
+        this.isolation = new LayerIsolationManager(this);
 
         // Load default styles asynchronously
         this._loadDefaultStyles();
