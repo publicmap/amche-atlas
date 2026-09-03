@@ -350,6 +350,23 @@
     box-shadow: none !important;
 }
 
+/* Overlaid on a thumbnail while its layer is still being added to the map on
+   initial load (see MapLayerControl._loadingLayerIds / layer-stack-strip.js) */
+.layer-stack-thumb-spinner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    background: rgba(255, 255, 255, 0.6);
+    pointer-events: none;
+    z-index: 10;
+}
+
 /* The browser toggle is its own control, not part of the layer group: fully
    rounded, closed on all four sides, and set off by a gap. */
 .layer-stack-browser {

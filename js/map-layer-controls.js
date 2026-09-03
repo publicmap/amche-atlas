@@ -45,7 +45,6 @@ import {MapboxAPI} from './mapbox-api.js';
 import {DataUtils} from './map-utils.js';
 import {MapWarperAPI} from './mapwarper-url-api.js';
 import {LayerOrderManager} from './layer-order-manager.js';
-import {MapContextMessagesControl, LOADING_ICON_HTML} from './map-context-messages-control.js';
 import {LayerThumbnail} from './layer-thumbnail.js';
 
 /**
@@ -273,6 +272,10 @@ export class MapLayerControl {
         this._filterMapsInView = false;
         this._mapMoveListenerAdded = false;
         this._initializingLayers = false;
+        // Layer ids currently being added to the map during initial load - read
+        // by layer-stack-strip.js to show a spinner over a layer's thumbnail
+        // until it's actually ready, instead of a "Loading map ..." toast.
+        this._loadingLayerIds = new Set();
         // Single owner of layer-isolation state, shared by the inspector, the
         // feature marker badges and the visible-layer strip.
         this.isolation = new LayerIsolationManager(this);
@@ -507,38 +510,24 @@ export class MapLayerControl {
             mapOrderLayers.forEach(layer => this._mapboxAPI.prefetchLayerData(layer));
         }
 
-        // Add layers progressively with yields to browser
+        // Add layers progressively with yields to browser. Rather than a
+        // "Loading map ..." toast per layer, mark the layer as loading so
+        // layer-stack-strip.js can reveal its thumbnail (with a spinner over
+        // it) as soon as it starts, then clear the flag once it's ready -
+        // an animated, one-at-a-time build-up of the strip instead of every
+        // thumbnail appearing at once after the whole loop finishes.
         for (const layer of mapOrderLayers) {
             const groupIndex = layerIdToIndex.get(layer.id);
             if (groupIndex !== undefined) {
-                const layerTitle = this._escapeHtml(layer.title || layer.id);
-                // A message may already be queued for this layer from map-init.js -
-                // shown before URL layers (e.g. "osm:..." dynamic shorthands) were even
-                // resolved. Reuse it (refreshing the text, since the placeholder shown
-                // while queued may not have known the real title yet) instead of
-                // creating a second one. No thumbnail while loading - just the spinner
-                // and name; the real thumbnail appears once the layer is actually added.
-                const messageId = MapContextMessagesControl.show(
-                    `${LOADING_ICON_HTML}<strong>${layerTitle}</strong>`,
-                    { id: layer._loadingMessageId }
-                );
-                // createLayerGroup only issues the addSource/addLayer calls - it resolves
-                // almost instantly even though tiles are still loading in the background.
-                // Enforce a minimum visible time so the message is actually perceivable
-                // instead of flashing for a few milliseconds on fast/cached layers.
-                const minVisible = new Promise(resolve => setTimeout(resolve, 400));
-                await Promise.all([this._toggleLayerGroup(groupIndex, true), minVisible]);
-                // Swap the spinner+name for the layer's thumbnail (with a zoom shortcut
-                // when a bbox is known) rather than closing outright, so newly added maps -
-                // e.g. from the layer creator - give visible confirmation instead of
-                // just silently appearing.
-                const labelHtml = this._buildLayerLabelHTML(layer, layerTitle);
-                const zoomLink = this._buildZoomToLayerLink(layer);
-                MapContextMessagesControl.show(
-                    `${labelHtml}${zoomLink ? ' &middot; ' + zoomLink : ''}`,
-                    { id: messageId }
-                );
-                setTimeout(() => MapContextMessagesControl.close(messageId), 3000);
+                this._loadingLayerIds.add(layer.id);
+                window.dispatchEvent(new CustomEvent('layer-toggled', {
+                    detail: { layerId: layer.id, visible: true, loading: true }
+                }));
+                await this._toggleLayerGroup(groupIndex, true);
+                this._loadingLayerIds.delete(layer.id);
+                window.dispatchEvent(new CustomEvent('layer-toggled', {
+                    detail: { layerId: layer.id, visible: true, loading: false }
+                }));
                 // Yield to browser between layers to prevent blocking
                 await new Promise(resolve => requestAnimationFrame(resolve));
             }

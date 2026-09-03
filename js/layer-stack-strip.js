@@ -162,7 +162,8 @@ export class LayerStackStrip {
 
         const layers = this._getVisibleLayers();
         const comparedId = this._getComparedLayerId();
-        const signature = layers.map(l => l.id).join(',') + `|compare:${comparedId}`;
+        const loadingIds = window.layerControl?._loadingLayerIds;
+        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${comparedId}`;
         if (!force && signature === this._signature) return;
         this._signature = signature;
 
@@ -416,6 +417,15 @@ export class LayerStackStrip {
         }
 
         item.appendChild(thumbnail);
+
+        // Shown while the layer is still being added to the map on initial
+        // load (see MapLayerControl._loadingLayerIds) - the thumbnail itself
+        // renders from the layer's config, so it's already correct underneath.
+        if (window.layerControl?._loadingLayerIds?.has(layer.id)) {
+            const spinner = document.createElement('sl-spinner');
+            spinner.className = 'layer-stack-thumb-spinner';
+            item.appendChild(spinner);
+        }
 
         // Flyout: the layer name (opens map-information.html), then the atlas name
         // followed by shortcut actions for the layer.

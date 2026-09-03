@@ -16,7 +16,7 @@ import { MapBrowserControl } from './map-browser-control.js';
 import { AtlasLayerMenuControl } from './atlas-layer-menu-control.js';
 import { MapAttributionControl } from './map-attribution-control.js';
 import { StreetviewControl } from './streetview-control.js';
-import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
+import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { ShortcutMenu } from './shortcut-menu.js';
 import { HeaderShortcutMenuControl } from './header-shortcut-menu-control.js';
 import { MapLocationMenuControl } from './map-location-menu-control.js';
@@ -379,20 +379,6 @@ export class MapInitializer {
                     ...(layer._originalJson && { _originalJson: layer._originalJson })
                 }));
 
-                // Queue a "Loading map ..." message for every URL layer right away, before
-                // any async resolution (registry lookups, Overpass/Allmaps/Mapwarper
-                // shorthand expansion) runs below - otherwise slow shorthand resolution
-                // (e.g. a batched Overpass request) leaves the user with no feedback
-                // until it completes. _loadingMessageId travels with the layer object
-                // through cascade/merge below so _initializeAllLayers can close it once
-                // the layer actually renders (or this file closes it early on failure).
-                processedUrlLayers.forEach(layer => {
-                    const title = MapInitializer._getQueuedLayerTitle(layer);
-                    layer._loadingMessageId = MapContextMessagesControl.show(
-                        `${LOADING_ICON_HTML}${MapInitializer._buildQueuedLayerLabel(layer, title)}`
-                    );
-                });
-
                 // When URL layers are specified, set ALL existing layers to initiallyChecked: false
                 // This ensures only URL-specified layers are visible
                 const existingLayers = config.layers || [];
@@ -546,15 +532,11 @@ export class MapInitializer {
                             // same as the registry-resolution branch below.
                             ...(layerConfig._originalJson && { _originalJson: layerConfig._originalJson }),
                             ...(layerConfig.initiallyChecked !== undefined && { initiallyChecked: layerConfig.initiallyChecked }),
-                            ...(layerConfig.opacity !== undefined && { opacity: layerConfig.opacity }),
-                            ...(layerConfig._loadingMessageId && { _loadingMessageId: layerConfig._loadingMessageId })
+                            ...(layerConfig.opacity !== undefined && { opacity: layerConfig.opacity })
                         }, atlasId));
                     } else {
                         console.warn(`[Dynamic Layer] Could not resolve layer from URL: "${layerConfig.type}:${layerConfig.id}" - ignoring.`);
                         invalidLayers.push(layerConfig.id);
-                        // This layer will never reach _initializeAllLayers, so its queued
-                        // loading message would otherwise be stuck on screen forever.
-                        MapContextMessagesControl.close(layerConfig._loadingMessageId);
                     }
                     continue;
                 }
@@ -636,9 +618,6 @@ export class MapInitializer {
                         if (layerConfig.initiallyChecked === true) {
                             console.warn(`[LayerRegistry] Unknown layer ID from URL: "${layerConfig.id}" - ignoring.`);
                             invalidLayers.push(layerConfig.id);
-                            // This layer will never reach _initializeAllLayers, so its queued
-                            // loading message would otherwise be stuck on screen forever.
-                            MapContextMessagesControl.close(layerConfig._loadingMessageId);
                         } else {
                             console.warn(`[LayerRegistry] Layer "${layerConfig.id}" not found in registry, using as-is (might be missing metadata)`);
                             // For non-URL layers, keep them as-is (they might be fully defined custom layers)
@@ -1500,26 +1479,6 @@ export class MapInitializer {
                 });
             }
         });
-    }
-
-    // Best-effort display name for a layer that hasn't been resolved yet -
-    // used for the "Loading map ..." message shown while URL layers (including
-    // dynamic shorthands like "osm:relation/123") are still being resolved.
-    static _getQueuedLayerTitle(layer) {
-        if (layer.title) return layer.title;
-        if (isDynamicLayerShorthand(layer)) return `${layer.type}:${layer.id}`;
-        const registryLayer = window.layerRegistry?.getLayer(layer.id);
-        if (registryLayer?.title) return registryLayer.title;
-        return layer.id;
-    }
-
-    // Bold name for the "Loading map ..." placeholder - no thumbnail, since the
-    // layer isn't resolved yet at this point (registry lookup, shorthand
-    // expansion) and would only show a generic fallback icon. The spinner
-    // conveys "loading"; the real thumbnail appears once the layer actually
-    // loads and map-layer-controls.js swaps this message for the confirmation.
-    static _buildQueuedLayerLabel(layer, title) {
-        return `<strong>${MapInitializer._escapeHtml(title)}</strong>`;
     }
 
     // Parses a Mapbox-style `#zoom/lat/lng` hash into { zoom, lat, lng }, or
