@@ -1,7 +1,8 @@
 /**
  * MapLocationMenuControl - header-nav button (top-left, next to the shortcuts
  * menu) showing live context about the current map center: coordinates, map
- * bearing, device bearing, map pitch, and the reverse-geocoded address.
+ * bearing, device bearing, map pitch, the reverse-geocoded address, and a
+ * share section (QR thumbnail + link with a copy button) for the current view.
  *
  * The address is read from window.attributionControl (see
  * map-attribution-control.js `setLocation()` / map-init.js
@@ -17,9 +18,14 @@
  * map there. Both hover and click share one geocode (and its cache), so
  * hovering before clicking doesn't cost a second request.
  *
+ * The share section is rendered by share-url-panel.js, which also owns the
+ * fullscreen QR modal opened by clicking the thumbnail - the same UI that used
+ * to be the "Link" export type in map-export.html.
+ *
  * Not a mapboxgl control - this lives in the header-nav DOM, not on the map.
  */
 import { queryNominatim } from './nominatim-search.js';
+import { ShareUrlPanel } from './share-url-panel.js';
 
 // Ordered broad-to-specific is not needed here - this is specific-to-broad,
 // matching how a submenu should read (nearest place first). Each level's
@@ -59,6 +65,8 @@ export class MapLocationMenuControl {
         this._hoverDebounceTimer = null;
         this._hoverRequestToken = 0;
 
+        this._sharePanel = new ShareUrlPanel();
+
         this._handleOutsideEvent = this._handleOutsideEvent.bind(this);
         this._handleKeydown = this._handleKeydown.bind(this);
         this._hide = this._hide.bind(this);
@@ -74,15 +82,15 @@ export class MapLocationMenuControl {
         this._button = document.createElement('button');
         this._button.type = 'button';
         this._button.className = 'header-shortcut-menu-btn';
-        this._button.setAttribute('aria-label', 'Map location');
-        this._button.innerHTML = '<sl-icon name="pin-map"></sl-icon>';
+        this._button.setAttribute('aria-label', 'Map location and share');
+        this._button.innerHTML = '<sl-icon name="share"></sl-icon>';
         this._button.addEventListener('click', () => this.toggle());
 
         this._container.appendChild(this._button);
         hostEl.appendChild(this._container);
 
         this._menu = document.createElement('div');
-        this._menu.className = 'shortcut-menu';
+        this._menu.className = 'shortcut-menu map-location-menu';
         this._menu.style.display = 'none';
         document.body.appendChild(this._menu);
 
@@ -109,6 +117,7 @@ export class MapLocationMenuControl {
 
         this._clearRefreshTimer();
         this._clearHoverPreview();
+        this._sharePanel.destroy();
         this._container?.parentNode?.removeChild(this._container);
         this._menu?.parentNode?.removeChild(this._menu);
         this._submenu?.parentNode?.removeChild(this._submenu);
@@ -128,7 +137,7 @@ export class MapLocationMenuControl {
         if (!this._map || !this._button || !this._menu) return;
         this._isOpenState = true;
         this._button.classList.add('active');
-        this._button.querySelector('sl-icon')?.setAttribute('name', 'pin-map-fill');
+        this._button.querySelector('sl-icon')?.setAttribute('name', 'share-fill');
 
         this._render();
 
@@ -151,7 +160,7 @@ export class MapLocationMenuControl {
             this._submenu.innerHTML = '';
         }
         this._button?.classList.remove('active');
-        this._button?.querySelector('sl-icon')?.setAttribute('name', 'pin-map');
+        this._button?.querySelector('sl-icon')?.setAttribute('name', 'share');
         this._clearRefreshTimer();
         this._clearHoverPreview();
     }
@@ -240,6 +249,21 @@ export class MapLocationMenuControl {
         this._menu.appendChild(divider);
 
         this._renderAddress();
+        this._renderShare();
+    }
+
+    /**
+     * QR thumbnail + share URL for the current view. Clicking the thumbnail
+     * opens the fullscreen QR modal (share-url-panel.js) and closes this menu.
+     */
+    _renderShare() {
+        const divider = document.createElement('div');
+        divider.className = 'shortcut-menu-divider';
+        this._menu.appendChild(divider);
+
+        this._menu.appendChild(this._sharePanel.buildInlineSection({
+            onOpenModal: () => this._hide()
+        }));
     }
 
     _renderAddress() {
@@ -499,6 +523,8 @@ export class MapLocationMenuControl {
         if (this._liveRows.mapBearing) this._liveRows.mapBearing.textContent = `Map bearing: ${Math.round(bearing)}°`;
         if (this._liveRows.deviceBearing) this._liveRows.deviceBearing.textContent = this._formatDeviceBearing(deviceBearing);
         if (this._liveRows.pitch) this._liveRows.pitch.textContent = `Map pitch: ${Math.round(pitch)}°`;
+
+        this._sharePanel.refresh();
     }
 
     _formatCoords(center) {

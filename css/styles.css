@@ -368,7 +368,7 @@
 }
 
 .layer-stack-item:last-child .layer-stack-cell,
-[data-layer-item]:has(+ .layer-stack-options) .layer-stack-cell {
+[data-layer-item]:has(+ .layer-stack-export, + .layer-stack-options) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 0 0 5px 5px !important;
 }
@@ -380,8 +380,8 @@
 
 .layer-stack-item:only-child .layer-stack-cell,
 .layer-stack-browser+[data-layer-item]:last-child .layer-stack-cell,
-.layer-stack-browser+[data-layer-item]:has(+ .layer-stack-options) .layer-stack-cell,
-[data-layer-item]:first-child:has(+ .layer-stack-options) .layer-stack-cell {
+.layer-stack-browser+[data-layer-item]:has(+ .layer-stack-export, + .layer-stack-options) .layer-stack-cell,
+[data-layer-item]:first-child:has(+ .layer-stack-export, + .layer-stack-options) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 5px !important;
 }
@@ -420,7 +420,7 @@
 
 /* A single basemap is the whole lower block, so it closes at both ends */
 .layer-stack-basemap-start:last-child .layer-stack-cell,
-.layer-stack-basemap-start:has(+ .layer-stack-options) .layer-stack-cell {
+.layer-stack-basemap-start:has(+ .layer-stack-export, + .layer-stack-options) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 5px !important;
 }
@@ -520,28 +520,32 @@
     background: var(--primary-hover) !important;
 }
 
-/* Options control at the foot of the column (js/layer-stack-options-menu.js).
-   Only shown while the pointer is over the strip, so the column stays as short
-   as the layers themselves at rest - the welded block above already closes off
-   below its last cell (see the :has rules above), so nothing shifts when it
-   appears. Set off by a gap and fully rounded, like the browser toggle at the
-   head of the column. */
+/* Export and options controls at the foot of the column (js/map-export-control.js,
+   js/layer-stack-options-menu.js). Only shown while the pointer is over the strip,
+   so the column stays as short as the layers themselves at rest - the welded
+   block above already closes off below its last cell (see the :has rules above),
+   so nothing shifts when they appear. Set off by a gap and fully rounded, like
+   the browser toggle at the head of the column. */
+.layer-stack-export,
 .layer-stack-options {
     display: none;
     margin-top: 5px;
 }
 
+.layer-stack-strip:hover .layer-stack-export,
 .layer-stack-strip:hover .layer-stack-options,
 .layer-stack-strip.options-open .layer-stack-options {
     display: flex;
 }
 
-/* The flyouts hide during a drag; so does this, or it would sit under the
+/* The flyouts hide during a drag; so do these, or they would sit under the
    pointer as a drop target that is not a row. */
+.layer-stack-strip.dragging .layer-stack-export,
 .layer-stack-strip.dragging .layer-stack-options {
     display: none;
 }
 
+.layer-stack-export .layer-stack-cell,
 .layer-stack-options .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 5px !important;
@@ -550,16 +554,19 @@
 /* Same chrome as the browser toggle. The hover/open rules need the full
    ancestor chain and !important for the same reason the flyout's buttons do -
    see the note further down. */
+.layer-stack-export-btn,
 .layer-stack-options-btn {
     background: #1f2937;
     color: #9ca3af;
     cursor: pointer;
 }
 
+.layer-stack-export-btn sl-icon,
 .layer-stack-options-btn sl-icon {
     font-size: 17px;
 }
 
+.map-browser-control .layer-stack-strip button.layer-stack-export-btn:hover,
 .map-browser-control .layer-stack-strip button.layer-stack-options-btn:hover {
     background: #374151 !important;
     color: #fff !important;
@@ -1613,6 +1620,278 @@ body {
     color: #6b7280;
     text-transform: uppercase;
     letter-spacing: 0.03em;
+}
+
+/* Rows that pair a primary action with a secondary-actions flyout (see
+   js/map-nearby-features-control.js): two sibling buttons, not one nested in
+   the other, so both are separately reachable by tab/swipe. */
+.shortcut-menu-row {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    gap: 2px;
+}
+
+.shortcut-menu-row .shortcut-menu-item {
+    flex: 1;
+    min-width: 0;
+}
+
+.shortcut-menu-row .shortcut-menu-row-actions {
+    flex: none;
+    width: auto;
+    padding: 8px 6px;
+}
+
+/* "Navigate From" origin picker (see js/map-nearby-features-control.js) - a
+   dropdown button rather than a plain menu row, so it reads as the one
+   editable field above the destination list. */
+.shortcut-menu-item.shortcut-menu-item-origin {
+    background: #111827;
+    border: 1px solid #374151;
+    margin: 0 2px 2px;
+    width: calc(100% - 4px);
+}
+
+.shortcut-menu-item.shortcut-menu-item-origin:hover {
+    border-color: #4b5563;
+}
+
+.shortcut-menu-item.shortcut-menu-item-origin .shortcut-menu-item-label {
+    font-weight: 600;
+}
+
+/* The two destination sections nested under the "To" heading. */
+.shortcut-menu-item.shortcut-menu-item-subheading {
+    padding-left: 22px;
+    opacity: 0.75;
+}
+
+.shortcut-menu-item.shortcut-menu-item-subheading sl-icon {
+    font-size: 12px;
+}
+
+/* Share section of the map location menu (see js/share-url-panel.js): a QR
+   thumbnail, the share URL, and a copy button. Wider than the other shortcut
+   menus so the URL stays readable. */
+.shortcut-menu.map-location-menu {
+    min-width: 320px;
+    max-width: 360px;
+}
+
+.location-share {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    padding: 6px 10px 8px;
+}
+
+.location-share-qr {
+    flex-shrink: 0;
+    padding: 4px;
+    background: #ffffff;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    line-height: 0;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.location-share-qr:hover {
+    border-color: var(--primary-color);
+}
+
+.location-share-main {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.location-share-url {
+    width: 100%;
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    padding: 6px 8px;
+    color: #d1d5db;
+    font-family: monospace;
+    font-size: 11px;
+    text-overflow: ellipsis;
+}
+
+.location-share-url:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.location-share-copy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #374151;
+    border: none;
+    border-radius: 4px;
+    color: #f3f4f6;
+    font-size: 12px;
+    padding: 6px 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.location-share-copy:hover {
+    background: #4b5563;
+}
+
+.location-share-copy.is-copied {
+    background: #10b981;
+    color: #ffffff;
+}
+
+/* Fullscreen QR modal opened from the share thumbnail, with the optional
+   per-parameter URL editor (see js/share-url-panel.js). */
+.share-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 11000;
+    background: rgba(0, 0, 0, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow-y: auto;
+}
+
+.share-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    color: #ffffff;
+    font-size: 28px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.share-modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.share-modal-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 520px;
+}
+
+.share-modal-qr {
+    background: #ffffff;
+    padding: 12px;
+    border-radius: 8px;
+    line-height: 0;
+}
+
+.share-modal-url {
+    color: #e5e7eb;
+    font-family: monospace;
+    font-size: 13px;
+    text-align: center;
+    word-break: break-all;
+}
+
+.share-modal-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.share-modal-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #374151;
+    border: none;
+    border-radius: 6px;
+    color: #f3f4f6;
+    font-size: 13px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.share-modal-btn:hover {
+    background: #4b5563;
+}
+
+.share-modal-btn.is-active {
+    background: var(--primary-color);
+    color: #000000;
+}
+
+.share-modal-btn.is-copied {
+    background: #10b981;
+    color: #ffffff;
+}
+
+.share-modal-params {
+    width: 100%;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.share-modal-params-empty {
+    color: #9ca3af;
+    font-size: 12px;
+    text-align: center;
+}
+
+.share-modal-param-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #1f2937;
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+.share-modal-param-label {
+    min-width: 72px;
+    font-family: monospace;
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.share-modal-param-input {
+    flex: 1;
+    min-width: 0;
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    padding: 4px 6px;
+    color: #f3f4f6;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.share-modal-param-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 

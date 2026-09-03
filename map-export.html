@@ -274,155 +274,6 @@
             cursor: pointer;
         }
 
-        .url-input-wrapper {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .url-input {
-            flex: 1;
-            padding: 10px;
-            background: #374151;
-            border: 1px solid #4b5563;
-            border-radius: 6px;
-            color: white;
-            font-size: 13px;
-            font-family: monospace;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .url-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-        }
-
-        .customize-url-toggle {
-            background: transparent;
-            border: none;
-            color: #3b82f6;
-            cursor: pointer;
-            padding: 8px 0;
-            font-size: 14px;
-            text-decoration: underline;
-            transition: color 0.2s;
-        }
-
-        .customize-url-toggle:hover {
-            color: #60a5fa;
-        }
-
-        .url-param-row {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            padding: 8px;
-            background: #374151;
-            border-radius: 6px;
-            margin-bottom: 8px;
-        }
-
-        .url-param-checkbox {
-            cursor: pointer;
-        }
-
-        .url-param-label {
-            min-width: 100px;
-            font-size: 13px;
-            color: #9ca3af;
-            font-family: monospace;
-        }
-
-        .url-param-input {
-            flex: 1;
-            background: #1f2937;
-            border: 1px solid #4b5563;
-            border-radius: 4px;
-            padding: 6px;
-            color: white;
-            font-size: 13px;
-            font-family: monospace;
-        }
-
-        .url-param-input:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .qr-code-container {
-            display: flex;
-            justify-content: center;
-            padding: 16px;
-            background: #374151;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .qr-code-container:hover {
-            background: #4b5563;
-        }
-
-        .qr-fullscreen-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.95);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            padding: 20px;
-        }
-
-        .qr-fullscreen-close {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 48px;
-            height: 48px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            z-index: 10001;
-        }
-
-        .qr-fullscreen-close:hover {
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.5);
-        }
-
-        .qr-fullscreen-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            z-index: 10001;
-            pointer-events: none;
-        }
-
-        .qr-fullscreen-url {
-            color: white;
-            font-size: 14px;
-            text-align: center;
-            word-break: break-all;
-            padding: 0 20px;
-            max-width: 90vw;
-            font-family: monospace;
-        }
-
         .export-btn.processing {
             background: #f59e0b !important;
             cursor: pointer !important;
@@ -563,8 +414,7 @@
             <!-- Select Export Type -->
             <div class="form-group">
                 <label class="form-label">Select export type</label>
-                <sl-select id="use-for-select" value="link" hoist>
-                    <sl-option value="link"><u>L</u>ink</sl-option>
+                <sl-select id="use-for-select" value="print" hoist>
                     <sl-option value="print"><u>P</u>rint: Images and PDF</sl-option>
                     <sl-option value="web"><u>W</u>eb: HTML</sl-option>
                     <sl-option value="gis"><u>G</u>IS: GeoJSON,KML,GeoTIFF,GeoCSV</sl-option>
@@ -796,34 +646,6 @@
                     </div>
                 </div>
 
-                <!-- Link Options -->
-                <div id="link-settings" style="display: none;">
-                    <div class="form-group">
-                        <label class="form-label">QR Code</label>
-                        <div class="qr-code-container" id="qr-code-container">
-                            <sl-qr-code id="share-qr-code" value="" size="200"></sl-qr-code>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Share URL</label>
-                        <div class="url-input-wrapper">
-                            <input type="text" id="share-url-input" class="url-input" readonly>
-                            <button id="copy-url-btn" class="export-btn" style="width: auto; padding: 10px 16px;">
-                                <sl-icon name="clipboard" style="font-size: 14px;"></sl-icon>
-                                <span>Copy</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <button class="customize-url-toggle" id="customize-url-toggle">
-                            <sl-icon name="chevron-right" id="customize-chevron"></sl-icon>
-                            Customize URL
-                        </button>
-                        <div id="url-params-editor" style="display: none; margin-top: 12px;"></div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -838,11 +660,9 @@
 
     <script type="module">
         // State
-        let currentUseFor = 'link';
-        let currentFormat = 'link';
+        let currentUseFor = 'print';
+        let currentFormat = 'jpeg';
         let exportData = null;
-        let urlParams = {};
-        let currentShareUrl = '';
         let isExporting = false;
         let exportCancelled = false;
         let currentExportProgress = 0;
@@ -851,11 +671,6 @@
         let isFeatureListVisible = false;
 
         const formatsByUseFor = {
-            link: {
-                formats: [
-                    { value: 'link', label: 'Link', shortcut: 'l', icon: 'link-45deg', description: 'Share map via URL or QR code' }
-                ]
-            },
             print: {
                 formats: [
                     { value: 'jpeg', label: 'JPEG', shortcut: 'j', icon: 'filetype-jpg', description: 'Compressed image, smaller file size' },
@@ -1004,23 +819,6 @@
                 }, '*');
             });
 
-            $('#copy-url-btn').on('click', () => {
-                copyUrlToClipboard();
-            });
-
-            $('#customize-url-toggle').on('click', () => {
-                const $editor = $('#url-params-editor');
-                const $chevron = $('#customize-chevron');
-                const isOpen = $editor.is(':visible');
-
-                $editor.slideToggle(200);
-                $chevron.attr('name', isOpen ? 'chevron-right' : 'chevron-down');
-            });
-
-            $('#qr-code-container').on('click', () => {
-                showQRFullscreen();
-            });
-
             $('#customize-features-btn').on('click', () => {
                 toggleFeatureList();
             });
@@ -1123,7 +921,6 @@
             const $csvSettings = $('#csv-settings');
             const $styleJsonSettings = $('#style-json-settings');
             const $iframeSettings = $('#iframe-settings');
-            const $linkSettings = $('#link-settings');
             const $printOverlaySettings = $('#print-overlay-settings');
 
             // Hide all by default
@@ -1135,7 +932,6 @@
             $csvSettings.hide();
             $styleJsonSettings.hide();
             $iframeSettings.hide();
-            $linkSettings.hide();
 
             let showAdvanced = false;
 
@@ -1190,20 +986,12 @@
                 generateIframeCode();
             }
 
-            if (currentFormat === 'link') {
-                $linkSettings.show();
-                showAdvanced = true;
-                initializeLinkSettings();
-            }
-
             $advanced.toggle(showAdvanced);
 
             // Update export button text
             const $exportBtn = $('#export-btn span');
             if (currentFormat === 'iframe') {
                 $exportBtn.text('Copy Embed Code');
-            } else if (currentFormat === 'link') {
-                $exportBtn.text('Copy Link');
             } else {
                 $exportBtn.text('Download');
             }
@@ -1293,12 +1081,6 @@
         }
 
         function performExport() {
-            // Handle link format separately
-            if (currentFormat === 'link') {
-                copyUrlToClipboard();
-                return;
-            }
-
             // Handle iframe format separately
             if (currentFormat === 'iframe') {
                 const iframeCode = $('#iframe-code').val();
@@ -1456,181 +1238,6 @@
             }, '*');
         }
 
-        function initializeLinkSettings() {
-            currentShareUrl = window.parent.location.href;
-            parseUrlParams();
-            updateShareUrlDisplay();
-            renderUrlParamsEditor();
-            updateQRCode();
-        }
-
-        function parseUrlParams() {
-            try {
-                const url = new URL(currentShareUrl);
-                urlParams = {};
-
-                for (const [key, value] of url.searchParams.entries()) {
-                    urlParams[key] = { value, enabled: true };
-                }
-
-                if (urlParams.layers) {
-                    urlParams.layers.displayValue = urlParams.layers.value;
-                }
-            } catch (e) {
-                console.error('Error parsing URL:', e);
-                urlParams = {};
-            }
-        }
-
-        function buildShareUrl() {
-            try {
-                const url = new URL(currentShareUrl);
-                const newParams = new URLSearchParams();
-
-                for (const [key, data] of Object.entries(urlParams)) {
-                    if (data.enabled && data.value) {
-                        newParams.set(key, data.value);
-                    }
-                }
-
-                url.search = newParams.toString();
-                return url.toString();
-            } catch (e) {
-                console.error('Error building URL:', e);
-                return currentShareUrl;
-            }
-        }
-
-        function updateShareUrlDisplay() {
-            const url = buildShareUrl();
-            $('#share-url-input').val(url);
-        }
-
-        function renderUrlParamsEditor() {
-            const $editor = $('#url-params-editor');
-            $editor.empty();
-
-            const paramOrder = ['atlas', 'layers', 'lat', 'lng', 'zoom', 'bearing', 'pitch'];
-            const sortedParams = [];
-
-            paramOrder.forEach(key => {
-                if (urlParams[key]) {
-                    sortedParams.push([key, urlParams[key]]);
-                }
-            });
-
-            Object.entries(urlParams).forEach(([key, data]) => {
-                if (!paramOrder.includes(key)) {
-                    sortedParams.push([key, data]);
-                }
-            });
-
-            sortedParams.forEach(([key, data]) => {
-                const $row = $('<div>', { class: 'url-param-row' });
-
-                const $checkbox = $('<input>', {
-                    type: 'checkbox',
-                    class: 'url-param-checkbox',
-                    checked: data.enabled,
-                    'data-param': key
-                });
-
-                const $label = $('<div>', {
-                    class: 'url-param-label',
-                    text: key
-                });
-
-                const $input = $('<input>', {
-                    type: 'text',
-                    class: 'url-param-input',
-                    value: data.value,
-                    disabled: !data.enabled,
-                    'data-param': key
-                });
-
-                $checkbox.on('change', function () {
-                    const enabled = $(this).is(':checked');
-                    urlParams[key].enabled = enabled;
-                    $input.prop('disabled', !enabled);
-                    updateShareUrlDisplay();
-                    updateQRCode();
-                });
-
-                $input.on('input', function () {
-                    urlParams[key].value = $(this).val();
-                    updateShareUrlDisplay();
-                    updateQRCode();
-                });
-
-                $row.append($checkbox).append($label).append($input);
-                $editor.append($row);
-            });
-        }
-
-        function updateQRCode() {
-            const url = buildShareUrl();
-            $('#share-qr-code').attr('value', url);
-        }
-
-        function copyUrlToClipboard(customMessage) {
-            const url = buildShareUrl();
-            const $input = $('#share-url-input');
-
-            $input[0].select();
-            navigator.clipboard.writeText(url).then(() => {
-                if (customMessage) {
-                    showToastNotification(customMessage);
-                } else {
-                    const $btn = $('#copy-url-btn');
-                    const originalHtml = $btn.html();
-
-                    $btn.html(`
-                        <sl-icon name="check-circle" style="font-size: 14px;"></sl-icon>
-                        <span>Copied!</span>
-                    `).addClass('bg-blue-600').removeClass('bg-green-600');
-
-                    setTimeout(() => {
-                        $btn.html(originalHtml).removeClass('bg-blue-600').addClass('bg-green-600');
-                    }, 2000);
-                }
-            }).catch(err => {
-                console.error('Failed to copy:', err);
-                alert('Failed to copy URL to clipboard');
-            });
-        }
-
-        function showToastNotification(message) {
-            const $toast = $('<div>', {
-                css: {
-                    position: 'fixed',
-                    top: '20px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: '#10b981',
-                    color: 'white',
-                    padding: '12px 24px',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    zIndex: '10001',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                    opacity: '0',
-                    transition: 'opacity 0.2s'
-                },
-                text: message
-            });
-
-            $('body').append($toast);
-
-            setTimeout(() => {
-                $toast.css('opacity', '1');
-            }, 10);
-
-            setTimeout(() => {
-                $toast.css('opacity', '0');
-                setTimeout(() => $toast.remove(), 200);
-            }, 2000);
-        }
 
         function startProcessing() {
             isExporting = true;
@@ -1668,9 +1275,6 @@
             if (currentFormat === 'iframe') {
                 $icon.attr('name', 'clipboard');
                 $text.text('Copy Embed Code');
-            } else if (currentFormat === 'link') {
-                $icon.attr('name', 'clipboard');
-                $text.text('Copy Link');
             } else {
                 $icon.attr('name', 'download');
                 $text.text('Download');
@@ -1709,72 +1313,6 @@
             updateButtonProgress(-1, 'Export cancelled');
             setTimeout(() => stopProcessing(false), 1500);
         }
-
-        function showQRFullscreen() {
-            const url = buildShareUrl();
-
-            // Post message to parent to show fullscreen QR
-            if (window.self !== window.top) {
-                window.parent.postMessage({
-                    type: 'show-qr-fullscreen',
-                    url: url
-                }, '*');
-            } else {
-                // Fallback for standalone mode
-                createQROverlay(url);
-            }
-        }
-
-        function createQROverlay(url) {
-            const $overlay = $('<div>', { class: 'qr-fullscreen-overlay' });
-
-            const $closeBtn = $('<button>', {
-                class: 'qr-fullscreen-close',
-                html: '×'
-            });
-
-            const $content = $('<div>', { class: 'qr-fullscreen-content' });
-
-            const $qrCode = $('<sl-qr-code>', {
-                value: url,
-                size: 400,
-                css: {
-                    maxWidth: '90vw',
-                    maxHeight: '70vh'
-                }
-            });
-
-            const $urlText = $('<div>', {
-                class: 'qr-fullscreen-url',
-                text: url
-            });
-
-            const closeOverlay = () => {
-                $overlay.remove();
-            };
-
-            $closeBtn.on('click', (e) => {
-                e.stopPropagation();
-                closeOverlay();
-            });
-
-            $overlay.on('click', function (e) {
-                if (e.target === this) {
-                    closeOverlay();
-                }
-            });
-
-            $content.append($qrCode).append($urlText);
-            $overlay.append($closeBtn).append($content);
-            $('body').append($overlay);
-        }
-
-        // Listen for messages from parent to create overlay
-        window.addEventListener('message', (event) => {
-            if (event.data.type === 'create-qr-overlay') {
-                createQROverlay(event.data.url);
-            }
-        });
 
         function updateFeatureListVisibility() {
             const isChecked = $('#export-selected-only').is(':checked');
@@ -1972,7 +1510,6 @@
             const key = e.key.toLowerCase();
 
             const formatShortcuts = {
-                'l': 'link',
                 'p': 'print',
                 'w': 'web',
                 'g': 'gis',
@@ -2092,7 +1629,6 @@
             currentFormat = settings.format;
 
             const useForMap = {
-                'link': 'link',
                 'jpeg': 'print',
                 'png': 'print',
                 'svg': 'print',
@@ -2107,16 +1643,14 @@
                 'dxf': 'cad'
             };
 
-            const useFor = useForMap[settings.format] || 'link';
+            const useFor = useForMap[settings.format] || 'print';
             if (useFor !== currentUseFor) {
                 currentUseFor = useFor;
                 $('#use-for-select').val(useFor);
                 updateFormatOptions();
             }
 
-            if (settings.format !== 'link') {
-                $(`.format-button[data-format="${settings.format}"]`).click();
-            }
+            $(`.format-button[data-format="${settings.format}"]`).click();
 
             if (settings.pageSize) {
                 $('#page-size').val(settings.pageSize);
@@ -2172,10 +1706,6 @@
             const name = $(this).attr('name');
 
             if (id === 'map-title' || id === 'map-description') {
-                return;
-            }
-
-            if (id === 'share-url-input' || $(this).hasClass('url-param-input') || $(this).hasClass('url-param-checkbox')) {
                 return;
             }
 

@@ -231,6 +231,9 @@ export class ExportFrame {
                 document.removeEventListener('mousemove', performMove);
                 document.removeEventListener('mouseup', onUp);
             }
+            if (this._control && this._control._onFrameInteractionEnd) {
+                this._control._onFrameInteractionEnd();
+            }
         };
 
         if (isTouch) {
@@ -312,6 +315,9 @@ export class ExportFrame {
             } else {
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
+            }
+            if (this._control && this._control._onFrameInteractionEnd) {
+                this._control._onFrameInteractionEnd();
             }
         };
 

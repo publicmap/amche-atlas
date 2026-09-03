@@ -4,19 +4,29 @@
  * menu, so touch screen-reader users (VoiceOver/TalkBack — no keyboard, and
  * canvas hit-testing via drag gestures isn't reliable for them) and
  * keyboard-only users can select a feature without needing to hit-test the
- * Mapbox GL canvas at all. Each row also live-updates its distance and
- * compass bearing from the device's current position (reusing the app's
- * existing window.geolocationControl rather than a separate watchPosition),
- * so a VI user can walk toward a target and watch the distance shrink.
- * Selecting a feature routes through the same stateManager.handleFeatureClicks()
- * pipeline a mouse click uses, so marker creation, the inspector panel, and
- * URL state all behave identically.
+ * Mapbox GL canvas at all. Selecting a feature routes through the same
+ * stateManager.handleFeatureClicks() pipeline a mouse click uses, so marker
+ * creation, the inspector panel, and URL state all behave identically.
  *
- * A "Markers" section is pinned at the top of the list (before the paginated
- * feature rows) listing every marker already placed on the map (see
- * map-marker-manager.js), sorted by proximity the same way feature rows are.
- * Selecting one flies the map to it via MapMarkerManager.focusMarker() rather
- * than re-running feature selection.
+ * The menu reads as a from/to pair:
+ *
+ * - **Navigate From** — one button showing the current origin with its own
+ *   icon (device GPS, the map center, or a marker); clicking it drops a
+ *   dropdown of every available option (see nearby-reference-point.js). This
+ *   origin is also what every distance and bearing below is measured from, so
+ *   a VI user can walk toward a target and watch the distance shrink. GPS
+ *   reuses the app's existing window.geolocationControl rather than a separate
+ *   watchPosition.
+ * - **To** — two sections of destinations, each sorted nearest-first: every
+ *   marker on the map (see map-marker-manager.js), then the closest few
+ *   features in view. Selecting a marker flies to it via
+ *   MapMarkerManager.focusMarker(); selecting a feature selects it.
+ *
+ * Every destination row carries a chevron button opening a flyout of secondary
+ * actions (see shortcut-flyout.js): "Navigate", which draws a route from the
+ * origin via search/directions-router.js, and — for features only — "Add
+ * marker", which runs the normal selection pipeline at that point. The row's
+ * own click stays the primary action, so the common case is still one tap.
  *
  * Lives in the header-nav (next to the shortcuts menu — see
  * header-shortcut-menu-control.js / shortcut-menu-base.js), sharing its
@@ -25,8 +35,10 @@
  * menus (see map-location-menu-control.js). Not a mapboxgl control.
  */
 import { haversineDistanceMeters, initialBearingDeg, formatDistance, bearingToCompassAbbr, bearingToCompassWord } from './geo-distance-utils.js';
+import { NearbyReferencePoint, REFERENCE_GEOLOCATION, REFERENCE_CENTER } from './nearby-reference-point.js';
+import { ShortcutFlyout } from './shortcut-flyout.js';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 export class NearbyFeaturesControl {
     constructor(stateManager) {
@@ -40,11 +52,13 @@ export class NearbyFeaturesControl {
         this._rowRefs = [];
         this._allMarkers = [];
         this._markerRowRefs = [];
+        this._referenceRow = null;
         this._visibleCount = PAGE_SIZE;
-        this._userPosition = null;
-        this._hasSortedByDistance = false;
+        this._reference = null;
+        this._flyout = new ShortcutFlyout();
         this._onKeydown = this._onKeydown.bind(this);
         this._onGeolocate = this._onGeolocate.bind(this);
+        this._onMapMove = this._onMapMove.bind(this);
         this._handleOutsideEvent = this._handleOutsideEvent.bind(this);
         this._hide = this._hide.bind(this);
     }
@@ -52,6 +66,7 @@ export class NearbyFeaturesControl {
     mount(hostEl, map) {
         if (!hostEl || !map) return;
         this._map = map;
+        this._reference = new NearbyReferencePoint(map);
 
         this._container = document.createElement('div');
         this._container.className = 'header-shortcut-menu';
@@ -59,9 +74,9 @@ export class NearbyFeaturesControl {
         this._button = document.createElement('button');
         this._button.type = 'button';
         this._button.className = 'header-shortcut-menu-btn';
-        this._button.setAttribute('aria-label', 'List features in view');
-        this._button.title = 'List features in view (for screen readers or without a mouse)';
-        this._button.innerHTML = '<sl-icon name="geo-alt"></sl-icon>';
+        this._button.setAttribute('aria-label', 'Navigate to features in view');
+        this._button.title = 'Navigate to features in view (for screen readers or without a mouse)';
+        this._button.innerHTML = '<sl-icon name="sign-turn-right"></sl-icon>';
         this._button.addEventListener('click', () => this.toggle());
 
         this._container.appendChild(this._button);
@@ -72,8 +87,10 @@ export class NearbyFeaturesControl {
         this._menu.style.display = 'none';
         this._menu.setAttribute('role', 'dialog');
         this._menu.setAttribute('aria-modal', 'true');
-        this._menu.setAttribute('aria-label', 'Features in view');
+        this._menu.setAttribute('aria-label', 'Navigate to features in view');
         document.body.appendChild(this._menu);
+
+        this._flyout.mount();
 
         document.addEventListener('mousedown', this._handleOutsideEvent, true);
         document.addEventListener('touchstart', this._handleOutsideEvent, true);
@@ -87,7 +104,9 @@ export class NearbyFeaturesControl {
         document.removeEventListener('keydown', this._onKeydown, true);
         window.removeEventListener('resize', this._hide);
         this._stopLocationTracking();
+        this._map?.off('move', this._onMapMove);
 
+        this._flyout.unmount();
         this._menu?.parentNode?.removeChild(this._menu);
         this._container?.parentNode?.removeChild(this._container);
         this._menu = null;
@@ -112,10 +131,11 @@ export class NearbyFeaturesControl {
         if (!this._map || !this._button || !this._menu) return;
         this._isOpenState = true;
         this._button.classList.add('active');
-        this._button.querySelector('sl-icon')?.setAttribute('name', 'geo-alt-fill');
+        this._button.querySelector('sl-icon')?.setAttribute('name', 'sign-turn-right-fill');
 
         this._visibleCount = PAGE_SIZE;
         this._startLocationTracking();
+        this._map.on('move', this._onMapMove);
         this._populateList();
 
         this._menu.style.display = 'block';
@@ -130,9 +150,11 @@ export class NearbyFeaturesControl {
 
     _hide() {
         this._isOpenState = false;
+        this._flyout.close();
         if (this._menu) this._menu.style.display = 'none';
         this._button?.classList.remove('active');
-        this._button?.querySelector('sl-icon')?.setAttribute('name', 'geo-alt');
+        this._button?.querySelector('sl-icon')?.setAttribute('name', 'sign-turn-right');
+        this._map?.off('move', this._onMapMove);
         this._stopLocationTracking();
     }
 
@@ -153,47 +175,59 @@ export class NearbyFeaturesControl {
     }
 
     _onGeolocate(e) {
-        this._userPosition = { lat: e.coords.latitude, lng: e.coords.longitude };
+        const promotedToGps = this._reference.setUserPosition({ lat: e.coords.latitude, lng: e.coords.longitude });
 
-        if (!this._hasSortedByDistance) {
-            // First fix since this list was populated: sort nearest-first once,
-            // then leave row order stable so live updates below don't reshuffle
-            // the list under a screen-reader/keyboard user mid-navigation.
-            this._hasSortedByDistance = true;
-            const hadFocusInMenu = this._menu.contains(document.activeElement);
-            this._sortByDistance();
-            this._renderVisible();
-            if (hadFocusInMenu) this._menu.querySelector('button.shortcut-menu-item')?.focus();
-            return;
+        // The first fix promotes an implicit map-center default to GPS, which
+        // changes what "nearest" means — worth one re-sort. After that row
+        // order stays stable so live updates don't reshuffle the list under a
+        // screen-reader/keyboard user mid-navigation.
+        if (promotedToGps) {
+            this._resortAndRender();
+        } else if (this._reference.type === REFERENCE_GEOLOCATION) {
+            this._refreshDistances();
         }
+    }
 
-        this._rowRefs.forEach(row => this._updateRowDistance(row));
-        this._markerRowRefs.forEach(row => this._updateMarkerRowDistance(row));
+    _onMapMove() {
+        if (this._reference.type === REFERENCE_CENTER) this._refreshDistances();
     }
 
     _sortByDistance() {
-        if (!this._userPosition) return;
-        this._allFeatures.forEach(f => {
-            f._distanceMeters = haversineDistanceMeters(this._userPosition, f.lngLat);
-        });
-        this._allFeatures.sort((a, b) => a._distanceMeters - b._distanceMeters);
+        const origin = this._reference.resolve();
+        if (!origin) return;
 
-        this._allMarkers.forEach(m => {
-            m._distanceMeters = haversineDistanceMeters(this._userPosition, m.lngLat);
+        [this._allFeatures, this._allMarkers].forEach(list => {
+            list.forEach(item => {
+                item._distanceMeters = haversineDistanceMeters(origin, item.lngLat);
+            });
+            list.sort((a, b) => a._distanceMeters - b._distanceMeters);
         });
-        this._allMarkers.sort((a, b) => a._distanceMeters - b._distanceMeters);
+    }
+
+    _resortAndRender() {
+        const hadFocusInMenu = this._menu.contains(document.activeElement);
+        this._flyout.close();
+        this._sortByDistance();
+        this._renderVisible();
+        if (hadFocusInMenu) this._menu.querySelector('button.shortcut-menu-item')?.focus();
+    }
+
+    _refreshDistances() {
+        this._updateReferenceRow();
+        this._rowRefs.forEach(row => this._updateRowDistance(row));
+        this._markerRowRefs.forEach(row => this._updateMarkerRowDistance(row));
     }
 
     _populateList() {
         this._allFeatures = this._stateManager.getFeaturesInView();
         this._allMarkers = window.featureControl?._markerManager?.getMarkers() || [];
-        this._hasSortedByDistance = !!this._userPosition;
-        if (this._hasSortedByDistance) this._sortByDistance();
+        this._sortByDistance();
 
+        const featureCount = this._allFeatures.length;
         window.keyboardController?.announceToScreenReader(
-            this._allFeatures.length > 0
-                ? `${this._allFeatures.length} feature${this._allFeatures.length === 1 ? '' : 's'} in view. Showing the nearest ${Math.min(PAGE_SIZE, this._allFeatures.length)}.`
-                : 'No features in the current view.'
+            `Navigating from ${this._reference.name()}. ` + (featureCount > 0
+                ? `${this._allMarkers.length} marker${this._allMarkers.length === 1 ? '' : 's'} and the nearest ${Math.min(PAGE_SIZE, featureCount)} of ${featureCount} features in view.`
+                : `${this._allMarkers.length} marker${this._allMarkers.length === 1 ? '' : 's'}. No features in the current view.`)
         );
 
         this._renderVisible();
@@ -205,41 +239,24 @@ export class NearbyFeaturesControl {
         this._rowRefs = [];
         this._markerRowRefs = [];
 
+        this._menu.appendChild(this._createHeading('record-circle', 'Navigate From'));
+        this._menu.appendChild(this._createReferenceRow());
+        this._menu.appendChild(this._createDivider());
+        this._menu.appendChild(this._createHeading('flag', 'To'));
+
         if (this._allMarkers.length > 0) {
-            const markersHeading = document.createElement('div');
-            markersHeading.className = 'shortcut-menu-item shortcut-menu-item-static';
-            const markersHeadingIcon = document.createElement('sl-icon');
-            markersHeadingIcon.setAttribute('name', 'geo-alt-fill');
-            const markersHeadingLabel = document.createElement('span');
-            markersHeadingLabel.textContent = `Markers (${this._allMarkers.length})`;
-            markersHeading.appendChild(markersHeadingIcon);
-            markersHeading.appendChild(markersHeadingLabel);
-            this._menu.appendChild(markersHeading);
+            this._menu.appendChild(this._createHeading('geo-alt-fill', `Markers (${this._allMarkers.length})`, { sub: true }));
 
             this._allMarkers.forEach((m) => {
                 const row = this._createMarkerRow(m);
-                this._menu.appendChild(row.button);
+                this._menu.appendChild(row.wrapper);
                 this._markerRowRefs.push(row);
             });
 
-            const markersDivider = document.createElement('div');
-            markersDivider.className = 'shortcut-menu-divider';
-            this._menu.appendChild(markersDivider);
+            this._menu.appendChild(this._createDivider());
         }
 
-        const heading = document.createElement('div');
-        heading.className = 'shortcut-menu-item shortcut-menu-item-static';
-        const headingIcon = document.createElement('sl-icon');
-        headingIcon.setAttribute('name', 'filter-circle');
-        const headingLabel = document.createElement('span');
-        headingLabel.textContent = `Features in view (${this._allFeatures.length})`;
-        heading.appendChild(headingIcon);
-        heading.appendChild(headingLabel);
-        this._menu.appendChild(heading);
-
-        const divider = document.createElement('div');
-        divider.className = 'shortcut-menu-divider';
-        this._menu.appendChild(divider);
+        this._menu.appendChild(this._createHeading('filter-circle', `Nearby features (${this._allFeatures.length})`, { sub: true }));
 
         if (this._allFeatures.length === 0) {
             const empty = document.createElement('div');
@@ -254,7 +271,7 @@ export class NearbyFeaturesControl {
         const visible = this._allFeatures.slice(0, this._visibleCount);
         visible.forEach((f) => {
             const row = this._createRow(f);
-            this._menu.appendChild(row.button);
+            this._menu.appendChild(row.wrapper);
             this._rowRefs.push(row);
         });
 
@@ -284,88 +301,241 @@ export class NearbyFeaturesControl {
         }
     }
 
+    /**
+     * A section label. `sub` marks the two destination sections nested under
+     * the "To" heading, so they read as a level down rather than as peers of
+     * "Navigate From" / "To".
+     */
+    _createHeading(iconName, text, { sub = false } = {}) {
+        const heading = document.createElement('div');
+        heading.className = 'shortcut-menu-item shortcut-menu-item-static';
+        if (sub) heading.classList.add('shortcut-menu-item-subheading');
+        const icon = document.createElement('sl-icon');
+        icon.setAttribute('name', iconName);
+        const label = document.createElement('span');
+        label.textContent = text;
+        heading.appendChild(icon);
+        heading.appendChild(label);
+        return heading;
+    }
+
+    _createDivider() {
+        const divider = document.createElement('div');
+        divider.className = 'shortcut-menu-divider';
+        return divider;
+    }
+
     _showMore() {
         this._visibleCount = Math.min(this._visibleCount + PAGE_SIZE, this._allFeatures.length);
         this._renderVisible({ focusFirstNew: true });
     }
 
-    _createRow(f) {
+    /**
+     * The "Navigate From" button: the current origin, shown with its own icon,
+     * dropping a list of every available origin — GPS, the map center, and
+     * every marker by name (see nearby-reference-point.js). Picking one
+     * re-sorts the destinations below around it.
+     */
+    _createReferenceRow() {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'shortcut-menu-item';
+        button.className = 'shortcut-menu-item shortcut-menu-item-origin';
 
         const icon = document.createElement('sl-icon');
-        icon.setAttribute('name', 'geo-alt');
         button.appendChild(icon);
 
         const text = document.createElement('div');
         text.className = 'shortcut-menu-item-text';
-
         const label = document.createElement('span');
         label.className = 'shortcut-menu-item-label';
         const subtext = document.createElement('span');
         subtext.className = 'shortcut-menu-item-subtext';
+        text.appendChild(label);
+        text.appendChild(subtext);
+        button.appendChild(text);
 
+        const chevron = document.createElement('sl-icon');
+        chevron.className = 'shortcut-menu-chevron';
+        chevron.setAttribute('name', 'chevron-down');
+        button.appendChild(chevron);
+
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._flyout.toggle(button, this._buildReferenceItems(), { placement: 'below' });
+        });
+
+        this._referenceRow = { button, icon, label, subtext };
+        this._updateReferenceRow();
+        return button;
+    }
+
+    _updateReferenceRow() {
+        if (!this._referenceRow) return;
+        const { button, icon, label, subtext } = this._referenceRow;
+        const { label: name, icon: iconName, isPending } = this._reference.current();
+        const point = this._reference.resolve();
+
+        icon.setAttribute('name', iconName);
+        label.textContent = name;
+        subtext.textContent = isPending
+            ? 'Waiting for GPS · using map center'
+            : (point ? `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}` : 'Unavailable');
+        button.setAttribute('aria-label', `Navigate from ${name}. Choose a different starting point`);
+    }
+
+    _buildReferenceItems() {
+        return this._reference.listOptions().map(option => ({
+            icon: option.icon,
+            label: option.label,
+            subtext: option.subtext,
+            checked: this._reference.isChosen(option),
+            action: () => this._chooseReference(option)
+        }));
+    }
+
+    _chooseReference(option) {
+        this._reference.choose(option);
+        if (option.type === REFERENCE_GEOLOCATION) this._startLocationTracking();
+        this._resortAndRender();
+        window.keyboardController?.announceToScreenReader(`Navigating from ${this._reference.name()}`);
+        this._menu.querySelector('button.shortcut-menu-item')?.focus();
+    }
+
+    /**
+     * A list row: the primary action button plus a chevron button opening its
+     * secondary-actions flyout. Two sibling buttons rather than one nested
+     * inside the other, so both are reachable by tab/swipe on their own.
+     */
+    _createActionRow({ icon, onSelect, buildActions }) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'shortcut-menu-row';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'shortcut-menu-item';
+
+        const iconEl = document.createElement('sl-icon');
+        iconEl.setAttribute('name', icon);
+        button.appendChild(iconEl);
+
+        const text = document.createElement('div');
+        text.className = 'shortcut-menu-item-text';
+        const label = document.createElement('span');
+        label.className = 'shortcut-menu-item-label';
+        const subtext = document.createElement('span');
+        subtext.className = 'shortcut-menu-item-subtext';
         text.appendChild(label);
         text.appendChild(subtext);
         button.appendChild(text);
 
         button.addEventListener('click', (e) => {
             e.stopPropagation();
-            this._selectFeature(f);
+            onSelect();
         });
+        wrapper.appendChild(button);
 
-        const row = { button, label, subtext, f };
+        const actions = document.createElement('button');
+        actions.type = 'button';
+        actions.className = 'shortcut-menu-item shortcut-menu-row-actions';
+        const chevron = document.createElement('sl-icon');
+        chevron.className = 'shortcut-menu-chevron';
+        chevron.setAttribute('name', 'chevron-right');
+        actions.appendChild(chevron);
+        actions.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._flyout.toggle(actions, buildActions());
+        });
+        wrapper.appendChild(actions);
+
+        return { wrapper, button, actions, label, subtext };
+    }
+
+    _createRow(f) {
+        const row = this._createActionRow({
+            icon: 'geo-alt',
+            onSelect: () => this._selectFeature(f),
+            buildActions: () => this._buildFeatureActions(f)
+        });
+        row.f = f;
         this._updateRowDistance(row);
         return row;
     }
 
     _createMarkerRow(m) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'shortcut-menu-item';
-
-        const icon = document.createElement('sl-icon');
-        icon.setAttribute('name', 'geo-alt-fill');
-        button.appendChild(icon);
-
-        const text = document.createElement('div');
-        text.className = 'shortcut-menu-item-text';
-
-        const label = document.createElement('span');
-        label.className = 'shortcut-menu-item-label';
-        const subtext = document.createElement('span');
-        subtext.className = 'shortcut-menu-item-subtext';
-
-        text.appendChild(label);
-        text.appendChild(subtext);
-        button.appendChild(text);
-
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._focusMarker(m);
+        const row = this._createActionRow({
+            icon: 'geo-alt-fill',
+            onSelect: () => this._focusMarker(m),
+            buildActions: () => this._buildMarkerActions(m)
         });
-
-        const row = { button, label, subtext, m };
+        row.m = m;
         this._updateMarkerRowDistance(row);
         return row;
     }
 
+    _buildFeatureActions(f) {
+        const { label } = this._describeFeature(f);
+        return [
+            {
+                icon: 'signpost-split',
+                label: 'Navigate',
+                subtext: `Route from ${this._reference.name()}`,
+                action: () => this._navigateTo(f.lngLat, label)
+            },
+            {
+                icon: 'geo-alt-fill',
+                label: 'Add marker',
+                subtext: 'Place a marker here',
+                action: () => this._addMarkerAt(f.lngLat, label)
+            }
+        ];
+    }
+
+    // Markers get no "Add marker" — one is already there.
+    _buildMarkerActions(m) {
+        return [
+            {
+                icon: 'signpost-split',
+                label: 'Navigate',
+                subtext: `Route from ${this._reference.name()}`,
+                action: () => this._navigateTo(m.lngLat, m.label)
+            }
+        ];
+    }
+
+    /**
+     * Draws a route from the current reference point to `lngLat`, reusing the
+     * search control's own directions handler (search/directions-router.js
+     * plus its route layer and fitBounds) so a route started here looks
+     * identical to one started from an "X to Y" search.
+     */
+    _navigateTo(lngLat, label) {
+        const from = this._reference.resolve();
+        if (!from) return;
+        this._hide();
+        window.keyboardController?.announceToScreenReader(`Finding a route to ${label}`);
+        window.searchControl?._selectDirectionsSuggestion({
+            from: { coordinates: [from.lng, from.lat] },
+            to: { coordinates: [lngLat.lng, lngLat.lat] }
+        });
+    }
+
+    /**
+     * Places a selection marker at `lngLat` via the same manual trigger the
+     * right-click shortcut menu's "Select features" uses, so the marker picks
+     * up whatever features sit under that point.
+     */
+    _addMarkerAt(lngLat, label) {
+        this._hide();
+        window.featureControl?.triggerSelectionAt(lngLat);
+        window.keyboardController?.announceToScreenReader(`Marker added at ${label}`);
+    }
+
     _updateMarkerRowDistance(row) {
-        const { m, label, subtext, button } = row;
+        const { m, label, subtext, button, actions } = row;
         label.textContent = m.label;
-
-        if (!this._userPosition) {
-            subtext.textContent = 'Marker';
-            button.setAttribute('aria-label', m.label);
-            return;
-        }
-
-        const distanceMeters = haversineDistanceMeters(this._userPosition, m.lngLat);
-        const bearingDeg = initialBearingDeg(this._userPosition, m.lngLat);
-        const distanceText = formatDistance(distanceMeters);
-        subtext.textContent = `${distanceText} · ${bearingToCompassAbbr(bearingDeg)}`;
-        button.setAttribute('aria-label', `${m.label}, ${distanceText} away, ${bearingToCompassWord(bearingDeg)}`);
+        subtext.textContent = this._formatOffset(m.lngLat) || 'Marker';
+        button.setAttribute('aria-label', `${m.label}${this._describeOffset(m.lngLat)}`);
+        actions.setAttribute('aria-label', `Actions for ${m.label}`);
     }
 
     _focusMarker(m) {
@@ -386,21 +556,31 @@ export class NearbyFeaturesControl {
     }
 
     _updateRowDistance(row) {
-        const { f, label, subtext, button } = row;
+        const { f, label, subtext, button, actions } = row;
         const { label: featureLabel, layerTitle } = this._describeFeature(f);
         label.textContent = featureLabel;
 
-        if (!this._userPosition) {
-            subtext.textContent = layerTitle;
-            button.setAttribute('aria-label', `${featureLabel} — ${layerTitle}`);
-            return;
-        }
+        const offset = this._formatOffset(f.lngLat);
+        subtext.textContent = offset ? `${layerTitle} · ${offset}` : layerTitle;
+        button.setAttribute('aria-label', `${featureLabel} — ${layerTitle}${this._describeOffset(f.lngLat)}`);
+        actions.setAttribute('aria-label', `Actions for ${featureLabel}`);
+    }
 
-        const distanceMeters = haversineDistanceMeters(this._userPosition, f.lngLat);
-        const bearingDeg = initialBearingDeg(this._userPosition, f.lngLat);
-        const distanceText = formatDistance(distanceMeters);
-        subtext.textContent = `${layerTitle} · ${distanceText} · ${bearingToCompassAbbr(bearingDeg)}`;
-        button.setAttribute('aria-label', `${featureLabel} — ${layerTitle}, ${distanceText} away, ${bearingToCompassWord(bearingDeg)}`);
+    /** "320 m · NE" from the current reference point, or '' if unresolvable. */
+    _formatOffset(lngLat) {
+        const origin = this._reference.resolve();
+        if (!origin) return '';
+        const bearingDeg = initialBearingDeg(origin, lngLat);
+        return `${formatDistance(haversineDistanceMeters(origin, lngLat))} · ${bearingToCompassAbbr(bearingDeg)}`;
+    }
+
+    /** Spoken form of the same offset, as an aria-label suffix. */
+    _describeOffset(lngLat) {
+        const origin = this._reference.resolve();
+        if (!origin) return '';
+        const distanceText = formatDistance(haversineDistanceMeters(origin, lngLat));
+        const bearingDeg = initialBearingDeg(origin, lngLat);
+        return `, ${distanceText} ${bearingToCompassWord(bearingDeg)} of ${this._reference.name()}`;
     }
 
     _selectFeature(f) {
@@ -415,32 +595,35 @@ export class NearbyFeaturesControl {
         if (!this._isOpenState) return;
         if (this._container?.contains(e.target)) return;
         if (this._menu?.contains(e.target)) return;
+        if (this._flyout.contains(e.target)) return;
         this._hide();
     }
 
     /**
-     * Escape closes the menu; Space/Enter on a focused row must reach the
-     * button's own native activation instead of the global keyboard shortcut
-     * for "query feature at map center" (both bind Space). Registered with
-     * `capture: true` so it runs — and can stopPropagation — before that
-     * bubble-phase document listener in keyboard-controller.js ever sees the key.
+     * Escape closes the open flyout first, then the menu; Space/Enter on a
+     * focused row must reach the button's own native activation instead of the
+     * global keyboard shortcut for "query feature at map center" (both bind
+     * Space). Registered with `capture: true` so it runs — and can
+     * stopPropagation — before that bubble-phase document listener in
+     * keyboard-controller.js ever sees the key.
      */
     _onKeydown(e) {
         if (!this._menu || !this._isOpenState) return;
 
         if (e.key === 'Escape') {
             e.stopPropagation();
-            this._hide();
+            if (this._flyout.isOpen) this._flyout.close({ restoreFocus: true });
+            else this._hide();
             return;
         }
 
-        if (e.key === ' ' && this._menu.contains(document.activeElement)) {
+        if (e.key === ' ' && (this._menu.contains(document.activeElement) || this._flyout.contains(document.activeElement))) {
             e.stopPropagation();
             return;
         }
 
         if (e.key === 'Tab') {
-            const focusable = this._menu.querySelectorAll('button');
+            const focusable = [...this._menu.querySelectorAll('button'), ...this._flyout.buttons()];
             if (focusable.length === 0) return;
             const first = focusable[0];
             const last = focusable[focusable.length - 1];

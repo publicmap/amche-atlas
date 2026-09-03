@@ -969,12 +969,9 @@ export class MapInitializer {
             window.mapLocationMenuControl.mount(document.getElementById('map-location-menu-container'), map);
 
             // Bottom-right, in stacking order from the corner up: attribution
-            // sits lowest, the orientation button next (nearest the thumb), and
-            // the 3D panel's toggle above it. Bottom corners insert each new
-            // control above the previous one, so add order is bottom-to-top.
+            // sits lowest. Bottom corners insert each new control above the
+            // previous one, so add order is bottom-to-top.
             map.addControl(window.attributionControl, 'bottom-right');
-            map.addControl(window.orientationControl, 'bottom-right');
-            map.addControl(window.terrain3DControl, 'bottom-right');
 
             // Right-click / long-press shortcut menu, relies on the controls above
             window.shortcutMenu = new ShortcutMenu();
@@ -1012,22 +1009,29 @@ export class MapInitializer {
                 }
             });
 
-            // (Geolocation control already mounted at the top of map.on('load')
-            // so its GPS auto-trigger runs in parallel with the rest of setup.)
+            // Top-right, in stacking order from the corner down: geolocation
+            // first (already mounted at the top of map.on('load') so its GPS
+            // auto-trigger runs in parallel with the rest of setup), then the
+            // 3D panel's toggle. Top corners insert each new control below the
+            // previous one, so add order is top-to-bottom.
+            map.addControl(window.orientationControl, 'top-right');
+            map.addControl(window.terrain3DControl, 'top-right');
             map.addControl(new TimeControl(), 'top-right');
-            // Street view goes last in the top-right stack
-            window.streetviewControl = new StreetviewControl();
-            map.addControl(window.streetviewControl, 'top-right');
             window.contextMessagesControl = new MapContextMessagesControl();
             window.contextMessagesControl.onAdd(map);
             const shortcutHintId = MapContextMessagesControl.show('Long press/right click map for shortcuts');
             setTimeout(() => MapContextMessagesControl.close(shortcutHintId), 8000);
-            // Both open top-anchored panels, so they live in the top-right
-            // stack, below the controls added above.
+            // Not mounted as a map control - triggered from the last item in
+            // the layer-stack strip (see layer-stack-strip.js) instead, via a
+            // 'toggle-export' message its own listener already handles.
             window.exportControl = new MapExportControl();
-            map.addControl(window.exportControl, 'top-right');
+            window.exportControl.onAdd(map);
+            // Bottom-right: added above attribution, external map links next,
+            // then street view on top.
             window.externalMapLinksControl = new ButtonExternalMapLinks();
-            map.addControl(window.externalMapLinksControl, 'top-right');
+            map.addControl(window.externalMapLinksControl, 'bottom-right');
+            window.streetviewControl = new StreetviewControl();
+            map.addControl(window.streetviewControl, 'bottom-right');
             map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
             // Added after ScaleControl so it stacks above it (bottom corners
             // insert each new control above the previous one).

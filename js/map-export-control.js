@@ -93,6 +93,12 @@ export class MapExportControl {
         }
     }
 
+    _onFrameInteractionEnd() {
+        if (this._iframe) {
+            this._iframe.style.opacity = '1';
+        }
+    }
+
     _createIframe() {
         // Iframe element only; src is deferred so map-export.html and its
         // bundle don't load on the critical path. preload() loads it once
@@ -101,34 +107,26 @@ export class MapExportControl {
         this._iframe.className = 'map-export-iframe';
         this._iframeSrcLoaded = false;
 
-        const isMobile = window.innerWidth <= 768;
-        const panelWidth = isMobile ? '100%' : '400px';
-        const panelRight = isMobile ? '0' : '8px';
-        const panelTop = '24px';
-        const panelHeight = isMobile ? '60vh' : '85vh';
-
+        // Left-side panel matching map-browser.html's layer explorer: flush
+        // under the header, full height, same width breakpoints and dark
+        // chrome (#1f2937 + #374151 borders) rather than a floating card.
         this._iframe.style.cssText = `
             position: fixed;
-            top: ${panelTop};
-            right: ${panelRight};
-            width: ${panelWidth};
-            max-width: calc(100vw - 70px);
-            height: ${panelHeight};
-            max-height: 85vh;
+            left: 0;
+            width: 40%;
             border: none;
-            border-radius: 8px;
+            border-right: 1px solid #374151;
+            border-bottom: 1px solid #374151;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            z-index: 1000;
+            z-index: 999;
             display: none;
-            transition: opacity 0.2s ease;
-            background: #1e293b;
+            background: #1f2937;
             overflow: hidden;
         `;
         document.body.appendChild(this._iframe);
 
-        this._iframe.addEventListener('mouseenter', () => {
-            this._iframe.style.opacity = '1';
-        });
+        this._updateIframeLayout();
+        window.addEventListener('resize', () => this._updateIframeLayout());
 
         this._processingOverlay = document.createElement('div');
         this._processingOverlay.style.cssText = `
@@ -139,7 +137,7 @@ export class MapExportControl {
             bottom: 0;
             background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(2px);
-            z-index: 999;
+            z-index: 998;
             display: none;
         `;
         document.body.appendChild(this._processingOverlay);
@@ -177,19 +175,17 @@ export class MapExportControl {
                 if (this._iframe.style.display !== 'none') {
                     this._frame.setAspectRatio(config.aspectRatio);
                 }
-            } else if (type === 'show-qr-fullscreen') {
-                this._showQRFullscreen(event.data.url);
             } else if (type === 'export-cancel') {
                 this._exportCancelled = true;
             } else if (type === 'processing-overlay-show') {
                 if (this._processingOverlay) {
                     this._processingOverlay.style.display = 'block';
-                    this._iframe.style.zIndex = '1001';
+                    this._iframe.style.zIndex = '1000';
                 }
             } else if (type === 'processing-overlay-hide') {
                 if (this._processingOverlay) {
                     this._processingOverlay.style.display = 'none';
-                    this._iframe.style.zIndex = '1000';
+                    this._iframe.style.zIndex = '999';
                 }
             } else if (type === 'request-selected-features') {
                 const selectedFeatures = this._getSelectedFeatures();
@@ -213,108 +209,17 @@ export class MapExportControl {
         });
     }
 
-    _showQRFullscreen(url) {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.95);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            padding: 20px;
-        `;
-
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = '×';
-        closeBtn.style.cssText = `
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 48px;
-            height: 48px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            color: white;
-            font-size: 32px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            z-index: 10001;
-            line-height: 1;
-            padding: 0;
-        `;
-
-        const content = document.createElement('div');
-        content.style.cssText = `
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            z-index: 10001;
-            pointer-events: none;
-        `;
-
-        const qrCode = document.createElement('sl-qr-code');
-        qrCode.value = url;
-        qrCode.size = 400;
-        qrCode.style.cssText = `
-            max-width: 90vw;
-            max-height: 70vh;
-        `;
-
-        const urlText = document.createElement('div');
-        urlText.textContent = url;
-        urlText.style.cssText = `
-            color: white;
-            font-size: 14px;
-            text-align: center;
-            word-break: break-all;
-            padding: 0 20px;
-            max-width: 90vw;
-            font-family: monospace;
-        `;
-
-        const closeOverlay = () => {
-            if (overlay.parentNode) {
-                overlay.parentNode.removeChild(overlay);
-            }
-        };
-
-        closeBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            closeOverlay();
-        });
-
-        closeBtn.addEventListener('mouseenter', () => {
-            closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
-            closeBtn.style.borderColor = 'rgba(255, 255, 255, 0.5)';
-        });
-
-        closeBtn.addEventListener('mouseleave', () => {
-            closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-            closeBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-        });
-
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                closeOverlay();
-            }
-        });
-
-        content.appendChild(qrCode);
-        content.appendChild(urlText);
-        overlay.appendChild(closeBtn);
-        overlay.appendChild(content);
-        document.body.appendChild(overlay);
+    // Same breakpoint and top offset as map-browser-control.js's overlay, so
+    // the two left-side panels line up under the header identically.
+    _updateIframeLayout() {
+        if (!this._iframe) return;
+        const header = document.querySelector('.header-nav');
+        const headerHeight = header ? header.offsetHeight : 0;
+        // An iframe is a replaced element, so top+bottom alone won't stretch
+        // it the way it would a div - height has to be set explicitly.
+        this._iframe.style.top = `${headerHeight}px`;
+        this._iframe.style.height = `calc(100vh - ${headerHeight}px)`;
+        this._iframe.style.width = window.matchMedia('(min-width: 768px)').matches ? '40%' : '75%';
     }
 
     _toggle() {

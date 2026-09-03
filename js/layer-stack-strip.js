@@ -37,6 +37,7 @@ export class LayerStackStrip {
         this._clearIsolationTimer = null;
         this._reorderTimer = null;
         this._draggedItem = null;
+        this._exportItem = null;
         this._optionsItem = null;
         this._optionsMenu = null;
         // Debounced: window.urlManager's active-layers state updates on its own
@@ -76,6 +77,7 @@ export class LayerStackStrip {
         hostEl.appendChild(this._el);
 
         this._mountBrowserItem(browserButton);
+        this._mountExportItem();
         this._mountOptionsItem(map);
 
         // 'layersInitialized' is the signal that MapLayerControl has finished
@@ -131,6 +133,7 @@ export class LayerStackStrip {
         this._optionsMenu?.unmount();
         this._optionsMenu = null;
         this._optionsItem = null;
+        this._exportItem = null;
         if (this._el && this._el.parentNode) this._el.parentNode.removeChild(this._el);
         this._el = null;
     }
@@ -178,8 +181,9 @@ export class LayerStackStrip {
             });
         });
 
-        // The options control belongs at the foot of the column, and the layer
-        // rows were just appended after it.
+        // The export and options controls belong at the foot of the column,
+        // and the layer rows were just appended after them.
+        if (this._exportItem) this._el.appendChild(this._exportItem);
         if (this._optionsItem) this._el.appendChild(this._optionsItem);
     }
 
@@ -249,6 +253,32 @@ export class LayerStackStrip {
         item.appendChild(label);
 
         this._el.appendChild(item);
+    }
+
+    /**
+     * The export trigger, last layer-stack item before the options control.
+     * MapExportControl isn't mounted as a map control (see map-init.js) - its
+     * own message listener already handles 'toggle-export', so this button
+     * just posts that rather than reaching into the control directly.
+     */
+    _mountExportItem() {
+        const item = document.createElement('div');
+        item.className = 'layer-stack-item layer-stack-control layer-stack-export';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'layer-stack-cell layer-stack-export-btn';
+        button.title = 'Export map';
+        button.setAttribute('aria-label', 'Export map');
+        button.innerHTML = '<sl-icon name="download"></sl-icon>';
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._post({ type: 'toggle-export' });
+        });
+
+        item.appendChild(button);
+        this._el.appendChild(item);
+        this._exportItem = item;
     }
 
     /**
