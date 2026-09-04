@@ -31,7 +31,7 @@ export class HeaderShortcutMenuControl extends ShortcutMenuBase {
         this._button.type = 'button';
         this._button.className = 'header-shortcut-menu-btn';
         this._button.setAttribute('aria-label', 'Shortcuts');
-        this._button.innerHTML = '<sl-icon name="cursor"></sl-icon>';
+        this._button.innerHTML = '<sl-icon name="hand-index-thumb"></sl-icon>';
         this._button.addEventListener('click', () => this.toggle());
 
         this._container.appendChild(this._button);
@@ -68,6 +68,6 @@ export class HeaderShortcutMenuControl extends ShortcutMenuBase {
 
     _setButtonOpen(open) {
         this._button?.classList.toggle('active', open);
-        this._button?.querySelector('sl-icon')?.setAttribute('name', open ? 'cursor-fill' : 'cursor');
+        this._button?.querySelector('sl-icon')?.setAttribute('name', open ? 'hand-index-thumb-fill' : 'hand-index-thumb');
     }
 }

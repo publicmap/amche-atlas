@@ -71,6 +71,21 @@ export const ROUTE_STYLE = {
     'waypoints/text-offset': [0, 1.4],
     'waypoints/text-halo-color': '#ffffff',
     'waypoints/text-halo-width': 1.5,
+    // Direction of travel, repeated along the line. A ">" rather than an arrow
+    // glyph because it is plain ASCII and certain to exist in any style's
+    // glyphs; keep-upright off is what lets it turn to follow the line instead
+    // of flipping to stay readable, which is the whole point of it.
+    'arrows/symbol-placement': 'line',
+    'arrows/symbol-spacing': 70,
+    'arrows/text-field': '>',
+    'arrows/text-size': 14,
+    'arrows/text-rotation-alignment': 'map',
+    'arrows/text-keep-upright': false,
+    'arrows/text-allow-overlap': true,
+    'arrows/text-ignore-placement': true,
+    'arrows/text-color': '#ffffff',
+    'arrows/text-halo-color': LOCATION_BLUE,
+    'arrows/text-halo-width': 1,
     'route/line-color': LOCATION_BLUE,
     'route/line-width': 5,
     'route/line-opacity': 1,

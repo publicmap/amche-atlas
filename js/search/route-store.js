@@ -1,12 +1,14 @@
 /**
- * RouteStore - the routes on the map and which one is being built.
+ * RouteStore - the routes on the map and which one a new destination extends.
  *
- * A session can hold several routes. The Visible Features menu (see
- * ../map-nearby-features-control.js) picks one as "selected", and every
- * destination clicked while it is selected is appended to it as another
- * waypoint - so tapping three features in a row builds one route through all
- * three rather than three separate two-point routes. "New Route" deselects,
- * and the next destination starts a fresh route from the default origin.
+ * A session can hold several routes. `routeTo(from, ..., to, ...)` is the one
+ * place that decides which: if `from` lands on an existing route's last
+ * waypoint, that route is extended; otherwise a new route starts at `from`.
+ * Both the shortcut menu's Route From/Route To (see ../shortcut-menu-base.js)
+ * and the Visible Features menu (see ../map-nearby-features-control.js) go
+ * through this, so tapping three destinations from the same running point in
+ * a row builds one route through all three rather than three separate
+ * two-point routes, without either caller tracking "which route" itself.
  *
  * Every route this store creates lives in the single `directions` layer
  * (config/index.atlas.json), concatenated into one FeatureCollection and told
@@ -17,56 +19,68 @@
  * This is the only writer of the `directions` layer: search's "X to Y" match
  * comes through adopt() (see directions-layer.js), so a searched route and a
  * clicked one are the same kind of thing and neither wipes the other.
+ *
+ * Every waypoint also gets a marker (see ../map-marker-manager.js) in the
+ * route's own blue, which puts it in the `markers=` URL param alongside every
+ * other selection. Those markers are the handles on the route: dragging one
+ * moves its waypoint and re-routes live under the cursor, and closing one
+ * drops that stop and re-routes what is left.
  */
 
 import { fetchRouteForWaypoints } from './directions-router.js';
 import { buildRouteFeatureCollection, routeShorthand, DIRECTIONS_LAYER_ID } from './route-geojson.js';
 import { getDirectionsProfile } from './directions-profile.js';
+import { haversineDistanceMeters } from '../geo-distance-utils.js';
 
 const EMPTY_DATA = { type: 'FeatureCollection', features: [] };
+
+// Matches the route line (see route-geojson.js), so a waypoint's pin reads as
+// part of its route rather than as another map selection.
+const WAYPOINT_PIN_COLOR = '#1da1f2';
+
+// How close a "from" point has to land to a route's last waypoint to count as
+// "continuing that route" rather than starting a new one - generous enough to
+// absorb float drift when the point is that waypoint's own marker.
+const CONTINUE_ROUTE_THRESHOLD_METERS = 5;
+
+// A drag fires every animation frame; re-routing that often would hammer the
+// Directions API for frames nobody sees. Trailing edge only, then once more on
+// release, so the line keeps up without a request per pixel.
+const LIVE_REROUTE_MS = 220;
 
 let nextRouteNumber = 1;
 
 export class RouteStore {
     constructor() {
         this._routes = [];
-        this._selectedId = null;
+        this._pendingOrigin = null;
     }
 
     get routes() {
         return this._routes;
     }
 
-    get selected() {
-        return this._routes.find(r => r.id === this._selectedId) || null;
+    /**
+     * The point a "Route From" pick (shortcut-menu.js / header-shortcut-menu-
+     * control.js) last recorded, waiting for a "Route To" to consume it as the
+     * start of a route. Cleared implicitly the moment `routeTo` uses it and
+     * replaced with the new destination, so picking further destinations
+     * without another "Route From" keeps extending the same route.
+     */
+    get pendingOrigin() {
+        return this._pendingOrigin;
     }
 
-    isSelected(route) {
-        return !!route && route.id === this._selectedId;
-    }
-
-    select(id) {
-        this._selectedId = id;
-    }
-
-    /** "New Route": the next destination starts a route from the default origin. */
-    startNew() {
-        this._selectedId = null;
-    }
-
-    /** The point a selected route should be continued from, or null. */
-    endOfSelected() {
-        const route = this.selected;
-        if (!route?.waypoints.length) return null;
-        const [lng, lat] = route.waypoints[route.waypoints.length - 1];
-        return { lng, lat, label: route.names[route.names.length - 1] || 'End of route' };
+    setPendingOrigin(point, label) {
+        this._pendingOrigin = point ? { lng: point.lng, lat: point.lat, label: label || '' } : null;
     }
 
     /**
      * Picks up routes already drawn on the map - restored from a shared link,
-     * or left by an earlier moment in this session - so the menu lists them
-     * rather than starting blank. Routes this store already tracks keep their
-     * identity; only groups it has not seen are adopted.
+     * or left by an earlier moment in this session - so distances/continuation
+     * can be measured against them rather than starting blank. Routes this
+     * store already tracks keep their identity; only groups it has not seen
+     * are adopted.
      */
     sync() {
         const groups = window.layerControl?._state?.groups || [];
@@ -84,28 +98,72 @@ export class RouteStore {
                 if (adopted) this._routes.push(adopted);
             });
         });
-
-        if (!this.selected) this._selectedId = this._routes[this._routes.length - 1]?.id || null;
     }
 
     /**
-     * Appends a destination to the selected route, or starts one at `from`
-     * when nothing is selected. Returns the route, or null if there was
-     * nowhere to start from.
+     * Builds or extends a route from `from` to `to`: if `from` lands on the
+     * last waypoint of a route already on the map, that route is extended;
+     * otherwise a new route starts at `from`. This is the one place that
+     * decides "which route" a destination belongs to - used identically by
+     * the shortcut menu's Route To and by map-nearby-features-control.js -
+     * so neither has to track an explicit "selected route" for the user to
+     * manage. Returns the route, or null if there was nowhere to start from.
      */
-    async addDestination(lngLat, label, { from, fromLabel } = {}) {
-        let route = this.selected;
+    async routeTo(from, fromLabel, to, toLabel) {
+        if (!from || !to) return null;
 
-        if (!route) {
-            if (!from) return null;
-            route = this._create([[from.lng, from.lat]], [fromLabel || '']);
-        }
+        let route = this._routes.find(r => this._endsNear(r, from));
+        if (!route) route = this._create([[from.lng, from.lat]], [fromLabel || '']);
 
-        route.waypoints.push([lngLat.lng, lngLat.lat]);
-        route.names.push(label || '');
+        route.waypoints.push([to.lng, to.lat]);
+        route.names.push(toLabel || '');
 
         await this._resolve(route);
         return route;
+    }
+
+    /** Whether `point` sits on `route`'s last waypoint - "continuing" it. */
+    _endsNear(route, point) {
+        if (!route.waypoints.length) return false;
+        const [lng, lat] = route.waypoints[route.waypoints.length - 1];
+        return haversineDistanceMeters({ lng, lat }, point) <= CONTINUE_ROUTE_THRESHOLD_METERS;
+    }
+
+    /**
+     * A waypoint's marker was dragged. `live` re-routes on a trailing timer
+     * while the drag is still running; the release re-routes immediately, so
+     * the line follows the pin without a request per frame.
+     */
+    moveWaypoint(routeId, index, lngLat, { live = false } = {}) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (index < 0 || !route || !route.waypoints[index]) return;
+
+        route.waypoints[index] = [lngLat.lng, lngLat.lat];
+
+        clearTimeout(route._rerouteTimer);
+        if (!live) {
+            this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
+            return;
+        }
+        route._rerouteTimer = setTimeout(() => {
+            this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
+        }, LIVE_REROUTE_MS);
+    }
+
+    /** A waypoint's marker was closed: drop it and re-route what's left. */
+    removeWaypoint(routeId, index) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (index < 0 || !route || !route.waypoints[index]) return;
+
+        route.waypoints.splice(index, 1);
+        route.names.splice(index, 1);
+        route.markerIds.splice(index, 1);
+
+        if (route.waypoints.length < 2) {
+            this.remove(routeId);
+            return;
+        }
+        this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
     }
 
     /** Takes a route someone else already fetched (search's "X to Y"). */
@@ -124,16 +182,13 @@ export class RouteStore {
         if (!route) return;
 
         this._routes = this._routes.filter(r => r.id !== id);
-        if (this._selectedId === id) {
-            this._selectedId = this._routes[this._routes.length - 1]?.id || null;
-        }
         this._write(route.groupId);
     }
 
     clearAll() {
         const groupIds = new Set(this._routes.map(r => r.groupId));
         this._routes = [];
-        this._selectedId = null;
+        this._pendingOrigin = null;
         groupIds.add(DIRECTIONS_LAYER_ID);
         groupIds.forEach(groupId => this._write(groupId));
     }
@@ -148,11 +203,11 @@ export class RouteStore {
             engine: null,
             profile: getDirectionsProfile(),
             geojson: EMPTY_DATA,
+            markerIds: [],
             name: ''
         };
         route.name = routeName(route);
         this._routes.push(route);
-        this._selectedId = route.id;
         return route;
     }
 
@@ -165,6 +220,58 @@ export class RouteStore {
         route.profile = result.profile;
         this._apply(route, result);
         this._write(route.groupId);
+        this._syncMarkers(route);
+    }
+
+    /**
+     * Every waypoint also gets a marker, so a route's stops are draggable and
+     * ride along in the `markers=` URL param like any other selection (see
+     * ../map-marker-manager.js, url-manager.js's serializeMarkersForURL).
+     * Dragging one moves the waypoint and re-routes; closing one drops it.
+     */
+    _syncMarkers(route) {
+        const markers = window.featureControl?._markerManager;
+        if (!markers) return;
+
+        route.waypoints.forEach((coordinates, index) => {
+            const lngLat = { lng: coordinates[0], lat: coordinates[1] };
+            const existingId = route.markerIds[index];
+
+            if (existingId && markers._markers?.has(existingId)) {
+                markers.moveMarker(existingId, lngLat);
+                return;
+            }
+
+            // A marker the user already dropped here (the click that added this
+            // destination made one) is adopted rather than doubled up on.
+            const nearby = markers.findMarkerNear?.(lngLat, 20);
+            if (nearby) {
+                route.markerIds[index] = nearby;
+                markers.adoptAsWaypoint(nearby, this._waypointHandlers(route, { id: nearby }));
+                return;
+            }
+
+            // The handlers look their waypoint up by marker id when they fire
+            // rather than closing over the index they were created at, which
+            // goes stale the moment an earlier waypoint is removed.
+            const ref = { id: null };
+            ref.id = markers.addMarker(lngLat, [], {
+                role: 'route-waypoint',
+                pinColor: WAYPOINT_PIN_COLOR,
+                ...this._waypointHandlers(route, ref)
+            });
+            route.markerIds[index] = ref.id;
+        });
+    }
+
+    _waypointHandlers(route, ref) {
+        const indexOf = () => route.markerIds.indexOf(ref.id);
+        return {
+            pinColor: WAYPOINT_PIN_COLOR,
+            onDrag: (moved) => this.moveWaypoint(route.id, indexOf(), moved, { live: true }),
+            onDragEnd: (moved) => this.moveWaypoint(route.id, indexOf(), moved),
+            onRemove: () => this.removeWaypoint(route.id, indexOf())
+        };
     }
 
     _apply(route, result) {
@@ -268,6 +375,7 @@ function routeFromFeatures(id, groupId, features) {
         profile: line?.properties?.profile || getDirectionsProfile(),
         geojson: { type: 'FeatureCollection', features },
         result: line?.properties || null,
+        markerIds: [],
         name: ''
     };
     route.name = line?.properties?.title || routeName(route);

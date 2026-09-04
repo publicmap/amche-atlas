@@ -123,10 +123,14 @@ export class MapFeatureControl {
     /**
      * When off, map clicks no longer run the select/place-marker pipeline
      * (see the `force` guard in _processClickAtPoint) — selection then only
-     * happens through the shortcut menu's manual "Select features" action.
+     * happens through the shortcut menu's manual "Select Here" action.
+     * Turning it off also clears any hover state left on the map: hovering
+     * still queries features on mousemove regardless of this flag, and
+     * without a click to replace it that highlight would otherwise linger.
      */
     setAutoSelectEnabled(enabled) {
         this._autoSelectEnabled = !!enabled;
+        if (!this._autoSelectEnabled) this._stateManager.handleMapMouseLeave();
     }
 
     isAutoSelectEnabled() {

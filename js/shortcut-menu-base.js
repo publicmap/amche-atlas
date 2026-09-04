@@ -12,12 +12,22 @@
  */
 import { GeoLibreAPI } from './geolibre-api.js';
 import { LayerOrderManager } from './layer-order-manager.js';
+import { routeStore } from './search/route-store.js';
+import { routeBounds } from './search/route-geojson.js';
+import { NearbyReferencePoint } from './nearby-reference-point.js';
 
 export class ShortcutMenuBase {
     constructor() {
         this._map = null;
         this._menu = null;
         this._lngLat = null;
+
+        // The marker _ensureMarkerAt created (not reused) for wherever the menu
+        // was last opened at, while it's still just a placeholder nobody has
+        // acted on - excluded from "is there a selection" checks (see
+        // _buildSelectionMenuItems) so opening the menu doesn't itself count as
+        // one. Cleared the moment it becomes a real selection (_selectFeaturesAtPoint).
+        this._pendingMarkerId = null;
 
         // Stack of flyout panels, one per nesting depth (0 = first flyout opened
         // from the top-level menu, 1 = a flyout opened from within that, etc).
@@ -35,6 +45,7 @@ export class ShortcutMenuBase {
         this._handleOutsideEvent = this._handleOutsideEvent.bind(this);
         this._handleKeydown = this._handleKeydown.bind(this);
         this._hide = this._hide.bind(this);
+        this._onRouteGeolocate = this._onRouteGeolocate.bind(this);
     }
 
     /**
@@ -45,6 +56,20 @@ export class ShortcutMenuBase {
     _attachMap(map) {
         this._map = map;
         this._createMenu();
+
+        // Default origin for "Route To" when nothing was set via "Route From" -
+        // the same GPS-else-map-center preference NearbyReferencePoint gives
+        // map-nearby-features-control.js's "Navigate From", reusing that class
+        // rather than a second copy of the logic. Fed passively off whatever
+        // GPS state already exists; this never triggers its own permission
+        // prompt the way that control's own button does.
+        this._routeOrigin = new NearbyReferencePoint(map);
+        const geo = window.geolocationControl;
+        if (geo) {
+            if (geo.lastPosition) this._routeOrigin.setUserPosition(geo.lastPosition);
+            else if (geo.isTracking) this._routeOrigin.preferGeolocation();
+            geo.on('geolocate', this._onRouteGeolocate);
+        }
 
         document.addEventListener('mousedown', this._handleOutsideEvent, true);
         document.addEventListener('touchstart', this._handleOutsideEvent, true);
@@ -61,6 +86,8 @@ export class ShortcutMenuBase {
         document.removeEventListener('touchstart', this._handleOutsideEvent, true);
         document.removeEventListener('keydown', this._handleKeydown);
         window.removeEventListener('resize', this._hide);
+        window.geolocationControl?.off('geolocate', this._onRouteGeolocate);
+        this._routeOrigin = null;
 
         this._menu?.parentNode?.removeChild(this._menu);
         this._menu = null;
@@ -68,6 +95,10 @@ export class ShortcutMenuBase {
         this._submenuLevels = [];
         this._openSubmenuIds = [];
         this._map = null;
+    }
+
+    _onRouteGeolocate(e) {
+        this._routeOrigin?.setUserPosition({ lat: e.coords.latitude, lng: e.coords.longitude });
     }
 
     _createMenu() {
@@ -117,52 +148,27 @@ export class ShortcutMenuBase {
         return [
             {
                 id: 'selection-menu',
-                icon: 'cursor',
-                label: 'Selection',
-                children: [
-                    {
-                        id: 'select-features',
-                        icon: 'crosshair',
-                        label: 'Select features',
-                        action: () => this._selectFeaturesAtPoint()
-                    },
-                    {
-                        id: 'zoom-to-selected',
-                        icon: 'bounding-box',
-                        label: 'Zoom To Selected',
-                        action: () => window.featureControl?.zoomToSelected(this._lngLat)
-                    },
-                    {
-                        id: 'toggle-multi-select',
-                        icon: 'plus-circle-dotted',
-                        iconChecked: 'plus-circle-fill',
-                        label: 'Multi Select',
-                        checkable: true,
-                        checked: () => window.featureControl?.isAddSelectionModeEnabled?.() || false,
-                        action: () => {
-                            const enabled = !window.featureControl?.isAddSelectionModeEnabled();
-                            window.featureControl?.setAddSelectionMode(enabled);
-                        }
-                    },
-                    {
-                        id: 'toggle-auto-select',
-                        icon: 'lightning-charge',
-                        iconChecked: 'lightning-charge-fill',
-                        label: 'Auto Select',
-                        checkable: true,
-                        checked: () => window.featureControl?.isAutoSelectEnabled?.() ?? true,
-                        action: () => {
-                            const enabled = !(window.featureControl?.isAutoSelectEnabled?.() ?? true);
-                            window.featureControl?.setAutoSelectEnabled(enabled);
-                        }
-                    },
-                    {
-                        id: 'clear-selection',
-                        icon: 'x-circle',
-                        label: 'Clear Selection',
-                        action: () => window.featureControl?.clearSelection()
-                    }
-                ]
+                icon: 'hand-index-thumb',
+                iconChecked: 'hand-index-thumb-fill',
+                label: 'Select',
+                // Resolved on each open so "Zoom To Selected" / "Clear All Selected"
+                // can drop out once nothing is left to zoom to or clear (see
+                // _buildSelectionMenuItems), same reasoning as the Maps menu below.
+                children: () => this._buildSelectionMenuItems()
+            },
+            {
+                id: 'route-from-menu',
+                icon: 'record-circle',
+                label: 'Route From',
+                // Resolved on each open so the marker list reflects whatever is
+                // currently on the map, same reasoning as the Maps menu below.
+                children: () => this._buildRouteEndpointItems('from')
+            },
+            {
+                id: 'route-to-menu',
+                icon: 'flag',
+                label: 'Route To',
+                children: () => this._buildRouteEndpointItems('to')
             },
             {
                 id: 'open-with-menu',
@@ -414,12 +420,136 @@ export class ShortcutMenuBase {
     }
 
     /**
-     * Runs the manual selection trigger for "Select features" — the only way
-     * to select/place a marker at a point while Toggle Auto Select is off.
+     * Runs the manual selection trigger for "Select Here" — the only way to
+     * select/place a marker at a point while Toggle Auto Select is off. The
+     * plain marker ShortcutMenu already dropped here on right-click/long-press
+     * (see shortcut-menu.js) gets cleared and replaced by this, same as any
+     * other selection - it was only ever a placeholder for wherever the menu
+     * was opened, not a selection itself.
      */
     _selectFeaturesAtPoint() {
         if (!this._lngLat) return;
+        this._pendingMarkerId = null;
         window.featureControl?.triggerSelectionAt(this._lngLat);
+    }
+
+    /**
+     * Whether a marker exists that isn't just the placeholder this menu's own
+     * opening dropped (see _ensureMarkerAt/_pendingMarkerId) - i.e. whether
+     * there is an actual selection to zoom to or clear.
+     */
+    _hasSelectionMarkers() {
+        const markers = window.featureControl?._markerManager?.getMarkers() || [];
+        return markers.some(m => m.id !== this._pendingMarkerId);
+    }
+
+    /**
+     * The "Select" flyout's items. "Zoom To Selected" and "Clear All Selected"
+     * only make sense once something is actually on the map to zoom to or
+     * clear - clearSelection() (see map-marker-manager.js's 'selections-cleared'
+     * handler) drops every marker, not just feature selections - so both are
+     * left out while there are none, rather than showing but doing nothing.
+     */
+    _buildSelectionMenuItems() {
+        const items = [
+            {
+                id: 'select-features',
+                icon: 'geo-alt-fill',
+                label: 'Select Here',
+                action: () => this._selectFeaturesAtPoint()
+            }
+        ];
+
+        if (this._hasSelectionMarkers()) {
+            items.push(
+                {
+                    id: 'zoom-to-selected',
+                    icon: 'bounding-box',
+                    label: 'Zoom To Selected',
+                    action: () => window.featureControl?.zoomToSelected(this._lngLat)
+                }
+            );
+        }
+
+        items.push(
+            {
+                id: 'toggle-multi-select',
+                icon: 'plus-circle-dotted',
+                iconChecked: 'plus-circle-fill',
+                label: 'Multi Select',
+                checkable: true,
+                checked: () => window.featureControl?.isAddSelectionModeEnabled?.() || false,
+                action: () => {
+                    const enabled = !window.featureControl?.isAddSelectionModeEnabled();
+                    window.featureControl?.setAddSelectionMode(enabled);
+                }
+            },
+            {
+                id: 'toggle-auto-select',
+                icon: 'lightning-charge',
+                iconChecked: 'lightning-charge-fill',
+                label: 'Select On Click',
+                checkable: true,
+                checked: () => window.featureControl?.isAutoSelectEnabled?.() ?? true,
+                action: () => {
+                    const enabled = !(window.featureControl?.isAutoSelectEnabled?.() ?? true);
+                    window.featureControl?.setAutoSelectEnabled(enabled);
+                }
+            }
+        );
+
+        if (this._hasSelectionMarkers()) {
+            items.push({
+                id: 'clear-selection',
+                icon: 'x-circle',
+                label: 'Clear All Selected',
+                action: () => window.featureControl?.clearSelection()
+            });
+        }
+
+        return items;
+    }
+
+    /**
+     * Drops a plain, feature-less marker at `lngLat` - or reuses one already
+     * there - without running the selection pipeline (no query, no inspector,
+     * no highlighting). Used to mark where the menu itself was opened (see
+     * shortcut-menu.js's right-click/long-press) and by "Comments" below, so
+     * that spot has a handle on the map even before "Select Here" is chosen.
+     *
+     * `pending: true` (only shortcut-menu.js's own right-click/long-press pass
+     * this) additionally records a newly-created marker as `_pendingMarkerId`
+     * - never one that was reused, since that one was already real - so
+     * _hasSelectionMarkers can tell "the menu just opened here" apart from an
+     * actual selection, and so it gets discarded on _hide() if nothing turned
+     * it into one (see _hide). A non-pending call (e.g. "Comments") that
+     * lands on the still-pending marker promotes it to real by clearing
+     * `_pendingMarkerId` - it now has a job other than marking where the menu
+     * was opened, so it must survive the menu closing.
+     */
+    _ensureMarkerAt(lngLat, { pending = false } = {}) {
+        const markerManager = window.featureControl?._markerManager;
+        if (!markerManager || !lngLat) return null;
+
+        const existing = markerManager.findMarkerNear(lngLat);
+        if (existing) {
+            if (!pending && existing === this._pendingMarkerId) this._pendingMarkerId = null;
+            return existing;
+        }
+
+        const created = markerManager.addMarker(lngLat, []);
+        if (pending) this._pendingMarkerId = created;
+        return created;
+    }
+
+    /**
+     * Where the marker _ensureMarkerAt just dropped will show its content -
+     * see MapMarkerManager.getContentOffset. ShortcutMenu (shortcut-menu.js)
+     * opens the menu there instead of right at the click point, so it lands
+     * exactly where that marker's own popup would.
+     */
+    _pinContentOffset() {
+        return window.featureControl?._markerManager?.getContentOffset() || { x: 0, y: 0 };
     }
 
     /**
@@ -481,6 +611,83 @@ export class ShortcutMenuBase {
             console.error('[ShortcutMenu] Failed to publish GeoLibre project:', error);
             window.layerControl?._showToast('Could not open GeoLibre — publishing failed', 'error');
         }
+    }
+
+    /**
+     * Options for "Route From" / "Route To": every marker already on the map,
+     * plus "Use this location" for the point the shortcut menu itself was
+     * opened at (the right-click/long-press point, or the map center when
+     * opened from the header-nav button — see _getExternalLinkPoint).
+     */
+    _buildRouteEndpointItems(direction) {
+        const markers = window.featureControl?._markerManager?.getMarkers() || [];
+        const items = markers.map(m => ({
+            icon: 'geo-alt-fill',
+            label: m.label,
+            action: () => this._handleRouteEndpoint(direction, m.lngLat, m.label)
+        }));
+
+        const point = this._getExternalLinkPoint();
+        if (point) {
+            items.push({
+                icon: 'crosshair',
+                label: 'Use this location',
+                action: () => this._handleRouteEndpoint(direction, point, 'this location')
+            });
+        }
+
+        return items;
+    }
+
+    /**
+     * "Route From" only records `point` as the pending origin for a later
+     * "Route To" - it doesn't build anything by itself. "Route To" consumes
+     * that pending origin - or, absent one, the default origin (GPS if
+     * already available, else the map center; see _attachMap) - and hands
+     * both ends to route-store.js's routeTo, which decides on its own whether
+     * this continues a route already ending at the origin or starts a new
+     * one. It then leaves `point` as the new pending origin, so further
+     * "Route To" picks keep extending the same route without needing another
+     * "Route From" first.
+     */
+    _handleRouteEndpoint(direction, point, label) {
+        if (direction === 'from') {
+            routeStore.setPendingOrigin(point, label);
+            window.layerControl?._showToast(`Route from ${label} — pick "Route To" a destination`, 'info');
+            return;
+        }
+
+        const origin = routeStore.pendingOrigin || this._defaultRouteOrigin();
+        if (!origin) {
+            window.layerControl?._showToast('No starting point available for a route', 'error');
+            return;
+        }
+
+        window.layerControl?._showToast('Finding a route...', 'info');
+        routeStore.routeTo(origin, origin.label, point, label)
+            .then(route => {
+                if (!route) return;
+                routeStore.setPendingOrigin(point, label);
+                this._fitRoute(route);
+                window.layerControl?._showToast(`Route ${route.name}: ${route.waypoints.length} stops`, 'info');
+            })
+            .catch(error => {
+                console.error('[ShortcutMenu] Failed to build route:', error);
+                window.layerControl?._showToast('Could not find a route', 'error');
+            });
+    }
+
+    _fitRoute(route) {
+        const line = route.geojson?.features?.find(f => f.properties?.kind === 'route');
+        if (!line || !this._map) return;
+        this._map.fitBounds(routeBounds(line.geometry), { padding: 60, duration: 1000 });
+    }
+
+    /** GPS if already available, else the map center - see _attachMap. */
+    _defaultRouteOrigin() {
+        const point = this._routeOrigin?.resolve();
+        if (!point) return null;
+        return { lng: point.lng, lat: point.lat, label: this._routeOrigin.name() };
     }
 
     /**
@@ -556,13 +763,8 @@ export class ShortcutMenuBase {
         this._toggleLayerVisibility('index-notes');
 
         if (wasVisible || !this._lngLat) return;
-        const markerManager = window.featureControl?._markerManager;
-        if (!markerManager) return;
-
-        const markerId = markerManager.findMarkerNear(this._lngLat)
-            || markerManager.addMarker(this._lngLat, []);
-
-        markerManager.focusCommentInput(markerId);
+        const markerId = this._ensureMarkerAt(this._lngLat);
+        if (markerId) window.featureControl?._markerManager?.focusCommentInput(markerId);
     }
 
     _updateCheckedStates() {
@@ -601,7 +803,19 @@ export class ShortcutMenuBase {
         this._menu.style.top = `${Math.max(8, Math.min(clientY, maxY))}px`;
     }
 
+    /**
+     * Closing the menu - by an action, an outside click, Escape, or the map
+     * moving (see shortcut-menu.js) - also drops the placeholder marker it
+     * opened with if nothing turned it into something real (see
+     * _ensureMarkerAt/_pendingMarkerId): it was only ever a stand-in for
+     * wherever the menu was opened, not a selection, so nothing should be
+     * left behind once the chance to act on it is gone.
+     */
     _hide() {
+        if (this._pendingMarkerId) {
+            window.featureControl?._markerManager?.removeMarker(this._pendingMarkerId);
+            this._pendingMarkerId = null;
+        }
         if (this._menu) this._menu.style.display = 'none';
         this._closeSubmenu(0);
     }

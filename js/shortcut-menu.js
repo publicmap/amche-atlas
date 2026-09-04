@@ -8,6 +8,19 @@
  * touch handlers can swallow the touch sequence before it gets there), so
  * long-press is also detected explicitly with a touch timer below.
  *
+ * Opening the menu also drops a plain marker at that point (see
+ * ShortcutMenuBase._ensureMarkerAt) - or reuses one already there - without
+ * running the selection pipeline: no feature query, no highlighting, no
+ * inspector. It's just a handle on the spot the menu was opened at, until
+ * "Select Here" (ShortcutMenuBase._selectFeaturesAtPoint) is explicitly
+ * chosen to actually select whatever is under it.
+ *
+ * The menu itself opens offset from the click point by
+ * ShortcutMenuBase._pinContentOffset (see MapMarkerManager.getContentOffset),
+ * the same offset that marker's own content popup would open at - so the
+ * menu appears exactly where that marker's badges will once one is selected,
+ * instead of jumping between the two positions.
+ *
  * The menu item tree, flyout rendering, and action handlers live in
  * ShortcutMenuBase (shortcut-menu-base.js) - shared with
  * HeaderShortcutMenuControl (header-shortcut-menu-control.js) so both entry
@@ -102,7 +115,9 @@ export class ShortcutMenu extends ShortcutMenuBase {
                 this._touchStart.x - rect.left,
                 this._touchStart.y - rect.top
             ]);
-            this._show(this._touchStart.x, this._touchStart.y);
+            this._ensureMarkerAt(this._lngLat, { pending: true });
+            const offset = this._pinContentOffset();
+            this._show(this._touchStart.x + offset.x, this._touchStart.y + offset.y);
 
             // The finger is usually still down when the menu opens; the tap/click
             // that follows on lift-off would otherwise fall through to the map's
@@ -147,8 +162,10 @@ export class ShortcutMenu extends ShortcutMenuBase {
     _handleContextMenu(e) {
         e.preventDefault();
         this._lngLat = e.lngLat;
+        this._ensureMarkerAt(this._lngLat, { pending: true });
 
         const point = e.originalEvent.touches?.[0] || e.originalEvent;
-        this._show(point.clientX, point.clientY);
+        const offset = this._pinContentOffset();
+        this._show(point.clientX + offset.x, point.clientY + offset.y);
     }
 }

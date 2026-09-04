@@ -1128,6 +1128,37 @@ export class MapMarkerManager {
         return null;
     }
 
+    /** Moves an existing marker, e.g. to follow the waypoint it stands for. */
+    moveMarker(markerId, lngLat) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData) return;
+        markerData.lngLat = lngLat;
+        markerData.marker.setLngLat([lngLat.lng, lngLat.lat]);
+        this._updateSelectionLayer();
+    }
+
+    /**
+     * Hands an existing marker over to a route as one of its waypoints: it
+     * takes the route's pin colour and reports drags and its own removal back,
+     * rather than being re-queried from whatever sits under it. Lets the marker
+     * a destination click already dropped become that route's waypoint instead
+     * of stacking a second pin on the same spot (see search/route-store.js).
+     */
+    adoptAsWaypoint(markerId, { pinColor, onDrag, onDragEnd, onRemove } = {}) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData) return;
+
+        markerData.role = 'route-waypoint';
+        markerData.onDrag = onDrag;
+        markerData.onDragEnd = onDragEnd;
+        markerData.onRemove = onRemove;
+
+        if (pinColor) {
+            const icon = markerData.marker.getElement()?.querySelector('.marker-pin-btn sl-icon');
+            if (icon) icon.style.color = pinColor;
+        }
+    }
+
     /**
      * Focuses a marker's comment input, e.g. right after the shortcut menu's
      * "Comments" action creates or locates the marker for a given location.
@@ -1508,8 +1539,37 @@ export class MapMarkerManager {
         });
     }
 
+    _pinSize() {
+        return this._isTouch ? 34 : 28;
+    }
+
+    /**
+     * Where a marker's content (badges/comment box) sits relative to the
+     * lngLat it's added at, in screen pixels — the pin itself is anchored so
+     * its tip touches that point (see addMarker), and the content starts
+     * right there, shifted left by half the pin so it's centered under it
+     * rather than starting under its left edge. Reused by shortcut-menu.js
+     * so its right-click/long-press menu opens in the same place a marker's
+     * own popup would.
+     */
+    getContentOffset() {
+        return { x: -(this._pinSize() / 2), y: 0 };
+    }
+
     addMarker(lngLat, features, options = {}) {
-        const { pendingLayerIds = null, onRemove = null } = options;
+        // `role` marks a marker that belongs to something else and shouldn't be
+        // rebuilt from whatever is under it: a route waypoint (see
+        // search/route-store.js) is a point on a route first and a map
+        // selection second, so it keeps its identity across a drag and reports
+        // the move back through onDrag/onDragEnd instead.
+        const {
+            pendingLayerIds = null,
+            onRemove = null,
+            onDrag = null,
+            onDragEnd = null,
+            role = null,
+            pinColor = '#f97316'
+        } = options;
         features = this._dedupeFeatures(features);
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
         const markerNumber = this._markers.size + 1;
@@ -1547,7 +1607,7 @@ export class MapMarkerManager {
 
         // Anchor so the pin's tip touches the clicked location — clicking the
         // same spot again hits the pin and clears the marker (seamless toggle).
-        const pinSize = this._isTouch ? 34 : 28;
+        const pinSize = this._pinSize();
         const marker = new mapboxgl.Marker({
             element: el,
             anchor: 'top-left',
@@ -1578,7 +1638,7 @@ export class MapMarkerManager {
             if (dragRAF) return;
             dragRAF = requestAnimationFrame(() => {
                 dragRAF = null;
-                this._handleMarkerDrag(marker);
+                this._handleMarkerDrag(marker, markerId);
             });
         });
         marker.on('dragend', () => {
@@ -1610,7 +1670,10 @@ export class MapMarkerManager {
             features,
             contentEl: null,
             panelLngLat: null,
-            onRemove
+            onRemove,
+            onDrag,
+            onDragEnd,
+            role
         };
 
         // Only the pin (marker-action-row) should drag the actual location. The
@@ -1632,7 +1695,7 @@ export class MapMarkerManager {
         if (actionRow) {
             const pinBtn = document.createElement('span');
             pinBtn.className = 'marker-pin-btn';
-            pinBtn.innerHTML = `<sl-icon name="geo-alt-fill" style="font-size:${pinSize}px;color:#f97316;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));pointer-events:none;"></sl-icon>`;
+            pinBtn.innerHTML = `<sl-icon name="geo-alt-fill" style="font-size:${pinSize}px;color:${pinColor};filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));pointer-events:none;"></sl-icon>`;
             pinBtn.title = 'Clear this marker';
             pinBtn.style.cssText = `
                 display: flex;
@@ -1707,9 +1770,17 @@ export class MapMarkerManager {
      * pipeline normal map mousemove uses, so the same hover popup/highlight preview
      * follows the marker instead of nothing happening until it's dropped.
      */
-    _handleMarkerDrag(marker) {
+    _handleMarkerDrag(marker, markerId) {
         const lngLat = marker.getLngLat();
         const point = this._map.project(lngLat);
+
+        const markerData = this._markers.get(markerId);
+        if (markerData) {
+            markerData.lngLat = lngLat;
+            // Whoever owns this marker follows it live - a route redraws itself
+            // under the cursor rather than snapping only on release.
+            markerData.onDrag?.(lngLat);
+        }
 
         const interactiveFeatures = this._stateManager.getFeaturesAtPoint(point, lngLat)
             .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
@@ -1730,6 +1801,18 @@ export class MapMarkerManager {
      */
     _handleMarkerDragEnd(marker, markerId) {
         this._draggingMarkerId = null;
+
+        // A marker with an owner keeps its identity: re-querying the drop point
+        // would tear this marker down and build a fresh one from whatever
+        // happens to be under it, which for a route waypoint would break the
+        // route it belongs to. Report the move and stop.
+        const owned = this._markers.get(markerId);
+        if (owned?.role) {
+            owned.lngLat = marker.getLngLat();
+            owned.onDragEnd?.(owned.lngLat);
+            this._updateSelectionLayer();
+            return;
+        }
 
         // Touch browsers fire a phantom click at the drop point shortly after this
         // (see `_suppressClickUntil`'s definition) that would otherwise undo the

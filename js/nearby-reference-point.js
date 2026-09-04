@@ -2,11 +2,12 @@
  * NearbyReferencePoint - the point every distance and bearing in
  * map-nearby-features-control.js is measured from.
  *
- * Four kinds of reference are offered, in preference order: the device's live
- * GPS position (fed in by the control from window.geolocationControl), the far
- * end of the route currently being built (see search/route-store.js), the
- * current map center, or any marker already placed on the map (see
- * map-marker-manager.js), listed alphabetically.
+ * Three kinds of reference are offered, in preference order: the device's
+ * live GPS position (fed in by the control from window.geolocationControl),
+ * the current map center, or any marker already placed on the map (see
+ * map-marker-manager.js) - including a route's own waypoint markers, so
+ * picking the marker at a route's far end as the origin is how a destination
+ * continues that route (see search/route-store.js's routeTo).
  *
  * The default is GPS whenever the device watch is on — including before its
  * first fix, when `resolve()` still hands back the map center and the button
@@ -22,36 +23,13 @@
 export const REFERENCE_GEOLOCATION = 'geolocation';
 export const REFERENCE_CENTER = 'center';
 export const REFERENCE_MARKER = 'marker';
-export const REFERENCE_ROUTE_END = 'route-end';
 
 export class NearbyReferencePoint {
     constructor(map) {
         this._map = map;
         this._userPosition = null;
-        this._routeEnd = null;
         this._choice = { type: REFERENCE_CENTER };
         this._isExplicit = false;
-    }
-
-    /**
-     * Makes the far end of the route being built the origin, so the next
-     * destination picked continues that route rather than starting back at the
-     * user. Counts as an explicit choice: a GPS fix arriving later must not
-     * quietly move the origin off the route (see setUserPosition).
-     */
-    setRouteEnd(point, label) {
-        if (!point) return this.clearRouteEnd();
-        this._routeEnd = { lng: point.lng, lat: point.lat, label: label || 'End of route' };
-        this._choice = { type: REFERENCE_ROUTE_END };
-        this._isExplicit = true;
-    }
-
-    /** Back to the default origin - what "New Route" resets to. */
-    clearRouteEnd() {
-        this._routeEnd = null;
-        if (this._choice.type !== REFERENCE_ROUTE_END) return;
-        this._isExplicit = false;
-        this._choice = { type: this._userPosition ? REFERENCE_GEOLOCATION : REFERENCE_CENTER };
     }
 
     get type() {
@@ -105,9 +83,6 @@ export class NearbyReferencePoint {
      * the chosen marker has since been deleted).
      */
     resolve() {
-        if (this._choice.type === REFERENCE_ROUTE_END) {
-            return this._routeEnd ? { lng: this._routeEnd.lng, lat: this._routeEnd.lat } : this._mapCenter();
-        }
         if (this._choice.type === REFERENCE_GEOLOCATION) {
             return this._userPosition || this._mapCenter();
         }
@@ -129,9 +104,6 @@ export class NearbyReferencePoint {
      * it's gone, so the reference reads as the map center it fell back to.
      */
     current() {
-        if (this._choice.type === REFERENCE_ROUTE_END && this._routeEnd) {
-            return { label: this._routeEnd.label, icon: 'signpost-2-fill', isPending: false };
-        }
         if (this._choice.type === REFERENCE_GEOLOCATION) {
             return { label: 'My location', icon: 'geo-fill', isPending: !this._userPosition };
         }
@@ -156,15 +128,6 @@ export class NearbyReferencePoint {
                 icon: 'geo-fill',
                 label: 'My location',
                 subtext: this._userPosition ? 'Device GPS' : 'Device GPS · waiting for a fix'
-            });
-        }
-
-        if (this._routeEnd) {
-            options.push({
-                type: REFERENCE_ROUTE_END,
-                icon: 'signpost-2-fill',
-                label: this._routeEnd.label,
-                subtext: 'End of the selected route'
             });
         }
 

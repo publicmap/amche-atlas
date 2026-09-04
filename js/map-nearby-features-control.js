@@ -10,12 +10,6 @@
  *
  * The menu reads as a route being built, from a From and a To:
  *
- * - **Route** — the route destinations are being added to, listed at the top
- *   because everything below appends to it. Its dropdown holds every route on
- *   the map (see search/route-store.js) — including ones restored from a
- *   shared link — and ends with **New Route**, which is the standing selection
- *   when there are none. Picking a route points the origin at its far end;
- *   picking New Route hands the origin back to the default.
  * - **Navigate From** — one button showing the current origin with its own
  *   icon (device GPS, the map center, or a marker); clicking it drops a
  *   dropdown of every available option (see nearby-reference-point.js). This
@@ -45,11 +39,13 @@
  *
  * Clicking any destination does the whole job in one tap — no secondary menu:
  * a marker is dropped on it through the same selection pipeline a map click
- * runs, and the place is appended to the selected route as another waypoint
- * (search/route-store.js, drawn into the `directions` layer). The origin then
- * follows that route's new far end, so picking a second destination extends
- * the same route rather than starting a new one from the user again — three
- * taps build one route through three places.
+ * runs, and the place is appended to a route as another waypoint
+ * (search/route-store.js's routeTo, drawn into the `directions` layer) — that
+ * call decides on its own whether the current origin continues an existing
+ * route or starts a new one, so there's nothing here to pick manually. The
+ * origin then follows the new waypoint's own marker, so picking a second
+ * destination extends the same route rather than starting a new one from the
+ * user again — three taps build one route through three places.
  *
  * Lives in the header-nav (next to the shortcuts menu — see
  * header-shortcut-menu-control.js / shortcut-menu-base.js), sharing its
@@ -58,7 +54,7 @@
  * menus (see map-location-menu-control.js). Not a mapboxgl control.
  */
 import { haversineDistanceMeters, initialBearingDeg, formatDistance, bearingToCompassAbbr, bearingToCompassWord } from './geo-distance-utils.js';
-import { NearbyReferencePoint, REFERENCE_GEOLOCATION, REFERENCE_CENTER } from './nearby-reference-point.js';
+import { NearbyReferencePoint, REFERENCE_GEOLOCATION, REFERENCE_CENTER, REFERENCE_MARKER } from './nearby-reference-point.js';
 import { routeStore } from './search/route-store.js';
 import { ShortcutFlyout } from './shortcut-flyout.js';
 import { LayerThumbnail } from './layer-thumbnail.js';
@@ -86,7 +82,6 @@ export class NearbyFeaturesControl {
         this._markerRowRefs = [];
         this._referenceRow = null;
         this._profileRow = null;
-        this._routeRow = null;
         this._featureGroups = [];
         this._visibleCounts = new Map();
         this._reference = null;
@@ -179,7 +174,7 @@ export class NearbyFeaturesControl {
 
         // The view to come back to when a preview ends or the menu closes.
         this._previewLayer.captureCamera();
-        this._syncRoutes();
+        routeStore.sync();
         this._startLocationTracking();
         this._map.on('move', this._onMapMove);
         this._populateList();
@@ -399,10 +394,6 @@ export class NearbyFeaturesControl {
         this._rowRefs = [];
         this._markerRowRefs = [];
 
-        this._menu.appendChild(this._createHeading('signpost-split', 'Route'));
-        this._menu.appendChild(this._createRouteRow());
-        this._menu.appendChild(this._createDivider({ section: true }));
-
         this._menu.appendChild(this._createHeading('record-circle', 'Navigate From'));
         this._menu.appendChild(this._createReferenceRow());
         this._menu.appendChild(this._createDivider({ section: true }));
@@ -554,89 +545,6 @@ export class NearbyFeaturesControl {
         this._visibleCounts.set(group.layerId, Math.min(shown + PAGE_SIZE, group.features.length));
         const row = this._rowRefs.find(r => r.group.layerId === group.layerId);
         if (row) this._flyout.open(row.button, this._buildGroupItems(group), { focusIndex: shown });
-    }
-
-    /**
-     * Picks up whatever routes are already on the map - restored from a shared
-     * link, or built earlier this session - and points the origin at the end of
-     * the selected one, so reopening the menu continues that route.
-     */
-    _syncRoutes() {
-        routeStore.sync();
-        this._followSelectedRoute();
-    }
-
-    /**
-     * The origin follows the selected route's far end; "New Route" hands it
-     * back to the default (GPS, else map center).
-     */
-    _followSelectedRoute() {
-        const end = routeStore.endOfSelected();
-        if (end) this._reference.setRouteEnd(end, end.label);
-        else this._reference.clearRouteEnd();
-    }
-
-    /**
-     * The route being built, at the top of the menu because every destination
-     * below is appended to it. Its submenu lists every route on the map, plus
-     * "New Route" - the standing selection when there are none, and the way
-     * back to starting a fresh one from the default origin.
-     */
-    _createRouteRow() {
-        this._routeRow = this._createDropdownRow(() => this._buildRouteItems());
-        this._updateRouteRow();
-        return this._routeRow.button;
-    }
-
-    _updateRouteRow() {
-        if (!this._routeRow) return;
-        const { button, icon, label, subtext } = this._routeRow;
-        const route = routeStore.selected;
-
-        icon.setAttribute('name', route ? 'signpost-2-fill' : 'plus-circle');
-        label.textContent = route ? `Route: ${route.name}` : 'New Route';
-        subtext.textContent = route ? this._describeRoute(route) : 'The next place you pick starts a route';
-        button.setAttribute('aria-label', route
-            ? `Adding to route ${route.name}. Choose a different route`
-            : 'New route. The next place you pick starts a route');
-    }
-
-    _describeRoute(route) {
-        const stops = `${route.waypoints.length} stop${route.waypoints.length === 1 ? '' : 's'}`;
-        const distance = route.result?.distance ? ` · ${formatDistance(route.result.distance)}` : '';
-        return `${stops}${distance}`;
-    }
-
-    _buildRouteItems() {
-        const items = routeStore.routes.map(route => ({
-            icon: 'signpost-2-fill',
-            label: route.name,
-            subtext: this._describeRoute(route),
-            checked: routeStore.isSelected(route),
-            action: () => this._chooseRoute(route.id)
-        }));
-
-        items.push({
-            icon: 'plus-circle',
-            label: 'New Route',
-            subtext: 'Start again from your location',
-            checked: !routeStore.selected,
-            action: () => this._chooseRoute(null)
-        });
-
-        return items;
-    }
-
-    _chooseRoute(id) {
-        if (id) routeStore.select(id);
-        else routeStore.startNew();
-
-        this._followSelectedRoute();
-        this._resortAndRender();
-        window.keyboardController?.announceToScreenReader(
-            routeStore.selected ? `Adding to route ${routeStore.selected.name}` : 'New route'
-        );
-        this._menu.querySelector('button.shortcut-menu-item')?.focus();
     }
 
     /**
@@ -798,9 +706,10 @@ export class NearbyFeaturesControl {
     }
 
     /**
-     * Adds `lngLat` to the selected route - or starts one from the current
-     * origin when "New Route" is selected (see search/route-store.js). Either
-     * way the origin then follows the route's new far end, so picking another
+     * Routes from the current origin to `lngLat` (see search/route-store.js's
+     * routeTo) - which decides on its own whether that continues a route
+     * already ending at the origin or starts a new one. Either way the origin
+     * then follows the new waypoint's own marker, so picking another
      * destination extends the same route instead of starting over.
      */
     _routeTo(lngLat, name, announcement) {
@@ -811,10 +720,11 @@ export class NearbyFeaturesControl {
         if (!from) return;
 
         routeStore
-            .addDestination(lngLat, name, { from, fromLabel: this._reference.name() })
+            .routeTo(from, this._reference.name(), lngLat, name)
             .then(route => {
                 if (!route) return;
-                this._followSelectedRoute();
+                const markerId = route.markerIds[route.markerIds.length - 1];
+                if (markerId) this._reference.choose({ type: REFERENCE_MARKER, markerId });
                 this._fitRoute(route);
                 window.keyboardController?.announceToScreenReader(
                     `Route ${route.name}: ${route.waypoints.length} stops, ${formatDistance(route.result.distance)}`
