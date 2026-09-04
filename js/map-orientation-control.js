@@ -56,6 +56,7 @@ export class MapOrientationControl {
 
     get mode() { return this._mode; }
     get isTracking() { return this._watch.isTracking; }
+    get lastPosition() { return this._watch.lastPosition; }
     get lockedToDevice() { return this._lockedToDevice; }
     get deviceBearing() { return this._deviceBearing; }
 

@@ -83,7 +83,7 @@ export class MapLocationMenuControl {
         this._button.type = 'button';
         this._button.className = 'header-shortcut-menu-btn';
         this._button.setAttribute('aria-label', 'Map location and share');
-        this._button.innerHTML = '<sl-icon name="share"></sl-icon>';
+        this._button.innerHTML = '<sl-icon name="qr-code"></sl-icon>';
         this._button.addEventListener('click', () => this.toggle());
 
         this._container.appendChild(this._button);
@@ -137,7 +137,7 @@ export class MapLocationMenuControl {
         if (!this._map || !this._button || !this._menu) return;
         this._isOpenState = true;
         this._button.classList.add('active');
-        this._button.querySelector('sl-icon')?.setAttribute('name', 'share-fill');
+        this._button.querySelector('sl-icon')?.setAttribute('name', 'qr-code-scan');
 
         this._render();
 
@@ -160,7 +160,7 @@ export class MapLocationMenuControl {
             this._submenu.innerHTML = '';
         }
         this._button?.classList.remove('active');
-        this._button?.querySelector('sl-icon')?.setAttribute('name', 'share');
+        this._button?.querySelector('sl-icon')?.setAttribute('name', 'qr-code');
         this._clearRefreshTimer();
         this._clearHoverPreview();
     }
@@ -239,6 +239,8 @@ export class MapLocationMenuControl {
         const pitch = this._map.getPitch();
         const deviceBearing = window.geolocationControl?.deviceBearing;
 
+        this._renderShare();
+
         this._addRow(this._menu, { icon: 'geo-alt', label: this._formatCoords(center), rowKey: 'coords' });
         this._addRow(this._menu, { icon: 'compass', label: `Map bearing: ${Math.round(bearing)}°`, rowKey: 'mapBearing' });
         this._addRow(this._menu, { icon: 'phone-landscape', label: this._formatDeviceBearing(deviceBearing), rowKey: 'deviceBearing' });
@@ -249,7 +251,6 @@ export class MapLocationMenuControl {
         this._menu.appendChild(divider);
 
         this._renderAddress();
-        this._renderShare();
     }
 
     /**
@@ -257,13 +258,13 @@ export class MapLocationMenuControl {
      * opens the fullscreen QR modal (share-url-panel.js) and closes this menu.
      */
     _renderShare() {
-        const divider = document.createElement('div');
-        divider.className = 'shortcut-menu-divider';
-        this._menu.appendChild(divider);
-
         this._menu.appendChild(this._sharePanel.buildInlineSection({
             onOpenModal: () => this._hide()
         }));
+
+        const divider = document.createElement('div');
+        divider.className = 'shortcut-menu-divider';
+        this._menu.appendChild(divider);
     }
 
     _renderAddress() {

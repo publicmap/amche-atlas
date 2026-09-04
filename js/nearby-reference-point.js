@@ -7,10 +7,11 @@
  * current map center, or any marker already placed on the map (see
  * map-marker-manager.js), listed alphabetically.
  *
- * The default is the first *resolvable* option — GPS if a fix has already
- * arrived, otherwise the map center. When a first fix arrives later the
- * reference upgrades itself to GPS, unless the user has explicitly picked
- * something else in the meantime.
+ * The default is GPS whenever the device watch is on — including before its
+ * first fix, when `resolve()` still hands back the map center and the button
+ * reads as pending — and the map center otherwise. A first fix arriving later
+ * upgrades the reference to GPS the same way. Neither happens once the user
+ * has explicitly picked something else.
  *
  * `resolve()` reads the underlying position fresh on every call rather than
  * caching it, so a reference that moves on its own (a GPS fix, a panning map,
@@ -50,6 +51,16 @@ export class NearbyReferencePoint {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Makes GPS the default because the device watch is running, even though
+     * no fix has arrived yet. Returns true when this changed the reference.
+     */
+    preferGeolocation() {
+        if (this._isExplicit || this._choice.type === REFERENCE_GEOLOCATION) return false;
+        this._choice = { type: REFERENCE_GEOLOCATION };
+        return true;
     }
 
     choose(option) {

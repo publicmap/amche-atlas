@@ -7,10 +7,14 @@ import { handlerLoader } from './inspection-handler-loader.js';
 import { trackEvent } from './analytics.js';
 import { CameraUtils } from './map-camera-utils.js';
 
-// Cap on how many features getFeaturesInView() returns, so a dense layer
-// (thousands of parcels, etc.) can't turn the "Nearby features" list into an
-// unusably long swipe/tab order for the screen-reader/keyboard users it exists for.
-const MAX_FEATURES_IN_VIEW = 200;
+// Caps on what getFeaturesInView() collects. The budget is per layer because
+// the "Nearby features" list groups by layer and shows the closest few in each:
+// a single shared budget let one dense layer (thousands of parcels) consume it
+// all, leaving every layer registered after it with nothing to show.
+const MAX_FEATURES_PER_LAYER = 200;
+
+// Overall safety valve for an atlas with many dense layers loaded at once.
+const MAX_FEATURES_IN_VIEW = 2000;
 
 export class MapFeatureStateManager extends EventTarget {
     constructor(map, mapboxAPI = null) {
@@ -912,7 +916,8 @@ export class MapFeatureStateManager extends EventTarget {
      * alternative to tapping a spot on the map canvas, for screen-reader users
      * who can't hit-test the canvas at all. Deduplicates repeated geometries
      * across tile boundaries via the same composite key used elsewhere, and
-     * stops early at MAX_FEATURES_IN_VIEW to keep the list swipeable.
+     * takes at most MAX_FEATURES_PER_LAYER from each layer so every layer in
+     * view is represented however dense the ones before it are.
      */
     getFeaturesInView() {
         const seen = new Set();
@@ -922,16 +927,17 @@ export class MapFeatureStateManager extends EventTarget {
             if (features.length >= MAX_FEATURES_IN_VIEW) return;
             if (this._isRasterLayer(layerConfig)) return;
 
+            let layerCount = 0;
             const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
             matchingLayerIds.forEach(actualLayerId => {
-                if (features.length >= MAX_FEATURES_IN_VIEW) return;
+                if (layerCount >= MAX_FEATURES_PER_LAYER) return;
                 try {
                     const layerFeatures = this._map.queryRenderedFeatures(undefined, {
                         layers: [actualLayerId]
                     });
 
                     layerFeatures.forEach(feature => {
-                        if (features.length >= MAX_FEATURES_IN_VIEW) return;
+                        if (layerCount >= MAX_FEATURES_PER_LAYER) return;
 
                         const featureId = this._getFeatureId(feature);
                         const compositeKey = this._getCompositeKey(layerConfig.id, featureId);
@@ -945,6 +951,7 @@ export class MapFeatureStateManager extends EventTarget {
                             : { lng: center.lng, lat: center.lat };
 
                         features.push({ feature, layerId: layerConfig.id, lngLat });
+                        layerCount++;
                     });
                 } catch (error) {
                     if (!(error instanceof RangeError)) {

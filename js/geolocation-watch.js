@@ -44,6 +44,10 @@ export class GeolocationWatch {
         this._state = WATCH.OFF;
         this._errorCount = 0;
         this._autoActivateWatcher = null;
+        // Last fix seen, kept so a consumer that starts listening mid-watch
+        // (see map-nearby-features-control.js) has a position immediately
+        // rather than waiting for the next one.
+        this._lastPosition = null;
         // Set synchronously on the first start, so url-manager's later
         // applyURLParameters() can't re-toggle tracking off in the window
         // before the first GPS position arrives.
@@ -65,6 +69,7 @@ export class GeolocationWatch {
     get state() { return this._state; }
     get isTracking() { return this._state !== WATCH.OFF; }
     get pendingAutoActivate() { return this._autoActivateWatcher != null; }
+    get lastPosition() { return this._lastPosition; }
 
     on(type, listener) { this._control.on(type, listener); return this; }
     once(type, listener) { this._control.once(type, listener); return this; }
@@ -204,6 +209,8 @@ export class GeolocationWatch {
     }
 
     _onGeolocate = (event) => {
+        this._lastPosition = { lng: event.coords.longitude, lat: event.coords.latitude };
+
         // geolocate fires continuously while tracking; report once per session
         if (!this._analyticsReported) {
             this._analyticsReported = true;

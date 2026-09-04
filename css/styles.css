@@ -1614,6 +1614,14 @@ body {
     background: #374151;
 }
 
+/* Break between the "Navigate From" and "To" halves of the nearby-features
+   menu (see js/map-nearby-features-control.js) - full-bleed and brighter than
+   the in-section dividers, so the two halves read as separate blocks. */
+.shortcut-menu-divider.shortcut-menu-divider-section {
+    margin: 6px -4px;
+    background: #4b5563;
+}
+
 /* Plain readout rows (see js/map-location-menu-control.js) - coordinates,
    bearing, pitch - not clickable, so they shouldn't look hoverable. */
 .shortcut-menu-item.shortcut-menu-item-static {
@@ -1672,9 +1680,17 @@ body {
     padding: 8px 6px;
 }
 
-/* "Navigate From" origin picker (see js/map-nearby-features-control.js) - a
-   dropdown button rather than a plain menu row, so it reads as the one
-   editable field above the destination list. */
+/* Layer previews on the nearby-features layer rows (see
+   js/layer-thumbnail.js). Sized like the sl-icon they stand in for, so rows
+   with and without a preview line up. */
+.shortcut-menu-thumbnail {
+    flex-shrink: 0;
+}
+
+/* The two setting pickers in the nearby-features menu (see
+   js/map-nearby-features-control.js) - "Navigate From" and the routing
+   profile. Boxed dropdown buttons rather than plain menu rows, so they read as
+   the editable fields bracketing the destination list. */
 .shortcut-menu-item.shortcut-menu-item-origin {
     background: #111827;
     border: 1px solid #374151;
@@ -6631,11 +6647,11 @@ sl-tab:hover::part(base) {
 }
 /* ── 3D terrain panel (js/terrain-3d-control.js) ────────────────────────────
    Wears map-browser.html's palette: #111827 chrome, #1f2937 body, #374151
-   rules, #3b82f6 accent. The panel opens from the bottom-right button column,
-   left of it and above the attribution bar so it covers neither. */
+   rules, #3b82f6 accent. The panel opens below the top-right button column
+   that hosts its toggle. */
 .terrain-3d-panel {
     position: absolute;
-    bottom: 40px;
+    top: 40px;
     right: 48px;
     z-index: 1000;
     display: none;

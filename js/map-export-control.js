@@ -218,7 +218,11 @@ export class MapExportControl {
         // An iframe is a replaced element, so top+bottom alone won't stretch
         // it the way it would a div - height has to be set explicitly.
         this._iframe.style.top = `${headerHeight}px`;
+        // vh first, then dvh: browsers without dvh keep the vh value, while
+        // mobile browsers with a dynamic toolbar shrink to the visible area so
+        // the panel's sticky footer stays reachable.
         this._iframe.style.height = `calc(100vh - ${headerHeight}px)`;
+        this._iframe.style.height = `calc(100dvh - ${headerHeight}px)`;
         this._iframe.style.width = window.matchMedia('(min-width: 768px)').matches ? '40%' : '75%';
     }
 
