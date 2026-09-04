@@ -8,6 +8,8 @@
  *   mapwarper:108838
  *   osm:relation/21057460
  *   stac:<url-encoded STAC Item or stac-map viewer URL>
+ *   route:mapbox-driving-traffic(73.81/15.49|73.83/15.51)
+ *   route:osrm-driving(73.81/15.49|73.83/15.51)
  *
  * The equivalent `{"type":"...","id":"..."}` object form is still accepted
  * on read (and is what opacity gets embedded into on write, since the plain
@@ -15,7 +17,7 @@
  * layerToURL).
  *
  * Each service's actual API calls live in its own module (allmaps-url-api.js,
- * mapwarper-url-api.js, osm-url-api.js) — this file dispatches to them via
+ * mapwarper-url-api.js, osm-url-api.js, route-url-api.js) — this file dispatches to them via
  * js/layer-source-resolver.js's DYNAMIC_SHORTHAND_PROVIDERS table, the same
  * one map-creator.js's "Add Layer" URL box resolves full URLs through, so
  * adding a new service means adding one entry there plus its own module.
@@ -24,8 +26,8 @@
 import { DYNAMIC_SHORTHAND_PROVIDERS } from './layer-source-resolver.js';
 import { OSMApi } from './osm-url-api.js';
 
-const SHORTHAND_TYPES = new Set(['allmaps', 'mapwarper', 'osm', 'stac']);
-const SHORTHAND_STRING_RE = /^(allmaps|mapwarper|osm|stac):(.+)$/;
+const SHORTHAND_TYPES = new Set(['allmaps', 'mapwarper', 'osm', 'stac', 'route']);
+const SHORTHAND_STRING_RE = /^(allmaps|mapwarper|osm|stac|route):(.+)$/;
 
 /**
  * Parses the compact `type:id` string form (e.g. "osm:relation/21057460")

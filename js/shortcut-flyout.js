@@ -1,17 +1,15 @@
 /**
  * ShortcutFlyout - the reusable flyout panels for header-nav menus that need
  * per-row submenus (see map-nearby-features-control.js). Renders a flat list
- * of `{ icon, label, subtext, ariaLabel, checked, action, actions, onHover }`
- * items into a panel anchored to whichever row opened it: `'side'` (the default)
+ * of `{ icon, label, subtext, ariaLabel, checked, action, onHover }` items
+ * into a panel anchored to whichever row opened it: `'side'` (the default)
  * puts it beside the row, flipping to the left when it wouldn't fit on the
  * right; `'below'` drops it under the anchor, matched to its width, for rows
  * that read as dropdown buttons rather than submenu rows.
  *
- * Panels stack by `level`, so a submenu row can itself carry a submenu: an
- * item with `actions` (a function returning more items) gets a chevron that
- * opens the next level beside it. Opening any level closes the levels below
- * it, and only one panel exists per level - opening from another row at the
- * same level replaces its contents in place.
+ * Panels stack by `level` so a submenu row could itself open one; opening any
+ * level closes the levels below it, and only one panel exists per level -
+ * opening from another row at the same level replaces its contents in place.
  *
  * Focus moves into a panel on open and back to the anchor row on close, so a
  * keyboard or screen-reader user is never left focused on a hidden element.
@@ -68,7 +66,7 @@ export class ShortcutFlyout {
 
         const panel = this._ensurePanel(level);
         panel.el.innerHTML = '';
-        items.forEach(item => panel.el.appendChild(this._buildRow(item, level)));
+        items.forEach(item => panel.el.appendChild(this._buildRow(item)));
 
         panel.anchor = anchor;
         panel.el.style.display = 'block';
@@ -118,7 +116,7 @@ export class ShortcutFlyout {
         }
     }
 
-    _buildRow(item, level) {
+    _buildRow(item) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'shortcut-menu-item';
@@ -165,37 +163,6 @@ export class ShortcutFlyout {
             button.addEventListener('blur', () => item.onHover(false));
         }
 
-        if (!item.actions) return button;
-
-        // A row with its own submenu: two sibling buttons in a wrapper, so the
-        // row's primary action and its submenu are each reachable on their own
-        // by tab/swipe (same shape as the menu rows in
-        // map-nearby-features-control.js).
-        const wrapper = document.createElement('div');
-        wrapper.className = 'shortcut-menu-row';
-        wrapper.appendChild(button);
-
-        const actions = document.createElement('button');
-        actions.type = 'button';
-        actions.className = 'shortcut-menu-item shortcut-menu-row-actions';
-        actions.setAttribute('aria-label', `Actions for ${item.label}`);
-        const chevron = document.createElement('sl-icon');
-        chevron.className = 'shortcut-menu-chevron';
-        chevron.setAttribute('name', 'chevron-right');
-        actions.appendChild(chevron);
-        actions.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.toggle(actions, item.actions(), { level: level + 1 });
-        });
-        if (item.onHover) {
-            // Same row, so reaching for its chevron must not read as leaving.
-            actions.addEventListener('mouseenter', () => item.onHover(true));
-            actions.addEventListener('focus', () => item.onHover(true));
-            actions.addEventListener('mouseleave', () => item.onHover(false));
-            actions.addEventListener('blur', () => item.onHover(false));
-        }
-        wrapper.appendChild(actions);
-
-        return wrapper;
+        return button;
     }
 }

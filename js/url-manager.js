@@ -269,8 +269,12 @@ export class URLManager {
 
         // Iterate through all groups in the layer control
         this.mapLayerControl._state.groups.forEach((group, groupIndex) => {
-            // Special case: skip selection layer if it has no features
-            if (group.id === 'selection' && (!group.geojson || !group.geojson.features || group.geojson.features.length === 0)) {
+            // Special case: skip the system layers ('selection' markers,
+            // 'directions' routes) while they hold nothing - they are always
+            // present, so listing them empty would only pad every URL.
+            const isEmptySystemLayer = (group.id === 'selection' || group.id === 'directions') &&
+                (!group.geojson || !group.geojson.features || group.geojson.features.length === 0);
+            if (isEmptySystemLayer) {
                 return;
             }
 

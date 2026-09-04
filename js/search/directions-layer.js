@@ -1,55 +1,38 @@
-const SOURCE_ID = 'amche-directions-route'
-const LAYER_ID = 'amche-directions-route-line'
-const EMPTY_COLLECTION = { type: 'FeatureCollection', features: [] }
+import { routeStore } from './route-store.js'
+import { routeBounds } from './route-geojson.js'
 
 /**
- * Owns the map source/layer that draws a route line, following the same
- * getSource/getLayer-guarded add pattern as map-measure-control.js.
+ * The search control's handle on the route drawing. Everything it does now
+ * goes through route-store.js, the single owner of the `directions` layer
+ * (config/index.atlas.json) - so an "X to Y" search adds a route the same way
+ * clicking a destination in the Visible Features menu does, and the two can
+ * coexist instead of overwriting each other.
  */
 export class DirectionsLayer {
     constructor(map) {
         this.map = map
+        // Only the route this control drew, so clearing the search box can't
+        // take routes the user built in the Visible Features menu with it.
+        this._routeId = null
     }
 
-    _ensureLayer() {
-        if (!this.map.getSource(SOURCE_ID)) {
-            this.map.addSource(SOURCE_ID, { type: 'geojson', data: EMPTY_COLLECTION })
-        }
-        if (!this.map.getLayer(LAYER_ID)) {
-            this.map.addLayer({
-                id: LAYER_ID,
-                type: 'line',
-                source: SOURCE_ID,
-                layout: { 'line-join': 'round', 'line-cap': 'round' },
-                paint: {
-                    'line-color': '#3b82f6',
-                    'line-width': 5,
-                    'line-opacity': 0.85
-                }
-            })
-        }
+    /**
+     * @param {Object} route - the Directions result (see directions-router.js)
+     * @param {Array<Array<number>>} waypoints - [lng, lat] per waypoint, in order
+     * @param {Array<string>} [names] - optional label per waypoint
+     */
+    show(route, waypoints, names = []) {
+        this._routeId = routeStore.adopt(route, waypoints, names)?.id || null
     }
 
-    show(geometry) {
-        this._ensureLayer()
-        this.map.getSource(SOURCE_ID).setData({ type: 'Feature', geometry, properties: {} })
-    }
-
-    /** Bounds of the currently-shown route, for fitBounds(). */
+    /** Bounds of a route geometry, for fitBounds(). */
     bounds(geometry) {
-        const bounds = new mapboxgl.LngLatBounds()
-        geometry.coordinates.forEach(coord => bounds.extend(coord))
-        return bounds
+        return routeBounds(geometry)
     }
 
     clear() {
-        if (this.map.getSource(SOURCE_ID)) {
-            this.map.getSource(SOURCE_ID).setData(EMPTY_COLLECTION)
-        }
-    }
-
-    remove() {
-        if (this.map.getLayer(LAYER_ID)) this.map.removeLayer(LAYER_ID)
-        if (this.map.getSource(SOURCE_ID)) this.map.removeSource(SOURCE_ID)
+        if (!this._routeId) return
+        routeStore.remove(this._routeId)
+        this._routeId = null
     }
 }

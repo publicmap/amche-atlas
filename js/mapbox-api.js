@@ -1993,6 +1993,18 @@ export class MapboxAPI {
             const idSuffix = `${segregateSuffix}${variantSuffix}`;
             const isBaseVariant = variant.prefix === '';
 
+            // A "filter" key in the style scopes that variant's layers to a
+            // subset of the source, e.g. "waypoints/filter" restricting circles
+            // to Point features. Without it a circle layer draws at every
+            // vertex of a line too, and a symbol layer labels each of them -
+            // which is what mixing geometry types in one FeatureCollection
+            // (see search/route-geojson.js) would otherwise do.
+            const variantFilter = variantStyle.filter;
+            delete variantStyle.filter;
+            const layerFilter = unclusteredFilter && variantFilter
+                ? ['all', unclusteredFilter, variantFilter]
+                : (variantFilter || unclusteredFilter);
+
             // Check if user has explicitly defined any styles
             const userHasFillStyles = variantStyle['fill-color'] || variantStyle['fill-opacity'];
             const userHasLineStyles = variantStyle['line-color'] || variantStyle['line-width'];
@@ -2035,7 +2047,7 @@ export class MapboxAPI {
                     style: extrusionStyle,
                     visible,
                     applyDefaults: isBaseVariant,
-                    ...(unclusteredFilter && { filter: unclusteredFilter })
+                    ...(layerFilter && { filter: layerFilter })
                 }, 'fill-extrusion');
 
                 this._addLayerWithSlot(extrusionLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
@@ -2054,7 +2066,7 @@ export class MapboxAPI {
                     style: fillStyle,
                     visible,
                     applyDefaults: isBaseVariant,
-                    ...(unclusteredFilter && { filter: unclusteredFilter })
+                    ...(layerFilter && { filter: layerFilter })
                 }, 'fill');
 
                 this._addLayerWithSlot(fillLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'fill', config, this._orderedGroups));
@@ -2073,7 +2085,7 @@ export class MapboxAPI {
                     style: lineStyle,
                     visible,
                     applyDefaults: isBaseVariant,
-                    ...(unclusteredFilter && { filter: unclusteredFilter })
+                    ...(layerFilter && { filter: layerFilter })
                 }, 'line');
 
                 this._addLayerWithSlot(lineLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'line', config, this._orderedGroups));
@@ -2092,7 +2104,7 @@ export class MapboxAPI {
                     style: circleStyle,
                     visible,
                     applyDefaults: isBaseVariant,
-                    ...(unclusteredFilter && { filter: unclusteredFilter })
+                    ...(layerFilter && { filter: layerFilter })
                 }, 'circle');
 
                 this._addLayerWithSlot(circleLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'circle', config, this._orderedGroups));
@@ -2114,7 +2126,7 @@ export class MapboxAPI {
                     style: symbolStyle,
                     visible,
                     applyDefaults: isBaseVariant,
-                    ...(unclusteredFilter && { filter: unclusteredFilter })
+                    ...(layerFilter && { filter: layerFilter })
                 }, 'symbol');
 
                 this._addLayerWithSlot(symbolLayerConfig, LayerOrderManager.getInsertPosition(this._map, 'vector', 'symbol', config, this._orderedGroups));

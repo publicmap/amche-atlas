@@ -1,8 +1,9 @@
 /**
  * NearbyPreviewLayer - the dashed sight line the nearby-features menu (see
  * map-nearby-features-control.js) draws while a destination row is hovered or
- * focused: origin to target as the crow flies, a dot at each end, labelled
- * with the distance and compass bearing, fitted into view so both ends show.
+ * focused: origin to target as the crow flies over a solid white casing, a dot
+ * at each end, labelled with the distance and compass bearing, fitted into
+ * view so both ends show. Coloured like the GL user-location disc.
  *
  * It also owns the camera the menu was opened with, so leaving a row - or
  * closing the menu - puts the view back exactly where it was. A row that
@@ -13,12 +14,16 @@
  * and the same halo'd label styling as map-measure-control.js.
  */
 const SOURCE_ID = 'amche-nearby-preview';
+const CASING_LAYER_ID = 'amche-nearby-preview-casing';
 const LINE_LAYER_ID = 'amche-nearby-preview-line';
 const POINT_LAYER_ID = 'amche-nearby-preview-points';
 const LABEL_LAYER_ID = 'amche-nearby-preview-label';
 const EMPTY_DATA = { type: 'FeatureCollection', features: [] };
 
-const LINE_COLOR = '#f59e0b';
+// The GL user-location disc: #1da1f2 inside a white ring. Reused here so the
+// sight line and its target read as the same "you and your bearing" idiom.
+const LINE_COLOR = '#1da1f2';
+const CASING_COLOR = '#ffffff';
 
 export class NearbyPreviewLayer {
     constructor(map) {
@@ -84,7 +89,7 @@ export class NearbyPreviewLayer {
 
     remove() {
         if (!this._map) return;
-        [LABEL_LAYER_ID, POINT_LAYER_ID, LINE_LAYER_ID].forEach(id => {
+        [LABEL_LAYER_ID, POINT_LAYER_ID, LINE_LAYER_ID, CASING_LAYER_ID].forEach(id => {
             if (this._map.getLayer(id)) this._map.removeLayer(id);
         });
         if (this._map.getSource(SOURCE_ID)) this._map.removeSource(SOURCE_ID);
@@ -94,6 +99,23 @@ export class NearbyPreviewLayer {
     _ensureLayers() {
         if (!this._map.getSource(SOURCE_ID)) {
             this._map.addSource(SOURCE_ID, { type: 'geojson', data: EMPTY_DATA });
+        }
+
+        // A solid white casing under the dashes, so the line stays readable over
+        // satellite imagery and dark basemaps alike.
+        if (!this._map.getLayer(CASING_LAYER_ID)) {
+            this._map.addLayer({
+                id: CASING_LAYER_ID,
+                type: 'line',
+                source: SOURCE_ID,
+                filter: ['==', ['geometry-type'], 'LineString'],
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: {
+                    'line-color': CASING_COLOR,
+                    'line-width': 7,
+                    'line-opacity': 0.9
+                }
+            });
         }
 
         if (!this._map.getLayer(LINE_LAYER_ID)) {
@@ -106,7 +128,7 @@ export class NearbyPreviewLayer {
                 paint: {
                     'line-color': LINE_COLOR,
                     'line-width': 3,
-                    'line-opacity': 0.9,
+                    'line-opacity': 1,
                     'line-dasharray': [2, 1.5]
                 }
             });
@@ -119,10 +141,10 @@ export class NearbyPreviewLayer {
                 source: SOURCE_ID,
                 filter: ['all', ['==', ['geometry-type'], 'Point'], ['!', ['has', 'label']]],
                 paint: {
-                    'circle-radius': 5,
+                    'circle-radius': 6,
                     'circle-color': LINE_COLOR,
                     'circle-stroke-width': 2,
-                    'circle-stroke-color': '#ffffff'
+                    'circle-stroke-color': CASING_COLOR
                 }
             });
         }
@@ -142,7 +164,7 @@ export class NearbyPreviewLayer {
                     'text-ignore-placement': true
                 },
                 paint: {
-                    'text-color': '#92400e',
+                    'text-color': '#0b4f7a',
                     'text-halo-color': '#ffffff',
                     'text-halo-width': 2
                 }

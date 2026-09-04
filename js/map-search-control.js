@@ -860,7 +860,7 @@ export class MapSearchControl {
         this.cadastralProvider.cancel();
         this.nominatimProvider.cancel();
         this.directionsProvider.cancel();
-        this.directionsLayer.remove();
+        this.directionsLayer.clear();
 
         if (this.injectionTimeout) {
             clearTimeout(this.injectionTimeout);
@@ -1112,7 +1112,8 @@ export class MapSearchControl {
 
         try {
             const route = await fetchRoute(item.from, item.to);
-            this.directionsLayer.show(route.geometry);
+            const waypoints = [item.from.coordinates, item.to.coordinates];
+            this.directionsLayer.show(route, waypoints, [item.from.label || '', item.to.label || '']);
             this.map.fitBounds(this.directionsLayer.bounds(route.geometry), {
                 padding: 60,
                 duration: 1000

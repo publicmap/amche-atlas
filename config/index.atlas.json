@@ -96,6 +96,190 @@
       "initiallyChecked": true
     },
     {
+      "tags": [
+        "Points Of Interest"
+      ],
+      "title": "Navigation Routes",
+      "description": "Routes drawn by map navigation, and routes defined in the URL as <code>?layers=route:mapbox-driving(73.81/15.49|73.83/15.51)</code>. Waypoints are start, stops and destination; the route line carries every property the <a href='https://docs.mapbox.com/api/navigation/directions/' target='_blank'>Mapbox Directions API</a> returned.",
+      "headerImage": null,
+      "type": "geojson",
+      "id": "directions",
+      "geojson": null,
+      "attribution": "<a href='https://docs.mapbox.com/api/navigation/directions/' target='_blank'>Mapbox Directions</a>",
+      "style": {
+        "title/symbol-placement": "line-center",
+        "title/text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          12,
+          [
+            "to-string",
+            [
+              "get",
+              "title"
+            ]
+          ]
+        ],
+        "title/text-size": 12,
+        "title/text-offset": [
+          0,
+          -1.1
+        ],
+        "title/text-max-width": 30,
+        "title/text-allow-overlap": true,
+        "title/text-color": "#0b4f7a",
+        "title/text-halo-color": "#ffffff",
+        "title/text-halo-width": 2,
+        "summary/symbol-placement": "line-center",
+        "summary/text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          [
+            "to-string",
+            [
+              "get",
+              "travelText"
+            ]
+          ],
+          12,
+          [
+            "to-string",
+            [
+              "get",
+              "summary"
+            ]
+          ]
+        ],
+        "summary/text-size": 12,
+        "summary/text-offset": [
+          0,
+          1.1
+        ],
+        "summary/text-max-width": 30,
+        "summary/text-allow-overlap": true,
+        "summary/text-color": "#0b4f7a",
+        "summary/text-halo-color": "#ffffff",
+        "summary/text-halo-width": 2,
+        "waypoints/filter": [
+          "==",
+          [
+            "geometry-type"
+          ],
+          "Point"
+        ],
+        "waypoints/circle-radius": [
+          "match",
+          [
+            "get",
+            "role"
+          ],
+          "waypoint",
+          3,
+          6
+        ],
+        "waypoints/circle-color": [
+          "match",
+          [
+            "get",
+            "role"
+          ],
+          "waypoint",
+          "#ffffff",
+          "#1da1f2"
+        ],
+        "waypoints/circle-stroke-width": [
+          "match",
+          [
+            "get",
+            "role"
+          ],
+          "waypoint",
+          1.5,
+          2
+        ],
+        "waypoints/circle-stroke-color": [
+          "match",
+          [
+            "get",
+            "role"
+          ],
+          "waypoint",
+          "#1da1f2",
+          "#ffffff"
+        ],
+        "waypoints/text-field": [
+          "case",
+          [
+            "==",
+            [
+              "get",
+              "role"
+            ],
+            "waypoint"
+          ],
+          "",
+          [
+            "to-string",
+            [
+              "coalesce",
+              [
+                "get",
+                "label"
+              ],
+              ""
+            ]
+          ]
+        ],
+        "waypoints/text-size": 12,
+        "waypoints/text-offset": [
+          0,
+          1.4
+        ],
+        "waypoints/text-halo-color": "#ffffff",
+        "waypoints/text-halo-width": 1.5,
+        "route/line-color": "#1da1f2",
+        "route/line-width": 5,
+        "route/line-opacity": 1,
+        "route/line-cap": "round",
+        "route/line-join": "round",
+        "line-color": "#ffffff",
+        "line-width": 9,
+        "line-opacity": 0.9,
+        "line-cap": "round",
+        "line-join": "round",
+        "text-field": ""
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Route",
+        "label": "label",
+        "fields": [
+          "distanceText",
+          "travelText",
+          "eta",
+          "mode",
+          "role",
+          "street",
+          "source"
+        ],
+        "fieldTitles": [
+          "Distance",
+          "Travel time",
+          "ETA",
+          "Mode",
+          "Waypoint",
+          "On road",
+          "Routed by"
+        ]
+      },
+      "initiallyChecked": true
+    },
+    {
       "id": "notes",
       "title": "Map Notes",
       "type": "csv",

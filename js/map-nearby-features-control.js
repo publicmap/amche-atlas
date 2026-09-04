@@ -8,8 +8,14 @@
  * stateManager.handleFeatureClicks() pipeline a mouse click uses, so marker
  * creation, the inspector panel, and URL state all behave identically.
  *
- * The menu reads as a from/to pair:
+ * The menu reads as a route being built, from a From and a To:
  *
+ * - **Route** — the route destinations are being added to, listed at the top
+ *   because everything below appends to it. Its dropdown holds every route on
+ *   the map (see search/route-store.js) — including ones restored from a
+ *   shared link — and ends with **New Route**, which is the standing selection
+ *   when there are none. Picking a route points the origin at its far end;
+ *   picking New Route hands the origin back to the default.
  * - **Navigate From** — one button showing the current origin with its own
  *   icon (device GPS, the map center, or a marker); clicking it drops a
  *   dropdown of every available option (see nearby-reference-point.js). This
@@ -21,12 +27,10 @@
  *   the map (see map-marker-manager.js), then one row per layer with features
  *   in view, each opening a submenu of that layer's closest few features. The
  *   layer rows keep the top level short however dense a layer is, and carry
- *   the layer's feature count plus the distance to its nearest one. Selecting
- *   a marker flies to it via MapMarkerManager.focusMarker(); selecting a
- *   feature selects it. The section closes with **Navigation options** — the
- *   Mapbox routing profile (driving/walking/cycling, see
- *   search/directions-profile.js) that every route drawn from here, or from an
- *   "X to Y" search, uses.
+ *   the layer's feature count plus the distance to its nearest one. The
+ *   section closes with **Navigation options** — the Mapbox routing profile
+ *   (driving/walking/cycling, see search/directions-profile.js) that every
+ *   route drawn from here, or from an "X to Y" search, uses.
  *
  * Hovering or focusing any destination row previews it on the map: the feature
  * highlighted through the same stateManager.handleFeatureHovers() pipeline a
@@ -39,13 +43,13 @@
  * while the menu is open re-bases that saved view, so closing the menu never
  * undoes their gesture.
  *
- * Every destination row — markers here, features inside their layer's submenu
- * — carries a chevron button opening a flyout of secondary actions (see
- * shortcut-flyout.js, which stacks the layer submenu and these actions as two
- * levels): "Navigate", which draws a route from the origin via
- * search/directions-router.js, and — for features only — "Add marker", which
- * runs the normal selection pipeline at that point. The row's own click stays
- * the primary action, so the common case is still one tap.
+ * Clicking any destination does the whole job in one tap — no secondary menu:
+ * a marker is dropped on it through the same selection pipeline a map click
+ * runs, and the place is appended to the selected route as another waypoint
+ * (search/route-store.js, drawn into the `directions` layer). The origin then
+ * follows that route's new far end, so picking a second destination extends
+ * the same route rather than starting a new one from the user again — three
+ * taps build one route through three places.
  *
  * Lives in the header-nav (next to the shortcuts menu — see
  * header-shortcut-menu-control.js / shortcut-menu-base.js), sharing its
@@ -55,9 +59,11 @@
  */
 import { haversineDistanceMeters, initialBearingDeg, formatDistance, bearingToCompassAbbr, bearingToCompassWord } from './geo-distance-utils.js';
 import { NearbyReferencePoint, REFERENCE_GEOLOCATION, REFERENCE_CENTER } from './nearby-reference-point.js';
+import { routeStore } from './search/route-store.js';
 import { ShortcutFlyout } from './shortcut-flyout.js';
 import { LayerThumbnail } from './layer-thumbnail.js';
 import { NearbyPreviewLayer } from './nearby-preview-layer.js';
+import { routeBounds } from './search/route-geojson.js';
 import { DIRECTIONS_PROFILES, getDirectionsProfile, setDirectionsProfile, getDirectionsProfileInfo } from './search/directions-profile.js';
 
 const PAGE_SIZE = 5;
@@ -80,6 +86,7 @@ export class NearbyFeaturesControl {
         this._markerRowRefs = [];
         this._referenceRow = null;
         this._profileRow = null;
+        this._routeRow = null;
         this._featureGroups = [];
         this._visibleCounts = new Map();
         this._reference = null;
@@ -172,6 +179,7 @@ export class NearbyFeaturesControl {
 
         // The view to come back to when a preview ends or the menu closes.
         this._previewLayer.captureCamera();
+        this._syncRoutes();
         this._startLocationTracking();
         this._map.on('move', this._onMapMove);
         this._populateList();
@@ -391,6 +399,10 @@ export class NearbyFeaturesControl {
         this._rowRefs = [];
         this._markerRowRefs = [];
 
+        this._menu.appendChild(this._createHeading('signpost-split', 'Route'));
+        this._menu.appendChild(this._createRouteRow());
+        this._menu.appendChild(this._createDivider({ section: true }));
+
         this._menu.appendChild(this._createHeading('record-circle', 'Navigate From'));
         this._menu.appendChild(this._createReferenceRow());
         this._menu.appendChild(this._createDivider({ section: true }));
@@ -401,7 +413,7 @@ export class NearbyFeaturesControl {
 
             this._allMarkers.forEach((m) => {
                 const row = this._createMarkerRow(m);
-                this._menu.appendChild(row.wrapper);
+                this._menu.appendChild(row.button);
                 this._markerRowRefs.push(row);
             });
 
@@ -409,7 +421,7 @@ export class NearbyFeaturesControl {
         }
 
         if (this._featureGroups.length === 0) {
-            this._menu.appendChild(this._createHeading('filter-circle', 'Nearby features (0)', { sub: true }));
+            this._menu.appendChild(this._createHeading('pin-map', 'Visible Features (0)', { sub: true }));
             const empty = document.createElement('div');
             empty.className = 'shortcut-menu-item shortcut-menu-item-static';
             const emptyLabel = document.createElement('span');
@@ -417,7 +429,7 @@ export class NearbyFeaturesControl {
             empty.appendChild(emptyLabel);
             this._menu.appendChild(empty);
         } else {
-            this._menu.appendChild(this._createHeading('filter-circle', `Nearby features (${this._allFeatures.length})`, { sub: true }));
+            this._menu.appendChild(this._createHeading('pin-map', `Visible Features (${this._allFeatures.length})`, { sub: true }));
             this._featureGroups.forEach(group => {
                 const row = this._createGroupRow(group);
                 this._menu.appendChild(row.button);
@@ -475,10 +487,10 @@ export class NearbyFeaturesControl {
     }
 
     /**
-     * A layer's submenu: its closest features, each selecting on click and
-     * carrying its own actions submenu. No layer name on the rows - the row
-     * they hang off already names it; the subtext is the distance and bearing
-     * from the current origin.
+     * A layer's submenu: its closest features, each marking and routing to
+     * itself on click. No layer name on the rows - the row they hang off
+     * already names it; the subtext is the distance and bearing from the
+     * current origin.
      */
     _buildGroupItems(group) {
         const visibleCount = this._visibleCounts.get(group.layerId) ?? PAGE_SIZE;
@@ -493,8 +505,7 @@ export class NearbyFeaturesControl {
                 onHover: (enter) => enter
                     ? this._startPreview(f.lngLat, { feature: f.feature, layerId: f.layerId })
                     : this._endPreview(),
-                action: () => this._selectFeature(f),
-                actions: () => this._buildFeatureActions(f)
+                action: () => this._selectFeature(f)
             };
         });
 
@@ -543,6 +554,89 @@ export class NearbyFeaturesControl {
         this._visibleCounts.set(group.layerId, Math.min(shown + PAGE_SIZE, group.features.length));
         const row = this._rowRefs.find(r => r.group.layerId === group.layerId);
         if (row) this._flyout.open(row.button, this._buildGroupItems(group), { focusIndex: shown });
+    }
+
+    /**
+     * Picks up whatever routes are already on the map - restored from a shared
+     * link, or built earlier this session - and points the origin at the end of
+     * the selected one, so reopening the menu continues that route.
+     */
+    _syncRoutes() {
+        routeStore.sync();
+        this._followSelectedRoute();
+    }
+
+    /**
+     * The origin follows the selected route's far end; "New Route" hands it
+     * back to the default (GPS, else map center).
+     */
+    _followSelectedRoute() {
+        const end = routeStore.endOfSelected();
+        if (end) this._reference.setRouteEnd(end, end.label);
+        else this._reference.clearRouteEnd();
+    }
+
+    /**
+     * The route being built, at the top of the menu because every destination
+     * below is appended to it. Its submenu lists every route on the map, plus
+     * "New Route" - the standing selection when there are none, and the way
+     * back to starting a fresh one from the default origin.
+     */
+    _createRouteRow() {
+        this._routeRow = this._createDropdownRow(() => this._buildRouteItems());
+        this._updateRouteRow();
+        return this._routeRow.button;
+    }
+
+    _updateRouteRow() {
+        if (!this._routeRow) return;
+        const { button, icon, label, subtext } = this._routeRow;
+        const route = routeStore.selected;
+
+        icon.setAttribute('name', route ? 'signpost-2-fill' : 'plus-circle');
+        label.textContent = route ? `Route: ${route.name}` : 'New Route';
+        subtext.textContent = route ? this._describeRoute(route) : 'The next place you pick starts a route';
+        button.setAttribute('aria-label', route
+            ? `Adding to route ${route.name}. Choose a different route`
+            : 'New route. The next place you pick starts a route');
+    }
+
+    _describeRoute(route) {
+        const stops = `${route.waypoints.length} stop${route.waypoints.length === 1 ? '' : 's'}`;
+        const distance = route.result?.distance ? ` · ${formatDistance(route.result.distance)}` : '';
+        return `${stops}${distance}`;
+    }
+
+    _buildRouteItems() {
+        const items = routeStore.routes.map(route => ({
+            icon: 'signpost-2-fill',
+            label: route.name,
+            subtext: this._describeRoute(route),
+            checked: routeStore.isSelected(route),
+            action: () => this._chooseRoute(route.id)
+        }));
+
+        items.push({
+            icon: 'plus-circle',
+            label: 'New Route',
+            subtext: 'Start again from your location',
+            checked: !routeStore.selected,
+            action: () => this._chooseRoute(null)
+        });
+
+        return items;
+    }
+
+    _chooseRoute(id) {
+        if (id) routeStore.select(id);
+        else routeStore.startNew();
+
+        this._followSelectedRoute();
+        this._resortAndRender();
+        window.keyboardController?.announceToScreenReader(
+            routeStore.selected ? `Adding to route ${routeStore.selected.name}` : 'New route'
+        );
+        this._menu.querySelector('button.shortcut-menu-item')?.focus();
     }
 
     /**
@@ -670,20 +764,16 @@ export class NearbyFeaturesControl {
     }
 
     /**
-     * A marker row: the primary action button plus a chevron button opening
-     * its actions submenu. Two sibling buttons rather than one nested inside
-     * the other, so both are reachable by tab/swipe on their own.
+     * A marker row. One button, no secondary menu: clicking a destination
+     * already does the whole job (see _selectFeature).
      */
-    _createActionRow({ icon, onSelect, onPreview, buildActions }) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'shortcut-menu-row';
-
+    _createMarkerRow(m) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'shortcut-menu-item';
 
         const iconEl = document.createElement('sl-icon');
-        iconEl.setAttribute('name', icon);
+        iconEl.setAttribute('name', 'geo-alt-fill');
         button.appendChild(iconEl);
 
         const text = document.createElement('div');
@@ -698,115 +788,62 @@ export class NearbyFeaturesControl {
 
         button.addEventListener('click', (e) => {
             e.stopPropagation();
-            onSelect();
+            this._focusMarker(m);
         });
-        if (onPreview) this._bindPreview(button, onPreview);
-        wrapper.appendChild(button);
+        this._bindPreview(button, () => this._startPreview(m.lngLat));
 
-        const actions = document.createElement('button');
-        actions.type = 'button';
-        actions.className = 'shortcut-menu-item shortcut-menu-row-actions';
-        const chevron = document.createElement('sl-icon');
-        chevron.className = 'shortcut-menu-chevron';
-        chevron.setAttribute('name', 'chevron-right');
-        actions.appendChild(chevron);
-        actions.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._flyout.toggle(actions, buildActions());
-        });
-        // The chevron is part of the same row, so reaching for it must not end
-        // the row's preview.
-        if (onPreview) this._bindPreview(actions, onPreview);
-        wrapper.appendChild(actions);
-
-        return { wrapper, button, actions, label, subtext };
-    }
-
-    _createMarkerRow(m) {
-        const row = this._createActionRow({
-            icon: 'geo-alt-fill',
-            onSelect: () => this._focusMarker(m),
-            onPreview: () => this._startPreview(m.lngLat),
-            buildActions: () => this._buildMarkerActions(m)
-        });
-        row.m = m;
+        const row = { button, label, subtext, m };
         this._updateMarkerRowDistance(row);
         return row;
     }
 
-    _buildFeatureActions(f) {
-        const { label } = this._describeFeature(f);
-        return [
-            {
-                icon: getDirectionsProfileInfo().icon,
-                label: 'Navigate',
-                subtext: `${getDirectionsProfileInfo().label} from ${this._reference.name()}`,
-                action: () => this._navigateTo(f.lngLat, label)
-            },
-            {
-                icon: 'geo-alt-fill',
-                label: 'Add marker',
-                subtext: 'Place a marker here',
-                action: () => this._addMarkerAt(f.lngLat, label)
-            }
-        ];
-    }
-
-    // Markers get no "Add marker" — one is already there.
-    _buildMarkerActions(m) {
-        return [
-            {
-                icon: getDirectionsProfileInfo().icon,
-                label: 'Navigate',
-                subtext: `${getDirectionsProfileInfo().label} from ${this._reference.name()}`,
-                action: () => this._navigateTo(m.lngLat, m.label)
-            }
-        ];
-    }
-
     /**
-     * Draws a route from the current reference point to `lngLat`, reusing the
-     * search control's own directions handler (search/directions-router.js
-     * plus its route layer and fitBounds) so a route started here looks
-     * identical to one started from an "X to Y" search.
+     * Adds `lngLat` to the selected route - or starts one from the current
+     * origin when "New Route" is selected (see search/route-store.js). Either
+     * way the origin then follows the route's new far end, so picking another
+     * destination extends the same route instead of starting over.
      */
-    _navigateTo(lngLat, label) {
+    _routeTo(lngLat, name, announcement) {
         const from = this._reference.resolve();
+        window.keyboardController?.announceToScreenReader(
+            from ? `${announcement}. Finding a ${getDirectionsProfileInfo().label} route.` : announcement
+        );
         if (!from) return;
-        this._commitCamera();
-        this._hide();
-        window.keyboardController?.announceToScreenReader(`Finding a ${getDirectionsProfileInfo().label} route to ${label}`);
-        window.searchControl?._selectDirectionsSuggestion({
-            from: { coordinates: [from.lng, from.lat] },
-            to: { coordinates: [lngLat.lng, lngLat.lat] }
-        });
+
+        routeStore
+            .addDestination(lngLat, name, { from, fromLabel: this._reference.name() })
+            .then(route => {
+                if (!route) return;
+                this._followSelectedRoute();
+                this._fitRoute(route);
+                window.keyboardController?.announceToScreenReader(
+                    `Route ${route.name}: ${route.waypoints.length} stops, ${formatDistance(route.result.distance)}`
+                );
+            })
+            .catch(error => {
+                console.error('[directions]', error);
+                window.keyboardController?.announceToScreenReader('Could not find a route');
+            });
     }
 
-    /**
-     * Places a selection marker at `lngLat` via the same manual trigger the
-     * right-click shortcut menu's "Select features" uses, so the marker picks
-     * up whatever features sit under that point.
-     */
-    _addMarkerAt(lngLat, label) {
-        this._commitCamera();
-        this._hide();
-        window.featureControl?.triggerSelectionAt(lngLat);
-        window.keyboardController?.announceToScreenReader(`Marker added at ${label}`);
+    _fitRoute(route) {
+        const line = route.geojson?.features?.find(f => f.properties?.kind === 'route');
+        if (!line || !this._map) return;
+        this._map.fitBounds(routeBounds(line.geometry), { padding: 60, duration: 1000 });
     }
 
     _updateMarkerRowDistance(row) {
-        const { m, label, subtext, button, actions } = row;
+        const { m, label, subtext, button } = row;
         label.textContent = m.label;
         subtext.textContent = this._formatOffset(m.lngLat) || 'Marker';
-        button.setAttribute('aria-label', `${m.label}${this._describeOffset(m.lngLat)}`);
-        actions.setAttribute('aria-label', `Actions for ${m.label}`);
+        button.setAttribute('aria-label', `Navigate to ${m.label}${this._describeOffset(m.lngLat)}`);
     }
 
     _focusMarker(m) {
         this._commitCamera();
         this._hide();
         window.featureControl?._markerManager?.focusMarker(m.id);
-        window.keyboardController?.announceToScreenReader(`Selected marker ${m.label}`);
+        this._routeTo(m.lngLat, m.label, `Selected marker ${m.label}`);
     }
 
     _describeFeature(f) {
@@ -837,13 +874,19 @@ export class NearbyFeaturesControl {
         return `, ${distanceText} ${bearingToCompassWord(bearingDeg)} of ${this._reference.name()}`;
     }
 
+    /**
+     * A destination's click does the whole job in one tap: drop a marker on it
+     * through the same selection pipeline a map click runs, then route to it
+     * from the current origin. That is why no destination row carries a
+     * secondary-actions menu.
+     */
     _selectFeature(f) {
         const { label } = this._describeFeature(f);
         this._commitCamera();
         this._hide();
         this._stateManager.handleFeatureClicks([f]);
         window.featureControl?._markerManager?._openInspectorPanel();
-        window.keyboardController?.announceToScreenReader(`Selected ${label}`);
+        this._routeTo(f.lngLat, label, `Selected ${label}`);
     }
 
     _handleOutsideEvent(e) {

@@ -638,13 +638,16 @@ export class MapInitializer {
                 (invalidLayers.length ? ` (${invalidLayers.length} invalid: ${invalidLayers.join(', ')})` : ''),
                 validLayers.map(l => ({ id: l.id, type: l.type, initiallyChecked: !!l.initiallyChecked })));
 
-            // Ensure the selection layer (system layer for map markers) is always present
-            if (!config.layers.find(l => l.id === 'selection')) {
-                const selectionLayer = layerRegistry.getLayer('selection', 'index');
-                if (selectionLayer) {
-                    config.layers.unshift({ ...selectionLayer, id: 'selection', initiallyChecked: true });
+            // Ensure the system layers are always present, whatever atlas is
+            // loaded: 'selection' holds map markers, 'directions' the route a
+            // navigation draws into (see search/directions-layer.js).
+            ['selection', 'directions'].forEach(systemLayerId => {
+                if (config.layers.find(l => l.id === systemLayerId)) return;
+                const systemLayer = layerRegistry.getLayer(systemLayerId, 'index');
+                if (systemLayer) {
+                    config.layers.unshift({ ...systemLayer, id: systemLayerId, initiallyChecked: true });
                 }
-            }
+            });
 
             // If we found invalid layers from URL, update the URL to remove them
             if (invalidLayers.length > 0 && layersParam) {
