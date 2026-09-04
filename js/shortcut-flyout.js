@@ -54,6 +54,11 @@ export class ShortcutFlyout {
             .flatMap(panel => Array.from(panel.el.querySelectorAll('button')));
     }
 
+    /** The row button that opened the panel at `level`, or null if closed. */
+    getAnchor(level) {
+        return this._panels[level]?.anchor || null;
+    }
+
     toggle(anchor, items, options = {}) {
         const level = options.level ?? 0;
         if (this._panels[level]?.anchor === anchor) this.closeFrom(level, { restoreFocus: true });
@@ -148,9 +153,21 @@ export class ShortcutFlyout {
 
         button.appendChild(text);
 
+        // Marks a row that opens a further nested panel (rather than acting
+        // immediately), so it reads as a category rather than a destination.
+        if (item.expandable) {
+            const chevron = document.createElement('sl-icon');
+            chevron.className = 'shortcut-menu-chevron';
+            chevron.setAttribute('name', 'chevron-right');
+            button.appendChild(chevron);
+        }
+
         button.addEventListener('click', (e) => {
             e.stopPropagation();
-            item.action();
+            // Passed through so an item can open a further, nested panel
+            // anchored to itself (see map-nearby-features-control.js's
+            // category > layer > feature drill-down).
+            item.action(button);
         });
 
         // Pointer and focus are treated as the same "this row is the one being

@@ -1614,12 +1614,51 @@ body {
     background: #374151;
 }
 
-/* Break between the "Navigate From" and "To" halves of the nearby-features
-   menu (see js/map-nearby-features-control.js) - full-bleed and brighter than
-   the in-section dividers, so the two halves read as separate blocks. */
+/* Break between the "Route From" / "Route To" / "Navigation options" blocks
+   of the nearby-features menu (see js/map-nearby-features-control.js) -
+   full-bleed and brighter than the in-section dividers, so each block reads
+   as a separate section. */
 .shortcut-menu-divider.shortcut-menu-divider-section {
     margin: 6px -4px;
     background: #4b5563;
+}
+
+/* "Route From" / "Route To" section headings (see
+   js/map-nearby-features-control.js) - bolder and color-accented so the two
+   endpoints read as visually distinct blocks, not just a label above a row. */
+.shortcut-menu-item.shortcut-menu-section-heading {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-bottom: 4px;
+}
+
+.shortcut-menu-item.shortcut-menu-section-heading-from {
+    color: #86efac;
+}
+
+.shortcut-menu-item.shortcut-menu-section-heading-from sl-icon {
+    color: #22c55e;
+}
+
+.shortcut-menu-item.shortcut-menu-section-heading-to {
+    color: #fdba74;
+}
+
+.shortcut-menu-item.shortcut-menu-section-heading-to sl-icon {
+    color: #f97316;
+}
+
+/* "From Here" / "To Here" icons in the right-click/long-press Route menu
+   (see js/shortcut-menu-base.js) - same green/orange as the Route From /
+   Route To headings above, so the two menus read as one system. */
+.shortcut-menu-item sl-icon.shortcut-menu-icon-from {
+    color: #22c55e;
+}
+
+.shortcut-menu-item sl-icon.shortcut-menu-icon-to {
+    color: #f97316;
 }
 
 /* Plain readout rows (see js/map-location-menu-control.js) - coordinates,
@@ -1680,17 +1719,10 @@ body {
     padding: 8px 6px;
 }
 
-/* Layer previews on the nearby-features layer rows (see
-   js/layer-thumbnail.js). Sized like the sl-icon they stand in for, so rows
-   with and without a preview line up. */
-.shortcut-menu-thumbnail {
-    flex-shrink: 0;
-}
-
-/* The two setting pickers in the nearby-features menu (see
-   js/map-nearby-features-control.js) - "Navigate From" and the routing
-   profile. Boxed dropdown buttons rather than plain menu rows, so they read as
-   the editable fields bracketing the destination list. */
+/* The setting pickers in the nearby-features menu (see
+   js/map-nearby-features-control.js) - "Route From", "Route To", and the
+   routing profile. Boxed dropdown buttons rather than plain menu rows, so
+   they read as editable fields rather than destinations themselves. */
 .shortcut-menu-item.shortcut-menu-item-origin {
     background: #111827;
     border: 1px solid #374151;
@@ -1706,14 +1738,123 @@ body {
     font-weight: 600;
 }
 
-/* The two destination sections nested under the "To" heading. */
-.shortcut-menu-item.shortcut-menu-item-subheading {
-    padding-left: 22px;
-    opacity: 0.75;
+/* AutocompleteBadgeInput (js/autocomplete-badge-input.js) - a reusable
+   badge-that-becomes-an-editable-text-field control, used for "Route From" /
+   "Route To" in the nearby-features menu. The badge reuses
+   .shortcut-menu-item-origin's boxed look above; these rules cover the edit
+   mode (the <input> itself, its dropdown, and its group headings). */
+.ac-badge-input {
+    position: relative;
 }
 
-.shortcut-menu-item.shortcut-menu-item-subheading sl-icon {
+.ac-badge-input-badge {
+    cursor: pointer;
+}
+
+.ac-badge-input-badge.is-unset .shortcut-menu-item-label {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.ac-badge-input-badge.is-pending .shortcut-menu-item-subtext {
+    color: #f59e0b;
+}
+
+.ac-badge-input-edit-icon {
+    font-size: 12px !important;
+    color: #6b7280 !important;
+}
+
+.ac-badge-input-field {
+    font: inherit;
+    color: #f3f4f6;
+    outline: none;
+    padding-right: 28px;
+}
+
+.ac-badge-input-field:focus {
+    border-color: #3b82f6;
+}
+
+.ac-badge-input-field::placeholder {
+    color: #6b7280;
+}
+
+.ac-badge-input-clear {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.ac-badge-input-clear:hover {
+    background: #374151;
+    color: #f3f4f6;
+}
+
+.ac-badge-input-clear sl-icon {
     font-size: 12px;
+}
+
+/* autoComplete.js wraps the <input> in this element; it just needs to keep
+   the dropdown positioned under the field. */
+.autoComplete_wrapper {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+
+.ac-badge-input-list {
+    position: absolute;
+    top: 100%;
+    left: 2px;
+    right: 2px;
+    margin: 0;
+    z-index: 1150;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    padding: 4px;
+    max-height: 280px;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.ac-badge-input-list[hidden] {
+    display: none;
+}
+
+.ac-badge-input-group-heading {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6b7280;
+    padding: 6px 10px 2px;
+}
+
+.ac-badge-input-item[aria-selected="true"],
+.ac-badge-input-item.ac-badge-input-item-active {
+    background: #374151;
+}
+
+.ac-badge-input-empty {
+    color: #6b7280;
+    font-style: italic;
+    cursor: default;
 }
 
 /* Share section of the map location menu (see js/share-url-panel.js): a QR

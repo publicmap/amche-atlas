@@ -71,8 +71,42 @@ export class RouteStore {
         return this._pendingOrigin;
     }
 
-    setPendingOrigin(point, label) {
+    /**
+     * `withMarker` also puts a route-coloured pin on that point - what the
+     * shortcut menu's "Start from here" needs, so the origin looks like part
+     * of the route it is about to start rather than an ordinary selection, and
+     * is draggable before any route exists. Once a destination is picked the
+     * same marker is adopted as the route's first waypoint (see _syncMarkers),
+     * so the pin the user placed is the pin the route keeps.
+     */
+    setPendingOrigin(point, label, { withMarker = false } = {}) {
         this._pendingOrigin = point ? { lng: point.lng, lat: point.lat, label: label || '' } : null;
+        if (!withMarker || !this._pendingOrigin) return this._pendingOrigin;
+
+        const markers = window.featureControl?._markerManager;
+        if (!markers) return this._pendingOrigin;
+
+        const lngLat = { lng: point.lng, lat: point.lat };
+        const follow = (moved) => {
+            if (!this._pendingOrigin) return;
+            this._pendingOrigin.lng = moved.lng;
+            this._pendingOrigin.lat = moved.lat;
+        };
+        const handlers = {
+            pinColor: WAYPOINT_PIN_COLOR,
+            onDrag: follow,
+            onDragEnd: follow,
+            onRemove: () => { this._pendingOrigin = null; }
+        };
+
+        const existing = markers.findMarkerNear?.(lngLat, 20);
+        if (existing) {
+            markers.adoptAsWaypoint(existing, handlers);
+            this._pendingOrigin.markerId = existing;
+        } else {
+            this._pendingOrigin.markerId = markers.addMarker(lngLat, [], { role: 'route-waypoint', ...handlers });
+        }
+        return this._pendingOrigin;
     }
 
     /**
@@ -101,18 +135,27 @@ export class RouteStore {
     }
 
     /**
-     * Builds or extends a route from `from` to `to`: if `from` lands on the
-     * last waypoint of a route already on the map, that route is extended;
-     * otherwise a new route starts at `from`. This is the one place that
-     * decides "which route" a destination belongs to - used identically by
-     * the shortcut menu's Route To and by map-nearby-features-control.js -
-     * so neither has to track an explicit "selected route" for the user to
-     * manage. Returns the route, or null if there was nowhere to start from.
+     * Builds or extends a route from `from` to `to`. Which route:
+     * - `routeId` naming a route this store already tracks - that route,
+     *   forced (see map-nearby-features-control.js's Route picker, letting a
+     *   user explicitly pick an existing route to extend or browse rather
+     *   than relying on the guess below).
+     * - `routeId: 'new'` - always start a fresh route, even if `from` would
+     *   otherwise match one already on the map.
+     * - omitted - the default guess: if `from` lands on the last waypoint of
+     *   a route already on the map, that route is extended; otherwise a new
+     *   route starts at `from`. Used identically by the shortcut menu's
+     *   Route To and by map-nearby-features-control.js - so neither has to
+     *   track an explicit "selected route" for the user to manage.
+     *
+     * Returns the route, or null if there was nowhere to start from.
      */
-    async routeTo(from, fromLabel, to, toLabel) {
+    async routeTo(from, fromLabel, to, toLabel, { routeId } = {}) {
         if (!from || !to) return null;
 
-        let route = this._routes.find(r => this._endsNear(r, from));
+        let route = null;
+        if (routeId && routeId !== 'new') route = this._routes.find(r => r.id === routeId) || null;
+        if (!route && routeId !== 'new') route = this._routes.find(r => this._endsNear(r, from));
         if (!route) route = this._create([[from.lng, from.lat]], [fromLabel || '']);
 
         route.waypoints.push([to.lng, to.lat]);
@@ -127,6 +170,17 @@ export class RouteStore {
         if (!route.waypoints.length) return false;
         const [lng, lat] = route.waypoints[route.waypoints.length - 1];
         return haversineDistanceMeters({ lng, lat }, point) <= CONTINUE_ROUTE_THRESHOLD_METERS;
+    }
+
+    /**
+     * The route already on the map whose last waypoint `point` sits on, if
+     * any - what a "Route From"/"Route To" pick that lands on an existing
+     * route's end should default to continuing (see
+     * map-nearby-features-control.js's Route picker default).
+     */
+    findRouteEndingNear(point) {
+        if (!point) return null;
+        return this._routes.find(r => this._endsNear(r, point)) || null;
     }
 
     /**
@@ -166,6 +220,23 @@ export class RouteStore {
         this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
     }
 
+    /**
+     * Re-fetches `routeId` with a new routing profile (see
+     * search/directions-profile.js) - what changing the profile while a route
+     * is the active Route selection should do (see
+     * map-nearby-features-control.js), rather than only affecting the next
+     * route drawn from scratch. Returns the updated route, or null if
+     * `routeId` isn't one this store tracks.
+     */
+    async setRouteProfile(routeId, profile) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route) return null;
+
+        route.profile = profile;
+        await this._resolve(route);
+        return route;
+    }
+
     /** Takes a route someone else already fetched (search's "X to Y"). */
     adopt(result, waypoints, names = []) {
         const route = this._create(waypoints.map(w => [...w]), [...names]);
@@ -194,9 +265,11 @@ export class RouteStore {
     }
 
     _create(waypoints, names) {
+        const number = nextRouteNumber++;
         const route = {
-            id: `route-${nextRouteNumber}`,
-            number: nextRouteNumber++,
+            id: `route-${number}`,
+            number,
+            code: routeLetterCode(number),
             groupId: DIRECTIONS_LAYER_ID,
             waypoints,
             names,
@@ -228,6 +301,9 @@ export class RouteStore {
      * ride along in the `markers=` URL param like any other selection (see
      * ../map-marker-manager.js, url-manager.js's serializeMarkersForURL).
      * Dragging one moves the waypoint and re-routes; closing one drops it.
+     * Each also gets its `ref` ("A1", "A2", ...) rendered on its pin (see
+     * MapMarkerManager.setMarkerRefLabel) - reapplied on every call, since
+     * adding, removing, or reordering a waypoint shifts every ref after it.
      */
     _syncMarkers(route) {
         const markers = window.featureControl?._markerManager;
@@ -235,10 +311,12 @@ export class RouteStore {
 
         route.waypoints.forEach((coordinates, index) => {
             const lngLat = { lng: coordinates[0], lat: coordinates[1] };
+            const refLabel = `${route.code}${index + 1}`;
             const existingId = route.markerIds[index];
 
             if (existingId && markers._markers?.has(existingId)) {
                 markers.moveMarker(existingId, lngLat);
+                markers.setMarkerRefLabel(existingId, refLabel);
                 return;
             }
 
@@ -248,6 +326,7 @@ export class RouteStore {
             if (nearby) {
                 route.markerIds[index] = nearby;
                 markers.adoptAsWaypoint(nearby, this._waypointHandlers(route, { id: nearby }));
+                markers.setMarkerRefLabel(nearby, refLabel);
                 return;
             }
 
@@ -261,6 +340,7 @@ export class RouteStore {
                 ...this._waypointHandlers(route, ref)
             });
             route.markerIds[index] = ref.id;
+            markers.setMarkerRefLabel(ref.id, refLabel);
         });
     }
 
@@ -279,7 +359,8 @@ export class RouteStore {
         route.geojson = buildRouteFeatureCollection(result, route.waypoints, {
             profile: result.profile,
             source: result.source,
-            names: route.names
+            names: route.names,
+            routeCode: route.code
         });
         route.name = routeName(route);
     }
@@ -332,6 +413,22 @@ export class RouteStore {
     }
 }
 
+/**
+ * "A", "B", ..., "Z", "AA", "AB", ... - the letter code a route's ref labels
+ * (see route-geojson.js's buildRouteFeatureCollection) are prefixed with,
+ * derived from its 1-based creation order rather than tracked separately.
+ */
+function routeLetterCode(number) {
+    let n = number;
+    let code = '';
+    while (n > 0) {
+        n -= 1;
+        code = String.fromCharCode(65 + (n % 26)) + code;
+        n = Math.floor(n / 26);
+    }
+    return code;
+}
+
 function featureKey(feature) {
     const { kind, index } = feature.properties || {};
     return kind === 'waypoint' ? `waypoint-${index ?? 0}` : 'route';
@@ -365,9 +462,18 @@ function routeFromFeatures(id, groupId, features) {
 
     if (points.length < 2) return null;
 
+    const number = nextRouteNumber++;
+    // Restoring a route already carrying `ref`s (see route-geojson.js) keeps
+    // its letter code rather than reassigning one off the new session's
+    // count, so a shared link's waypoint refs don't shift on reload; older
+    // data with no `ref` yet just gets a fresh one.
+    const existingRef = points[0]?.properties?.ref;
+    const code = existingRef ? existingRef.replace(/\d+$/, '') : routeLetterCode(number);
+
     const route = {
         id,
-        number: nextRouteNumber++,
+        number,
+        code,
         groupId,
         waypoints: points.map(p => [...p.geometry.coordinates]),
         names: points.map(p => p.properties.name || ''),

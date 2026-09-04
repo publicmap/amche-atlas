@@ -14,7 +14,7 @@ import { GeoLibreAPI } from './geolibre-api.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { routeStore } from './search/route-store.js';
 import { routeBounds } from './search/route-geojson.js';
-import { NearbyReferencePoint } from './nearby-reference-point.js';
+import { WaypointPicker } from './waypoint-picker.js';
 
 export class ShortcutMenuBase {
     constructor() {
@@ -57,13 +57,13 @@ export class ShortcutMenuBase {
         this._map = map;
         this._createMenu();
 
-        // Default origin for "Route To" when nothing was set via "Route From" -
-        // the same GPS-else-map-center preference NearbyReferencePoint gives
-        // map-nearby-features-control.js's "Navigate From", reusing that class
-        // rather than a second copy of the logic. Fed passively off whatever
-        // GPS state already exists; this never triggers its own permission
-        // prompt the way that control's own button does.
-        this._routeOrigin = new NearbyReferencePoint(map);
+        // Default origin for "To Here" when nothing was set via "Start from
+        // here" - the same picker, with the same GPS-else-map-center
+        // preference, that map-nearby-features-control.js gives Route From, so
+        // both menus start a route from the same place. Fed passively off
+        // whatever GPS state already exists; this never triggers its own
+        // permission prompt the way that control's own button does.
+        this._routeOrigin = new WaypointPicker(map, { preferMyLocation: true });
         const geo = window.geolocationControl;
         if (geo) {
             if (geo.lastPosition) this._routeOrigin.setUserPosition(geo.lastPosition);
@@ -157,18 +157,14 @@ export class ShortcutMenuBase {
                 children: () => this._buildSelectionMenuItems()
             },
             {
-                id: 'route-from-menu',
-                icon: 'record-circle',
-                label: 'Route From',
-                // Resolved on each open so the marker list reflects whatever is
-                // currently on the map, same reasoning as the Maps menu below.
-                children: () => this._buildRouteEndpointItems('from')
-            },
-            {
-                id: 'route-to-menu',
-                icon: 'flag',
-                label: 'Route To',
-                children: () => this._buildRouteEndpointItems('to')
+                id: 'route-menu',
+                icon: 'sign-turn-right',
+                label: 'Route',
+                // Resolved on each open so "From Here"/"To Here" reflect
+                // wherever the menu was opened this time, and the last item
+                // reflects whatever route is currently active - same
+                // reasoning as the Maps menu below.
+                children: () => this._buildRouteMenuItems()
             },
             {
                 id: 'open-with-menu',
@@ -317,6 +313,7 @@ export class ShortcutMenuBase {
             } else {
                 const icon = document.createElement('sl-icon');
                 icon.setAttribute('name', item.icon);
+                if (item.iconClass) icon.classList.add(item.iconClass);
                 button.appendChild(icon);
             }
 
@@ -614,34 +611,82 @@ export class ShortcutMenuBase {
     }
 
     /**
-     * Options for "Route From" / "Route To": every marker already on the map,
-     * plus "Use this location" for the point the shortcut menu itself was
-     * opened at (the right-click/long-press point, or the map center when
-     * opened from the header-nav button — see _getExternalLinkPoint).
+     * "Route": the point the shortcut menu was opened at as an origin or
+     * destination, plus a third row naming whatever route that point would
+     * currently extend - "New Route" or the matching route's own name, same
+     * as map-nearby-features-control.js's Route picker - which opens that
+     * control for full control (every waypoint category, the profile, past
+     * routes' turn-by-turn detail) rather than duplicating any of it here.
+     * "To Here"/"Start from here" icons are colored the same green/orange as
+     * that control's Route From/Route To headings, so the two menus read as
+     * the same system.
      */
-    _buildRouteEndpointItems(direction) {
-        const markers = window.featureControl?._markerManager?.getMarkers() || [];
-        const items = markers.map(m => ({
-            icon: 'geo-alt-fill',
-            label: m.label,
-            action: () => this._handleRouteEndpoint(direction, m.lngLat, m.label)
-        }));
-
+    _buildRouteMenuItems() {
         const point = this._getExternalLinkPoint();
+        const items = [];
+
         if (point) {
-            items.push({
-                icon: 'crosshair',
-                label: 'Use this location',
-                action: () => this._handleRouteEndpoint(direction, point, 'this location')
-            });
+            // "To Here" leads: routing to the point under the cursor is the
+            // common case, and it works on its own - with no origin picked it
+            // falls back to the same default Route From the nearby-features
+            // control uses. A pending origin is named in the label so the
+            // second right-click shows what the route will be measured from
+            // rather than leaving the user to remember.
+            const origin = routeStore.pendingOrigin;
+            items.push(
+                {
+                    id: 'route-to-here',
+                    icon: 'flag',
+                    iconClass: 'shortcut-menu-icon-to',
+                    label: origin?.label ? `To Here from ${origin.label}` : 'To Here',
+                    action: () => this._handleRouteEndpoint('to', point, 'this location')
+                },
+                {
+                    id: 'route-from-here',
+                    icon: 'record-circle',
+                    iconClass: 'shortcut-menu-icon-from',
+                    label: 'Start from here',
+                    action: () => this._handleRouteEndpoint('from', point, 'this location')
+                },
+                { divider: true }
+            );
         }
+
+        const route = this._currentRoute();
+        items.push({
+            id: 'open-route-control',
+            icon: 'sign-turn-right',
+            label: route ? route.name : 'New Route',
+            action: () => window.nearbyFeaturesControl?.toggle()
+        });
 
         return items;
     }
 
     /**
-     * "Route From" only records `point` as the pending origin for a later
-     * "Route To" - it doesn't build anything by itself. "Route To" consumes
+     * Whatever route the pending/default origin or this menu's own point
+     * would currently extend, if any - same
+     * RouteStore.findRouteEndingNear-based default as
+     * map-nearby-features-control.js's Route picker, just fed this menu's
+     * own notion of origin/destination instead of the two waypoint pickers.
+     */
+    _currentRoute() {
+        const origin = routeStore.pendingOrigin || this._defaultRouteOrigin();
+        const point = this._getExternalLinkPoint();
+        return routeStore.findRouteEndingNear(origin) || routeStore.findRouteEndingNear(point) || null;
+    }
+
+    /**
+     * "Start from here" only records `point` as the pending origin for a later
+     * "To Here" - it doesn't build a route by itself, but it does drop (or
+     * promote the menu's own placeholder into) a real marker there via
+     * _ensureMarkerAt, which route-store.js then re-colours and takes over as
+     * a route marker, so the origin stays visible - and draggable - on the map
+     * while the user goes to pick a destination. Without this, the placeholder
+     * marker ShortcutMenu's right-click/long-press dropped (see
+     * _ensureMarkerAt's `pending` doc) would just get removed the moment this
+     * menu closes, since nothing else turned it into something real.
+     * "To Here" consumes
      * that pending origin - or, absent one, the default origin (GPS if
      * already available, else the map center; see _attachMap) - and hands
      * both ends to route-store.js's routeTo, which decides on its own whether
@@ -652,8 +697,12 @@ export class ShortcutMenuBase {
      */
     _handleRouteEndpoint(direction, point, label) {
         if (direction === 'from') {
-            routeStore.setPendingOrigin(point, label);
-            window.layerControl?._showToast(`Route from ${label} — pick "Route To" a destination`, 'info');
+            // Promotes the menu's own placeholder pin (or drops one), then
+            // hands it to the store to re-colour and take over as the route's
+            // origin - so it reads as a route marker, not a plain selection.
+            this._ensureMarkerAt(point);
+            routeStore.setPendingOrigin(point, label, { withMarker: true });
+            window.layerControl?._showToast(`Route from ${label} — now pick "To Here" a destination`, 'info');
             return;
         }
 
@@ -685,9 +734,13 @@ export class ShortcutMenuBase {
 
     /** GPS if already available, else the map center - see _attachMap. */
     _defaultRouteOrigin() {
-        const point = this._routeOrigin?.resolve();
+        const point = this._routeOrigin?.resolveOrCenter();
         if (!point) return null;
-        return { lng: point.lng, lat: point.lat, label: this._routeOrigin.name() };
+        // An unpicked WaypointPicker names itself "Choose a point", which would
+        // read as a place in the route's own name; what it actually resolved to
+        // in that case is the map center.
+        const label = this._routeOrigin.isSet ? this._routeOrigin.name() : 'Map center';
+        return { lng: point.lng, lat: point.lat, label };
     }
 
     /**

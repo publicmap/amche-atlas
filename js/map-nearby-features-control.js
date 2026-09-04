@@ -1,51 +1,65 @@
 /**
  * NearbyFeaturesControl - Accessible alternative to tapping/clicking the map
- * canvas. Lists features currently rendered in the viewport as a header-nav
- * menu, so touch screen-reader users (VoiceOver/TalkBack — no keyboard, and
- * canvas hit-testing via drag gestures isn't reliable for them) and
- * keyboard-only users can select a feature without needing to hit-test the
- * Mapbox GL canvas at all. Selecting a feature routes through the same
- * stateManager.handleFeatureClicks() pipeline a mouse click uses, so marker
- * creation, the inspector panel, and URL state all behave identically.
+ * canvas, for building a route. So touch screen-reader users (VoiceOver/
+ * TalkBack — no keyboard, and canvas hit-testing via drag gestures isn't
+ * reliable for them) and keyboard-only users can pick waypoints without
+ * needing to hit-test the Mapbox GL canvas at all.
  *
- * The menu reads as a route being built, from a From and a To:
+ * The menu reads as a route being built, from a **Route From** and a
+ * **Route To** section - visually separated blocks, each its own colored
+ * heading, each holding an AutocompleteBadgeInput (see
+ * autocomplete-badge-input.js): the endpoint's value shown as a badge,
+ * clicking it turns it into a text field with a categorized, type-to-filter
+ * suggestion list (see waypoint-picker.js for the value itself). Both fields
+ * offer the identical set of categories, only their default order differs
+ * (From leads with "My Location"; To leads with "From Map View", since
+ * browsing what's around you is the common way to pick a destination):
  *
- * - **Navigate From** — one button showing the current origin with its own
- *   icon (device GPS, the map center, or a marker); clicking it drops a
- *   dropdown of every available option (see nearby-reference-point.js). This
- *   origin is also what every distance and bearing below is measured from, so
- *   a VI user can walk toward a target and watch the distance shrink. GPS
- *   reuses the app's existing window.geolocationControl rather than a separate
- *   watchPosition.
- * - **To** — destinations, each section sorted nearest-first: every marker on
- *   the map (see map-marker-manager.js), then one row per layer with features
- *   in view, each opening a submenu of that layer's closest few features. The
- *   layer rows keep the top level short however dense a layer is, and carry
- *   the layer's feature count plus the distance to its nearest one. The
- *   section closes with **Navigation options** — the Mapbox routing profile
- *   (driving/walking/cycling, see search/directions-profile.js) that every
- *   route drawn from here, or from an "X to Y" search, uses.
+ * - **My Location** - the device's live GPS position (reuses the app's
+ *   shared window.geolocationControl rather than a separate watchPosition).
+ * - **Selected Locations** - every marker already on the map, nearest first.
+ * - **From Map View** - labeled points from the base map style currently
+ *   rendered in view (every symbol layer with a text-field - place names,
+ *   POIs, roads...; see _fromMapViewItems), grouped by the vector tile
+ *   source-layer each came from.
+ * - **Actions > Click on Map** - arms "the next marker placed becomes this
+ *   waypoint": the menu closes, and whatever the user clicks on the map next
+ *   (handled by the normal click pipeline, see map-marker-manager.js) is
+ *   bound to whichever endpoint was armed.
  *
- * Hovering or focusing any destination row previews it on the map: the feature
- * highlighted through the same stateManager.handleFeatureHovers() pipeline a
- * mouse-over of the canvas uses, a dashed line drawn from the origin labelled
- * with the distance and bearing, and the camera framed on the two ends (see
- * nearby-preview-layer.js). Leaving the row puts all three back, including the
- * camera the menu was opened with — unless the row was acted on (a feature
- * selected, a marker flown to, a route drawn), in which case the view it moved
- * to is what the user asked for and is kept. A pan or zoom of the user's own
- * while the menu is open re-bases that saved view, so closing the menu never
- * undoes their gesture.
+ * Typed text that doesn't match a suggestion is parsed on blur instead:
+ * coordinates (see search/coordinate-parser.js) resolve directly, anything
+ * else is forward-geocoded via Nominatim (see nominatim-search.js).
  *
- * Clicking any destination does the whole job in one tap — no secondary menu:
- * a marker is dropped on it through the same selection pipeline a map click
- * runs, and the place is appended to a route as another waypoint
- * (search/route-store.js's routeTo, drawn into the `directions` layer) — that
- * call decides on its own whether the current origin continues an existing
- * route or starts a new one, so there's nothing here to pick manually. The
- * origin then follows the new waypoint's own marker, so picking a second
- * destination extends the same route rather than starting a new one from the
- * user again — three taps build one route through three places.
+ * Distances and bearings throughout are always measured from Route From,
+ * whatever it currently resolves to - so a VI user can walk toward a target
+ * and watch the distance shrink. Picking a Route From value never draws
+ * anything by itself; picking a Route To value does the whole job in one
+ * tap - a marker (if the choice doesn't already have one) plus a route drawn
+ * from the current Route From (search/route-store.js's routeTo). Route To
+ * then follows that new waypoint's own marker, so picking another
+ * destination extends the same route rather than starting over.
+ *
+ * The section ends with **Navigation options**: the **Route** picker - "New
+ * Route" or any route already on the map, defaulting to whichever existing
+ * route Route From or Route To currently lands on the end of (see
+ * RouteStore.findRouteEndingNear) - and the Mapbox routing profile
+ * (driving/walking/cycling, see search/directions-profile.js) every route
+ * drawn here, or from an "X to Y" search, uses. Picking an existing route
+ * both targets it for the next destination (extending it rather than
+ * starting over) and opens its turn-by-turn detail - legs, then each leg's
+ * steps, read straight off the Directions API response kept on
+ * `route.result` (https://docs.mapbox.com/api/navigation/directions/#retrieve-directions)
+ * - so creating, extending, and browsing routes are all the same picker.
+ *
+ * Hovering or focusing any suggestion previews it on the map: a dashed line
+ * drawn from Route From labelled with the distance and bearing, and the
+ * camera framed on the two ends (see nearby-preview-layer.js). Leaving the
+ * row puts both back, including the camera the menu was opened with - unless
+ * the row was acted on, in which case the view it moved to is what the user
+ * asked for and is kept. A pan or zoom of the user's own while the menu is
+ * open re-bases that saved view, so closing the menu never undoes their
+ * gesture.
  *
  * Lives in the header-nav (next to the shortcuts menu — see
  * header-shortcut-menu-control.js / shortcut-menu-base.js), sharing its
@@ -54,13 +68,15 @@
  * menus (see map-location-menu-control.js). Not a mapboxgl control.
  */
 import { haversineDistanceMeters, initialBearingDeg, formatDistance, bearingToCompassAbbr, bearingToCompassWord } from './geo-distance-utils.js';
-import { NearbyReferencePoint, REFERENCE_GEOLOCATION, REFERENCE_CENTER, REFERENCE_MARKER } from './nearby-reference-point.js';
+import { WaypointPicker, WAYPOINT_MY_LOCATION } from './waypoint-picker.js';
 import { routeStore } from './search/route-store.js';
 import { ShortcutFlyout } from './shortcut-flyout.js';
-import { LayerThumbnail } from './layer-thumbnail.js';
 import { NearbyPreviewLayer } from './nearby-preview-layer.js';
 import { routeBounds } from './search/route-geojson.js';
 import { DIRECTIONS_PROFILES, getDirectionsProfile, setDirectionsProfile, getDirectionsProfileInfo } from './search/directions-profile.js';
+import { AutocompleteBadgeInput } from './autocomplete-badge-input.js';
+import { parseCoordinateInput } from './search/coordinate-parser.js';
+import { queryNominatim, isNominatimBackedOff, reportNominatimFailure } from './nominatim-search.js';
 
 const PAGE_SIZE = 5;
 
@@ -76,15 +92,17 @@ export class NearbyFeaturesControl {
         this._button = null;
         this._menu = null;
         this._isOpenState = false;
-        this._allFeatures = [];
-        this._rowRefs = [];
         this._allMarkers = [];
-        this._markerRowRefs = [];
-        this._referenceRow = null;
+        this._fromRow = null;
+        this._toRow = null;
+        this._routeRow = null;
         this._profileRow = null;
-        this._featureGroups = [];
-        this._visibleCounts = new Map();
-        this._reference = null;
+        this._routeSelection = { explicit: false, routeId: null };
+        this._fromRef = null;
+        this._toRef = null;
+        this._armedSlot = null;
+        this._armedPicker = null;
+        this._armedListener = null;
         this._previewLayer = null;
         this._previewTimer = null;
         this._isPreviewing = false;
@@ -100,7 +118,8 @@ export class NearbyFeaturesControl {
     mount(hostEl, map) {
         if (!hostEl || !map) return;
         this._map = map;
-        this._reference = new NearbyReferencePoint(map);
+        this._fromRef = new WaypointPicker(map, { preferMyLocation: true });
+        this._toRef = new WaypointPicker(map);
         this._previewLayer = new NearbyPreviewLayer(map);
 
         this._container = document.createElement('div');
@@ -139,6 +158,7 @@ export class NearbyFeaturesControl {
         document.removeEventListener('keydown', this._onKeydown, true);
         window.removeEventListener('resize', this._hide);
         this._stopLocationTracking();
+        this._disarmMapPick();
         this._map?.off('move', this._onMapMove);
 
         clearTimeout(this._previewTimer);
@@ -186,7 +206,11 @@ export class NearbyFeaturesControl {
         this._menu.style.left = `${Math.max(8, Math.min(rect.left, maxLeft))}px`;
         this._menu.style.top = `${rect.bottom + 4}px`;
 
-        this._menu.querySelector('button.shortcut-menu-item')?.focus();
+        // Route From already has a sensible default (GPS, or the map center);
+        // Route To is almost always what the user opened this menu to change,
+        // so it gets the initial focus instead of the first button in the
+        // menu.
+        (this._toRow?.focusableElement() || this._menu.querySelector('button.shortcut-menu-item'))?.focus();
     }
 
     _hide() {
@@ -211,12 +235,17 @@ export class NearbyFeaturesControl {
         if (!geo) return;
 
         // Tracking may already have been running long before this menu opened,
-        // in which case waiting for the next 'geolocate' would leave the origin
-        // reading "Map center" for no reason: adopt the watch's last fix, and
-        // failing that its tracking state, so an active GPS is the origin from
-        // the moment the menu opens.
-        if (geo.lastPosition) this._reference.setUserPosition(geo.lastPosition);
-        else if (geo.isTracking) this._reference.preferGeolocation();
+        // in which case waiting for the next 'geolocate' would leave Route From
+        // reading "Choose a starting point" for no reason: adopt the watch's
+        // last fix (feeding both endpoints, so a "My Location" choice on either
+        // stays live), and failing that its tracking state, so an active GPS is
+        // Route From's default from the moment the menu opens.
+        if (geo.lastPosition) {
+            this._fromRef.setUserPosition(geo.lastPosition);
+            this._toRef.setUserPosition(geo.lastPosition);
+        } else if (geo.isTracking) {
+            this._fromRef.preferGeolocation();
+        }
 
         geo.on('geolocate', this._onGeolocate);
         if (!geo.isTracking) geo.trigger();
@@ -227,15 +256,17 @@ export class NearbyFeaturesControl {
     }
 
     _onGeolocate(e) {
-        const promotedToGps = this._reference.setUserPosition({ lat: e.coords.latitude, lng: e.coords.longitude });
+        const pos = { lat: e.coords.latitude, lng: e.coords.longitude };
+        const promotedToGps = this._fromRef.setUserPosition(pos);
+        this._toRef.setUserPosition(pos);
 
-        // The first fix promotes an implicit map-center default to GPS, which
-        // changes what "nearest" means — worth one re-sort. After that row
-        // order stays stable so live updates don't reshuffle the list under a
+        // The first fix promotes an implicit default to GPS, which changes
+        // what "nearest" means - worth one re-sort. After that row order
+        // stays stable so live updates don't reshuffle the list under a
         // screen-reader/keyboard user mid-navigation.
         if (promotedToGps) {
             this._resortAndRender();
-        } else if (this._reference.type === REFERENCE_GEOLOCATION) {
+        } else if (this._fromRef.type === WAYPOINT_MY_LOCATION) {
             this._refreshDistances();
         }
     }
@@ -250,29 +281,23 @@ export class NearbyFeaturesControl {
             this._cameraDirty = false;
         }
 
-        // A preview moves the camera itself; with a map-center origin, reacting
-        // to that would move the very point the preview line is drawn from.
+        // A preview moves the camera itself; with an unset origin (which
+        // resolves to the map center), reacting to that would move the very
+        // point the preview line is drawn from.
         if (this._isPreviewing) return;
-        if (this._reference.type === REFERENCE_CENTER) this._refreshDistances();
+        if (!this._fromRef.isSet) this._refreshDistances();
     }
 
     /**
-     * Previews a destination while its row is hovered or focused: the feature
-     * highlighted through the same hover pipeline a mouse-over of the canvas
-     * uses, a dashed line from the origin labelled with distance and bearing,
-     * and the camera framed on the pair (see nearby-preview-layer.js). Ending
-     * the preview puts all three back.
+     * Previews a destination while its row is hovered or focused: a dashed
+     * line from Route From labelled with distance and bearing, and the
+     * camera framed on the pair (see nearby-preview-layer.js). Ending the
+     * preview puts both back.
      */
-    _startPreview(lngLat, { feature = null, layerId = null } = {}) {
+    _startPreview(lngLat) {
         clearTimeout(this._previewTimer);
-        const from = this._reference.resolve();
+        const from = this._fromRef.resolveOrCenter();
         if (!from || !this._previewLayer) return;
-
-        if (feature && layerId) {
-            // allowDuringMove: the preview's own fitBounds leaves the map
-            // moving, which would otherwise make the state manager drop this.
-            this._stateManager.handleFeatureHovers([{ feature, layerId, lngLat }], lngLat, true);
-        }
 
         this._isPreviewing = true;
         this._cameraDirty = true;
@@ -287,7 +312,7 @@ export class NearbyFeaturesControl {
         }, PREVIEW_END_DELAY_MS);
     }
 
-    /** Drops the line and the hover highlight, leaving the camera alone. */
+    /** Drops the preview line, leaving the camera alone. */
     _clearPreview() {
         clearTimeout(this._previewTimer);
         if (!this._isPreviewing) return;
@@ -323,17 +348,13 @@ export class NearbyFeaturesControl {
     }
 
     _sortByDistance() {
-        const origin = this._reference.resolve();
+        const origin = this._fromRef.resolveOrCenter();
         if (!origin) return;
 
-        [this._allFeatures, this._allMarkers].forEach(list => {
-            list.forEach(item => {
-                item._distanceMeters = haversineDistanceMeters(origin, item.lngLat);
-            });
-            list.sort((a, b) => a._distanceMeters - b._distanceMeters);
+        this._allMarkers.forEach(m => {
+            m._distanceMeters = haversineDistanceMeters(origin, m.lngLat);
         });
-
-        this._buildFeatureGroups();
+        this._allMarkers.sort((a, b) => a._distanceMeters - b._distanceMeters);
     }
 
     _resortAndRender() {
@@ -345,183 +366,51 @@ export class NearbyFeaturesControl {
     }
 
     _refreshDistances() {
-        this._updateReferenceRow();
-        this._rowRefs.forEach(row => this._updateGroupRow(row));
-        this._markerRowRefs.forEach(row => this._updateMarkerRowDistance(row));
+        this._updateWaypointRow(this._fromRow, this._fromRef, 'from');
+        this._updateWaypointRow(this._toRow, this._toRef, 'to');
+        this._updateRouteRow();
     }
 
     _populateList() {
-        this._allFeatures = this._stateManager.getFeaturesInView();
         this._allMarkers = window.featureControl?._markerManager?.getMarkers() || [];
-        this._visibleCounts.clear();
         this._sortByDistance();
 
-        const featureCount = this._allFeatures.length;
-        const layerCount = this._featureGroups.length;
-        const markerText = `${this._allMarkers.length} marker${this._allMarkers.length === 1 ? '' : 's'}`;
+        const count = this._allMarkers.length;
         window.keyboardController?.announceToScreenReader(
-            `Navigating from ${this._reference.name()} by ${getDirectionsProfileInfo().label}. ` + (featureCount > 0
-                ? `${markerText} and ${featureCount} features in view across ${layerCount} layer${layerCount === 1 ? '' : 's'}, nearest ${PAGE_SIZE} shown per layer.`
-                : `${markerText}. No features in the current view.`)
+            `Navigating from ${this._fromRef.name()} by ${getDirectionsProfileInfo().label}. ${count} marker${count === 1 ? '' : 's'} on the map.`
         );
 
         this._renderVisible();
     }
 
-    /**
-     * Buckets the in-view features by their layer: nearest-first inside each
-     * bucket, and the layer holding the single closest feature first. Reads as
-     * "which layers are around me, and what's closest in each" rather than one
-     * interleaved run where a dense layer crowds out every other.
-     * `_allFeatures` is already sorted by distance, so insertion order gives
-     * both orderings for free.
-     */
-    _buildFeatureGroups() {
-        const groups = new Map();
-        this._allFeatures.forEach(f => {
-            let group = groups.get(f.layerId);
-            if (!group) {
-                group = { layerId: f.layerId, title: this._describeFeature(f).layerTitle, features: [] };
-                groups.set(f.layerId, group);
-            }
-            group.features.push(f);
-        });
-        this._featureGroups = [...groups.values()];
-    }
-
     _renderVisible() {
         this._menu.innerHTML = '';
-        this._rowRefs = [];
-        this._markerRowRefs = [];
 
-        this._menu.appendChild(this._createHeading('record-circle', 'Navigate From'));
-        this._menu.appendChild(this._createReferenceRow());
+        this._menu.appendChild(this._createHeading('record-circle', 'Route From', 'shortcut-menu-section-heading-from'));
+        this._fromRow = this._createWaypointRow(this._fromRef, 'from');
+        this._menu.appendChild(this._fromRow.element);
+
         this._menu.appendChild(this._createDivider({ section: true }));
-        this._menu.appendChild(this._createHeading('flag', 'To'));
 
-        if (this._allMarkers.length > 0) {
-            this._menu.appendChild(this._createHeading('geo-alt-fill', `Markers (${this._allMarkers.length})`, { sub: true }));
-
-            this._allMarkers.forEach((m) => {
-                const row = this._createMarkerRow(m);
-                this._menu.appendChild(row.button);
-                this._markerRowRefs.push(row);
-            });
-
-            this._menu.appendChild(this._createDivider());
-        }
-
-        if (this._featureGroups.length === 0) {
-            this._menu.appendChild(this._createHeading('pin-map', 'Visible Features (0)', { sub: true }));
-            const empty = document.createElement('div');
-            empty.className = 'shortcut-menu-item shortcut-menu-item-static';
-            const emptyLabel = document.createElement('span');
-            emptyLabel.textContent = 'No features in the current view.';
-            empty.appendChild(emptyLabel);
-            this._menu.appendChild(empty);
-        } else {
-            this._menu.appendChild(this._createHeading('pin-map', `Visible Features (${this._allFeatures.length})`, { sub: true }));
-            this._featureGroups.forEach(group => {
-                const row = this._createGroupRow(group);
-                this._menu.appendChild(row.button);
-                this._rowRefs.push(row);
-            });
-        }
+        this._menu.appendChild(this._createHeading('flag', 'Route To', 'shortcut-menu-section-heading-to'));
+        this._toRow = this._createWaypointRow(this._toRef, 'to');
+        this._menu.appendChild(this._toRow.element);
 
         this._menu.appendChild(this._createDivider({ section: true }));
         this._menu.appendChild(this._createHeading('sliders', 'Navigation options'));
+        if (routeStore.routes.length > 0) {
+            this._menu.appendChild(this._createRouteRow());
+        } else {
+            this._routeRow = null;
+        }
         this._menu.appendChild(this._createProfileRow());
     }
 
-    /**
-     * One row per layer in view, opening a submenu of that layer's features.
-     * The row itself carries the layer's feature count and the distance to its
-     * closest one, so the top level stays a short "what's around me" list
-     * however many features a dense layer has.
-     */
-    _createGroupRow(group) {
-        const row = this._createDropdownRow(() => this._buildGroupItems(group), { chevron: 'chevron-right', placement: 'side', field: false });
-        row.group = group;
-
-        // The same preview the layer controls and marker popups use (see
-        // layer-thumbnail.js), so a layer is recognisable here by its
-        // symbology and not by title alone. Non-interactive: the click belongs
-        // to the row, which opens the layer's features.
-        const config = this._stateManager.getLayerConfig(group.layerId);
-        if (config) {
-            const thumbnail = LayerThumbnail.generate(config, 18, { interactive: false });
-            thumbnail.classList.add('shortcut-menu-thumbnail');
-            row.icon.replaceWith(thumbnail);
-        } else {
-            row.icon.setAttribute('name', 'layers');
-        }
-
-        // Hovering a layer previews the nearest thing in it - the same
-        // feature its subtext is quoting the distance to.
-        this._bindPreview(row.button, () => {
-            const nearest = group.features[0];
-            this._startPreview(nearest.lngLat, { feature: nearest.feature, layerId: nearest.layerId });
-        });
-
-        this._updateGroupRow(row);
-        return row;
-    }
-
-    _updateGroupRow(row) {
-        const { group, button, label, subtext } = row;
-        label.textContent = group.title;
-
-        const countText = `${group.features.length} feature${group.features.length === 1 ? '' : 's'}`;
-        const offset = this._formatOffset(group.features[0].lngLat);
-        subtext.textContent = offset ? `${countText} · nearest ${offset}` : countText;
-        button.setAttribute('aria-label', `${group.title}, ${countText}, nearest${this._describeOffset(group.features[0].lngLat)}. Show its features`);
-    }
-
-    /**
-     * A layer's submenu: its closest features, each marking and routing to
-     * itself on click. No layer name on the rows - the row they hang off
-     * already names it; the subtext is the distance and bearing from the
-     * current origin.
-     */
-    _buildGroupItems(group) {
-        const visibleCount = this._visibleCounts.get(group.layerId) ?? PAGE_SIZE;
-
-        const items = group.features.slice(0, visibleCount).map(f => {
-            const { label } = this._describeFeature(f);
-            return {
-                icon: 'geo-alt',
-                label,
-                subtext: this._formatOffset(f.lngLat),
-                ariaLabel: `${label}${this._describeOffset(f.lngLat)}`,
-                onHover: (enter) => enter
-                    ? this._startPreview(f.lngLat, { feature: f.feature, layerId: f.layerId })
-                    : this._endPreview(),
-                action: () => this._selectFeature(f)
-            };
-        });
-
-        const remaining = group.features.length - items.length;
-        if (remaining > 0) {
-            items.push({
-                icon: 'three-dots',
-                label: `Show ${Math.min(PAGE_SIZE, remaining)} more`,
-                subtext: `${remaining} further away`,
-                action: () => this._showMore(group)
-            });
-        }
-
-        return items;
-    }
-
-    /**
-     * A section label. `sub` marks the two destination sections nested under
-     * the "To" heading, so they read as a level down rather than as peers of
-     * "Navigate From" / "To".
-     */
-    _createHeading(iconName, text, { sub = false } = {}) {
+    /** A section label, optionally carrying a color-accent modifier class. */
+    _createHeading(iconName, text, modifierClass = '') {
         const heading = document.createElement('div');
         heading.className = 'shortcut-menu-item shortcut-menu-item-static';
-        if (sub) heading.classList.add('shortcut-menu-item-subheading');
+        if (modifierClass) heading.classList.add(modifierClass);
         const icon = document.createElement('sl-icon');
         icon.setAttribute('name', iconName);
         const label = document.createElement('span');
@@ -538,32 +427,269 @@ export class NearbyFeaturesControl {
         return divider;
     }
 
-    // Reopens the layer's submenu with the next page revealed, focused on the
-    // first newly shown feature rather than jumping back to the top.
-    _showMore(group) {
-        const shown = this._visibleCounts.get(group.layerId) ?? PAGE_SIZE;
-        this._visibleCounts.set(group.layerId, Math.min(shown + PAGE_SIZE, group.features.length));
-        const row = this._rowRefs.find(r => r.group.layerId === group.layerId);
-        if (row) this._flyout.open(row.button, this._buildGroupItems(group), { focusIndex: shown });
+    /**
+     * The "Route From" / "Route To" field: an AutocompleteBadgeInput (see
+     * autocomplete-badge-input.js) showing the endpoint's current value as a
+     * badge, or - once clicked - a text field with a categorized suggestion
+     * list built fresh from getItems() on every open/keystroke.
+     */
+    _createWaypointRow(picker, slot) {
+        const input = new AutocompleteBadgeInput({
+            placeholder: slot === 'from' ? 'Choose a starting point' : 'Choose a destination',
+            getItems: () => this._buildWaypointItems(picker, slot),
+            parseText: (text) => this._parseWaypointText(text),
+            onSelect: (item) => this._onWaypointSelected(picker, slot, item)
+        });
+        input.mount();
+        this._updateWaypointRow(input, picker, slot);
+        return input;
+    }
+
+    _updateWaypointRow(input, picker, slot) {
+        if (!input) return;
+        const { label, icon, isPending, isUnset } = picker.current();
+        const point = picker.resolve();
+
+        input.render({
+            icon,
+            label,
+            subtext: picker.isArmed
+                ? 'Waiting for a map click…'
+                : isPending
+                    ? 'Waiting for GPS · using map center'
+                    : isUnset
+                        ? ''
+                        : (point ? `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}` : 'Unavailable'),
+            isUnset,
+            isPending
+        });
     }
 
     /**
-     * The "Navigate From" button: the current origin, shown with its own icon,
-     * dropping a list of every available origin — GPS, the map center, and
-     * every marker by name (see nearby-reference-point.js). Picking one
-     * re-sorts the destinations below around it.
+     * A list item's `value` chose "Click on Map" (arm map-pick mode) or an
+     * ordinary waypoint choice (my-location / marker / a parsed point) - the
+     * same shape _applyWaypointChoice/_chooseWaypoint always took, just
+     * arriving from the autocomplete field instead of a flyout row.
      */
-    _createReferenceRow() {
-        this._referenceRow = this._createDropdownRow(() => this._buildReferenceItems());
-        this._updateReferenceRow();
-        return this._referenceRow.button;
+    _onWaypointSelected(picker, slot, item) {
+        if (item.value.type === 'map-pick') {
+            this._armMapPick(picker, slot);
+            return;
+        }
+        this._chooseWaypoint(picker, slot, item.value);
+    }
+
+    /**
+     * The suggestions offered by both endpoints, flattened into one
+     * category-grouped list (autocomplete.js groups by walking this array in
+     * order - see AutocompleteBadgeInput._renderGroups). Same categories
+     * either way, only their order (and My Location's presence as a default)
+     * differs: From leads with "My Location" since that's the common origin;
+     * To leads with "Nearby Features" since browsing what's around you is the
+     * common way to pick a destination.
+     */
+    _buildWaypointItems(picker, slot) {
+        const sections = slot === 'from'
+            ? [this._myLocationItems(picker), this._markerItems(picker), this._fromMapViewItems(), this._mapPickItems()]
+            : [this._fromMapViewItems(), this._markerItems(picker), this._myLocationItems(picker), this._mapPickItems()];
+        return sections.flat();
+    }
+
+    _myLocationItems(picker) {
+        if (!window.geolocationControl) return [];
+        return [{
+            category: 'My Location',
+            icon: 'crosshair',
+            label: 'My Location',
+            subtext: picker.userPosition ? 'Device GPS' : 'Device GPS · waiting for a fix',
+            checked: picker.isChosenMyLocation(),
+            value: { type: 'my-location' }
+        }];
+    }
+
+    _markerItems(picker) {
+        return this._allMarkers.map(m => ({
+            category: 'Selected Locations',
+            icon: 'geo-alt-fill',
+            label: m.label,
+            subtext: this._formatOffset(m.lngLat) || 'Marker',
+            checked: picker.isChosenMarker(m.id),
+            onHover: (enter) => enter ? this._startPreview(m.lngLat) : this._endPreview(),
+            value: { type: 'marker', markerId: m.id, label: m.label }
+        }));
+    }
+
+    /**
+     * "From Map View": labeled points from the base map style's already-
+     * loaded tiles - every symbol layer with a text-field (place names, POIs,
+     * roads...) - queried live from the map itself via querySourceFeatures
+     * (not queryRenderedFeatures: that only returns a label whose glyph is
+     * presently painted, after Mapbox's own collision culling hides most
+     * candidates, which left this severely under-populated) rather than the
+     * app's own configured layers, grouped by the vector tile source-layer
+     * each came from (e.g. "Place Label", "Poi Label").
+     */
+    _fromMapViewItems() {
+        if (!this._map) return [];
+
+        // (source, source-layer) pairs to query, not layer ids: several style
+        // layers can label the same vector tile layer (e.g. by subtype, or a
+        // casing/halo pass), so querying per style layer would both re-query
+        // and re-filter the same underlying data repeatedly. Each pair's own
+        // layer filter(s) are intentionally not reapplied - querySourceFeatures
+        // returns every loaded feature regardless of whether any layer's
+        // filter or zoom range would currently draw it, which is what actually
+        // fixes the "quite limited" result set: queryRenderedFeatures only
+        // returns features whose glyph is presently painted, after Mapbox's
+        // own label-collision culling has hidden most candidates.
+        let sourceLayerPairs;
+        try {
+            sourceLayerPairs = new Map();
+            (this._map.getStyle()?.layers || [])
+                .filter(l => l.type === 'symbol' && l.layout?.['text-field'] && l.source)
+                .forEach(l => {
+                    const key = `${l.source} ${l['source-layer'] || ''}`;
+                    if (!sourceLayerPairs.has(key)) sourceLayerPairs.set(key, { source: l.source, sourceLayer: l['source-layer'] });
+                });
+        } catch (error) {
+            console.error('[nearby-features] reading style layers failed:', error);
+            return [];
+        }
+        if (sourceLayerPairs.size === 0) return [];
+
+        const origin = this._fromRef.resolveOrCenter();
+        const seen = new Set();
+        const groups = new Map();
+
+        sourceLayerPairs.forEach(({ source, sourceLayer }) => {
+            let features;
+            try {
+                features = this._map.querySourceFeatures(source, sourceLayer ? { sourceLayer } : undefined);
+            } catch (error) {
+                console.error(`[nearby-features] querySourceFeatures failed for ${source}/${sourceLayer}:`, error);
+                return;
+            }
+
+            features.forEach(f => {
+                const label = this._labelForMapFeature(f);
+                const lngLat = this._pointLngLat(f);
+                if (!label || !lngLat) return;
+
+                const key = `${label}|${lngLat.lng.toFixed(5)}|${lngLat.lat.toFixed(5)}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+
+                const groupKey = f.sourceLayer || sourceLayer || source;
+                if (!groups.has(groupKey)) groups.set(groupKey, []);
+                groups.get(groupKey).push({ label, lngLat, distance: origin ? haversineDistanceMeters(origin, lngLat) : 0 });
+            });
+        });
+
+        const items = [];
+        groups.forEach((entries, groupKey) => {
+            entries.sort((a, b) => a.distance - b.distance);
+            entries.slice(0, PAGE_SIZE).forEach(e => {
+                items.push({
+                    category: this._humanizeSourceLayer(groupKey),
+                    icon: 'geo-alt',
+                    label: e.label,
+                    subtext: this._formatOffset(e.lngLat),
+                    onHover: (enter) => enter ? this._startPreview(e.lngLat) : this._endPreview(),
+                    value: { type: 'point', lngLat: e.lngLat, label: e.label }
+                });
+            });
+        });
+
+        return items;
+    }
+
+    /** The label text a vector tile layer carries, first recognized field wins. */
+    _labelForMapFeature(f) {
+        const props = f.properties || {};
+        const label = props.name_en || props.name || props.name_local || props.ref || props.title || props.label || props.Class || props.class;
+        return label ? String(label) : null;
+    }
+
+    /**
+     * A representative point for the waypoint: the feature's own coordinate
+     * for a point label (POIs, places), else the midpoint of its line/ring -
+     * most labeled layers in a typical style (roads, water bodies, hazard
+     * zones...) are Line/Polygon geometry, not Point, so restricting to Point
+     * alone would leave most labels unusable as waypoints.
+     */
+    _pointLngLat(f) {
+        const geom = f.geometry;
+        if (!geom) return null;
+        if (geom.type === 'Point') {
+            const [lng, lat] = geom.coordinates;
+            return { lng, lat };
+        }
+        if (geom.type === 'LineString') {
+            return this._midpoint(geom.coordinates);
+        }
+        if (geom.type === 'Polygon' || geom.type === 'MultiLineString') {
+            return this._midpoint(geom.coordinates[0]);
+        }
+        if (geom.type === 'MultiPolygon') {
+            return this._midpoint(geom.coordinates[0]?.[0]);
+        }
+        return null;
+    }
+
+    _midpoint(coords) {
+        if (!Array.isArray(coords) || coords.length === 0) return null;
+        const [lng, lat] = coords[Math.floor(coords.length / 2)];
+        return { lng, lat };
+    }
+
+    _humanizeSourceLayer(name) {
+        return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    _mapPickItems() {
+        return [{
+            category: 'Actions',
+            icon: 'cursor',
+            label: 'Click on Map',
+            subtext: 'Tap a point on the map',
+            value: { type: 'map-pick' }
+        }];
+    }
+
+    /**
+     * Free text that didn't match a suggestion, resolved on blur/Enter:
+     * coordinates first (see search/coordinate-parser.js), else a Nominatim
+     * forward-geocode of whatever was typed. Returns an item shaped like a
+     * list item (AutocompleteBadgeInput commits it the same way), or null to
+     * revert to the previous value.
+     */
+    async _parseWaypointText(text) {
+        const coord = parseCoordinateInput(text);
+        if (coord) {
+            const label = `${coord.lat.toFixed(5)}, ${coord.lng.toFixed(5)}`;
+            return { icon: 'geo-alt', label, value: { type: 'point', lngLat: { lat: coord.lat, lng: coord.lng }, label } };
+        }
+
+        if (isNominatimBackedOff()) return null;
+        try {
+            const results = await queryNominatim(text, { limit: 1 });
+            const feature = results[0];
+            if (!feature) return null;
+            const [lng, lat] = feature.geometry.coordinates;
+            const label = feature.properties.place_name || feature.properties.name;
+            return { icon: 'geo-alt', label, value: { type: 'point', lngLat: { lat, lng }, label } };
+        } catch (error) {
+            reportNominatimFailure();
+            console.error('[nearby-features] geocode failed:', error);
+            return null;
+        }
     }
 
     /**
      * A row whose chevron opens a list: a value with its icon, a subtext line,
      * and the choices below or beside it. `field` gives it the boxed look of
-     * an editable setting - right for the origin and routing-profile pickers,
-     * wrong for the layer rows, which are just destinations one level down.
+     * an editable setting - right for the Route From/To and routing-profile
+     * pickers.
      */
     _createDropdownRow(buildItems, { chevron: chevronName = 'chevron-down', placement = 'below', field = true } = {}) {
         const button = document.createElement('button');
@@ -597,48 +723,244 @@ export class NearbyFeaturesControl {
         return { button, icon, label, subtext };
     }
 
-    _updateReferenceRow() {
-        if (!this._referenceRow) return;
-        const { button, icon, label, subtext } = this._referenceRow;
-        const { label: name, icon: iconName, isPending } = this._reference.current();
-        const point = this._reference.resolve();
+    /**
+     * Applies a category choice to whichever endpoint (`slot`) picked it,
+     * then either just resorts (Route From - nothing else moves on its own)
+     * or does the whole "select and route" job in one tap (Route To, same
+     * as a destination click always has here).
+     */
+    _chooseWaypoint(picker, slot, choice) {
+        const label = this._applyWaypointChoice(picker, choice);
 
-        icon.setAttribute('name', iconName);
-        label.textContent = name;
-        subtext.textContent = isPending
-            ? 'Waiting for GPS · using map center'
-            : (point ? `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}` : 'Unavailable');
-        button.setAttribute('aria-label', `Navigate from ${name}. Choose a different starting point`);
+        if (slot === 'from') {
+            if (choice.type === 'my-location') this._startLocationTracking();
+            this._flyout.close();
+            if (this._isOpenState) {
+                this._sortByDistance();
+                this._renderVisible();
+                this._menu.querySelector('button.shortcut-menu-item')?.focus();
+            } else {
+                this._open();
+            }
+            window.keyboardController?.announceToScreenReader(`Navigating from ${label}`);
+            return;
+        }
+
+        this._flyout.close();
+        this._commitCamera();
+        this._hide();
+        this._actOnToChoice(choice);
+        const point = picker.resolve();
+        if (point) this._routeTo(point, label, `Selected ${label}`);
     }
 
-    _buildReferenceItems() {
-        return this._reference.listOptions().map(option => ({
-            icon: option.icon,
-            label: option.label,
-            subtext: option.subtext,
-            checked: this._reference.isChosen(option),
-            action: () => this._chooseReference(option)
+    _applyWaypointChoice(picker, choice) {
+        if (choice.type === 'my-location') {
+            picker.chooseMyLocation();
+            return 'My location';
+        }
+        if (choice.type === 'marker') {
+            picker.chooseMarker(choice.markerId, choice.label);
+            return choice.label;
+        }
+        if (choice.type === 'point') {
+            picker.choosePoint(choice.lngLat, choice.label);
+            return choice.label;
+        }
+        return '';
+    }
+
+    /**
+     * The side effect a Route To pick carries beyond setting the picker's
+     * value: an existing marker gets focused, matching what selecting one
+     * used to do directly, before this became a shared suggestion list.
+     */
+    _actOnToChoice(choice) {
+        if (choice.type === 'marker') {
+            window.featureControl?._markerManager?.focusMarker(choice.markerId);
+        }
+    }
+
+    /**
+     * "Choose from Map": closes the menu and arms `picker` so the next marker
+     * placed anywhere - through the normal click pipeline, not a special pick
+     * mode - is bound to this endpoint (see MapMarkerManager.onMarkerAdded).
+     */
+    _armMapPick(picker, slot) {
+        this._flyout.close();
+        this._disarmMapPick();
+        picker.arm();
+        this._armedSlot = slot;
+        this._armedPicker = picker;
+        window.keyboardController?.announceToScreenReader(
+            `Click the map to set the route ${slot === 'from' ? 'origin' : 'destination'}.`
+        );
+        this._hide();
+        this._armedListener = (markerId, lngLat) => this._onArmedMarkerAdded(markerId, lngLat);
+        window.featureControl?._markerManager?.onMarkerAdded(this._armedListener);
+    }
+
+    _disarmMapPick() {
+        this._fromRef?.disarm();
+        this._toRef?.disarm();
+        if (this._armedListener) window.featureControl?._markerManager?.offMarkerAdded(this._armedListener);
+        this._armedListener = null;
+        this._armedSlot = null;
+        this._armedPicker = null;
+    }
+
+    _onArmedMarkerAdded(markerId) {
+        const slot = this._armedSlot;
+        const picker = this._armedPicker;
+        this._disarmMapPick();
+        if (!picker) return;
+
+        const marker = window.featureControl?._markerManager?.getMarkers().find(m => m.id === markerId);
+        const label = marker ? String(marker.label) : 'Map point';
+        this._chooseWaypoint(picker, slot, { type: 'marker', markerId, label });
+    }
+
+    /**
+     * "Route": which of the routes already on the map a new destination
+     * extends, or "New Route" to always start fresh. Defaults to whichever
+     * existing route Route From or Route To currently lands on the end of
+     * (see RouteStore.findRouteEndingNear) until the user explicitly picks
+     * something, at which point that choice sticks - same explicit-overrides-
+     * default pattern as WaypointPicker.
+     */
+    _createRouteRow() {
+        this._routeRow = this._createDropdownRow(() => this._buildRouteItems(), { chevron: 'chevron-right', placement: 'side' });
+        this._updateRouteRow();
+        return this._routeRow.button;
+    }
+
+    _updateRouteRow() {
+        if (!this._routeRow) return;
+        const { button, icon, label, subtext } = this._routeRow;
+        const route = this._currentRoute();
+
+        icon.setAttribute('name', route ? 'signpost-split' : 'plus-circle');
+        label.textContent = route ? route.name : 'New Route';
+        subtext.textContent = route && route.result
+            ? `Extending · ${formatDistance(route.result.distance)}`
+            : 'Starts a fresh route';
+        button.setAttribute('aria-label', `Route: ${route ? route.name : 'New Route'}. Choose a different route`);
+    }
+
+    /** The route id a destination would extend right now, or null for new. */
+    _currentRouteSelection() {
+        if (this._routeSelection.explicit) return this._routeSelection.routeId;
+        const match = routeStore.findRouteEndingNear(this._fromRef.resolve())
+            || routeStore.findRouteEndingNear(this._toRef.resolve());
+        return match ? match.id : null;
+    }
+
+    _currentRoute() {
+        const routeId = this._currentRouteSelection();
+        return routeId ? routeStore.routes.find(r => r.id === routeId) || null : null;
+    }
+
+    _buildRouteItems() {
+        const currentId = this._currentRouteSelection();
+        const items = [{
+            icon: 'plus-circle',
+            label: 'New Route',
+            subtext: 'Start a fresh route',
+            checked: !currentId,
+            action: () => this._chooseRoute(null)
+        }];
+
+        routeStore.routes.forEach(route => {
+            const stopCount = route.waypoints.length;
+            items.push({
+                icon: 'signpost-split',
+                label: route.name,
+                subtext: route.result
+                    ? `${formatDistance(route.result.distance)} · ${stopCount} stop${stopCount === 1 ? '' : 's'}`
+                    : `${stopCount} stop${stopCount === 1 ? '' : 's'}`,
+                checked: currentId === route.id,
+                expandable: true,
+                ariaLabel: `${route.name}. Extend this route, or show its legs and steps`,
+                action: (btn) => this._chooseExistingRoute(route, btn)
+            });
+        });
+
+        return items;
+    }
+
+    _chooseRoute(routeId) {
+        this._routeSelection = { explicit: true, routeId };
+        this._flyout.close();
+        this._updateRouteRow();
+        window.keyboardController?.announceToScreenReader(routeId ? `Extending ${this._currentRoute()?.name}` : 'Starting a new route');
+        this._routeRow?.button.focus();
+    }
+
+    /**
+     * Picking an existing route both selects it (so the next destination
+     * extends it) and opens its turn-by-turn detail - legs, then each leg's
+     * steps, straight from the Directions API response
+     * (https://docs.mapbox.com/api/navigation/directions/#retrieve-directions)
+     * kept on `route.result` - so browsing a past route and choosing to
+     * extend it are the same click.
+     */
+    _chooseExistingRoute(route, btn) {
+        this._routeSelection = { explicit: true, routeId: route.id };
+        this._updateRouteRow();
+        this._flyout.open(btn, this._buildRouteLegItems(route), { level: 1, placement: 'side' });
+    }
+
+    _buildRouteLegItems(route) {
+        const legs = route.result?.legs || [];
+        if (legs.length === 0) {
+            return [{ icon: 'info-circle', label: 'No turn-by-turn detail available', action: () => {} }];
+        }
+
+        return legs.map((leg, index) => {
+            const fromName = route.names[index] || (index === 0 ? 'Start' : `Stop ${index}`);
+            const toName = route.names[index + 1] || `Stop ${index + 1}`;
+            return {
+                icon: 'signpost-2',
+                label: `${fromName} → ${toName}`,
+                subtext: `${formatDistance(leg.distance)} · ${Math.max(1, Math.round(leg.duration / 60))} min`,
+                expandable: true,
+                ariaLabel: `Leg from ${fromName} to ${toName}, ${formatDistance(leg.distance)}. Show its steps`,
+                action: (legBtn) => this._flyout.open(legBtn, this._buildRouteStepItems(leg), { level: 2, placement: 'side' })
+            };
+        });
+    }
+
+    _buildRouteStepItems(leg) {
+        const steps = leg.steps || [];
+        if (steps.length === 0) {
+            return [{ icon: 'info-circle', label: 'No steps available', action: () => {} }];
+        }
+
+        return steps.map(step => ({
+            icon: 'arrow-up-right',
+            label: step.maneuver?.instruction || step.name || 'Continue',
+            subtext: formatDistance(step.distance),
+            action: () => this._flyToStep(step)
         }));
     }
 
-    _chooseReference(option) {
-        this._reference.choose(option);
-        if (option.type === REFERENCE_GEOLOCATION) this._startLocationTracking();
-        this._resortAndRender();
-        window.keyboardController?.announceToScreenReader(`Navigating from ${this._reference.name()}`);
-        this._menu.querySelector('button.shortcut-menu-item')?.focus();
+    /** Jumps the camera to a step's maneuver point, for browsing a route's turns. */
+    _flyToStep(step) {
+        const location = step.maneuver?.location;
+        if (!location || !this._map) return;
+        this._map.easeTo({ center: location, zoom: Math.max(this._map.getZoom(), 15), duration: 600 });
     }
 
     /**
      * "Navigation options": the Mapbox routing profile
      * (https://docs.mapbox.com/api/navigation/directions/#routing-profiles)
      * every "Navigate" action here and every "X to Y" search route is drawn
-     * with (see search/directions-profile.js). It sits at the end of the To
-     * section because it changes how you reach any destination above rather
-     * than being a destination itself.
+     * with (see search/directions-profile.js). It sits at the end because it
+     * changes how you reach any destination above rather than being a
+     * destination itself.
      */
     _createProfileRow() {
-        this._profileRow = this._createDropdownRow(() => this._buildProfileItems());
+        this._profileRow = this._createDropdownRow(() => this._buildProfileItems(), { chevron: 'chevron-right', placement: 'side' });
         this._updateProfileRow();
         return this._profileRow.button;
     }
@@ -664,67 +986,61 @@ export class NearbyFeaturesControl {
         }));
     }
 
+    /**
+     * Changing the profile while an existing route is the active Route
+     * selection re-fetches that route with the new profile instead of only
+     * affecting the next route drawn from scratch - the "New Route" case,
+     * where there's nothing yet to update.
+     */
     _chooseProfile(profile) {
         setDirectionsProfile(profile.id);
         this._updateProfileRow();
-        window.keyboardController?.announceToScreenReader(`Routes will use ${profile.label}`);
+
+        const route = this._currentRoute();
+        if (!route) {
+            window.keyboardController?.announceToScreenReader(`Routes will use ${profile.label}`);
+            this._profileRow.button.focus();
+            return;
+        }
+
+        window.keyboardController?.announceToScreenReader(`Updating ${route.name} to ${profile.label}.`);
+        routeStore.setRouteProfile(route.id, profile.id)
+            .then(updated => {
+                if (!updated) return;
+                this._updateRouteRow();
+                this._fitRoute(updated);
+                window.keyboardController?.announceToScreenReader(
+                    `Route ${updated.name} updated: ${formatDistance(updated.result.distance)}, ${profile.label}`
+                );
+            })
+            .catch(error => {
+                console.error('[directions]', error);
+                window.keyboardController?.announceToScreenReader('Could not update the route');
+            });
         this._profileRow.button.focus();
     }
 
     /**
-     * A marker row. One button, no secondary menu: clicking a destination
-     * already does the whole job (see _selectFeature).
-     */
-    _createMarkerRow(m) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'shortcut-menu-item';
-
-        const iconEl = document.createElement('sl-icon');
-        iconEl.setAttribute('name', 'geo-alt-fill');
-        button.appendChild(iconEl);
-
-        const text = document.createElement('div');
-        text.className = 'shortcut-menu-item-text';
-        const label = document.createElement('span');
-        label.className = 'shortcut-menu-item-label';
-        const subtext = document.createElement('span');
-        subtext.className = 'shortcut-menu-item-subtext';
-        text.appendChild(label);
-        text.appendChild(subtext);
-        button.appendChild(text);
-
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._focusMarker(m);
-        });
-        this._bindPreview(button, () => this._startPreview(m.lngLat));
-
-        const row = { button, label, subtext, m };
-        this._updateMarkerRowDistance(row);
-        return row;
-    }
-
-    /**
-     * Routes from the current origin to `lngLat` (see search/route-store.js's
+     * Routes from Route From to `lngLat` (see search/route-store.js's
      * routeTo) - which decides on its own whether that continues a route
-     * already ending at the origin or starts a new one. Either way the origin
-     * then follows the new waypoint's own marker, so picking another
+     * already ending at the origin or starts a new one. Either way Route
+     * From then follows the new waypoint's own marker, so picking another
      * destination extends the same route instead of starting over.
      */
     _routeTo(lngLat, name, announcement) {
-        const from = this._reference.resolve();
+        const from = this._fromRef.resolveOrCenter();
         window.keyboardController?.announceToScreenReader(
             from ? `${announcement}. Finding a ${getDirectionsProfileInfo().label} route.` : announcement
         );
         if (!from) return;
 
         routeStore
-            .routeTo(from, this._reference.name(), lngLat, name)
+            .routeTo(from, this._fromRef.name(), lngLat, name, { routeId: this._currentRouteSelection() || 'new' })
             .then(route => {
                 if (!route) return;
                 const markerId = route.markerIds[route.markerIds.length - 1];
-                if (markerId) this._reference.choose({ type: REFERENCE_MARKER, markerId });
+                if (markerId) this._fromRef.chooseMarker(markerId, name);
+                this._updateRouteRow();
                 this._fitRoute(route);
                 window.keyboardController?.announceToScreenReader(
                     `Route ${route.name}: ${route.waypoints.length} stops, ${formatDistance(route.result.distance)}`
@@ -742,34 +1058,9 @@ export class NearbyFeaturesControl {
         this._map.fitBounds(routeBounds(line.geometry), { padding: 60, duration: 1000 });
     }
 
-    _updateMarkerRowDistance(row) {
-        const { m, label, subtext, button } = row;
-        label.textContent = m.label;
-        subtext.textContent = this._formatOffset(m.lngLat) || 'Marker';
-        button.setAttribute('aria-label', `Navigate to ${m.label}${this._describeOffset(m.lngLat)}`);
-    }
-
-    _focusMarker(m) {
-        this._commitCamera();
-        this._hide();
-        window.featureControl?._markerManager?.focusMarker(m.id);
-        this._routeTo(m.lngLat, m.label, `Selected marker ${m.label}`);
-    }
-
-    _describeFeature(f) {
-        const layerConfig = this._stateManager.getLayerConfig(f.layerId);
-        const inspectConfig = layerConfig?.inspect || {};
-        const labelField = inspectConfig.label || inspectConfig.id || 'id';
-        const value = f.feature?.properties?.[labelField] ?? f.feature?.id ?? 'Feature';
-        return {
-            label: String(value),
-            layerTitle: layerConfig?.title || f.layerId
-        };
-    }
-
-    /** "320 m · NE" from the current reference point, or '' if unresolvable. */
+    /** "320 m · NE" from Route From, or '' if unresolvable. */
     _formatOffset(lngLat) {
-        const origin = this._reference.resolve();
+        const origin = this._fromRef.resolveOrCenter();
         if (!origin) return '';
         const bearingDeg = initialBearingDeg(origin, lngLat);
         return `${formatDistance(haversineDistanceMeters(origin, lngLat))} · ${bearingToCompassAbbr(bearingDeg)}`;
@@ -777,26 +1068,11 @@ export class NearbyFeaturesControl {
 
     /** Spoken form of the same offset, as an aria-label suffix. */
     _describeOffset(lngLat) {
-        const origin = this._reference.resolve();
+        const origin = this._fromRef.resolveOrCenter();
         if (!origin) return '';
         const distanceText = formatDistance(haversineDistanceMeters(origin, lngLat));
         const bearingDeg = initialBearingDeg(origin, lngLat);
-        return `, ${distanceText} ${bearingToCompassWord(bearingDeg)} of ${this._reference.name()}`;
-    }
-
-    /**
-     * A destination's click does the whole job in one tap: drop a marker on it
-     * through the same selection pipeline a map click runs, then route to it
-     * from the current origin. That is why no destination row carries a
-     * secondary-actions menu.
-     */
-    _selectFeature(f) {
-        const { label } = this._describeFeature(f);
-        this._commitCamera();
-        this._hide();
-        this._stateManager.handleFeatureClicks([f]);
-        window.featureControl?._markerManager?._openInspectorPanel();
-        this._routeTo(f.lngLat, label, `Selected ${label}`);
+        return `, ${distanceText} ${bearingToCompassWord(bearingDeg)} of ${this._fromRef.name()}`;
     }
 
     _handleOutsideEvent(e) {
@@ -818,6 +1094,11 @@ export class NearbyFeaturesControl {
     _onKeydown(e) {
         if (!this._menu || !this._isOpenState) return;
 
+        // An AutocompleteBadgeInput field handles its own Escape (revert to
+        // its badge) via a capture-phase listener on the input itself, which
+        // this document-level capture listener would otherwise pre-empt.
+        if (e.key === 'Escape' && document.activeElement?.classList.contains('ac-badge-input-field')) return;
+
         if (e.key === 'Escape') {
             e.stopPropagation();
             if (this._flyout.isOpen) this._flyout.closeDeepest({ restoreFocus: true });
@@ -831,7 +1112,7 @@ export class NearbyFeaturesControl {
         }
 
         if (e.key === 'Tab') {
-            const focusable = [...this._menu.querySelectorAll('button'), ...this._flyout.buttons()];
+            const focusable = [...this._menu.querySelectorAll('button, input'), ...this._flyout.buttons()];
             if (focusable.length === 0) return;
             const first = focusable[0];
             const last = focusable[focusable.length - 1];

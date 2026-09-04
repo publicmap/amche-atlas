@@ -353,6 +353,32 @@ describe('MapOrientationControl', () => {
         expect(control.mode).toBe(MODE.OFF);
     });
 
+    it('writes geolocate to the URL only while the camera is locked', async () => {
+        const updates = [];
+        const listener = (event, params) => { if (params?.geolocate !== undefined) updates.push(params.geolocate); };
+        $(document).on('update_url', listener);
+        try {
+            const { geolocate, button } = mount();
+            button.click();
+            await flush();
+            expect(updates).toEqual([true]);
+
+            geolocate.resolvePosition();
+            await flush();
+            expect(updates).toEqual([true]);
+
+            geolocate.panAway();
+            await flush();
+            expect(updates).toEqual([true, false]);
+
+            button.click(); // off
+            await flush();
+            expect(updates).toEqual([true, false]);
+        } finally {
+            $(document).off('update_url', listener);
+        }
+    });
+
     it('straightens a hand-rotated map before starting GPS', async () => {
         const { control, map, geolocate, button } = mount(createMap({ bearing: 90 }));
         button.click();

@@ -3,6 +3,7 @@
  * Creates markers at selection locations with badges showing selected features
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
+import { reverseGeocodeAddress, fetchNominatimAddressParts } from './nominatim-search.js';
 import { FeatureDisplayRenderer } from './feature-display-renderer.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { CameraUtils } from './map-camera-utils.js';
@@ -15,6 +16,20 @@ import { formatAttributeValue } from './attribute-value-renderer.js';
 // which mapbox-gl's Marker never suppresses — see `_suppressClickUntil` in
 // MapFeatureStateManager) plus this app's own 60ms touchend tap-fallback timer.
 const MARKER_DRAG_CLICK_SUPPRESS_MS = 400;
+
+// Nominatim's usage policy: no more than one request a second per origin.
+const ADDRESS_LOOKUP_GAP_MS = 1100;
+
+// A subtle black outline around the pin icon, faked with a soft zero-offset
+// drop-shadow (an SVG glyph filled with an arbitrary pinColor has no CSS
+// `stroke` to lean on) plus the pin's own drop shadow, so it stays legible
+// against any basemap and against a `ref` badge drawn in the same pinColor
+// as some routes, without reading as a heavy border.
+const PIN_ICON_FILTER = [
+    'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
+    'drop-shadow(0 0 0.5px rgba(0,0,0,0.6))',
+    'drop-shadow(0 0 0.5px rgba(0,0,0,0.6))'
+].join(' ');
 
 export class MapMarkerManager {
     constructor(map, stateManager, mapboxAPI = null) {
@@ -30,6 +45,7 @@ export class MapMarkerManager {
         this._selectionLayerId = 'selection'; // Layer ID for selection markers
         this._selectedBadges = new Set(); // Expanded (selected) feature badges
         this._isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+        this._markerAddedListeners = new Set();
 
         this._setupEventListeners();
         this._setupMapMovementTracking();
@@ -40,6 +56,21 @@ export class MapMarkerManager {
      */
     setMapboxAPI(mapboxAPI) {
         this._mapboxAPI = mapboxAPI;
+    }
+
+    /**
+     * Notified as `(markerId, lngLat)` whenever addMarker() creates a marker,
+     * regardless of what triggered it (feature click, empty-map click,
+     * programmatic call). Used by map-nearby-features-control.js's "Choose
+     * from Map" waypoint option to bind the next marker the user places to a
+     * route endpoint.
+     */
+    onMarkerAdded(callback) {
+        this._markerAddedListeners.add(callback);
+    }
+
+    offMarkerAdded(callback) {
+        this._markerAddedListeners.delete(callback);
     }
 
     _setupEventListeners() {
@@ -730,7 +761,7 @@ export class MapMarkerManager {
     }
 
     _buildMarkerBadgesHTML(features, lngLat, options = {}) {
-        const { includeMoreLayers = false, suppressEmptyBadge = false, clickedLayerIds = null, pendingLayerIds = null } = options;
+        const { includeMoreLayers = false, suppressEmptyBadge = false, clickedLayerIds = null, pendingLayerIds = null, includeAddress = false } = options;
 
         // Layers still being queried (see MapMarkerManager.restoreMarkersFromSelectionLayer)
         // that haven't already produced a real badge — shown as a "Locating…" placeholder,
@@ -780,6 +811,10 @@ export class MapMarkerManager {
             `;
         }
 
+        // The place this point sits in, after whatever was selected here -
+        // filled in once the reverse geocode returns (see _resolveMarkerAddress).
+        if (includeAddress) html += this._createAddressBadgeHTML();
+
         if (includeMoreLayers) {
             const ids = clickedLayerIds || new Set((features || []).map(f => f.layerId));
             // Pending layers already show their own "Locating…" badge above — don't also
@@ -802,6 +837,166 @@ export class MapMarkerManager {
      * hovered/explored (see the marker's mouseenter/mouseleave in addMarker),
      * not sit permanently visible on every marker on the map.
      */
+    /**
+     * The address row: the place this marker sits in, as one more property
+     * after the features selected here. The signpost icon carries the meaning,
+     * so the row is just that and the value - the `$address` property name is
+     * only how it travels in the data (see _updateSelectionLayer).
+     *
+     * Rendered empty and hidden, then filled
+     * in by _resolveMarkerAddress when the reverse geocode returns - the
+     * balloon shouldn't wait on a network round trip to appear.
+     *
+     * Clicking it expands the one-line address into its full hierarchy, each
+     * level linked to the OSM object it came from (see
+     * nominatim-search.js's fetchNominatimAddressParts). Those links are a
+     * second request, so they're fetched on that first expand rather than for
+     * every marker dropped.
+     */
+    _createAddressBadgeHTML() {
+        return `
+            <div class="feature-badge address-badge" style="
+                display: none;
+                flex-direction: column;
+                align-items: flex-start;
+                width: 100%;
+                box-sizing: border-box;
+                background: transparent;
+                border-radius: 5px;
+                padding: 4px 8px;
+                cursor: pointer;
+                transition: background 0.15s;
+            ">
+                <div class="feature-badge-header" style="display: flex; flex-direction: row; align-items: center; gap: 4px; width: 100%;">
+                    <sl-icon name="signpost" style="font-size: 11px; color: #9ca3af;"></sl-icon>
+                    <span class="address-badge-value" style="font-size: 11px; font-weight: 700; color: #f3f4f6; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+                    <sl-icon class="address-badge-chevron" name="chevron-down" style="font-size: 10px; color: #6b7280; flex-shrink: 0;"></sl-icon>
+                </div>
+                <div class="address-badge-details" style="display:none;width:100%;margin-top:3px;border-top:1px solid #374151;padding-top:3px;max-height:180px;overflow-y:auto;"></div>
+            </div>
+        `;
+    }
+
+    /**
+     * Reverse geocodes a marker's point and hangs the result off its data as
+     * `$address`, so it travels with the marker into the selection layer's
+     * feature properties like any other attribute. Silent on failure: an
+     * address is a nicety, and Nominatim is rate limited (the module backs off
+     * on its own, see isNominatimBackedOff).
+     */
+    _resolveMarkerAddress(markerId) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData || markerData.address) return;
+
+        const { lng, lat } = markerData.lngLat;
+        // Always Nominatim's finest detail, whatever the map is showing - its
+        // zoom parameter picks how coarse an answer to give, so feeding it the
+        // map zoom returned a city when the map happened to be zoomed out.
+        this._queueAddressLookup(() => reverseGeocodeAddress(lat, lng))
+            .then(address => {
+                if (!address) return;
+                const current = this._markers.get(markerId);
+                if (!current) return;
+                current.address = address;
+                this._renderMarkerAddress(current);
+                this._updateSelectionLayer();
+            })
+            .catch(error => console.warn('[MarkerManager] Address lookup failed:', error.message));
+    }
+
+    _renderMarkerAddress(markerData) {
+        const badge = markerData.marker?.getElement()?.querySelector('.address-badge');
+        if (!badge || !markerData.address?.text) return;
+
+        badge.querySelector('.address-badge-value').textContent = markerData.address.text;
+        badge.style.display = 'flex';
+    }
+
+    /**
+     * Expands the address row into one row per level, each linking to its own
+     * OSM object where it has one (a postcode or country often doesn't).
+     */
+    _attachAddressBadgeHandler(el, markerId) {
+        const badge = el.querySelector('.address-badge');
+        if (!badge) return;
+
+        const details = badge.querySelector('.address-badge-details');
+        ['wheel', 'touchmove', 'touchstart', 'touchend', 'mousedown'].forEach(type => {
+            details.addEventListener(type, (e) => e.stopPropagation());
+        });
+        // Let a link through, but never let its click collapse the row.
+        details.addEventListener('click', (e) => e.stopPropagation());
+
+        const toggle = (e) => {
+            e.stopPropagation();
+            if (e.type === 'touchend') e.preventDefault();
+
+            const isOpen = details.style.display !== 'none';
+            details.style.display = isOpen ? 'none' : 'block';
+            badge.querySelector('.address-badge-chevron')?.setAttribute('name', isOpen ? 'chevron-down' : 'chevron-up');
+            if (isOpen || details.dataset.loaded) return;
+
+            details.dataset.loaded = '1';
+            this._fillAddressDetails(details, markerId);
+        };
+
+        badge.addEventListener('click', toggle);
+        if (this._isTouch) badge.addEventListener('touchend', toggle);
+    }
+
+    _fillAddressDetails(details, markerId) {
+        const address = this._markers.get(markerId)?.address;
+        if (!address) return;
+
+        // The flat name-only components are shown straight away; the linked
+        // hierarchy replaces them once the second request lands.
+        details.innerHTML = this._addressRowsHTML(
+            (address.parts || []).map(part => ({ name: part.value, category: part.key, url: null }))
+        );
+
+        this._queueAddressLookup(() => fetchNominatimAddressParts(address.osmType, address.osmId))
+            .then(parts => {
+                if (parts.length > 0) details.innerHTML = this._addressRowsHTML(parts);
+            })
+            .catch(error => console.warn('[MarkerManager] Address detail lookup failed:', error.message));
+    }
+
+    /**
+     * Nominatim asks for at most one request a second, and restoring a shared
+     * link can bring back a dozen markers at once - firing those together
+     * would earn a 429 and put the whole module into its shared backoff, which
+     * the search control draws on too. So address lookups run one at a time,
+     * spaced out; they're a nicety that can afford to arrive late.
+     */
+    _queueAddressLookup(task) {
+        this._addressQueue = (this._addressQueue || Promise.resolve())
+            .catch(() => {})
+            .then(async () => {
+                const since = Date.now() - (this._lastAddressLookupAt || 0);
+                if (since < ADDRESS_LOOKUP_GAP_MS) {
+                    await new Promise(resolve => setTimeout(resolve, ADDRESS_LOOKUP_GAP_MS - since));
+                }
+                this._lastAddressLookupAt = Date.now();
+                return task();
+            });
+        return this._addressQueue;
+    }
+
+    _addressRowsHTML(parts) {
+        return parts.map(part => {
+            const label = String(part.category || '').replace(/_/g, ' ');
+            const name = part.url
+                ? `<a href="${part.url}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none;">${part.name}</a>`
+                : `<span style="color:#f3f4f6;">${part.name}</span>`;
+            return `
+                <div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:11px;">
+                    <span style="color:#6b7280;flex-shrink:0;min-width:74px;">${label}</span>
+                    <span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
     _createMoreLayersBadgeHTML(extraLayers) {
         if (!extraLayers || extraLayers.length === 0) return '';
         const count = extraLayers.length;
@@ -1134,6 +1329,9 @@ export class MapMarkerManager {
         if (!markerData) return;
         markerData.lngLat = lngLat;
         markerData.marker.setLngLat([lngLat.lng, lngLat.lat]);
+        // The old address describes where it used to be; look the new one up.
+        markerData.address = null;
+        this._resolveMarkerAddress(markerId);
         this._updateSelectionLayer();
     }
 
@@ -1157,6 +1355,56 @@ export class MapMarkerManager {
             const icon = markerData.marker.getElement()?.querySelector('.marker-pin-btn sl-icon');
             if (icon) icon.style.color = pinColor;
         }
+    }
+
+    /**
+     * Renders (or updates, or removes when `refLabel` is falsy) a small text
+     * badge on a marker's pin - used for a route waypoint's `ref` (see
+     * search/route-store.js's _syncMarkers, which assigns "A1", "A2", ..."B1"
+     * style codes and keeps them current as waypoints are added, removed, or
+     * reordered), so each stop along a route can be pointed at visually by a
+     * short code rather than only by position.
+     */
+    setMarkerRefLabel(markerId, refLabel) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData) return;
+        markerData.refLabel = refLabel || null;
+
+        const pinBtn = markerData.marker.getElement()?.querySelector('.marker-pin-btn');
+        if (!pinBtn) return;
+
+        let label = pinBtn.querySelector('.marker-pin-ref');
+        if (!refLabel) {
+            label?.remove();
+            return;
+        }
+
+        if (!label) {
+            const pinSize = this._pinSize();
+            const fontSize = Math.max(8, Math.round(pinSize * 0.3));
+            label = document.createElement('span');
+            label.className = 'marker-pin-ref';
+            label.style.cssText = `
+                position: absolute;
+                top: ${Math.round(pinSize * 0.14)}px;
+                left: 50%;
+                transform: translateX(-50%);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: ${fontSize}px;
+                padding: 2px;
+                border-radius: 50%;
+                background: #000;
+                font-size: ${fontSize}px;
+                font-weight: 700;
+                line-height: 1;
+                color: #fff;
+                pointer-events: none;
+            `;
+            pinBtn.appendChild(label);
+        }
+        label.textContent = refLabel;
     }
 
     /**
@@ -1601,7 +1849,7 @@ export class MapMarkerManager {
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0;"></div>
             <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); cursor: move;">
                 ${this._buildCommentSectionHTML(noteEntry)}
-                ${this._buildMarkerBadgesHTML(badgeFeatures, lngLat, { includeMoreLayers: true, suppressEmptyBadge: !!noteEntry, clickedLayerIds, pendingLayerIds })}
+                ${this._buildMarkerBadgesHTML(badgeFeatures, lngLat, { includeMoreLayers: true, suppressEmptyBadge: !!noteEntry, clickedLayerIds, pendingLayerIds, includeAddress: true })}
             </div>
         `;
 
@@ -1651,6 +1899,7 @@ export class MapMarkerManager {
 
         // Selection markers are already selected; badge clicks just toggle their expanded state.
         this._attachBadgeHandlers(el, badgeFeatures, lngLat, false, clickedLayerIds, pendingLayerIds);
+        this._attachAddressBadgeHandler(el, markerId);
         this._attachCommentSectionHandlers(el, lngLat, noteEntry);
         this._blockMapHoverEvents(el);
 
@@ -1687,6 +1936,7 @@ export class MapMarkerManager {
 
         this._markers.set(markerId, markerData);
         this._currentMarkerIndex = this._markers.size - 1;
+        this._resolveMarkerAddress(markerId);
 
         // Map pin at the click point (geo-alt-fill), so a real marker (not an
         // abstract button) marks the spot. Clicking it (i.e. clicking the same
@@ -1695,9 +1945,10 @@ export class MapMarkerManager {
         if (actionRow) {
             const pinBtn = document.createElement('span');
             pinBtn.className = 'marker-pin-btn';
-            pinBtn.innerHTML = `<sl-icon name="geo-alt-fill" style="font-size:${pinSize}px;color:${pinColor};filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));pointer-events:none;"></sl-icon>`;
+            pinBtn.innerHTML = `<sl-icon name="geo-alt-fill" style="font-size:${pinSize}px;color:${pinColor};filter:${PIN_ICON_FILTER};pointer-events:none;"></sl-icon>`;
             pinBtn.title = 'Clear this marker';
             pinBtn.style.cssText = `
+                position: relative;
                 display: flex;
                 align-items: flex-end;
                 justify-content: center;
@@ -1709,10 +1960,10 @@ export class MapMarkerManager {
             `;
             if (!this._isTouch) {
                 pinBtn.addEventListener('mouseenter', () => {
-                    pinBtn.style.filter = 'brightness(1.2) drop-shadow(0 1px 2px rgba(0,0,0,0.5))';
+                    pinBtn.querySelector('sl-icon').style.filter = `brightness(1.2) ${PIN_ICON_FILTER}`;
                 });
                 pinBtn.addEventListener('mouseleave', () => {
-                    pinBtn.style.filter = '';
+                    pinBtn.querySelector('sl-icon').style.filter = PIN_ICON_FILTER;
                 });
             }
             const handleCloseClick = (e) => {
@@ -1756,6 +2007,8 @@ export class MapMarkerManager {
 
         // Update selection layer
         this._updateSelectionLayer();
+
+        this._markerAddedListeners.forEach(cb => cb(markerId, lngLat));
 
         return markerId;
     }
@@ -1810,6 +2063,8 @@ export class MapMarkerManager {
         if (owned?.role) {
             owned.lngLat = marker.getLngLat();
             owned.onDragEnd?.(owned.lngLat);
+            owned.address = null;
+            this._resolveMarkerAddress(markerId);
             this._updateSelectionLayer();
             return;
         }
@@ -2274,7 +2529,10 @@ export class MapMarkerManager {
                     id: markerId,
                     name: name,
                     featureCount: markerData.features.length,
-                    features: featureRefs
+                    features: featureRefs,
+                    // Where this point is, as an ordinary attribute - resolved
+                    // asynchronously, so absent until the lookup returns.
+                    ...(markerData.address?.text ? { $address: markerData.address.text } : {})
                 }
             };
 

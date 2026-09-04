@@ -149,6 +149,10 @@ Trigger geolocation to center the map on the user's current location.
 ?geolocate=true
 ```
 
+**Notes:**
+- The parameter tracks the camera lock, not the GPS watch. Unlocking the map from your location (panning away, or clicking the orientation button while locked) removes `geolocate` from the URL even though the location dot stays on, so a reload or shared link lands on the map position in the hash instead of snapping back to the user's location.
+- Turning GPS off also removes the parameter.
+
 ### `q`
 
 Pre-populate the search query and trigger a location search.

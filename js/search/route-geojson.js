@@ -108,16 +108,16 @@ export const ROUTE_INSPECT = {
     id: 'id',
     title: 'Route',
     label: 'label',
-    fields: ['distanceText', 'travelText', 'eta', 'mode', 'role', 'street', 'source'],
-    fieldTitles: ['Distance', 'Travel time', 'ETA', 'Mode', 'Waypoint', 'On road', 'Routed by']
+    fields: ['distanceText', 'travelText', 'eta', 'mode', 'role', 'ref', 'street', 'source'],
+    fieldTitles: ['Distance', 'Travel time', 'ETA', 'Mode', 'Waypoint', 'Ref', 'On road', 'Routed by']
 };
 
 /**
  * @param {Object} route - a Directions API route object (geometry + properties)
  * @param {Array<Array<number>>} waypoints - [lng, lat] per waypoint, in order
- * @param {Object} meta - { profile, source, names }
+ * @param {Object} meta - { profile, source, names, routeCode }
  */
-export function buildRouteFeatureCollection(route, waypoints, { profile, source, names = [] } = {}) {
+export function buildRouteFeatureCollection(route, waypoints, { profile, source, names = [], routeCode = '' } = {}) {
     // The API's own waypoint array is pulled out rather than spread onto the
     // line - it becomes the waypoint features below, and repeating it in the
     // line's properties would only duplicate it.
@@ -158,6 +158,13 @@ export function buildRouteFeatureCollection(route, waypoints, { profile, source,
                 kind: 'waypoint',
                 role,
                 index,
+                // "A1", "A2", ... - a route's own letter code (assigned once,
+                // in creation order, see RouteStore._create) plus this stop's
+                // 1-based position, so every waypoint across every route on
+                // the map has a short, unique, human-nameable reference (see
+                // MapMarkerManager.setMarkerRefLabel, which renders it on the
+                // waypoint's own pin).
+                ref: `${routeCode}${index + 1}`,
                 name,
                 street,
                 snapped: !!snapped,
