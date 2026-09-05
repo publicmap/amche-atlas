@@ -515,6 +515,7 @@ export class URLUtils {
         const layers = [];
         let currentItem = '';
         let braceCount = 0;
+        let parenCount = 0;
         let inQuotes = false;
         let quoteChar = null; // Track which quote character we're inside
         let escapeNext = false;
@@ -552,17 +553,23 @@ export class URLUtils {
                 continue;
             }
 
-            // Track brace depth only when outside quotes
+            // Track brace/paren depth only when outside quotes - parens so a
+            // `route-<rid>:engine-profile(id1,id2,...)` entry's comma-separated
+            // marker-id list (see route-url-api.js) isn't split apart.
             if (!inQuotes) {
                 if (char === '{') {
                     braceCount++;
                 } else if (char === '}') {
                     braceCount--;
+                } else if (char === '(') {
+                    parenCount++;
+                } else if (char === ')') {
+                    parenCount--;
                 }
             }
 
-            // Check for comma separator (only outside braces and quotes)
-            if (char === ',' && braceCount === 0 && !inQuotes) {
+            // Check for comma separator (only outside braces, parens, and quotes)
+            if (char === ',' && braceCount === 0 && parenCount === 0 && !inQuotes) {
                 // Found a separator, process current item
                 const trimmedItem = currentItem.trim();
                 if (trimmedItem) {

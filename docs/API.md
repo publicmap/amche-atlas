@@ -55,7 +55,7 @@ Instead of pasting a full external URL into the map creator to build a complete 
 | `mapwarper` | MapWarper map ID (e.g. `108838`) | `mapwarper.net/api/v1/maps/<id>` | `tms` layer — georeferenced historic map tiles |
 | `osm` | OSM element reference, `<node\|way\|relation>/<id>` (e.g. `relation/21057460`) | Overpass API (fetched once, not re-queried on pan) | `geojson` layer with the element's geometry inlined |
 | `stac` | A STAC Item JSON URL, or a `developmentseed.org/stac-map/` viewer share link — URL-encoded (see [`cog` — STAC support](#stac-support)) | Fetches the STAC Item JSON directly | `cog` layer pointing at the item's best-matching COG asset |
-| `route` | `<engine>-<profile>(<lng>/<lat>\|<lng>/<lat>[\|…])` — a routing service and profile, then two or more waypoints. E.g. `mapbox-driving-traffic(…)`, `osrm-driving(…)` | The named service in `js/search/directions-router.js`'s `ROUTING_ENGINES` | `geojson` layer — the route line with every property the routing API returned, plus a Point per waypoint tagged `role` = `start` / `waypoint` / `end` |
+| `route` | `-<rid>:<engine>-<profile>(<markerId>,<markerId>[,…])` — this route's own id, then a routing service and profile, then two or more [`markers`](#markers) ids. E.g. `route-1:mapbox-driving-traffic(1,2)`, `route-1:osrm-driving(1,2)` | The named service in `js/search/directions-router.js`'s `ROUTING_ENGINES`, waypoint coordinates resolved from `?markers=` | `geojson` layer — the route line with every property the routing API returned, plus a Point per waypoint tagged `role` = `start` / `waypoint` / `end` |
 
 **Examples:**
 ```
@@ -64,16 +64,18 @@ Instead of pasting a full external URL into the map creator to build a complete 
 ?layers=osm:relation/21057460
 ?layers=mapbox-streets,osm:way/28845634
 ?layers=stac:https%3A%2F%2Fexample.com%2Fitems%2Fscene.json
-?layers=route:mapbox-driving-traffic(73.81/15.49|73.83/15.51)
-?layers=route:mapbox-walking(73.81/15.49|73.82/15.50|73.83/15.51)
-?layers=route:osrm-driving(73.81/15.49|73.83/15.51)
+?layers=route-1:mapbox-driving-traffic(1,2)&markers=marker-1(73.81,15.49),marker-2(73.83,15.51)
+?layers=route-1:mapbox-walking(1,2,3)&markers=marker-1(73.81,15.49),marker-2(73.82,15.50),marker-3(73.83,15.51)
+?layers=route-1:osrm-driving(1,2)&markers=marker-1(73.81,15.49),marker-2(73.83,15.51)
 ```
 
-**Routes:** the call names the routing service and profile that produced the route, so a shared link reproduces that route rather than re-routing with whatever the current default happens to be. Each `route:` entry is one route and becomes one layer, so several routes on a map is several entries: `?layers=route:mapbox-driving(73.81/15.49|73.83/15.51),route:mapbox-cycling(73.79/15.45|73.80/15.47)`. Every service's routes render in the same route layer style.
+**Routes:** unlike every other dynamic layer shortcut, `route` carries its own user-facing id in the type token itself — `route-<rid>:...`, defaulting to its creation order ("1", "2", ...) — so it stays a stable reference the way a [`markers`](#markers) id does. The call then names the routing service and profile that produced the route, so a shared link reproduces that route rather than re-routing with whatever the current default happens to be. Each `route-<rid>:` entry is one route and becomes one layer, so several routes on a map is several entries: `?layers=route-1:mapbox-driving(1,2),route-2:mapbox-cycling(3,4)`. Every service's routes render in the same route layer style.
 
 **Services** live in `ROUTING_ENGINES` (`js/search/directions-router.js`) — currently `mapbox` (profiles `driving-traffic`, `driving`, `walking`, `cycling`) and `osrm` (`driving` only; the public demo server serves a car profile only). Adding a service there is all it takes for `<service>-<profile>(…)` to work in the URL. A profile the named service doesn't offer falls back to that service's default rather than failing the route, and naming a service explicitly is taken at its word — only the default service (`mapbox`) falls back to another when its API fails.
 
-Waypoints are separated by `|`, the same way [`markers`](#markers) separates its points; the first is the start, the last the destination, any in between are stops. Inside a waypoint the separator is `/`, not the `lng,lat` comma `markers` uses, because `?layers=` is itself comma-separated — a comma inside a bare shorthand string splits the entry into pieces. `/` matches the map hash's own `zoom/lat/lng` form. (A comma still works inside the quoted `{"type":"route","id":"mapbox-driving(73.81,15.49|73.83,15.51)"}` object form, which survives the split intact.) The engine-profile token may be omitted — `route:(73.81/15.49|73.83/15.51)` uses the default service and the profile last picked in the *Navigation options* row of the Visible Features menu. With no profile given the route uses whichever one the user last picked in the *Navigation options* row of the Visible Features menu (`js/search/directions-profile.js`). A route drawn in the app — from an "X to Y" search, or a **Navigate** action in that menu — writes itself into the `directions` layer and stamps this same shorthand onto the URL, so sharing a drawn route hands over a short link rather than an inlined FeatureCollection of every coordinate.
+**Waypoints are marker ids, not coordinates**, comma-separated like every other shorthand argument list (see `js/shorthand-id-utils.js`) — no pair-separator needed, since each argument is a single id. Each referenced id must have a matching `marker-<id>(...)` entry in `?markers=` (which is parsed first, before any `route-<rid>:` entry is resolved — see `js/map-init.js`); an id with no match drops the whole route, logged the same way an unresolvable `allmaps:`/`mapwarper:` id is. The first id is the start, the last the destination, any in between are stops. The engine-profile token may be omitted — `route-1:(1,2)` uses the default service and the profile last picked in the *Navigation options* row of the Visible Features menu (`js/search/directions-profile.js`). A route drawn in the app — from an "X to Y" search, or a **Navigate** action in that menu — writes itself into the `directions` layer and stamps this same shorthand onto the URL, so sharing a drawn route hands over a short link rather than an inlined FeatureCollection of every coordinate. The markers it references are recolored/labeled as route waypoints (matching a drawn route's look) once both `?markers=` and this layer have resolved.
+
+**Breaking change:** the previous `route:<engine>-<profile>(<lng>/<lat>|<lng>/<lat>[|…])` form (raw coordinates, no route id) is no longer parsed.
 
 **Opacity:** the plain string form has no room for extra properties. To set opacity on a dynamic layer, use the equivalent `{"type":"<service>","id":"<id>","opacity":<0-1>}` object form instead — this is also what the app writes back to the URL automatically when you adjust opacity on a dynamically-resolved layer:
 ```
@@ -305,19 +307,22 @@ Restore export (print/image) settings serialized as a JSON object. Set automatic
 
 ### `markers`
 
-Compact encoding of the selection markers on the map. Set automatically when you select features and share the URL. Each marker is just its click location; multiple markers are joined with `|`.
+Compact encoding of the selection markers on the map — each marker its own `marker-<id>(...)` call, comma-separated, since every marker now has a short id (see below). Set automatically when you select features, drop a marker, or share the URL.
 
-**Format:** `?markers=<lng>,<lat>|<next marker>...`
+**Format:** `?markers=marker-<id>(<lng>,<lat>[,<name>[,<description>]]),<next marker>...`
 
 **Example:**
 ```
-?markers=73.8187,15.54845
-?markers=73.809867,15.606272|73.82,15.61
+?markers=marker-1(73.8187,15.54845)
+?markers=marker-1(73.809867,15.606272),marker-2(73.82,15.61)
+?markers=marker-home(73.8187,15.54845,Home,Where%20I%20live)
 ```
+
+**IDs:** letters, digits, and underscore only; typing a space converts it to `_` rather than being rejected. New markers are numbered serially ("1", "2", ...) on creation but can be renamed to anything unique via the "ID" field in the marker's own popup (`js/map-marker-manager.js`) — see the shared `js/shorthand-id-utils.js` library this and the [`route`](#dynamic-layer-shortcuts) waypoint references both validate ids against. `name`/`description` are optional and percent-encoded (so a comma or parenthesis inside one can't be mistaken for another argument).
 
 **Restoration behavior:** on load, once a marker's layers are ready, its location is re-queried exactly as if the user clicked there — this recovers the same selected features without the URL needing to spell out which `layerId`/`featureId` pairs they were (that would just duplicate what the location already implies, and is what `?selected` used to carry — see above).
 
-**Legacy format:** URLs shared before this change may still contain explicit refs — `?markers=<lng>,<lat>:<layerId>~<featureId>,...` — which are still parsed and restore the exact original feature IDs instead of re-querying the point.
+**Breaking change:** the previous `?markers=<lng>,<lat>|<next marker>...` format (and its `:<layerId>~<featureId>,...` legacy suffix) is no longer parsed. A route referencing one of these markers as a waypoint (see [`route`](#dynamic-layer-shortcuts) below) needs its id present here to resolve.
 
 ### `zoomTo`
 

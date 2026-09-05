@@ -35,8 +35,11 @@ import { haversineDistanceMeters } from '../geo-distance-utils.js';
 const EMPTY_DATA = { type: 'FeatureCollection', features: [] };
 
 // Matches the route line (see route-geojson.js), so a waypoint's pin reads as
-// part of its route rather than as another map selection.
-const WAYPOINT_PIN_COLOR = '#1da1f2';
+// part of its route rather than as another map selection. Exported so
+// map-marker-manager.js's applyRouteWaypointStyling() (recoloring a marker
+// restored from a `route-<rid>:` URL shorthand, before RouteStore itself is
+// ever involved) uses the same color rather than a second copy of it.
+export const WAYPOINT_PIN_COLOR = '#1da1f2';
 
 // How close a "from" point has to land to a route's last waypoint to count as
 // "continuing that route" rather than starting a new one - generous enough to
@@ -243,6 +246,10 @@ export class RouteStore {
         route.engine = result.source;
         route.profile = result.profile;
         this._apply(route, result);
+        // Waypoint markers first, same reasoning as _resolve() - the
+        // `route-<rid>:` shorthand _write() derives references each
+        // waypoint's live marker id.
+        this._syncMarkers(route);
         this._write(route.groupId);
         return route;
     }
@@ -268,6 +275,12 @@ export class RouteStore {
         const number = nextRouteNumber++;
         const route = {
             id: `route-${number}`,
+            // The route's own user-facing id in its `route-<rid>:` URL
+            // shorthand (route-geojson.js's routeShorthand) - defaults to its
+            // creation-order number, same as a marker's urlId defaults to a
+            // serial number (see map-marker-manager.js). No rename UI for
+            // routes yet, unlike markers.
+            rid: String(number),
             number,
             code: routeLetterCode(number),
             groupId: DIRECTIONS_LAYER_ID,
@@ -292,8 +305,11 @@ export class RouteStore {
         route.engine = result.source;
         route.profile = result.profile;
         this._apply(route, result);
-        this._write(route.groupId);
+        // Waypoint markers first: _write()'s `route-<rid>:` shorthand now
+        // references each waypoint's live marker id (see below), which
+        // _syncMarkers is what assigns into route.markerIds.
         this._syncMarkers(route);
+        this._write(route.groupId);
     }
 
     /**
@@ -397,13 +413,20 @@ export class RouteStore {
 
         group.geojson = geojson;
 
-        // Several routes in one layer serialize as several `route:` entries.
-        // url-manager.js joins layer entries with commas, so a comma-joined
+        // Several routes in one layer serialize as several `route-<rid>:`
+        // entries. url-manager.js joins layer entries with commas (now
+        // paren-aware - see parseLayersFromUrl), so a comma-joined
         // _originalJson lands in `?layers=` as exactly those separate entries
         // and parses back as one layer each.
+        const markers = window.featureControl?._markerManager;
         const shorthand = routes
             .filter(r => r.waypoints.length >= 2)
-            .map(r => routeShorthand(r.waypoints, r.engine, r.profile))
+            .map(r => {
+                const markerIds = r.markerIds.map(id => markers?.getMarkerUrlId(id)).filter(Boolean);
+                if (markerIds.length !== r.waypoints.length) return null;
+                return routeShorthand(r.rid, markerIds, r.engine, r.profile);
+            })
+            .filter(Boolean)
             .join(',');
 
         if (shorthand) group._originalJson = shorthand;
@@ -472,6 +495,7 @@ function routeFromFeatures(id, groupId, features) {
 
     const route = {
         id,
+        rid: String(number),
         number,
         code,
         groupId,

@@ -6,6 +6,7 @@
 import { LayerOrderManager } from './layer-order-manager.js';
 import { URL_API_PARAMS } from './url-api-params.js';
 import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
+import { allEntries as allRegisteredMarkers, buildMarkersParam, parseMarkersParam } from './marker-registry.js';
 
 export class URLManager {
     constructor(mapLayerControl, map) {
@@ -182,10 +183,14 @@ export class URLManager {
         const layers = [];
         let currentItem = '';
         let braceCount = 0;
+        let parenCount = 0;
         let inQuotes = false;
         let escapeNext = false;
 
         // Parse the comma-separated string, being careful about JSON objects
+        // and - since a `route-<rid>:engine-profile(id1,id2,...)` entry's
+        // marker-id list is itself comma-separated (see route-url-api.js) -
+        // parenthesized shorthand calls.
         for (let i = 0; i < layersParam.length; i++) {
             const char = layersParam[i];
 
@@ -210,10 +215,14 @@ export class URLManager {
                     braceCount++;
                 } else if (char === '}') {
                     braceCount--;
+                } else if (char === '(') {
+                    parenCount++;
+                } else if (char === ')') {
+                    parenCount--;
                 }
             }
 
-            if (char === ',' && braceCount === 0 && !inQuotes) {
+            if (char === ',' && braceCount === 0 && parenCount === 0 && !inQuotes) {
                 // Found a separator, process current item
                 const trimmedItem = currentItem.trim();
                 if (trimmedItem) {
@@ -1008,39 +1017,28 @@ export class URLManager {
     }
 
     /**
-     * Serialize the selection layer's markers into a compact `markers=` param.
-     * Format: lng,lat|<next marker>...
-     * Only the click locations are stored — no per-feature layerId~featureId refs.
-     * The features present at each marker are recovered on load by re-querying that
-     * point once its layers are ready (see MapMarkerManager.restoreMarkersFromSelectionLayer),
-     * exactly as if the user clicked there, so there's nothing else to duplicate here
-     * or in a separate `selected=` parameter.
+     * Serialize every live marker into a compact `markers=` param of
+     * `marker-<id>(lng,lat[,name][,description])` calls (see
+     * marker-registry.js's buildMarkersParam) - one per marker currently
+     * registered there, which map-marker-manager.js keeps current as markers
+     * are added, moved, or renamed. This includes route waypoint markers too
+     * (not just plain selections): a route's `route-<rid>:` shorthand now
+     * references these same ids (search/route-store.js), so they must be
+     * present here for a shared link to resolve them.
+     *
+     * The features present at each marker are recovered on load by
+     * re-querying that point once its layers are ready (see
+     * MapMarkerManager.restoreMarkersFromSelectionLayer), exactly as if the
+     * user clicked there, so there's nothing else to duplicate here.
      */
     serializeMarkersForURL() {
-        const selectionLayer = window.layerControl?._state?.groups?.find(g => g.id === 'selection');
-        const features = selectionLayer?.geojson?.features;
-        if (!features || features.length === 0) {
-            return '';
-        }
-
-        const round = (n) => parseFloat(Number(n).toFixed(6));
-
-        const markers = [];
-        features.forEach(feature => {
-            if (feature?.geometry?.type !== 'Point') return;
-            const [lng, lat] = feature.geometry.coordinates;
-            markers.push(`${round(lng)},${round(lat)}`);
-        });
-
-        return markers.join('|');
+        return buildMarkersParam(allRegisteredMarkers());
     }
 
     /**
-     * Parse a compact `markers=` param back into a selection-layer FeatureCollection.
-     * Inverse of serializeMarkersForURL. Also accepts the older
-     * `lng,lat:layerId~featureId,...` format (from URLs shared before this change) so
-     * existing shared links keep restoring their exact features rather than
-     * re-querying the point.
+     * Parse a `markers=` param (marker-<id>(lng,lat[,name][,description])
+     * calls - see marker-registry.js's parseMarkersParam) back into a
+     * selection-layer FeatureCollection. Inverse of serializeMarkersForURL.
      */
     parseMarkersFromURL(markersParam) {
         const geojson = { type: 'FeatureCollection', features: [] };
@@ -1048,36 +1046,11 @@ export class URLManager {
             return geojson;
         }
 
-        markersParam.split('|').forEach((markerStr, index) => {
-            const colonIndex = markerStr.indexOf(':');
-            const coordsStr = colonIndex === -1 ? markerStr : markerStr.substring(0, colonIndex);
-
-            const [lng, lat] = coordsStr.split(',').map(parseFloat);
-            if (isNaN(lng) || isNaN(lat)) return;
-
-            const properties = { id: `marker-url-${index}` };
-
-            if (colonIndex !== -1) {
-                const refsStr = markerStr.substring(colonIndex + 1);
-                const featureRefs = refsStr.split(',').map(refStr => {
-                    const tildeIndex = refStr.indexOf('~');
-                    if (tildeIndex === -1) return null;
-                    return {
-                        layerId: refStr.substring(0, tildeIndex),
-                        featureId: refStr.substring(tildeIndex + 1)
-                    };
-                }).filter(Boolean);
-
-                if (featureRefs.length > 0) {
-                    properties.featureCount = featureRefs.length;
-                    properties.features = featureRefs;
-                }
-            }
-
+        parseMarkersParam(markersParam).forEach(entry => {
             geojson.features.push({
                 type: 'Feature',
-                geometry: { type: 'Point', coordinates: [lng, lat] },
-                properties
+                geometry: { type: 'Point', coordinates: [entry.lng, entry.lat] },
+                properties: { id: `marker-url-${entry.id}`, urlId: entry.id, name: entry.name, description: entry.description }
             });
         });
 
@@ -1279,6 +1252,16 @@ export class URLManager {
                                 selectionGroup.geojson = selectionGeojson;
                             }
                             markersRestored = await markerManager.restoreMarkersFromSelectionLayer();
+                            if (markersRestored) {
+                                // restoreMarkersFromSelectionLayer creates each marker through the
+                                // normal click pipeline, which has no way to thread the id `markers=`
+                                // actually asked for through to it - reconcile them back, then recolor
+                                // whichever of those markers a `route-<rid>:` layer references as a
+                                // waypoint (see route-url-api.js's `_waypointMarkerIds`, resolved
+                                // earlier in map-init.js, long before these markers existed).
+                                markerManager.reconcileMarkerUrlIds(parseMarkersParam(markersParam));
+                                markerManager.applyRouteWaypointStyling();
+                            }
                         } else {
                             // Backward compatibility: older shared URLs inlined the selection
                             // geojson in the layers= param, which is already on the layer group.

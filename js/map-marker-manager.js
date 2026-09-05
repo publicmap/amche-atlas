@@ -10,6 +10,9 @@ import { CameraUtils } from './map-camera-utils.js';
 import { GeoLibreAPI } from './geolibre-api.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { formatAttributeValue } from './attribute-value-renderer.js';
+import { sanitizeId, isValidId, nextSerialId } from './shorthand-id-utils.js';
+import * as markerRegistry from './marker-registry.js';
+import { WAYPOINT_PIN_COLOR } from './search/route-store.js';
 
 // How long to ignore map clicks after a touch marker/balloon drag ends. Covers
 // the browser's phantom click (fired from touch-to-mouse-event emulation,
@@ -704,6 +707,44 @@ export class MapMarkerManager {
     }
 
     /**
+     * The id this marker is referenced by in `markers=`/a route's
+     * `route-<rid>:` waypoint list (marker-registry.js) - editable inline so
+     * a hand-authored or shared link can use a memorable id ("home", "shop")
+     * instead of the plain serial number it starts with. See
+     * _attachMarkerIdInputHandler for validation/commit and
+     * renameMarkerUrlId for what a rename actually does.
+     */
+    _buildMarkerIdInputHTML(urlId) {
+        return `
+            <div class="marker-id-row" style="
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                width: 100%;
+                box-sizing: border-box;
+                padding-bottom: 4px;
+                margin-bottom: 4px;
+                border-bottom: 1px solid #334155;
+            ">
+                <span style="font-size: 8px; line-height: 1.1; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.02em; flex-shrink: 0;">ID</span>
+                <input type="text" class="marker-id-input" value="${this._escapeAttr(urlId)}" spellcheck="false" autocomplete="off" style="
+                    flex: 1;
+                    min-width: 0;
+                    background: transparent;
+                    border: 1px solid transparent;
+                    color: #f3f4f6;
+                    font-size: 11px;
+                    font-weight: 700;
+                    font-family: inherit;
+                    padding: 1px 3px;
+                    border-radius: 3px;
+                    cursor: text;
+                ">
+            </div>
+        `;
+    }
+
+    /**
      * Every marker balloon leads with an inline "Comment" box in place of the
      * notes layer's normal badge, prefilled from a notes-layer feature already
      * selected at this point (if any) so an existing note is editable in place
@@ -1146,6 +1187,60 @@ export class MapMarkerManager {
     }
 
     /**
+     * Wires the "ID" input _buildMarkerIdInputHTML renders: sanitizes as the
+     * user types (spaces -> `_`, disallowed characters dropped, matching
+     * shorthand-id-utils.sanitizeId), and commits on blur or Enter (not a
+     * Save button - unlike the comment box below, a bad rename has an
+     * unambiguous, non-destructive fallback: just revert the field to the
+     * last good id). A duplicate or otherwise-rejected id briefly flashes a
+     * red outline and reverts rather than silently doing nothing.
+     */
+    _attachMarkerIdInputHandler(el, markerId) {
+        const input = el.querySelector('.marker-id-input');
+        if (!input) return;
+
+        // Same reasoning as the comment textarea: without this, using the
+        // field at all would drag the marker balloon out from under the cursor.
+        ['mousedown', 'click'].forEach(type => input.addEventListener(type, (e) => e.stopPropagation()));
+
+        const commit = () => {
+            const markerData = this._markers.get(markerId);
+            if (!markerData) return;
+
+            const sanitized = sanitizeId(input.value);
+            if (sanitized === markerData.urlId) {
+                input.value = markerData.urlId;
+                return;
+            }
+
+            if (!sanitized || !this.renameMarkerUrlId(markerId, sanitized)) {
+                input.value = markerData.urlId;
+                input.style.borderColor = '#ef4444';
+                setTimeout(() => { input.style.borderColor = 'transparent'; }, 800);
+                return;
+            }
+
+            input.value = markerData.urlId;
+        };
+
+        input.addEventListener('input', () => {
+            const cursor = input.selectionStart;
+            const sanitized = input.value.replace(/\s+/g, '_').replace(/[^A-Za-z0-9_]/g, '');
+            if (sanitized !== input.value) {
+                input.value = sanitized;
+                if (cursor !== null) input.setSelectionRange(cursor, cursor);
+            }
+        });
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            }
+        });
+    }
+
+    /**
      * Wires the comment box that leads every marker balloon: auto-grows with
      * its content, reveals a Save button only once the text actually changes
      * from what was prefilled, and writes through to the notes sheet exactly
@@ -1293,6 +1388,127 @@ export class MapMarkerManager {
         return this._markers.get(markerId)?.features || null;
     }
 
+    /**
+     * A marker's `markers=`/route-reference id (marker-registry.js), or
+     * `null` if there is no such marker - used by search/route-store.js's
+     * _write() to derive each waypoint's `route-<rid>:` shorthand argument
+     * from live marker state rather than storing a second copy of it.
+     */
+    getMarkerUrlId(markerId) {
+        return this._markers.get(markerId)?.urlId || null;
+    }
+
+    /**
+     * The real map marker referenced by a `markers=`/route-waypoint shorthand
+     * id (marker-registry.js), or `null` if none has that id right now -
+     * used by url-manager.js's applyRouteWaypointStyling() to turn a
+     * `route-<rid>:` layer's `_waypointMarkerIds` (see route-url-api.js) into
+     * the real markers to recolor.
+     */
+    getMarkerByUrlId(urlId) {
+        for (const markerData of this._markers.values()) {
+            if (markerData.urlId === urlId) return markerData.id;
+        }
+        return null;
+    }
+
+    /**
+     * Renames a marker's `markers=`/route-reference id (see
+     * marker-registry.js), driven by the inline "ID" input in its popup
+     * (_buildMarkerIdInputHTML/_attachMarkerIdInputHandler below). Rejects an
+     * invalid or already-used id (the input reverts to the last good value in
+     * that case). A route referencing this marker doesn't need to be told
+     * separately - RouteStore._write() derives each waypoint's shorthand id
+     * from the marker's live `urlId` every time it (re)writes the URL, so the
+     * next `updateURL()` (triggered here) already reflects the rename; a
+     * `route-<rid>:` layer resolved from the URL on load carries its
+     * reference as a snapshot instead (route-url-api.js's
+     * `_waypointMarkerIds`), so that snapshot is also patched in place here.
+     * Returns true on success.
+     */
+    renameMarkerUrlId(markerId, newUrlId) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData) return false;
+
+        const sanitized = sanitizeId(newUrlId);
+        if (!isValidId(sanitized)) return false;
+        if (sanitized !== markerData.urlId && markerRegistry.has(sanitized)) return false;
+
+        const oldUrlId = markerData.urlId;
+        markerRegistry.remove(oldUrlId);
+        markerData.urlId = sanitized;
+        markerRegistry.set(sanitized, { id: sanitized, lng: markerData.lngLat.lng, lat: markerData.lngLat.lat, name: '', description: '' });
+
+        window.layerControl?._state?.groups?.forEach(group => {
+            if (!Array.isArray(group._waypointMarkerIds)) return;
+            const idx = group._waypointMarkerIds.indexOf(oldUrlId);
+            if (idx === -1) return;
+            group._waypointMarkerIds[idx] = sanitized;
+            if (typeof group._originalJson === 'string') {
+                group._originalJson = group._originalJson.replace(
+                    new RegExp(`(?<=[(,])${oldUrlId}(?=[,)])`),
+                    sanitized
+                );
+            }
+        });
+
+        window.urlManager?.updateURL({ updateLayers: true });
+        return true;
+    }
+
+    /**
+     * Restoring markers from `?markers=` (url-manager.js's
+     * restoreMarkersFromSelectionLayer, driven through the same click/
+     * selection pipeline a real click uses) creates each marker with a fresh
+     * auto-numbered `urlId` — it has no way to thread the original shared id
+     * through that generic pipeline. This reconciles the two afterward: for
+     * each `{id, lng, lat}` marker-registry.js parsed straight from the URL,
+     * finds the real marker at that point and renames it back to the id the
+     * link actually said, so a route referencing that id (route-url-api.js's
+     * `_waypointMarkerIds`) resolves correctly once applyRouteWaypointStyling
+     * runs right after this.
+     */
+    reconcileMarkerUrlIds(entries) {
+        (entries || []).forEach(({ id, lng, lat }) => {
+            const markerId = this.findMarkerNear({ lng, lat }, 5);
+            const markerData = markerId && this._markers.get(markerId);
+            if (!markerData || markerData.urlId === id) return;
+
+            markerRegistry.remove(markerData.urlId);
+            markerData.urlId = id;
+            markerRegistry.set(id, { id, lng: markerData.lngLat.lng, lat: markerData.lngLat.lat, name: '', description: '' });
+
+            const input = markerData.marker.getElement()?.querySelector('.marker-id-input');
+            if (input) input.value = id;
+        });
+    }
+
+    /**
+     * Recolors/labels every real marker referenced by a `route-<rid>:` URL
+     * shorthand layer's waypoint ids (route-url-api.js's
+     * `_waypointMarkerIds`) as a route waypoint - the same look
+     * search/route-store.js gives a drawn route's waypoints (adoptAsWaypoint's
+     * pin recolor, setMarkerRefLabel's badge) - reusing those two methods
+     * rather than a third copy of the styling. Markers restore from
+     * `markers=` after routes are already resolved (see map-init.js's
+     * ordering note in route-url-api.js's docstring), so this runs once,
+     * right after that restoration, from url-manager.js.
+     */
+    applyRouteWaypointStyling() {
+        const groups = window.layerControl?._state?.groups || [];
+        groups.forEach(group => {
+            const waypointIds = group._waypointMarkerIds;
+            if (!Array.isArray(waypointIds)) return;
+
+            waypointIds.forEach((urlId, index) => {
+                const markerId = this.getMarkerByUrlId(urlId);
+                if (!markerId) return;
+                this.adoptAsWaypoint(markerId, { pinColor: WAYPOINT_PIN_COLOR });
+                this.setMarkerRefLabel(markerId, `${group.id}-${index + 1}`);
+            });
+        });
+    }
+
     _describeMarkerLabel(markerData) {
         const featureLabel = this.describeFeatures(markerData.features);
         if (featureLabel) return featureLabel;
@@ -1360,6 +1576,10 @@ export class MapMarkerManager {
         // The old address describes where it used to be; look the new one up.
         markerData.address = null;
         this._resolveMarkerAddress(markerId);
+        if (markerData.urlId) {
+            const entry = markerRegistry.get(markerData.urlId);
+            markerRegistry.set(markerData.urlId, { ...(entry || { id: markerData.urlId, name: '', description: '' }), lng: lngLat.lng, lat: lngLat.lat });
+        }
         this._updateSelectionLayer();
     }
 
@@ -1873,9 +2093,15 @@ export class MapMarkerManager {
             if (notesLayerId) clickedLayerIds.add(notesLayerId);
         }
 
+        // The id this marker is referenced by in `markers=`/a route's
+        // `route-<rid>:` waypoint list (see marker-registry.js) - assigned
+        // serially on creation, user-renamable via the input below.
+        const urlId = nextSerialId(markerRegistry.allIds());
+
         el.innerHTML = `
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0;"></div>
             <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); cursor: move;">
+                ${this._buildMarkerIdInputHTML(urlId)}
                 ${this._buildCommentSectionHTML(noteEntry)}
                 ${this._buildMarkerBadgesHTML(badgeFeatures, lngLat, { includeMoreLayers: true, suppressEmptyBadge: !!noteEntry, clickedLayerIds, pendingLayerIds, includeAddress: true })}
             </div>
@@ -1929,6 +2155,7 @@ export class MapMarkerManager {
         this._attachBadgeHandlers(el, badgeFeatures, lngLat, false, clickedLayerIds, pendingLayerIds);
         this._attachAddressBadgeHandler(el, markerId);
         this._attachCommentSectionHandlers(el, lngLat, noteEntry);
+        this._attachMarkerIdInputHandler(el, markerId);
         this._blockMapHoverEvents(el);
 
         // The "more layers" badge is normally revealed by hovering the marker
@@ -1942,6 +2169,7 @@ export class MapMarkerManager {
 
         const markerData = {
             id: markerId,
+            urlId,
             marker,
             lngLat,
             features,
@@ -1952,6 +2180,7 @@ export class MapMarkerManager {
             onDragEnd,
             role
         };
+        markerRegistry.set(urlId, { id: urlId, lng: lngLat.lng, lat: lngLat.lat, name: '', description: '' });
 
         // Only the pin (marker-action-row) should drag the actual location. The
         // balloon group has its own independent drag that just repositions it
@@ -2093,6 +2322,10 @@ export class MapMarkerManager {
             owned.onDragEnd?.(owned.lngLat);
             owned.address = null;
             this._resolveMarkerAddress(markerId);
+            if (owned.urlId) {
+                const entry = markerRegistry.get(owned.urlId);
+                markerRegistry.set(owned.urlId, { ...(entry || { id: owned.urlId, name: '', description: '' }), lng: owned.lngLat.lng, lat: owned.lngLat.lat });
+            }
             this._updateSelectionLayer();
             return;
         }
@@ -2453,6 +2686,7 @@ export class MapMarkerManager {
 
         markerData.marker.remove();
         this._markers.delete(markerId);
+        if (markerData.urlId) markerRegistry.remove(markerData.urlId);
 
         if (this._markers.size > 0) {
             this._currentMarkerIndex = Math.min(this._currentMarkerIndex, this._markers.size - 1);

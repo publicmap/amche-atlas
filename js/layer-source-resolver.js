@@ -1073,7 +1073,7 @@ export const DYNAMIC_SHORTHAND_PROVIDERS = {
     mapwarper: { resolveFromId: (id) => MapWarperAPI.createConfigFromId(id) },
     osm: { resolveFromId: (id) => OSMApi.createConfigFromRef(id) },
     stac: { resolveFromId: (id) => StacAPI.createConfigFromShorthandId(id) },
-    route: { resolveFromId: (id) => RouteApi.createConfigFromId(id) }
+    route: { resolveFromId: (id, rid) => RouteApi.createConfigFromId(id, rid) }
 };
 
 // ---------------------------------------------------------------------------

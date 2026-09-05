@@ -1013,6 +1013,11 @@ mapbox-search-box {
     cursor: not-allowed;
 }
 
+.cadastral-field-trigger .cadastral-spinner {
+    margin-left: auto;
+    flex: none;
+}
+
 .cadastral-field-trigger__label--filled {
     color: #f3f4f6;
 }
@@ -1105,10 +1110,25 @@ mapbox-search-box {
 }
 
 .cadastral-picker-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     padding: 1rem 0.75rem;
     color: #9ca3af;
     font-size: 0.875rem;
     text-align: center;
+}
+
+.cadastral-spinner {
+    font-size: 1rem;
+    --track-width: 2px;
+    --track-color: rgba(156, 163, 175, 0.25);
+    --indicator-color: #9ca3af;
+}
+
+.cadastral-spinner[hidden] {
+    display: none;
 }
 
 @media (max-width: 768px) {

@@ -8,8 +8,13 @@
  *   mapwarper:108838
  *   osm:relation/21057460
  *   stac:<url-encoded STAC Item or stac-map viewer URL>
- *   route:mapbox-driving-traffic(73.81/15.49|73.83/15.51)
- *   route:osrm-driving(73.81/15.49|73.83/15.51)
+ *   route-1:mapbox-driving-traffic(1,2)
+ *   route-1:osrm-driving(1,2,3)
+ *
+ * `route` is the one shorthand type with its own user-facing id (`-1` above)
+ * riding along in the type token itself, so a route keeps a stable identity
+ * across edits/renames the way `marker-<id>` does (see marker-registry.js) -
+ * every other shorthand type is only ever referenced by its bare `id`.
  *
  * The equivalent `{"type":"...","id":"..."}` object form is still accepted
  * on read (and is what opacity gets embedded into on write, since the plain
@@ -27,19 +32,20 @@ import { DYNAMIC_SHORTHAND_PROVIDERS } from './layer-source-resolver.js';
 import { OSMApi } from './osm-url-api.js';
 
 const SHORTHAND_TYPES = new Set(['allmaps', 'mapwarper', 'osm', 'stac', 'route']);
-const SHORTHAND_STRING_RE = /^(allmaps|mapwarper|osm|stac|route):(.+)$/;
+const SHORTHAND_STRING_RE = /^(allmaps|mapwarper|osm|stac|route)(?:-([A-Za-z0-9_]+))?:(.+)$/;
 
 /**
- * Parses the compact `type:id` string form (e.g. "osm:relation/21057460")
- * into a `{type, id}` object, or returns null if `str` isn't a recognized
- * shorthand string (including plain layer IDs, which must fall through
- * unchanged).
+ * Parses the compact `type:id` string form (e.g. "osm:relation/21057460",
+ * or "route-1:mapbox-walking(1,2)") into a `{type, rid, id}` object, or
+ * returns null if `str` isn't a recognized shorthand string (including plain
+ * layer IDs, which must fall through unchanged). `rid` is the type's own
+ * user-facing id (`route-<rid>:...`) and is `null` for every other type.
  */
 export function parseDynamicLayerShorthandString(str) {
     if (typeof str !== 'string') return null;
     const match = str.match(SHORTHAND_STRING_RE);
     if (!match) return null;
-    return { type: match[1], id: match[2] };
+    return { type: match[1], rid: match[2] || null, id: match[3] };
 }
 
 export function isDynamicLayerShorthand(layerConfig) {
@@ -55,13 +61,13 @@ export function isDynamicLayerShorthand(layerConfig) {
  * caller, mirroring how registry-resolved layers are merged in map-init.js.
  */
 export async function expandDynamicLayerShorthand(layerConfig) {
-    const { type, id } = layerConfig;
+    const { type, id, rid } = layerConfig;
 
     try {
         const provider = DYNAMIC_SHORTHAND_PROVIDERS[type];
         if (!provider) return null;
 
-        return await provider.resolveFromId(id);
+        return await provider.resolveFromId(id, rid);
     } catch (error) {
         console.warn(`[Dynamic Layer] Failed to resolve "${type}:${id}":`, error);
         return null;

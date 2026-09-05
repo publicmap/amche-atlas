@@ -27,6 +27,7 @@ import { MapOrientationControl } from './map-orientation-control.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 import { CameraUtils } from './map-camera-utils.js';
 import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands } from './dynamic-layer-shorthand.js';
+import { setAll as setMarkerRegistry, parseMarkersParam } from './marker-registry.js';
 
 export class MapInitializer {
     // Note: location-based atlas selection is owned by SplashScreenManager
@@ -509,6 +510,14 @@ export class MapInitializer {
         if (config.layers && Array.isArray(config.layers)) {
             const validLayers = [];
             const invalidLayers = [];
+
+            // Hydrate the marker registry from `?markers=` before any `route-<rid>:`
+            // shorthand below is resolved - a route now references its waypoints by
+            // marker id (see js/route-url-api.js), and needs their coordinates
+            // synchronously, well before any real map marker exists (markers.js's
+            // own restoration happens much later, in url-manager.js's
+            // applyURLParameters(), after window.featureControl exists).
+            setMarkerRegistry(parseMarkersParam(new URLSearchParams(location.search).get('markers')));
 
             // Batch-resolve any "osm:" shorthand layers into a single Overpass
             // request before the per-layer loop below, which otherwise fires

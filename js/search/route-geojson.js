@@ -217,22 +217,17 @@ function formatClockTime(date) {
 }
 
 /**
- * The compact `route:` URL form for a set of waypoints, e.g.
- * "route:mapbox-walking(73.81/15.49|73.83/15.51)" (see ../route-url-api.js).
- * The service and profile that produced the route are named in the call, so
- * the link reproduces the same route rather than re-routing with whatever
- * happens to be the default. Waypoints are separated by `|` as in `?markers=`;
- * the pair itself by `/`, because `?layers=` is comma-separated and a comma
- * here would split the entry. Six decimals is ~10cm - more than enough, and
- * keeps shared URLs short.
+ * The compact `route-<rid>:` URL form for a route's waypoints, e.g.
+ * "route-1:mapbox-walking(1,2)" (see ../route-url-api.js). The service and
+ * profile that produced the route are named in the call, so the link
+ * reproduces the same route rather than re-routing with whatever happens to
+ * be the default. Waypoints are marker ids (../marker-registry.js), not raw
+ * coordinates - referencing whatever marker each waypoint's pin currently is,
+ * comma-separated like every other shorthand arg list (no pair-separator
+ * needed, since each argument is a single id).
  */
-export function routeShorthand(waypoints, engine, profile) {
-    const coords = waypoints.map(([lng, lat]) => `${round(lng)}/${round(lat)}`).join('|');
-    return `route:${routingEngineProfileToken(engine, profile)}(${coords})`;
-}
-
-function round(value) {
-    return Number(value.toFixed(6));
+export function routeShorthand(rid, markerIds, engine, profile) {
+    return `route-${rid}:${routingEngineProfileToken(engine, profile)}(${markerIds.join(',')})`;
 }
 
 /** Bounds covering a route's line and waypoints, for fitBounds(). */
