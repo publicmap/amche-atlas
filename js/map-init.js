@@ -942,7 +942,7 @@ export class MapInitializer {
             window.atlasLayerMenuControl.mount(document.getElementById('atlas-layer-menu-container'));
 
             // Header-nav shortcuts menu, next to the atlas + layers menu -
-            // same item tree/actions as the map's right-click/long-press menu
+            // same item tree/actions as the map's long-press menu
             // (see shortcut-menu-base.js), acting on the current map center.
             window.headerShortcutMenuControl = new HeaderShortcutMenuControl();
             window.headerShortcutMenuControl.mount(document.getElementById('header-shortcut-menu-container'), map);
@@ -1010,8 +1010,6 @@ export class MapInitializer {
             map.addControl(new TimeControl(), 'top-right');
             window.contextMessagesControl = new MapContextMessagesControl();
             window.contextMessagesControl.onAdd(map);
-            const shortcutHintId = MapContextMessagesControl.show('Long press/right click map for shortcuts');
-            setTimeout(() => MapContextMessagesControl.close(shortcutHintId), 8000);
             // Not mounted as a map control - triggered from the last item in
             // the layer-stack strip (see layer-stack-strip.js) instead, via a
             // 'toggle-export' message its own listener already handles.

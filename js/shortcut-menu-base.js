@@ -5,7 +5,7 @@
  * single place the item tree and its actions are defined.
  *
  * Subclasses own how the menu is *triggered* and *positioned*:
- * - ShortcutMenu (shortcut-menu.js): right-click / long-press on the map,
+ * - ShortcutMenu (shortcut-menu.js): long-press on the map,
  *   positioned at the cursor/touch point, `_lngLat` = that point.
  * - HeaderShortcutMenuControl (header-shortcut-menu-control.js): header-nav
  *   button, positioned under the button, `_lngLat` = current map center.
@@ -420,7 +420,7 @@ export class ShortcutMenuBase {
     /**
      * Runs the manual selection trigger for "Select Here" — the only way to
      * select/place a marker at a point while Toggle Auto Select is off. The
-     * plain marker ShortcutMenu already dropped here on right-click/long-press
+     * plain marker ShortcutMenu already dropped here on long-press
      * (see shortcut-menu.js) gets cleared and replaced by this, same as any
      * other selection - it was only ever a placeholder for wherever the menu
      * was opened, not a selection itself.
@@ -512,10 +512,10 @@ export class ShortcutMenuBase {
      * Drops a plain, feature-less marker at `lngLat` - or reuses one already
      * there - without running the selection pipeline (no query, no inspector,
      * no highlighting). Used to mark where the menu itself was opened (see
-     * shortcut-menu.js's right-click/long-press) and by "Comments" below, so
+     * shortcut-menu.js's long-press) and by "Comments" below, so
      * that spot has a handle on the map even before "Select Here" is chosen.
      * Deliberately skips querying what's under the point even though a route
-     * endpoint pick (below) wants that - right-click/long-press opens this
+     * endpoint pick (below) wants that - a long-press opens this
      * marker on every context-menu open, including ones the user only meant
      * to glance at and dismiss, so querying and showing badges here would
      * make an untouched placeholder look like a real selection.
@@ -528,7 +528,7 @@ export class ShortcutMenuBase {
      * badges) only if it was still feature-less; a marker that already has
      * its own selection/content is left alone.
      *
-     * `pending: true` (only shortcut-menu.js's own right-click/long-press pass
+     * `pending: true` (only shortcut-menu.js's own long-press passes
      * this) additionally records a newly-created marker as `_pendingMarkerId`
      * - never one that was reused, since that one was already real - so
      * _hasSelectionMarkers can tell "the menu just opened here" apart from an
@@ -651,7 +651,7 @@ export class ShortcutMenuBase {
             // common case, and it works on its own - with no origin picked it
             // falls back to the same default Route From the nearby-features
             // control uses. A pending origin is named in the label so the
-            // second right-click shows what the route will be measured from
+            // second press shows what the route will be measured from
             // rather than leaving the user to remember.
             const origin = routeStore.pendingOrigin;
             items.push(
@@ -704,7 +704,7 @@ export class ShortcutMenuBase {
      * _ensureMarkerAt, which route-store.js then re-colours and takes over as
      * a route marker, so the origin stays visible - and draggable - on the map
      * while the user goes to pick a destination. Without this, the placeholder
-     * marker ShortcutMenu's right-click/long-press dropped (see
+     * marker ShortcutMenu's long-press dropped (see
      * _ensureMarkerAt's `pending` doc) would just get removed the moment this
      * menu closes, since nothing else turned it into something real.
      * "To Here" consumes
@@ -862,7 +862,7 @@ export class ShortcutMenuBase {
      * _handleLayerToggle's registry fallback adds it on demand). When turning
      * it on, also focuses the comment box that leads every marker's balloon
      * (map-marker-manager.js) for the location the shortcut menu was opened
-     * at — reusing a marker already there (e.g. one right-clicked directly)
+     * at — reusing a marker already there (e.g. one pressed directly)
      * rather than creating a duplicate.
      */
     _toggleComments() {

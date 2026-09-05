@@ -101,7 +101,7 @@ export class MapFeatureControl {
 
     /**
      * Toggle "add to selection" mode. Shared by the inspector panel's own
-     * toggle button and the right-click/long-press shortcut menu, so both
+     * toggle button and the long-press shortcut menu, so both
      * stay in sync with the marker manager's selection mode.
      */
     setAddSelectionMode(enabled) {

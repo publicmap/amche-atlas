@@ -13,7 +13,7 @@
  * first, then basemaps - and the strip is painted top-to-bottom in that order.
  *
  * The column ends with an always-visible options button, that opens the
- * map/selection shortcuts shared with the right-click menu (see
+ * map/selection shortcuts shared with the long-press menu (see
  * LayerStackOptionsMenu), followed by an import and an export button that
  * are only revealed while the pointer is over the strip.
  *
@@ -265,7 +265,7 @@ export class LayerStackStrip {
     /**
      * The import trigger, mounted right after the options control and before
      * export - both hover-revealed (see the CSS), unlike the always-visible
-     * options button. Opens map-creator.html the same way the right-click
+     * options button. Opens map-creator.html the same way the long-press
      * shortcut menu's "Import Map" entry does (see shortcut-menu-base.js):
      * the browser overlay has to be open for its iframe to be visible at all,
      * so this opens it first if needed before switching that iframe to the

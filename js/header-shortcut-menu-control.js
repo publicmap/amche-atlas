@@ -1,12 +1,12 @@
 /**
  * HeaderShortcutMenuControl - header-nav button (top-left, next to the atlas
- * + layers menu) that opens the same shortcut menu as right-clicking /
+ * + layers menu) that opens the same shortcut menu as
  * long-pressing the map (see shortcut-menu.js). Both share their item tree,
  * flyout rendering, and action handlers via ShortcutMenuBase
  * (shortcut-menu-base.js), so any change there shows up in both places.
  *
  * The context this menu acts on is always the current map center - the
- * equivalent of right-clicking the middle of the map - captured fresh each
+ * equivalent of pressing the middle of the map - captured fresh each
  * time the menu is opened.
  *
  * Not a mapboxgl control - this lives in the header-nav DOM, not on the map.

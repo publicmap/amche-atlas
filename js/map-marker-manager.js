@@ -23,10 +23,17 @@ const MARKER_DRAG_CLICK_SUPPRESS_MS = 400;
 // Nominatim's usage policy: no more than one request a second per origin.
 const ADDRESS_LOOKUP_GAP_MS = 1100;
 
-// Gap between the pin and the id label in a marker's action row. The balloon
-// below is indented by the pin plus this, so it hangs under the id label rather
-// than under the pin (see addMarker and getContentOffset).
+// Gap between the id label and the actions beside it.
 const MARKER_ACTION_ROW_GAP = 4;
+
+// The pointer that replaces the old map pin: a triangle running from the id
+// label's top-left corner up to the clicked point, which is the marker's
+// anchor. The whole popup hangs down and to the right from there.
+const MARKER_TAIL_SIZE = 16;
+
+// Height of the id label row, used to place things that sit below it without
+// having to measure a marker that may not be laid out yet.
+const MARKER_ID_ROW_HEIGHT = 26;
 
 // Ceiling for the id label, so a long search-result id (up to 64 characters -
 // see shorthand-id-utils.labelToId) ellipsises instead of running off across
@@ -38,16 +45,6 @@ const MARKER_ID_MAX_WIDTH = 240;
 // from 0, the coordinates badge uses -1, so the address takes -2.
 const ADDRESS_BADGE_INDEX = -2;
 
-// A subtle black outline around the pin icon, faked with a soft zero-offset
-// drop-shadow (an SVG glyph filled with an arbitrary pinColor has no CSS
-// `stroke` to lean on) plus the pin's own drop shadow, so it stays legible
-// against any basemap and against a `ref` badge drawn in the same pinColor
-// as some routes, without reading as a heavy border.
-const PIN_ICON_FILTER = [
-    'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
-    'drop-shadow(0 0 0.5px rgba(0,0,0,0.6))',
-    'drop-shadow(0 0 0.5px rgba(0,0,0,0.6))'
-].join(' ');
 
 export class MapMarkerManager {
     constructor(map, stateManager, mapboxAPI = null) {
@@ -97,7 +94,27 @@ export class MapMarkerManager {
         this._markerAddedListeners.delete(callback);
     }
 
+    /**
+     * Focus belongs to the marker you are working with, so a press anywhere that
+     * isn't a marker gives it up - otherwise the last marker created stays open
+     * for the rest of the session. Capture phase, and on the press rather than
+     * the click, so this lands before whatever that press goes on to do: a map
+     * click that drops a new marker still selects that one afterwards.
+     */
+    _setupOutsidePressListener() {
+        if (this._onOutsidePress) return;
+        this._onOutsidePress = (e) => {
+            if (!this._selectedMarkerId) return;
+            if (e.target.closest?.('.selection-marker')) return;
+            this._selectMarker(null);
+        };
+        document.addEventListener('mousedown', this._onOutsidePress, true);
+        document.addEventListener('touchstart', this._onOutsidePress, true);
+    }
+
     _setupEventListeners() {
+        this._setupOutsidePressListener();
+
         this._stateManager.addEventListener('state-change', (event) => {
             const { eventType, data } = event.detail;
 
@@ -428,8 +445,7 @@ export class MapMarkerManager {
      * A "Locating…" placeholder shown in place of a feature badge for a layer whose
      * query hasn't resolved yet (see MapMarkerManager.restoreMarkersFromSelectionLayer).
      * Not a `.feature-badge` — has no backing feature, so it's excluded from
-     * _attachBadgeHandlers' click/hover wiring and _createMoreLayersBadgeHTML's "N more
-     * layers" count without any special-casing there.
+     * _attachBadgeHandlers' click/hover wiring without any special-casing there.
      */
     _createPendingLayerBadgeHTML(layerId) {
         const layerConfig = this._stateManager.getLayerConfig(layerId);
@@ -457,6 +473,20 @@ export class MapMarkerManager {
      * falling back to all non-empty properties), styled to match the yellow badge.
      */
     _buildBadgeAttributeTable(f) {
+        if (!f || !f.feature) return '';
+
+        return `<div class="feature-badge-details" ${this._featureHandlerAttrs(f)} style="display:none;width:100%;margin-top:3px;border-top:1px solid #374151;padding-top:3px;max-height:180px;overflow-y:auto;">` +
+            `<div class="custom-html-container"></div>` +
+            this._buildFeatureRowsHTML(f) +
+            this._buildBadgeLayerFooter(f) +
+            `</div>`;
+    }
+
+    /**
+     * A feature's fields as label/value rows - the shared body of both the
+     * stacked badge table (hover markers) and the flyout (selection markers).
+     */
+    _buildFeatureRowsHTML(f) {
         if (!f || !f.feature) return '';
         const layerConfig = this._stateManager.getLayerConfig(f.layerId);
         const inspectConfig = layerConfig?.inspect || {};
@@ -502,16 +532,65 @@ export class MapMarkerManager {
             showAllButton = `<button class="badge-show-all-props-btn" data-total="${validEntries.length}" style="${btnStyle}">Show all ${validEntries.length} properties</button>`;
         }
 
-        const footer = this._buildBadgeLayerFooter(f);
+        return `<div class="badge-shown-properties">${rows.join('')}</div>${allPropertiesHTML}${showAllButton}`;
+    }
 
-        // Data attributes _loadInspectionHandlerHTML reads to load a layer's
-        // inspect.onClick handler (config/{atlas}.js) here.
-        const needsHandler = layerConfig?._sourceAtlas && inspectConfig.onClick;
-        const handlerAttrs = `data-needs-handler="${needsHandler ? 'true' : 'false'}" data-atlas="${layerConfig?._sourceAtlas || ''}" data-handler="${inspectConfig.onClick || ''}" data-feature-data="${encodeURIComponent(JSON.stringify(f.feature))}"`;
+    /** Data attributes _loadInspectionHandlerHTML reads to load a layer's inspect.onClick handler (config/{atlas}.js). */
+    _featureHandlerAttrs(f) {
+        const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+        const onClick = layerConfig?.inspect?.onClick || '';
+        const needsHandler = layerConfig?._sourceAtlas && onClick;
+        return `data-needs-handler="${needsHandler ? 'true' : 'false'}" data-atlas="${layerConfig?._sourceAtlas || ''}" ` +
+            `data-handler="${onClick}" data-feature-data="${encodeURIComponent(JSON.stringify(f.feature))}"`;
+    }
 
-        return `<div class="feature-badge-details" ${handlerAttrs} style="display:none;width:100%;margin-top:3px;border-top:1px solid #374151;padding-top:3px;max-height:180px;overflow-y:auto;">` +
-            `<div class="custom-html-container"></div>` +
-            `<div class="badge-shown-properties">${rows.join('')}</div>${allPropertiesHTML}${showAllButton}${footer}</div>`;
+    /**
+     * One feature's table for the flyout: the layer it came from as a header bar
+     * (the same thumbnail/atlas/name/actions that used to sit in the footer -
+     * leading the table now, since the flyout shows one layer at a time and the
+     * bar is also what the flyout is dragged by), then its fields.
+     */
+    _buildFeatureFlyoutContentHTML(f) {
+        return {
+            header: this._buildLayerHeaderHTML(f),
+            body: `<div class="feature-badge-details" ${this._featureHandlerAttrs(f)} style="display:block;width:100%;">` +
+                `<div class="custom-html-container"></div>` +
+                this._buildFeatureRowsHTML(f) +
+                `</div>`
+        };
+    }
+
+    /**
+     * The layer bar that leads a feature flyout: thumbnail, atlas badge, layer
+     * name, and the layer actions menu. `cursor: move` because it is also the
+     * flyout's drag handle (_attachFlyoutDragHandler).
+     */
+    _buildLayerHeaderHTML(f) {
+        const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+        if (!layerConfig) return '';
+
+        const thumbnail = LayerThumbnail.generate(layerConfig, 18, { interactive: false });
+        let thumbnailHTML = '';
+        if (thumbnail) {
+            thumbnail.style.borderRadius = '3px';
+            thumbnail.style.margin = '0';
+            thumbnailHTML = thumbnail.outerHTML;
+        }
+
+        let atlasBadge = '';
+        const atlasName = layerConfig._sourceAtlas;
+        const atlasMetadata = atlasName && window.layerRegistry?._atlasMetadata?.get(atlasName);
+        if (atlasMetadata) {
+            atlasBadge = `<span style="font-size:8px;padding:1px 5px;border-radius:3px;font-weight:600;color:white;background-color:${atlasMetadata.color || '#2563eb'};flex-shrink:0;">${this._escapeAttr(atlasMetadata.name)}</span>`;
+        }
+
+        const layerName = this._escapeAttr(layerConfig.title || f.layerId);
+
+        return `<div class="marker-flyout-drag-handle" style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:#111827;border-bottom:1px solid #374151;cursor:move;">` +
+            `${thumbnailHTML}${atlasBadge}` +
+            `<span style="font-size:10px;color:#e5e7eb;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${layerName}</span>` +
+            this._buildLayerActionsMenuHTML(f.layerId, f.feature) +
+            `</div>`;
     }
 
     /**
@@ -776,17 +855,38 @@ export class MapMarkerManager {
         `;
 
         return `
-            <div class="marker-id-group" style="display: flex; align-items: center; gap: 3px; min-width: 0;">
+            <div class="marker-id-group" style="display: flex; align-items: center; gap: ${MARKER_ACTION_ROW_GAP}px; min-width: 0;">
                 <button type="button" class="marker-id-badge" title="${this._escapeAttr(urlId)}"
-                    style="${labelStyle} overflow: hidden; white-space: nowrap; text-align: left; cursor: text;">${this._escapeAttr(urlId)}</button>
+                    style="${labelStyle} display: flex; align-items: center; gap: 5px; overflow: hidden; white-space: nowrap; text-align: left; cursor: pointer;">
+                    <span class="marker-id-text" style="overflow: hidden; text-overflow: ellipsis;">${this._escapeAttr(urlId)}</span>
+                    <sl-icon class="marker-id-pencil" name="pencil-square"
+                        style="display: none; font-size: 13px; color: #9ca3af; flex-shrink: 0;"></sl-icon>
+                </button>
                 <input type="text" class="marker-id-input" value="${this._escapeAttr(urlId)}" hidden
                     spellcheck="false" autocomplete="off" style="${labelStyle} cursor: text;">
                 ${actionBtn('marker-id-save', 'check-circle', '#22c55e', 'Save id (Enter)', { hidden: true })}
-                <span class="marker-id-actions" style="display: none; align-items: center; gap: 3px;">
+                <span class="marker-id-actions" style="display: none; align-items: center; gap: ${MARKER_ACTION_ROW_GAP}px;">
+                    ${actionBtn('marker-id-shortcuts', 'three-dots-vertical', '#9ca3af', 'Map and selection options')}
                     ${actionBtn('marker-id-remove', 'trash3', '#ef4444', 'Remove this marker')}
                     ${actionBtn('marker-id-collapse', 'x-circle', '#9ca3af', 'Hide details')}
                 </span>
             </div>
+        `;
+    }
+
+    /**
+     * The pointer that stands in for the old map pin: a triangle from the id
+     * label's top-left corner up to the marker's anchor, which is the clicked
+     * point itself. Drawn as SVG rather than the usual border trick so the tip
+     * lands exactly on the corner pixel and the outline matches the label's.
+     */
+    _buildMarkerTailHTML() {
+        const t = MARKER_TAIL_SIZE;
+        return `
+            <svg class="marker-tail" width="${t}" height="${t}" viewBox="0 0 ${t} ${t}" aria-hidden="true"
+                style="position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none;">
+                <polygon points="0,0 0,${t} ${t},${t}" fill="rgba(31, 41, 55, 0.92)" stroke="#374151" stroke-width="1"/>
+            </svg>
         `;
     }
 
@@ -801,40 +901,76 @@ export class MapMarkerManager {
      * reverse-geocoded address when it lands (see _renderMarkerAddress).
      */
     _buildMarkerSummaryHTML(features, lngLat) {
-        const chip = (label, index, extraClass = '') => `
+        const chip = (fieldName, label, index, extraClass = '') => `
             <button type="button" class="marker-summary-chip ${extraClass}" data-badge-index="${index}"
                 title="${this._escapeAttr(label)}" style="
-                max-width: 100%;
-                padding: 2px 7px;
-                background: #374151;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                width: 100%;
+                box-sizing: border-box;
+                padding: 3px 7px;
+                background: transparent;
                 border: 1px solid transparent;
-                border-radius: 999px;
+                border-radius: 5px;
                 color: #f3f4f6;
-                font-size: 10px;
-                font-weight: 600;
                 font-family: inherit;
-                line-height: 1.3;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                text-align: left;
                 cursor: pointer;
                 transition: background 0.15s, border-color 0.15s;
-            ">${this._escapeAttr(this._truncateName(label, 28))}</button>
+            ">
+                ${fieldName ? `<span class="marker-summary-chip__field" style="font-size: 8px; line-height: 1.1; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.02em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this._escapeAttr(fieldName)}</span>` : ''}
+                <span class="marker-summary-chip__value" style="font-size: 11px; line-height: 1.25; font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this._escapeAttr(this._truncateName(label, 34))}</span>
+            </button>
         `;
 
-        // Same order the detail list uses, so a chip and the badge it opens sit
-        // in the same position in their respective rows.
-        const chips = this._featuresInInspectorOrder(features)
-            .map(({ f, index }) => chip(this._getBadgeLabelInfo(f).value, index));
+        // Same order the layer stack uses, so the badges read top-to-bottom in
+        // the order their layers are drawn.
+        const chips = this._featuresInInspectorOrder(features).map(({ f, index }) => {
+            const { fieldName, value } = this._getBadgeLabelInfo(f);
+            return chip(fieldName, value, index);
+        });
 
         if (chips.length === 0) {
             const coords = `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
-            chips.push(chip(coords, ADDRESS_BADGE_INDEX, 'marker-summary-chip--address'));
+            chips.push(chip('Address', coords, ADDRESS_BADGE_INDEX, 'marker-summary-chip--address'));
         }
 
         return `
-            <div class="marker-summary-row" style="display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 2px;">
+            <div class="marker-summary-row" style="display: flex; flex-direction: column; align-items: stretch; gap: 1px;">
                 ${chips.join('')}
+            </div>
+        `;
+    }
+
+    /**
+     * The panel that opens beside the badge stack showing one feature's full
+     * attributes - the layer it came from as a header bar (which doubles as the
+     * drag handle, see _attachFlyoutDragHandler), then that feature's fields.
+     *
+     * One feature at a time, rather than every selected feature's table stacked
+     * inside the balloon: the badges are the index, this is the detail.
+     */
+    _buildFeatureFlyoutHTML() {
+        return `
+            <div class="marker-feature-flyout" style="
+                display: none;
+                position: absolute;
+                left: 100%;
+                top: 0;
+                margin-left: 6px;
+                width: 260px;
+                max-height: 320px;
+                box-sizing: border-box;
+                background: #1f2937;
+                border: 1px solid #374151;
+                border-radius: 8px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+                overflow: hidden;
+                z-index: 2;
+            ">
+                <div class="marker-feature-flyout__header"></div>
+                <div class="marker-feature-flyout__body" style="max-height: 280px; overflow-y: auto; padding: 4px 6px 6px;"></div>
             </div>
         `;
     }
@@ -907,7 +1043,7 @@ export class MapMarkerManager {
     }
 
     _buildMarkerBadgesHTML(features, lngLat, options = {}) {
-        const { includeMoreLayers = false, suppressEmptyBadge = false, clickedLayerIds = null, pendingLayerIds = null, includeAddress = false } = options;
+        const { suppressEmptyBadge = false, pendingLayerIds = null, includeAddress = false } = options;
 
         // Layers still being queried (see MapMarkerManager.restoreMarkersFromSelectionLayer)
         // that haven't already produced a real badge — shown as a "Locating…" placeholder,
@@ -961,28 +1097,9 @@ export class MapMarkerManager {
         // filled in once the reverse geocode returns (see _resolveMarkerAddress).
         if (includeAddress) html += this._createAddressBadgeHTML();
 
-        if (includeMoreLayers) {
-            const ids = clickedLayerIds || new Set((features || []).map(f => f.layerId));
-            // Pending layers already show their own "Locating…" badge above — don't also
-            // fold them into the "N more layers" summary.
-            const extraLayers = this._getAllActiveLayersInInspectorOrder().filter(layer => !ids.has(layer.id) && !pendingIds.includes(layer.id));
-            html += this._createMoreLayersBadgeHTML(extraLayers);
-        }
-
         return html;
     }
 
-    /**
-     * Trailing badge summarizing any other active layer at this location that
-     * isn't among the clicked features (e.g. a raster basemap). Collapsed like
-     * the feature badges above it; expanding lazily lists each layer with its
-     * LayerThumbnail.
-     *
-     * Hidden by default — it's meta/decluttering info, not a selected feature,
-     * so it should only reveal while this specific marker is the one being
-     * hovered/explored (see the marker's mouseenter/mouseleave in addMarker),
-     * not sit permanently visible on every marker on the map.
-     */
     /**
      * The address row: the place this marker sits in, as one more property
      * after the features selected here. The signpost icon carries the meaning,
@@ -1062,8 +1179,9 @@ export class MapMarkerManager {
         // row and started life as the raw coordinates - now it can say where
         // the point actually is.
         const chip = el.querySelector('.marker-summary-chip--address');
-        if (chip) {
-            chip.textContent = this._truncateName(markerData.address.text, 28);
+        const chipValue = chip?.querySelector('.marker-summary-chip__value');
+        if (chip && chipValue) {
+            chipValue.textContent = this._truncateName(markerData.address.text, 34);
             chip.title = markerData.address.text;
         }
     }
@@ -1153,32 +1271,6 @@ export class MapMarkerManager {
         }).join('');
     }
 
-    _createMoreLayersBadgeHTML(extraLayers) {
-        if (!extraLayers || extraLayers.length === 0) return '';
-        const count = extraLayers.length;
-        return `
-            <div class="feature-badge more-layers-badge" style="
-                display: none;
-                flex-direction: column;
-                align-items: flex-start;
-                width: 100%;
-                box-sizing: border-box;
-                background: transparent;
-                border-radius: 5px;
-                padding: 4px 8px;
-                cursor: pointer;
-                transition: background 0.15s, opacity 0.15s;
-            ">
-                <div class="feature-badge-header" style="display: flex; flex-direction: row; align-items: center; gap: 4px; width: 100%;">
-                    <sl-icon name="layers" style="font-size: 11px; color: #9ca3af;"></sl-icon>
-                    <span style="font-size: 11px; font-weight: 700; color: #f3f4f6; white-space: nowrap; flex: 1;">${count} more layer${count !== 1 ? 's' : ''}</span>
-                    <sl-icon-button class="more-layers-shortcut-btn" name="three-dots-vertical" label="Shortcuts" style="font-size:12px;color:#6b7280;flex-shrink:0;"></sl-icon-button>
-                </div>
-                <div class="more-layers-badge-details" style="display:none;width:100%;margin-top:3px;border-top:1px solid #374151;padding-top:3px;max-height:180px;overflow-y:auto;"></div>
-            </div>
-        `;
-    }
-
     /**
      * Called after promoting a hover badge to a selection (here and from
      * map-search-control.js / map-nearby-features-control.js). There's no
@@ -1188,12 +1280,8 @@ export class MapMarkerManager {
     _openInspectorPanel() {
     }
 
-    _attachBadgeHandlers(el, features, lngLat, isHover, clickedLayerIds = null, pendingLayerIds = null) {
+    _attachBadgeHandlers(el, features, lngLat, isHover) {
         el.querySelectorAll('.feature-badge').forEach(badge => {
-            // The "N more layers" summary badge has no backing feature and its own
-            // expand/collapse behavior — wired separately in _attachMoreLayersBadgeHandler.
-            if (badge.classList.contains('more-layers-badge')) return;
-
             const idx = parseInt(badge.dataset.badgeIndex, 10);
             const f = (idx >= 0 && features) ? features[idx] : null;
             const valueSpan = badge.querySelector('.badge-value');
@@ -1298,7 +1386,6 @@ export class MapMarkerManager {
         // Layer actions menu (export shortcuts) in each badge's footer
         this._attachLayerActionsMenuHandlers(el);
 
-        this._attachMoreLayersBadgeHandler(el, features, lngLat, clickedLayerIds, pendingLayerIds);
     }
 
     /**
@@ -1312,58 +1399,200 @@ export class MapMarkerManager {
      * impossible to actually read. The x-circle beside the id label is what
      * closes them (see _attachMarkerIdRowHandlers).
      */
-    _attachMarkerSummaryHandlers(el, features) {
-        const details = el.querySelector('.marker-details');
+    _attachMarkerSummaryHandlers(el, features, lngLat) {
+        const flyout = el.querySelector('.marker-feature-flyout');
         const chips = el.querySelectorAll('.marker-summary-chip');
-        if (!details || !chips.length) return;
+        if (!flyout || !chips.length) return;
 
         chips.forEach(chip => {
             const index = parseInt(chip.dataset.badgeIndex, 10);
+            const f = index >= 0 ? (features || [])[index] : null;
 
             const reveal = (e) => {
                 if (e) {
                     e.stopPropagation();
                     if (e.type === 'touchend') e.preventDefault();
                 }
-                details.style.display = 'block';
-                this._setActiveSummaryChip(el, chip);
-                this._expandDetailForIndex(el, index, features);
+                this._openFeatureFlyout(el, chip, f, lngLat);
             };
 
-            if (!this._isTouch) chip.addEventListener('mouseenter', reveal);
+            if (!this._isTouch) {
+                chip.addEventListener('mouseenter', reveal);
+                chip.addEventListener('mouseenter', () => {
+                    if (f) this._stateManager.setFeatureHoverState(f.layerId, f.featureId, true);
+                });
+                chip.addEventListener('mouseleave', () => {
+                    if (f) this._stateManager.setFeatureHoverState(f.layerId, f.featureId, false);
+                });
+            }
             chip.addEventListener('click', reveal);
             if (this._isTouch) chip.addEventListener('touchend', reveal);
         });
+
+        this._attachFlyoutDragHandler(flyout);
+    }
+
+    /**
+     * Fills the flyout with one feature's table and shows it beside the badge
+     * stack. The address badge has no feature of its own - it shows the
+     * reverse-geocoded hierarchy instead (see _fillAddressDetails).
+     */
+    _openFeatureFlyout(el, chip, f, lngLat) {
+        const flyout = el.querySelector('.marker-feature-flyout');
+        if (!flyout) return;
+
+        this._setActiveSummaryChip(el, chip);
+
+        const header = flyout.querySelector('.marker-feature-flyout__header');
+        const body = flyout.querySelector('.marker-feature-flyout__body');
+
+        if (f) {
+            const { header: headerHTML, body: bodyHTML } = this._buildFeatureFlyoutContentHTML(f);
+            header.innerHTML = headerHTML;
+            body.innerHTML = bodyHTML;
+            this._attachFeatureDetailsHandlers(body);
+            this._attachLayerActionsMenuHandlers(header);
+            const details = body.querySelector('.feature-badge-details');
+            if (details) this._loadInspectionHandlerHTML(details, f.layerId, f.featureId);
+        } else {
+            header.innerHTML = `<div class="marker-flyout-drag-handle" style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:#111827;border-bottom:1px solid #374151;cursor:move;">` +
+                `<sl-icon name="signpost" style="font-size:12px;color:#9ca3af;"></sl-icon>` +
+                `<span style="font-size:10px;color:#e5e7eb;font-weight:600;flex:1;">Address</span></div>`;
+            body.innerHTML = `<div class="address-badge-details" style="width:100%;"></div>`;
+            const markerId = this._findMarkerIdByElement(el);
+            const details = body.querySelector('.address-badge-details');
+            if (markerId && details) this._fillAddressDetails(details, markerId);
+        }
+
+        flyout.style.display = 'block';
+        this._blockFlyoutScrollFromMap(flyout);
+    }
+
+    _findMarkerIdByElement(el) {
+        for (const [id, markerData] of this._markers) {
+            if (markerData.marker?.getElement?.() === el) return id;
+        }
+        return null;
+    }
+
+    /** The flyout is its own scrollable panel over the map - keep its gestures off the map. */
+    _blockFlyoutScrollFromMap(flyout) {
+        if (flyout._scrollBlocked) return;
+        flyout._scrollBlocked = true;
+        ['wheel', 'touchmove', 'touchstart', 'mousedown', 'click', 'touchend'].forEach(type => {
+            flyout.addEventListener(type, (e) => e.stopPropagation());
+        });
+    }
+
+    /**
+     * Drags the flyout by its layer header bar - a purely visual reposition (a
+     * CSS transform), so a table that lands over the feature it describes can be
+     * moved aside without touching the marker or the map beneath it.
+     */
+    _attachFlyoutDragHandler(flyout) {
+        if (flyout._dragWired) return;
+        flyout._dragWired = true;
+
+        let startX = 0;
+        let startY = 0;
+        let offsetX = 0;
+        let offsetY = 0;
+        let lastX = 0;
+        let lastY = 0;
+        let dragging = false;
+        let frame = null;
+
+        const point = (e) => (e.touches && e.touches.length ? e.touches[0] : e);
+
+        // The drag runs on window listeners, so the pointer is over the map
+        // canvas for most of it. Painting on every mousemove tick - which can
+        // outpace the display - while the map runs its own hover query on the
+        // same events is what made this crawl. Coalesce to one paint per frame,
+        // and tell the map to sit the drag out (the same flag the balloon drag
+        // sets, read in map-feature-control-iframe.js).
+        const paint = () => {
+            frame = null;
+            flyout.style.transform =
+                `translate3d(${offsetX + lastX - startX}px, ${offsetY + lastY - startY}px, 0)`;
+        };
+
+        const onMove = (e) => {
+            if (!dragging) return;
+            const p = point(e);
+            lastX = p.clientX;
+            lastY = p.clientY;
+            if (!frame) frame = requestAnimationFrame(paint);
+            e.preventDefault();
+        };
+
+        const onUp = () => {
+            if (!dragging) return;
+            dragging = false;
+            if (frame) {
+                cancelAnimationFrame(frame);
+                paint();
+            }
+            offsetX += lastX - startX;
+            offsetY += lastY - startY;
+            this._stateManager._isDraggingMarkerPanel = false;
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onUp);
+        };
+
+        const onDown = (e) => {
+            // Not the actions menu inside the same bar.
+            if (e.target.closest('.layer-actions-dropdown')) return;
+            const p = point(e);
+            startX = lastX = p.clientX;
+            startY = lastY = p.clientY;
+            dragging = true;
+            this._stateManager._isDraggingMarkerPanel = true;
+            e.stopPropagation();
+            e.preventDefault();
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onUp);
+        };
+
+        // The header is rebuilt with each feature, so listen on the flyout.
+        flyout.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.marker-flyout-drag-handle')) onDown(e);
+        });
+        flyout.addEventListener('touchstart', (e) => {
+            if (e.target.closest('.marker-flyout-drag-handle')) onDown(e);
+        }, { passive: false });
     }
 
     _setActiveSummaryChip(el, activeChip) {
         el.querySelectorAll('.marker-summary-chip').forEach(chip => {
             const isActive = chip === activeChip;
-            chip.style.background = isActive ? '#1e3a5f' : '#374151';
+            chip.style.background = isActive ? '#1e3a5f' : 'transparent';
             chip.style.borderColor = isActive ? '#3b82f6' : 'transparent';
-            chip.style.color = isActive ? '#93c5fd' : '#f3f4f6';
+            chip.querySelector('.marker-summary-chip__value').style.color = isActive ? '#93c5fd' : '#f3f4f6';
         });
     }
 
-    /**
-     * Expands the detail row a summary chip points at: a real feature's badge
-     * via the same toggle a click on that badge uses, or - for the address chip
-     * shown when nothing was selected here - the address row's own expansion.
-     */
-    _expandDetailForIndex(el, index, features) {
-        if (index === ADDRESS_BADGE_INDEX) {
-            const addressBadge = el.querySelector('.address-badge');
-            const addressDetails = addressBadge?.querySelector('.address-badge-details');
-            // Its handler toggles, so only click it while it is actually closed -
-            // otherwise a second hover would fold it back up.
-            if (addressBadge && addressDetails?.style.display === 'none') addressBadge.click();
-            return;
-        }
+    /** Scroll/selection guards and the "show all properties" toggle inside a rendered feature table. */
+    _attachFeatureDetailsHandlers(root) {
+        const details = root.querySelector('.feature-badge-details');
+        if (!details) return;
 
-        const badge = el.querySelector(`.marker-details .feature-badge[data-badge-index="${index}"]`);
-        if (!badge || badge.classList.contains('badge-selected')) return;
+        const showAllBtn = details.querySelector('.badge-show-all-props-btn');
+        if (!showAllBtn) return;
 
-        this._toggleBadgeSelected(badge, index >= 0 ? (features || [])[index] : null);
+        showAllBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const shown = details.querySelector('.badge-shown-properties');
+            const all = details.querySelector('.badge-all-properties');
+            const total = showAllBtn.dataset.total;
+            const isShowingAll = all.style.display !== 'none';
+            all.style.display = isShowingAll ? 'none' : 'block';
+            if (shown) shown.style.display = isShowingAll ? 'block' : 'none';
+            showAllBtn.textContent = isShowingAll ? `Show all ${total} properties` : 'Show less';
+        });
     }
 
     /**
@@ -1387,6 +1616,7 @@ export class MapMarkerManager {
         if (!group || !input) return;
 
         const badge = group.querySelector('.marker-id-badge');
+        const badgeText = badge.querySelector('.marker-id-text');
         const content = el.querySelector('.marker-content');
 
         // The label is sized to its text so it reads as a name next to the pin
@@ -1447,10 +1677,10 @@ export class MapMarkerManager {
         const startEdit = () => {
             if (el.dataset.idEditing === '1') return;
             el.dataset.idEditing = '1';
-            badge.hidden = true;
+            badge.style.display = 'none';
             input.hidden = false;
             saveBtn.style.display = 'flex';
-            input.value = this._markers.get(markerId)?.urlId ?? badge.textContent;
+            input.value = this._markers.get(markerId)?.urlId ?? badgeText.textContent;
             sizeToContent();
             this._syncIdActions(el);
             input.focus();
@@ -1471,20 +1701,46 @@ export class MapMarkerManager {
             document.removeEventListener('mousedown', dismissOutside, true);
             document.removeEventListener('touchstart', dismissOutside, true);
             const urlId = this._markers.get(markerId)?.urlId ?? input.value;
-            badge.textContent = urlId;
+            badgeText.textContent = urlId;
             badge.title = urlId;
             input.hidden = true;
             saveBtn.style.display = 'none';
-            badge.hidden = false;
+            badge.style.display = 'flex';
             this._syncIdActions(el);
             input.blur();
         };
 
-        badge.addEventListener('mousedown', (e) => e.stopPropagation());
+        // Deliberately no mousedown guard: with the pin gone, the label is what
+        // the marker is dragged by, and mapbox needs that mousedown.
+        //
+        // The first click on the label focuses the marker; only a second one
+        // opens the editor, so reaching for a marker can't rename it by
+        // accident. Armed on the label itself rather than read off
+        // `marker-selected`, because a marker is already selected the moment it
+        // is created - which would otherwise make a fresh marker one stray click
+        // from a rename. Enter on the focused label fires this same click
+        // natively, so it needs no separate key handling.
         badge.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (el.dataset.idArmed !== '1') {
+                el.dataset.idArmed = '1';
+                this._selectMarker(markerId);
+                return;
+            }
             startEdit();
         });
+
+        const shortcutsBtn = group.querySelector('.marker-id-shortcuts');
+        const openShortcuts = (e) => {
+            e.stopPropagation();
+            if (e.type === 'touchend') e.preventDefault();
+            if (!window.shortcutMenu) return;
+            const p = e.touches?.[0] || e.changedTouches?.[0] || e;
+            window.shortcutMenu._lngLat = this._markers.get(markerId)?.lngLat;
+            window.shortcutMenu._show(p.clientX, p.clientY);
+        };
+        shortcutsBtn.addEventListener('click', openShortcuts);
+        if (this._isTouch) shortcutsBtn.addEventListener('touchend', openShortcuts);
 
         const removeBtn = group.querySelector('.marker-id-remove');
         const collapseBtn = group.querySelector('.marker-id-collapse');
@@ -1501,10 +1757,9 @@ export class MapMarkerManager {
             e.stopPropagation();
             e.preventDefault();
             if (!content) return;
-            const collapsed = content.style.display === 'none';
-            content.style.display = collapsed ? 'flex' : 'none';
-            collapseBtn.querySelector('sl-icon')?.setAttribute('name', collapsed ? 'x-circle' : 'plus-circle');
-            collapseBtn.title = collapsed ? 'Hide details' : 'Show details';
+            if (el.dataset.contentCollapsed === '1') delete el.dataset.contentCollapsed;
+            else el.dataset.contentCollapsed = '1';
+            this._syncMarkerContent(el);
         };
         collapseBtn.addEventListener('click', onCollapse);
         if (this._isTouch) collapseBtn.addEventListener('touchend', onCollapse);
@@ -1592,11 +1847,17 @@ export class MapMarkerManager {
         const actions = el.querySelector('.marker-id-actions');
         if (!actions) return;
 
-        const visible = this._isTouch
-            || el.classList.contains('marker-selected')
-            || el.dataset.idHover === '1'
-            || el.dataset.idEditing === '1';
+        const selected = el.classList.contains('marker-selected');
+        const editing = el.dataset.idEditing === '1';
+        const visible = this._isTouch || selected || editing
+            || el.dataset.markerHover === '1' || el.dataset.idHover === '1';
         actions.style.display = visible ? 'flex' : 'none';
+
+        // The pencil is the cue that a focused marker's label is now clickable
+        // to rename - so it belongs to the focused state, not to hover, and has
+        // nothing to say once the editor is already open.
+        const pencil = el.querySelector('.marker-id-pencil');
+        if (pencil) pencil.style.display = (selected && !editing) ? 'block' : 'none';
     }
 
     /**
@@ -1610,9 +1871,42 @@ export class MapMarkerManager {
         this._markers.forEach((markerData, id) => {
             const el = markerData.marker?.getElement();
             if (!el) return;
-            el.classList.toggle('marker-selected', id === markerId);
+            const selected = id === markerId;
+            el.classList.toggle('marker-selected', selected);
+            // A marker that loses focus forgets its armed label, so coming back
+            // to it starts from the same click-to-focus step.
+            if (!selected) delete el.dataset.idArmed;
             this._syncIdActions(el);
+            this._syncMarkerContent(el);
         });
+    }
+
+    /**
+     * A marker is only expanded while it is hovered or has focus: otherwise it
+     * is just its label on the map, so a screen with several markers reads as a
+     * set of names rather than a pile of overlapping tables. The collapse action
+     * (x-circle) folds an open marker down to the same thing.
+     */
+    _syncMarkerContent(el) {
+        const content = el.querySelector('.marker-content');
+        if (!content) return;
+
+        const collapsed = el.dataset.contentCollapsed === '1';
+        const open = el.classList.contains('marker-selected') || el.dataset.markerHover === '1';
+        const show = open && !collapsed;
+        content.style.display = show ? 'flex' : 'none';
+
+        // The flyout is anchored to the balloon, so it goes with it.
+        if (!show) {
+            const flyout = el.querySelector('.marker-feature-flyout');
+            if (flyout) flyout.style.display = 'none';
+        }
+
+        const collapseBtn = el.querySelector('.marker-id-collapse');
+        if (collapseBtn) {
+            collapseBtn.querySelector('sl-icon')?.setAttribute('name', collapsed ? 'plus-circle' : 'x-circle');
+            collapseBtn.title = collapsed ? 'Show details' : 'Hide details';
+        }
     }
 
     /**
@@ -1863,10 +2157,10 @@ export class MapMarkerManager {
             markerRegistry.set(id, { id, lng: markerData.lngLat.lng, lat: markerData.lngLat.lat, name: '', description: '' });
 
             const el = markerData.marker.getElement();
-            const badge = el?.querySelector('.marker-id-badge');
-            if (badge) {
-                badge.textContent = id;
-                badge.title = id;
+            const badgeText = el?.querySelector('.marker-id-text');
+            if (badgeText) {
+                badgeText.textContent = id;
+                badgeText.closest('.marker-id-badge').title = id;
             }
             const input = el?.querySelector('.marker-id-input');
             if (input) input.value = id;
@@ -1943,7 +2237,7 @@ export class MapMarkerManager {
 
     /**
      * Finds a marker within pixel tolerance of a lngLat, so callers like the
-     * right-click shortcut menu can reuse a marker right-clicked directly on
+     * long-press shortcut menu can reuse a marker pressed directly on
      * it instead of creating a duplicate at (almost) the same spot.
      *
      * `exclude` skips marker ids already spoken for, so a caller walking a list
@@ -1996,14 +2290,18 @@ export class MapMarkerManager {
         markerData.onRemove = onRemove;
 
         if (pinColor) {
-            const icon = markerData.marker.getElement()?.querySelector('.marker-pin-btn sl-icon');
-            if (icon) icon.style.color = pinColor;
+            markerData.pinColor = pinColor;
+            const el = markerData.marker.getElement();
+            const badge = el?.querySelector('.marker-id-badge');
+            const tail = el?.querySelector('.marker-tail polygon');
+            if (badge) badge.style.borderColor = pinColor;
+            if (tail) tail.setAttribute('stroke', pinColor);
         }
     }
 
     /**
      * Renders (or updates, or removes when `refLabel` is falsy) a small text
-     * badge on a marker's pin - used for a route waypoint's `ref` (see
+     * badge leading a marker's id label - used for a route waypoint's `ref` (see
      * search/route-store.js's _syncMarkers, which assigns "A1", "A2", ..."B1"
      * style codes and keeps them current as waypoints are added, removed, or
      * reordered), so each stop along a route can be pointed at visually by a
@@ -2014,39 +2312,35 @@ export class MapMarkerManager {
         if (!markerData) return;
         markerData.refLabel = refLabel || null;
 
-        const pinBtn = markerData.marker.getElement()?.querySelector('.marker-pin-btn');
-        if (!pinBtn) return;
+        const badge = markerData.marker.getElement()?.querySelector('.marker-id-badge');
+        if (!badge) return;
 
-        let label = pinBtn.querySelector('.marker-pin-ref');
+        let label = badge.querySelector('.marker-id-ref');
         if (!refLabel) {
             label?.remove();
             return;
         }
 
         if (!label) {
-            const pinSize = this._pinSize();
-            const fontSize = Math.max(8, Math.round(pinSize * 0.3));
             label = document.createElement('span');
-            label.className = 'marker-pin-ref';
+            label.className = 'marker-id-ref';
             label.style.cssText = `
-                position: absolute;
-                top: ${Math.round(pinSize * 0.14)}px;
-                left: 50%;
-                transform: translateX(-50%);
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                min-width: ${fontSize}px;
-                padding: 2px;
-                border-radius: 50%;
+                min-width: 16px;
+                height: 16px;
+                padding: 0 4px;
+                border-radius: 8px;
                 background: #000;
-                font-size: ${fontSize}px;
+                font-size: 10px;
                 font-weight: 700;
                 line-height: 1;
                 color: #fff;
+                flex-shrink: 0;
                 pointer-events: none;
             `;
-            pinBtn.appendChild(label);
+            badge.insertBefore(label, badge.firstChild);
         }
         label.textContent = refLabel;
     }
@@ -2061,116 +2355,6 @@ export class MapMarkerManager {
         textarea.focus();
         const len = textarea.value.length;
         textarea.setSelectionRange(len, len);
-    }
-
-    /**
-     * Show/hide the "N more layers" summary badge for a marker. Only the marker
-     * currently being hovered/explored should reveal it — every other marker on
-     * the map keeps it hidden. Collapses it back on hide so re-hovering starts
-     * from the same collapsed state.
-     */
-    _setMoreLayersBadgeVisible(el, visible) {
-        const badge = el.querySelector('.more-layers-badge');
-        if (!badge) return;
-
-        badge.style.display = visible ? 'flex' : 'none';
-        if (!visible) {
-            const details = badge.querySelector('.more-layers-badge-details');
-            if (details) details.style.display = 'none';
-            badge.style.background = 'transparent';
-        }
-    }
-
-    /**
-     * Expand/collapse the "N more layers" summary badge and lazily populate it
-     * with a thumbnail + name row per extra layer.
-     */
-    _attachMoreLayersBadgeHandler(el, features, lngLat, clickedLayerIds = null, pendingLayerIds = null) {
-        const badge = el.querySelector('.more-layers-badge');
-        if (!badge) return;
-
-        const details = badge.querySelector('.more-layers-badge-details');
-        if (!details) return;
-
-        details.addEventListener('wheel', (e) => e.stopPropagation());
-        details.addEventListener('touchmove', (e) => e.stopPropagation());
-        details.addEventListener('touchstart', (e) => e.stopPropagation());
-        details.addEventListener('mousedown', (e) => e.stopPropagation());
-        details.addEventListener('click', (e) => e.stopPropagation());
-        // Stop touchend too — the badge itself toggles open/closed on touchend
-        // (see `handler` below), so without this, releasing a finger after
-        // scrolling this list bubbles up and collapses it right back.
-        details.addEventListener('touchend', (e) => e.stopPropagation());
-
-        const shortcutBtn = badge.querySelector('.more-layers-shortcut-btn');
-        if (shortcutBtn) {
-            const openShortcutMenu = (e) => {
-                e.stopPropagation();
-                if (e.type === 'touchend') e.preventDefault();
-                if (!window.shortcutMenu) return;
-                const point = e.touches?.[0] || e.changedTouches?.[0] || e;
-                window.shortcutMenu._lngLat = lngLat;
-                window.shortcutMenu._show(point.clientX, point.clientY);
-            };
-            shortcutBtn.addEventListener('click', openShortcutMenu);
-            if (this._isTouch) shortcutBtn.addEventListener('touchend', openShortcutMenu);
-        }
-
-        const handler = (e) => {
-            e.stopPropagation();
-            if (e.type === 'touchend') e.preventDefault();
-
-            const isExpanding = details.style.display === 'none';
-            details.style.display = isExpanding ? 'block' : 'none';
-            badge.style.background = isExpanding ? '#374151' : 'transparent';
-
-            if (isExpanding && !details.dataset.loaded) {
-                details.dataset.loaded = 'true';
-
-                const currentBounds = this._map.getBounds();
-                const bounds = [
-                    currentBounds.getWest(), currentBounds.getSouth(),
-                    currentBounds.getEast(), currentBounds.getNorth()
-                ];
-                const allActiveLayers = this._getAllActiveLayersInInspectorOrder();
-                const ids = clickedLayerIds || new Set((features || []).map(f => f.layerId));
-                const extraLayers = allActiveLayers.filter(layer => !ids.has(layer.id) && !pendingLayerIds?.has(layer.id));
-
-                extraLayers.forEach(layer => {
-                    let isInView = true;
-                    if (window.MapUtils && layer.bbox) {
-                        isInView = window.MapUtils.isLayerInView(layer, bounds);
-                    }
-
-                    const thumbnail = LayerThumbnail.generate(layer, 24, { isInView });
-                    thumbnail.style.margin = '0';
-                    thumbnail.style.borderRadius = '3px';
-                    thumbnail.style.flexShrink = '0';
-
-                    const layerRow = document.createElement('div');
-                    layerRow.style.cssText = 'display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;';
-                    layerRow.appendChild(thumbnail);
-
-                    const label = document.createElement('span');
-                    label.style.cssText = 'font-size:10px;color:#9ca3af;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-                    label.textContent = layer.title || layer.id;
-                    layerRow.appendChild(label);
-
-                    layerRow.addEventListener('click', (ev) => {
-                        ev.stopPropagation();
-                        if (!isInView && window.layerControl) {
-                            window.layerControl._zoomToLayer(layer.id);
-                        } else {
-                            window.postMessage({ type: 'open-layer-info', layer }, '*');
-                        }
-                    });
-
-                    details.appendChild(layerRow);
-                });
-            }
-        };
-        badge.addEventListener('click', handler);
-        if (this._isTouch) badge.addEventListener('touchend', handler);
     }
 
     _expandBadgeValue(valueSpan) {
@@ -2444,20 +2628,16 @@ export class MapMarkerManager {
         });
     }
 
-    _pinSize() {
-        return this._isTouch ? 34 : 28;
-    }
-
     /**
-     * Where a marker's content (badges/comment box) sits relative to the
-     * lngLat it's added at, in screen pixels — the pin itself is anchored so
-     * its tip touches that point (see addMarker), and the balloon hangs under
-     * the id label beside the pin, i.e. indented past it. Reused by
-     * shortcut-menu.js so its right-click/long-press menu opens in the same
-     * place a marker's own popup would.
+     * Where a marker's content (badges/comment box) sits relative to the lngLat
+     * it's added at, in screen pixels. The clicked point is the marker's own
+     * top-left corner (see addMarker), so the balloon hangs straight down and to
+     * the right of it - flush with the point horizontally, below the tail and
+     * the id row. Reused by shortcut-menu.js so its long-press menu
+     * opens in the same place a marker's own popup would.
      */
     getContentOffset() {
-        return { x: this._pinSize() / 2 + MARKER_ACTION_ROW_GAP, y: 0 };
+        return { x: 0, y: MARKER_TAIL_SIZE + MARKER_ID_ROW_HEIGHT + MARKER_ACTION_ROW_GAP };
     }
 
     /**
@@ -2498,7 +2678,8 @@ export class MapMarkerManager {
             onDragEnd = null,
             role = null,
             pinColor = '#f97316',
-            urlId: requestedUrlId = null
+            urlId: requestedUrlId = null,
+            select: selectOnCreate = true
         } = options;
         features = this._dedupeFeatures(features);
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
@@ -2506,9 +2687,16 @@ export class MapMarkerManager {
 
         const el = document.createElement('div');
         el.className = 'selection-marker';
-        // Action row (map pin) sits on top at the click point; feature badges
-        // stack below it, left-aligned to the pin.
-        el.style.cssText = 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px;';
+        // The clicked point is the element's own top-left corner, so the whole
+        // popup hangs down and to the right of it, and the tail's tip stays on
+        // the point whatever the label or badges are sized at. The top padding
+        // is the tail's own height.
+        //
+        // No `position` here: mapbox's own .mapboxgl-marker sets `absolute`, and
+        // an inline value overrides it - which drops every marker into normal
+        // flow, stacking each one further down the page than the last. Absolute
+        // is also a containing block, so the tail still anchors to this element.
+        el.style.cssText = `display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding-top: ${MARKER_TAIL_SIZE}px;`;
 
         // A clicked notes-layer feature gets its own editable "Comment" rendering
         // instead of the generic badge, so pull it out of the badge list here.
@@ -2518,15 +2706,6 @@ export class MapMarkerManager {
         const isNotesActive = this._isNotesLayerActive();
         const noteEntry = isNotesActive ? this._findNoteEntry(features) : null;
         const badgeFeatures = noteEntry ? features.filter(f => f !== noteEntry) : features;
-        const clickedLayerIds = new Set(features.map(f => f.layerId));
-        // While notes is active, the comment box always stands in for that layer at
-        // this location — with an existing note or an empty one waiting to be saved —
-        // so it should never also show up in the "N more layers" summary.
-        if (isNotesActive) {
-            const notesLayerId = noteEntry?.layerId || this._getActiveNotesLayer()?.id;
-            if (notesLayerId) clickedLayerIds.add(notesLayerId);
-        }
-
         // The id this marker is referenced by in `markers=`/a route's
         // `route-<rid>:` waypoint list (see marker-registry.js) - user-renamable
         // via the input below.
@@ -2539,29 +2718,28 @@ export class MapMarkerManager {
 
         const urlId = this._resolveNewUrlId(requestedUrlId ?? adopted?.urlId);
 
-        // Pin + id label on top; below it the summary chips, and behind those the
-        // full attribute tables, revealed only once a chip is hovered/clicked
-        // (see _attachMarkerSummaryHandlers). The balloon is indented past the
-        // pin so it hangs under the id label rather than under the pin itself.
-        const pinSize = this._pinSize();
+        // No pin any more: the clicked point is the marker's own top-left corner,
+        // and the tail runs up to it from the id label. Everything hangs down and
+        // to the right from there - the label, then the badge stack, with one
+        // feature's table opening to the right of it (see _openFeatureFlyout).
         el.innerHTML = `
+            ${this._buildMarkerTailHTML()}
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: ${MARKER_ACTION_ROW_GAP}px; flex-shrink: 0;">
                 ${this._buildMarkerIdRowHTML(urlId)}
             </div>
-            <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; margin-left: ${pinSize + MARKER_ACTION_ROW_GAP}px; max-width: ${MARKER_ID_MAX_WIDTH}px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); cursor: move;">
+            <div class="marker-content" style="position: relative; display: none; flex-direction: column; align-items: stretch; gap: 0; width: ${MARKER_ID_MAX_WIDTH}px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); cursor: move;">
                 ${this._buildCommentSectionHTML(noteEntry)}
                 ${this._buildMarkerSummaryHTML(badgeFeatures, lngLat)}
-                <div class="marker-details" style="display: none;">
-                    ${this._buildMarkerBadgesHTML(badgeFeatures, lngLat, { includeMoreLayers: true, suppressEmptyBadge: !!noteEntry, clickedLayerIds, pendingLayerIds, includeAddress: true })}
-                </div>
+                ${this._buildFeatureFlyoutHTML()}
             </div>
         `;
 
-        // Anchor so the pin's tip touches the clicked location.
+        // top-left: the element's top-left corner is the clicked point, which is
+        // exactly where the tail's tip is drawn.
         const marker = new mapboxgl.Marker({
             element: el,
             anchor: 'top-left',
-            offset: [-(pinSize / 2), -pinSize],
+            offset: [0, 0],
             draggable: true
         })
             .setLngLat([lngLat.lng, lngLat.lat])
@@ -2600,10 +2778,10 @@ export class MapMarkerManager {
         });
 
         // Selection markers are already selected; badge clicks just toggle their expanded state.
-        this._attachBadgeHandlers(el, badgeFeatures, lngLat, false, clickedLayerIds, pendingLayerIds);
+        this._attachBadgeHandlers(el, badgeFeatures, lngLat, false);
         this._attachAddressBadgeHandler(el, markerId);
         this._attachCommentSectionHandlers(el, lngLat, noteEntry);
-        this._attachMarkerSummaryHandlers(el, badgeFeatures);
+        this._attachMarkerSummaryHandlers(el, badgeFeatures, lngLat);
         this._attachMarkerIdRowHandlers(el, markerId);
         this._blockMapEvents(el);
 
@@ -2613,15 +2791,6 @@ export class MapMarkerManager {
         const select = () => this._selectMarker(markerId);
         el.addEventListener('click', select, true);
         if (this._isTouch) el.addEventListener('touchend', select, true);
-
-        // The "more layers" badge is normally revealed by hovering the marker
-        // (see mouseenter/mouseleave below), but touch devices have no hover —
-        // without this, the badge stays permanently hidden and is never reachable.
-        // Selection markers are already an explicit, committed action on touch, so
-        // just show it immediately rather than gating it behind another tap.
-        if (this._isTouch) {
-            this._setMoreLayersBadgeVisible(el, true);
-        }
 
         const markerData = {
             id: markerId,
@@ -2663,44 +2832,12 @@ export class MapMarkerManager {
         this._currentMarkerIndex = this._markers.size - 1;
         this._resolveMarkerAddress(markerId);
 
-        // A marker you just dropped is the one you are working with.
-        this._selectMarker(markerId);
-
-        // Map pin at the click point (geo-alt-fill), so a real marker (not an
-        // abstract button) marks the spot. The pin is a handle, not a button:
-        // it drags the marker's location, and removing the marker is the trash
-        // action beside the id label (_attachMarkerIdRowHandlers). It used to
-        // double as a close button, but that put "delete" under the same click
-        // that starts a drag - easy to trigger by accident, and with no way to
-        // interact with the marker without risking losing it.
-        const actionRow = el.querySelector('.marker-action-row');
-        if (actionRow) {
-            const pinBtn = document.createElement('span');
-            pinBtn.className = 'marker-pin-btn';
-            pinBtn.innerHTML = `<sl-icon name="geo-alt-fill" style="font-size:${pinSize}px;color:${pinColor};filter:${PIN_ICON_FILTER};pointer-events:none;"></sl-icon>`;
-            pinBtn.title = 'Drag to move this marker';
-            pinBtn.style.cssText = `
-                position: relative;
-                display: flex;
-                align-items: flex-end;
-                justify-content: center;
-                width: ${pinSize}px;
-                height: ${pinSize}px;
-                cursor: move;
-                flex-shrink: 0;
-                transition: filter 0.2s;
-            `;
-            if (!this._isTouch) {
-                pinBtn.addEventListener('mouseenter', () => {
-                    pinBtn.querySelector('sl-icon').style.filter = `brightness(1.2) ${PIN_ICON_FILTER}`;
-                });
-                pinBtn.addEventListener('mouseleave', () => {
-                    pinBtn.querySelector('sl-icon').style.filter = PIN_ICON_FILTER;
-                });
-            }
-            // The id label is already in the row - the pin leads it.
-            actionRow.insertBefore(pinBtn, actionRow.firstChild);
-        }
+        // A marker you just dropped is the one you are working with. A rebuild
+        // passes select:false: restoring a shared link redraws each marker once
+        // per layer that resolves, for many seconds, and every one of those
+        // would otherwise yank focus off whatever the user had clicked.
+        if (selectOnCreate) this._selectMarker(markerId);
+        else this._syncMarkerContent(el);
 
         // Hover to highlight features on map (desktop only — avoids synthetic
         // touch hover events flickering feature state on mobile).
@@ -2717,13 +2854,19 @@ export class MapMarkerManager {
                 // features end up highlighted.
                 this._stateManager.handleMapMouseLeave();
                 this._setMarkerFeaturesHoverState(markerId, true);
-                this._setMoreLayersBadgeVisible(el, true);
+                // Hovering a marker opens it up the same way focusing it does,
+                // so its options and badges can be read without committing to it.
+                el.dataset.markerHover = '1';
+                this._syncIdActions(el);
+                this._syncMarkerContent(el);
             });
 
             el.addEventListener('mouseleave', () => {
                 this._pointerOverMarker = false;
                 this._setMarkerFeaturesHoverState(markerId, false);
-                this._setMoreLayersBadgeVisible(el, false);
+                delete el.dataset.markerHover;
+                this._syncIdActions(el);
+                this._syncMarkerContent(el);
             });
         }
 
@@ -3522,17 +3665,25 @@ export class MapMarkerManager {
         // renamed seconds later once every layer has resolved. Rebuilds keep
         // whatever the marker currently has (it may since have been renamed).
         let urlId = state.urlId || null;
+        // Only the marker that already had focus keeps it through its own
+        // rebuild; a rebuild never takes focus from another marker.
+        let wasSelected = false;
         if (state.markerId) {
             const existing = this._markers.get(state.markerId);
             if (existing) {
                 urlId = existing.urlId;
+                wasSelected = this._selectedMarkerId === state.markerId;
                 existing.marker.remove();
                 this._markers.delete(state.markerId);
             }
         }
         state.markerId = this.addMarker(state.lngLat, this._sortFeaturesByInspectorOrder(state.foundFeatures), {
             pendingLayerIds: state.pendingLayerIds,
-            urlId
+            urlId,
+            // Restoring a link is not the user picking a marker out: they all
+            // come back as plain labels, and only a rebuild of the one that
+            // already had focus keeps it.
+            select: wasSelected
         });
     }
 

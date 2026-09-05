@@ -5,7 +5,7 @@
  * It shows a hand-picked subset of the shortcut menu's items rather than its own
  * copies of them: the labels, icons, checked states and handlers all come from
  * ShortcutMenuBase's tree (js/shortcut-menu-base.js) by id, so these actions
- * stay defined in exactly one place alongside the right-click menu and the
+ * stay defined in exactly one place alongside the long-press menu and the
  * header shortcut button.
  *
  * Like HeaderShortcutMenuControl this is not a mapboxgl control - it is opened

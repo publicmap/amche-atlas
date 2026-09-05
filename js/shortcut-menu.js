@@ -1,12 +1,16 @@
 /**
- * ShortcutMenu - Right-click / long-press context menu for quick access to
- * frequently used app actions.
+ * ShortcutMenu - long-press context menu for quick access to frequently used
+ * app actions.
  *
- * Desktop: right-click on the map.
  * Touch: long-press on the map. Mobile browsers are inconsistent about firing
  * a native `contextmenu` DOM event on long-press over a canvas (Mapbox's
  * touch handlers can swallow the touch sequence before it gets there), so
- * long-press is also detected explicitly with a touch timer below.
+ * long-press is detected explicitly with a touch timer below.
+ *
+ * There is deliberately no right-click trigger: the same actions are a plain
+ * click away on a marker's own options button (the three-dots in its id row,
+ * see MapMarkerManager._buildMarkerIdRowHTML), so right-click is left to the
+ * browser. HeaderShortcutMenuControl offers the same menu from the chrome.
  *
  * Opening the menu also drops a plain marker at that point (see
  * ShortcutMenuBase._ensureMarkerAt) - or reuses one already there - without
@@ -15,7 +19,7 @@
  * "Select Here" (ShortcutMenuBase._selectFeaturesAtPoint) is explicitly
  * chosen to actually select whatever is under it.
  *
- * The menu itself opens offset from the click point by
+ * The menu itself opens offset from the press point by
  * ShortcutMenuBase._pinContentOffset (see MapMarkerManager.getContentOffset),
  * the same offset that marker's own content popup would open at - so the
  * menu appears exactly where that marker's badges will once one is selected,
@@ -23,9 +27,9 @@
  *
  * The menu item tree, flyout rendering, and action handlers live in
  * ShortcutMenuBase (shortcut-menu-base.js) - shared with
- * HeaderShortcutMenuControl (header-shortcut-menu-control.js) so both entry
- * points always offer the same shortcuts. This class only owns how the menu
- * is triggered and positioned: at the right-click/long-press point.
+ * HeaderShortcutMenuControl (header-shortcut-menu-control.js) so every entry
+ * point always offers the same shortcuts. This class only owns how the menu
+ * is triggered and positioned: at the long-press point.
  */
 import { ShortcutMenuBase } from './shortcut-menu-base.js';
 
@@ -40,7 +44,6 @@ export class ShortcutMenu extends ShortcutMenuBase {
         this._touchStart = null;
         this._longPressFired = false;
 
-        this._handleContextMenu = this._handleContextMenu.bind(this);
         this._handleTouchStart = this._handleTouchStart.bind(this);
         this._handleTouchMove = this._handleTouchMove.bind(this);
         this._handleTouchEnd = this._handleTouchEnd.bind(this);
@@ -50,7 +53,6 @@ export class ShortcutMenu extends ShortcutMenuBase {
     onAdd(map) {
         this._attachMap(map);
 
-        map.on('contextmenu', this._handleContextMenu);
         map.on('movestart', this._hide);
         map.on('zoomstart', this._hide);
 
@@ -67,7 +69,6 @@ export class ShortcutMenu extends ShortcutMenuBase {
 
     onRemove() {
         if (this._map) {
-            this._map.off('contextmenu', this._handleContextMenu);
             this._map.off('movestart', this._hide);
             this._map.off('zoomstart', this._hide);
         }
@@ -159,13 +160,4 @@ export class ShortcutMenu extends ShortcutMenuBase {
         document.removeEventListener('click', this._suppressNextClick, true);
     }
 
-    _handleContextMenu(e) {
-        e.preventDefault();
-        this._lngLat = e.lngLat;
-        this._ensureMarkerAt(this._lngLat, { pending: true });
-
-        const point = e.originalEvent.touches?.[0] || e.originalEvent;
-        const offset = this._pinContentOffset();
-        this._show(point.clientX + offset.x, point.clientY + offset.y);
-    }
 }
