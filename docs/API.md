@@ -316,9 +316,10 @@ Compact encoding of the selection markers on the map — each marker its own `ma
 ?markers=marker-1(73.8187,15.54845)
 ?markers=marker-1(73.809867,15.606272),marker-2(73.82,15.61)
 ?markers=marker-home(73.8187,15.54845,Home,Where%20I%20live)
+?markers=marker-Assagao_Survey_17_1_BARDEZ(73.77589,15.59916)
 ```
 
-**IDs:** letters, digits, and underscore only; typing a space converts it to `_` rather than being rejected. New markers are numbered serially ("1", "2", ...) on creation but can be renamed to anything unique via the "ID" field in the marker's own popup (`js/map-marker-manager.js`) — see the shared `js/shorthand-id-utils.js` library this and the [`route`](#dynamic-layer-shortcuts) waypoint references both validate ids against. `name`/`description` are optional and percent-encoded (so a comma or parenthesis inside one can't be mistaken for another argument).
+**IDs:** letters, digits, and underscore only; typing a space converts it to `_` rather than being rejected. A marker dropped by clicking the map is numbered serially ("1", "2", ...); one created by **choosing a search result** is named after that result's label instead, with every run of other characters collapsed to a single `_` and the whole thing capped at 64 characters — so `Assagao — Survey 17/1 — BARDEZ` becomes `marker-Assagao_Survey_17_1_BARDEZ(...)`. Choosing the same result twice suffixes the second `_2`. Either way the id can be renamed to anything unique via the "ID" field in the marker's own popup (`js/map-marker-manager.js`) — see the shared `js/shorthand-id-utils.js` library this and the [`route`](#dynamic-layer-shortcuts) waypoint references both validate ids against. `name`/`description` are optional and percent-encoded (so a comma or parenthesis inside one can't be mistaken for another argument).
 
 **Restoration behavior:** on load, once a marker's layers are ready, its location is re-queried exactly as if the user clicked there — this recovers the same selected features without the URL needing to spell out which `layerId`/`featureId` pairs they were (that would just duplicate what the location already implies, and is what `?selected` used to carry — see above).
 

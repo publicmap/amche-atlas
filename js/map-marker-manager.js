@@ -10,7 +10,7 @@ import { CameraUtils } from './map-camera-utils.js';
 import { GeoLibreAPI } from './geolibre-api.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { formatAttributeValue } from './attribute-value-renderer.js';
-import { sanitizeId, isValidId, nextSerialId } from './shorthand-id-utils.js';
+import { sanitizeId, isValidId, nextSerialId, labelToId, uniqueId } from './shorthand-id-utils.js';
 import * as markerRegistry from './marker-registry.js';
 import { WAYPOINT_PIN_COLOR } from './search/route-store.js';
 
@@ -22,6 +22,21 @@ const MARKER_DRAG_CLICK_SUPPRESS_MS = 400;
 
 // Nominatim's usage policy: no more than one request a second per origin.
 const ADDRESS_LOOKUP_GAP_MS = 1100;
+
+// Gap between the pin and the id label in a marker's action row. The balloon
+// below is indented by the pin plus this, so it hangs under the id label rather
+// than under the pin (see addMarker and getContentOffset).
+const MARKER_ACTION_ROW_GAP = 4;
+
+// Ceiling for the id label, so a long search-result id (up to 64 characters -
+// see shorthand-id-utils.labelToId) ellipsises instead of running off across
+// the map. Matches the balloon's own max-width, which now hangs beneath it.
+const MARKER_ID_MAX_WIDTH = 240;
+
+// `data-badge-index` for the address row - the one summary chip shown when
+// nothing was selected here (see _buildMarkerSummaryHTML). Real features index
+// from 0, the coordinates badge uses -1, so the address takes -2.
+const ADDRESS_BADGE_INDEX = -2;
 
 // A subtle black outline around the pin icon, faked with a soft zero-offset
 // drop-shadow (an SVG glyph filled with an arbitrary pinColor has no CSS
@@ -47,6 +62,12 @@ export class MapMarkerManager {
         this._isProgrammaticZoom = false; // Track programmatic zooms
         this._selectionLayerId = 'selection'; // Layer ID for selection markers
         this._selectedBadges = new Set(); // Expanded (selected) feature badges
+        // Marker select mode: the marker last clicked or created (see _selectMarker).
+        this._selectedMarkerId = null;
+        // Identity a dragged marker hands to the marker replacing it (see
+        // _handleMarkerDragEnd), since that rebuild goes through the generic
+        // selection pipeline and can't be passed options directly.
+        this._adoptedIdentity = null;
         this._isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
         this._markerAddedListeners = new Set();
 
@@ -708,40 +729,124 @@ export class MapMarkerManager {
 
     /**
      * The id this marker is referenced by in `markers=`/a route's
-     * `route-<rid>:` waypoint list (marker-registry.js) - editable inline so
-     * a hand-authored or shared link can use a memorable id ("home", "shop")
-     * instead of the plain serial number it starts with. See
-     * _attachMarkerIdInputHandler for validation/commit and
-     * renameMarkerUrlId for what a rename actually does.
+     * `route-<rid>:` waypoint list (marker-registry.js), rendered as the label
+     * sitting beside the pin in the marker's action row - so a marker reads as
+     * a pin plus its name, with everything else folded away behind it.
+     *
+     * Badge and input are both rendered, one hidden: the badge is what a marker
+     * shows at rest, and clicking it swaps in the input to rename (a shared link
+     * reads better as `marker-home` than `marker-3`), which swaps back on blur.
+     * Keeping both in the DOM means the handlers bind once, in
+     * _attachMarkerIdRowHandlers - which also owns that swap, the rename commit,
+     * and the two actions beside it. See renameMarkerUrlId for what a rename does.
      */
-    _buildMarkerIdInputHTML(urlId) {
-        return `
-            <div class="marker-id-row" style="
-                display: flex;
+    _buildMarkerIdRowHTML(urlId) {
+        const actionBtn = (name, iconName, color, title, { hidden = false } = {}) => `
+            <button type="button" class="marker-id-action ${name}" title="${title}" style="
+                display: ${hidden ? 'none' : 'flex'};
                 align-items: center;
-                gap: 4px;
-                width: 100%;
-                box-sizing: border-box;
-                padding-bottom: 4px;
-                margin-bottom: 4px;
-                border-bottom: 1px solid #334155;
-            ">
-                <span style="font-size: 8px; line-height: 1.1; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.02em; flex-shrink: 0;">ID</span>
-                <input type="text" class="marker-id-input" value="${this._escapeAttr(urlId)}" spellcheck="false" autocomplete="off" style="
-                    flex: 1;
-                    min-width: 0;
-                    background: transparent;
-                    border: 1px solid transparent;
-                    color: #f3f4f6;
-                    font-size: 11px;
-                    font-weight: 700;
-                    font-family: inherit;
-                    padding: 1px 3px;
-                    border-radius: 3px;
-                    cursor: text;
-                ">
+                justify-content: center;
+                width: 22px;
+                height: 22px;
+                padding: 0;
+                background: rgba(31, 41, 55, 0.92);
+                border: 1px solid #374151;
+                border-radius: 50%;
+                cursor: pointer;
+                flex-shrink: 0;
+            "><sl-icon name="${iconName}" style="font-size: 13px; color: ${color}; pointer-events: none;"></sl-icon></button>
+        `;
+
+        // Shared by the badge and the input it swaps with, so the label doesn't
+        // shift or restyle as it becomes editable.
+        const labelStyle = `
+            box-sizing: content-box;
+            max-width: ${MARKER_ID_MAX_WIDTH}px;
+            background: rgba(31, 41, 55, 0.92);
+            border: 1px solid #374151;
+            color: #f3f4f6;
+            font-size: 16px;
+            font-weight: 400;
+            font-family: inherit;
+            line-height: 1.2;
+            padding: 2px 7px;
+            border-radius: 5px;
+            text-overflow: ellipsis;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        `;
+
+        return `
+            <div class="marker-id-group" style="display: flex; align-items: center; gap: 3px; min-width: 0;">
+                <button type="button" class="marker-id-badge" title="${this._escapeAttr(urlId)}"
+                    style="${labelStyle} overflow: hidden; white-space: nowrap; text-align: left; cursor: text;">${this._escapeAttr(urlId)}</button>
+                <input type="text" class="marker-id-input" value="${this._escapeAttr(urlId)}" hidden
+                    spellcheck="false" autocomplete="off" style="${labelStyle} cursor: text;">
+                ${actionBtn('marker-id-save', 'check-circle', '#22c55e', 'Save id (Enter)', { hidden: true })}
+                <span class="marker-id-actions" style="display: none; align-items: center; gap: 3px;">
+                    ${actionBtn('marker-id-remove', 'trash3', '#ef4444', 'Remove this marker')}
+                    ${actionBtn('marker-id-collapse', 'x-circle', '#9ca3af', 'Hide details')}
+                </span>
             </div>
         `;
+    }
+
+    /**
+     * The compact row of one chip per selected feature, showing just that
+     * feature's label value - the marker's default, glanceable state, with the
+     * full attribute tables (_buildMarkerBadgesHTML) folded away behind it
+     * until a chip is hovered or clicked.
+     *
+     * With nothing selected here there is still one thing worth naming: where
+     * the point is. That chip starts as the coordinates and is rewritten to the
+     * reverse-geocoded address when it lands (see _renderMarkerAddress).
+     */
+    _buildMarkerSummaryHTML(features, lngLat) {
+        const chip = (label, index, extraClass = '') => `
+            <button type="button" class="marker-summary-chip ${extraClass}" data-badge-index="${index}"
+                title="${this._escapeAttr(label)}" style="
+                max-width: 100%;
+                padding: 2px 7px;
+                background: #374151;
+                border: 1px solid transparent;
+                border-radius: 999px;
+                color: #f3f4f6;
+                font-size: 10px;
+                font-weight: 600;
+                font-family: inherit;
+                line-height: 1.3;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                cursor: pointer;
+                transition: background 0.15s, border-color 0.15s;
+            ">${this._escapeAttr(this._truncateName(label, 28))}</button>
+        `;
+
+        // Same order the detail list uses, so a chip and the badge it opens sit
+        // in the same position in their respective rows.
+        const chips = this._featuresInInspectorOrder(features)
+            .map(({ f, index }) => chip(this._getBadgeLabelInfo(f).value, index));
+
+        if (chips.length === 0) {
+            const coords = `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
+            chips.push(chip(coords, ADDRESS_BADGE_INDEX, 'marker-summary-chip--address'));
+        }
+
+        return `
+            <div class="marker-summary-row" style="display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 2px;">
+                ${chips.join('')}
+            </div>
+        `;
+    }
+
+    /** The indices of `features`, ordered the way the badge list orders them (LayerOrderManager.getInspectorDisplayOrder). */
+    _featuresInInspectorOrder(features) {
+        const order = new Map(this._getAllActiveLayersInInspectorOrder().map((l, i) => [l.id, i]));
+        const orderOf = (layerId) => order.has(layerId) ? order.get(layerId) : Infinity;
+
+        return (features || [])
+            .map((f, index) => ({ f, index, order: orderOf(f.layerId) }))
+            .sort((a, b) => a.order - b.order || a.index - b.index);
     }
 
     /**
@@ -819,9 +924,9 @@ export class MapMarkerManager {
             const order = new Map(this._getAllActiveLayersInInspectorOrder().map((l, i) => [l.id, i]));
             const orderOf = (layerId) => order.has(layerId) ? order.get(layerId) : Infinity;
             const entries = [
-                ...(features || []).map((f, i) => ({ order: orderOf(f.layerId), sortIndex: i, render: () => {
+                ...this._featuresInInspectorOrder(features).map(({ f, index }) => ({ order: orderOf(f.layerId), sortIndex: index, render: () => {
                     const { fieldName, value } = this._getBadgeLabelInfo(f);
-                    return this._createFeatureBadgeHTML(fieldName, value, i, f);
+                    return this._createFeatureBadgeHTML(fieldName, value, index, f);
                 } })),
                 ...pendingIds.map(layerId => ({ order: orderOf(layerId), sortIndex: Infinity, render: () => this._createPendingLayerBadgeHTML(layerId) }))
             ].sort((a, b) => a.order - b.order || a.sortIndex - b.sortIndex);
@@ -946,11 +1051,21 @@ export class MapMarkerManager {
     }
 
     _renderMarkerAddress(markerData) {
-        const badge = markerData.marker?.getElement()?.querySelector('.address-badge');
+        const el = markerData.marker?.getElement();
+        const badge = el?.querySelector('.address-badge');
         if (!badge || !markerData.address?.text) return;
 
         badge.querySelector('.address-badge-value').textContent = markerData.address.text;
         badge.style.display = 'flex';
+
+        // With nothing selected here, the lone summary chip stands in for this
+        // row and started life as the raw coordinates - now it can say where
+        // the point actually is.
+        const chip = el.querySelector('.marker-summary-chip--address');
+        if (chip) {
+            chip.textContent = this._truncateName(markerData.address.text, 28);
+            chip.title = markerData.address.text;
+        }
     }
 
     /**
@@ -1187,40 +1302,244 @@ export class MapMarkerManager {
     }
 
     /**
-     * Wires the "ID" input _buildMarkerIdInputHTML renders: sanitizes as the
-     * user types (spaces -> `_`, disallowed characters dropped, matching
-     * shorthand-id-utils.sanitizeId), and commits on blur or Enter (not a
-     * Save button - unlike the comment box below, a bad rename has an
-     * unambiguous, non-destructive fallback: just revert the field to the
-     * last good id). A duplicate or otherwise-rejected id briefly flashes a
-     * red outline and reverts rather than silently doing nothing.
+     * Wires the summary chips (_buildMarkerSummaryHTML) to the detail list they
+     * stand in for: hovering or clicking one opens the full attribute tables
+     * below and expands the table belonging to that chip's feature, so the
+     * marker goes from a row of names to the thing you asked about in one move.
+     *
+     * Opening is sticky - the details stay put once revealed, since a hover
+     * that closed them again the moment the pointer left the chip would be
+     * impossible to actually read. The x-circle beside the id label is what
+     * closes them (see _attachMarkerIdRowHandlers).
      */
-    _attachMarkerIdInputHandler(el, markerId) {
+    _attachMarkerSummaryHandlers(el, features) {
+        const details = el.querySelector('.marker-details');
+        const chips = el.querySelectorAll('.marker-summary-chip');
+        if (!details || !chips.length) return;
+
+        chips.forEach(chip => {
+            const index = parseInt(chip.dataset.badgeIndex, 10);
+
+            const reveal = (e) => {
+                if (e) {
+                    e.stopPropagation();
+                    if (e.type === 'touchend') e.preventDefault();
+                }
+                details.style.display = 'block';
+                this._setActiveSummaryChip(el, chip);
+                this._expandDetailForIndex(el, index, features);
+            };
+
+            if (!this._isTouch) chip.addEventListener('mouseenter', reveal);
+            chip.addEventListener('click', reveal);
+            if (this._isTouch) chip.addEventListener('touchend', reveal);
+        });
+    }
+
+    _setActiveSummaryChip(el, activeChip) {
+        el.querySelectorAll('.marker-summary-chip').forEach(chip => {
+            const isActive = chip === activeChip;
+            chip.style.background = isActive ? '#1e3a5f' : '#374151';
+            chip.style.borderColor = isActive ? '#3b82f6' : 'transparent';
+            chip.style.color = isActive ? '#93c5fd' : '#f3f4f6';
+        });
+    }
+
+    /**
+     * Expands the detail row a summary chip points at: a real feature's badge
+     * via the same toggle a click on that badge uses, or - for the address chip
+     * shown when nothing was selected here - the address row's own expansion.
+     */
+    _expandDetailForIndex(el, index, features) {
+        if (index === ADDRESS_BADGE_INDEX) {
+            const addressBadge = el.querySelector('.address-badge');
+            const addressDetails = addressBadge?.querySelector('.address-badge-details');
+            // Its handler toggles, so only click it while it is actually closed -
+            // otherwise a second hover would fold it back up.
+            if (addressBadge && addressDetails?.style.display === 'none') addressBadge.click();
+            return;
+        }
+
+        const badge = el.querySelector(`.marker-details .feature-badge[data-badge-index="${index}"]`);
+        if (!badge || badge.classList.contains('badge-selected')) return;
+
+        this._toggleBadgeSelected(badge, index >= 0 ? (features || [])[index] : null);
+    }
+
+    /**
+     * Wires the id label _buildMarkerIdRowHTML renders beside the pin, and the
+     * two actions that reveal to its right on hover or focus:
+     *   - trash3, red - removes the marker, the same as clicking its pin.
+     *   - x-circle - folds everything below the label away, leaving just the
+     *     pin and its name; it becomes plus-circle so the same button brings
+     *     the content back.
+     *
+     * The label itself sanitizes as the user types (spaces -> `_`, disallowed
+     * characters dropped, matching shorthand-id-utils.sanitizeId), and commits
+     * on blur or Enter (not a Save button - unlike the comment box, a bad
+     * rename has an unambiguous, non-destructive fallback: just revert the
+     * field to the last good id). A duplicate or otherwise-rejected id briefly
+     * flashes a red outline and reverts rather than silently doing nothing.
+     */
+    _attachMarkerIdRowHandlers(el, markerId) {
+        const group = el.querySelector('.marker-id-group');
         const input = el.querySelector('.marker-id-input');
-        if (!input) return;
+        if (!group || !input) return;
+
+        const badge = group.querySelector('.marker-id-badge');
+        const content = el.querySelector('.marker-content');
+
+        // The label is sized to its text so it reads as a name next to the pin
+        // rather than as a form field stretched to some arbitrary width. `ch` is
+        // the width of a "0" - an id of capitals and underscores runs wider than
+        // that and would be clipped - so measure the real string in the input's
+        // own font instead of counting characters.
+        const ruler = document.createElement('span');
+        ruler.setAttribute('aria-hidden', 'true');
+        ruler.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre;pointer-events:none;';
+        group.appendChild(ruler);
+
+        const sizeToContent = () => {
+            const style = window.getComputedStyle(input);
+            ruler.style.font = style.font;
+            ruler.style.fontSize = style.fontSize;
+            ruler.style.fontFamily = style.fontFamily;
+            ruler.style.fontWeight = style.fontWeight;
+            ruler.style.letterSpacing = style.letterSpacing;
+            ruler.textContent = input.value || ' ';
+
+            // Zero while the marker is still unlaid-out (or under a DOM that
+            // doesn't lay out at all, e.g. jsdom) - fall back to the estimate.
+            const measured = Math.ceil(ruler.getBoundingClientRect().width);
+            input.style.width = measured > 0
+                ? `${measured + 2}px`
+                : `${Math.max(2, input.value.length + 1)}ch`;
+        };
+        sizeToContent();
+
+        this._syncIdActions(el);
+
+        if (!this._isTouch) {
+            group.addEventListener('mouseenter', () => {
+                el.dataset.idHover = '1';
+                this._syncIdActions(el);
+            });
+            group.addEventListener('mouseleave', () => {
+                delete el.dataset.idHover;
+                this._syncIdActions(el);
+            });
+        }
+
+        // At rest the id is a badge; clicking it swaps in the input to rename,
+        // and blurring swaps back. Both live in the DOM already (see
+        // _buildMarkerIdRowHTML), so this only flips which one is showing.
+        // A press anywhere outside the marker ends the edit. That press is also a
+        // map click, which would drop a new marker where the user was only trying
+        // to dismiss the field - so swallow the click it is about to produce, the
+        // same way a marker drag release does (see `_suppressClickUntil`).
+        const dismissOutside = (e) => {
+            if (el.contains(e.target)) return;
+            this._stateManager._suppressClickUntil = Date.now() + MARKER_DRAG_CLICK_SUPPRESS_MS;
+        };
+
+        const saveBtn = group.querySelector('.marker-id-save');
+
+        const startEdit = () => {
+            if (el.dataset.idEditing === '1') return;
+            el.dataset.idEditing = '1';
+            badge.hidden = true;
+            input.hidden = false;
+            saveBtn.style.display = 'flex';
+            input.value = this._markers.get(markerId)?.urlId ?? badge.textContent;
+            sizeToContent();
+            this._syncIdActions(el);
+            input.focus();
+            // Selected, so typing replaces the id outright - renaming is the
+            // common case here, appending to it is not.
+            input.select();
+            // Capture, so it still runs for a press the map would otherwise
+            // consume before it bubbles anywhere useful.
+            document.addEventListener('mousedown', dismissOutside, true);
+            document.addEventListener('touchstart', dismissOutside, true);
+        };
+
+        const endEdit = () => {
+            if (el.dataset.idEditing !== '1') return;
+            // Cleared first, so the blur that follows knows the edit is already
+            // resolved and doesn't discard on top of a save.
+            delete el.dataset.idEditing;
+            document.removeEventListener('mousedown', dismissOutside, true);
+            document.removeEventListener('touchstart', dismissOutside, true);
+            const urlId = this._markers.get(markerId)?.urlId ?? input.value;
+            badge.textContent = urlId;
+            badge.title = urlId;
+            input.hidden = true;
+            saveBtn.style.display = 'none';
+            badge.hidden = false;
+            this._syncIdActions(el);
+            input.blur();
+        };
+
+        badge.addEventListener('mousedown', (e) => e.stopPropagation());
+        badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            startEdit();
+        });
+
+        const removeBtn = group.querySelector('.marker-id-remove');
+        const collapseBtn = group.querySelector('.marker-id-collapse');
+
+        const onRemove = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            this.removeMarker(markerId);
+        };
+        removeBtn.addEventListener('click', onRemove);
+        if (this._isTouch) removeBtn.addEventListener('touchend', onRemove);
+
+        const onCollapse = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (!content) return;
+            const collapsed = content.style.display === 'none';
+            content.style.display = collapsed ? 'flex' : 'none';
+            collapseBtn.querySelector('sl-icon')?.setAttribute('name', collapsed ? 'x-circle' : 'plus-circle');
+            collapseBtn.title = collapsed ? 'Hide details' : 'Show details';
+        };
+        collapseBtn.addEventListener('click', onCollapse);
+        if (this._isTouch) collapseBtn.addEventListener('touchend', onCollapse);
 
         // Same reasoning as the comment textarea: without this, using the
         // field at all would drag the marker balloon out from under the cursor.
         ['mousedown', 'click'].forEach(type => input.addEventListener(type, (e) => e.stopPropagation()));
 
-        const commit = () => {
+        /**
+         * Renames the marker. A rejected id (empty, or already taken) keeps the
+         * edit open with the text intact so it can be corrected - closing on a
+         * rejection would throw away what was typed with nothing to show for it.
+         */
+        const save = () => {
             const markerData = this._markers.get(markerId);
-            if (!markerData) return;
+            if (!markerData) return endEdit();
 
             const sanitized = sanitizeId(input.value);
-            if (sanitized === markerData.urlId) {
-                input.value = markerData.urlId;
-                return;
-            }
+            if (sanitized === markerData.urlId) return endEdit();
 
             if (!sanitized || !this.renameMarkerUrlId(markerId, sanitized)) {
-                input.value = markerData.urlId;
                 input.style.borderColor = '#ef4444';
-                setTimeout(() => { input.style.borderColor = 'transparent'; }, 800);
+                setTimeout(() => { input.style.borderColor = '#374151'; }, 800);
+                input.focus();
                 return;
             }
 
-            input.value = markerData.urlId;
+            endEdit();
+        };
+
+        /** Leaves the id as it was - the outcome of Escape, closing, or clicking away. */
+        const discard = () => {
+            input.value = this._markers.get(markerId)?.urlId ?? input.value;
+            sizeToContent();
+            endEdit();
         };
 
         input.addEventListener('input', () => {
@@ -1230,13 +1549,69 @@ export class MapMarkerManager {
                 input.value = sanitized;
                 if (cursor !== null) input.setSelectionRange(cursor, cursor);
             }
+            sizeToContent();
         });
-        input.addEventListener('blur', commit);
+
+        // Pressing the button would otherwise blur the input first, and blur
+        // discards - so the save would be thrown away by the very click asking
+        // for it. preventDefault on the press keeps focus where it is.
+        ['mousedown', 'touchstart'].forEach(type => {
+            saveBtn.addEventListener(type, (e) => e.preventDefault());
+        });
+        saveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            save();
+        });
+
+        input.addEventListener('blur', () => {
+            // endEdit clears this first, so a blur it triggers itself is inert
+            // and cannot discard on top of a save.
+            if (el.dataset.idEditing !== '1') return;
+            discard();
+        });
+
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                input.blur();
+                save();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                discard();
             }
+        });
+    }
+
+    /**
+     * Whether a marker's id actions (trash/collapse) are showing. They belong to
+     * the marker you are working with, so they appear while it is selected -
+     * clicking a marker selects it (see _selectMarker) - and additionally on
+     * hover or mid-rename as a preview. Touch has no hover and its taps belong
+     * to the badge, so there they are simply always up.
+     */
+    _syncIdActions(el) {
+        const actions = el.querySelector('.marker-id-actions');
+        if (!actions) return;
+
+        const visible = this._isTouch
+            || el.classList.contains('marker-selected')
+            || el.dataset.idHover === '1'
+            || el.dataset.idEditing === '1';
+        actions.style.display = visible ? 'flex' : 'none';
+    }
+
+    /**
+     * Marker select mode: the marker you last clicked (or just created) is the
+     * one in focus, and the only one showing its id actions. Selecting one
+     * deselects the rest, so those actions never appear on two markers at once.
+     */
+    _selectMarker(markerId) {
+        this._selectedMarkerId = markerId;
+
+        this._markers.forEach((markerData, id) => {
+            const el = markerData.marker?.getElement();
+            if (!el) return;
+            el.classList.toggle('marker-selected', id === markerId);
+            this._syncIdActions(el);
         });
     }
 
@@ -1415,7 +1790,7 @@ export class MapMarkerManager {
     /**
      * Renames a marker's `markers=`/route-reference id (see
      * marker-registry.js), driven by the inline "ID" input in its popup
-     * (_buildMarkerIdInputHTML/_attachMarkerIdInputHandler below). Rejects an
+     * (_buildMarkerIdRowHTML/_attachMarkerIdRowHandlers below). Rejects an
      * invalid or already-used id (the input reverts to the last good value in
      * that case). A route referencing this marker doesn't need to be told
      * separately - RouteStore._write() derives each waypoint's shorthand id
@@ -1469,16 +1844,31 @@ export class MapMarkerManager {
      * runs right after this.
      */
     reconcileMarkerUrlIds(entries) {
+        // Markers can share a location exactly (a link that pins several ids to
+        // one point), and findMarkerNear always answers with the first match - so
+        // without claiming them, every entry would rename the same marker in turn
+        // and the rest would keep their auto-numbered ids.
+        const claimed = new Set();
+
         (entries || []).forEach(({ id, lng, lat }) => {
-            const markerId = this.findMarkerNear({ lng, lat }, 5);
+            const markerId = this.findMarkerNear({ lng, lat }, 5, claimed);
             const markerData = markerId && this._markers.get(markerId);
-            if (!markerData || markerData.urlId === id) return;
+            if (!markerData) return;
+
+            claimed.add(markerId);
+            if (markerData.urlId === id) return;
 
             markerRegistry.remove(markerData.urlId);
             markerData.urlId = id;
             markerRegistry.set(id, { id, lng: markerData.lngLat.lng, lat: markerData.lngLat.lat, name: '', description: '' });
 
-            const input = markerData.marker.getElement()?.querySelector('.marker-id-input');
+            const el = markerData.marker.getElement();
+            const badge = el?.querySelector('.marker-id-badge');
+            if (badge) {
+                badge.textContent = id;
+                badge.title = id;
+            }
+            const input = el?.querySelector('.marker-id-input');
             if (input) input.value = id;
         });
     }
@@ -1555,10 +1945,16 @@ export class MapMarkerManager {
      * Finds a marker within pixel tolerance of a lngLat, so callers like the
      * right-click shortcut menu can reuse a marker right-clicked directly on
      * it instead of creating a duplicate at (almost) the same spot.
+     *
+     * `exclude` skips marker ids already spoken for, so a caller walking a list
+     * of co-located points pairs each one with a different marker instead of
+     * every lookup answering with the same first match (see
+     * reconcileMarkerUrlIds).
      */
-    findMarkerNear(lngLat, thresholdPx = 40) {
+    findMarkerNear(lngLat, thresholdPx = 40, exclude = null) {
         const point = this._map.project(lngLat);
         for (const [id, data] of this._markers) {
+            if (exclude?.has(id)) continue;
             const markerPoint = this._map.project(data.lngLat);
             if (Math.hypot(markerPoint.x - point.x, markerPoint.y - point.y) <= thresholdPx) {
                 return id;
@@ -1896,13 +2292,26 @@ export class MapMarkerManager {
         }
     }
 
-    _blockMapHoverEvents(el) {
-        // Stop pointer-move events from bubbling to the map's canvas container, where
-        // Mapbox's mousemove handler runs queryRenderedFeatures and sets hover state
-        // on whatever feature sits beneath this marker. The marker (and its badges)
-        // should fully capture the pointer instead. mouseenter/leave still fire, so the
-        // marker's own intentional feature highlighting is unaffected.
-        ['mousemove', 'mouseover'].forEach(type => {
+    _blockMapEvents(el) {
+        // Mapbox appends marker elements inside the map's canvas container, which is
+        // also where its own DOM event handlers are bound - so anything not stopped
+        // here reaches the map as if the user had interacted with the map itself.
+        //
+        // mousemove/mouseover: Mapbox's mousemove handler runs queryRenderedFeatures
+        // and sets hover state on whatever feature sits beneath this marker. The
+        // marker (and its badges) should fully capture the pointer instead.
+        // mouseenter/leave still fire, so the marker's own intentional feature
+        // highlighting is unaffected.
+        //
+        // click: a click that reaches the map is a selection at that point, which in
+        // replace mode clears every marker and builds a new one - i.e. clicking a
+        // marker would silently replace it with a copy of itself. Clicking a marker
+        // means "focus this marker" (see _selectMarker), never "select the map here".
+        //
+        // Bubble phase, so the marker's own children still receive their clicks; and
+        // stopPropagation rather than stopImmediatePropagation, so the capture-phase
+        // select listener addMarker registers on this same element still runs.
+        ['mousemove', 'mouseover', 'click'].forEach(type => {
             el.addEventListener(type, (e) => e.stopPropagation());
         });
     }
@@ -2042,14 +2451,38 @@ export class MapMarkerManager {
     /**
      * Where a marker's content (badges/comment box) sits relative to the
      * lngLat it's added at, in screen pixels — the pin itself is anchored so
-     * its tip touches that point (see addMarker), and the content starts
-     * right there, shifted left by half the pin so it's centered under it
-     * rather than starting under its left edge. Reused by shortcut-menu.js
-     * so its right-click/long-press menu opens in the same place a marker's
-     * own popup would.
+     * its tip touches that point (see addMarker), and the balloon hangs under
+     * the id label beside the pin, i.e. indented past it. Reused by
+     * shortcut-menu.js so its right-click/long-press menu opens in the same
+     * place a marker's own popup would.
      */
     getContentOffset() {
-        return { x: -(this._pinSize() / 2), y: 0 };
+        return { x: this._pinSize() / 2 + MARKER_ACTION_ROW_GAP, y: 0 };
+    }
+
+    /**
+     * The `markers=` id a new marker gets: a caller-supplied one - a chosen
+     * search result's label (map-search-control.js's _addResultMarker), or the
+     * id a shared link already named this marker by (restoreMarkersFromSelection
+     * Layer) - turned into a valid id, or the next serial number when none was
+     * given.
+     *
+     * A requested id only collides with ids held by *live* markers. An id that
+     * only the registry holds is a placeholder hydrated from `?markers=` for a
+     * marker not built yet (see map-init.js), and the marker being built for it
+     * right now is exactly who should claim it - otherwise it would be pushed to
+     * a `_2` suffix by its own placeholder. Serial numbering still steps over
+     * both, so an auto-numbered marker never lands on a reserved id.
+     */
+    _resolveNewUrlId(requested) {
+        const live = new Set([...this._markers.values()].map(m => m.urlId).filter(Boolean));
+
+        if (requested) {
+            const base = labelToId(requested);
+            if (isValidId(base)) return uniqueId(base, live);
+        }
+
+        return nextSerialId([...new Set([...markerRegistry.allIds(), ...live])]);
     }
 
     addMarker(lngLat, features, options = {}) {
@@ -2064,7 +2497,8 @@ export class MapMarkerManager {
             onDrag = null,
             onDragEnd = null,
             role = null,
-            pinColor = '#f97316'
+            pinColor = '#f97316',
+            urlId: requestedUrlId = null
         } = options;
         features = this._dedupeFeatures(features);
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
@@ -2094,22 +2528,36 @@ export class MapMarkerManager {
         }
 
         // The id this marker is referenced by in `markers=`/a route's
-        // `route-<rid>:` waypoint list (see marker-registry.js) - assigned
-        // serially on creation, user-renamable via the input below.
-        const urlId = nextSerialId(markerRegistry.allIds());
+        // `route-<rid>:` waypoint list (see marker-registry.js) - user-renamable
+        // via the input below.
+        // A drag re-queries the drop point through the generic selection pipeline,
+        // which has no way to pass options here - so the dragged marker leaves its
+        // identity behind for the marker about to replace it (see
+        // _handleMarkerDragEnd). One-shot: only the first marker built claims it.
+        const adopted = this._adoptedIdentity;
+        this._adoptedIdentity = null;
 
+        const urlId = this._resolveNewUrlId(requestedUrlId ?? adopted?.urlId);
+
+        // Pin + id label on top; below it the summary chips, and behind those the
+        // full attribute tables, revealed only once a chip is hovered/clicked
+        // (see _attachMarkerSummaryHandlers). The balloon is indented past the
+        // pin so it hangs under the id label rather than under the pin itself.
+        const pinSize = this._pinSize();
         el.innerHTML = `
-            <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0;"></div>
-            <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); cursor: move;">
-                ${this._buildMarkerIdInputHTML(urlId)}
+            <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: ${MARKER_ACTION_ROW_GAP}px; flex-shrink: 0;">
+                ${this._buildMarkerIdRowHTML(urlId)}
+            </div>
+            <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; margin-left: ${pinSize + MARKER_ACTION_ROW_GAP}px; max-width: ${MARKER_ID_MAX_WIDTH}px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); cursor: move;">
                 ${this._buildCommentSectionHTML(noteEntry)}
-                ${this._buildMarkerBadgesHTML(badgeFeatures, lngLat, { includeMoreLayers: true, suppressEmptyBadge: !!noteEntry, clickedLayerIds, pendingLayerIds, includeAddress: true })}
+                ${this._buildMarkerSummaryHTML(badgeFeatures, lngLat)}
+                <div class="marker-details" style="display: none;">
+                    ${this._buildMarkerBadgesHTML(badgeFeatures, lngLat, { includeMoreLayers: true, suppressEmptyBadge: !!noteEntry, clickedLayerIds, pendingLayerIds, includeAddress: true })}
+                </div>
             </div>
         `;
 
-        // Anchor so the pin's tip touches the clicked location — clicking the
-        // same spot again hits the pin and clears the marker (seamless toggle).
-        const pinSize = this._pinSize();
+        // Anchor so the pin's tip touches the clicked location.
         const marker = new mapboxgl.Marker({
             element: el,
             anchor: 'top-left',
@@ -2155,8 +2603,16 @@ export class MapMarkerManager {
         this._attachBadgeHandlers(el, badgeFeatures, lngLat, false, clickedLayerIds, pendingLayerIds);
         this._attachAddressBadgeHandler(el, markerId);
         this._attachCommentSectionHandlers(el, lngLat, noteEntry);
-        this._attachMarkerIdInputHandler(el, markerId);
-        this._blockMapHoverEvents(el);
+        this._attachMarkerSummaryHandlers(el, badgeFeatures);
+        this._attachMarkerIdRowHandlers(el, markerId);
+        this._blockMapEvents(el);
+
+        // Capture phase: badges, chips and the id label all stop their own
+        // clicks from bubbling, but clicking any of them still means "this is
+        // the marker I'm working with".
+        const select = () => this._selectMarker(markerId);
+        el.addEventListener('click', select, true);
+        if (this._isTouch) el.addEventListener('touchend', select, true);
 
         // The "more layers" badge is normally revealed by hovering the marker
         // (see mouseenter/mouseleave below), but touch devices have no hover —
@@ -2180,7 +2636,19 @@ export class MapMarkerManager {
             onDragEnd,
             role
         };
-        markerRegistry.set(urlId, { id: urlId, lng: lngLat.lng, lat: lngLat.lat, name: '', description: '' });
+        // Reclaiming a placeholder entry: keep the name/description the shared
+        // link carried rather than blanking them (see marker-registry.js's
+        // parseMarkersParam). A dragged marker's entry is already gone by now, so
+        // its details come from what it handed over instead.
+        const reclaimed = markerRegistry.get(urlId)
+            || (adopted?.urlId === urlId ? adopted : null);
+        markerRegistry.set(urlId, {
+            id: urlId,
+            lng: lngLat.lng,
+            lat: lngLat.lat,
+            name: reclaimed?.name || '',
+            description: reclaimed?.description || ''
+        });
 
         // Only the pin (marker-action-row) should drag the actual location. The
         // balloon group has its own independent drag that just repositions it
@@ -2195,15 +2663,22 @@ export class MapMarkerManager {
         this._currentMarkerIndex = this._markers.size - 1;
         this._resolveMarkerAddress(markerId);
 
+        // A marker you just dropped is the one you are working with.
+        this._selectMarker(markerId);
+
         // Map pin at the click point (geo-alt-fill), so a real marker (not an
-        // abstract button) marks the spot. Clicking it (i.e. clicking the same
-        // spot again) clears this marker, toggling the selection off.
+        // abstract button) marks the spot. The pin is a handle, not a button:
+        // it drags the marker's location, and removing the marker is the trash
+        // action beside the id label (_attachMarkerIdRowHandlers). It used to
+        // double as a close button, but that put "delete" under the same click
+        // that starts a drag - easy to trigger by accident, and with no way to
+        // interact with the marker without risking losing it.
         const actionRow = el.querySelector('.marker-action-row');
         if (actionRow) {
             const pinBtn = document.createElement('span');
             pinBtn.className = 'marker-pin-btn';
             pinBtn.innerHTML = `<sl-icon name="geo-alt-fill" style="font-size:${pinSize}px;color:${pinColor};filter:${PIN_ICON_FILTER};pointer-events:none;"></sl-icon>`;
-            pinBtn.title = 'Clear this marker';
+            pinBtn.title = 'Drag to move this marker';
             pinBtn.style.cssText = `
                 position: relative;
                 display: flex;
@@ -2211,7 +2686,7 @@ export class MapMarkerManager {
                 justify-content: center;
                 width: ${pinSize}px;
                 height: ${pinSize}px;
-                cursor: pointer;
+                cursor: move;
                 flex-shrink: 0;
                 transition: filter 0.2s;
             `;
@@ -2223,18 +2698,8 @@ export class MapMarkerManager {
                     pinBtn.querySelector('sl-icon').style.filter = PIN_ICON_FILTER;
                 });
             }
-            const handleCloseClick = (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                this.removeMarker(markerId);
-            };
-            pinBtn.addEventListener('click', handleCloseClick);
-            // On touch, also bind touchend so the close fires on first tap rather
-            // than waiting for the synthesized (and sometimes swallowed) click.
-            if (this._isTouch) {
-                pinBtn.addEventListener('touchend', handleCloseClick);
-            }
-            actionRow.appendChild(pinBtn);
+            // The id label is already in the row - the pin leads it.
+            actionRow.insertBefore(pinBtn, actionRow.firstChild);
         }
 
         // Hover to highlight features on map (desktop only — avoids synthetic
@@ -2343,10 +2808,20 @@ export class MapMarkerManager {
         const interactiveFeatures = this._stateManager.getFeaturesAtPoint(point, lngLat)
             .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
 
+        // Moving a marker doesn't make it a different marker: the rebuild below
+        // must come back with the same `markers=` id, or dragging would silently
+        // renumber it (and break any route referencing it). An owned marker keeps
+        // its identity by never being rebuilt at all - see the early return above.
+        const carried = this._markers.get(markerId);
+        const identity = carried?.urlId
+            ? { urlId: carried.urlId, ...(markerRegistry.get(carried.urlId) || {}) }
+            : null;
+
         this.removeMarker(markerId);
 
         const wasCmdCtrlPressed = this._stateManager._isCmdCtrlPressed;
         this._stateManager._isCmdCtrlPressed = true;
+        this._adoptedIdentity = identity;
         try {
             if (interactiveFeatures.length > 0) {
                 this._stateManager.handleFeatureClicks(interactiveFeatures);
@@ -2355,6 +2830,7 @@ export class MapMarkerManager {
             }
         } finally {
             this._stateManager._isCmdCtrlPressed = wasCmdCtrlPressed;
+            this._adoptedIdentity = null;
         }
     }
 
@@ -2663,11 +3139,13 @@ export class MapMarkerManager {
         const markerData = this._markers.get(markerId);
         if (!markerData) return;
 
+        if (this._selectedMarkerId === markerId) this._selectedMarkerId = null;
+
         // Deselect any expanded badges in this marker so the saved view is restored.
         this._deselectMarkerBadges(markerData);
 
         // Removing the element from the DOM while the pointer sits on it (e.g.
-        // clicking its own pin to clear it) doesn't fire a real 'mouseleave', so
+        // hitting its own trash action) doesn't fire a real 'mouseleave', so
         // _pointerOverMarker would otherwise stay stuck true and suppress every
         // hover popup until some other marker's mouseenter/mouseleave cycle reset it.
         const markerEl = markerData.marker?.getElement?.();
@@ -2708,9 +3186,13 @@ export class MapMarkerManager {
             }
             markerData.marker.remove();
             this._markers.delete(id);
+            // Same cleanup removeMarker does - without it every cleared marker's
+            // id lingers in the registry and reappears in `?markers=`.
+            if (markerData.urlId) markerRegistry.remove(markerData.urlId);
             if (markerData.onRemove) onRemoveCallbacks.push(markerData.onRemove);
         });
         this._currentMarkerIndex = 0;
+        this._selectedMarkerId = null;
 
         // Update selection layer
         this._updateSelectionLayer();
@@ -2869,6 +3351,9 @@ export class MapMarkerManager {
                 lngLat: { lng, lat },
                 refs: refs || null,
                 markerId: null,
+                // The id `?markers=` gave this point (UrlManager.parseMarkersFromURL
+                // puts it here), so the marker is built under its real name.
+                urlId: feature.properties?.urlId || null,
                 foundFeatures: [],
                 pendingLayerIds: new Set(pendingLayerIds)
             };
@@ -3026,15 +3511,28 @@ export class MapMarkerManager {
      * LayerOrderManager), not arrival order.
      */
     _upsertStreamingMarkerVisual(state) {
+        // This is the same marker being redrawn as another layer resolves, not a
+        // new one - so it keeps its `markers=` id across the rebuild. Freeing the
+        // registry slot first lets addMarker reclaim that exact id; without both
+        // halves the id churns upward on every rebuild (a 6-marker link restoring
+        // over 5 layers ends up at 30+) and every abandoned id stays in the
+        // registry, which is what url-manager.js serializes back into `?markers=`.
+        // First draw uses the id the shared link named this marker by, so it is
+        // correct on screen immediately instead of being auto-numbered and
+        // renamed seconds later once every layer has resolved. Rebuilds keep
+        // whatever the marker currently has (it may since have been renamed).
+        let urlId = state.urlId || null;
         if (state.markerId) {
             const existing = this._markers.get(state.markerId);
             if (existing) {
+                urlId = existing.urlId;
                 existing.marker.remove();
                 this._markers.delete(state.markerId);
             }
         }
         state.markerId = this.addMarker(state.lngLat, this._sortFeaturesByInspectorOrder(state.foundFeatures), {
-            pendingLayerIds: state.pendingLayerIds
+            pendingLayerIds: state.pendingLayerIds,
+            urlId
         });
     }
 

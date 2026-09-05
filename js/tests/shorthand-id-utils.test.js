@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeId, isValidId, nextSerialId, parseCalls, splitArgs } from '../shorthand-id-utils.js';
+import { sanitizeId, isValidId, nextSerialId, labelToId, uniqueId, parseCalls, splitArgs } from '../shorthand-id-utils.js';
 
 describe('shorthand-id-utils', () => {
     describe('sanitizeId', () => {
@@ -27,6 +27,44 @@ describe('shorthand-id-utils', () => {
             expect(isValidId('')).toBe(false);
             expect(isValidId('a b')).toBe(false);
             expect(isValidId('a-b')).toBe(false);
+        });
+    });
+
+    describe('labelToId', () => {
+        it('turns a search result label into a valid id', () => {
+            expect(labelToId('Assagao — Survey 17/1 — BARDEZ')).toBe('Assagao_Survey_17_1_BARDEZ');
+            expect(labelToId('Panaji, Goa, India')).toBe('Panaji_Goa_India');
+        });
+
+        it('keeps separators that sanitizeId would drop, so 17/1 and 171 differ', () => {
+            expect(labelToId('Survey 17/1')).not.toBe(labelToId('Survey 171'));
+            expect(sanitizeId('Survey 17/1')).toBe(sanitizeId('Survey 171'));
+        });
+
+        it('collapses runs and trims leading/trailing separators', () => {
+            expect(labelToId('  ___weird!!!name___  ')).toBe('weird_name');
+        });
+
+        it('produces a valid id or an empty string', () => {
+            expect(isValidId(labelToId('a b'))).toBe(true);
+            expect(labelToId('!!!')).toBe('');
+            expect(labelToId(null)).toBe('');
+        });
+
+        it('truncates to maxLength without a trailing separator', () => {
+            expect(labelToId('x'.repeat(80))).toHaveLength(64);
+            expect(labelToId('abcde fghij', 6)).toBe('abcde');
+        });
+    });
+
+    describe('uniqueId', () => {
+        it('returns the base when it is free', () => {
+            expect(uniqueId('home', [])).toBe('home');
+        });
+
+        it('suffixes past every taken variant', () => {
+            expect(uniqueId('home', ['home'])).toBe('home_2');
+            expect(uniqueId('home', ['home', 'home_2'])).toBe('home_3');
         });
     });
 

@@ -92,7 +92,11 @@ test('SVG export vectorizes atlas overlay layers as real paths/text', async ({ p
         return layers.some(l => l.id.includes('svg-vector-test-layer') && l.type === 'fill');
     }, null, { timeout: 30000 });
 
-    await page.click('button[title="Export Map"]');
+    // The export trigger lives in the layer-stack strip (js/layer-stack-strip.js),
+    // not as a mounted map control - it's hover-revealed (see css/styles.css),
+    // so the strip needs a hover before its export button becomes visible/clickable.
+    await page.hover('.layer-stack-strip');
+    await page.click('.layer-stack-export-btn');
 
     const iframeEl = await page.waitForSelector('iframe.map-export-iframe');
     const exportFrame = await iframeEl.contentFrame();
@@ -122,8 +126,15 @@ test('SVG export vectorizes atlas overlay layers as real paths/text', async ({ p
     expect(svgContent).toContain('fill="#3388ff"');
     expect(svgContent).toContain('<circle');
     expect(svgContent).toContain('fill="#00cc44"');
-    expect(svgContent).not.toContain('Infinity');
-    expect(svgContent).not.toContain('NaN');
+
+    // Scoped to just the vector overlay group, not the whole document: the
+    // basemap's embedded base64 raster <image> can coincidentally contain
+    // the substrings "NaN"/"Infinity" as base64 characters, which would
+    // otherwise make this assertion flaky.
+    const overlayMatch = svgContent.match(/<g id="amche-vector-overlay">[\s\S]*<\/svg>/);
+    expect(overlayMatch).not.toBeNull();
+    expect(overlayMatch[0]).not.toContain('Infinity');
+    expect(overlayMatch[0]).not.toContain('NaN');
 
     const relevantErrors = consoleErrors.filter(e => !e.includes('api.mapbox.com') && !e.includes('mapbox-gl'));
     expect(relevantErrors, `Unexpected console errors: ${relevantErrors.join('\n')}`).toEqual([]);

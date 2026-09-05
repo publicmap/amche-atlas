@@ -25,6 +25,40 @@ export function isValidId(id) {
 }
 
 /**
+ * Turns an arbitrary human label - a search result's name, say - into a valid
+ * id: every run of characters outside [A-Za-z0-9_] collapses to a single `_`,
+ * with no leading or trailing separator, truncated to `maxLength`.
+ *
+ * Unlike sanitizeId, which drops disallowed characters outright (the right fix
+ * for an id someone typed by hand), this keeps them as separators - so
+ * `Survey 17/1` and `Survey 171` stay distinct ids instead of colliding.
+ */
+export function labelToId(raw, maxLength = 64) {
+    const id = String(raw ?? '')
+        .replace(/[^A-Za-z0-9_]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+
+    return id.length > maxLength
+        ? id.slice(0, maxLength).replace(/_+$/, '')
+        : id;
+}
+
+/**
+ * `base`, or `base_2`/`base_3`/... when it is already taken - so choosing the
+ * same search result twice yields two markers with distinct ids rather than
+ * the second one silently losing its name.
+ */
+export function uniqueId(base, existingIds) {
+    const used = new Set(existingIds || []);
+    if (!used.has(base)) return base;
+
+    let n = 2;
+    while (used.has(`${base}_${n}`)) n++;
+    return `${base}_${n}`;
+}
+
+/**
  * The smallest positive integer (as a string) not already in `existingIds` -
  * how a new marker/route is numbered on creation, whether or not earlier
  * ones were renamed to something non-numeric.

@@ -178,6 +178,37 @@ export class MapSearchControl {
     }
 
     /**
+     * A chosen search result becomes a real marker (map-marker-manager.js),
+     * not the transient red preview pin: it carries the full inspector balloon
+     * and a shareable `markers=` id derived from the result's own label, and
+     * survives the next search instead of being replaced by it.
+     *
+     * The preview pin (addSearchMarker) stays for what it is actually for -
+     * previewing a coordinate as it is typed, before anything is chosen.
+     */
+    _addResultMarker(coordinates, label) {
+        this.removeSearchMarker();
+
+        const markerManager = window.featureControl?._markerManager;
+        if (!markerManager) {
+            this.addSearchMarker(coordinates, label);
+            return null;
+        }
+
+        const lngLat = { lng: coordinates[0], lat: coordinates[1] };
+
+        // Choosing the same result again (or one on top of an existing marker)
+        // should surface that marker rather than stack a duplicate on it.
+        const existing = markerManager.findMarkerNear(lngLat);
+        if (existing) {
+            markerManager.focusMarker(existing);
+            return existing;
+        }
+
+        return markerManager.addMarker(lngLat, [], { urlId: label });
+    }
+
+    /**
      * Update the search box input value
      * @param {string} value - The value to set in the search box
      */
@@ -816,8 +847,16 @@ export class MapSearchControl {
                 // Set value silently (no input event) so Mapbox doesn't fetch suggestions
                 this.updateSearchBoxInput(feature.properties.name, { silent: true });
 
+                // Before the marker, not after: clearing selections emits
+                // 'selections-cleared', which the marker manager answers with
+                // clearAllMarkers() - dropping the result marker along with the
+                // old selection if it already existed.
+                if (this.featureStateManager) {
+                    this.featureStateManager.clearAllSelections();
+                }
+
                 // Add a marker at the location
-                this.addSearchMarker(coordinates, feature.properties.name);
+                this._addResultMarker(coordinates, feature.properties.name);
 
                 if (!isCurrentLocation) {
                     // For cadastral plots, zoom in closer to see the plot boundaries
@@ -831,14 +870,10 @@ export class MapSearchControl {
                 // "Current location" is, by definition, already where the map is
                 // centered — leave the camera alone and just drop the marker.
 
-                if (this.featureStateManager) {
-                    this.featureStateManager.clearAllSelections();
-                }
-
                 this.resetSearchState();
             } else {
                 // Regular search result or coordinate
-                this.addSearchMarker(coordinates, feature.properties.name || feature.properties.place_name || 'Search Result');
+                this._addResultMarker(coordinates, feature.properties.name || feature.properties.place_name || 'Search Result');
 
                 this.map.flyTo({
                     center: coordinates,

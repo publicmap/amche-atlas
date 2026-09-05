@@ -259,8 +259,8 @@ export class StreetviewControl {
 
     /**
      * Called when the tracking pin is removed some other way than this
-     * control's own teardown - e.g. the user clicks its "Clear this marker"
-     * pin button directly on the map, or clears every selection at once.
+     * control's own teardown - e.g. the user hits the trash action beside the
+     * marker's id label, or clears every selection at once.
      * Per the "clearing this pin closes the panel, and vice versa" contract,
      * that closes the Street View panel in turn.
      */
