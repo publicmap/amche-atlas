@@ -75,6 +75,8 @@ export class Terrain3DControl {
         // longer matches it can be recognised as the user's own choice.
         this._autoPitchLastSet = null;
         this._pitchBeforePanel = null;
+        this._lockToDeviceOrientation = false; // Whether map pitch follows the device accelerometer
+        this._deviceOrientationListener = null;
         this._syncCallback = null; // Optional callback fired after visual updates (e.g. compare/swipe)
         this._autoEnableMessageId = null; // Context message shown when terrain auto-enables from a tilt gesture
         this._autoEnableMessageTimer = null;
@@ -183,6 +185,12 @@ export class Terrain3DControl {
         // Remove pitch listener
         this.removePitchListener();
 
+        // Remove device orientation listener
+        if (this._deviceOrientationListener) {
+            window.removeEventListener('deviceorientation', this._deviceOrientationListener);
+            this._deviceOrientationListener = null;
+        }
+
         this._closeAutoEnabledMessage();
 
         if (this._panel) {
@@ -286,6 +294,7 @@ export class Terrain3DControl {
                     <label class="t3d-check"><input type="checkbox" id="terrain-3d-fog" checked><span>Atmospheric fog</span></label>
                     <label class="t3d-check"><input type="checkbox" id="terrain-3d-animate"><span>Orbit around location</span></label>
                     <label class="t3d-check"><input type="checkbox" id="terrain-3d-sound"><span>Dancing terrain (microphone)</span></label>
+                    <label class="t3d-check"><input type="checkbox" id="terrain-3d-device-lock"><span>Lock to device angle</span></label>
                     <button type="button" class="t3d-reset" id="terrain-3d-reset">Reset to defaults</button>
                 </div>
             </details>
@@ -354,6 +363,7 @@ export class Terrain3DControl {
             // Any hand-set tilt ends the panel's intro animation and becomes the
             // user's own (see _hidePanel).
             this._cancelAutoPitch();
+            if (this._lockToDeviceOrientation) this.setLockToDeviceOrientation(false);
             this._pitch = Math.max(0, Math.min(85, value));
             this._setPitchUI(this._pitch);
             this._updatePitch();
@@ -427,6 +437,7 @@ export class Terrain3DControl {
         find('#terrain-3d-fog').on('change', (e) => this.setFog(e.target.checked));
         find('#terrain-3d-animate').on('change', (e) => this.setAnimate(e.target.checked));
         find('#terrain-3d-sound').on('change', (e) => this.setVisualizeSound(e.target.checked));
+        find('#terrain-3d-device-lock').on('change', (e) => this.setLockToDeviceOrientation(e.target.checked));
 
         find('#terrain-3d-reset').on('click', () => {
             this.setTerrainSource(defaults.source);
@@ -435,6 +446,7 @@ export class Terrain3DControl {
             this.setWireframe(defaults.wireframe);
             this.setFov(defaults.fov);
             this.setBearing(defaults.bearing);
+            this.setLockToDeviceOrientation(false);
             applyPitch(defaults.pitch);
         });
 
@@ -1149,6 +1161,87 @@ export class Terrain3DControl {
         return this._pitch;
     }
 
+    // Locks the map's pitch to the device's accelerometer/gyroscope tilt.
+    // Vertical phone (screen upright, facing the user) maps to a top-down
+    // (0°) pitch; a flat phone maps toward the horizon (85°).
+    async setLockToDeviceOrientation(enabled) {
+        if (enabled === this._lockToDeviceOrientation) return;
+
+        if (enabled) {
+            const granted = await this._requestDeviceOrientationPermission();
+            if (!granted) {
+                this._panel?.find('#terrain-3d-device-lock').prop('checked', false);
+                return;
+            }
+            this._cancelAutoPitch();
+            this._lockToDeviceOrientation = true;
+            this._deviceOrientationListener = (event) => this._applyDeviceOrientationPitch(event);
+            window.addEventListener('deviceorientation', this._deviceOrientationListener);
+        } else {
+            this._lockToDeviceOrientation = false;
+            if (this._deviceOrientationListener) {
+                window.removeEventListener('deviceorientation', this._deviceOrientationListener);
+                this._deviceOrientationListener = null;
+            }
+        }
+
+        this._panel?.find('#terrain-3d-device-lock').prop('checked', this._lockToDeviceOrientation);
+        this._panel?.find('#terrain-3d-pitch-slider').prop('disabled', this._lockToDeviceOrientation);
+        this._updateLockToDeviceURLParameter();
+    }
+
+    getLockToDeviceOrientation() {
+        return this._lockToDeviceOrientation;
+    }
+
+    async _requestDeviceOrientationPermission() {
+        if (typeof DeviceOrientationEvent === 'undefined') {
+            alert('Device orientation is not supported on this device or browser.');
+            return false;
+        }
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            try {
+                const result = await DeviceOrientationEvent.requestPermission();
+                if (result !== 'granted') {
+                    alert('Permission to access device orientation was denied.');
+                    return false;
+                }
+            } catch (error) {
+                console.warn('Error requesting device orientation permission:', error);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    _applyDeviceOrientationPitch(event) {
+        if (event.beta === null || event.beta === undefined) return;
+
+        // beta: front-to-back tilt in degrees, 0 = flat, 90 = upright/vertical.
+        const beta = Math.max(0, Math.min(90, event.beta));
+        const pitch = Math.max(0, Math.min(85, 90 - beta));
+
+        this._pitch = pitch;
+        this._setPitchUI?.(pitch);
+        this._updatePitch();
+    }
+
+    _updateLockToDeviceURLParameter() {
+        if (this._initializing) return;
+
+        if (window.urlManager && window.urlManager.updateLockDeviceParam) {
+            window.urlManager.updateLockDeviceParam(this._lockToDeviceOrientation);
+        } else {
+            const url = new URL(window.location);
+            if (this._lockToDeviceOrientation) {
+                url.searchParams.set('lockDevice', 'true');
+            } else {
+                url.searchParams.delete('lockDevice');
+            }
+            window.history.replaceState({}, '', url);
+        }
+    }
+
     async _updateAudioVisualization() {
         if (this._visualizeSound) {
             await this._startAudioVisualization();
@@ -1298,6 +1391,7 @@ export class Terrain3DControl {
         const fovParam = urlParams.get('fov');
         const bearingParam = urlParams.get('bearing');
         const pitchParam = urlParams.get('pitch');
+        const lockDeviceParam = urlParams.get('lockDevice');
 
         // Handle terrain source parameter first
         if (terrainSourceParam && this._terrainSources[terrainSourceParam]) {
@@ -1380,6 +1474,13 @@ export class Terrain3DControl {
         } else if (this._map) {
             this._pitch = this._map.getPitch();
             this._setPitchUI?.(this._pitch);
+        }
+
+        // Handle device orientation lock parameter. Requires a user gesture on
+        // iOS to grant permission, so this only restores it where no prompt is
+        // needed (browsers without DeviceOrientationEvent.requestPermission).
+        if (lockDeviceParam === 'true') {
+            this.setLockToDeviceOrientation(true);
         }
 
         // Clear initialization flag to allow normal URL updates

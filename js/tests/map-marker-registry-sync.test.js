@@ -306,6 +306,26 @@ describe('marker registry stays in step with the live markers', () => {
             expect(manager._markers.has('a')).toBe(true);
         });
 
+        it('opens the editor synchronously, so the keyboard can come up', () => {
+            const manager = makeClearable();
+            const el = document.createElement('div');
+            const startIdEdit = vi.fn();
+            el._startIdEdit = startIdEdit;
+            // Stand in for the real addMarker: build the element, then run the
+            // tail of addMarker that decides whether to open the editor.
+            manager.addMarker = vi.fn((lngLat, features, options) => {
+                if (options.startEditing) el._startIdEdit({ initial: true });
+                return 'new';
+            });
+
+            manager._handleEmptyMapClick({ lngLat: POINT });
+
+            // Mobile browsers only raise the on-screen keyboard for a focus()
+            // made inside the gesture - a deferred one leaves the field looking
+            // focused with no keyboard behind it.
+            expect(startIdEdit).toHaveBeenCalledWith({ initial: true });
+        });
+
         it('opens a freshly dropped marker straight into its id editor', () => {
             const manager = makeClearable();
             manager._handleEmptyMapClick({ lngLat: POINT });

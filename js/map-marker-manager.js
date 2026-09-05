@@ -2030,25 +2030,30 @@ export class MapMarkerManager {
             sizeToContent();
         });
 
-        // Pressing the button would otherwise blur the input first, and blur
-        // discards - so the save would be thrown away by the very click asking
-        // for it. preventDefault on the press keeps focus where it is.
-        ['mousedown', 'touchstart'].forEach(type => {
-            saveBtn.addEventListener(type, (e) => e.preventDefault());
-        });
-        saveBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            save();
-        });
+        /**
+         * Pressing either button would otherwise blur the input first, and blur
+         * discards - so the action would be thrown away by the very press asking
+         * for it. preventDefault on the press keeps focus where it is.
+         *
+         * On touch that same preventDefault also cancels the synthesized click,
+         * so these buttons were unreachable with a finger: the handler has to be
+         * bound to touchend as well. Only one of the two ever fires - a
+         * prevented touchstart produces no click - so there is no double-run.
+         */
+        const wireEditAction = (button, run) => {
+            ['mousedown', 'touchstart'].forEach(type => {
+                button.addEventListener(type, (e) => e.preventDefault());
+            });
+            const handler = (e) => {
+                e.stopPropagation();
+                run();
+            };
+            button.addEventListener('click', handler);
+            button.addEventListener('touchend', handler);
+        };
 
-        // Same focus guard as save: without it the press blurs the input first,
-        // and for a brand-new marker that blur would discard it out from under
-        // the click asking to delete it.
-        ['mousedown', 'touchstart'].forEach(type => {
-            deleteBtn.addEventListener(type, (e) => e.preventDefault());
-        });
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
+        wireEditAction(saveBtn, save);
+        wireEditAction(deleteBtn, () => {
             endEdit();
             this.removeMarker(markerId);
         });
@@ -3103,14 +3108,20 @@ export class MapMarkerManager {
 
         // Nothing has a measurable size until the browser has laid the marker
         // out, and the leader line is drawn from measurements.
+        // A marker you just dropped opens straight into its id editor: naming it
+        // is what makes it worth keeping (see `saved` above), so the field is
+        // ready rather than two clicks away. Never for a rebuild - a drag adopts
+        // an existing identity and must not reopen the editor.
+        //
+        // Called synchronously, still inside the tap that created this marker:
+        // mobile browsers only raise the on-screen keyboard for a focus() made
+        // during a user gesture, so deferring this to the frame below left the
+        // field looking focused with no keyboard behind it.
+        if (startEditing && selectOnCreate && !adopted) el._startIdEdit?.({ initial: true });
+
         requestAnimationFrame(() => {
             this._applyStoredPanelOffset(markerId);
             this._syncMarkerLeader(el);
-            // A marker you just dropped opens straight into its id editor: naming
-            // it is what makes it worth keeping (see `saved` above), so the field
-            // is ready rather than two clicks away. Never for a rebuild - a drag
-            // adopts an existing identity and must not reopen the editor.
-            if (startEditing && selectOnCreate && !adopted) el._startIdEdit?.({ initial: true });
         });
 
         // Hover to highlight features on map (desktop only — avoids synthetic

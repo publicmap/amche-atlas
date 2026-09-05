@@ -823,6 +823,35 @@ describe('marker popup layout', () => {
             expect(el.querySelector('.marker-id-text').textContent).toBe('shop');
         });
 
+        it('is reachable by touch, where the focus guard cancels the click', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            const input = el.querySelector('.marker-id-input');
+            manager.renameMarkerUrlId = vi.fn((id, next) => {
+                manager._markers.get(id).urlId = next;
+                return true;
+            });
+
+            openEditor(el);
+            input.value = 'shop';
+            // preventDefault on touchstart keeps focus, but also means no
+            // synthesized click ever arrives - so touchend has to carry it.
+            el.querySelector('.marker-id-save').dispatchEvent(new Event('touchend', { bubbles: true }));
+
+            expect(manager.renameMarkerUrlId).toHaveBeenCalledWith('m1', 'shop');
+        });
+
+        it('deletes by touch as well', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            manager.removeMarker = vi.fn();
+
+            openEditor(el);
+            el.querySelector('.marker-id-delete').dispatchEvent(new Event('touchend', { bubbles: true }));
+
+            expect(manager.removeMarker).toHaveBeenCalledWith('m1');
+        });
+
         it('keeps focus on the save press, so blur cannot discard the save first', () => {
             const manager = makeManager();
             const el = mountIdRow(manager, 'm1', 'home');
