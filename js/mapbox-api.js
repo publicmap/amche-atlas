@@ -384,7 +384,7 @@ export class MapboxAPI {
                 fill: ['fill-color', 'fill-opacity', 'fill-outline-color', 'fill-translate'],
                 'fill-extrusion': ['fill-extrusion-opacity', 'fill-extrusion-color', 'fill-extrusion-translate', 'fill-extrusion-height', 'fill-extrusion-base', 'fill-extrusion-vertical-gradient'],
                 line: ['line-color', 'line-width', 'line-opacity', 'line-dasharray', 'line-translate', 'line-offset'],
-                symbol: ['icon-color', 'icon-opacity', 'text-color', 'text-halo-color', 'text-halo-width', 'text-opacity'],
+                symbol: ['icon-color', 'icon-opacity', 'text-color', 'text-halo-color', 'text-halo-width', 'text-opacity', 'text-letter-spacing'],
                 circle: ['circle-radius', 'circle-color', 'circle-opacity', 'circle-stroke-width', 'circle-stroke-color'],
                 raster: ['raster-opacity', 'raster-contrast', 'raster-saturation', 'raster-brightness-min', 'raster-brightness-max'],
                 background: ['background-color', 'background-opacity'],
@@ -2680,9 +2680,9 @@ export class MapboxAPI {
     prefetchLayerData(config) {
         if (!config?.url || config.data || config.dataSource === 'localStorage') return;
         if (config.type === 'sheet') {
-            this._getOrFetchGeoJSON(config.url, () => this._fetchSheetGeoJSON(config)).catch(() => {});
+            this._getOrFetchGeoJSON(config.url, () => this._fetchSheetGeoJSON(config)).catch(() => { });
         } else if (config.type === 'csv') {
-            this._getOrFetchGeoJSON(config.url, () => this._fetchCSVGeoJSON(config)).catch(() => {});
+            this._getOrFetchGeoJSON(config.url, () => this._fetchCSVGeoJSON(config)).catch(() => { });
         }
     }
 

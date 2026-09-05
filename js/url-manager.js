@@ -468,12 +468,28 @@ export class URLManager {
         return activeLayers;
     }
 
+    // applyURLParameters() holds isUpdatingFromURL across its awaits, which can
+    // be seconds, so a real state change landing inside that window (GPS
+    // dropping its camera lock, say) must be held rather than dropped - the
+    // flag is there to stop the URL being echoed back at itself while it's
+    // being read, not to discard everything that happens meanwhile.
+    get isUpdatingFromURL() { return this._isUpdatingFromURL === true; }
+
+    set isUpdatingFromURL(value) {
+        this._isUpdatingFromURL = value;
+        if (value || !this._deferredURLOptions) return;
+        const deferred = this._deferredURLOptions;
+        this._deferredURLOptions = null;
+        this.updateURL(deferred);
+    }
+
     /**
      * Update URL with current layer state
      */
     updateURL(options = {}) {
         if (this.isUpdatingFromURL) {
-            return; // Prevent circular updates
+            this._deferredURLOptions = { ...this._deferredURLOptions, ...options };
+            return;
         }
 
         // Merge with any pending options so explicit nulls (e.g. export: null) aren't

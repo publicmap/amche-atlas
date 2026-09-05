@@ -4,6 +4,16 @@
  * Creates square thumbnails from layer configurations, either using
  * headerImage or generating from style properties
  */
+import {
+    collectStylePasses,
+    colorBranches,
+    branchValue,
+    extractIconUrl,
+    strokeScaler
+} from './layer-style-utils.js';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
 export class LayerThumbnail {
     /**
      * Generate a thumbnail element for a layer
@@ -244,19 +254,28 @@ export class LayerThumbnail {
     }
 
     /**
-     * Generate symbology overlay for thumbnail
+     * Generate symbology overlay for thumbnail.
+     *
+     * A style may declare several rendering passes through "prefix/property"
+     * keys — a route line is a white casing under a coloured line with
+     * waypoint circles on top. Every pass is drawn in the order the map draws
+     * it, and match/case colour expressions expand into parallel symbols.
+     *
      * @param {Object} layer - Layer configuration
      * @param {number} size - Thumbnail size
-     * @returns {SVGElement|null} SVG overlay element
+     * @returns {SVGElement|HTMLElement|null} Overlay element
      */
     static _generateSymbologyOverlay(layer, size, layerDefaults = {}) {
         // Style properties can be in layer.style OR at the top level
-        const style = layer.style || layer;
+        const { fill, line, circle, icon, base } = collectStylePasses(layer.style || layer);
+        const hasGeometry = fill.length > 0 || line.length > 0 || circle.length > 0;
 
-        // Check for icon-image first (try both locations)
-        const iconImage = style['icon-image'] || layer['icon-image'];
+        // An icon stands in for the whole layer; a prefixed icon variant only
+        // does so when nothing else paints (e.g. arrows along a route line
+        // shouldn't replace the line itself)
+        const iconImage = base['icon-image'] || layer['icon-image'] || (hasGeometry ? null : icon?.iconImage);
         if (iconImage) {
-            const iconUrl = this._extractIconUrl(iconImage);
+            const iconUrl = extractIconUrl(iconImage);
             if (iconUrl) {
                 const iconContainer = document.createElement('div');
                 iconContainer.style.cssText = `
@@ -277,8 +296,7 @@ export class LayerThumbnail {
             }
         }
 
-        // Otherwise generate SVG for circle, fill, or line styles
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        const svg = document.createElementNS(SVG_NS, 'svg');
         svg.setAttribute('width', size);
         svg.setAttribute('height', size);
         svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
@@ -288,455 +306,241 @@ export class LayerThumbnail {
             left: 0;
         `;
 
-        // Helper to extract all output values from case/match expressions for multi-symbol rendering
-        const getMultiValues = (value) => {
-            if (!Array.isArray(value)) return null;
-
-            if (value[0] === 'case') {
-                const values = [];
-                for (let i = 2; i < value.length; i += 2) {
-                    values.push(value[i]);
-                }
-                if (value.length % 2 === 0) {
-                    values.push(value[value.length - 1]);
-                }
-                return values.length > 1 ? values : null;
-            }
-
-            if (value[0] === 'match') {
-                // match format: ["match", input, key1, output1, key2, output2, ..., default]
-                const values = [];
-                for (let i = 3; i < value.length - 1; i += 2) {
-                    if (typeof value[i] === 'string') values.push(value[i]);
-                }
-                const lastVal = value[value.length - 1];
-                if (typeof lastVal === 'string') values.push(lastVal);
-                return values.length > 1 ? values : null;
-            }
-
-            return null;
-        };
-
-        // Helper to extract representative value from Mapbox expressions
-        // Assumes zoom level 16 for balanced visibility
-        const getValue = (value, defaultValue = null) => {
-            if (typeof value === 'string' || typeof value === 'number') return value;
-            if (!Array.isArray(value)) return defaultValue;
-
-            const expr = value[0];
-
-            // Handle interpolate expressions: ["interpolate", ["linear"], ["zoom"], 14, val1, 18, val2]
-            if (expr === 'interpolate' && value.length >= 7) {
-                // Find zoom stops and values
-                const stops = [];
-                for (let i = 3; i < value.length; i += 2) {
-                    if (typeof value[i] === 'number' && i + 1 < value.length) {
-                        stops.push({ zoom: value[i], value: value[i + 1] });
-                    }
-                }
-                // Use zoom 16 for balanced styling
-                if (stops.length >= 2) {
-                    const targetZoom = 16;
-                    for (let i = 0; i < stops.length - 1; i++) {
-                        if (targetZoom >= stops[i].zoom && targetZoom <= stops[i + 1].zoom) {
-                            // Take average of zoom position to pick appropriate value
-                            const zoomProgress = (targetZoom - stops[i].zoom) / (stops[i + 1].zoom - stops[i].zoom);
-                            // Use higher value if halfway or more, for better visibility
-                            const val = zoomProgress >= 0.5 ? stops[i + 1].value : stops[i].value;
-                            return Array.isArray(val) ? getValue(val, defaultValue) : val;
-                        }
-                    }
-                    // Use middle stop value if available, otherwise first
-                    const val = stops[Math.floor(stops.length / 2)].value;
-                    return Array.isArray(val) ? getValue(val, defaultValue) : val;
-                }
-            }
-
-            // Handle case expressions: ["case", condition, trueVal, falseVal]
-            // For thumbnails, ignore feature-state and return the default/false value
-            if (expr === 'case') {
-                // Skip condition, get the last value (default/false case)
-                const lastVal = value[value.length - 1];
-                return Array.isArray(lastVal) ? getValue(lastVal, defaultValue) : lastVal;
-            }
-
-            // Handle step expressions: ["step", ["zoom"], defaultVal, stop1, val1, ...]
-            if (expr === 'step' && value.length >= 3) {
-                const targetZoom = 16;
-                const defaultVal = value[2];
-                let selectedVal = defaultVal;
-                // Find appropriate step value
-                for (let i = 3; i < value.length; i += 2) {
-                    if (i + 1 < value.length && typeof value[i] === 'number') {
-                        if (targetZoom >= value[i]) {
-                            selectedVal = value[i + 1];
-                        }
-                    }
-                }
-                return Array.isArray(selectedVal) ? getValue(selectedVal, defaultValue) : selectedVal;
-            }
-
-            // Handle match expressions: ["match", input, key1, output1, ..., default]
-            if (expr === 'match' && value.length >= 4) {
-                const firstOutput = value[3];
-                return Array.isArray(firstOutput) ? getValue(firstOutput, defaultValue) : firstOutput;
-            }
-
-            // For other expressions, try to find first concrete value
-            for (let i = 1; i < value.length; i++) {
-                const item = value[i];
-                if (typeof item === 'string' || typeof item === 'number') {
-                    // Skip expression operators and property accessors
-                    if (item !== 'get' && item !== 'zoom' && item !== 'feature-state' &&
-                        item !== 'linear' && item !== 'exponential' && item !== 'boolean') {
-                        return item;
-                    }
-                }
-            }
-
-            return defaultValue;
-        };
-
-        // Fill symbology (with optional line)
-        if (style['fill-color']) {
-            const fillOpacity = getValue(style['fill-opacity'], 0.5);
-            const lineColor = getValue(style['line-color'], '#1e40af');
-            const lineWidth = getValue(style['line-width'], 1);
-
-            // Check if fill-color is a case expression with multiple values
-            const caseValues = getMultiValues(style['fill-color']);
-
-            if (caseValues && caseValues.length > 1) {
-                // Render multiple polygons, one for each case value
-                const numPolygons = Math.min(caseValues.length, 4); // Limit to 4 for visibility
-                const offsetStep = size * 0.08; // 8% offset between each polygon
-
-                for (let i = 0; i < numPolygons; i++) {
-                    const fillColor = caseValues[i];
-                    const offset = i * offsetStep;
-
-                    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-                    // Create offset polygons from bottom-right to top-left
-                    const x1 = size * 0.2 + offset;
-                    const y1 = size * 0.2 + offset;
-                    const x2 = size * 0.7 + offset;
-                    const y2 = size * 0.7 + offset;
-                    const points = `${x1},${y1} ${x2},${y1} ${x2},${y2} ${x1},${y2}`;
-
-                    polygon.setAttribute('points', points);
-                    polygon.setAttribute('fill', fillColor);
-                    polygon.setAttribute('fill-opacity', fillOpacity);
-
-                    // Add stroke to make layers distinguishable
-                    if (lineWidth > 0) {
-                        polygon.setAttribute('stroke', lineColor);
-                        polygon.setAttribute('stroke-width', Math.min(lineWidth * 1.5, 3));
-                    } else {
-                        // Add thin white stroke to separate overlapping polygons
-                        polygon.setAttribute('stroke', 'white');
-                        polygon.setAttribute('stroke-width', 0.5);
-                    }
-
-                    svg.appendChild(polygon);
-                }
-            } else {
-                // Single polygon for non-case expressions
-                const fillColor = getValue(style['fill-color'], '#3b82f6');
-                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-                // Larger polygon covering more area (from 20% to 80%)
-                const points = `${size * 0.2},${size * 0.2} ${size * 0.8},${size * 0.2} ${size * 0.8},${size * 0.8} ${size * 0.2},${size * 0.8}`;
-                polygon.setAttribute('points', points);
-                polygon.setAttribute('fill', fillColor);
-                polygon.setAttribute('fill-opacity', fillOpacity);
-
-                // Only show stroke if line-width is meaningful (> 0)
-                if (lineWidth > 0) {
-                    polygon.setAttribute('stroke', lineColor);
-                    polygon.setAttribute('stroke-width', Math.min(lineWidth * 1.5, 3));
-                }
-                svg.appendChild(polygon);
-            }
-        }
-        // Line symbology
-        else if (style['line-color'] || style['line-width']) {
-            const effectiveLineColor = style['line-color'];
-            const width = getValue(style['line-width'], 2);
-            const opacity = getValue(style['line-opacity'], 1);
-            const hasCircle = !!(style['circle-radius'] || style['circle-color']);
-            const circleColors = hasCircle ? getMultiValues(style['circle-color']) : null;
-            const circleR = hasCircle ? Math.min(Math.max(getValue(style['circle-radius'], 3), 2), size * 0.08) : 0;
-
-            const drawLine = (color, lineY, circleColor) => {
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', size * 0.1);
-                line.setAttribute('y1', lineY);
-                line.setAttribute('x2', size * 0.9);
-                line.setAttribute('y2', lineY);
-                line.setAttribute('stroke', color);
-                line.setAttribute('stroke-width', Math.min(Math.max(width * 2, 2), 4));
-                line.setAttribute('opacity', opacity);
-                svg.appendChild(line);
-
-                if (hasCircle && circleR > 0) {
-                    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    dot.setAttribute('cx', size / 2);
-                    dot.setAttribute('cy', lineY);
-                    dot.setAttribute('r', circleR);
-                    dot.setAttribute('fill', typeof circleColor === 'string' ? circleColor : color);
-                    dot.setAttribute('opacity', opacity);
-                    svg.appendChild(dot);
-                }
-            };
-
-            const caseValues = getMultiValues(effectiveLineColor);
-
-            if (caseValues && caseValues.length > 1) {
-                const numLines = Math.min(caseValues.length, 5);
-                const step = Math.min(size * 0.14, 11);
-                const startY = size / 2 - ((numLines - 1) * step) / 2;
-                for (let i = 0; i < numLines; i++) {
-                    drawLine(caseValues[i], startY + i * step, circleColors?.[i]);
-                }
-            } else {
-                drawLine(getValue(effectiveLineColor, 'grey'), size / 2, getValue(style['circle-color'], null));
-            }
-        }
-        // Circle symbology
-        else if (style['circle-radius'] || style['circle-color']) {
-            const radius = getValue(style['circle-radius'], 6);
-            const strokeColor = getValue(style['circle-stroke-color'], '#ffffff');
-            const strokeWidth = getValue(style['circle-stroke-width'], 1);
-            const opacity = getValue(style['circle-opacity'], 0.9);
-
-            const caseValues = getMultiValues(style['circle-color']);
-
-            if (caseValues && caseValues.length > 1) {
-                const numCircles = Math.min(caseValues.length, 4);
-                const offsetStep = size * 0.12;
-
-                for (let i = 0; i < numCircles; i++) {
-                    const color = caseValues[i];
-                    const offset = i * offsetStep;
-
-                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    circle.setAttribute('cx', size * 0.35 + offset);
-                    circle.setAttribute('cy', size * 0.35 + offset);
-                    circle.setAttribute('r', Math.min(radius * 2.5, size / 4));
-                    circle.setAttribute('fill', color);
-                    circle.setAttribute('opacity', opacity);
-                    circle.setAttribute('stroke', strokeColor);
-                    circle.setAttribute('stroke-width', Math.max(strokeWidth * 1.5, 0.5));
-                    svg.appendChild(circle);
-                }
-            } else {
-                const color = getValue(style['circle-color'], '#3b82f6');
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', size / 2);
-                circle.setAttribute('cy', size / 2);
-                circle.setAttribute('r', Math.min(radius * 3, size / 3));
-                circle.setAttribute('fill', color);
-                circle.setAttribute('opacity', opacity);
-                circle.setAttribute('stroke', strokeColor);
-                circle.setAttribute('stroke-width', Math.max(strokeWidth * 1.5, 0.5));
-                svg.appendChild(circle);
-            }
+        if (fill.length) {
+            this._drawFillSymbols(svg, fill, size);
+        } else if (line.length) {
+            this._drawLineSymbols(svg, line, circle, size);
+        } else if (circle.length) {
+            this._drawPointSymbols(svg, circle, size);
         }
 
         return svg;
     }
 
     /**
-     * Extract icon URL from icon-image property (handles both strings and expressions)
-     * @param {string|Array} iconImage - icon-image value
-     * @returns {string|null} First icon URL found, or null
+     * Polygons, offset from each other when a match/case expression paints
+     * features in more than one colour.
      */
-    static _extractIconUrl(iconImage) {
-        if (typeof iconImage === 'string') {
-            // Simple string - check if it looks like a URL or path
-            if (iconImage.includes('.png') || iconImage.includes('.jpg') ||
-                iconImage.includes('.svg') || iconImage.includes('.jpeg') ||
-                iconImage.includes('.gif') || iconImage.startsWith('http')) {
-                return iconImage;
-            }
-        } else if (Array.isArray(iconImage)) {
-            // Expression - extract first icon path
-            // For match expressions: ["match", ["get", "prop"], "val1", "icon1.png", "val2", "icon2.png", "default.png"]
-            for (let i = 0; i < iconImage.length; i++) {
-                const item = iconImage[i];
+    static _drawFillSymbols(svg, fillPasses, size) {
+        const basePass = fillPasses[0];
+        const branches = colorBranches(basePass.colorExpr);
+        // A fill with no explicit line-width still reads better with an outline
+        const strokeWidthOf = (pass, branch) => {
+            const width = branchValue(pass.style['line-width'], branch, pass.strokeWidth);
+            const resolved = width == null ? 1 : width;
+            return resolved > 0 ? Math.max(0.75, Math.min(resolved * (size / 40), size * 0.06)) : 0;
+        };
 
-                if (typeof item === 'string') {
-                    // Check if it looks like an icon path (not an operator like "match", "get", etc.)
-                    const isIconPath = item.includes('.png') || item.includes('.jpg') ||
-                        item.includes('.svg') || item.includes('.jpeg') ||
-                        item.includes('.gif') || item.startsWith('http') ||
-                        item.startsWith('assets/') || item.startsWith('data/') ||
-                        item.startsWith('images/');
+        if (branches) {
+            const offsetStep = size * 0.08;
 
-                    if (isIconPath) {
-                        return item;
-                    }
-                } else if (Array.isArray(item)) {
-                    // Nested expression - recurse
-                    const nested = this._extractIconUrl(item);
-                    if (nested) {
-                        return nested;
-                    }
-                }
-            }
+            branches.slice(0, 4).forEach((branch, i) => {
+                const offset = i * offsetStep;
+                const strokeWidth = strokeWidthOf(basePass, branch);
+                svg.appendChild(this._polygon({
+                    x1: size * 0.2 + offset,
+                    y1: size * 0.2 + offset,
+                    x2: size * 0.7 + offset,
+                    y2: size * 0.7 + offset,
+                    fill: branch.value,
+                    fillOpacity: branchValue(basePass.style['fill-opacity'], branch, basePass.opacity),
+                    // A hairline keeps overlapping polygons apart when the
+                    // style itself draws no outline
+                    stroke: strokeWidth > 0 ? (branchValue(basePass.style['line-color'], branch, basePass.strokeColor) || '#1e40af') : 'white',
+                    strokeWidth: strokeWidth > 0 ? strokeWidth : 0.5
+                }));
+            });
+            return;
         }
 
-        return null;
+        fillPasses.forEach(pass => {
+            const strokeWidth = strokeWidthOf(pass, null);
+            svg.appendChild(this._polygon({
+                x1: size * 0.2,
+                y1: size * 0.2,
+                x2: size * 0.8,
+                y2: size * 0.8,
+                fill: pass.color,
+                fillOpacity: pass.opacity,
+                stroke: pass.strokeColor || '#1e40af',
+                strokeWidth
+            }));
+        });
     }
 
     /**
-     * Generate SVG thumbnail from style properties
+     * Stacked lines: every pass is drawn on the same baseline so casings stay
+     * visible, and each colour branch gets its own row.
      */
-    static _generateStyleThumbnail(layer, size) {
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('width', size);
-        svg.setAttribute('height', size);
-        svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
-        svg.style.backgroundColor = '#f9fafb';
+    static _drawLineSymbols(svg, linePasses, circlePasses, size) {
+        // Circles declared alongside a line are its vertices and sit on it;
+        // circles from another variant (route waypoints) are separate features
+        const linePrefixes = new Set(linePasses.map(pass => pass.prefix));
+        const vertexPasses = circlePasses.filter(pass => linePrefixes.has(pass.prefix));
+        const markerPasses = circlePasses.filter(pass => !linePrefixes.has(pass.prefix));
+        const maxStroke = Math.max(3, size * 0.14);
+        const scaleStroke = strokeScaler(linePasses.map(pass => pass.width), {
+            maxPx: maxStroke,
+            minPx: 1,
+            scale: size / 40
+        });
 
-        const style = layer.style;
+        const classified = [...linePasses].reverse().find(pass => colorBranches(pass.colorExpr));
+        const branches = classified ? colorBranches(classified.colorExpr) : null;
+        // Stacked passes need vertical room, so show fewer branch rows
+        const rows = branches ? Math.min(branches.length, linePasses.length > 1 ? 3 : 5) : 1;
+        const step = Math.min(size * 0.14, 11, (size * 0.85) / rows);
+        const startY = size / 2 - ((rows - 1) * step) / 2;
 
-        // Helper to extract simple value from Mapbox expressions
-        const getValue = (value, defaultValue = null) => {
-            if (typeof value === 'string' || typeof value === 'number') return value;
-            if (Array.isArray(value)) {
-                // For match/case/step expressions, return first non-expression value
-                for (let i = 1; i < value.length; i++) {
-                    if (typeof value[i] === 'string' || typeof value[i] === 'number') {
-                        return value[i];
-                    }
-                }
-            }
-            return defaultValue;
-        };
+        for (let row = 0; row < rows; row++) {
+            const branch = branches ? branches[row] : null;
+            const y = startY + row * step;
 
-        // Point features (circles)
-        if (style['circle-radius'] || style['circle-color']) {
-            const color = getValue(style['circle-color'], '#3b82f6');
-            const radius = getValue(style['circle-radius'], 6);
-            const strokeColor = getValue(style['circle-stroke-color'], '#ffffff');
-            const strokeWidth = getValue(style['circle-stroke-width'], 1);
-            const opacity = getValue(style['circle-opacity'], 0.9);
+            linePasses.forEach(pass => {
+                svg.appendChild(this._line({
+                    x1: size * 0.1,
+                    x2: size * 0.9,
+                    y,
+                    stroke: branchValue(pass.colorExpr, branch, pass.color) || 'grey',
+                    strokeWidth: scaleStroke(branchValue(pass.style['line-width'], branch, pass.width)),
+                    opacity: branchValue(pass.style['line-opacity'], branch, pass.opacity),
+                    dasharray: branchValue(pass.style['line-dasharray'], branch, pass.dasharray)
+                }));
+            });
 
-            // Draw multiple circles to fill the thumbnail
-            const cols = 4;
-            const rows = 4;
-            const spacing = size / cols;
-
-            for (let row = 0; row < rows; row++) {
-                for (let col = 0; col < cols; col++) {
-                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    circle.setAttribute('cx', spacing * col + spacing / 2);
-                    circle.setAttribute('cy', spacing * row + spacing / 2);
-                    circle.setAttribute('r', Math.min(radius * 1.5, spacing / 3));
-                    circle.setAttribute('fill', color);
-                    circle.setAttribute('opacity', opacity);
-                    circle.setAttribute('stroke', strokeColor);
-                    circle.setAttribute('stroke-width', strokeWidth);
-                    svg.appendChild(circle);
-                }
-            }
-        }
-        // Line features
-        else if (style['line-color']) {
-            const color = getValue(style['line-color'], '#3b82f6');
-            const width = getValue(style['line-width'], 2);
-            const opacity = getValue(style['line-opacity'], 1);
-            const dasharray = getValue(style['line-dasharray'], null);
-
-            // Draw zigzag lines
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            const d = `M 0,${size * 0.3} L ${size * 0.25},${size * 0.5} L ${size * 0.5},${size * 0.3} L ${size * 0.75},${size * 0.5} L ${size},${size * 0.3}
-                       M 0,${size * 0.6} L ${size * 0.25},${size * 0.8} L ${size * 0.5},${size * 0.6} L ${size * 0.75},${size * 0.8} L ${size},${size * 0.6}`;
-
-            path.setAttribute('d', d);
-            path.setAttribute('stroke', color);
-            path.setAttribute('stroke-width', Math.max(width * 1.5, 2));
-            path.setAttribute('opacity', opacity);
-            path.setAttribute('fill', 'none');
-            if (dasharray) {
-                path.setAttribute('stroke-dasharray', dasharray);
-            }
-            svg.appendChild(path);
-        }
-        // Polygon features
-        else if (style['fill-color']) {
-            const fillColor = getValue(style['fill-color'], '#3b82f6');
-            const fillOpacity = getValue(style['fill-opacity'], 0.5);
-            const lineColor = getValue(style['line-color'], '#1e40af');
-            const lineWidth = getValue(style['line-width'], 2);
-
-            // Draw overlapping polygons
-            const polygon1 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            polygon1.setAttribute('x', size * 0.1);
-            polygon1.setAttribute('y', size * 0.1);
-            polygon1.setAttribute('width', size * 0.5);
-            polygon1.setAttribute('height', size * 0.5);
-            polygon1.setAttribute('fill', fillColor);
-            polygon1.setAttribute('fill-opacity', fillOpacity);
-            polygon1.setAttribute('stroke', lineColor);
-            polygon1.setAttribute('stroke-width', lineWidth);
-            svg.appendChild(polygon1);
-
-            const polygon2 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            polygon2.setAttribute('x', size * 0.4);
-            polygon2.setAttribute('y', size * 0.4);
-            polygon2.setAttribute('width', size * 0.5);
-            polygon2.setAttribute('height', size * 0.5);
-            polygon2.setAttribute('fill', fillColor);
-            polygon2.setAttribute('fill-opacity', fillOpacity);
-            polygon2.setAttribute('stroke', lineColor);
-            polygon2.setAttribute('stroke-width', lineWidth);
-            svg.appendChild(polygon2);
-        }
-        // Raster layers (show grid pattern)
-        else if (layer.type === 'tms' || layer.type === 'raster-style-layer') {
-            const gridSize = size / 4;
-            for (let row = 0; row < 4; row++) {
-                for (let col = 0; col < 4; col++) {
-                    const shade = ((row + col) % 2 === 0) ? '#e5e7eb' : '#d1d5db';
-                    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                    rect.setAttribute('x', col * gridSize);
-                    rect.setAttribute('y', row * gridSize);
-                    rect.setAttribute('width', gridSize);
-                    rect.setAttribute('height', gridSize);
-                    rect.setAttribute('fill', shade);
-                    svg.appendChild(rect);
-                }
-            }
+            vertexPasses.forEach(pass => this._drawVertex(svg, pass, branch, size, size / 2, y));
         }
 
-        return svg;
+        if (markerPasses.length) {
+            this._drawLineMarkers(svg, markerPasses, size, startY + ((rows - 1) * step) / 2);
+        }
+    }
+
+    /**
+     * Circles from their own variant (route waypoints), spaced along the line.
+     */
+    static _drawLineMarkers(svg, circlePasses, size, cy) {
+        const branches = colorBranches(circlePasses[0].colorExpr);
+        const slots = branches ? branches.slice(0, 3) : [null];
+        const positions = slots.length === 1
+            ? [size / 2]
+            : slots.map((_, i) => size * (0.3 + (0.4 * i) / (slots.length - 1)));
+
+        slots.forEach((branch, i) => {
+            circlePasses.forEach(pass => this._drawVertex(svg, pass, branch, size, positions[i], cy));
+        });
+    }
+
+    static _drawVertex(svg, pass, branch, size, cx, cy) {
+        const radius = Math.max(2, Math.min(
+            (branchValue(pass.style['circle-radius'], branch, pass.radius) || 6) * (size / 40),
+            size * 0.12
+        ));
+        const strokeWidth = branchValue(pass.style['circle-stroke-width'], branch, pass.strokeWidth);
+        svg.appendChild(this._circle({
+            cx,
+            cy,
+            r: radius,
+            fill: branchValue(pass.colorExpr, branch, pass.color),
+            opacity: branchValue(pass.style['circle-opacity'], branch, pass.opacity),
+            stroke: branchValue(pass.style['circle-stroke-color'], branch, pass.strokeColor) || 'transparent',
+            strokeWidth: strokeWidth ? Math.max(0.5, Math.min(strokeWidth * (size / 40), radius * 0.6)) : 0
+        }));
+    }
+
+    /**
+     * Point layers: one circle per colour branch, offset diagonally.
+     */
+    static _drawPointSymbols(svg, circlePasses, size) {
+        const branches = colorBranches(circlePasses[0].colorExpr);
+        const slots = branches
+            ? branches.slice(0, 4).map((branch, i) => ({
+                branch,
+                cx: size * 0.35 + i * size * 0.12,
+                cy: size * 0.35 + i * size * 0.12,
+                scale: 2.5,
+                maxRadius: size / 4
+            }))
+            : [{ branch: null, cx: size / 2, cy: size / 2, scale: 3, maxRadius: size / 3 }];
+
+        slots.forEach(slot => {
+            circlePasses.forEach(pass => {
+                const radius = branchValue(pass.style['circle-radius'], slot.branch, pass.radius) || 6;
+                const strokeWidth = branchValue(pass.style['circle-stroke-width'], slot.branch, pass.strokeWidth);
+                svg.appendChild(this._circle({
+                    cx: slot.cx,
+                    cy: slot.cy,
+                    r: Math.min(radius * slot.scale, slot.maxRadius),
+                    fill: branchValue(pass.colorExpr, slot.branch, pass.color),
+                    opacity: branchValue(pass.style['circle-opacity'], slot.branch, pass.opacity),
+                    stroke: branchValue(pass.style['circle-stroke-color'], slot.branch, pass.strokeColor) || '#ffffff',
+                    strokeWidth: Math.max((strokeWidth == null ? 1 : strokeWidth) * 1.5, 0.5)
+                }));
+            });
+        });
+    }
+
+    static _polygon({ x1, y1, x2, y2, fill, fillOpacity, stroke, strokeWidth }) {
+        const polygon = document.createElementNS(SVG_NS, 'polygon');
+        polygon.setAttribute('points', `${x1},${y1} ${x2},${y1} ${x2},${y2} ${x1},${y2}`);
+        polygon.setAttribute('fill', fill);
+        polygon.setAttribute('fill-opacity', fillOpacity != null ? fillOpacity : 0.5);
+        if (strokeWidth > 0) {
+            polygon.setAttribute('stroke', stroke);
+            polygon.setAttribute('stroke-width', strokeWidth);
+        }
+        return polygon;
+    }
+
+    static _line({ x1, x2, y, stroke, strokeWidth, opacity, dasharray }) {
+        const line = document.createElementNS(SVG_NS, 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y);
+        line.setAttribute('stroke', stroke);
+        line.setAttribute('stroke-width', strokeWidth);
+        line.setAttribute('opacity', opacity != null ? opacity : 1);
+        if (dasharray) line.setAttribute('stroke-dasharray', dasharray);
+        return line;
+    }
+
+    static _circle({ cx, cy, r, fill, opacity, stroke, strokeWidth }) {
+        const circle = document.createElementNS(SVG_NS, 'circle');
+        circle.setAttribute('cx', cx);
+        circle.setAttribute('cy', cy);
+        circle.setAttribute('r', r);
+        circle.setAttribute('fill', fill || '#3b82f6');
+        circle.setAttribute('opacity', opacity != null ? opacity : 0.9);
+        circle.setAttribute('stroke', stroke);
+        circle.setAttribute('stroke-width', strokeWidth);
+        return circle;
     }
 
     /**
      * Generate default thumbnail for layers without styles
      */
     static _generateDefaultThumbnail(layer, size) {
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        const svg = document.createElementNS(SVG_NS, 'svg');
         svg.setAttribute('width', size);
         svg.setAttribute('height', size);
         svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
         svg.style.backgroundColor = '#f9fafb';
 
         // Background gradient
-        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+        const defs = document.createElementNS(SVG_NS, 'defs');
+        const gradient = document.createElementNS(SVG_NS, 'linearGradient');
         gradient.setAttribute('id', `bg-gradient-${Date.now()}`);
         gradient.setAttribute('x1', '0%');
         gradient.setAttribute('y1', '0%');
         gradient.setAttribute('x2', '100%');
         gradient.setAttribute('y2', '100%');
 
-        const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        const stop1 = document.createElementNS(SVG_NS, 'stop');
         stop1.setAttribute('offset', '0%');
         stop1.setAttribute('stop-color', '#f9fafb');
 
-        const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        const stop2 = document.createElementNS(SVG_NS, 'stop');
         stop2.setAttribute('offset', '100%');
         stop2.setAttribute('stop-color', '#f3f4f6');
 
@@ -745,14 +549,14 @@ export class LayerThumbnail {
         defs.appendChild(gradient);
         svg.appendChild(defs);
 
-        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        const rect = document.createElementNS(SVG_NS, 'rect');
         rect.setAttribute('width', size);
         rect.setAttribute('height', size);
         rect.setAttribute('fill', `url(#bg-gradient-${Date.now()})`);
         svg.appendChild(rect);
 
         // Icon
-        const icon = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const icon = document.createElementNS(SVG_NS, 'text');
         icon.setAttribute('x', size / 2);
         icon.setAttribute('y', size * 0.4);
         icon.setAttribute('text-anchor', 'middle');
@@ -762,7 +566,7 @@ export class LayerThumbnail {
         svg.appendChild(icon);
 
         // Type text
-        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const text = document.createElementNS(SVG_NS, 'text');
         text.setAttribute('x', size / 2);
         text.setAttribute('y', size * 0.7);
         text.setAttribute('text-anchor', 'middle');

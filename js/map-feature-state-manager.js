@@ -443,6 +443,48 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
+     * Marks `features` (each {feature, layerId, lngLat}) selected exactly like
+     * handleFeatureClicks does per-feature (feature id, `_selectedFeatures`
+     * membership, mapbox feature-state, inspection handler) - but additively:
+     * it never clears any other selection first and never emits a
+     * `feature-click` event, so it doesn't trigger map-marker-manager.js's own
+     * "clear existing markers unless in add mode" handling. Used by
+     * shortcut-menu-base.js for a route endpoint, which wants whatever is
+     * under that point to actually read as selected (highlighted, with a
+     * proper featureId for its badge) without disturbing any other marker/
+     * route already on the map.
+     *
+     * Returns the same features, each with its `featureId` filled in - what
+     * map-marker-manager.js's badge/selection-layer code needs and
+     * handleFeatureClicks' own raw click input doesn't carry yet.
+     */
+    selectFeaturesAdditive(features) {
+        return (features || []).map(({ feature, layerId, lngLat }) => {
+            if (!feature || !layerId) return null;
+
+            const featureId = this._getFeatureId(feature);
+            const compositeKey = this._getCompositeKey(layerId, featureId);
+            const alreadySelected = this._selectedFeatures.has(compositeKey);
+
+            this._updateFeatureState(compositeKey, {
+                feature,
+                layerId,
+                isSelected: true,
+                lngLat,
+                timestamp: Date.now()
+            });
+
+            if (!alreadySelected) {
+                this._selectedFeatures.add(compositeKey);
+                this._setMapboxFeatureStateAllLayers(featureId, layerId, { selected: true });
+                this._executeInspectionHandler(feature, layerId, lngLat);
+            }
+
+            return { featureId, layerId, feature, lngLat };
+        }).filter(Boolean);
+    }
+
+    /**
      * Handle feature clicks (BATCH PROCESSING for overlapping features)
      * @param {Array} clickedFeatures - Array of {feature, layerId, lngLat} objects
      * @param {Object} lngLat - Click coordinates (optional, for empty area clicks)

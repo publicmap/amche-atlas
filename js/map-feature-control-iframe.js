@@ -1388,18 +1388,40 @@ export class MapFeatureControl {
     }
 
     /**
-     * Query interactive features at a screen point and dispatch the selection.
-     * Shared by the mapbox `click` handler and the touch tap fallback so both
-     * paths behave identically.
+     * Interactive features at a geographic point, queried the same way a real
+     * click would (nearest-feature buffer fallback included) but without
+     * dispatching a selection — used by shortcut-menu-base.js to find out
+     * what's under a point (e.g. a route endpoint) before deciding how to
+     * label/populate a marker dropped there.
+     * @param {{lng:number,lat:number}} lngLat - geographic coordinate
+     * @returns {Array<{feature:object, layerId:string, lngLat:object}>}
+     */
+    getFeaturesAtPoint(lngLat) {
+        if (!this._map || !lngLat) return [];
+        return this._queryInteractiveFeaturesAt(this._map.project(lngLat), lngLat);
+    }
+
+    /**
+     * Same query as getFeaturesAtPoint, but also marks whatever it finds
+     * selected (map-feature-state-manager.js's selectFeaturesAdditive) -
+     * highlighted on the map and carrying a real featureId - without
+     * disturbing any other selection. Used by shortcut-menu-base.js for a
+     * route endpoint, which wants that point's marker to read as a genuine
+     * selection rather than just showing feature badges in its popup.
+     */
+    selectFeaturesAtPoint(lngLat) {
+        const features = this.getFeaturesAtPoint(lngLat);
+        if (features.length === 0) return [];
+        return this._stateManager.selectFeaturesAdditive(features);
+    }
+
+    /**
+     * Shared feature-query logic behind getFeaturesAtPoint and
+     * _processClickAtPoint's `click` dispatch.
      * @param {{x:number,y:number}} point - screen point
      * @param {{lng:number,lat:number}} lngLat - geographic coordinate
      */
-    _processClickAtPoint(point, lngLat, { force = false } = {}) {
-        if (!force && !this._autoSelectEnabled) return;
-        // Swallow the browser's phantom click that follows a touch marker/balloon
-        // drag release — see `_suppressClickUntil`'s definition for why it happens.
-        if (!force && Date.now() < this._stateManager._suppressClickUntil) return;
-
+    _queryInteractiveFeaturesAt(point, lngLat) {
         let interactiveFeatures = [];
         try {
             // Scope the query to interactive layers so clicks don't intersect
@@ -1433,10 +1455,27 @@ export class MapFeatureControl {
                 interactiveFeatures = this._stateManager.getFeaturesAtPoint(point, lngLat)
                     .filter(({ layerId }) => this._stateManager.isLayerInteractive(layerId));
             } else {
-                console.error('[MapFeatureControl] Error querying rendered features on click:', error);
+                console.error('[MapFeatureControl] Error querying rendered features:', error);
                 throw error;
             }
         }
+        return interactiveFeatures;
+    }
+
+    /**
+     * Queries interactive features at a screen point and dispatches the
+     * selection. Shared by the mapbox `click` handler and the touch tap
+     * fallback so both paths behave identically.
+     * @param {{x:number,y:number}} point - screen point
+     * @param {{lng:number,lat:number}} lngLat - geographic coordinate
+     */
+    _processClickAtPoint(point, lngLat, { force = false } = {}) {
+        if (!force && !this._autoSelectEnabled) return;
+        // Swallow the browser's phantom click that follows a touch marker/balloon
+        // drag release — see `_suppressClickUntil`'s definition for why it happens.
+        if (!force && Date.now() < this._stateManager._suppressClickUntil) return;
+
+        const interactiveFeatures = this._queryInteractiveFeaturesAt(point, lngLat);
 
         if (interactiveFeatures.length > 0) {
             console.log('[TapDebug] processClick -> handleFeatureClicks (features)', {

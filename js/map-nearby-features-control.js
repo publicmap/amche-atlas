@@ -535,33 +535,44 @@ export class NearbyFeaturesControl {
         // (source, source-layer) pairs to query, not layer ids: several style
         // layers can label the same vector tile layer (e.g. by subtype, or a
         // casing/halo pass), so querying per style layer would both re-query
-        // and re-filter the same underlying data repeatedly. Each pair's own
-        // layer filter(s) are intentionally not reapplied - querySourceFeatures
-        // returns every loaded feature regardless of whether any layer's
-        // filter or zoom range would currently draw it, which is what actually
-        // fixes the "quite limited" result set: queryRenderedFeatures only
-        // returns features whose glyph is presently painted, after Mapbox's
-        // own label-collision culling has hidden most candidates.
-        let sourceLayerPairs;
+        // and re-filter the same underlying data repeatedly. Each pair also
+        // collects the union of property names its labeling layer(s) actually
+        // reference in their own text-field (see _textFieldProperties) - the
+        // label shown here is exactly what the style itself would display,
+        // not a guessed field name. Layer filter(s)/zoom range are
+        // intentionally not reapplied - querySourceFeatures returns every
+        // loaded feature regardless of whether any layer would currently draw
+        // it, which is what actually fixes the "quite limited" result set:
+        // queryRenderedFeatures only returns features whose glyph is
+        // presently painted, after Mapbox's own label-collision culling has
+        // hidden most candidates.
+        let groupsMeta;
         try {
-            sourceLayerPairs = new Map();
+            groupsMeta = new Map();
             (this._map.getStyle()?.layers || [])
                 .filter(l => l.type === 'symbol' && l.layout?.['text-field'] && l.source)
                 .forEach(l => {
-                    const key = `${l.source} ${l['source-layer'] || ''}`;
-                    if (!sourceLayerPairs.has(key)) sourceLayerPairs.set(key, { source: l.source, sourceLayer: l['source-layer'] });
+                    const key = `${l.source} ${l['source-layer'] || ''}`;
+                    let meta = groupsMeta.get(key);
+                    if (!meta) {
+                        meta = { source: l.source, sourceLayer: l['source-layer'], labelProps: new Set() };
+                        groupsMeta.set(key, meta);
+                    }
+                    this._textFieldProperties(l.layout['text-field']).forEach(p => meta.labelProps.add(p));
                 });
         } catch (error) {
             console.error('[nearby-features] reading style layers failed:', error);
             return [];
         }
-        if (sourceLayerPairs.size === 0) return [];
+        if (groupsMeta.size === 0) return [];
 
         const origin = this._fromRef.resolveOrCenter();
         const seen = new Set();
         const groups = new Map();
 
-        sourceLayerPairs.forEach(({ source, sourceLayer }) => {
+        groupsMeta.forEach(({ source, sourceLayer, labelProps }) => {
+            if (labelProps.size === 0) return;
+
             let features;
             try {
                 features = this._map.querySourceFeatures(source, sourceLayer ? { sourceLayer } : undefined);
@@ -571,7 +582,7 @@ export class NearbyFeaturesControl {
             }
 
             features.forEach(f => {
-                const label = this._labelForMapFeature(f);
+                const label = this._labelForMapFeature(f, labelProps);
                 const lngLat = this._pointLngLat(f);
                 if (!label || !lngLat) return;
 
@@ -603,11 +614,38 @@ export class NearbyFeaturesControl {
         return items;
     }
 
-    /** The label text a vector tile layer carries, first recognized field wins. */
-    _labelForMapFeature(f) {
+    /**
+     * Property names a `text-field` layout value actually reads from the
+     * feature: `{name_en}`-style tokens in a plain string, or `["get",
+     * "name_en"]` anywhere inside an expression (covers the common
+     * `["coalesce", ["get", ...], ["get", ...]]` / `["format", ["get", ...],
+     * ...]` shapes used for multi-language or styled labels).
+     */
+    _textFieldProperties(textField) {
+        const props = new Set();
+        const walk = (node) => {
+            if (typeof node === 'string') {
+                const tokens = node.match(/\{([^}]+)\}/g);
+                if (tokens) tokens.forEach(t => props.add(t.slice(1, -1)));
+                return;
+            }
+            if (Array.isArray(node)) {
+                if (node[0] === 'get' && typeof node[1] === 'string') props.add(node[1]);
+                node.forEach(walk);
+            }
+        };
+        walk(textField);
+        return props;
+    }
+
+    /** The label text as the style's own text-field would show it - the first of `labelProps` that's actually set on this feature. */
+    _labelForMapFeature(f, labelProps) {
         const props = f.properties || {};
-        const label = props.name_en || props.name || props.name_local || props.ref || props.title || props.label || props.Class || props.class;
-        return label ? String(label) : null;
+        for (const key of labelProps) {
+            const value = props[key];
+            if (value !== undefined && value !== null && value !== '') return String(value);
+        }
+        return null;
     }
 
     /**

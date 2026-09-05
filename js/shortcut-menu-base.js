@@ -15,6 +15,7 @@ import { LayerOrderManager } from './layer-order-manager.js';
 import { routeStore } from './search/route-store.js';
 import { routeBounds } from './search/route-geojson.js';
 import { WaypointPicker } from './waypoint-picker.js';
+import { reverseGeocodeAddress } from './nominatim-search.js';
 
 export class ShortcutMenuBase {
     constructor() {
@@ -513,6 +514,19 @@ export class ShortcutMenuBase {
      * no highlighting). Used to mark where the menu itself was opened (see
      * shortcut-menu.js's right-click/long-press) and by "Comments" below, so
      * that spot has a handle on the map even before "Select Here" is chosen.
+     * Deliberately skips querying what's under the point even though a route
+     * endpoint pick (below) wants that - right-click/long-press opens this
+     * marker on every context-menu open, including ones the user only meant
+     * to glance at and dismiss, so querying and showing badges here would
+     * make an untouched placeholder look like a real selection.
+     *
+     * A caller that already knows what's there (route endpoints, via
+     * `selectFeaturesAtPoint`) can hand it in via `features`, which - only when
+     * a *new* marker is created - seeds its badges instead of leaving it
+     * empty. Passing `features` for a point that already has a marker
+     * upgrades that existing marker (recreating it so its popup picks up the
+     * badges) only if it was still feature-less; a marker that already has
+     * its own selection/content is left alone.
      *
      * `pending: true` (only shortcut-menu.js's own right-click/long-press pass
      * this) additionally records a newly-created marker as `_pendingMarkerId`
@@ -524,17 +538,24 @@ export class ShortcutMenuBase {
      * `_pendingMarkerId` - it now has a job other than marking where the menu
      * was opened, so it must survive the menu closing.
      */
-    _ensureMarkerAt(lngLat, { pending = false } = {}) {
+    _ensureMarkerAt(lngLat, { pending = false, features = null } = {}) {
         const markerManager = window.featureControl?._markerManager;
         if (!markerManager || !lngLat) return null;
 
         const existing = markerManager.findMarkerNear(lngLat);
         if (existing) {
             if (!pending && existing === this._pendingMarkerId) this._pendingMarkerId = null;
+
+            if (features?.length > 0 && markerManager.getMarkerFeatures(existing)?.length === 0) {
+                markerManager.removeMarker(existing);
+                const recreated = markerManager.addMarker(lngLat, features);
+                if (this._pendingMarkerId === existing) this._pendingMarkerId = recreated;
+                return recreated;
+            }
             return existing;
         }
 
-        const created = markerManager.addMarker(lngLat, []);
+        const created = markerManager.addMarker(lngLat, features || []);
         if (pending) this._pendingMarkerId = created;
         return created;
     }
@@ -695,16 +716,27 @@ export class ShortcutMenuBase {
      * "Route To" picks keep extending the same route without needing another
      * "Route From" first.
      */
-    _handleRouteEndpoint(direction, point, label) {
+    async _handleRouteEndpoint(direction, point, fallbackLabel) {
+        // Additive: marks whatever's under the point selected (highlighted,
+        // with a real featureId) without clearing any other selection or
+        // marker already on the map - see selectFeaturesAtPoint.
+        const features = window.featureControl?.selectFeaturesAtPoint?.(point) || [];
+        const label = await this._resolveEndpointLabel(features, point, fallbackLabel);
+
         if (direction === 'from') {
             // Promotes the menu's own placeholder pin (or drops one), then
             // hands it to the store to re-colour and take over as the route's
             // origin - so it reads as a route marker, not a plain selection.
-            this._ensureMarkerAt(point);
+            this._ensureMarkerAt(point, { features });
             routeStore.setPendingOrigin(point, label, { withMarker: true });
             window.layerControl?._showToast(`Route from ${label} — now pick "To Here" a destination`, 'info');
             return;
         }
+
+        // "To Here" reuses whatever marker is already sitting on the point
+        // (the menu's own placeholder, most often) rather than leaving it
+        // feature-less until route-store.js's _syncMarkers adopts it.
+        this._ensureMarkerAt(point, { features });
 
         const origin = routeStore.pendingOrigin || this._defaultRouteOrigin();
         if (!origin) {
@@ -724,6 +756,28 @@ export class ShortcutMenuBase {
                 console.error('[ShortcutMenu] Failed to build route:', error);
                 window.layerControl?._showToast('Could not find a route', 'error');
             });
+    }
+
+    /**
+     * Names a route endpoint after whatever is actually there: a selected
+     * feature's own label (map-marker-manager.js's describeFeatures) when the
+     * point sits on one, else the first two parts of its reverse-geocoded
+     * address (reverseGeocodeAddress's default `detail`, e.g. "Panaji, Goa")
+     * so the route/marker reads as a place instead of the generic
+     * `fallbackLabel` ("this location") - kept only for when the geocode
+     * itself fails (offline, rate-limited).
+     */
+    async _resolveEndpointLabel(features, point, fallbackLabel) {
+        const featureLabel = window.featureControl?._markerManager?.describeFeatures(features);
+        if (featureLabel) return featureLabel;
+
+        try {
+            const address = await reverseGeocodeAddress(point.lat, point.lng);
+            if (address?.text) return address.text;
+        } catch (error) {
+            console.warn('[ShortcutMenu] Address lookup failed:', error.message);
+        }
+        return fallbackLabel;
     }
 
     _fitRoute(route) {

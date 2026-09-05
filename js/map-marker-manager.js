@@ -1283,11 +1283,39 @@ export class MapMarkerManager {
         }));
     }
 
+    /**
+     * The raw features a marker was created/upgraded with, or `null` if there
+     * is no such marker - used by shortcut-menu-base.js's _ensureMarkerAt to
+     * tell a still-empty placeholder apart from one that already has its own
+     * selection/content before deciding whether to upgrade it.
+     */
+    getMarkerFeatures(markerId) {
+        return this._markers.get(markerId)?.features || null;
+    }
+
     _describeMarkerLabel(markerData) {
-        if (markerData.features.length === 0) {
-            return `${markerData.lngLat.lat.toFixed(4)}, ${markerData.lngLat.lng.toFixed(4)}`;
-        }
-        return markerData.features.map(f => {
+        const featureLabel = this.describeFeatures(markerData.features);
+        if (featureLabel) return featureLabel;
+        // No features here to name it after — the reverse-geocoded address
+        // (see _resolveMarkerAddress) is already just its first two parts
+        // (reverseGeocodeAddress's default `detail`), so it reads like "Panaji,
+        // Goa" rather than a full postal address.
+        if (markerData.address?.text) return markerData.address.text;
+        return `${markerData.lngLat.lat.toFixed(4)}, ${markerData.lngLat.lng.toFixed(4)}`;
+    }
+
+    /**
+     * A label for a set of selected features - the same "first field of each
+     * feature, joined" rule _describeMarkerLabel uses for a marker already on
+     * the map, exposed standalone so callers that only have a fresh feature
+     * query (not yet a marker) - e.g. shortcut-menu-base.js naming a route
+     * endpoint - can reuse it. Returns null (not a fallback string) when there
+     * are no features, so callers know to fall back to something else, like a
+     * geocoded address.
+     */
+    describeFeatures(features) {
+        if (!features || features.length === 0) return null;
+        return features.map(f => {
             const layerConfig = this._stateManager.getLayerConfig(f.layerId);
             const inspectConfig = layerConfig?.inspect || {};
             const labelField = inspectConfig.label || inspectConfig.id || 'id';
