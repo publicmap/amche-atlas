@@ -7,6 +7,7 @@ import {
     parseVillageEntryKey,
     queryCadastralPlotsByVillage,
     villageEntryKey,
+    whenCadastralPlotsReady,
 } from './cadastral-search.js'
 
 const MOBILE_BREAKPOINT = '(max-width: 768px)'
@@ -26,6 +27,8 @@ export class CadastralSearchUI {
         this._pickerMode = null
         this._pickerTrigger = null
         this._pendingPickerSurvey = null
+        this._villageLoading = false
+        this._surveyQueries = 0
         this._mobileMq = window.matchMedia(MOBILE_BREAKPOINT)
 
         this._buildDOM()
@@ -33,6 +36,7 @@ export class CadastralSearchUI {
         this._setupMobilePicker()
         this._hookMapboxSearchFocus()
         this._loadVillages()
+        this._trackPlotsReady()
     }
 
     isActive() {
@@ -54,21 +58,27 @@ export class CadastralSearchUI {
         this.panel.innerHTML = `
             <sl-select id="cadastral-village-select"
                 class="cadastral-village-select cadastral-desktop-only"
-                placeholder="Village" hoist clearable size="small"></sl-select>
+                placeholder="Village" hoist clearable size="small">
+                <sl-spinner slot="prefix" class="cadastral-spinner" hidden></sl-spinner>
+            </sl-select>
             <sl-input id="cadastral-survey-input"
                 class="cadastral-survey-input cadastral-desktop-only"
-                placeholder="Survey no." clearable size="small"></sl-input>
+                placeholder="Survey no." clearable size="small">
+                <sl-spinner slot="suffix" class="cadastral-spinner" hidden></sl-spinner>
+            </sl-input>
             <button type="button" id="cadastral-village-trigger"
                 class="cadastral-village-trigger cadastral-mobile-only cadastral-field-trigger"
                 role="combobox" aria-haspopup="dialog" aria-expanded="false"
                 aria-label="Select village">
                 <span class="cadastral-field-trigger__label">Village</span>
+                <sl-spinner class="cadastral-spinner" hidden></sl-spinner>
             </button>
             <button type="button" id="cadastral-survey-trigger"
                 class="cadastral-survey-trigger cadastral-mobile-only cadastral-field-trigger"
                 role="combobox" aria-haspopup="dialog" aria-expanded="false"
                 aria-label="Select survey number" aria-disabled="true" disabled>
                 <span class="cadastral-field-trigger__label">Survey no.</span>
+                <sl-spinner class="cadastral-spinner" hidden></sl-spinner>
             </button>
         `
 
@@ -113,14 +123,54 @@ export class CadastralSearchUI {
         this.surveyInput = this.panel.querySelector('#cadastral-survey-input')
         this.villageTrigger = this.panel.querySelector('#cadastral-village-trigger')
         this.surveyTrigger = this.panel.querySelector('#cadastral-survey-trigger')
+        this.villageSpinners = this.panel.querySelectorAll(
+            '#cadastral-village-select .cadastral-spinner, #cadastral-village-trigger .cadastral-spinner')
+        this.surveySpinners = this.panel.querySelectorAll(
+            '#cadastral-survey-input .cadastral-spinner, #cadastral-survey-trigger .cadastral-spinner')
         this.pickerSearch = this.pickerDrawer.querySelector('#cadastral-picker-search')
         this.pickerList = this.pickerDrawer.querySelector('#cadastral-picker-list')
+    }
+
+    _setVillageLoading(loading) {
+        this._villageLoading = loading
+        this.villageSpinners?.forEach(el => { el.hidden = !loading })
+        if (this.villageSelect) {
+            this.villageSelect.placeholder = loading ? 'Loading villages…' : 'Village'
+        }
+        this._syncTriggerLabels()
+    }
+
+    // Desktop search and the mobile picker can have queries in flight at the
+    // same time; refcount them so the first to settle does not hide the spinner
+    // out from under the other.
+    _trackSurveyQuery(promise) {
+        this._surveyQueries += 1
+        this._syncSurveySpinner()
+        return promise.finally(() => {
+            this._surveyQueries = Math.max(0, this._surveyQueries - 1)
+            this._syncSurveySpinner()
+        })
+    }
+
+    _syncSurveySpinner() {
+        const loading = this._surveyQueries > 0
+        this.surveySpinners?.forEach(el => { el.hidden = !loading })
     }
 
     async _loadVillages() {
         if (!this.villageSelect) return
 
-        this._villageList = await getVillageList()
+        this._setVillageLoading(true)
+        try {
+            this._villageList = await getVillageList()
+        } catch (err) {
+            console.error('[cadastral-ui]', err)
+            this._villageList = []
+            return
+        } finally {
+            this._setVillageLoading(false)
+        }
+
         const fragment = document.createDocumentFragment()
 
         this._villageList
@@ -139,6 +189,13 @@ export class CadastralSearchUI {
             this._syncVillageFromMap()
         }
         this._syncTriggerLabels()
+    }
+
+    // The plot table is a separate, much larger download than the village list.
+    // The field is too narrow for a message, so the spinner alone carries it.
+    _trackPlotsReady() {
+        if (!this.surveyInput) return
+        this._trackSurveyQuery(whenCadastralPlotsReady())
     }
 
     _isPickerOpen() {
@@ -207,7 +264,7 @@ export class CadastralSearchUI {
             villageLabel.textContent = `${this.selectedVillage.village} — ${this.selectedVillage.taluka}`
             villageLabel.classList.add('cadastral-field-trigger__label--filled')
         } else {
-            villageLabel.textContent = 'Village'
+            villageLabel.textContent = this._villageLoading ? 'Loading villages…' : 'Village'
             villageLabel.classList.remove('cadastral-field-trigger__label--filled')
         }
 
@@ -221,6 +278,7 @@ export class CadastralSearchUI {
         }
 
         const hasVillage = Boolean(this.selectedVillage?.village)
+        this.villageTrigger.disabled = this._villageLoading
         this.surveyTrigger.disabled = !hasVillage
         this.surveyTrigger.setAttribute('aria-disabled', hasVillage ? 'false' : 'true')
     }
@@ -266,6 +324,15 @@ export class CadastralSearchUI {
         `
     }
 
+    _renderPickerLoading(message = 'Searching…') {
+        this.pickerList.innerHTML = `
+            <div class="cadastral-picker-hint">
+                <sl-spinner class="cadastral-spinner"></sl-spinner>
+                <span>${message}</span>
+            </div>
+        `
+    }
+
     _renderPickerList(items, onSelect) {
         if (!items.length) {
             this.pickerList.innerHTML = `
@@ -288,6 +355,11 @@ export class CadastralSearchUI {
     }
 
     _updateVillagePicker(query) {
+        if (this._villageLoading) {
+            this._renderPickerLoading('Loading villages…')
+            return
+        }
+
         const matches = filterVillageList(this._villageList, query)
         const items = matches.map(entry => ({
             label: `${entry.village} — ${entry.taluka}`,
@@ -301,15 +373,19 @@ export class CadastralSearchUI {
 
     _updateSurveyPicker(query) {
         if (!query.trim()) {
+            this._pendingPickerSurvey = null
             this._renderPickerPlaceholder('survey')
             return
         }
 
         this._pendingPickerSurvey = query
-        queryCadastralPlotsByVillage(this.selectedVillage.village, this.selectedVillage.taluka, query, 50)
+        this._renderPickerLoading()
+        this._trackSurveyQuery(
+            queryCadastralPlotsByVillage(this.selectedVillage.village, this.selectedVillage.taluka, query, 50),
+        )
             .then(features => {
-                if (this._pickerMode !== 'survey') return
                 if (this._pendingPickerSurvey !== query) return
+                if (this._pickerMode !== 'survey') return
                 this._renderPickerPlotResults(features)
             })
             .catch(err => console.error('[cadastral-ui]', err))
@@ -573,12 +649,15 @@ export class CadastralSearchUI {
     _runSearch() {
         const surveyRaw = this._getSurveyRaw()
         if (!this.selectedVillage?.village || !surveyRaw) {
+            this._pendingSurvey = null
             this._clearResults()
             return
         }
 
         this._pendingSurvey = surveyRaw
-        queryCadastralPlotsByVillage(this.selectedVillage.village, this.selectedVillage.taluka, surveyRaw)
+        this._trackSurveyQuery(
+            queryCadastralPlotsByVillage(this.selectedVillage.village, this.selectedVillage.taluka, surveyRaw),
+        )
             .then(features => {
                 if (this._pendingSurvey !== surveyRaw) return
                 this._renderResults(features)
