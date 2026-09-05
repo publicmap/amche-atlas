@@ -312,17 +312,106 @@ describe('marker popup layout', () => {
                 .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
         });
 
-        it('marks the active chip and stays open when the pointer leaves it', () => {
+        const settle = () => new Promise(resolve => setTimeout(resolve, 220));
+
+        it('marks the active row while hovering it', () => {
             const manager = makeManager({ layers: [{ id: 'plots' }] });
-            const features = [feature('plots', { id: '17/1' })];
-            const el = mount(manager, features);
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
             const chip = el.querySelector('.marker-summary-chip');
 
             chip.dispatchEvent(new Event('mouseenter'));
             expect(chip.style.borderColor).toBe('rgb(59, 130, 246)');
+        });
+
+        it('closes again when the pointer leaves an unpinned row', async () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
+            const chip = el.querySelector('.marker-summary-chip');
+            const flyout = el.querySelector('.marker-feature-flyout');
+
+            chip.dispatchEvent(new Event('mouseenter'));
+            expect(flyout.style.display).toBe('block');
 
             chip.dispatchEvent(new Event('mouseleave'));
-            expect(el.querySelector('.marker-feature-flyout').style.display).toBe('block');
+            await settle();
+            expect(flyout.style.display).toBe('none');
+            // ...and the row stops reading as active.
+            expect(chip.style.borderColor).toBe('transparent');
+        });
+
+        it('stays open while the pointer moves into the table itself', async () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
+            const chip = el.querySelector('.marker-summary-chip');
+            const flyout = el.querySelector('.marker-feature-flyout');
+
+            chip.dispatchEvent(new Event('mouseenter'));
+            // Leaving the row starts the close, but reaching the table cancels it -
+            // otherwise the table would be unreachable.
+            chip.dispatchEvent(new Event('mouseleave'));
+            flyout.dispatchEvent(new Event('mouseenter'));
+            await settle();
+
+            expect(flyout.style.display).toBe('block');
+        });
+
+        it('pins on click, so it survives the pointer leaving', async () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
+            const chip = el.querySelector('.marker-summary-chip');
+            const flyout = el.querySelector('.marker-feature-flyout');
+
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            chip.dispatchEvent(new Event('mouseleave'));
+            await settle();
+
+            expect(flyout.style.display).toBe('block');
+            expect(el.dataset.flyoutPinned).toBe('0');
+        });
+
+        it('unpins when the same row is clicked again', async () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
+            const chip = el.querySelector('.marker-summary-chip');
+            const flyout = el.querySelector('.marker-feature-flyout');
+
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(flyout.style.display).toBe('none');
+            expect(el.dataset.flyoutPinned).toBeUndefined();
+        });
+
+        it('moves the pin to another row rather than keeping both', () => {
+            const layers = [{ id: 'plots' }, { id: 'wards' }];
+            const manager = makeManager({ layers });
+            const features = [feature('plots', { id: '17/1' }), feature('wards', { id: 'Ward 4' })];
+            const el = mount(manager, features);
+            const chips = el.querySelectorAll('.marker-summary-chip');
+
+            chips[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            chips[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(el.dataset.flyoutPinned).toBe('1');
+            expect(el.querySelectorAll('.feature-badge-details')).toHaveLength(1);
+        });
+
+        it('drops the pin when the marker itself closes', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
+            // appendChild, not innerHTML += : re-parsing the element would throw
+            // away every listener mount() just attached.
+            const body = document.createElement('div');
+            body.className = 'marker-menu-body';
+            el.appendChild(body);
+
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(el.dataset.flyoutPinned).toBe('0');
+
+            manager._syncMarkerContent(el);
+
+            expect(el.dataset.flyoutPinned).toBeUndefined();
+            expect(el.querySelector('.marker-feature-flyout').style.display).toBe('none');
         });
 
         it('repositions the flyout by dragging its layer header', async () => {
@@ -510,30 +599,33 @@ describe('marker popup layout', () => {
         });
 
         describe('a brand-new marker is commit-or-cancel', () => {
-            it('is destroyed when its first edit is abandoned', () => {
+            it('is destroyed when its first edit is abandoned', async () => {
                 const manager = makeManager();
                 const el = mountIdRow(manager, 'm1', '1');
                 manager.removeMarker = vi.fn();
 
                 el._startIdEdit({ initial: true });
                 el.querySelector('.marker-id-input').dispatchEvent(new Event('blur'));
+                // Deferred off the blur, so it can't be asserted synchronously.
+                await new Promise(resolve => setTimeout(resolve, 0));
 
                 // Never named, so it does not stay behind.
                 expect(manager.removeMarker).toHaveBeenCalledWith('m1');
             });
 
-            it('is destroyed on Escape too', () => {
+            it('is destroyed on Escape too', async () => {
                 const manager = makeManager();
                 const el = mountIdRow(manager, 'm1', '1');
                 manager.removeMarker = vi.fn();
 
                 el._startIdEdit({ initial: true });
                 el.querySelector('.marker-id-input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+                await new Promise(resolve => setTimeout(resolve, 0));
 
                 expect(manager.removeMarker).toHaveBeenCalledWith('m1');
             });
 
-            it('survives once its id has been saved', () => {
+            it('survives once its id has been saved', async () => {
                 const manager = makeManager();
                 const el = mountIdRow(manager, 'm1', '1');
                 manager.removeMarker = vi.fn();
@@ -545,6 +637,7 @@ describe('marker popup layout', () => {
                 // A later edit, abandoned, must not destroy it.
                 openEditor(el);
                 el.querySelector('.marker-id-input').dispatchEvent(new Event('blur'));
+                await new Promise(resolve => setTimeout(resolve, 0));
 
                 expect(manager.removeMarker).not.toHaveBeenCalled();
             });
@@ -573,6 +666,44 @@ describe('marker popup layout', () => {
 
                 expect(manager._stateManager._suppressClickUntil).toBeGreaterThan(Date.now());
             });
+        });
+
+        it('offers a red delete button only while editing', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            const del = el.querySelector('.marker-id-delete');
+
+            expect(del.querySelector('sl-icon').getAttribute('name')).toBe('trash-fill');
+            expect(del.querySelector('sl-icon').style.color).toBe('rgb(239, 68, 68)');
+            expect(del.style.display).toBe('none');
+
+            openEditor(el);
+            expect(del.style.display).toBe('flex');
+
+            el.querySelector('.marker-id-input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            expect(del.style.display).toBe('none');
+        });
+
+        it('deletes the marker from that button', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            manager.removeMarker = vi.fn();
+
+            openEditor(el);
+            el.querySelector('.marker-id-delete').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(manager.removeMarker).toHaveBeenCalledWith('m1');
+        });
+
+        it('keeps focus on the delete press, so blur cannot pre-empt it', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            openEditor(el);
+
+            const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+            el.querySelector('.marker-id-delete').dispatchEvent(press);
+
+            expect(press.defaultPrevented).toBe(true);
         });
 
         it('exposes the editor so a new marker can open in it', () => {
@@ -929,6 +1060,22 @@ describe('marker popup layout', () => {
 
             expect(manager._selectedMarkerId).toBe('m9');
             expect(el.classList.contains('marker-selected')).toBe(true);
+        });
+
+        it('swallows a double-click, which the map would take as zoom', () => {
+            const manager = makeManager();
+            const { el, mapClick } = mountInFakeCanvasContainer(manager);
+            const canvasContainer = el.parentElement;
+            const mapDblClick = vi.fn();
+            canvasContainer.addEventListener('dblclick', mapDblClick);
+
+            const evt = new MouseEvent('dblclick', { bubbles: true, cancelable: true });
+            el.querySelector('.marker-id-badge').dispatchEvent(evt);
+
+            expect(mapDblClick).not.toHaveBeenCalled();
+            // Propagation only - the browser still selects the word under the cursor.
+            expect(evt.defaultPrevented).toBe(false);
+            expect(mapClick).not.toHaveBeenCalled();
         });
 
         it('swallows clicks on the balloon too', () => {

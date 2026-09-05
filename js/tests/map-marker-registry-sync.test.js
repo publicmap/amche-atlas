@@ -161,6 +161,17 @@ describe('marker registry stays in step with the live markers', () => {
             expect(manager._resolveNewUrlId(null)).toBe('3');
         });
 
+        it('marks a restored marker as saved, so new markers do not drop it', () => {
+            const manager = makeManager();
+            const state = { markerId: null, urlId: '23ab', lngLat: POINT, foundFeatures: [], pendingLayerIds: new Set() };
+            manager.addMarker = vi.fn(() => 'm1');
+
+            manager._upsertStreamingMarkerVisual(state);
+
+            // A marker written into a link was named on purpose.
+            expect(manager.addMarker.mock.calls[0][2].saved).toBe(true);
+        });
+
         it('does not take focus for a restored marker', () => {
             const manager = makeManager();
             const state = { markerId: null, urlId: '23ab', lngLat: POINT, foundFeatures: [], pendingLayerIds: new Set() };

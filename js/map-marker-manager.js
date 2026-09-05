@@ -41,6 +41,10 @@ const MARKER_CORNER_RADIUS = 8;
 // enough to contain any drag instead, with the point at its centre.
 const MARKER_LEADER_EXTENT = 1200;
 
+// Grace period before an unpinned feature table closes, so the pointer can
+// travel from the row into the table without it vanishing on the way.
+const FLYOUT_CLOSE_DELAY_MS = 160;
+
 // Height of the id header row, used to place things that sit below it without
 // having to measure a marker that may not be laid out yet.
 const MARKER_ID_ROW_HEIGHT = 26;
@@ -974,6 +978,11 @@ export class MapMarkerManager {
                            background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
                     <sl-icon name="check-circle" style="font-size: 14px; color: #22c55e; pointer-events: none;"></sl-icon>
                 </button>
+                <button type="button" class="marker-id-action marker-id-delete" title="Delete this marker"
+                    style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
+                           background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
+                    <sl-icon name="trash-fill" style="font-size: 14px; color: #ef4444; pointer-events: none;"></sl-icon>
+                </button>
                 <button type="button" class="marker-id-action marker-id-shortcuts" title="Options for this point"
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
                            background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
@@ -1572,32 +1581,69 @@ export class MapMarkerManager {
         const chips = el.querySelectorAll('.marker-summary-chip');
         if (!flyout || !chips.length) return;
 
+        // Hovering a row is a peek: the table follows the pointer and goes away
+        // with it. Clicking pins it, so it survives the pointer leaving and
+        // stays until that row is clicked again (or the marker closes).
+        let closeTimer = null;
+        const cancelClose = () => {
+            clearTimeout(closeTimer);
+            closeTimer = null;
+        };
+        // Deferred, because the pointer has to cross a gap to reach the table -
+        // closing on the row's mouseleave alone would make it unreachable.
+        const scheduleClose = () => {
+            if (el.dataset.flyoutPinned) return;
+            cancelClose();
+            closeTimer = setTimeout(() => this._closeFeatureFlyout(el), FLYOUT_CLOSE_DELAY_MS);
+        };
+
         chips.forEach(chip => {
             const index = parseInt(chip.dataset.badgeIndex, 10);
             const f = index >= 0 ? (features || [])[index] : null;
 
-            const reveal = (e) => {
-                if (e) {
-                    e.stopPropagation();
-                    if (e.type === 'touchend') e.preventDefault();
-                }
-                this._openFeatureFlyout(el, chip, f, lngLat);
-            };
-
             if (!this._isTouch) {
-                chip.addEventListener('mouseenter', reveal);
                 chip.addEventListener('mouseenter', () => {
+                    cancelClose();
+                    this._openFeatureFlyout(el, chip, f, lngLat);
                     if (f) this._stateManager.setFeatureHoverState(f.layerId, f.featureId, true);
                 });
                 chip.addEventListener('mouseleave', () => {
+                    scheduleClose();
                     if (f) this._stateManager.setFeatureHoverState(f.layerId, f.featureId, false);
                 });
             }
-            chip.addEventListener('click', reveal);
-            if (this._isTouch) chip.addEventListener('touchend', reveal);
+
+            const togglePin = (e) => {
+                e.stopPropagation();
+                if (e.type === 'touchend') e.preventDefault();
+
+                if (el.dataset.flyoutPinned === chip.dataset.badgeIndex) {
+                    delete el.dataset.flyoutPinned;
+                    this._closeFeatureFlyout(el);
+                    return;
+                }
+                cancelClose();
+                el.dataset.flyoutPinned = chip.dataset.badgeIndex;
+                this._openFeatureFlyout(el, chip, f, lngLat);
+            };
+            chip.addEventListener('click', togglePin);
+            if (this._isTouch) chip.addEventListener('touchend', togglePin);
         });
 
+        // The table is part of what the pointer is over, so reaching into it
+        // keeps it open even though the row behind has been left.
+        flyout.addEventListener('mouseenter', cancelClose);
+        flyout.addEventListener('mouseleave', scheduleClose);
+
         this._attachFlyoutDragHandler(flyout);
+    }
+
+    /** Hides the feature table and drops the row highlight that opened it. */
+    _closeFeatureFlyout(el) {
+        const flyout = el.querySelector('.marker-feature-flyout');
+        if (!flyout) return;
+        flyout.style.display = 'none';
+        this._setActiveSummaryChip(el, null);
     }
 
     /**
@@ -1840,6 +1886,7 @@ export class MapMarkerManager {
         };
 
         const saveBtn = group.querySelector('.marker-id-save');
+        const deleteBtn = group.querySelector('.marker-id-delete');
 
         const startEdit = ({ initial = false } = {}) => {
             if (el.dataset.idEditing === '1') return;
@@ -1851,6 +1898,7 @@ export class MapMarkerManager {
             badge.style.display = 'none';
             input.hidden = false;
             saveBtn.style.display = 'flex';
+            deleteBtn.style.display = 'flex';
             input.value = idToLabel(this._markers.get(markerId)?.urlId ?? badgeText.textContent);
             sizeToContent();
             this._syncIdActions(el);
@@ -1881,6 +1929,7 @@ export class MapMarkerManager {
             badge.title = idToLabel(urlId);
             input.hidden = true;
             saveBtn.style.display = 'none';
+            deleteBtn.style.display = 'none';
             badge.style.display = 'flex';
             this._syncIdActions(el);
             input.blur();
@@ -1954,7 +2003,13 @@ export class MapMarkerManager {
          */
         const discard = () => {
             if (el.dataset.idInitialEdit === '1' && !this._markers.get(markerId)?.saved) {
-                this.removeMarker(markerId);
+                // Deferred out of the blur that triggered it: tearing the marker
+                // out of the DOM while the browser is still dispatching a blur on
+                // a node inside it throws NotFoundError ("the node to be removed
+                // is no longer a child... Perhaps it was moved in a 'blur' event
+                // handler?"). removeMarker is a no-op if something else got there
+                // first, so a racing click that clears it is harmless.
+                setTimeout(() => this.removeMarker(markerId), 0);
                 return;
             }
             input.value = idToLabel(this._markers.get(markerId)?.urlId ?? input.value);
@@ -1984,6 +2039,18 @@ export class MapMarkerManager {
         saveBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             save();
+        });
+
+        // Same focus guard as save: without it the press blurs the input first,
+        // and for a brand-new marker that blur would discard it out from under
+        // the click asking to delete it.
+        ['mousedown', 'touchstart'].forEach(type => {
+            deleteBtn.addEventListener(type, (e) => e.preventDefault());
+        });
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            endEdit();
+            this.removeMarker(markerId);
         });
 
         input.addEventListener('blur', () => {
@@ -2074,8 +2141,8 @@ export class MapMarkerManager {
         this._syncMarkerLeader(el);
 
         if (!show) {
-            const flyout = el.querySelector('.marker-feature-flyout');
-            if (flyout) flyout.style.display = 'none';
+            delete el.dataset.flyoutPinned;
+            this._closeFeatureFlyout(el);
         }
     }
 
@@ -2662,10 +2729,15 @@ export class MapMarkerManager {
         // marker would silently replace it with a copy of itself. Clicking a marker
         // means "focus this marker" (see _selectMarker), never "select the map here".
         //
-        // Bubble phase, so the marker's own children still receive their clicks; and
+        // dblclick: reaches the map as double-click-to-zoom, so double-clicking
+        // inside the id field zoomed the map instead of selecting the word under
+        // the cursor. Only propagation is stopped, never the default, so the
+        // browser's own text selection still happens.
+        //
+        // Bubble phase, so the marker's own children still receive their events; and
         // stopPropagation rather than stopImmediatePropagation, so the capture-phase
         // select listener addMarker registers on this same element still runs.
-        ['mousemove', 'mouseover', 'click'].forEach(type => {
+        ['mousemove', 'mouseover', 'click', 'dblclick'].forEach(type => {
             el.addEventListener(type, (e) => e.stopPropagation());
         });
     }
@@ -2853,7 +2925,8 @@ export class MapMarkerManager {
             pinColor = '#f97316',
             urlId: requestedUrlId = null,
             select: selectOnCreate = true,
-            startEditing = false
+            startEditing = false,
+            saved: savedOnCreate = false
         } = options;
         features = this._dedupeFeatures(features);
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
@@ -2891,6 +2964,8 @@ export class MapMarkerManager {
         this._adoptedIdentity = null;
 
         const urlId = this._resolveNewUrlId(requestedUrlId ?? adopted?.urlId);
+        // Moving a saved marker doesn't unsave it.
+        const saved = savedOnCreate || !!adopted?.saved;
 
         // The corner the tail meets is square, the other three rounded, so the
         // pointer reads as an extension of the panel rather than a shape stuck
@@ -2986,9 +3061,10 @@ export class MapMarkerManager {
             onDragEnd,
             role,
             // Set once its id is deliberately saved (see the id header's save
-            // action). A saved marker is one the user has named and meant to
-            // keep, so dropping a new marker leaves it alone.
-            saved: false
+            // action), or carried in from a link, which named it already. A
+            // saved marker is one the user meant to keep, so dropping a new
+            // marker leaves it alone - only an explicit clear removes it.
+            saved
         };
         // Reclaiming a placeholder entry: keep the name/description the shared
         // link carried rather than blanking them (see marker-registry.js's
@@ -3155,7 +3231,7 @@ export class MapMarkerManager {
         // its identity by never being rebuilt at all - see the early return above.
         const carried = this._markers.get(markerId);
         const identity = carried?.urlId
-            ? { urlId: carried.urlId, ...(markerRegistry.get(carried.urlId) || {}) }
+            ? { urlId: carried.urlId, saved: !!carried.saved, ...(markerRegistry.get(carried.urlId) || {}) }
             : null;
 
         this.removeMarker(markerId);
@@ -3894,7 +3970,11 @@ export class MapMarkerManager {
             // Restoring a link is not the user picking a marker out: they all
             // come back as plain labels, and only a rebuild of the one that
             // already had focus keeps it.
-            select: wasSelected
+            select: wasSelected,
+            // A marker written into a link was named on purpose, so it is a
+            // keeper from the moment it comes back - dropping new markers
+            // around it leaves it alone.
+            saved: true
         });
     }
 
