@@ -5,36 +5,87 @@ import { compressors } from 'hyparquet-compressors'
 let parquetUrl = null
 let villagesUrl = null
 
-let initPromise = null
+let villagesPromise = null
+let parquetPromise = null
 let parquetFile = null
 let parquetMetadata = null
 let rowOffsets = null
 let villageList = []
 
+// Every read projects the same columns so byte-range and row caches are shared
+// between plot search and village-centre lookups.
+const PLOT_COLUMNS = ['village', 'taluka', 'survey', 'subdiv', 'lon', 'lat']
+const ROW_GROUP_CACHE_LIMIT = 4
+const RANGE_CACHE_LIMIT = 12
+const rowGroupCache = new Map()
+
 export function configureCadastralSearch({ parquetUrl: p, villagesUrl: v }) {
     if (p === parquetUrl && v === villagesUrl) return
     parquetUrl = p
     villagesUrl = v
-    initPromise = null
+    villagesPromise = null
+    parquetPromise = null
     parquetFile = null
     parquetMetadata = null
     rowOffsets = null
     villageList = []
+    rowGroupCache.clear()
 }
 
 export function isCadastralSearchEnabled() {
     return Boolean(parquetUrl && villagesUrl)
 }
 
-async function _doInit() {
-    if (!parquetUrl || !villagesUrl) {
-        throw new Error('Cadastral search is not configured')
+// hyparquet issues one range request per column chunk. A row group is a single
+// contiguous ~110kb span, so we prefetch the whole span once and serve every
+// column chunk out of it - 1 request instead of 6, and 0 on a repeat search.
+function rangeCachedBuffer(file) {
+    const cache = []
+
+    return {
+        byteLength: file.byteLength,
+        slice(start, end) {
+            const from = start < 0 ? file.byteLength + start : start
+            const to = end === undefined ? file.byteLength : end
+
+            const hit = cache.find(e => from >= e.start && to <= e.end)
+            if (hit) {
+                return hit.promise.then(buf => buf.slice(from - hit.start, to - hit.start))
+            }
+
+            const promise = file.slice(from, to)
+            cache.push({ start: from, end: to, promise })
+            if (cache.length > RANGE_CACHE_LIMIT) cache.shift()
+            return promise
+        },
+    }
+}
+
+function rowGroupByteRange(rowGroup) {
+    let start = Infinity
+    let end = 0
+
+    for (const col of rowGroup.columns) {
+        const md = col.meta_data
+        if (!md) continue
+        const offsets = [md.dictionary_page_offset, md.data_page_offset]
+            .filter(o => o !== undefined && o !== null)
+            .map(Number)
+        if (!offsets.length) continue
+        const colStart = Math.min(...offsets)
+        start = Math.min(start, colStart)
+        end = Math.max(end, colStart + Number(md.total_compressed_size))
     }
 
-    const villages = await fetch(villagesUrl).then(r => r.json())
-    villageList = villages
+    return Number.isFinite(start) && end > start ? { start, end } : null
+}
 
-    parquetFile = await asyncBufferFromUrl({ url: parquetUrl })
+async function _loadVillageList() {
+    villageList = await fetch(villagesUrl).then(r => r.json())
+}
+
+async function _loadParquet() {
+    parquetFile = rangeCachedBuffer(await asyncBufferFromUrl({ url: parquetUrl }))
     parquetMetadata = await parquetMetadataAsync(parquetFile)
 
     rowOffsets = [0]
@@ -43,17 +94,42 @@ async function _doInit() {
     }
 }
 
-function lazyInit() {
+// The village list is a small JSON file; the parquet footer is 512kb. Keeping
+// them independent lets the village dropdown populate without waiting on the
+// much slower parquet handshake.
+function lazyVillages() {
     if (!isCadastralSearchEnabled()) {
         return Promise.reject(new Error('Cadastral search is not configured'))
     }
-    if (!initPromise) {
-        initPromise = _doInit().catch(err => {
-            initPromise = null
+    if (!villagesPromise) {
+        villagesPromise = _loadVillageList().catch(err => {
+            villagesPromise = null
             throw err
         })
     }
-    return initPromise
+    return villagesPromise
+}
+
+function lazyParquet() {
+    if (!isCadastralSearchEnabled()) {
+        return Promise.reject(new Error('Cadastral search is not configured'))
+    }
+    if (!parquetPromise) {
+        parquetPromise = _loadParquet().catch(err => {
+            parquetPromise = null
+            throw err
+        })
+    }
+    return parquetPromise
+}
+
+function lazyInit() {
+    return Promise.all([lazyVillages(), lazyParquet()])
+}
+
+export function whenCadastralPlotsReady() {
+    if (!isCadastralSearchEnabled()) return Promise.resolve(false)
+    return lazyParquet().then(() => true, () => false)
 }
 
 export function filterVillageList(villages, typedVillage) {
@@ -89,7 +165,7 @@ function getMatchingRowGroupRanges(villageName) {
         const stats = col?.meta_data?.statistics
 
         if (!stats?.min_value || !stats?.max_value) {
-            ranges.push({ start: rowOffsets[i], end: rowOffsets[i + 1] })
+            ranges.push({ start: rowOffsets[i], end: rowOffsets[i + 1], rowGroup: i })
             return
         }
 
@@ -97,11 +173,48 @@ function getMatchingRowGroupRanges(villageName) {
         const maxStr = decodeStatValue(stats.max_value).toLowerCase()
 
         if (maxStr >= vLower && minStr <= vLower + '\uffff') {
-            ranges.push({ start: rowOffsets[i], end: rowOffsets[i + 1] })
+            ranges.push({ start: rowOffsets[i], end: rowOffsets[i + 1], rowGroup: i })
         }
     })
 
     return ranges
+}
+
+async function prefetchRowGroup(range) {
+    const rowGroup = parquetMetadata?.row_groups?.[range.rowGroup]
+    if (!rowGroup) return
+    const bytes = rowGroupByteRange(rowGroup)
+    if (!bytes) return
+    await parquetFile.slice(bytes.start, bytes.end)
+}
+
+function readRowGroupRows(range) {
+    const cached = rowGroupCache.get(range.start)
+    if (cached) {
+        rowGroupCache.delete(range.start)
+        rowGroupCache.set(range.start, cached)
+        return cached
+    }
+
+    // Passing the already-parsed metadata is essential: without it hyparquet
+    // re-fetches and re-parses the 512kb footer on every single read.
+    const promise = prefetchRowGroup(range).then(() => parquetReadObjects({
+        file: parquetFile,
+        metadata: parquetMetadata,
+        compressors,
+        columns: PLOT_COLUMNS,
+        rowStart: range.start,
+        rowEnd: range.end,
+    })).catch(err => {
+        rowGroupCache.delete(range.start)
+        throw err
+    })
+
+    rowGroupCache.set(range.start, promise)
+    while (rowGroupCache.size > ROW_GROUP_CACHE_LIMIT) {
+        rowGroupCache.delete(rowGroupCache.keys().next().value)
+    }
+    return promise
 }
 
 export function prewarmCadastral() {
@@ -228,13 +341,7 @@ async function collectMatchesForVillage(villageName, taluka, parsed) {
     const ranges = getMatchingRowGroupRanges(villageName)
 
     for (const range of ranges) {
-        const rows = await parquetReadObjects({
-            file: parquetFile,
-            compressors,
-            columns: ['village', 'taluka', 'survey', 'subdiv', 'lon', 'lat'],
-            rowStart: range.start,
-            rowEnd: range.end,
-        })
+        const rows = await readRowGroupRows(range)
 
         for (const row of rows) {
             if (!matchesVillageTaluka(row, villageName, taluka)) continue
@@ -250,7 +357,7 @@ async function collectMatchesForVillage(villageName, taluka, parsed) {
 
 export async function getVillageList() {
     if (!isCadastralSearchEnabled()) return []
-    await lazyInit()
+    await lazyVillages()
     return villageList
 }
 
@@ -329,13 +436,7 @@ export async function getVillageCenter(villageName, taluka) {
     let count = 0
 
     for (const range of ranges) {
-        const rows = await parquetReadObjects({
-            file: parquetFile,
-            compressors,
-            columns: ['village', 'taluka', 'lon', 'lat'],
-            rowStart: range.start,
-            rowEnd: range.end,
-        })
+        const rows = await readRowGroupRows(range)
 
         for (const row of rows) {
             if (!matchesVillageTaluka(row, villageName, taluka)) continue
@@ -375,13 +476,7 @@ export async function listSurveyOptionsForVillage(villageName, taluka, filterRaw
     const ranges = getMatchingRowGroupRanges(villageName)
 
     for (const range of ranges) {
-        const rows = await parquetReadObjects({
-            file: parquetFile,
-            compressors,
-            columns: ['village', 'taluka', 'survey', 'subdiv'],
-            rowStart: range.start,
-            rowEnd: range.end,
-        })
+        const rows = await readRowGroupRows(range)
 
         for (const row of rows) {
             if (row.village.toLowerCase() !== candidateLower) continue
