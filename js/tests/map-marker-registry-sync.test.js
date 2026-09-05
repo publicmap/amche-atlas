@@ -23,7 +23,7 @@ function makeManager() {
     manager._updateSelectionLayer = () => {};
     manager._sortFeaturesByInspectorOrder = (f) => f;
     manager._adoptedIdentity = null;
-    manager._stateManager = { _suppressClickUntil: 0, _isCmdCtrlPressed: false };
+    manager._stateManager = { _suppressClickUntil: 0 };
     return manager;
 }
 
@@ -236,6 +236,69 @@ describe('marker registry stays in step with the live markers', () => {
             expect(manager.findMarkerNear(POINT, 5)).toBe('a');
             expect(manager.findMarkerNear(POINT, 5, new Set(['a']))).toBe('b');
             expect(manager.findMarkerNear(POINT, 5, new Set(['a', 'b']))).toBe(null);
+        });
+    });
+
+    describe('saved markers survive a new one', () => {
+        function makeClearable() {
+            const manager = makeManager();
+            manager._clearHoverMarker = () => {};
+            manager._clearAllMarkerHoverStates = () => {};
+            manager._deselectMarkerBadges = () => {};
+            manager._stateManager._deselectFeature = () => {};
+            manager.addMarker = vi.fn(() => 'new');
+            return manager;
+        }
+
+        it('drops an unsaved marker when another is dropped', () => {
+            const manager = makeClearable();
+            addFakeMarker(manager, 'a', '1', POINT);
+
+            manager._handleEmptyMapClick({ lngLat: POINT });
+
+            expect(manager._markers.has('a')).toBe(false);
+            expect(manager.addMarker).toHaveBeenCalled();
+        });
+
+        it('keeps one whose id was saved', () => {
+            const manager = makeClearable();
+            addFakeMarker(manager, 'a', 'home', POINT);
+            manager._markers.get('a').saved = true;
+
+            manager._handleEmptyMapClick({ lngLat: POINT });
+
+            // Naming it is what made it worth keeping - no mode needed.
+            expect(manager._markers.has('a')).toBe(true);
+        });
+
+        it('keeps saved ones and drops the rest together', () => {
+            const manager = makeClearable();
+            addFakeMarker(manager, 'a', 'home', POINT);
+            addFakeMarker(manager, 'b', '2', POINT);
+            addFakeMarker(manager, 'c', 'shop', POINT);
+            manager._markers.get('a').saved = true;
+            manager._markers.get('c').saved = true;
+
+            manager._handleEmptyMapClick({ lngLat: POINT });
+
+            expect([...manager._markers.keys()]).toEqual(['a', 'c']);
+        });
+
+        it('leaves every marker alone while a rebuild re-queries its point', () => {
+            const manager = makeClearable();
+            addFakeMarker(manager, 'a', '1', POINT);
+
+            // A drag re-queries its drop point through this same path.
+            manager._suppressReplaceClear = true;
+            manager._handleEmptyMapClick({ lngLat: POINT });
+
+            expect(manager._markers.has('a')).toBe(true);
+        });
+
+        it('opens a freshly dropped marker straight into its id editor', () => {
+            const manager = makeClearable();
+            manager._handleEmptyMapClick({ lngLat: POINT });
+            expect(manager.addMarker.mock.calls[0][2]).toMatchObject({ startEditing: true });
         });
     });
 });

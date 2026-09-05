@@ -50,9 +50,6 @@ export class MapFeatureStateManager extends EventTarget {
         // Set up map change listeners to handle dynamic layer additions
         this._setupMapChangeListeners();
 
-        // Update the flag to track Cmd/Ctrl key state
-        this._isCmdCtrlPressed = false;
-
         // Set by MapMarkerManager while a marker balloon is being manually dragged
         // (see _attachBalloonDragHandler). The drag runs via window-level mouse
         // listeners, so the pointer is very likely passing directly over the map
@@ -74,27 +71,6 @@ export class MapFeatureStateManager extends EventTarget {
         // just built. See map-feature-control-iframe.js's `_processClickAtPoint`.
         this._suppressClickUntil = 0;
 
-        // Update event listeners for keydown and keyup to track Cmd/Ctrl key state
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Meta' || event.key === 'Control') {
-                this._isCmdCtrlPressed = true;
-                // Notify inspector to update button state
-                window.postMessage({
-                    type: 'add-selection-mode-changed',
-                    enabled: true
-                }, '*');
-            }
-        });
-        document.addEventListener('keyup', (event) => {
-            if (event.key === 'Meta' || event.key === 'Control') {
-                this._isCmdCtrlPressed = false;
-                // Notify inspector to update button state
-                window.postMessage({
-                    type: 'add-selection-mode-changed',
-                    enabled: false
-                }, '*');
-            }
-        });
 
         // Signature of the currently-applied hovered feature set, used to dedupe
         // repeated hovers over the same feature (desktop mousemove fires continuously).
@@ -492,8 +468,7 @@ export class MapFeatureStateManager extends EventTarget {
     handleFeatureClicks(clickedFeatures, lngLat = null) {
         console.log('[TapDebug] stateManager.handleFeatureClicks', {
             featureCount: clickedFeatures?.length || 0,
-            hasLngLat: !!lngLat,
-            isCmdCtrlPressed: this._isCmdCtrlPressed
+            hasLngLat: !!lngLat
         });
         if (!clickedFeatures || clickedFeatures.length === 0) {
             // Click on empty area - emit event for marker creation with layer info
@@ -523,9 +498,11 @@ export class MapFeatureStateManager extends EventTarget {
             return null;
         }).filter(Boolean);
 
-        // If Cmd/Ctrl is not pressed, clear existing selections FIRST (to emit proper clear events)
+        // Clear existing selections FIRST, so proper clear events are emitted.
+        // Keeping a previous selection is no longer a mode you hold a key for -
+        // a marker survives by having its id saved (MapMarkerManager's `saved`).
         const clearedFeatures = [];
-        if (!this._isCmdCtrlPressed) {
+        {
             this._selectedFeatures.forEach(compositeKey => {
                 const featureState = this._featureStates.get(compositeKey);
                 if (featureState) {

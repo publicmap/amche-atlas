@@ -471,18 +471,6 @@ export class ShortcutMenuBase {
 
         items.push(
             {
-                id: 'toggle-multi-select',
-                icon: 'plus-circle-dotted',
-                iconChecked: 'plus-circle-fill',
-                label: 'Multi Select',
-                checkable: true,
-                checked: () => window.featureControl?.isAddSelectionModeEnabled?.() || false,
-                action: () => {
-                    const enabled = !window.featureControl?.isAddSelectionModeEnabled();
-                    window.featureControl?.setAddSelectionMode(enabled);
-                }
-            },
-            {
                 id: 'toggle-auto-select',
                 icon: 'lightning-charge',
                 iconChecked: 'lightning-charge-fill',

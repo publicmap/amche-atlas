@@ -68,4 +68,45 @@ describe('marker-registry', () => {
             expect(has('fresh')).toBe(true);
         });
     });
+
+    describe('panel offset', () => {
+        it('parses the pixel offset a dragged panel was left at', () => {
+            expect(parseMarkersParam('marker-1(73.8,15.5,@120x-60)')).toEqual([
+                { id: '1', lng: 73.8, lat: 15.5, name: '', description: '', offset: { x: 120, y: -60 } }
+            ]);
+        });
+
+        it('keeps name and description in their own positions alongside it', () => {
+            expect(parseMarkersParam('marker-h(73.8,15.5,Home,Where%20I%20live,@5x5)')).toEqual([
+                { id: 'h', lng: 73.8, lat: 15.5, name: 'Home', description: 'Where I live', offset: { x: 5, y: 5 } }
+            ]);
+            // A name with an offset but no description still reads as the name.
+            expect(parseMarkersParam('marker-h(73.8,15.5,Home,@-8x40)')[0])
+                .toMatchObject({ name: 'Home', description: '', offset: { x: -8, y: 40 } });
+        });
+
+        it('reports no offset for a marker that was never dragged', () => {
+            expect(parseMarkersParam('marker-1(73.8,15.5)')[0].offset).toBeUndefined();
+        });
+
+        it('writes the offset back, and omits it when there is none', () => {
+            expect(buildMarkersParam([{ id: '1', lng: 73.8, lat: 15.5, offset: { x: 120, y: -60 } }]))
+                .toBe('marker-1(73.8,15.5,@120x-60)');
+            // An undragged marker says nothing about its offset.
+            expect(buildMarkersParam([{ id: '1', lng: 73.8, lat: 15.5, offset: { x: 0, y: 0 } }]))
+                .toBe('marker-1(73.8,15.5)');
+            expect(buildMarkersParam([{ id: '1', lng: 73.8, lat: 15.5 }]))
+                .toBe('marker-1(73.8,15.5)');
+        });
+
+        it('round-trips', () => {
+            const param = 'marker-h(73.8,15.5,Home,Where%20I%20live,@5x-42)';
+            expect(buildMarkersParam(parseMarkersParam(param))).toBe(param);
+        });
+
+        it('rounds sub-pixel offsets rather than writing decimals', () => {
+            expect(buildMarkersParam([{ id: '1', lng: 73.8, lat: 15.5, offset: { x: 12.4, y: -60.6 } }]))
+                .toBe('marker-1(73.8,15.5,@12x-61)');
+        });
+    });
 });

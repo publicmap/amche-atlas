@@ -44,43 +44,118 @@ describe('marker popup layout', () => {
     });
 
     describe('id label at the clicked point', () => {
-        it('renders the id as a badge at 16px, non-bold, with the input hidden', () => {
+        it('underlines the id instead of carrying an edit icon', () => {
             const manager = makeManager();
-            host.innerHTML = manager._buildMarkerIdRowHTML('Assagao_Survey_17_1');
+            host.innerHTML = manager._buildMarkerMenuHeaderHTML('Assagao_Survey_17_1');
 
             const badge = host.querySelector('.marker-id-badge');
-            expect(badge.querySelector('.marker-id-text').textContent).toBe('Assagao_Survey_17_1');
-            expect(badge.hidden).toBe(false);
-            expect(badge.style.fontSize).toBe('16px');
-            expect(badge.style.fontWeight).toBe('400');
-
+            expect(badge.querySelector('.marker-id-text').textContent).toBe('Assagao Survey 17 1');
+            // The underline is the affordance - no pencil beside every marker.
+            expect(badge.style.textDecoration).toContain('underline');
+            expect(host.querySelector('.marker-id-pencil')).toBeNull();
             expect(host.querySelector('.marker-id-input').hidden).toBe(true);
-            expect(host.querySelector('.marker-id-actions').style.display).toBe('none');
-            expect(host.querySelector('.marker-id-remove sl-icon').getAttribute('name')).toBe('trash3');
-            expect(host.querySelector('.marker-id-collapse sl-icon').getAttribute('name')).toBe('x-circle');
-            // The "more layers" summary is gone; its shortcuts menu moved here.
+        });
+
+        it('offers options on the right of the header, and nothing else', () => {
+            const manager = makeManager();
+            host.innerHTML = manager._buildMarkerMenuHeaderHTML('1');
+
             expect(host.querySelector('.marker-id-shortcuts sl-icon').getAttribute('name')).toBe('three-dots-vertical');
-            expect(host.querySelector('.marker-id-pencil').getAttribute('name')).toBe('pencil-square');
+            expect(host.querySelector('.marker-id-shortcuts').style.display).toBe('none');
+            // Removal and collapse are gone: click away to close, add-mode to keep.
+            expect(host.querySelector('.marker-id-remove')).toBeNull();
+            expect(host.querySelector('.marker-id-collapse')).toBeNull();
         });
 
-        it('points at the clicked point with a tail, not a pin', () => {
+        it('joins the panel to its point with a leader line, not a pin', () => {
             const manager = makeManager();
-            host.innerHTML = manager._buildMarkerTailHTML();
+            host.innerHTML = manager._buildMarkerLeaderHTML();
 
-            const tail = host.querySelector('.marker-tail');
-            // Anchored to the element's top-left corner, which is the clicked point.
-            expect(tail.style.top).toBe('0px');
-            expect(tail.style.left).toBe('0px');
-            // Tip on that corner, base along the label's top edge.
-            expect(tail.querySelector('polygon').getAttribute('points')).toBe('0,0 0,16 16,16');
+            const leader = host.querySelector('.marker-leader');
+            // A real drawing surface centred on the point: an outermost <svg>
+            // will not reliably paint outside its own viewport, and the line has
+            // to be able to run in any direction from the point.
+            expect(Number(leader.getAttribute('width'))).toBeGreaterThan(0);
+            expect(parseFloat(leader.style.left)).toBeLessThan(0);
+            expect(parseFloat(leader.style.top)).toBeLessThan(0);
+            // Just a black line from the point out to the panel.
+            const lines = leader.querySelectorAll('.marker-leader-line');
+            expect(lines).toHaveLength(1);
+            expect(lines[0].getAttribute('stroke')).toBe('#000000');
+            expect(leader.querySelector('circle')).toBeNull();
         });
 
-        it('renders the trash action in red', () => {
-            const manager = makeManager();
-            host.innerHTML = manager._buildMarkerIdRowHTML('1');
-            const icon = host.querySelector('.marker-id-remove sl-icon');
-            expect(icon.style.color).toBe('rgb(239, 68, 68)');
+        describe('the line follows the panel', () => {
+            /**
+             * `el` is anchored at the point, so the point is the origin and the
+             * panel's rect is wherever it has been dragged to.
+             */
+            function mountAt(manager, { left, top, width = 200, height = 60 }) {
+                const el = document.createElement('div');
+                el.innerHTML = `${manager._buildMarkerLeaderHTML()}<div class="marker-content"></div>`;
+                host.appendChild(el);
+                el.getBoundingClientRect = () => ({ left: 0, top: 0 });
+                el.querySelector('.marker-content').getBoundingClientRect =
+                    () => ({ left, top, width, height });
+                return el;
+            }
+            /** The line as a vector from the point (x1,y1) to the corner (x2,y2). */
+            const lineVector = (el) => {
+                const l = el.querySelector('.marker-leader-line');
+                return [Number(l.getAttribute('x2')) - Number(l.getAttribute('x1')),
+                        Number(l.getAttribute('y2')) - Number(l.getAttribute('y1'))];
+            };
+
+            it('runs to the top-left corner when the panel is below-right', () => {
+                const manager = makeManager();
+                const el = mountAt(manager, { left: 20, top: 16 });
+                manager._syncMarkerLeader(el);
+
+                expect(el.dataset.leaderCorner).toBe('top-left');
+                expect(lineVector(el)).toEqual([20, 16]);
+                // That corner squares off; the other three stay rounded.
+                expect(el.querySelector('.marker-content').style.borderRadius).toBe('0px 8px 8px 8px');
+            });
+
+            it('switches to the top-right corner when dragged left of the point', () => {
+                const manager = makeManager();
+                const el = mountAt(manager, { left: -220, top: 16 });
+                manager._syncMarkerLeader(el);
+
+                expect(el.dataset.leaderCorner).toBe('top-right');
+                expect(lineVector(el)).toEqual([-20, 16]);
+                expect(el.querySelector('.marker-content').style.borderRadius).toBe('8px 0px 8px 8px');
+            });
+
+            it('switches to a bottom corner when dragged above the point', () => {
+                const manager = makeManager();
+                const el = mountAt(manager, { left: 20, top: -100 });
+                manager._syncMarkerLeader(el);
+
+                expect(el.dataset.leaderCorner).toBe('bottom-left');
+                expect(lineVector(el)).toEqual([20, -40]);
+                expect(el.querySelector('.marker-content').style.borderRadius).toBe('8px 8px 8px 0px');
+            });
+
+            it('takes the diagonally opposite corner when dragged up and left', () => {
+                const manager = makeManager();
+                const el = mountAt(manager, { left: -220, top: -100 });
+                manager._syncMarkerLeader(el);
+
+                expect(el.dataset.leaderCorner).toBe('bottom-right');
+                expect(el.querySelector('.marker-content').style.borderRadius).toBe('8px 8px 0px 8px');
+            });
+
+            it('leaves an unmeasurable panel alone rather than drawing to nowhere', () => {
+                const manager = makeManager();
+                const el = mountAt(manager, { left: 0, top: 0, width: 0, height: 0 });
+                manager._syncMarkerLeader(el);
+
+                expect(el.dataset.leaderCorner).toBeUndefined();
+                expect(lineVector(el)).toEqual([0, 0]);
+            });
         });
+
     });
 
     describe('summary chips', () => {
@@ -93,23 +168,39 @@ describe('marker popup layout', () => {
             host.innerHTML = manager._buildMarkerSummaryHTML(features, LNG_LAT);
             const chips = [...host.querySelectorAll('.marker-summary-chip')];
 
-            expect(chips.map(c => c.querySelector('.marker-summary-chip__value').textContent)).toEqual(['17/1', 'Ward 4']);
+            // Features in inspector order, then the address of the point itself.
+            expect(chips.map(c => c.querySelector('.marker-summary-chip__value').textContent))
+                .toEqual(['17/1', 'Ward 4', '15.5485, 73.8187']);
             // The index still points back into the original features array.
-            expect(chips.map(c => c.dataset.badgeIndex)).toEqual(['1', '0']);
+            expect(chips.map(c => c.dataset.badgeIndex)).toEqual(['1', '0', '-2']);
         });
 
-        it('stacks the badges vertically', () => {
+        it('renders each feature as a menu row with a submenu chevron', () => {
             const manager = makeManager({ layers: [{ id: 'plots' }, { id: 'wards' }] });
             const features = [feature('plots', { id: '17/1' }), feature('wards', { id: 'Ward 4' })];
 
             host.innerHTML = manager._buildMarkerSummaryHTML(features, LNG_LAT);
             const row = host.querySelector('.marker-summary-row');
+            const items = host.querySelectorAll('.marker-summary-chip');
 
             expect(row.style.flexDirection).toBe('column');
-            expect(host.querySelector('.marker-summary-chip').style.width).toBe('100%');
+            // Same vocabulary as the long-press shortcut menu.
+            items.forEach(i => expect(i.classList.contains('shortcut-menu-item')).toBe(true));
+            expect(items[0].querySelector('.shortcut-menu-chevron').getAttribute('name')).toBe('chevron-right');
+            expect(host.querySelector('.shortcut-menu-divider')).not.toBeNull();
         });
 
-        it('falls back to a single address chip when nothing is selected', () => {
+        it('keeps the address row even when features were selected', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            host.innerHTML = manager._buildMarkerSummaryHTML([feature('plots', { id: '17/1' })], LNG_LAT);
+
+            const address = host.querySelector('.marker-summary-chip--address');
+            expect(address).not.toBeNull();
+            // Last, after the features, not instead of them.
+            expect(host.querySelectorAll('.marker-summary-chip')[1]).toBe(address);
+        });
+
+        it('is the only chip when nothing is selected', () => {
             const manager = makeManager();
             host.innerHTML = manager._buildMarkerSummaryHTML([], LNG_LAT);
 
@@ -120,21 +211,34 @@ describe('marker popup layout', () => {
             expect(chips[0].querySelector('.marker-summary-chip__value').textContent).toBe('15.5485, 73.8187');
         });
 
-        it('rewrites the address chip once the geocode returns', () => {
+        it('rewrites the address row once the geocode returns', () => {
             const manager = makeManager();
             const el = document.createElement('div');
-            el.innerHTML = `
-                <div class="address-badge" style="display:none"><span class="address-badge-value"></span></div>
-                ${manager._buildMarkerSummaryHTML([], LNG_LAT)}
-            `;
+            // A selection marker's menu, with no legacy `.address-badge` in it -
+            // only the hover marker still carries that.
+            el.innerHTML = manager._buildMarkerSummaryHTML([], LNG_LAT);
 
             manager._renderMarkerAddress({
                 marker: { getElement: () => el },
                 address: { text: 'Assagao, Bardez, Goa' }
             });
 
-            expect(el.querySelector('.marker-summary-chip--address').querySelector('.marker-summary-chip__value').textContent)
+            expect(el.querySelector('.marker-summary-chip--address .marker-summary-chip__value').textContent)
                 .toBe('Assagao, Bardez, Goa');
+        });
+
+        it('still fills the hover marker\'s stacked address badge', () => {
+            const manager = makeManager();
+            const el = document.createElement('div');
+            el.innerHTML = '<div class="address-badge" style="display:none"><span class="address-badge-value"></span></div>';
+
+            manager._renderMarkerAddress({
+                marker: { getElement: () => el },
+                address: { text: 'Assagao, Bardez, Goa' }
+            });
+
+            expect(el.querySelector('.address-badge-value').textContent).toBe('Assagao, Bardez, Goa');
+            expect(el.querySelector('.address-badge').style.display).toBe('flex');
         });
     });
 
@@ -279,8 +383,10 @@ describe('marker popup layout', () => {
         function mountIdRow(manager, markerId = 'm1', urlId = '1') {
             const el = document.createElement('div');
             el.innerHTML = `
-                <div class="marker-action-row">${manager._buildMarkerIdRowHTML(urlId)}</div>
-                <div class="marker-content" style="display:flex"></div>
+                <div class="marker-content">
+                    ${manager._buildMarkerMenuHeaderHTML(urlId)}
+                    <div class="marker-menu-body" style="display:none"></div>
+                </div>
             `;
             host.appendChild(el);
             manager._markers.set(markerId, { id: markerId, urlId, lngLat: LNG_LAT, marker: { getElement: () => el } });
@@ -294,11 +400,190 @@ describe('marker popup layout', () => {
         // leave badge and input rendering side by side in a real browser.
         it('declares no inline display on either label, so `hidden` actually hides', () => {
             const manager = makeManager();
-            host.innerHTML = manager._buildMarkerIdRowHTML('home');
+            host.innerHTML = manager._buildMarkerMenuHeaderHTML('home');
 
             // The badge does declare `display: flex` (it lays out the text and
             // pencil), so it is toggled by display, not by [hidden].
             expect(host.querySelector('.marker-id-input').style.display).toBe('');
+        });
+
+        it('shows the id with spaces while storing it with underscores', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'Assagao_Survey_17');
+            const badge = el.querySelector('.marker-id-badge');
+            const input = el.querySelector('.marker-id-input');
+
+            expect(badge.querySelector('.marker-id-text').textContent).toBe('Assagao Survey 17');
+
+            openEditor(el);
+            // The editor is the name, not the storage form.
+            expect(input.value).toBe('Assagao Survey 17');
+        });
+
+        it('stores a typed space as an underscore', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            const input = el.querySelector('.marker-id-input');
+            manager.renameMarkerUrlId = vi.fn((id, next) => {
+                manager._markers.get(id).urlId = next;
+                return true;
+            });
+
+            openEditor(el);
+            input.value = 'my shop';
+            input.dispatchEvent(new Event('input'));
+            // Typing leaves the space alone rather than flipping to an underscore.
+            expect(input.value).toBe('my shop');
+
+            input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+            expect(manager.renameMarkerUrlId).toHaveBeenCalledWith('m1', 'my_shop');
+            // ...and it reads back as a name again.
+            expect(el.querySelector('.marker-id-text').textContent).toBe('my shop');
+        });
+
+        it('shows an underscore typed directly as a space too', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            const input = el.querySelector('.marker-id-input');
+
+            openEditor(el);
+            input.value = 'a_b';
+            input.dispatchEvent(new Event('input'));
+
+            expect(input.value).toBe('a b');
+        });
+
+        it('marks the marker saved once its id is committed', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            const input = el.querySelector('.marker-id-input');
+            manager.renameMarkerUrlId = vi.fn((id, next) => {
+                manager._markers.get(id).urlId = next;
+                return true;
+            });
+
+            expect(manager._markers.get('m1').saved).toBeFalsy();
+
+            openEditor(el);
+            input.value = 'my shop';
+            input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+            // A named marker is one to keep (see _clearUnsavedMarkers).
+            expect(manager._markers.get('m1').saved).toBe(true);
+        });
+
+        it('counts accepting the id unchanged as saving it', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            manager.renameMarkerUrlId = vi.fn();
+
+            openEditor(el);
+            el.querySelector('.marker-id-save').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(manager.renameMarkerUrlId).not.toHaveBeenCalled();
+            expect(manager._markers.get('m1').saved).toBe(true);
+        });
+
+        it('does not mark it saved when the edit is discarded', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            const input = el.querySelector('.marker-id-input');
+
+            openEditor(el);
+            input.value = 'typed_but_not_saved';
+            input.dispatchEvent(new Event('blur'));
+
+            expect(manager._markers.get('m1').saved).toBeFalsy();
+        });
+
+        it('does not mark it saved when the rename is rejected', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            const input = el.querySelector('.marker-id-input');
+            manager.renameMarkerUrlId = vi.fn(() => false);
+
+            openEditor(el);
+            input.value = 'taken';
+            input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+            expect(manager._markers.get('m1').saved).toBeFalsy();
+        });
+
+        describe('a brand-new marker is commit-or-cancel', () => {
+            it('is destroyed when its first edit is abandoned', () => {
+                const manager = makeManager();
+                const el = mountIdRow(manager, 'm1', '1');
+                manager.removeMarker = vi.fn();
+
+                el._startIdEdit({ initial: true });
+                el.querySelector('.marker-id-input').dispatchEvent(new Event('blur'));
+
+                // Never named, so it does not stay behind.
+                expect(manager.removeMarker).toHaveBeenCalledWith('m1');
+            });
+
+            it('is destroyed on Escape too', () => {
+                const manager = makeManager();
+                const el = mountIdRow(manager, 'm1', '1');
+                manager.removeMarker = vi.fn();
+
+                el._startIdEdit({ initial: true });
+                el.querySelector('.marker-id-input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+                expect(manager.removeMarker).toHaveBeenCalledWith('m1');
+            });
+
+            it('survives once its id has been saved', () => {
+                const manager = makeManager();
+                const el = mountIdRow(manager, 'm1', '1');
+                manager.removeMarker = vi.fn();
+                manager.renameMarkerUrlId = vi.fn(() => true);
+
+                el._startIdEdit({ initial: true });
+                el.querySelector('.marker-id-input').value = 'site_a';
+                el.querySelector('.marker-id-input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+                // A later edit, abandoned, must not destroy it.
+                openEditor(el);
+                el.querySelector('.marker-id-input').dispatchEvent(new Event('blur'));
+
+                expect(manager.removeMarker).not.toHaveBeenCalled();
+            });
+
+            it('lets the dismissing click through, so it drops the next marker', () => {
+                const manager = makeManager();
+                manager._stateManager._suppressClickUntil = 0;
+                const el = mountIdRow(manager, 'm1', '1');
+                manager.removeMarker = vi.fn();
+
+                el._startIdEdit({ initial: true });
+                document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+
+                // Unlike an ordinary edit, this click is not swallowed - the
+                // marker follows your clicks until you name one.
+                expect(manager._stateManager._suppressClickUntil).toBe(0);
+            });
+
+            it('still swallows the dismissing click for an ordinary edit', () => {
+                const manager = makeManager();
+                manager._stateManager._suppressClickUntil = 0;
+                const el = mountIdRow(manager, 'm1', 'home');
+
+                openEditor(el);
+                document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+
+                expect(manager._stateManager._suppressClickUntil).toBeGreaterThan(Date.now());
+            });
+        });
+
+        it('exposes the editor so a new marker can open in it', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+
+            expect(typeof el._startIdEdit).toBe('function');
+            el._startIdEdit();
+
+            expect(el.querySelector('.marker-id-input').hidden).toBe(false);
+            expect(el.querySelector('.marker-id-save').style.display).toBe('flex');
         });
 
         it('needs two clicks: the first focuses, the second opens the editor', () => {
@@ -505,7 +790,7 @@ describe('marker popup layout', () => {
     describe('marker select mode', () => {
         function mountMarker(manager, markerId, urlId) {
             const el = document.createElement('div');
-            el.innerHTML = `<div class="marker-action-row">${manager._buildMarkerIdRowHTML(urlId)}</div>`;
+            el.innerHTML = `<div class="marker-content">${manager._buildMarkerMenuHeaderHTML(urlId)}<div class="marker-menu-body" style="display:none"></div></div>`;
             host.appendChild(el);
             manager._markers.set(markerId, { id: markerId, urlId, lngLat: LNG_LAT, marker: { getElement: () => el } });
             manager._attachMarkerIdRowHandlers(el, markerId);
@@ -518,33 +803,33 @@ describe('marker popup layout', () => {
             const b = mountMarker(manager, 'b', '2');
 
             manager._selectMarker('a');
-            expect(a.querySelector('.marker-id-actions').style.display).toBe('flex');
-            expect(b.querySelector('.marker-id-actions').style.display).toBe('none');
+            expect(a.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
+            expect(b.querySelector('.marker-id-shortcuts').style.display).toBe('none');
 
             // Selecting another hands the actions over rather than showing both.
             manager._selectMarker('b');
-            expect(a.querySelector('.marker-id-actions').style.display).toBe('none');
-            expect(b.querySelector('.marker-id-actions').style.display).toBe('flex');
+            expect(a.querySelector('.marker-id-shortcuts').style.display).toBe('none');
+            expect(b.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
             expect(manager._selectedMarkerId).toBe('b');
         });
 
         it('keeps the actions up after the pointer leaves a selected marker', () => {
             const manager = makeManager();
             const el = mountMarker(manager, 'a', '1');
-            const group = el.querySelector('.marker-id-group');
+            const group = el.querySelector('.marker-menu-header');
 
             manager._selectMarker('a');
             group.dispatchEvent(new Event('mouseenter'));
             group.dispatchEvent(new Event('mouseleave'));
 
-            expect(el.querySelector('.marker-id-actions').style.display).toBe('flex');
+            expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
         });
 
         it('still previews the actions on hover when not selected', () => {
             const manager = makeManager();
             const el = mountMarker(manager, 'a', '1');
-            const group = el.querySelector('.marker-id-group');
-            const actions = el.querySelector('.marker-id-actions');
+            const group = el.querySelector('.marker-menu-header');
+            const actions = el.querySelector('.marker-id-shortcuts');
 
             group.dispatchEvent(new Event('mouseenter'));
             expect(actions.style.display).toBe('flex');
@@ -556,7 +841,7 @@ describe('marker popup layout', () => {
         it('shows them permanently on touch, which has no hover', () => {
             const manager = makeManager({ isTouch: true });
             const el = mountMarker(manager, 'a', '1');
-            expect(el.querySelector('.marker-id-actions').style.display).toBe('flex');
+            expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
         });
     });
 
@@ -564,7 +849,7 @@ describe('marker popup layout', () => {
         function mountMarker(manager, markerId) {
             const el = document.createElement('div');
             el.className = 'selection-marker';
-            el.innerHTML = `${manager._buildMarkerIdRowHTML('1')}<div class="marker-content" style="display:none"></div>`;
+            el.innerHTML = `<div class="marker-content">${manager._buildMarkerMenuHeaderHTML('1')}<div class="marker-menu-body" style="display:none"></div></div>`;
             host.appendChild(el);
             manager._markers.set(markerId, { id: markerId, urlId: '1', lngLat: LNG_LAT, marker: { getElement: () => el } });
             manager._setupOutsidePressListener();
@@ -575,14 +860,14 @@ describe('marker popup layout', () => {
             const manager = makeManager();
             const el = mountMarker(manager, 'a');
             manager._selectMarker('a');
-            expect(el.querySelector('.marker-content').style.display).toBe('flex');
+            expect(el.querySelector('.marker-menu-body').style.display).toBe('flex');
 
             document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
 
             expect(manager._selectedMarkerId).toBe(null);
             expect(el.classList.contains('marker-selected')).toBe(false);
             // Back to just its label.
-            expect(el.querySelector('.marker-content').style.display).toBe('none');
+            expect(el.querySelector('.marker-menu-body').style.display).toBe('none');
         });
 
         it('keeps focus for a press inside the marker itself', () => {
@@ -610,7 +895,7 @@ describe('marker popup layout', () => {
             el.innerHTML = `
                 <div class="marker-action-row">
                     <span class="marker-pin-btn"></span>
-                    ${manager._buildMarkerIdRowHTML('1')}
+                    ${manager._buildMarkerMenuHeaderHTML('1')}
                 </div>
                 <div class="marker-content" style="display:flex"></div>
             `;
@@ -669,9 +954,9 @@ describe('marker popup layout', () => {
     describe('balloon placement', () => {
         it('hangs the balloon down and right of the clicked point', () => {
             const manager = makeManager();
-            // The clicked point is the marker's own top-left corner, so the
-            // content sits flush with it and a tail + id row below.
-            expect(manager.getContentOffset()).toEqual({ x: 0, y: 46 });
+            // The clicked point is the marker's own top-left corner, and the
+            // panel clears it on both axes by the anchor gap.
+            expect(manager.getContentOffset()).toEqual({ x: 16, y: 46 });
         });
     });
 
@@ -679,8 +964,10 @@ describe('marker popup layout', () => {
         function mountIdRow(manager, markerId = 'm1') {
             const el = document.createElement('div');
             el.innerHTML = `
-                <div class="marker-action-row">${manager._buildMarkerIdRowHTML('1')}</div>
-                <div class="marker-content" style="display:flex"></div>
+                <div class="marker-content">
+                    ${manager._buildMarkerMenuHeaderHTML('1')}
+                    <div class="marker-menu-body" style="display:none"></div>
+                </div>
             `;
             host.appendChild(el);
             manager._markers.set(markerId, { id: markerId, urlId: '1', lngLat: LNG_LAT, marker: { getElement: () => el } });
@@ -692,8 +979,8 @@ describe('marker popup layout', () => {
         it('reveals the actions on hover and hides them again on leave', () => {
             const manager = makeManager();
             const el = mountIdRow(manager);
-            const group = el.querySelector('.marker-id-group');
-            const actions = el.querySelector('.marker-id-actions');
+            const group = el.querySelector('.marker-menu-header');
+            const actions = el.querySelector('.marker-id-shortcuts');
 
             group.dispatchEvent(new Event('mouseenter'));
             expect(actions.style.display).toBe('flex');
@@ -707,55 +994,55 @@ describe('marker popup layout', () => {
             const el = mountIdRow(manager);
 
             openEditor(el);
-            el.querySelector('.marker-id-group').dispatchEvent(new Event('mouseleave'));
+            el.querySelector('.marker-menu-header').dispatchEvent(new Event('mouseleave'));
 
-            expect(el.querySelector('.marker-id-actions').style.display).toBe('flex');
+            expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
         });
 
         it('shows the actions permanently on touch, which has no hover', () => {
             const manager = makeManager({ isTouch: true });
             const el = mountIdRow(manager);
-            expect(el.querySelector('.marker-id-actions').style.display).toBe('flex');
+            expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
         });
 
-        it('does not remove the marker when its pin is clicked', () => {
-            const manager = makeManager();
-            const el = mountIdRow(manager, 'm7');
 
-            // The pin as addMarker builds it, minus the map plumbing.
-            const pin = document.createElement('span');
-            pin.className = 'marker-pin-btn';
-            el.querySelector('.marker-action-row').insertBefore(pin, el.querySelector('.marker-id-group'));
 
-            pin.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            pin.dispatchEvent(new Event('touchend', { bubbles: true }));
-
-            expect(manager.removeMarker).not.toHaveBeenCalled();
-        });
-
-        it('removes the marker from the trash action', () => {
-            const manager = makeManager();
-            const el = mountIdRow(manager, 'm7');
-
-            el.querySelector('.marker-id-remove').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            expect(manager.removeMarker).toHaveBeenCalledWith('m7');
-        });
-
-        it('collapses to just the label, and the same button restores it', () => {
+        it('grows from a chip into a menu when focused, and back', () => {
             const manager = makeManager();
             const el = mountIdRow(manager);
-            const content = el.querySelector('.marker-content');
-            const btn = el.querySelector('.marker-id-collapse');
+            const body = el.querySelector('.marker-menu-body');
             manager._selectMarker('m1');
-            expect(content.style.display).toBe('flex');
+            expect(body.style.display).toBe('flex');
+            // The panel widens into a menu only once it is open.
+            expect(el.querySelector('.marker-content').style.minWidth).toBe('220px');
 
-            btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            expect(content.style.display).toBe('none');
-            expect(btn.querySelector('sl-icon').getAttribute('name')).toBe('plus-circle');
+            manager._selectMarker(null);
+            expect(body.style.display).toBe('none');
+            expect(el.querySelector('.marker-content').style.minWidth).toBe('');
+        });
 
-            btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            expect(content.style.display).toBe('flex');
-            expect(btn.querySelector('sl-icon').getAttribute('name')).toBe('x-circle');
+        it('raises the open marker above its neighbours', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager);
+            const other = document.createElement('div');
+            other.innerHTML = '<div class="marker-content"><div class="marker-menu-body"></div></div>';
+            manager._markers.set('m2', { id: 'm2', urlId: '2', lngLat: LNG_LAT, marker: { getElement: () => other } });
+
+            // Mapbox leaves markers unstacked, so they overlap in DOM order.
+            expect(el.style.zIndex).toBe('');
+
+            manager._selectMarker('m1');
+            expect(el.style.zIndex).toBe('2');
+            expect(other.style.zIndex).toBe('');
+
+            // Hover wins over selection: the marker under the pointer is on top.
+            other.dataset.markerHover = '1';
+            manager._syncMarkerContent(other);
+            expect(other.style.zIndex).toBe('3');
+
+            delete other.dataset.markerHover;
+            manager._syncMarkerContent(other);
+            expect(other.style.zIndex).toBe('');
         });
 
         it('shows only the label once the marker loses focus', () => {
@@ -765,11 +1052,11 @@ describe('marker popup layout', () => {
             manager._markers.set('m2', { id: 'm2', urlId: '2', lngLat: LNG_LAT, marker: { getElement: () => other } });
 
             manager._selectMarker('m1');
-            expect(el.querySelector('.marker-content').style.display).toBe('flex');
+            expect(el.querySelector('.marker-menu-body').style.display).toBe('flex');
 
             // Focus moves to another marker: this one folds back to its label.
             manager._selectMarker('m2');
-            expect(el.querySelector('.marker-content').style.display).toBe('none');
+            expect(el.querySelector('.marker-menu-body').style.display).toBe('none');
             // The id row itself always stays.
             expect(el.querySelector('.marker-id-badge')).not.toBeNull();
         });
@@ -805,7 +1092,7 @@ describe('marker popup layout', () => {
             const manager = makeManager();
             const el = mountIdRow(manager);
             const input = el.querySelector('.marker-id-input');
-            const ruler = el.querySelector('.marker-id-group span[aria-hidden="true"]');
+            const ruler = el.querySelector('.marker-menu-header span[aria-hidden="true"]');
 
             // Stand in for a laid-out browser: 11px per character.
             ruler.getBoundingClientRect = () => ({ width: ruler.textContent.length * 11 });

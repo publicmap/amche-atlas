@@ -100,27 +100,6 @@ export class MapFeatureControl {
     }
 
     /**
-     * Toggle "add to selection" mode. Shared by the inspector panel's own
-     * toggle button and the long-press shortcut menu, so both
-     * stay in sync with the marker manager's selection mode.
-     */
-    setAddSelectionMode(enabled) {
-        if (this._markerManager) {
-            this._markerManager.setSelectionMode(enabled ? 'add' : 'replace');
-        }
-        if (this._iframe && this._iframe.contentWindow) {
-            this._iframe.contentWindow.postMessage({
-                type: 'add-selection-mode-changed',
-                enabled
-            }, '*');
-        }
-    }
-
-    isAddSelectionModeEnabled() {
-        return this._markerManager?.getSelectionMode?.() === 'add';
-    }
-
-    /**
      * When off, map clicks no longer run the select/place-marker pipeline
      * (see the `force` guard in _processClickAtPoint) — selection then only
      * happens through the shortcut menu's manual "Select Here" action.
@@ -1246,18 +1225,10 @@ export class MapFeatureControl {
             isLongPress = false;
             touchMoved = false;
 
-            // Start every tap from a clean add-mode state. Explicit add mode
-            // (toggled via the shortcut menu or inspector panel) lives in the
-            // marker manager's selectionMode and is preserved across taps.
-            const explicitAddMode = this._markerManager?.getSelectionMode?.() === 'add';
-            this._stateManager._isCmdCtrlPressed = explicitAddMode;
-
             // Set timer for long press (500ms). A long press now opens the
-            // shortcut menu (shortcut-menu.js, via the browser's native
-            // `contextmenu` event, which mobile browsers fire on long-press)
-            // instead of arming add-selection mode, so the tap-fallback below
-            // must skip it to avoid also selecting whatever feature is under
-            // the finger.
+            // shortcut menu (shortcut-menu.js), so the tap-fallback below must
+            // skip it to avoid also selecting whatever feature is under the
+            // finger.
             touchTimer = setTimeout(() => {
                 isLongPress = true;
             }, 500);

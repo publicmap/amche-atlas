@@ -21,8 +21,7 @@ const ITEM_IDS = [
     'clear-all-maps',
     'zoom-to-selected',
     'toggle-auto-select',
-    'clear-selection',
-    'toggle-multi-select'
+    'clear-selection'
 ];
 
 export class LayerStackOptionsMenu extends ShortcutMenuBase {

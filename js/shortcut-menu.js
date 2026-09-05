@@ -9,7 +9,7 @@
  *
  * There is deliberately no right-click trigger: the same actions are a plain
  * click away on a marker's own options button (the three-dots in its id row,
- * see MapMarkerManager._buildMarkerIdRowHTML), so right-click is left to the
+ * see MapMarkerManager._buildMarkerMenuHeaderHTML), so right-click is left to the
  * browser. HeaderShortcutMenuControl offers the same menu from the chrome.
  *
  * Opening the menu also drops a plain marker at that point (see
