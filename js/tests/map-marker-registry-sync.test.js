@@ -306,30 +306,20 @@ describe('marker registry stays in step with the live markers', () => {
             expect(manager._markers.has('a')).toBe(true);
         });
 
-        it('opens the editor synchronously, so the keyboard can come up', () => {
+        it('does not open the id editor on its own - the placeholder badge invites that click instead', () => {
             const manager = makeClearable();
             const el = document.createElement('div');
             const startIdEdit = vi.fn();
             el._startIdEdit = startIdEdit;
-            // Stand in for the real addMarker: build the element, then run the
-            // tail of addMarker that decides whether to open the editor.
-            manager.addMarker = vi.fn((lngLat, features, options) => {
-                if (options.startEditing) el._startIdEdit({ initial: true });
-                return 'new';
-            });
+            manager.addMarker = vi.fn(() => 'new');
 
             manager._handleEmptyMapClick({ lngLat: POINT });
 
-            // Mobile browsers only raise the on-screen keyboard for a focus()
-            // made inside the gesture - a deferred one leaves the field looking
-            // focused with no keyboard behind it.
-            expect(startIdEdit).toHaveBeenCalledWith({ initial: true });
-        });
-
-        it('opens a freshly dropped marker straight into its id editor', () => {
-            const manager = makeClearable();
-            manager._handleEmptyMapClick({ lngLat: POINT });
-            expect(manager.addMarker.mock.calls[0][2]).toMatchObject({ startEditing: true });
+            // Auto-focusing on creation raced the tap that dropped the marker and
+            // often lost - mobile browsers only raise the keyboard for a focus()
+            // still inside the gesture that triggered it. The placeholder click
+            // (see map-marker-popup.test.js) is that gesture instead.
+            expect(startIdEdit).not.toHaveBeenCalled();
         });
     });
 });

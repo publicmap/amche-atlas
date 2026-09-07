@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 const { MapMarkerManager } = await import('../map-marker-manager.js');
+const markerRegistry = await import('../marker-registry.js');
 
 /**
  * The popup builders and their handlers only touch `this._isTouch`, the layer
@@ -44,16 +45,40 @@ describe('marker popup layout', () => {
     });
 
     describe('id label at the clicked point', () => {
-        it('underlines the id instead of carrying an edit icon', () => {
+        it('dot-underlines the id instead of carrying an edit icon', () => {
             const manager = makeManager();
             host.innerHTML = manager._buildMarkerMenuHeaderHTML('Assagao_Survey_17_1');
 
             const badge = host.querySelector('.marker-id-badge');
             expect(badge.querySelector('.marker-id-text').textContent).toBe('Assagao Survey 17 1');
             // The underline is the affordance - no pencil beside every marker.
-            expect(badge.style.textDecoration).toContain('underline');
+            expect(badge.style.textDecorationStyle).toBe('dotted');
             expect(host.querySelector('.marker-id-pencil')).toBeNull();
             expect(host.querySelector('.marker-id-input').hidden).toBe(true);
+        });
+
+        it('only draws that underline once the marker is expanded', () => {
+            const manager = makeManager();
+            const el = document.createElement('div');
+            el.innerHTML = `
+                <div class="marker-content">
+                    ${manager._buildMarkerMenuHeaderHTML('home')}
+                    <div class="marker-menu-body" style="display:none"></div>
+                </div>
+            `;
+            host.appendChild(el);
+            const badge = el.querySelector('.marker-id-badge');
+
+            // Collapsed to a plain chip: no underline yet.
+            expect(badge.style.textDecorationLine).toBe('none');
+
+            el.classList.add('marker-selected');
+            manager._syncMarkerContent(el);
+            expect(badge.style.textDecorationLine).toBe('underline');
+
+            el.classList.remove('marker-selected');
+            manager._syncMarkerContent(el);
+            expect(badge.style.textDecorationLine).toBe('none');
         });
 
         it('offers options on the right of the header, and nothing else', () => {
@@ -83,7 +108,7 @@ describe('marker popup layout', () => {
             const tails = leader.querySelectorAll('.marker-leader-line');
             expect(tails).toHaveLength(1);
             expect(tails[0].tagName.toLowerCase()).toBe('polygon');
-            expect(tails[0].getAttribute('fill')).toBe('#1f2937');
+            expect(tails[0].getAttribute('fill')).toBe('rgba(31, 41, 55, 0.7)');
             expect(leader.querySelector('circle')).toBeNull();
         });
 
@@ -125,8 +150,6 @@ describe('marker popup layout', () => {
                 expect(el.dataset.leaderCorner).toBe('top-left');
                 // 3px inside that corner, so the panel covers where it lands.
                 expect(tailBase(el)).toEqual([23, 19]);
-                // That corner squares off; the other three stay rounded.
-                expect(el.querySelector('.marker-content').style.borderRadius).toBe('0px 8px 8px 8px');
             });
 
             it('tapers from nothing at the point to 4px at the panel', () => {
@@ -157,7 +180,6 @@ describe('marker popup layout', () => {
 
                 expect(el.dataset.leaderCorner).toBe('top-right');
                 expect(tailBase(el)).toEqual([-23, 19]);
-                expect(el.querySelector('.marker-content').style.borderRadius).toBe('8px 0px 8px 8px');
             });
 
             it('still joins a top corner when the panel is dragged above the point', () => {
@@ -169,7 +191,6 @@ describe('marker popup layout', () => {
                 // at the bottom would put the tail on the moving edge.
                 expect(el.dataset.leaderCorner).toBe('top-left');
                 expect(tailBase(el)).toEqual([23, -97]);
-                expect(el.querySelector('.marker-content').style.borderRadius).toBe('0px 8px 8px 8px');
             });
 
             it('takes the nearer top corner when dragged up and left', () => {
@@ -178,7 +199,6 @@ describe('marker popup layout', () => {
                 manager._syncMarkerLeader(el);
 
                 expect(el.dataset.leaderCorner).toBe('top-right');
-                expect(el.querySelector('.marker-content').style.borderRadius).toBe('8px 0px 8px 8px');
             });
 
             it('leaves an unmeasurable panel alone rather than drawing to nowhere', () => {
@@ -927,6 +947,87 @@ describe('marker popup layout', () => {
             expect(saveBtn.style.display).toBe('none');
         });
 
+        describe('typing a duplicate id', () => {
+            afterEach(() => markerRegistry.setAll([]));
+
+            it('disables the save button and explains why, and outlines the input in error color', () => {
+                markerRegistry.setAll([{ id: 'shop', lng: 0, lat: 0 }]);
+                const manager = makeManager();
+                const el = mountIdRow(manager, 'm1', 'home');
+                const saveBtn = el.querySelector('.marker-id-save');
+                const input = el.querySelector('.marker-id-input');
+
+                openEditor(el);
+                input.value = 'shop';
+                input.dispatchEvent(new Event('input'));
+
+                expect(saveBtn.disabled).toBe(true);
+                expect(saveBtn.title).toBe('Cannot save duplicate label');
+                expect(input.style.borderColor).toBe('rgb(239, 68, 68)');
+            });
+
+            it('re-enables it once the text no longer collides', () => {
+                markerRegistry.setAll([{ id: 'shop', lng: 0, lat: 0 }]);
+                const manager = makeManager();
+                const el = mountIdRow(manager, 'm1', 'home');
+                const saveBtn = el.querySelector('.marker-id-save');
+                const input = el.querySelector('.marker-id-input');
+
+                openEditor(el);
+                input.value = 'shop';
+                input.dispatchEvent(new Event('input'));
+                input.value = 'shopfront';
+                input.dispatchEvent(new Event('input'));
+
+                expect(saveBtn.disabled).toBe(false);
+                expect(saveBtn.title).toBe('Save id (Enter)');
+                expect(input.style.borderColor).not.toBe('rgb(239, 68, 68)');
+            });
+
+            it('does not flag the marker\'s own current id as a duplicate of itself', () => {
+                markerRegistry.setAll([{ id: 'home', lng: 0, lat: 0 }]);
+                const manager = makeManager();
+                const el = mountIdRow(manager, 'm1', 'home');
+                const saveBtn = el.querySelector('.marker-id-save');
+
+                openEditor(el);
+
+                expect(saveBtn.disabled).toBe(false);
+            });
+
+            it('does nothing on Enter while a duplicate is showing, rather than renaming to it', () => {
+                markerRegistry.setAll([{ id: 'shop', lng: 0, lat: 0 }]);
+                const manager = makeManager();
+                const el = mountIdRow(manager, 'm1', 'home');
+                const input = el.querySelector('.marker-id-input');
+                manager.renameMarkerUrlId = vi.fn();
+
+                openEditor(el);
+                input.value = 'shop';
+                input.dispatchEvent(new Event('input'));
+                input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+                expect(manager.renameMarkerUrlId).not.toHaveBeenCalled();
+                expect(input.hidden).toBe(false);
+            });
+
+            it('clears the disabled state and the outline once the edit ends', () => {
+                markerRegistry.setAll([{ id: 'shop', lng: 0, lat: 0 }]);
+                const manager = makeManager();
+                const el = mountIdRow(manager, 'm1', 'home');
+                const saveBtn = el.querySelector('.marker-id-save');
+                const input = el.querySelector('.marker-id-input');
+
+                openEditor(el);
+                input.value = 'shop';
+                input.dispatchEvent(new Event('input'));
+                input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+                expect(saveBtn.disabled).toBe(false);
+                expect(input.style.borderColor).not.toBe('rgb(239, 68, 68)');
+            });
+        });
+
         it('saves on Enter', () => {
             const manager = makeManager();
             const el = mountIdRow(manager, 'm1', 'home');
@@ -1087,6 +1188,264 @@ describe('marker popup layout', () => {
             expect(manager.renameMarkerUrlId).not.toHaveBeenCalled();
             expect(el.querySelector('.marker-id-text').textContent).toBe('home');
         });
+
+        it('gives the input a minimum width and a clear button', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+
+            expect(el.querySelector('.marker-id-input').style.minWidth).toBe('140px');
+
+            const clearBtn = el.querySelector('.marker-id-clear');
+            expect(clearBtn.style.display).toBe('none');
+
+            openEditor(el);
+            expect(clearBtn.style.display).toBe('flex');
+
+            el.querySelector('.marker-id-input').value = 'something';
+            clearBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(el.querySelector('.marker-id-input').value).toBe('');
+            expect(document.activeElement).toBe(el.querySelector('.marker-id-input'));
+        });
+
+        it('uses a plain x icon for the clear button, placed inside the input', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            const wrap = el.querySelector('.marker-id-input-wrap');
+            const input = wrap.querySelector('.marker-id-input');
+            const clearBtn = wrap.querySelector('.marker-id-clear');
+
+            expect(clearBtn.querySelector('sl-icon').getAttribute('name')).toBe('x');
+            // "Inside" the input: an absolutely-positioned overlay sharing the
+            // input's own relatively-positioned wrapper, not a separate cell
+            // in the header row.
+            expect(wrap.style.position).toBe('relative');
+            expect(clearBtn.style.position).toBe('absolute');
+            expect(wrap.contains(input)).toBe(true);
+            expect(wrap.contains(clearBtn)).toBe(true);
+        });
+
+        it('wraps to a second line instead of growing past the input\'s own max-width', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            const input = el.querySelector('.marker-id-input');
+
+            expect(input.style.whiteSpace).toBe('pre-wrap');
+            expect(input.style.overflowWrap).toBe('break-word');
+            expect(parseInt(input.style.maxWidth, 10)).toBeGreaterThan(0);
+        });
+
+        it('keeps the id textarea within the balloon\'s own box model, so it never renders wider than the popup', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            const input = el.querySelector('.marker-id-input');
+
+            openEditor(el);
+
+            const contentMaxWidth = parseInt(el.querySelector('.marker-content').style.maxWidth, 10);
+            const inputOuterWidth = parseInt(input.style.maxWidth, 10)
+                + 18 /* padding-right, reserved for the clear icon */
+                + 3 /* the shared label's padding-left */
+                + 2 /* 1px border on both sides */;
+
+            expect(inputOuterWidth).toBeLessThan(contentMaxWidth);
+        });
+    });
+
+    describe('a not-yet-named marker\'s placeholder', () => {
+        function mountRow(manager, { markerId = 'm1', urlId = '1', saved = false, address = null } = {}) {
+            const el = document.createElement('div');
+            el.innerHTML = `
+                <div class="marker-content">
+                    ${manager._buildMarkerMenuHeaderHTML(urlId, saved)}
+                    <div class="marker-menu-body" style="display:none"></div>
+                </div>
+            `;
+            host.appendChild(el);
+            manager._markers.set(markerId, { id: markerId, urlId, lngLat: LNG_LAT, address, marker: { getElement: () => el } });
+            manager.removeMarker = vi.fn();
+            manager._attachMarkerIdRowHandlers(el, markerId);
+            return el;
+        }
+
+        it('shows "Click to save label" instead of the bare auto-numbered id', () => {
+            const manager = makeManager();
+            const el = mountRow(manager, { urlId: '3' });
+
+            expect(el.querySelector('.marker-id-text').textContent).toBe('Click to save label');
+        });
+
+        it('opens the editor on a single click, skipping the usual arm step', () => {
+            const manager = makeManager();
+            const el = mountRow(manager, { urlId: '3' });
+
+            el.querySelector('.marker-id-badge').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(el.querySelector('.marker-id-input').hidden).toBe(false);
+        });
+
+        it('prefills the editor from the resolved address name rather than the bare id', () => {
+            const manager = makeManager();
+            const el = mountRow(manager, { urlId: '3', address: { name: 'Assagao Church' } });
+
+            el.querySelector('.marker-id-badge').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(el.querySelector('.marker-id-input').value).toBe('Assagao Church');
+        });
+
+        it('falls back to displayName\'s leading part when the address matched no named POI', () => {
+            const manager = makeManager();
+            const el = mountRow(manager, {
+                urlId: '3',
+                address: { name: null, displayName: 'Fontainhas, Panaji, North Goa, Goa, 403001, India' }
+            });
+
+            el.querySelector('.marker-id-badge').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(el.querySelector('.marker-id-input').value).toBe('Fontainhas');
+        });
+
+        it('falls back to the bare id when no address name has resolved yet', () => {
+            const manager = makeManager();
+            const el = mountRow(manager, { urlId: '3' });
+
+            el.querySelector('.marker-id-badge').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(el.querySelector('.marker-id-input').value).toBe('3');
+        });
+
+        it('does not source the default label from the address once the id is not a bare number', () => {
+            const manager = makeManager();
+            const el = mountRow(manager, { urlId: 'home', saved: true, address: { name: 'Assagao Church' } });
+
+            openEditor(el);
+
+            expect(el.querySelector('.marker-id-input').value).toBe('home');
+        });
+
+        it('mutes the placeholder\'s text color', () => {
+            const manager = makeManager();
+            const el = mountRow(manager, { urlId: '3' });
+
+            expect(el.querySelector('.marker-id-badge').style.color).toBe('rgb(107, 114, 128)');
+        });
+
+        it('does not mute an already-named badge', () => {
+            const manager = makeManager();
+            const el = mountRow(manager, { urlId: 'home', saved: true });
+
+            expect(el.querySelector('.marker-id-badge').style.color).toBe('rgb(243, 244, 246)');
+        });
+
+        it('already saves the marker under its default label the moment the editor opens', () => {
+            const manager = makeManager();
+            const el = mountRow(manager, { urlId: '3', address: { name: 'Assagao Church' } });
+            manager.renameMarkerUrlId = vi.fn((id, next) => {
+                manager._markers.get(id).urlId = next;
+                return true;
+            });
+
+            el.querySelector('.marker-id-badge').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(manager.renameMarkerUrlId).toHaveBeenCalledWith('m1', 'Assagao_Church');
+            expect(manager._markers.get('m1').saved).toBe(true);
+        });
+
+        it('still offers the save button after that auto-save, in case they type over it', () => {
+            const manager = makeManager();
+            const el = mountRow(manager, { urlId: '3', address: { name: 'Assagao Church' } });
+            manager.renameMarkerUrlId = vi.fn((id, next) => {
+                manager._markers.get(id).urlId = next;
+                return true;
+            });
+
+            el.querySelector('.marker-id-badge').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(el.querySelector('.marker-id-save').style.display).toBe('flex');
+        });
+
+        it('survives an abandoned edit, since the placeholder already committed a name', () => {
+            const manager = makeManager();
+            const el = mountRow(manager, { urlId: '3', address: { name: 'Assagao Church' } });
+            manager.removeMarker = vi.fn();
+            manager.renameMarkerUrlId = vi.fn((id, next) => {
+                manager._markers.get(id).urlId = next;
+                return true;
+            });
+
+            el.querySelector('.marker-id-badge').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            el.querySelector('.marker-id-input').dispatchEvent(new Event('blur'));
+
+            expect(manager.removeMarker).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('an unsaved marker that loses focus', () => {
+        function mountMarker(manager, markerId, { saved = false } = {}) {
+            const el = document.createElement('div');
+            el.className = 'selection-marker';
+            el.innerHTML = `<div class="marker-content">${manager._buildMarkerMenuHeaderHTML('1', saved)}<div class="marker-menu-body" style="display:none"></div></div>`;
+            host.appendChild(el);
+            manager._markers.set(markerId, {
+                id: markerId, urlId: '1', lngLat: LNG_LAT, saved, features: [],
+                marker: { getElement: () => el, remove: () => el.remove() }
+            });
+            return el;
+        }
+
+        it('is removed outright once deselected, rather than left as a collapsed chip', () => {
+            const manager = makeManager();
+            const el = mountMarker(manager, 'm1');
+            manager._selectMarker('m1');
+            expect(manager._markers.has('m1')).toBe(true);
+
+            manager._selectMarker(null);
+
+            expect(manager._markers.has('m1')).toBe(false);
+            expect(el.isConnected).toBe(false);
+        });
+
+        it('is removed once hovering off it too, with nothing else taking focus', () => {
+            const manager = makeManager();
+            const el = mountMarker(manager, 'm1');
+            el.dataset.markerHover = '1';
+            manager._syncMarkerContent(el, 'm1');
+            expect(manager._markers.has('m1')).toBe(true);
+
+            delete el.dataset.markerHover;
+            manager._syncMarkerContent(el, 'm1');
+
+            expect(manager._markers.has('m1')).toBe(false);
+        });
+
+        it('leaves a saved marker alone, collapsing it to a chip instead', () => {
+            const manager = makeManager();
+            const el = mountMarker(manager, 'm1', { saved: true });
+            manager._selectMarker('m1');
+
+            manager._selectMarker(null);
+
+            expect(manager._markers.has('m1')).toBe(true);
+            expect(el.isConnected).toBe(true);
+            expect(el.querySelector('.marker-menu-body').style.display).toBe('none');
+        });
+
+        it('is not torn out from under an active rename by some other marker taking focus', () => {
+            const manager = makeManager();
+            const el = mountMarker(manager, 'm1');
+            manager._attachMarkerIdRowHandlers(el, 'm1');
+            manager._selectMarker('m1');
+            el._startIdEdit({ initial: true });
+
+            const other = document.createElement('div');
+            manager._markers.set('m2', {
+                id: 'm2', urlId: '2', lngLat: LNG_LAT, saved: true, features: [],
+                marker: { getElement: () => other, remove: () => {} }
+            });
+            manager._selectMarker('m2');
+
+            expect(manager._markers.has('m1')).toBe(true);
+        });
     });
 
     describe('marker select mode', () => {
@@ -1094,7 +1453,7 @@ describe('marker popup layout', () => {
             const el = document.createElement('div');
             el.innerHTML = `<div class="marker-content">${manager._buildMarkerMenuHeaderHTML(urlId)}<div class="marker-menu-body" style="display:none"></div></div>`;
             host.appendChild(el);
-            manager._markers.set(markerId, { id: markerId, urlId, lngLat: LNG_LAT, marker: { getElement: () => el } });
+            manager._markers.set(markerId, { id: markerId, urlId, lngLat: LNG_LAT, saved: true, marker: { getElement: () => el } });
             manager._attachMarkerIdRowHandlers(el, markerId);
             return el;
         }
@@ -1113,6 +1472,19 @@ describe('marker popup layout', () => {
             expect(a.querySelector('.marker-id-shortcuts').style.display).toBe('none');
             expect(b.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
             expect(manager._selectedMarkerId).toBe('b');
+        });
+
+        it('fills the selected marker in more solidly than an unselected one', () => {
+            const manager = makeManager();
+            const a = mountMarker(manager, 'a', '1');
+            const b = mountMarker(manager, 'b', '2');
+
+            manager._selectMarker('a');
+            expect(a.querySelector('.marker-content').style.background).toBe('rgba(31, 41, 55, 0.9)');
+            expect(b.querySelector('.marker-content').style.background).toBe('rgba(31, 41, 55, 0.7)');
+
+            manager._selectMarker(null);
+            expect(a.querySelector('.marker-content').style.background).toBe('rgba(31, 41, 55, 0.7)');
         });
 
         it('keeps the actions up after the pointer leaves a selected marker', () => {
@@ -1153,7 +1525,7 @@ describe('marker popup layout', () => {
             el.className = 'selection-marker';
             el.innerHTML = `<div class="marker-content">${manager._buildMarkerMenuHeaderHTML('1')}<div class="marker-menu-body" style="display:none"></div></div>`;
             host.appendChild(el);
-            manager._markers.set(markerId, { id: markerId, urlId: '1', lngLat: LNG_LAT, marker: { getElement: () => el } });
+            manager._markers.set(markerId, { id: markerId, urlId: '1', lngLat: LNG_LAT, saved: true, marker: { getElement: () => el } });
             manager._setupOutsidePressListener();
             return el;
         }
@@ -1390,6 +1762,26 @@ describe('marker popup layout', () => {
             // so its own offset is untouched.
             expect(manager._markers.get('m1').panelOffset).toEqual({ x: 16, y: 16 });
         });
+
+        it('does not select the marker off the click a real drag still produces on release', () => {
+            const manager = makeManager();
+            const { el, contentEl } = mountDraggable(manager);
+
+            // Stands in for addMarker's own click->select listener on the
+            // marker element (also capture-phase) - a fix that only stopped
+            // propagation on contentEl, a descendant visited later in the
+            // capture phase, would already be too late to catch this.
+            const select = vi.fn();
+            el.addEventListener('click', select, true);
+
+            drag(contentEl, 40, 30);
+            // A real drag still ends with mousedown and mouseup sharing the
+            // same target, so the browser fires an ordinary click right after -
+            // `drag()` only replays the mouse events, so it is dispatched here.
+            contentEl.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(select).not.toHaveBeenCalled();
+        });
     });
 
     describe('balloon placement', () => {
@@ -1411,7 +1803,7 @@ describe('marker popup layout', () => {
                 </div>
             `;
             host.appendChild(el);
-            manager._markers.set(markerId, { id: markerId, urlId: '1', lngLat: LNG_LAT, marker: { getElement: () => el } });
+            manager._markers.set(markerId, { id: markerId, urlId: '1', lngLat: LNG_LAT, saved: true, marker: { getElement: () => el } });
             manager.removeMarker = vi.fn();
             manager._attachMarkerIdRowHandlers(el, markerId);
             return el;
@@ -1430,14 +1822,25 @@ describe('marker popup layout', () => {
             expect(actions.style.display).toBe('none');
         });
 
-        it('keeps the actions up while the id is being edited', () => {
+        it('hides the options button while the id is being edited - save/delete cover it instead', () => {
             const manager = makeManager();
             const el = mountIdRow(manager);
 
             openEditor(el);
             el.querySelector('.marker-menu-header').dispatchEvent(new Event('mouseleave'));
 
-            expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
+            expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('none');
+            expect(el.querySelector('.marker-id-save').style.display).toBe('flex');
+            expect(el.querySelector('.marker-id-delete').style.display).toBe('flex');
+        });
+
+        it('hides the options button while editing even on touch, which otherwise shows it permanently', () => {
+            const manager = makeManager({ isTouch: true });
+            const el = mountIdRow(manager);
+
+            openEditor(el);
+
+            expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('none');
         });
 
         it('shows the actions permanently on touch, which has no hover', () => {
@@ -1554,15 +1957,41 @@ describe('marker popup layout', () => {
             expect(el.querySelector('.marker-id-input').style.boxSizing).toBe('content-box');
         });
 
-        it('caps a long id with an ellipsis rather than running off the map', () => {
+        it('caps a long id at a fixed width rather than running off the map', () => {
             const manager = makeManager();
             const el = mountIdRow(manager);
             const badge = el.querySelector('.marker-id-badge');
 
             expect(badge.style.maxWidth).toBe('240px');
-            expect(badge.style.textOverflow).toBe('ellipsis');
-            // The full id stays reachable as a tooltip.
+            // Wraps onto another line instead of ellipsising - the full id
+            // stays visible, and reachable as a tooltip too either way.
+            expect(badge.style.whiteSpace).toBe('normal');
             expect(badge.title).toBe('1');
+        });
+
+        it('keeps the same wrapping cap whether collapsed or expanded', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager);
+            const badge = el.querySelector('.marker-id-badge');
+
+            manager._selectMarker('m1');
+            expect(badge.style.maxWidth).toBe('240px');
+
+            manager._selectMarker(null);
+            expect(badge.style.maxWidth).toBe('240px');
+        });
+
+        it('gives the id textarea more room than the ordinary menu cap while it is open', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager);
+
+            openEditor(el);
+
+            expect(el.querySelector('.marker-content').style.maxWidth).toBe('320px');
+
+            el.querySelector('.marker-id-input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+            expect(el.querySelector('.marker-content').style.maxWidth).toBe('240px');
         });
     });
 });

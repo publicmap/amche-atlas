@@ -229,6 +229,10 @@ export async function reverseGeocodeAddress(lat, lon, { zoom = 18, detail = 2, s
         value = {
             text: formatNominatimAddress(parts, detail),
             parts,
+            // The specific place name (a POI, a named building) if the point
+            // matched one - used by map-marker-manager.js as the default label
+            // to name a freshly dropped marker after, in place of a bare "1".
+            name: result.name || null,
             osmType: result.osm_type || null,
             osmId: result.osm_id != null ? String(result.osm_id) : null,
             displayName: result.display_name || '',

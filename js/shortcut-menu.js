@@ -10,14 +10,14 @@
  * There is deliberately no right-click trigger: the same actions are a plain
  * click away on a marker's own options button (the three-dots in its id row,
  * see MapMarkerManager._buildMarkerMenuHeaderHTML), so right-click is left to the
- * browser. HeaderShortcutMenuControl offers the same menu from the chrome.
+ * browser.
  *
  * Opening the menu also drops a plain marker at that point (see
  * ShortcutMenuBase._ensureMarkerAt) - or reuses one already there - without
  * running the selection pipeline: no feature query, no highlighting, no
  * inspector. It's just a handle on the spot the menu was opened at, until
- * "Select Here" (ShortcutMenuBase._selectFeaturesAtPoint) is explicitly
- * chosen to actually select whatever is under it.
+ * something else (e.g. "Comments" or a Route endpoint) turns it into a real
+ * marker.
  *
  * The menu itself opens offset from the press point by
  * ShortcutMenuBase._pinContentOffset (see MapMarkerManager.getContentOffset),
@@ -27,14 +27,25 @@
  *
  * The menu item tree, flyout rendering, and action handlers live in
  * ShortcutMenuBase (shortcut-menu-base.js) - shared with
- * HeaderShortcutMenuControl (header-shortcut-menu-control.js) so every entry
- * point always offers the same shortcuts. This class only owns how the menu
- * is triggered and positioned: at the long-press point.
+ * LayerStackOptionsMenu (layer-stack-options-menu.js) so every entry point
+ * always offers the same shortcuts. This class only owns how the menu is
+ * triggered and positioned: at the long-press point.
  */
 import { ShortcutMenuBase } from './shortcut-menu-base.js';
 
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_THRESHOLD = 10;
+
+// "Open With", "Comments", "Toggle Basemaps", "Clear All Maps", "Clear All
+// Markers" and "Hover Tooltips" moved entirely to the layer-stack strip's
+// options menu (see layer-stack-options-menu.js's own ITEM_IDS) - this is
+// what's left for the long-press menu.
+const ITEM_IDS = ['selection-menu', 'route-menu'];
+
+// Clearing every marker at once belongs to the options menu, not to a menu
+// opened on one particular point - so the Select flyout here offers only
+// "Zoom To Selected".
+const EXCLUDED_ITEM_IDS = ['clear-selection'];
 
 export class ShortcutMenu extends ShortcutMenuBase {
     constructor() {
@@ -43,11 +54,16 @@ export class ShortcutMenu extends ShortcutMenuBase {
         this._touchTimer = null;
         this._touchStart = null;
         this._longPressFired = false;
+        this._excludedItemIds = new Set(EXCLUDED_ITEM_IDS);
 
         this._handleTouchStart = this._handleTouchStart.bind(this);
         this._handleTouchMove = this._handleTouchMove.bind(this);
         this._handleTouchEnd = this._handleTouchEnd.bind(this);
         this._suppressNextClick = this._suppressNextClick.bind(this);
+    }
+
+    _getMenuItems() {
+        return this._pickMenuItems(ITEM_IDS);
     }
 
     onAdd(map) {

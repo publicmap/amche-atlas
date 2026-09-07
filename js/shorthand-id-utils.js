@@ -8,9 +8,22 @@
  * user-typed id is converted to `_` rather than rejected outright (typing a
  * space is the common slip, not an attempt at a special character), and
  * every other disallowed character is dropped.
+ *
+ * A route waypoint's `ref` badge (map-marker-manager.js's setMarkerRefLabel,
+ * assigned by search/route-store.js's _syncMarkers) is the one place `:` is
+ * allowed - it separates the route-facing prefix (default
+ * `{mode}-{distanceText}`, freely renameable) from the stop's 1-based
+ * position on the route (`stop_no`, never user-edited - see
+ * isValidRouteRefId/sanitizeRouteRefPrefix below).
  */
 
 const VALID_ID_RE = /^[A-Za-z0-9_]+$/;
+
+// `-` and `.` on top of the ordinary id charset: a ref prefix's default form
+// is `{mode}-{distanceText}` (e.g. "walking-1.2km"), so a renamed prefix needs
+// to keep both.
+const VALID_ROUTE_REF_PREFIX_RE = /^[A-Za-z0-9_.-]+$/;
+const VALID_ROUTE_REF_RE = /^[A-Za-z0-9_.-]+:[0-9]+$/;
 
 /** Converts arbitrary user input into a valid id: spaces -> `_`, everything else not [A-Za-z0-9_] stripped. */
 export function sanitizeId(raw) {
@@ -22,6 +35,36 @@ export function sanitizeId(raw) {
 
 export function isValidId(id) {
     return typeof id === 'string' && VALID_ID_RE.test(id);
+}
+
+/**
+ * Whether `id` is a valid route waypoint ref: `{prefix}:{stop_no}` - a
+ * renameable prefix (see sanitizeRouteRefPrefix), a single `:`, then a plain
+ * non-negative integer stop number. The stop number is never user-typed - it
+ * tracks the waypoint's position in its route (search/route-store.js's
+ * _syncMarkers reassigns it on every reorder) - so this only validates the
+ * shape, it doesn't check the number against anything.
+ */
+export function isValidRouteRefId(id) {
+    return typeof id === 'string' && VALID_ROUTE_REF_RE.test(id);
+}
+
+/**
+ * Sanitizes just the renameable part of a route ref - everything before the
+ * `:stop_no` suffix. Same spaces-become-separator/drop-the-rest approach as
+ * sanitizeId, except `-` and `.` survive (the default prefix form is
+ * `{mode}-{distanceText}`, e.g. "walking-1.2km") and a space becomes `-`
+ * rather than `_`, matching that default's own word separator.
+ */
+export function sanitizeRouteRefPrefix(raw) {
+    return String(raw ?? '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/[^A-Za-z0-9_.-]/g, '');
+}
+
+export function isValidRouteRefPrefix(prefix) {
+    return typeof prefix === 'string' && VALID_ROUTE_REF_PREFIX_RE.test(prefix);
 }
 
 /**

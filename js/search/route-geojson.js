@@ -115,14 +115,22 @@ export const ROUTE_INSPECT = {
 /**
  * @param {Object} route - a Directions API route object (geometry + properties)
  * @param {Array<Array<number>>} waypoints - [lng, lat] per waypoint, in order
- * @param {Object} meta - { profile, source, names, routeCode }
+ * @param {Object} meta - { profile, source, names }
  */
-export function buildRouteFeatureCollection(route, waypoints, { profile, source, names = [], routeCode = '' } = {}) {
+export function buildRouteFeatureCollection(route, waypoints, { profile, source, names = [] } = {}) {
     // The API's own waypoint array is pulled out rather than spread onto the
     // line - it becomes the waypoint features below, and repeating it in the
     // line's properties would only duplicate it.
-    const { geometry, waypoints: apiWaypoints = [], ...routeProperties } = route;
+    const { geometry, waypoints: apiWaypoints = [], legs = [], ...routeProperties } = route;
     const labels = routeLabels(route, profile, names);
+    const mode = MODE_WORDS[profile] || 'travel';
+
+    // Cumulative distance from the route's start to each waypoint, walked off
+    // the Directions API's own per-leg distances (leg[i] runs from waypoint i
+    // to waypoint i+1) rather than re-measuring the geometry - so it matches
+    // whatever the route actually traveled, not a straight line between stops.
+    const cumulativeDistance = [0];
+    legs.forEach(leg => cumulativeDistance.push(cumulativeDistance[cumulativeDistance.length - 1] + (leg.distance || 0)));
 
     const features = [{
         type: 'Feature',
@@ -150,6 +158,13 @@ export function buildRouteFeatureCollection(route, waypoints, { profile, source,
         const street = apiWaypoints[index]?.name || '';
         const name = names[index] || street;
 
+        // `{mode}-{distanceText}` - the default, renameable half of this
+        // stop's ref (see shorthand-id-utils.js's sanitizeRouteRefPrefix and
+        // MapMarkerManager.setMarkerRefLabel). `distanceText` is how far into
+        // the route this stop sits, not the route's total length, so two
+        // stops on the same route never default to the same ref.
+        const refPrefix = `${mode}-${formatDistance(cumulativeDistance[index] ?? 0)}`.replace(/\s+/g, '');
+
         features.push({
             type: 'Feature',
             geometry: { type: 'Point', coordinates: snapped || requested },
@@ -158,13 +173,16 @@ export function buildRouteFeatureCollection(route, waypoints, { profile, source,
                 kind: 'waypoint',
                 role,
                 index,
-                // "A1", "A2", ... - a route's own letter code (assigned once,
-                // in creation order, see RouteStore._create) plus this stop's
-                // 1-based position, so every waypoint across every route on
-                // the map has a short, unique, human-nameable reference (see
+                // `{mode}-{distanceText}:{stop_no}`, e.g. "walking-1.2km:3" -
+                // this stop's 1-based position on the route, prefixed with
+                // this default label (search/route-store.js's _syncMarkers
+                // substitutes a user-renamed prefix here instead, once one
+                // exists), so every waypoint across every route on the map
+                // has a short, unique, human-nameable reference (see
                 // MapMarkerManager.setMarkerRefLabel, which renders it on the
                 // waypoint's own pin).
-                ref: `${routeCode}${index + 1}`,
+                refPrefix,
+                ref: `${refPrefix}:${index + 1}`,
                 name,
                 street,
                 snapped: !!snapped,

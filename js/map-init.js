@@ -18,7 +18,7 @@ import { MapAttributionControl } from './map-attribution-control.js';
 import { StreetviewControl } from './streetview-control.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { ShortcutMenu } from './shortcut-menu.js';
-import { HeaderShortcutMenuControl } from './header-shortcut-menu-control.js';
+import { LocationNavigatorControl } from './location-navigator-control.js';
 import { MapLocationMenuControl } from './map-location-menu-control.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
@@ -941,11 +941,11 @@ export class MapInitializer {
             window.atlasLayerMenuControl = new AtlasLayerMenuControl(window.browserControl);
             window.atlasLayerMenuControl.mount(document.getElementById('atlas-layer-menu-container'));
 
-            // Header-nav shortcuts menu, next to the atlas + layers menu -
-            // same item tree/actions as the map's long-press menu
-            // (see shortcut-menu-base.js), acting on the current map center.
-            window.headerShortcutMenuControl = new HeaderShortcutMenuControl();
-            window.headerShortcutMenuControl.mount(document.getElementById('header-shortcut-menu-container'), map);
+            // Header-nav location navigator, next to the atlas + layers menu -
+            // add a marker at the current map center, or jump straight to any
+            // marker already saved on the map (see location-navigator-control.js).
+            window.locationNavigatorControl = new LocationNavigatorControl();
+            window.locationNavigatorControl.mount(document.getElementById('location-navigator-container'), map);
 
             // Header-nav "list features in view" menu, next to the shortcuts
             // menu - accessible alternative to tapping/clicking the map canvas

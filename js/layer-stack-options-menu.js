@@ -1,15 +1,16 @@
 /**
  * LayerStackOptionsMenu - the flyout behind the "..." button at the foot of the
- * layer stack (see js/layer-stack-strip.js).
+ * layer stack (see js/layer-stack-strip.js): "Zoom To Selected" / "Clear All
+ * Locations", "Clear All Markers", "Clear All Maps", "Toggle Basemaps",
+ * "Hover Tooltips", "Open With", and "Comments" - the map/layer shortcuts
+ * that live only here now, not on the long-press menu (shortcut-menu.js).
  *
- * It shows a hand-picked subset of the shortcut menu's items rather than its own
- * copies of them: the labels, icons, checked states and handlers all come from
- * ShortcutMenuBase's tree (js/shortcut-menu-base.js) by id, so these actions
- * stay defined in exactly one place alongside the long-press menu and the
- * header shortcut button.
+ * The labels, icons, checked states and handlers all come from
+ * ShortcutMenuBase's tree (js/shortcut-menu-base.js) by id (see ITEM_IDS), so
+ * these actions stay defined in exactly one place.
  *
- * Like HeaderShortcutMenuControl this is not a mapboxgl control - it is opened
- * by a button the strip owns, and acts on the current map center.
+ * Not a mapboxgl control - it is opened by a button the strip owns, and acts
+ * on the current map center.
  */
 import { ShortcutMenuBase } from './shortcut-menu-base.js';
 
@@ -18,10 +19,14 @@ import { ShortcutMenuBase } from './shortcut-menu-base.js';
 const HOVER_CLOSE_MS = 180;
 
 const ITEM_IDS = [
-    'clear-all-maps',
     'zoom-to-selected',
-    'toggle-auto-select',
-    'clear-selection'
+    'clear-selection',
+    'clear-all-markers',
+    'clear-all-maps',
+    'toggle-basemaps-menu',
+    'toggle-hover-tooltips',
+    'open-with-menu',
+    'toggle-comments'
 ];
 
 export class LayerStackOptionsMenu extends ShortcutMenuBase {

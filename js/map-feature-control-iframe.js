@@ -28,6 +28,7 @@ export class MapFeatureControl {
         this._globalHandlersAdded = false;
         this._isMapDragging = false;
         this._autoSelectEnabled = true;
+        this._hoverEnabled = true;
     }
 
     /**
@@ -101,11 +102,10 @@ export class MapFeatureControl {
 
     /**
      * When off, map clicks no longer run the select/place-marker pipeline
-     * (see the `force` guard in _processClickAtPoint) — selection then only
-     * happens through the shortcut menu's manual "Select Here" action.
-     * Turning it off also clears any hover state left on the map: hovering
-     * still queries features on mousemove regardless of this flag, and
-     * without a click to replace it that highlight would otherwise linger.
+     * (see the guard in _processClickAtPoint). Turning it off also clears
+     * any hover state left on the map: hovering still queries features on
+     * mousemove regardless of this flag, and without a click to replace it
+     * that highlight would otherwise linger.
      */
     setAutoSelectEnabled(enabled) {
         this._autoSelectEnabled = !!enabled;
@@ -116,22 +116,31 @@ export class MapFeatureControl {
         return this._autoSelectEnabled;
     }
 
+    /**
+     * When off, mousemove no longer queries the map at all: no hover feature
+     * state is set on any layer and no hover popup/marker is rendered (see the
+     * guard in the 'mousemove' handler). Clicks are unaffected. Turning it off
+     * drops whatever hover is currently applied, since no further mousemove
+     * will arrive to replace it.
+     */
+    setHoverEnabled(enabled) {
+        this._hoverEnabled = !!enabled;
+        if (this._hoverEnabled) return;
+        this._cancelPendingHoverQuery();
+        this._stateManager?.handleMapMouseLeave();
+        this._updateCursor(false);
+    }
+
+    isHoverEnabled() {
+        return this._hoverEnabled;
+    }
+
     clearSelection() {
         this._stateManager?.clearAllSelections();
     }
 
     zoomToSelected(lngLat) {
         this._markerManager?.zoomToSelected(lngLat);
-    }
-
-    /**
-     * Manually runs the click-selection pipeline at an arbitrary lngLat,
-     * bypassing the Auto Select gate — used by the shortcut menu's
-     * "Select features" action.
-     */
-    triggerSelectionAt(lngLat) {
-        if (!this._map || !lngLat) return;
-        this._processClickAtPoint(this._map.project(lngLat), lngLat, { force: true });
     }
 
     /**
@@ -1317,6 +1326,7 @@ export class MapFeatureControl {
                 // canvas — skip the hover query entirely so it doesn't compete with
                 // the drag for the main thread or flip hover state underneath it.
                 if (this._stateManager._isDraggingMarkerPanel) return;
+                if (!this._hoverEnabled) return;
                 this._pendingHoverEvent = e;
                 if (this._pendingHoverRAF) return;
                 this._pendingHoverRAF = requestAnimationFrame(() => {
@@ -1443,11 +1453,11 @@ export class MapFeatureControl {
      * @param {{x:number,y:number}} point - screen point
      * @param {{lng:number,lat:number}} lngLat - geographic coordinate
      */
-    _processClickAtPoint(point, lngLat, { force = false } = {}) {
-        if (!force && !this._autoSelectEnabled) return;
+    _processClickAtPoint(point, lngLat) {
+        if (!this._autoSelectEnabled) return;
         // Swallow the browser's phantom click that follows a touch marker/balloon
         // drag release — see `_suppressClickUntil`'s definition for why it happens.
-        if (!force && Date.now() < this._stateManager._suppressClickUntil) return;
+        if (Date.now() < this._stateManager._suppressClickUntil) return;
 
         const interactiveFeatures = this._queryInteractiveFeaturesAt(point, lngLat);
 

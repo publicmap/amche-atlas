@@ -10,7 +10,7 @@ import { CameraUtils } from './map-camera-utils.js';
 import { GeoLibreAPI } from './geolibre-api.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { formatAttributeValue } from './attribute-value-renderer.js';
-import { sanitizeId, isValidId, nextSerialId, labelToId, uniqueId } from './shorthand-id-utils.js';
+import { sanitizeId, isValidId, nextSerialId, labelToId, uniqueId, sanitizeRouteRefPrefix, isValidRouteRefId } from './shorthand-id-utils.js';
 import * as markerRegistry from './marker-registry.js';
 import { WAYPOINT_PIN_COLOR } from './search/route-store.js';
 
@@ -57,8 +57,13 @@ const MARKER_LEADER_INSET = 3;
 
 // The panel's surface, shared with the tail that carries it back to its point so
 // the two read as one callout. Matches .shortcut-menu (see css/styles.css),
-// since a marker panel is the same kind of surface.
-const MARKER_PANEL_BG = '#1f2937';
+// since a marker panel is the same kind of surface. Translucent so the map
+// underneath still reads through a collapsed chip - MARKER_PANEL_BG_ACTIVE
+// (see _syncMarkerContent) opts a selected/hovered/edited panel into a more
+// opaque fill instead, since that's the one actually being read.
+const MARKER_PANEL_BG_RGB = '31, 41, 55'; // #1f2937
+const MARKER_PANEL_BG = `rgba(${MARKER_PANEL_BG_RGB}, 0.7)`;
+const MARKER_PANEL_BG_ACTIVE = `rgba(${MARKER_PANEL_BG_RGB}, 0.9)`;
 const MARKER_PANEL_BORDER = '#374151';
 
 // Grace period before an unpinned feature table closes, so the pointer can
@@ -91,6 +96,21 @@ function idToLabel(urlId) {
     return String(urlId ?? '').replace(/_/g, ' ');
 }
 
+// Shown on the id badge in place of the real id until a fresh marker (a plain
+// auto-numbered "1", "2", ... - see nextSerialId) is named for the first time.
+// Also the signal _attachMarkerIdRowHandlers reads to let a single click open
+// the editor directly, instead of the usual two-step arm-then-edit.
+const MARKER_ID_PLACEHOLDER = 'Click to save label';
+// The id badge's text color: muted while it is still showing the placeholder
+// above, back to full brightness once it reads as a real name - see
+// _buildMarkerMenuHeaderHTML's first render and endEdit's after-the-fact one.
+const MARKER_ID_TEXT_COLOR = '#f3f4f6';
+const MARKER_ID_MUTED_COLOR = '#6b7280';
+// The id input's border at rest, and while its current text collides with
+// another marker's id (see _attachMarkerIdRowHandlers's syncValidity).
+const MARKER_ID_INPUT_BORDER = '#374151';
+const MARKER_ID_ERROR_COLOR = '#ef4444';
+
 /**
  * Which of a panel's corners faces its point, from where the panel has been
  * dragged to. The offset is that corner's position relative to the panel's
@@ -105,10 +125,28 @@ function anchorFromOffset({ x = 0 } = {}) {
     return x < 0 ? 'top-right' : 'top-left';
 }
 
-// Ceiling for the id label, so a long search-result id (up to 64 characters -
-// see shorthand-id-utils.labelToId) ellipsises instead of running off across
-// the map. Matches the balloon's own max-width, which now hangs beneath it.
+// Width ceiling for the balloon and its id badge, whether collapsed to a chip
+// or expanded into a menu (see labelStyle in _buildMarkerMenuHeaderHTML and
+// _syncMarkerContent) - past it, a long id (a search-result one can run to 64
+// characters, see shorthand-id-utils.labelToId) wraps onto another line
+// rather than ellipsising or running off across the map.
 const MARKER_ID_MAX_WIDTH = 240;
+
+// Wider ceiling for the balloon while the id is actively being edited: the
+// header row also has to fit the save/delete/options buttons and the input's
+// own clear icon alongside the textarea, which the ordinary MARKER_ID_MAX_WIDTH
+// leaves it no room for (it works out to a textarea with no headroom to grow
+// into at all before wrapping).
+const MARKER_ID_EDIT_MAX_WIDTH = 320;
+
+// The id textarea's own max-width, sized to fit comfortably inside a balloon
+// capped at MARKER_ID_EDIT_MAX_WIDTH alongside the header row's other
+// furniture (the save/delete/options buttons and their gaps) - see
+// _buildMarkerMenuHeaderHTML. Content-box (see "does not let padding eat into
+// either label box" in map-marker-popup.test.js), so this is purely the text
+// area itself - the icon-reserving padding-right and the rest of the
+// textarea's own padding/border sit outside of it.
+const MARKER_ID_INPUT_MAX_WIDTH = 190;
 
 // `data-badge-index` for the address row - the one summary chip shown when
 // nothing was selected here (see _buildMarkerSummaryHTML). Real features index
@@ -429,7 +467,7 @@ export class MapMarkerManager {
         this._clearAllMarkerHoverStates();
 
         this._clearUnsavedMarkers();
-        this.addMarker(lngLat, features, { startEditing: true });
+        this.addMarker(lngLat, features);
     }
 
     _handleEmptyMapClick(data) {
@@ -446,7 +484,7 @@ export class MapMarkerManager {
 
         this._clearUnsavedMarkers();
         // Empty features array — the marker shows layer info only.
-        this.addMarker(lngLat, [], { startEditing: true });
+        this.addMarker(lngLat, []);
     }
 
     /**
@@ -964,16 +1002,25 @@ export class MapMarkerManager {
      * route's `route-<rid>:` waypoint list (marker-registry.js), and the
      * options that act on this point.
      *
-     * The id is underlined rather than carrying an edit icon - the underline is
-     * the affordance, and an icon beside every marker on the map is noise. It
-     * stays a real <input>, swapped in on click, because renaming is the point
-     * of showing the id at all (a shared link reads better as `marker-home`
-     * than `marker-3`); see _attachMarkerIdRowHandlers for that swap, the
-     * rename commit, and the options button.
+     * The id is dotted-underlined, rather than carrying an edit icon, only
+     * while the marker is expanded - the dotted line is the affordance, and an
+     * icon (or a permanent underline) beside every collapsed chip on the map
+     * would be noise. It stays a real <input>, swapped in on click, because
+     * renaming is the point of showing the id at all (a shared link reads
+     * better as `marker-home` than `marker-3`); see _attachMarkerIdRowHandlers
+     * for that swap, the rename commit, the options button, and the hover
+     * highlight that previews the same affordance; _syncMarkerContent is what
+     * shows/hides the underline as the marker expands and collapses.
      *
      * Unfocused this row is the whole marker, so it reads as a plain chip.
+     *
+     * `saved` (default true - most callers, including every existing unit test,
+     * build a header for a marker that already has a meaningful id) governs the
+     * badge's very first render only: false shows MARKER_ID_PLACEHOLDER instead
+     * of the raw auto-numbered id, inviting the tap that names it. addMarker
+     * passes the real flag for a freshly dropped marker.
      */
-    _buildMarkerMenuHeaderHTML(urlId) {
+    _buildMarkerMenuHeaderHTML(urlId, saved = true) {
         const labelStyle = `
             box-sizing: content-box;
             max-width: ${MARKER_ID_MAX_WIDTH}px;
@@ -986,18 +1033,33 @@ export class MapMarkerManager {
             line-height: 1.2;
             padding: 1px 3px;
             border-radius: 4px;
-            text-overflow: ellipsis;
         `;
+        const badgeLabel = saved ? idToLabel(urlId) : MARKER_ID_PLACEHOLDER;
+        // The placeholder is an invitation, not a name - muted so it reads as a
+        // hint rather than something already given to the marker.
+        const badgeColor = saved ? MARKER_ID_TEXT_COLOR : MARKER_ID_MUTED_COLOR;
 
         return `
             <div class="marker-menu-header" style="display: flex; align-items: center; gap: 4px; padding: 3px 4px;">
-                <button type="button" class="marker-id-badge" title="${this._escapeAttr(idToLabel(urlId))}"
-                    style="${labelStyle} display: flex; align-items: center; overflow: hidden; white-space: nowrap; text-align: left; cursor: pointer;
-                           text-decoration: underline; text-decoration-color: #6b7280; text-underline-offset: 3px;">
-                    <span class="marker-id-text" style="overflow: hidden; text-overflow: ellipsis;">${this._escapeAttr(idToLabel(urlId))}</span>
+                <button type="button" class="marker-id-badge" title="${this._escapeAttr(badgeLabel)}"
+                    style="${labelStyle} display: flex; flex-direction: column; align-items: flex-start; white-space: normal; overflow-wrap: break-word; text-align: left; cursor: pointer;
+                           text-decoration-line: none; text-decoration-style: dotted; text-decoration-color: #6b7280; text-underline-offset: 3px;
+                           color: ${badgeColor};">
+                    <span class="marker-id-text">${this._escapeAttr(badgeLabel)}</span>
                 </button>
-                <input type="text" class="marker-id-input" value="${this._escapeAttr(idToLabel(urlId))}" hidden
-                    spellcheck="false" autocomplete="off" style="${labelStyle} background: #111827; border-color: #374151; cursor: text;">
+                <span class="marker-id-input-wrap" style="position: relative; display: inline-block;">
+                    <textarea class="marker-id-input" hidden rows="1"
+                        spellcheck="false" autocomplete="off"
+                        style="${labelStyle} background: #111827; border-color: ${MARKER_ID_INPUT_BORDER}; cursor: text; min-width: 140px;
+                               max-width: ${MARKER_ID_INPUT_MAX_WIDTH}px;
+                               white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; resize: none; padding-right: 18px;"
+                    >${this._escapeHtml(idToLabel(urlId))}</textarea>
+                    <button type="button" class="marker-id-clear" title="Clear"
+                        style="display: none; position: absolute; top: 2px; right: 2px; align-items: center; justify-content: center;
+                               width: 16px; height: 16px; padding: 0; background: transparent; border: none; border-radius: 50%; cursor: pointer;">
+                        <sl-icon name="x" style="font-size: 12px; color: #9ca3af; pointer-events: none;"></sl-icon>
+                    </button>
+                </span>
                 <span style="flex: 1;"></span>
                 <button type="button" class="marker-id-action marker-id-save" title="Save id (Enter)"
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
@@ -1058,9 +1120,7 @@ export class MapMarkerManager {
 
     /**
      * Joins the panel back to its point: finds whichever of the panel's two top
-     * corners is nearer the point, draws the tail to it, and squares that corner
-     * off (leaving the other three rounded) so the tail reads as running into
-     * the panel rather than touching it.
+     * corners is nearer the point, and draws the tail running into it.
      *
      * The tail lands MARKER_LEADER_INSET inside that corner rather than on it,
      * so the panel covers where it terminates (see the constant).
@@ -1098,12 +1158,6 @@ export class MapMarkerManager {
         const nearest = corners.reduce((a, b) => (Math.hypot(a.x, a.y) <= Math.hypot(b.x, b.y) ? a : b));
 
         this._drawMarkerLeaderTail(svg, nearest);
-
-        const r = `${MARKER_CORNER_RADIUS}px`;
-        content.style.borderRadius = {
-            'top-left': `0px ${r} ${r} ${r}`,
-            'top-right': `${r} 0px ${r} ${r}`
-        }[nearest.name];
         el.dataset.leaderCorner = nearest.name;
     }
 
@@ -1864,6 +1918,24 @@ export class MapMarkerManager {
         });
     }
 
+    /**
+     * What a not-yet-named marker's id editor opens pre-filled with: the
+     * reverse-geocoded address's own name (see nominatim-search.js's
+     * reverseGeocodeAddress and _resolveMarkerAddress, which stashes the
+     * result on `markerData.address`) rather than the bare auto-numbered id -
+     * "Assagao Church" is worth keeping as-is, "3" is not. A point that
+     * matched no named POI has no `name` - `displayName`'s own leading part
+     * (Nominatim's most-specific component, same idea as `parts[0]`) is the
+     * next best thing. Falls back to the id itself if the address hasn't
+     * resolved yet, or carries neither.
+     */
+    _defaultMarkerLabel(markerId) {
+        const markerData = this._markers.get(markerId);
+        const address = markerData?.address;
+        const fromDisplayName = address?.displayName?.split(',')[0]?.trim();
+        return address?.name || fromDisplayName || idToLabel(markerData?.urlId ?? '');
+    }
+
     /** Scroll/selection guards and the "show all properties" toggle inside a rendered feature table. */
     _attachFeatureDetailsHandlers(root) {
         const details = root.querySelector('.feature-badge-details');
@@ -1928,6 +2000,14 @@ export class MapMarkerManager {
             input.style.width = measured > 0
                 ? `${measured + 2}px`
                 : `${Math.max(2, input.value.length + 1)}ch`;
+
+            // The width above is what the text would take on one line - past
+            // the textarea's own max-width (labelStyle) it wraps instead of
+            // growing further, so the height has to follow along too. Reset
+            // first: a textarea's scrollHeight only ever grows on its own,
+            // never shrinks back down as content is deleted.
+            input.style.height = 'auto';
+            if (input.scrollHeight > 0) input.style.height = `${input.scrollHeight}px`;
         };
         sizeToContent();
 
@@ -1941,6 +2021,17 @@ export class MapMarkerManager {
             group.addEventListener('mouseleave', () => {
                 delete el.dataset.idHover;
                 this._syncIdActions(el);
+            });
+
+            // Previews the input it is about to become: the same dark fill
+            // `.marker-id-input` edits in, so hovering the label hints at the
+            // click-to-rename affordance before the dotted underline (which
+            // only shows once the marker is expanded) would.
+            badge.addEventListener('mouseenter', () => {
+                badge.style.background = '#111827';
+            });
+            badge.addEventListener('mouseleave', () => {
+                badge.style.background = 'transparent';
             });
         }
 
@@ -1969,9 +2060,34 @@ export class MapMarkerManager {
 
         const saveBtn = group.querySelector('.marker-id-save');
         const deleteBtn = group.querySelector('.marker-id-delete');
+        const clearBtn = group.querySelector('.marker-id-clear');
+
+        /**
+         * Checked on every keystroke rather than only at save time, so a
+         * collision is flagged while it's still just text in the field instead
+         * of surfacing only after a rejected Enter/click - see save() below,
+         * which still guards against the same thing for the initial value
+         * startEdit prefills (the resolved address name, or another marker's
+         * id, could already collide before the user has typed anything).
+         */
+        const syncValidity = () => {
+            const markerData = this._markers.get(markerId);
+            const sanitized = sanitizeId(input.value);
+            const duplicate = sanitized !== markerData?.urlId && markerRegistry.has(sanitized);
+            saveBtn.disabled = duplicate;
+            saveBtn.title = duplicate ? 'Cannot save duplicate label' : 'Save id (Enter)';
+            saveBtn.style.opacity = duplicate ? '0.4' : '1';
+            saveBtn.style.cursor = duplicate ? 'not-allowed' : 'pointer';
+            input.style.borderColor = duplicate ? MARKER_ID_ERROR_COLOR : MARKER_ID_INPUT_BORDER;
+            return duplicate;
+        };
 
         const startEdit = ({ initial = false } = {}) => {
             if (el.dataset.idEditing === '1') return;
+            // Captured before anything below touches the badge - true only for
+            // the single-tap open off the placeholder (see the badge click
+            // handler), never for the arm-then-edit path on an already-named one.
+            const openedFromPlaceholder = badgeText.textContent === MARKER_ID_PLACEHOLDER;
             el.dataset.idEditing = '1';
             // A marker created by a map click opens straight into its editor and
             // has not been committed to yet, so abandoning that first edit
@@ -1982,8 +2098,36 @@ export class MapMarkerManager {
             input.hidden = false;
             saveBtn.style.display = 'flex';
             deleteBtn.style.display = 'flex';
-            input.value = idToLabel(this._markers.get(markerId)?.urlId ?? badgeText.textContent);
+            clearBtn.style.display = 'flex';
+            // Wider than the ordinary menu cap (see MARKER_ID_EDIT_MAX_WIDTH):
+            // the header row also has to fit the save/delete/options buttons
+            // and the clear icon alongside the textarea, which the ordinary
+            // cap leaves it no room to grow into. Reset by endEdit.
+            const contentEl = el.querySelector('.marker-content');
+            if (contentEl) contentEl.style.maxWidth = `${MARKER_ID_EDIT_MAX_WIDTH}px`;
+            const currentUrlId = this._markers.get(markerId)?.urlId ?? badgeText.textContent;
+            // A plain auto-numbered id (see nextSerialId) hasn't been named yet -
+            // lead with the reverse-geocoded address name, if one has come back
+            // in time, rather than a bare "1" the user would just delete anyway.
+            input.value = /^\d+$/.test(currentUrlId)
+                ? this._defaultMarkerLabel(markerId)
+                : idToLabel(currentUrlId);
+
+            // Opening the placeholder's editor already commits that default
+            // label - the point of the placeholder was to invite a name, and
+            // the resolved address name (or the plain id, absent one) is as
+            // good a name as asking the user to retype it. Save stays offered
+            // regardless, in case they'd rather type over it right away.
+            if (openedFromPlaceholder) {
+                const markerData = this._markers.get(markerId);
+                const sanitized = sanitizeId(input.value);
+                if (markerData && sanitized
+                    && (sanitized === markerData.urlId || this.renameMarkerUrlId(markerId, sanitized))) {
+                    markerData.saved = true;
+                }
+            }
             sizeToContent();
+            syncValidity();
             this._syncIdActions(el);
             input.focus();
             // Selected, so typing replaces the id outright - renaming is the
@@ -1995,8 +2139,8 @@ export class MapMarkerManager {
             document.addEventListener('touchstart', dismissOutside, true);
         };
 
-        // Reachable from addMarker, which opens the editor on a freshly dropped
-        // marker without duplicating any of this closure's state.
+        // Exposed so other code (currently just tests) can drive the editor
+        // without duplicating any of this closure's state.
         el._startIdEdit = startEdit;
 
         const endEdit = () => {
@@ -2010,11 +2154,36 @@ export class MapMarkerManager {
             const urlId = this._markers.get(markerId)?.urlId ?? sanitizeId(input.value);
             badgeText.textContent = idToLabel(urlId);
             badge.title = idToLabel(urlId);
+            // Once an edit has happened the badge always shows a real id, never
+            // the placeholder again - so its muted color (set at first render,
+            // see _buildMarkerMenuHeaderHTML) needs to brighten back up too.
+            badge.style.color = MARKER_ID_TEXT_COLOR;
             input.hidden = true;
             saveBtn.style.display = 'none';
+            saveBtn.disabled = false;
+            saveBtn.title = 'Save id (Enter)';
+            saveBtn.style.opacity = '1';
+            saveBtn.style.cursor = 'pointer';
+            input.style.borderColor = MARKER_ID_INPUT_BORDER;
             deleteBtn.style.display = 'none';
+            clearBtn.style.display = 'none';
             badge.style.display = 'flex';
             this._syncIdActions(el);
+            // Reapplies the ordinary (non-editing) width cap now that
+            // MARKER_ID_EDIT_MAX_WIDTH's wider one no longer applies - inlined
+            // rather than calling _syncMarkerContent itself, which would also
+            // re-run its unsaved-marker cleanup check with `idEditing` already
+            // cleared above, and read as this edit having abandoned the marker
+            // even on a path (e.g. discard()'s "kept" branch) that didn't.
+            const contentEl = el.querySelector('.marker-content');
+            if (contentEl) {
+                contentEl.style.maxWidth = `${MARKER_ID_MAX_WIDTH}px`;
+                // Same reasoning as the width cap above: editing alone (not
+                // just selection/hover) was enough to opt into the more
+                // opaque fill, so ending it needs its own re-check too.
+                const shown = el.classList.contains('marker-selected') || el.dataset.markerHover === '1';
+                contentEl.style.background = shown ? MARKER_PANEL_BG_ACTIVE : MARKER_PANEL_BG;
+            }
             input.blur();
         };
 
@@ -2029,8 +2198,17 @@ export class MapMarkerManager {
         // is created - which would otherwise make a fresh marker one stray click
         // from a rename. Enter on the focused label fires this same click
         // natively, so it needs no separate key handling.
+        //
+        // The one exception is the placeholder itself: "Click to save label" is
+        // already an instruction to click it, so a single tap opens the editor
+        // right away instead of asking for a second one first.
         badge.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (badgeText.textContent === MARKER_ID_PLACEHOLDER) {
+                this._selectMarker(markerId);
+                startEdit({ initial: true });
+                return;
+            }
             if (el.dataset.idArmed !== '1') {
                 el.dataset.idArmed = '1';
                 this._selectMarker(markerId);
@@ -2064,11 +2242,19 @@ export class MapMarkerManager {
             const markerData = this._markers.get(markerId);
             if (!markerData) return endEdit();
 
+            // Already flagged (disabled button, red outline, tooltip) by
+            // syncValidity as the text was typed - Enter shouldn't slip a
+            // duplicate past that just because the button itself is disabled.
+            if (syncValidity()) {
+                input.focus();
+                return;
+            }
+
             const sanitized = sanitizeId(input.value);
             if (sanitized !== markerData.urlId
                 && (!sanitized || !this.renameMarkerUrlId(markerId, sanitized))) {
-                input.style.borderColor = '#ef4444';
-                setTimeout(() => { input.style.borderColor = '#374151'; }, 800);
+                input.style.borderColor = MARKER_ID_ERROR_COLOR;
+                setTimeout(() => { input.style.borderColor = MARKER_ID_INPUT_BORDER; }, 800);
                 input.focus();
                 return;
             }
@@ -2123,6 +2309,7 @@ export class MapMarkerManager {
                 if (cursor !== null) input.setSelectionRange(cursor, cursor);
             }
             sizeToContent();
+            syncValidity();
         });
 
         /**
@@ -2148,6 +2335,11 @@ export class MapMarkerManager {
         };
 
         wireEditAction(saveBtn, save);
+        wireEditAction(clearBtn, () => {
+            input.value = '';
+            sizeToContent();
+            input.focus();
+        });
         wireEditAction(deleteBtn, () => {
             endEdit();
             this.removeMarker(markerId);
@@ -2184,12 +2376,21 @@ export class MapMarkerManager {
         const shortcuts = el.querySelector('.marker-id-shortcuts');
         if (!shortcuts) return;
 
+        // Editing already offers its own save/delete actions right alongside
+        // it (see _buildMarkerMenuHeaderHTML) - the general options button
+        // would just be clutter next to those, for actions unrelated to
+        // naming the marker. Takes priority even on touch, which otherwise
+        // always shows it.
+        if (el.dataset.idEditing === '1') {
+            shortcuts.style.display = 'none';
+            return;
+        }
+
         // The options button belongs to an open marker, alongside its rows -
         // a chip is just a name. Removal and collapse are deliberately absent:
         // clicking away closes a marker, and add-mode keeps the ones you want.
         const open = this._isTouch
             || el.classList.contains('marker-selected')
-            || el.dataset.idEditing === '1'
             || el.dataset.markerHover === '1'
             || el.dataset.idHover === '1';
         shortcuts.style.display = open ? 'flex' : 'none';
@@ -2212,7 +2413,7 @@ export class MapMarkerManager {
             // to it starts from the same click-to-focus step.
             if (!selected) delete el.dataset.idArmed;
             this._syncIdActions(el);
-            this._syncMarkerContent(el);
+            this._syncMarkerContent(el, id);
         });
     }
 
@@ -2221,19 +2422,54 @@ export class MapMarkerManager {
      * Otherwise the panel is just its header - a chip carrying the id - so a
      * screen with several markers reads as a set of names rather than a pile of
      * overlapping tables.
+     *
+     * An unsaved marker is the exception: it exists only to invite a name (see
+     * the placeholder badge, MARKER_ID_PLACEHOLDER), so once it loses focus
+     * without one it has nothing left to say, and is removed outright rather
+     * than lingering as a bare "Click to save label" chip until the next
+     * marker replaces it (_clearUnsavedMarkers, which still runs at that point
+     * as a backstop for markers created some other way). Not while its id is
+     * actively being edited, though - that abandon-or-keep decision already
+     * belongs to _attachMarkerIdRowHandlers' own discard(), which knows about
+     * cases (e.g. reaching for a feature row inside the same marker) this
+     * plain hover/select check does not.
      */
-    _syncMarkerContent(el) {
-        const body = el.querySelector('.marker-menu-body');
-        const content = el.querySelector('.marker-content');
-        if (!body || !content) return;
-
+    _syncMarkerContent(el, markerId) {
         const selected = el.classList.contains('marker-selected');
         const hovered = el.dataset.markerHover === '1';
         const show = selected || hovered;
 
+        if (!show && markerId && el.dataset.idEditing !== '1' && !this._markers.get(markerId)?.saved) {
+            this.removeMarker(markerId);
+            return;
+        }
+
+        const body = el.querySelector('.marker-menu-body');
+        const content = el.querySelector('.marker-content');
+        if (!body || !content) return;
+
+        // A long id wraps rather than ellipsising or running off across the
+        // map - collapsed or open, the badge's own max-width (see labelStyle
+        // in _buildMarkerMenuHeaderHTML) wraps it the same way either time.
+        // The balloon just needs to be at least that wide too, so the badge
+        // has room to wrap inside it rather than spilling past its edge.
+        // Editing gets a wider cap of its own (see MARKER_ID_EDIT_MAX_WIDTH):
+        // the id textarea needs more room alongside the save/delete/options
+        // buttons than the ordinary menu width leaves it, and the id row is
+        // the only thing that cares.
+        const editing = el.dataset.idEditing === '1';
+        // A quiet, translucent chip at rest so the map reads through it, and
+        // a more solid fill once it's the one actually being read or acted on.
+        content.style.background = (show || editing) ? MARKER_PANEL_BG_ACTIVE : MARKER_PANEL_BG;
         body.style.display = show ? 'flex' : 'none';
         // Menu width only once it is a menu; as a chip it stays as wide as its id.
         content.style.minWidth = show ? `${MARKER_MENU_MIN_WIDTH}px` : '';
+        content.style.maxWidth = `${editing ? MARKER_ID_EDIT_MAX_WIDTH : MARKER_ID_MAX_WIDTH}px`;
+        // The id's dotted underline only means something once there is a menu
+        // open beneath it to click into - a collapsed chip reads as a plain
+        // label instead of inviting a click nothing else on it would explain.
+        const badge = el.querySelector('.marker-id-badge');
+        if (badge) badge.style.textDecorationLine = show ? 'underline' : 'none';
         // An open marker overlaps its neighbours, so it has to sit above them -
         // otherwise a menu opens underneath the chips around it.
         el.style.zIndex = hovered ? MARKER_Z_HOVERED : (selected ? MARKER_Z_SELECTED : '');
@@ -2373,16 +2609,20 @@ export class MapMarkerManager {
     }
 
     /**
-     * Every marker currently on the map as plain {id, lngLat, label} data —
-     * used by the "Markers" section of map-nearby-features-control.js's
+     * Every marker currently on the map as plain {id, lngLat, label, urlId}
+     * data — used by the "Markers" section of map-nearby-features-control.js's
      * header-nav list. `label` reuses the same feature-label logic
      * _updateSelectionLayer uses for its exported GeoJSON's `name` property.
+     * `urlId` is the marker's own `markers=`/badge id (marker-registry.js) —
+     * used by location-navigator-control.js, which labels its "Saved Markers"
+     * list by id rather than by feature content.
      */
     getMarkers() {
         return Array.from(this._markers.entries()).map(([id, markerData]) => ({
             id,
             lngLat: markerData.lngLat,
-            label: this._describeMarkerLabel(markerData)
+            label: this._describeMarkerLabel(markerData),
+            urlId: markerData.urlId
         }));
     }
 
@@ -2619,7 +2859,7 @@ export class MapMarkerManager {
      * a destination click already dropped become that route's waypoint instead
      * of stacking a second pin on the same spot (see search/route-store.js).
      */
-    adoptAsWaypoint(markerId, { pinColor, onDrag, onDragEnd, onRemove } = {}) {
+    adoptAsWaypoint(markerId, { pinColor, onDrag, onDragEnd, onRemove, onRenameRef } = {}) {
         const markerData = this._markers.get(markerId);
         if (!markerData) return;
 
@@ -2627,6 +2867,7 @@ export class MapMarkerManager {
         markerData.onDrag = onDrag;
         markerData.onDragEnd = onDragEnd;
         markerData.onRemove = onRemove;
+        markerData.onRenameRef = onRenameRef;
 
         if (pinColor) {
             markerData.pinColor = pinColor;
@@ -2640,11 +2881,20 @@ export class MapMarkerManager {
 
     /**
      * Renders (or updates, or removes when `refLabel` is falsy) a small text
-     * badge leading a marker's id label - used for a route waypoint's `ref` (see
-     * search/route-store.js's _syncMarkers, which assigns "A1", "A2", ..."B1"
-     * style codes and keeps them current as waypoints are added, removed, or
-     * reordered), so each stop along a route can be pointed at visually by a
-     * short code rather than only by position.
+     * badge trailing a marker's id label - used for a route waypoint's `ref`
+     * (`{mode}-{distanceText}:{stop_no}`, e.g. "walking-1.2km:3" - see
+     * search/route-geojson.js's buildRouteFeatureCollection and
+     * search/route-store.js's _syncMarkers, which keeps it current as
+     * waypoints are added, removed, or reordered), so each stop along a
+     * route can be pointed at visually by a short code rather than only by
+     * position.
+     *
+     * The prefix (everything before the last `:`) is editable the same way
+     * the marker id is - click to rename, Enter/blur to save, Escape to
+     * cancel (see _startRefLabelEdit) - but only while the marker is a route
+     * waypoint (`markerData.onRenameRef` set by adoptAsWaypoint). The
+     * `:stop_no` suffix is never user-typed: it tracks the waypoint's
+     * position in its route, so renaming only ever touches the prefix.
      */
     setMarkerRefLabel(markerId, refLabel) {
         const markerData = this._markers.get(markerId);
@@ -2663,12 +2913,14 @@ export class MapMarkerManager {
         if (!label) {
             label = document.createElement('span');
             label.className = 'marker-id-ref';
+            label.title = 'Click to rename';
             label.style.cssText = `
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
                 min-width: 16px;
                 height: 16px;
+                margin-top: 2px;
                 padding: 0 4px;
                 border-radius: 8px;
                 background: #000;
@@ -2676,12 +2928,125 @@ export class MapMarkerManager {
                 font-weight: 700;
                 line-height: 1;
                 color: #fff;
-                flex-shrink: 0;
-                pointer-events: none;
+                cursor: pointer;
             `;
-            badge.insertBefore(label, badge.firstChild);
+            // Trailing, on its own line below the marker's own id/name -
+            // which is what the marker is chiefly known by, with the route
+            // stop code as a secondary detail underneath it (see the badge's
+            // flex-direction: column in _buildMarkerMenuHeaderHTML).
+            badge.appendChild(label);
+            label.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._startRefLabelEdit(markerId);
+            });
         }
         label.textContent = refLabel;
+    }
+
+    /**
+     * Swaps a route waypoint's ref badge for a small inline input, seeded
+     * with just the prefix (the part before the last `:`) - the stop_no
+     * suffix is shown as static text alongside it and never enters the
+     * field, so there is nothing for the user to type that could change it.
+     * Enter or blur sanitizes and saves via the marker's onRenameRef handler
+     * (see search/route-store.js's _waypointHandlers); Escape reverts.
+     */
+    _startRefLabelEdit(markerId) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData?.onRenameRef) return;
+
+        const badge = markerData.marker.getElement()?.querySelector('.marker-id-badge');
+        const label = badge?.querySelector('.marker-id-ref');
+        if (!label) return;
+        if (label.querySelector('input')) return; // already editing
+
+        const currentRef = markerData.refLabel || '';
+        const sepIndex = currentRef.lastIndexOf(':');
+        const prefix = sepIndex === -1 ? currentRef : currentRef.slice(0, sepIndex);
+        const stopSuffix = sepIndex === -1 ? '' : currentRef.slice(sepIndex);
+
+        label.textContent = '';
+        label.style.cursor = 'text';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = prefix;
+        input.spellcheck = false;
+        input.autocomplete = 'off';
+        input.style.cssText = `
+            width: ${Math.max(3, prefix.length + 1)}ch;
+            min-width: 24px;
+            background: #111827;
+            border: 1px solid #6b7280;
+            border-radius: 3px;
+            color: #fff;
+            font: inherit;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 0 2px;
+        `;
+        ['mousedown', 'click'].forEach(type => input.addEventListener(type, (e) => e.stopPropagation()));
+
+        const suffixEl = document.createElement('span');
+        suffixEl.textContent = stopSuffix;
+        suffixEl.style.cssText = 'pointer-events: none; margin-left: 1px;';
+
+        label.appendChild(input);
+        label.appendChild(suffixEl);
+        input.focus();
+        input.select();
+
+        let settled = false;
+        const finish = (save) => {
+            if (settled) return;
+            settled = true;
+            label.style.cursor = 'pointer';
+
+            if (save) {
+                const sanitized = sanitizeRouteRefPrefix(input.value);
+                const candidate = `${sanitized}:${stopSuffix.slice(1) || '1'}`;
+                if (sanitized && isValidRouteRefId(candidate)) {
+                    markerData.onRenameRef(sanitized);
+                    return; // onRenameRef -> setMarkerRefLabel rebuilds the badge
+                }
+            }
+            // Rejected or cancelled: just restore the badge text.
+            this.setMarkerRefLabel(markerId, currentRef);
+        };
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
+    }
+
+    /**
+     * The inverse of adoptAsWaypoint: a marker dropped off a route (see
+     * search/route-store.js's removeMarkerFromRoute) reverts to a plain
+     * marker rather than staying styled/behaved like a waypoint - its ref
+     * badge is cleared, its pin color/border reset, and the route-specific
+     * handlers (drag re-routing, onRemove dropping the waypoint, ref rename)
+     * are dropped so the marker's own ordinary handling takes back over.
+     */
+    releaseWaypoint(markerId) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData) return;
+
+        markerData.role = null;
+        markerData.pinColor = null;
+        markerData.onDrag = null;
+        markerData.onDragEnd = null;
+        markerData.onRemove = null;
+        markerData.onRenameRef = null;
+
+        const el = markerData.marker.getElement();
+        const badge = el?.querySelector('.marker-id-badge');
+        if (badge) badge.style.borderColor = 'transparent';
+        const tail = el?.querySelector('.marker-tail polygon');
+        if (tail) tail.setAttribute('stroke', '');
+
+        this.setMarkerRefLabel(markerId, null);
     }
 
     /**
@@ -3023,11 +3388,11 @@ export class MapMarkerManager {
             onRemove = null,
             onDrag = null,
             onDragEnd = null,
+            onRenameRef = null,
             role = null,
             pinColor = '#f97316',
             urlId: requestedUrlId = null,
             select: selectOnCreate = true,
-            startEditing = false,
             saved: savedOnCreate = false
         } = options;
         features = this._dedupeFeatures(features);
@@ -3088,8 +3453,8 @@ export class MapMarkerManager {
         // it is the same kind of thing.
         el.innerHTML = `
             ${this._buildMarkerLeaderHTML()}
-            <div class="marker-content" style="position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: ${MARKER_ID_MAX_WIDTH}px; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: 0 8px 8px 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); pointer-events: auto;">
-                ${this._buildMarkerMenuHeaderHTML(urlId)}
+            <div class="marker-content" style="position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: ${MARKER_CORNER_RADIUS}px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); pointer-events: auto;">
+                ${this._buildMarkerMenuHeaderHTML(urlId, saved)}
                 <div class="marker-menu-body" style="display: none; flex-direction: column; align-items: stretch;">
                     ${this._buildCommentSectionHTML(noteEntry)}
                     ${this._buildMarkerSummaryHTML(badgeFeatures, lngLat)}
@@ -3168,6 +3533,7 @@ export class MapMarkerManager {
             onRemove,
             onDrag,
             onDragEnd,
+            onRenameRef,
             role,
             // Set once its id is deliberately saved (see the id header's save
             // action), or carried in from a link, which named it already. A
@@ -3209,21 +3575,10 @@ export class MapMarkerManager {
         // per layer that resolves, for many seconds, and every one of those
         // would otherwise yank focus off whatever the user had clicked.
         if (selectOnCreate) this._selectMarker(markerId);
-        else this._syncMarkerContent(el);
+        else this._syncMarkerContent(el, markerId);
 
         // Nothing has a measurable size until the browser has laid the marker
         // out, and the leader line is drawn from measurements.
-        // A marker you just dropped opens straight into its id editor: naming it
-        // is what makes it worth keeping (see `saved` above), so the field is
-        // ready rather than two clicks away. Never for a rebuild - a drag adopts
-        // an existing identity and must not reopen the editor.
-        //
-        // Called synchronously, still inside the tap that created this marker:
-        // mobile browsers only raise the on-screen keyboard for a focus() made
-        // during a user gesture, so deferring this to the frame below left the
-        // field looking focused with no keyboard behind it.
-        if (startEditing && selectOnCreate && !adopted) el._startIdEdit?.({ initial: true });
-
         requestAnimationFrame(() => {
             this._applyStoredPanelOffset(markerId);
             this._syncMarkerLeader(el);
@@ -3248,7 +3603,7 @@ export class MapMarkerManager {
                 // so its options and badges can be read without committing to it.
                 el.dataset.markerHover = '1';
                 this._syncIdActions(el);
-                this._syncMarkerContent(el);
+                this._syncMarkerContent(el, markerId);
             });
 
             el.addEventListener('mouseleave', () => {
@@ -3256,7 +3611,7 @@ export class MapMarkerManager {
                 this._setMarkerFeaturesHoverState(markerId, false);
                 delete el.dataset.markerHover;
                 this._syncIdActions(el);
-                this._syncMarkerContent(el);
+                this._syncMarkerContent(el, markerId);
             });
         }
 
@@ -3345,10 +3700,7 @@ export class MapMarkerManager {
         // must come back with the same `markers=` id, or dragging would silently
         // renumber it (and break any route referencing it). An owned marker keeps
         // its identity by never being rebuilt at all - see the early return above.
-        const carried = this._markers.get(markerId);
-        const identity = carried?.urlId
-            ? { urlId: carried.urlId, saved: !!carried.saved, ...(markerRegistry.get(carried.urlId) || {}) }
-            : null;
+        const identity = this._captureMarkerIdentity(markerId);
 
         this.removeMarker(markerId);
 
@@ -3390,6 +3742,31 @@ export class MapMarkerManager {
 
         const getPoint = (e) => (e.touches && e.touches.length ? e.touches[0] : e);
 
+        // A real mouse drag still ends with mousedown and mouseup sharing the
+        // same target regardless of how far the pointer travelled in between,
+        // so release fires an ordinary 'click' right after it - a separate
+        // event from the mouseup onUp already sees, dispatched fresh from
+        // `document` down to whatever's under the pointer. Left unswallowed,
+        // that click reads as "the user picked this marker" to addMarker's own
+        // click->select listener on the marker element, and selects it - which
+        // pins the panel open even once the pointer has moved well clear of it
+        // (_syncMarkerContent only collapses an unselected marker on
+        // hover-leave). Listening on `document` rather than the marker element
+        // matters: a capture listener runs in DOM order regardless of when it
+        // was registered, so `document`'s always fires before one on a
+        // descendant does - whereas a listener on the marker element itself
+        // would run too late, since addMarker's own is attached there first.
+        // Added only while a drag is in progress (see onDown/onUp below), and
+        // removed a tick after release rather than immediately, so it is still
+        // there to catch this specific click before going away.
+        const swallowClick = (e) => {
+            if (moved) {
+                e.stopPropagation();
+                e.preventDefault();
+                moved = false;
+            }
+        };
+
         const onMove = (e) => {
             const point = getPoint(e);
             const dx = point.clientX - startX;
@@ -3407,13 +3784,27 @@ export class MapMarkerManager {
             }
         };
 
-        const onUp = () => {
+        const onUp = (e) => {
             if (moved) {
-                // Touch browsers fire a phantom click after this release (see
-                // `_suppressClickUntil`'s definition) that can land outside
-                // contentEl (e.g. the map canvas) and slip past the click-swallow
-                // listener below, which only catches clicks targeting contentEl
-                // or its descendants.
+                // This event (touchend/mouseup) is what mapbox's own marker
+                // drag, and addMarker's touchend->select listener on the marker
+                // element, would otherwise see too - both live on/under the
+                // marker element, a descendant of `window`, so stopping it here
+                // (capture phase, already running on window) reaches them before
+                // they do regardless of when their own listeners were attached.
+                // Left unstopped, a drag-to-reposition reads as "the user picked
+                // this marker" and selects it, pinning the panel open even once
+                // the pointer has moved well clear of it (_syncMarkerContent
+                // only collapses an unselected marker on hover-leave).
+                e?.stopPropagation();
+
+                // Touch browsers can fire a phantom click well after this
+                // release - long after `swallowClick` above has already
+                // removed itself (a tick later, see onUp's cleanup) - and it
+                // can land anywhere, including outside the marker entirely
+                // (e.g. the map canvas). `_suppressClickUntil` is the map's own
+                // longer-lived guard against that one; this is not a duplicate
+                // of it.
                 if (this._isTouch) {
                     this._stateManager._suppressClickUntil = Date.now() + MARKER_DRAG_CLICK_SUPPRESS_MS;
                 }
@@ -3442,6 +3833,10 @@ export class MapMarkerManager {
             window.removeEventListener('touchmove', onMove, true);
             window.removeEventListener('touchend', onUp, true);
             window.removeEventListener('touchcancel', onUp, true);
+            // The 'click' this release is about to produce (see `swallowClick`)
+            // hasn't been dispatched yet - removing this now would let it
+            // through, undoing the whole point of adding it.
+            setTimeout(() => document.removeEventListener('click', swallowClick, true), 0);
         };
 
         const onDown = (e) => {
@@ -3480,21 +3875,11 @@ export class MapMarkerManager {
             // map somewhere else entirely — then gets misread as a continuation of
             // this drag, yanking the balloon to wherever that new touch happens to land.
             window.addEventListener('touchcancel', onUp, true);
+            document.addEventListener('click', swallowClick, true);
         };
 
         contentEl.addEventListener('mousedown', onDown);
         contentEl.addEventListener('touchstart', onDown);
-
-        // A real drag shouldn't also trigger whatever badge sits under the
-        // pointer on release — swallow that one click in the capture phase,
-        // before it reaches the badge's own bubble-phase click handler.
-        contentEl.addEventListener('click', (e) => {
-            if (moved) {
-                e.stopPropagation();
-                e.preventDefault();
-                moved = false;
-            }
-        }, true);
     }
 
     _setMarkerFeaturesHoverState(markerId, hoverState) {
@@ -3676,6 +4061,36 @@ export class MapMarkerManager {
         // newly-added layer) — a single feature is often much smaller than that,
         // so the cap would otherwise zoom OUT instead of in when already closer.
         CameraUtils.fitBounds(this._map, bbox, { duration: 1000, maxZoom: 20 });
+    }
+
+    /**
+     * `{urlId, saved, ...registry fields}` for a marker that's about to be
+     * rebuilt, or `null` if it never had an id - shared by _handleMarkerDragEnd
+     * and removeMarkerKeepingIdentity below so a marker rebuilt either way
+     * (dragged onto new features, or upgraded from feature-less by
+     * shortcut-menu-base.js's _ensureMarkerAt) comes back with the same
+     * `markers=` id and saved/name/description rather than a fresh
+     * auto-numbered one.
+     */
+    _captureMarkerIdentity(markerId) {
+        const markerData = this._markers.get(markerId);
+        return markerData?.urlId
+            ? { urlId: markerData.urlId, saved: !!markerData.saved, ...(markerRegistry.get(markerData.urlId) || {}) }
+            : null;
+    }
+
+    /**
+     * Removes `markerId` but keeps its identity (see _captureMarkerIdentity)
+     * staged for the very next addMarker() call to reclaim (see its own
+     * `adopted` handling) - used by shortcut-menu-base.js's _ensureMarkerAt
+     * when it rebuilds a still-empty marker to carry newly-found features, so
+     * that upgrade doesn't silently drop whatever id/name the marker already
+     * had. One-shot: the following addMarker() call must be synchronous, the
+     * same way _handleMarkerDragEnd's own use of this pattern is.
+     */
+    removeMarkerKeepingIdentity(markerId) {
+        this._adoptedIdentity = this._captureMarkerIdentity(markerId);
+        this.removeMarker(markerId);
     }
 
     /**

@@ -61,11 +61,11 @@
  * open re-bases that saved view, so closing the menu never undoes their
  * gesture.
  *
- * Lives in the header-nav (next to the shortcuts menu — see
- * header-shortcut-menu-control.js / shortcut-menu-base.js), sharing its
- * `.header-shortcut-menu` / `.header-shortcut-menu-btn` container styling and
- * rendering rows with the same `.shortcut-menu` classes as other header-nav
- * menus (see map-location-menu-control.js). Not a mapboxgl control.
+ * Lives in the header-nav (next to the atlas + layers menu — see
+ * location-navigator-control.js), sharing its `.header-shortcut-menu` /
+ * `.header-shortcut-menu-btn` container styling and rendering rows with the
+ * same `.shortcut-menu` classes as other header-nav menus (see
+ * map-location-menu-control.js). Not a mapboxgl control.
  */
 import { haversineDistanceMeters, initialBearingDeg, formatDistance, bearingToCompassAbbr, bearingToCompassWord } from './geo-distance-utils.js';
 import { WaypointPicker, WAYPOINT_MY_LOCATION } from './waypoint-picker.js';

@@ -212,6 +212,7 @@ export class RouteStore {
         const route = this._routes.find(r => r.id === routeId);
         if (index < 0 || !route || !route.waypoints[index]) return;
 
+        delete route.refOverrides[route.markerIds[index]];
         route.waypoints.splice(index, 1);
         route.names.splice(index, 1);
         route.markerIds.splice(index, 1);
@@ -290,6 +291,12 @@ export class RouteStore {
             profile: getDirectionsProfile(),
             geojson: EMPTY_DATA,
             markerIds: [],
+            // A waypoint's ref defaults to `{mode}-{distanceText}:{stop_no}`
+            // (see route-geojson.js's buildRouteFeatureCollection), but a user
+            // can rename the prefix (see renameWaypointRef) - keyed by marker
+            // id rather than index, so a rename survives waypoints being
+            // added/removed/reordered ahead of it.
+            refOverrides: {},
             name: ''
         };
         route.name = routeName(route);
@@ -317,22 +324,37 @@ export class RouteStore {
      * ride along in the `markers=` URL param like any other selection (see
      * ../map-marker-manager.js, url-manager.js's serializeMarkersForURL).
      * Dragging one moves the waypoint and re-routes; closing one drops it.
-     * Each also gets its `ref` ("A1", "A2", ...) rendered on its pin (see
-     * MapMarkerManager.setMarkerRefLabel) - reapplied on every call, since
-     * adding, removing, or reordering a waypoint shifts every ref after it.
+     *
+     * Each also gets its `ref` (`{mode}-{distanceText}:{stop_no}`, e.g.
+     * "walking-1.2km:3" - see route-geojson.js's buildRouteFeatureCollection)
+     * rendered on its pin (see MapMarkerManager.setMarkerRefLabel) - reapplied
+     * on every call, since re-routing recomputes every stop's distance and
+     * adding/removing/reordering a waypoint shifts every stop_no after it. A
+     * user-renamed prefix (see renameWaypointRef, keyed in
+     * route.refOverrides by marker id so it survives all of that) overrides
+     * the default `{mode}-{distanceText}` half only - stop_no always tracks
+     * the waypoint's current position, never what was last saved.
      */
     _syncMarkers(route) {
         const markers = window.featureControl?._markerManager;
         if (!markers) return;
 
+        const waypointFeatures = route.geojson?.features?.filter(f => f.properties?.kind === 'waypoint') || [];
+
+        const refLabelFor = (markerId, index) => {
+            const feature = waypointFeatures.find(f => f.properties?.index === index);
+            const defaultPrefix = feature?.properties?.refPrefix || route.code;
+            const prefix = (markerId && route.refOverrides[markerId]) || defaultPrefix;
+            return `${prefix}:${index + 1}`;
+        };
+
         route.waypoints.forEach((coordinates, index) => {
             const lngLat = { lng: coordinates[0], lat: coordinates[1] };
-            const refLabel = `${route.code}${index + 1}`;
             const existingId = route.markerIds[index];
 
             if (existingId && markers._markers?.has(existingId)) {
                 markers.moveMarker(existingId, lngLat);
-                markers.setMarkerRefLabel(existingId, refLabel);
+                markers.setMarkerRefLabel(existingId, refLabelFor(existingId, index));
                 return;
             }
 
@@ -342,7 +364,7 @@ export class RouteStore {
             if (nearby) {
                 route.markerIds[index] = nearby;
                 markers.adoptAsWaypoint(nearby, this._waypointHandlers(route, { id: nearby }));
-                markers.setMarkerRefLabel(nearby, refLabel);
+                markers.setMarkerRefLabel(nearby, refLabelFor(nearby, index));
                 return;
             }
 
@@ -356,7 +378,7 @@ export class RouteStore {
                 ...this._waypointHandlers(route, ref)
             });
             route.markerIds[index] = ref.id;
-            markers.setMarkerRefLabel(ref.id, refLabel);
+            markers.setMarkerRefLabel(ref.id, refLabelFor(ref.id, index));
         });
     }
 
@@ -366,8 +388,63 @@ export class RouteStore {
             pinColor: WAYPOINT_PIN_COLOR,
             onDrag: (moved) => this.moveWaypoint(route.id, indexOf(), moved, { live: true }),
             onDragEnd: (moved) => this.moveWaypoint(route.id, indexOf(), moved),
-            onRemove: () => this.removeWaypoint(route.id, indexOf())
+            onRemove: () => this.removeWaypoint(route.id, indexOf()),
+            // The prefix half of this waypoint's ref (map-marker-manager.js's
+            // ref-badge editor calls this on save) - stop_no is reapplied by
+            // _syncMarkers right after, from this same route.refOverrides
+            // entry, so the rename shows immediately without waiting for a
+            // re-route.
+            onRenameRef: (newPrefix) => this.renameWaypointRef(route.id, ref.id, newPrefix)
         };
+    }
+
+    /**
+     * A route waypoint's ref badge was renamed (map-marker-manager.js's
+     * ref-badge editor, via _waypointHandlers' onRenameRef). Only the prefix
+     * is ever renamed - the stop_no suffix always tracks position, see
+     * _syncMarkers - so this stores the override and re-renders that one
+     * marker's badge immediately, without re-routing.
+     */
+    renameWaypointRef(routeId, markerId, newPrefix) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route) return false;
+
+        const index = route.markerIds.indexOf(markerId);
+        if (index === -1) return false;
+
+        if (newPrefix) route.refOverrides[markerId] = newPrefix;
+        else delete route.refOverrides[markerId];
+
+        window.featureControl?._markerManager?.setMarkerRefLabel(markerId, `${newPrefix || route.code}:${index + 1}`);
+        return true;
+    }
+
+    /**
+     * Detaches `markerId` from `routeId`'s stop list without deleting the
+     * marker itself - unlike the marker's own onRemove (removeWaypoint,
+     * fired when the marker is closed outright), this is for
+     * ShortcutMenuBase's Route > Remove from Route, where the point is meant
+     * to stay on the map as a plain marker once it's off the route.
+     */
+    removeMarkerFromRoute(routeId, markerId) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route) return;
+
+        const index = route.markerIds.indexOf(markerId);
+        if (index === -1) return;
+
+        route.waypoints.splice(index, 1);
+        route.names.splice(index, 1);
+        route.markerIds.splice(index, 1);
+        delete route.refOverrides[markerId];
+
+        window.featureControl?._markerManager?.releaseWaypoint(markerId);
+
+        if (route.waypoints.length < 2) {
+            this.remove(routeId);
+            return;
+        }
+        this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
     }
 
     _apply(route, result) {
@@ -375,8 +452,7 @@ export class RouteStore {
         route.geojson = buildRouteFeatureCollection(result, route.waypoints, {
             profile: result.profile,
             source: result.source,
-            names: route.names,
-            routeCode: route.code
+            names: route.names
         });
         route.name = routeName(route);
     }
@@ -486,12 +562,15 @@ function routeFromFeatures(id, groupId, features) {
     if (points.length < 2) return null;
 
     const number = nextRouteNumber++;
-    // Restoring a route already carrying `ref`s (see route-geojson.js) keeps
-    // its letter code rather than reassigning one off the new session's
-    // count, so a shared link's waypoint refs don't shift on reload; older
-    // data with no `ref` yet just gets a fresh one.
-    const existingRef = points[0]?.properties?.ref;
-    const code = existingRef ? existingRef.replace(/\d+$/, '') : routeLetterCode(number);
+    // `code` is only the last-resort fallback prefix for a waypoint whose
+    // feature carries no `refPrefix`/`ref` of its own (see _syncMarkers) -
+    // legacy data from before the `{mode}-{distanceText}:{stop_no}` format,
+    // which used a per-route letter code ("A1", "A2", ...). A restored route
+    // that already has one keeps it rather than reassigning one off the new
+    // session's count, so old shared links don't shift on reload.
+    const existingRef = points[0]?.properties?.refPrefix
+        || points[0]?.properties?.ref?.split(':')[0];
+    const code = existingRef || routeLetterCode(number);
 
     const route = {
         id,
@@ -506,6 +585,7 @@ function routeFromFeatures(id, groupId, features) {
         geojson: { type: 'FeatureCollection', features },
         result: line?.properties || null,
         markerIds: [],
+        refOverrides: {},
         name: ''
     };
     route.name = line?.properties?.title || routeName(route);
