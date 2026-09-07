@@ -290,6 +290,11 @@ export class MapFeatureControl {
                 break;
             case 'features-hover-cleared':
             case 'map-mouse-leave':
+                // A mousemove already coalesced into the next frame would run
+                // after this clear and light the feature back up - with the
+                // pointer now off the canvas (over a marker panel, say) nothing
+                // would arrive to clear it again, so it would stay lit. Drop it.
+                this._cancelPendingHoverQuery();
                 this._clearHighlightInIframe();
                 this._sendHoverClearedToIframe();
                 break;
@@ -1306,19 +1311,17 @@ export class MapFeatureControl {
             // up the main thread — updates lag behind the cursor and catch up in a
             // burst once movement slows, instead of tracking smoothly. Coalesce to the
             // latest event once per animation frame.
-            let mouseMoveEvent = null;
-            let mouseMoveRAF = null;
             this._map.on('mousemove', (e) => {
                 // A marker balloon's manual drag (MapMarkerManager) runs via
                 // window-level listeners while the pointer passes over the map
                 // canvas — skip the hover query entirely so it doesn't compete with
                 // the drag for the main thread or flip hover state underneath it.
                 if (this._stateManager._isDraggingMarkerPanel) return;
-                mouseMoveEvent = e;
-                if (mouseMoveRAF) return;
-                mouseMoveRAF = requestAnimationFrame(() => {
-                    mouseMoveRAF = null;
-                    this._handleMouseMove(mouseMoveEvent);
+                this._pendingHoverEvent = e;
+                if (this._pendingHoverRAF) return;
+                this._pendingHoverRAF = requestAnimationFrame(() => {
+                    this._pendingHoverRAF = null;
+                    this._handleMouseMove(this._pendingHoverEvent);
                 });
             });
         }
@@ -1464,7 +1467,16 @@ export class MapFeatureControl {
     /**
      * Handle mouse move events
      */
+    /** Forgets a hover query queued for the next frame (see 'map-mouse-leave'). */
+    _cancelPendingHoverQuery() {
+        if (!this._pendingHoverRAF) return;
+        cancelAnimationFrame(this._pendingHoverRAF);
+        this._pendingHoverRAF = null;
+        this._pendingHoverEvent = null;
+    }
+
     _handleMouseMove(e) {
+        if (!e) return;
         let rawFeatures = [];
         let usedFallback = false;
         try {

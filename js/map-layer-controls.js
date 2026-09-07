@@ -129,8 +129,18 @@ export class LayerIsolationManager {
      * Drop both levels of isolation and undim everything. For callers that
      * change the layer set out from under an active isolation (removing a layer,
      * say), where clear() alone would bail out because a hover is still active.
+     *
+     * A no-op when nothing was isolated: _applyClear()'s own fallback (see
+     * below) treats an empty _dimmed record as "isolation applied from outside
+     * this manager" and, to be safe, undims every toggled-on layer once. Called
+     * unconditionally, that would force every other visible layer through a
+     * visibility/opacity round-trip on every single layer removal - harmless
+     * for a plain opacity multiplier, but a 'style' group's individually
+     * toggled-off sublayers would be forced back to visible, since
+     * _createStyleLayer's restore has no notion of "off" at that granularity.
      */
     reset() {
+        if (!this._hover && !this._persistent && this._dimmed.size === 0) return;
         this._hover = null;
         this._persistent = null;
         this._applyClear();

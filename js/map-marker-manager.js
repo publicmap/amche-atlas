@@ -41,6 +41,26 @@ const MARKER_CORNER_RADIUS = 8;
 // enough to contain any drag instead, with the point at its centre.
 const MARKER_LEADER_EXTENT = 1200;
 
+// How wide the leader is where it meets the panel. It tapers to nothing at the
+// point itself, so the join reads as a speech-bubble tail rather than a wire.
+const MARKER_LEADER_WIDTH = 4;
+
+// How wide the tail's invisible grab area is - a 4px triangle is too fine to
+// aim at, so it is stroked transparently out to something a pointer can hit.
+const MARKER_LEADER_GRAB = 12;
+
+// How far inside the panel the tail's base sits. The panel paints over the tail
+// (it comes later in the DOM and is positioned), so tucking the base under the
+// corner hides the base's own corners: the tail reads as emerging from the
+// panel's edge rather than as a triangle parked against it.
+const MARKER_LEADER_INSET = 3;
+
+// The panel's surface, shared with the tail that carries it back to its point so
+// the two read as one callout. Matches .shortcut-menu (see css/styles.css),
+// since a marker panel is the same kind of surface.
+const MARKER_PANEL_BG = '#1f2937';
+const MARKER_PANEL_BORDER = '#374151';
+
 // Grace period before an unpinned feature table closes, so the pointer can
 // travel from the row into the table without it vanishing on the way.
 const FLYOUT_CLOSE_DELAY_MS = 160;
@@ -74,11 +94,15 @@ function idToLabel(urlId) {
 /**
  * Which of a panel's corners faces its point, from where the panel has been
  * dragged to. The offset is that corner's position relative to the panel's
- * resting place beside the point, so a negative component means the panel lies
- * on that side of it - and the corner facing back is the opposite one.
+ * resting place beside the point, so a negative x means the panel lies to the
+ * left of it - and the corner facing back is the opposite one.
+ *
+ * Only the two top corners are candidates, so a panel always grows downwards
+ * from the corner its leader meets, whichever side of the point it sits on
+ * (see _syncMarkerLeader).
  */
-function anchorFromOffset({ x = 0, y = 0 } = {}) {
-    return `${y < 0 ? 'bottom' : 'top'}-${x < 0 ? 'right' : 'left'}`;
+function anchorFromOffset({ x = 0 } = {}) {
+    return x < 0 ? 'top-right' : 'top-left';
 }
 
 // Ceiling for the id label, so a long search-result id (up to 64 characters -
@@ -88,7 +112,8 @@ const MARKER_ID_MAX_WIDTH = 240;
 
 // `data-badge-index` for the address row - the one summary chip shown when
 // nothing was selected here (see _buildMarkerSummaryHTML). Real features index
-// from 0, the coordinates badge uses -1, so the address takes -2.
+// from 0, and -1 belonged to the coordinates badge that the address's own
+// $coordinates field replaced, so the address takes -2.
 const ADDRESS_BADGE_INDEX = -2;
 
 
@@ -250,24 +275,24 @@ export class MapMarkerManager {
      *
      * Percentages are of the element's own size, so the browser re-resolves them
      * as the panel grows: opening the menu expands it away from the anchor
-     * rather than dragging that corner off the point. A panel sitting left of
-     * its point grows leftwards, one above it grows upwards, and so on.
+     * rather than dragging that corner off the point. Since the anchor is always
+     * a top corner, a panel grows downwards - leftwards or rightwards depending
+     * on which side of the point it sits.
      */
     _applyPanelTransform(markerData) {
         if (!markerData.contentEl) return;
         const { x, y } = markerData.panelOffset || { x: 0, y: 0 };
         const anchor = markerData.panelAnchor || 'top-left';
         const shiftX = anchor.endsWith('right') ? '-100%' : '0';
-        const shiftY = anchor.startsWith('bottom') ? '-100%' : '0';
         markerData.contentEl.style.transform =
-            `translate(${x}px, ${y}px) translate(${shiftX}, ${shiftY})`;
+            `translate(${x}px, ${y}px) translate(${shiftX}, 0)`;
     }
 
     /**
      * Re-bases the stored offset when a drag moves the panel across its point,
      * so that switching which corner is anchored doesn't make the panel jump:
-     * the same corner is now measured from the opposite edge, so the offset has
-     * to move by the panel's own width or height to describe the same place.
+     * the offset is now measured from the opposite edge, so it has to move by
+     * the panel's own width to describe the same place.
      */
     _rebasePanelAnchor(markerData) {
         const offset = markerData.panelOffset;
@@ -277,16 +302,10 @@ export class MapMarkerManager {
         const prev = markerData.panelAnchor || 'top-left';
         if (next === prev) return;
 
-        const rect = markerData.contentEl.getBoundingClientRect();
-        let { x, y } = offset;
-        if (next.endsWith('right') !== prev.endsWith('right')) {
-            x += next.endsWith('right') ? rect.width : -rect.width;
-        }
-        if (next.startsWith('bottom') !== prev.startsWith('bottom')) {
-            y += next.startsWith('bottom') ? rect.height : -rect.height;
-        }
+        const { width } = markerData.contentEl.getBoundingClientRect();
+        const x = offset.x + (next.endsWith('right') ? width : -width);
 
-        this._setMarkerPanelOffset(markerData, x, y, { anchor: next });
+        this._setMarkerPanelOffset(markerData, x, offset.y, { anchor: next });
     }
 
     /** Puts a restored panel back where the link left it. */
@@ -461,12 +480,19 @@ export class MapMarkerManager {
             return;
         }
 
+        // A marker being repositioned carries its own panel with it, and the
+        // drop re-queries the point into that panel - so a hover popup trailing
+        // the pointer would only say the same thing twice. The features beneath
+        // it still highlight (see _handleMarkerDrag); it is just the popup that
+        // has nothing to add.
+        if (this._draggingMarkerId) {
+            this._clearHoverMarker();
+            return;
+        }
+
         // Pointer is over an existing inspect marker (buttons or badges) — those
-        // capture the interaction, so don't show a redundant hover popup. Skip this
-        // suppression while a marker is being dragged: the pointer is pinned to the
-        // dragged marker's own element, but the hover preview needs to reflect
-        // whatever is newly beneath it, not be blocked by that.
-        if (this._pointerOverMarker && !this._draggingMarkerId) {
+        // capture the interaction, so don't show a redundant hover popup.
+        if (this._pointerOverMarker) {
             this._clearHoverMarker();
             return;
         }
@@ -993,14 +1019,28 @@ export class MapMarkerManager {
     }
 
     /**
-     * The leader line that stands in for the old map pin: it runs from the
-     * point the marker describes to the nearest corner of its panel, and a dot
-     * marks the point itself.
+     * The leader that stands in for the old map pin: a tail running from the
+     * point the marker describes to the nearest top corner of its panel,
+     * tapering from nothing at the point to MARKER_LEADER_WIDTH where it meets
+     * the panel, so the pair reads as one callout.
      *
-     * Not a fixed triangle, because the panel does not stay put - it can be
+     * A polygon rather than a stroked line, because a stroke cannot taper - and
+     * not a fixed tail either, because the panel does not stay put: it can be
      * dragged clear of whatever sits under it (see _attachBalloonDragHandler),
-     * and a triangle pinned to one corner would simply detach. The line is
-     * recomputed from wherever the panel has ended up (_syncMarkerLeader).
+     * so the shape is recomputed from wherever the panel ended up
+     * (_syncMarkerLeader).
+     *
+     * The tail is also the handle the marker's *location* is dragged by - it
+     * stands in for the pin in that too - so it is the one part of the
+     * surrounding space that hit-tests, and it carries the move cursor to say
+     * so. Nothing here stops the press: mapbox's marker drag listens on the map
+     * container this marker sits in and checks whether the press landed inside
+     * the marker element, so letting it bubble is what arms the drag.
+     *
+     * The <svg> around the tail stays transparent to the pointer: it spans
+     * MARKER_LEADER_EXTENT in every direction, and only the triangle actually
+     * drawn inside it is the handle. The transparent stroke widens that handle
+     * to something grabbable without widening what is painted.
      */
     _buildMarkerLeaderHTML() {
         const c = MARKER_LEADER_EXTENT;
@@ -1008,17 +1048,28 @@ export class MapMarkerManager {
         return `
             <svg class="marker-leader" width="${size}" height="${size}" aria-hidden="true"
                 style="position: absolute; top: ${-c}px; left: ${-c}px; pointer-events: none;">
-                <line class="marker-leader-line" x1="${c}" y1="${c}" x2="${c}" y2="${c}"
-                    stroke="#000000" stroke-width="1.5" stroke-linecap="round"/>
+                <polygon class="marker-leader-line" points="${c},${c} ${c},${c} ${c},${c}"
+                    fill="${MARKER_PANEL_BG}" stroke="transparent"
+                    stroke-width="${MARKER_LEADER_GRAB}" stroke-linejoin="round"
+                    style="pointer-events: auto; cursor: move;"/>
             </svg>
         `;
     }
 
     /**
-     * Joins the panel back to its point: finds whichever of the panel's four
-     * corners is nearest the point, draws the leader line to it, and squares
-     * that corner off (leaving the other three rounded) so the line reads as
-     * running into the panel rather than touching it.
+     * Joins the panel back to its point: finds whichever of the panel's two top
+     * corners is nearer the point, draws the tail to it, and squares that corner
+     * off (leaving the other three rounded) so the tail reads as running into
+     * the panel rather than touching it.
+     *
+     * The tail lands MARKER_LEADER_INSET inside that corner rather than on it,
+     * so the panel covers where it terminates (see the constant).
+     *
+     * Only the top corners are candidates. A panel is a header that grows
+     * downwards as it opens, so joining it at a bottom corner would put the tail
+     * on the moving edge - the panel would have to grow upwards to keep it in
+     * place, and the corner chosen would keep changing as it did. Anchoring at
+     * the top means the panel always grows down, away from the join.
      *
      * Both rects are read from the DOM rather than tracked, so this stays
      * correct however the panel got where it is - the drag transform, the panel
@@ -1036,33 +1087,49 @@ export class MapMarkerManager {
         const panel = content.getBoundingClientRect();
         if (!panel.width || !panel.height) return;
 
-        const left = panel.left - origin.left;
-        const top = panel.top - origin.top;
-        const right = left + panel.width;
-        const bottom = top + panel.height;
+        const inset = Math.min(MARKER_LEADER_INSET, panel.width / 2, panel.height / 2);
+        const left = panel.left - origin.left + inset;
+        const top = panel.top - origin.top + inset;
 
         const corners = [
             { name: 'top-left', x: left, y: top },
-            { name: 'top-right', x: right, y: top },
-            { name: 'bottom-right', x: right, y: bottom },
-            { name: 'bottom-left', x: left, y: bottom }
+            { name: 'top-right', x: left + panel.width - inset * 2, y: top }
         ];
         const nearest = corners.reduce((a, b) => (Math.hypot(a.x, a.y) <= Math.hypot(b.x, b.y) ? a : b));
 
-        // Drawn relative to the surface's centre, which is the point itself.
-        svg.querySelectorAll('.marker-leader-line').forEach(line => {
-            line.setAttribute('x2', String(MARKER_LEADER_EXTENT + Math.round(nearest.x)));
-            line.setAttribute('y2', String(MARKER_LEADER_EXTENT + Math.round(nearest.y)));
-        });
+        this._drawMarkerLeaderTail(svg, nearest);
 
         const r = `${MARKER_CORNER_RADIUS}px`;
         content.style.borderRadius = {
             'top-left': `0px ${r} ${r} ${r}`,
-            'top-right': `${r} 0px ${r} ${r}`,
-            'bottom-right': `${r} ${r} 0px ${r}`,
-            'bottom-left': `${r} ${r} ${r} 0px`
+            'top-right': `${r} 0px ${r} ${r}`
         }[nearest.name];
         el.dataset.leaderCorner = nearest.name;
+    }
+
+    /**
+     * The tail as a triangle: apex at the point, base MARKER_LEADER_WIDTH wide
+     * astride the panel corner and square to the direction of travel, so the
+     * taper is even however the panel has been dragged.
+     *
+     * Drawn relative to the surface's centre, which is the point itself.
+     */
+    _drawMarkerLeaderTail(svg, corner) {
+        const c = MARKER_LEADER_EXTENT;
+        const len = Math.hypot(corner.x, corner.y);
+        // A panel sitting on its point has nowhere to taper towards, so there is
+        // no tail to draw - and normalising by zero would put it at NaN.
+        const half = len ? MARKER_LEADER_WIDTH / 2 : 0;
+        const nx = len ? (-corner.y / len) * half : 0;
+        const ny = len ? (corner.x / len) * half : 0;
+
+        const base = { x: c + corner.x, y: c + corner.y };
+        const pt = (x, y) => `${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`;
+        const points = `${pt(c, c)} ${pt(base.x + nx, base.y + ny)} ${pt(base.x - nx, base.y - ny)}`;
+
+        svg.querySelectorAll('.marker-leader-line').forEach(tail => {
+            tail.setAttribute('points', points);
+        });
     }
 
     /**
@@ -1092,10 +1159,10 @@ export class MapMarkerManager {
 
         // Always last, never instead: where the point is is one more thing known
         // about it, alongside whatever was selected there - not a stand-in for
-        // having selected nothing. Starts as the coordinates and is rewritten
-        // when the reverse geocode lands (see _renderMarkerAddress).
-        const coords = `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
-        rows.push(row('<sl-icon name="signpost"></sl-icon>', 'Address', coords,
+        // having selected nothing. Reads as pending until the reverse geocode
+        // lands and rewrites it (see _renderMarkerAddress); the coordinates are
+        // a field inside it rather than a placeholder for it (_coordinateField).
+        rows.push(row('<sl-icon name="signpost"></sl-icon>', 'Address', 'Locating…',
             ADDRESS_BADGE_INDEX, 'marker-summary-chip--address'));
 
         return `
@@ -1240,29 +1307,15 @@ export class MapMarkerManager {
             ].sort((a, b) => a.order - b.order || a.sortIndex - b.sortIndex);
             html = entries.map(entry => entry.render()).join('');
         } else if (suppressEmptyBadge) {
-            // The clicked feature was a note, already shown in the comment box above —
-            // no separate coordinates badge needed.
+            // The clicked feature was a note, already shown in the comment box
+            // above - nothing else to say about the point here.
             html = '';
         } else {
-            // No features (empty map click) — show a single coordinates badge
-            const coords = `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
-            html = `
-                <div class="feature-badge" data-badge-index="-1" style="
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                    width: 100%;
-                    box-sizing: border-box;
-                    background: transparent;
-                    border-radius: 5px;
-                    padding: 4px 8px;
-                    cursor: pointer;
-                    transition: background 0.15s;
-                ">
-                    <sl-icon name="geo-alt" style="font-size: 11px; color: #9ca3af;"></sl-icon>
-                    <span style="font-size: 11px; font-weight: 700; color: #f3f4f6; white-space: nowrap;">${coords}</span>
-                </div>
-            `;
+            // No features (empty map click) - nothing but the address row below.
+            // Where the point is is a field of that address ($coordinates, see
+            // _coordinateField), not a badge of its own: a popup whose whole
+            // content is a pair of numbers says nothing the address doesn't.
+            html = '';
         }
 
         // The place this point sits in, after whatever was selected here -
@@ -1396,18 +1449,23 @@ export class MapMarkerManager {
     }
 
     _fillAddressDetails(details, markerId) {
-        const address = this._markers.get(markerId)?.address;
+        const markerData = this._markers.get(markerId);
+        const address = markerData?.address;
         if (!address) return;
+
+        // The point itself leads the hierarchy it sits in - the most specific
+        // thing known about it, and the only place the coordinates are shown.
+        const coords = this._coordinateField(markerData.lngLat);
 
         // The flat name-only components are shown straight away; the linked
         // hierarchy replaces them once the second request lands.
-        details.innerHTML = this._addressRowsHTML(
-            (address.parts || []).map(part => ({ name: part.value, category: part.key, url: null }))
-        );
+        details.innerHTML = this._addressRowsHTML([coords,
+            ...(address.parts || []).map(part => ({ name: part.value, category: part.key, url: null }))
+        ]);
 
         this._queueAddressLookup(() => fetchNominatimAddressParts(address.osmType, address.osmId))
             .then(parts => {
-                if (parts.length > 0) details.innerHTML = this._addressRowsHTML(parts);
+                if (parts.length > 0) details.innerHTML = this._addressRowsHTML([coords, ...parts]);
             })
             .catch(error => console.warn('[MarkerManager] Address detail lookup failed:', error.message));
     }
@@ -1431,6 +1489,23 @@ export class MapMarkerManager {
                 return task();
             });
         return this._addressQueue;
+    }
+
+    /**
+     * The point's own coordinates, shaped like one of the address's components
+     * so it reads as one more field of it. `lng,lat` in one string and at full
+     * map precision, because what it is for is being copied somewhere else.
+     *
+     * `$` marks it as belonging to the marker rather than to Nominatim's
+     * answer, the same way `$address` does where the marker travels as data
+     * (see _updateSelectionLayer).
+     */
+    _coordinateField(lngLat) {
+        return {
+            category: '$coordinates',
+            name: `${lngLat.lng.toFixed(6)},${lngLat.lat.toFixed(6)}`,
+            url: null
+        };
     }
 
     _addressRowsHTML(parts) {
@@ -1876,8 +1951,15 @@ export class MapMarkerManager {
         // map click, which would drop a new marker where the user was only trying
         // to dismiss the field - so swallow the click it is about to produce, the
         // same way a marker drag release does (see `_suppressClickUntil`).
+        // Whether the press that is about to blur the input landed inside this
+        // marker. Reaching for a feature row or the options button blurs the
+        // field just as clicking the map does, but it is not walking away from
+        // the marker - so a brand-new one must not be destroyed for it.
+        let pressWasInside = false;
+
         const dismissOutside = (e) => {
-            if (el.contains(e.target)) return;
+            pressWasInside = el.contains(e.target);
+            if (pressWasInside) return;
             // Not for a first edit: that marker is about to be discarded, so the
             // click should go through and drop the next one where it landed -
             // the marker follows your clicks until you name one.
@@ -1895,6 +1977,7 @@ export class MapMarkerManager {
             // has not been committed to yet, so abandoning that first edit
             // abandons the marker (see discard).
             if (initial) el.dataset.idInitialEdit = '1';
+            pressWasInside = false;
             badge.style.display = 'none';
             input.hidden = false;
             saveBtn.style.display = 'flex';
@@ -1935,8 +2018,9 @@ export class MapMarkerManager {
             input.blur();
         };
 
-        // Deliberately no mousedown guard: with the pin gone, the label is what
-        // the marker is dragged by, and mapbox needs that mousedown.
+        // Deliberately no mousedown guard of its own: the panel around the label
+        // already stops the press (see _attachBalloonDragHandler), so dragging
+        // the label repositions the panel like dragging anywhere else on it.
         //
         // The first click on the label focuses the marker; only a second one
         // opens the editor, so reaching for a marker can't rename it by
@@ -1993,6 +2077,12 @@ export class MapMarkerManager {
             // it was given counts just as much as changing it.
             markerData.saved = true;
             endEdit();
+            // Naming is the last step of creating a marker, so hand the panel
+            // back to hover: it stays open while the pointer is still on it and
+            // closes when that leaves, rather than holding focus - and staying
+            // open - until something elsewhere is pressed. Not on touch, which
+            // has no hover to hand it to.
+            if (!this._isTouch) this._selectMarker(null);
         };
 
         /**
@@ -2002,7 +2092,12 @@ export class MapMarkerManager {
          * never got round to naming does not stay behind.
          */
         const discard = () => {
-            if (el.dataset.idInitialEdit === '1' && !this._markers.get(markerId)?.saved) {
+            // Staying within the marker just closes the editor - the rows, the
+            // options and the feature tables all have to remain reachable on a
+            // marker that has not been named yet.
+            if (!pressWasInside
+                && el.dataset.idInitialEdit === '1'
+                && !this._markers.get(markerId)?.saved) {
                 // Deferred out of the blur that triggered it: tearing the marker
                 // out of the DOM while the browser is still dispatching a blur on
                 // a node inside it throws NotFoundError ("the node to be removed
@@ -2071,6 +2166,8 @@ export class MapMarkerManager {
                 save();
             } else if (e.key === 'Escape') {
                 e.preventDefault();
+                // An explicit cancel, whatever was last pressed.
+                pressWasInside = false;
                 discard();
             }
         });
@@ -2775,7 +2872,7 @@ export class MapMarkerManager {
         const infoSize = 20;
         el.innerHTML = `
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; height: ${infoSize}px; flex-shrink: 0;"></div>
-            <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);">
+            <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);">
                 ${this._buildMarkerBadgesHTML(features, lngLat)}
             </div>
         `;
@@ -2944,11 +3041,18 @@ export class MapMarkerManager {
         // directions - the padding is that gap, and the leader line crosses it
         // diagonally back to the point.
         //
+        // `pointer-events: none` because that gap is empty space, not part of
+        // the marker: it is only there to hold the panel off its point, so the
+        // map has to stay reachable through it. Left hit-testable it swallowed
+        // hovers and, since mapbox binds its marker drag to this element,
+        // dragging that empty strip moved the marker instead of panning the map.
+        // The panel and the tail turn hit-testing back on for themselves.
+        //
         // No `position` here: mapbox's own .mapboxgl-marker sets `absolute`, and
         // an inline value overrides it - which drops every marker into normal
         // flow, stacking each one further down the page than the last. Absolute
         // is also a containing block, so the leader still anchors to this element.
-        el.style.cssText = `display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: ${MARKER_ANCHOR_GAP}px 0 0 ${MARKER_ANCHOR_GAP}px;`;
+        el.style.cssText = `display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: ${MARKER_ANCHOR_GAP}px 0 0 ${MARKER_ANCHOR_GAP}px; pointer-events: none;`;
 
         // A clicked notes-layer feature gets its own editable "Comment" rendering
         // instead of the generic badge, so pull it out of the badge list here.
@@ -2984,7 +3088,7 @@ export class MapMarkerManager {
         // it is the same kind of thing.
         el.innerHTML = `
             ${this._buildMarkerLeaderHTML()}
-            <div class="marker-content" style="position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: ${MARKER_ID_MAX_WIDTH}px; background: #1f2937; border: 1px solid #374151; border-radius: 0 8px 8px 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); cursor: move;">
+            <div class="marker-content" style="position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: ${MARKER_ID_MAX_WIDTH}px; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: 0 8px 8px 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); pointer-events: auto;">
                 ${this._buildMarkerMenuHeaderHTML(urlId)}
                 <div class="marker-menu-body" style="display: none; flex-direction: column; align-items: stretch;">
                     ${this._buildCommentSectionHTML(noteEntry)}
@@ -3086,9 +3190,10 @@ export class MapMarkerManager {
             ...(reclaimed?.offset ? { offset: reclaimed.offset } : {})
         });
 
-        // Only the pin (marker-action-row) should drag the actual location. The
-        // balloon group has its own independent drag that just repositions it
-        // on screen for decluttering, without touching lngLat or re-querying.
+        // Only the tail drags the actual location (mapbox's own marker drag, see
+        // _buildMarkerLeaderHTML). The panel has its own independent drag that
+        // just repositions it on screen for decluttering, without touching
+        // lngLat or re-querying.
         const contentEl = el.querySelector('.marker-content');
         if (contentEl) {
             markerData.contentEl = contentEl;
@@ -3263,12 +3368,15 @@ export class MapMarkerManager {
     }
 
     /**
-     * The balloon group (marker-content) sits inside the same DOM element as the
-     * location pin, so a mousedown there would otherwise bubble to the map's
-     * canvas container and trigger Mapbox's own marker-drag (moving the pin and
-     * re-querying the location). Stop that bubbling and instead run a purely
-     * visual drag — a CSS transform on this element — that repositions the
-     * balloons for readability without ever touching the marker's lngLat.
+     * Drag the panel to move the panel: a purely visual drag — a CSS transform
+     * on it — that repositions it for readability without ever touching the
+     * marker's lngLat.
+     *
+     * The press is stopped rather than left to bubble, which does double duty:
+     * the panel sits inside the marker element mapbox reads its own marker-drag
+     * from, so a press that escaped the panel would move the marker and
+     * re-query the location on top of this drag. Moving the marker is what the
+     * tail is for (see _buildMarkerLeaderHTML).
      */
     _attachBalloonDragHandler(contentEl, markerId) {
         const DRAG_THRESHOLD = 4;
@@ -3291,9 +3399,9 @@ export class MapMarkerManager {
                 lastDx = dx;
                 lastDy = dy;
                 contentEl.style.transform = `translate3d(${offsetX + dx}px, ${offsetY + dy}px, 0)`;
-                // The line follows the panel, re-picking the nearest corner as
-                // it goes - that is the whole reason it is a line and not a
-                // triangle stuck to one corner.
+                // The tail follows the panel, re-picking the nearer top corner
+                // as it goes - that is the whole reason it is recomputed rather
+                // than a fixed shape stuck to one corner.
                 this._syncMarkerLeader(contentEl.closest('.selection-marker') || contentEl.parentElement);
                 e.preventDefault();
             }
@@ -3321,7 +3429,7 @@ export class MapMarkerManager {
                 const markerData = this._markers.get(markerId);
                 if (markerData) {
                     this._setMarkerPanelOffset(markerData, offsetX, offsetY);
-                    // Dragging past the point changes which corner faces it.
+                    // Dragging past the point sideways changes which corner faces it.
                     this._rebasePanelAnchor(markerData);
                     offsetX = markerData.panelOffset.x;
                     offsetY = markerData.panelOffset.y;
@@ -3715,8 +3823,10 @@ export class MapMarkerManager {
                     name: name,
                     featureCount: markerData.features.length,
                     features: featureRefs,
-                    // Where this point is, as an ordinary attribute - resolved
-                    // asynchronously, so absent until the lookup returns.
+                    // Where this point is, as ordinary attributes. The address is
+                    // resolved asynchronously, so it is absent until the lookup
+                    // returns; the coordinates are always known.
+                    $coordinates: this._coordinateField(markerData.lngLat).name,
                     ...(markerData.address?.text ? { $address: markerData.address.text } : {})
                 }
             };

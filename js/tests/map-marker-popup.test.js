@@ -67,25 +67,27 @@ describe('marker popup layout', () => {
             expect(host.querySelector('.marker-id-collapse')).toBeNull();
         });
 
-        it('joins the panel to its point with a leader line, not a pin', () => {
+        it('joins the panel to its point with a leader tail, not a pin', () => {
             const manager = makeManager();
             host.innerHTML = manager._buildMarkerLeaderHTML();
 
             const leader = host.querySelector('.marker-leader');
             // A real drawing surface centred on the point: an outermost <svg>
-            // will not reliably paint outside its own viewport, and the line has
+            // will not reliably paint outside its own viewport, and the tail has
             // to be able to run in any direction from the point.
             expect(Number(leader.getAttribute('width'))).toBeGreaterThan(0);
             expect(parseFloat(leader.style.left)).toBeLessThan(0);
             expect(parseFloat(leader.style.top)).toBeLessThan(0);
-            // Just a black line from the point out to the panel.
-            const lines = leader.querySelectorAll('.marker-leader-line');
-            expect(lines).toHaveLength(1);
-            expect(lines[0].getAttribute('stroke')).toBe('#000000');
+            // A filled triangle, so it can taper - a stroked line cannot - in the
+            // panel's own colour, so the two read as one callout.
+            const tails = leader.querySelectorAll('.marker-leader-line');
+            expect(tails).toHaveLength(1);
+            expect(tails[0].tagName.toLowerCase()).toBe('polygon');
+            expect(tails[0].getAttribute('fill')).toBe('#1f2937');
             expect(leader.querySelector('circle')).toBeNull();
         });
 
-        describe('the line follows the panel', () => {
+        describe('the tail follows the panel', () => {
             /**
              * `el` is anchored at the point, so the point is the origin and the
              * panel's rect is wherever it has been dragged to.
@@ -99,11 +101,20 @@ describe('marker popup layout', () => {
                     () => ({ left, top, width, height });
                 return el;
             }
-            /** The line as a vector from the point (x1,y1) to the corner (x2,y2). */
-            const lineVector = (el) => {
-                const l = el.querySelector('.marker-leader-line');
-                return [Number(l.getAttribute('x2')) - Number(l.getAttribute('x1')),
-                        Number(l.getAttribute('y2')) - Number(l.getAttribute('y1'))];
+            /** The tail's three corners, relative to the point at its centre. */
+            const tailPoints = (el) => el.querySelector('.marker-leader-line')
+                .getAttribute('points').split(' ')
+                .map(pair => pair.split(',').map(Number))
+                .map(([x, y]) => [x - 1200, y - 1200]);
+            /** Where the tail meets the panel: the midpoint of its base. */
+            const tailBase = (el) => {
+                const [, b, c] = tailPoints(el);
+                return [(b[0] + c[0]) / 2, (b[1] + c[1]) / 2];
+            };
+            /** How wide the tail is where it meets the panel. */
+            const tailWidth = (el) => {
+                const [, b, c] = tailPoints(el);
+                return Math.hypot(b[0] - c[0], b[1] - c[1]);
             };
 
             it('runs to the top-left corner when the panel is below-right', () => {
@@ -112,9 +123,31 @@ describe('marker popup layout', () => {
                 manager._syncMarkerLeader(el);
 
                 expect(el.dataset.leaderCorner).toBe('top-left');
-                expect(lineVector(el)).toEqual([20, 16]);
+                // 3px inside that corner, so the panel covers where it lands.
+                expect(tailBase(el)).toEqual([23, 19]);
                 // That corner squares off; the other three stay rounded.
                 expect(el.querySelector('.marker-content').style.borderRadius).toBe('0px 8px 8px 8px');
+            });
+
+            it('tapers from nothing at the point to 4px at the panel', () => {
+                const manager = makeManager();
+                const el = mountAt(manager, { left: 20, top: 16 });
+                manager._syncMarkerLeader(el);
+
+                // The apex sits exactly on the point, so the tail has no width there.
+                expect(tailPoints(el)[0]).toEqual([0, 0]);
+                expect(tailWidth(el)).toBeCloseTo(4, 1);
+            });
+
+            it('keeps the base square to the direction of travel', () => {
+                const manager = makeManager();
+                // Anchor sitting straight below the point: the base runs horizontally.
+                const el = mountAt(manager, { left: -3, top: 37 });
+                manager._syncMarkerLeader(el);
+
+                const [, b, c] = tailPoints(el);
+                expect(b[1]).toBeCloseTo(c[1], 5);
+                expect(tailWidth(el)).toBeCloseTo(4, 1);
             });
 
             it('switches to the top-right corner when dragged left of the point', () => {
@@ -123,27 +156,29 @@ describe('marker popup layout', () => {
                 manager._syncMarkerLeader(el);
 
                 expect(el.dataset.leaderCorner).toBe('top-right');
-                expect(lineVector(el)).toEqual([-20, 16]);
+                expect(tailBase(el)).toEqual([-23, 19]);
                 expect(el.querySelector('.marker-content').style.borderRadius).toBe('8px 0px 8px 8px');
             });
 
-            it('switches to a bottom corner when dragged above the point', () => {
+            it('still joins a top corner when the panel is dragged above the point', () => {
                 const manager = makeManager();
                 const el = mountAt(manager, { left: 20, top: -100 });
                 manager._syncMarkerLeader(el);
 
-                expect(el.dataset.leaderCorner).toBe('bottom-left');
-                expect(lineVector(el)).toEqual([20, -40]);
-                expect(el.querySelector('.marker-content').style.borderRadius).toBe('8px 8px 8px 0px');
+                // Never a bottom corner: the panel grows downwards, so joining it
+                // at the bottom would put the tail on the moving edge.
+                expect(el.dataset.leaderCorner).toBe('top-left');
+                expect(tailBase(el)).toEqual([23, -97]);
+                expect(el.querySelector('.marker-content').style.borderRadius).toBe('0px 8px 8px 8px');
             });
 
-            it('takes the diagonally opposite corner when dragged up and left', () => {
+            it('takes the nearer top corner when dragged up and left', () => {
                 const manager = makeManager();
                 const el = mountAt(manager, { left: -220, top: -100 });
                 manager._syncMarkerLeader(el);
 
-                expect(el.dataset.leaderCorner).toBe('bottom-right');
-                expect(el.querySelector('.marker-content').style.borderRadius).toBe('8px 8px 0px 8px');
+                expect(el.dataset.leaderCorner).toBe('top-right');
+                expect(el.querySelector('.marker-content').style.borderRadius).toBe('8px 0px 8px 8px');
             });
 
             it('leaves an unmeasurable panel alone rather than drawing to nowhere', () => {
@@ -152,7 +187,27 @@ describe('marker popup layout', () => {
                 manager._syncMarkerLeader(el);
 
                 expect(el.dataset.leaderCorner).toBeUndefined();
-                expect(lineVector(el)).toEqual([0, 0]);
+                expect(tailPoints(el)).toEqual([[0, 0], [0, 0], [0, 0]]);
+            });
+
+            it('draws no tail at all when the anchor sits on the point', () => {
+                const manager = makeManager();
+                // Inset by 3, so a panel offset by -3 puts its anchor on the point.
+                const el = mountAt(manager, { left: -3, top: -3 });
+                manager._syncMarkerLeader(el);
+
+                // Nowhere to taper towards, and normalising by zero would be NaN.
+                expect(tailPoints(el)).toEqual([[0, 0], [0, 0], [0, 0]]);
+            });
+
+            it('never insets past the middle of a panel smaller than the inset', () => {
+                const manager = makeManager();
+                const el = mountAt(manager, { left: 10, top: 10, width: 4, height: 4 });
+                manager._syncMarkerLeader(el);
+
+                // Half the panel, not 3 - the base stays within the surface that
+                // is meant to cover it.
+                expect(tailBase(el)).toEqual([12, 12]);
             });
         });
 
@@ -170,7 +225,7 @@ describe('marker popup layout', () => {
 
             // Features in inspector order, then the address of the point itself.
             expect(chips.map(c => c.querySelector('.marker-summary-chip__value').textContent))
-                .toEqual(['17/1', 'Ward 4', '15.5485, 73.8187']);
+                .toEqual(['17/1', 'Ward 4', 'Locating…']);
             // The index still points back into the original features array.
             expect(chips.map(c => c.dataset.badgeIndex)).toEqual(['1', '0', '-2']);
         });
@@ -207,8 +262,39 @@ describe('marker popup layout', () => {
             const chips = host.querySelectorAll('.marker-summary-chip');
             expect(chips).toHaveLength(1);
             expect(chips[0].classList.contains('marker-summary-chip--address')).toBe(true);
-            // Coordinates stand in until the reverse geocode lands.
-            expect(chips[0].querySelector('.marker-summary-chip__value').textContent).toBe('15.5485, 73.8187');
+            // Pending, not a pair of coordinates standing in for it - those are
+            // a field inside the address now (see the $coordinates field).
+            expect(chips[0].querySelector('.marker-summary-chip__value').textContent).toBe('Locating…');
+        });
+
+        it('carries the coordinates as a field of the address, not a row of its own', () => {
+            const manager = makeManager();
+            manager._markers.set('m1', {
+                id: 'm1', urlId: '1', lngLat: LNG_LAT,
+                address: { text: 'Assagao', parts: [{ key: 'suburb', value: 'Assagao' }] }
+            });
+            // The linked-hierarchy follow-up is a second network request; the
+            // first, flat render is what this asserts on.
+            manager._queueAddressLookup = () => new Promise(() => {});
+            const details = document.createElement('div');
+
+            manager._fillAddressDetails(details, 'm1');
+
+            // Leading the hierarchy it sits in, `lng,lat` in one copyable string.
+            expect(details.textContent).toContain('$coordinates');
+            expect(details.textContent).toContain('73.818700,15.548450');
+            expect(details.textContent.indexOf('$coordinates'))
+                .toBeLessThan(details.textContent.indexOf('suburb'));
+        });
+
+        it('shows no coordinates badge on a popup with nothing selected', () => {
+            const manager = makeManager();
+            host.innerHTML = manager._buildMarkerBadgesHTML([], LNG_LAT);
+
+            // A popup whose whole content is a pair of numbers says nothing the
+            // address row below it doesn't.
+            expect(host.querySelector('[data-badge-index="-1"]')).toBeNull();
+            expect(host.textContent).not.toContain('73.81');
         });
 
         it('rewrites the address row once the geocode returns', () => {
@@ -573,6 +659,32 @@ describe('marker popup layout', () => {
             expect(manager._markers.get('m1').saved).toBe(true);
         });
 
+        it('hands the panel back to hover once the id is saved', () => {
+            const manager = makeManager();
+            const el = mountIdRow(manager, 'm1', 'home');
+            manager.renameMarkerUrlId = vi.fn();
+
+            openEditor(el);
+            el.querySelector('.marker-id-save').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            // Naming it is the end of creating it: hover decides whether the
+            // panel stays open from here, so moving off it closes it instead of
+            // it holding focus until something elsewhere is pressed.
+            expect(manager._selectedMarkerId).toBe(null);
+            expect(el.classList.contains('marker-selected')).toBe(false);
+        });
+
+        it('keeps focus after saving on touch, which has no hover to hand it to', () => {
+            const manager = makeManager({ isTouch: true });
+            const el = mountIdRow(manager, 'm1', 'home');
+            manager.renameMarkerUrlId = vi.fn();
+
+            openEditor(el);
+            el.querySelector('.marker-id-save').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(manager._selectedMarkerId).toBe('m1');
+        });
+
         it('does not mark it saved when the edit is discarded', () => {
             const manager = makeManager();
             const el = mountIdRow(manager, 'm1', 'home');
@@ -610,6 +722,36 @@ describe('marker popup layout', () => {
                 await new Promise(resolve => setTimeout(resolve, 0));
 
                 // Never named, so it does not stay behind.
+                expect(manager.removeMarker).toHaveBeenCalledWith('m1');
+            });
+
+            it('survives reaching for something else inside the same marker', async () => {
+                const manager = makeManager();
+                const el = mountIdRow(manager, 'm1', '1');
+                manager.removeMarker = vi.fn();
+
+                el._startIdEdit({ initial: true });
+                // A press on a feature row / the options button blurs the input
+                // just as a map click does - but it is not walking away.
+                el.querySelector('.marker-menu-body').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                el.querySelector('.marker-id-input').dispatchEvent(new Event('blur'));
+                await new Promise(resolve => setTimeout(resolve, 0));
+
+                expect(manager.removeMarker).not.toHaveBeenCalled();
+                // The editor still closes - it just doesn't take the marker with it.
+                expect(el.dataset.idEditing).toBeUndefined();
+            });
+
+            it('is still destroyed by a press outside it', async () => {
+                const manager = makeManager();
+                const el = mountIdRow(manager, 'm1', '1');
+                manager.removeMarker = vi.fn();
+
+                el._startIdEdit({ initial: true });
+                document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                el.querySelector('.marker-id-input').dispatchEvent(new Event('blur'));
+                await new Promise(resolve => setTimeout(resolve, 0));
+
                 expect(manager.removeMarker).toHaveBeenCalledWith('m1');
             });
 
@@ -1124,6 +1266,129 @@ describe('marker popup layout', () => {
 
             expect(el.querySelector('.marker-id-input').hidden).toBe(false);
             expect(mapClick).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('no hover popup while a marker is being repositioned', () => {
+        function hoverData() {
+            return {
+                lngLat: LNG_LAT,
+                hoveredFeatures: [{ ...feature('plots', { id: '17/1' }), lngLat: LNG_LAT }]
+            };
+        }
+
+        it('drops the popup while the marker is under the pointer being dragged', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            manager._clearHoverMarker = vi.fn();
+            manager._showHoverMarker = vi.fn();
+            manager._draggingMarkerId = 'm1';
+
+            manager._handleBatchHover(hoverData());
+
+            // The panel travels with the marker and the drop re-queries into it,
+            // so a popup beside it would only say the same thing twice.
+            expect(manager._showHoverMarker).not.toHaveBeenCalled();
+            expect(manager._clearHoverMarker).toHaveBeenCalled();
+        });
+
+        it('still shows it when no marker is being dragged', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            manager._clearHoverMarker = vi.fn();
+            manager._showHoverMarker = vi.fn();
+            manager._clearAllMarkerHoverStates = vi.fn();
+
+            manager._handleBatchHover(hoverData());
+
+            expect(manager._showHoverMarker).toHaveBeenCalled();
+        });
+    });
+
+    describe('two drags: the panel moves itself, the tail moves the marker', () => {
+        function mountDraggable(manager, markerId = 'm1') {
+            const el = document.createElement('div');
+            el.className = 'selection-marker';
+            el.innerHTML = `${manager._buildMarkerLeaderHTML()}`
+                + `<div class="marker-content">${manager._buildMarkerMenuHeaderHTML('1')}</div>`;
+            host.appendChild(el);
+            const contentEl = el.querySelector('.marker-content');
+            manager._stateManager.handleMapMouseLeave = () => {};
+            manager._markers.set(markerId, {
+                id: markerId, urlId: '1', lngLat: LNG_LAT, contentEl,
+                panelOffset: { x: 16, y: 16 }, panelAnchor: 'top-left',
+                marker: { getElement: () => el }
+            });
+            manager._attachBalloonDragHandler(contentEl, markerId);
+            return { el, contentEl, tail: el.querySelector('.marker-leader-line') };
+        }
+
+        /** Drag `target` by (dx, dy) the way the panel's own handler sees it. */
+        function drag(target, dx, dy) {
+            target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 100, clientY: 100 }));
+            window.dispatchEvent(new MouseEvent('mousemove', { clientX: 100 + dx, clientY: 100 + dy }));
+            window.dispatchEvent(new MouseEvent('mouseup', {}));
+        }
+
+        it('offsets the panel when the panel is dragged', () => {
+            const manager = makeManager();
+            const { contentEl } = mountDraggable(manager);
+
+            drag(contentEl, 40, 30);
+
+            expect(manager._markers.get('m1').panelOffset).toEqual({ x: 56, y: 46 });
+            expect(contentEl.style.transform).toContain('translate(56px, 46px)');
+        });
+
+        it('offsets the panel when it is dragged by its header, as before', () => {
+            const manager = makeManager();
+            const { el, contentEl } = mountDraggable(manager);
+
+            drag(el.querySelector('.marker-id-badge'), 40, 30);
+
+            expect(manager._markers.get('m1').panelOffset).toEqual({ x: 56, y: 46 });
+            expect(contentEl.style.transform).toContain('translate(56px, 46px)');
+        });
+
+        it('keeps that press off mapbox, which would move the marker as well', () => {
+            const manager = makeManager();
+            const { el, contentEl } = mountDraggable(manager);
+            // Mapbox reads its marker drag off the map container this marker
+            // sits in, so a press that escaped the panel would move the marker
+            // and re-query the location on top of the panel's own drag.
+            const reachedMapbox = vi.fn();
+            el.addEventListener('mousedown', reachedMapbox);
+
+            contentEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+
+            expect(reachedMapbox).not.toHaveBeenCalled();
+        });
+
+        it('marks the tail as the handle for the marker itself, and nothing else in the leader', () => {
+            const manager = makeManager();
+            const { el, tail } = mountDraggable(manager);
+
+            // The surface spans 1200px in every direction, so only the triangle
+            // drawn on it may hit-test - and it says so with a move cursor.
+            expect(el.querySelector('.marker-leader').style.pointerEvents).toBe('none');
+            expect(tail.style.pointerEvents).toBe('auto');
+            expect(tail.style.cursor).toBe('move');
+            // 4px of paint is too fine to aim at, so an invisible stroke widens
+            // the target without widening the tail.
+            expect(tail.getAttribute('stroke')).toBe('transparent');
+            expect(Number(tail.getAttribute('stroke-width'))).toBeGreaterThan(4);
+        });
+
+        it('lets a press on the tail reach mapbox, which is what moves the marker', () => {
+            const manager = makeManager();
+            const { el, tail } = mountDraggable(manager);
+            const reachedMapbox = vi.fn();
+            el.addEventListener('mousedown', reachedMapbox);
+
+            drag(tail, 40, 30);
+
+            expect(reachedMapbox).toHaveBeenCalled();
+            // The panel is the marker's furniture: it travels with the marker,
+            // so its own offset is untouched.
+            expect(manager._markers.get('m1').panelOffset).toEqual({ x: 16, y: 16 });
         });
     });
 

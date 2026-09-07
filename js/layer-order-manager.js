@@ -20,7 +20,11 @@ export class LayerOrderManager {
      * @returns {boolean} - True if layer is a basemap
      */
     static isBasemap(layer) {
-        return layer && layer.tags && Array.isArray(layer.tags) && layer.tags.includes('basemap');
+        // Coerced to a real boolean (not the tags array or undefined the &&-chain
+        // would otherwise yield for a tagless layer) - callers compare this with
+        // strict === against other boolean checks (see LayerIsolationManager._apply
+        // in map-layer-controls.js), and `false !== undefined` breaks that match.
+        return !!(layer && Array.isArray(layer.tags) && layer.tags.includes('basemap'));
     }
 
     /**
