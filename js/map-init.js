@@ -192,6 +192,16 @@ export class MapInitializer {
             new Promise(resolve => setTimeout(resolve, safetyTimeoutMs))
         ]);
 
+        // Point of no return: everything below commits to whatever atlas/layers
+        // are in the URL right now. If splash-screen-manager's applyLocationBasedAtlas
+        // resolves a location-based atlas switch AFTER this (e.g. the safety timeout
+        // won the race above because the geolocation permission prompt was still
+        // pending), rewriting the URL alone is too late - this function already read
+        // the old URL and moved on. That caller checks this flag and forces a full
+        // reload instead of a silent history.replaceState in that case.
+        window.loadingStartupState = window.loadingStartupState || {};
+        window.loadingStartupState.configResolved = true;
+
         // Check if a specific config is requested via URL parameter
         var configParam = URLUtils.getUrlParameter('atlas');
         var layersParam = URLUtils.getUrlParameter('layers');

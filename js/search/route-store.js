@@ -109,8 +109,9 @@ export class RouteStore {
             markers.adoptAsWaypoint(existing, handlers);
             this._pendingOrigin.markerId = existing;
         } else {
-            this._pendingOrigin.markerId = markers.addMarker(lngLat, [], { role: 'route-waypoint', ...handlers });
+            this._pendingOrigin.markerId = markers.addMarker(lngLat, [], { role: 'route-waypoint', saved: true, ...handlers });
         }
+        markers.setDefaultMarkerLabel(this._pendingOrigin.markerId, label);
         return this._pendingOrigin;
     }
 
@@ -402,6 +403,7 @@ export class RouteStore {
 
             if (existingId && markers._markers?.has(existingId)) {
                 markers.moveMarker(existingId, lngLat);
+                markers.setDefaultMarkerLabel(existingId, route.names[index]);
                 markers.setMarkerRefLabel(existingId, route.id, refLabelFor(existingId, index), refOptions(existingId));
                 return;
             }
@@ -412,6 +414,7 @@ export class RouteStore {
             if (nearby) {
                 route.markerIds[index] = nearby;
                 markers.adoptAsWaypoint(nearby, this._waypointHandlers(route, { id: nearby }));
+                markers.setDefaultMarkerLabel(nearby, route.names[index]);
                 markers.setMarkerRefLabel(nearby, route.id, refLabelFor(nearby, index), refOptions(nearby));
                 return;
             }
@@ -423,9 +426,11 @@ export class RouteStore {
             ref.id = markers.addMarker(lngLat, [], {
                 role: 'route-waypoint',
                 pinColor: WAYPOINT_PIN_COLOR,
+                saved: true,
                 ...this._waypointHandlers(route, ref)
             });
             route.markerIds[index] = ref.id;
+            markers.setDefaultMarkerLabel(ref.id, route.names[index]);
             markers.setMarkerRefLabel(ref.id, route.id, refLabelFor(ref.id, index), refOptions(ref.id));
         });
     }

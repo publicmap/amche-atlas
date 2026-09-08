@@ -251,7 +251,7 @@
         "arrows/text-ignore-placement": true,
         "arrows/text-color": "#ffffff",
         "arrows/text-halo-color": "#1da1f2",
-        "arrows/text-halo-width": 10,
+        "arrows/text-halo-width": 0,
         "route/line-color": "#1da1f2",
         "route/line-width": 5,
         "route/line-opacity": 1,

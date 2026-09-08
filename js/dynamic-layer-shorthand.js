@@ -13,7 +13,7 @@
  *
  * `route` is the one shorthand type with its own user-facing id (`-1` above)
  * riding along in the type token itself, so a route keeps a stable identity
- * across edits/renames the way `marker-<id>` does (see marker-registry.js) -
+ * across edits/renames the way a `markers=` id does (see marker-registry.js) -
  * every other shorthand type is only ever referenced by its bare `id`.
  *
  * The equivalent `{"type":"...","id":"..."}` object form is still accepted

@@ -64,16 +64,16 @@ Instead of pasting a full external URL into the map creator to build a complete 
 ?layers=osm:relation/21057460
 ?layers=mapbox-streets,osm:way/28845634
 ?layers=stac:https%3A%2F%2Fexample.com%2Fitems%2Fscene.json
-?layers=route-1:mapbox-driving-traffic(1,2)&markers=marker-1(73.81,15.49),marker-2(73.83,15.51)
-?layers=route-1:mapbox-walking(1,2,3)&markers=marker-1(73.81,15.49),marker-2(73.82,15.50),marker-3(73.83,15.51)
-?layers=route-1:osrm-driving(1,2)&markers=marker-1(73.81,15.49),marker-2(73.83,15.51)
+?layers=route-1:mapbox-driving-traffic(1,2)&markers=1(73.81,15.49),2(73.83,15.51)
+?layers=route-1:mapbox-walking(1,2,3)&markers=1(73.81,15.49),2(73.82,15.50),3(73.83,15.51)
+?layers=route-1:osrm-driving(1,2)&markers=1(73.81,15.49),2(73.83,15.51)
 ```
 
 **Routes:** unlike every other dynamic layer shortcut, `route` carries its own user-facing id in the type token itself — `route-<rid>:...`, defaulting to its creation order ("1", "2", ...) — so it stays a stable reference the way a [`markers`](#markers) id does. The call then names the routing service and profile that produced the route, so a shared link reproduces that route rather than re-routing with whatever the current default happens to be. Each `route-<rid>:` entry is one route and becomes one layer, so several routes on a map is several entries: `?layers=route-1:mapbox-driving(1,2),route-2:mapbox-cycling(3,4)`. Every service's routes render in the same route layer style.
 
 **Services** live in `ROUTING_ENGINES` (`js/search/directions-router.js`) — currently `mapbox` (profiles `driving-traffic`, `driving`, `walking`, `cycling`) and `osrm` (`driving` only; the public demo server serves a car profile only). Adding a service there is all it takes for `<service>-<profile>(…)` to work in the URL. A profile the named service doesn't offer falls back to that service's default rather than failing the route, and naming a service explicitly is taken at its word — only the default service (`mapbox`) falls back to another when its API fails.
 
-**Waypoints are marker ids, not coordinates**, comma-separated like every other shorthand argument list (see `js/shorthand-id-utils.js`) — no pair-separator needed, since each argument is a single id. Each referenced id must have a matching `marker-<id>(...)` entry in `?markers=` (which is parsed first, before any `route-<rid>:` entry is resolved — see `js/map-init.js`); an id with no match drops the whole route, logged the same way an unresolvable `allmaps:`/`mapwarper:` id is. The first id is the start, the last the destination, any in between are stops. The engine-profile token may be omitted — `route-1:(1,2)` uses the default service and the profile last picked in the *Navigation options* row of the Visible Features menu (`js/search/directions-profile.js`). A route drawn in the app — from an "X to Y" search, or a **Navigate** action in that menu — writes itself into the `directions` layer and stamps this same shorthand onto the URL, so sharing a drawn route hands over a short link rather than an inlined FeatureCollection of every coordinate. The markers it references are recolored/labeled as route waypoints (matching a drawn route's look) once both `?markers=` and this layer have resolved.
+**Waypoints are marker ids, not coordinates**, comma-separated like every other shorthand argument list (see `js/shorthand-id-utils.js`) — no pair-separator needed, since each argument is a single id. Each referenced id must have a matching `<id>(...)` entry in `?markers=` (which is parsed first, before any `route-<rid>:` entry is resolved — see `js/map-init.js`); an id with no match drops the whole route, logged the same way an unresolvable `allmaps:`/`mapwarper:` id is. The first id is the start, the last the destination, any in between are stops. The engine-profile token may be omitted — `route-1:(1,2)` uses the default service and the profile last picked in the *Navigation options* row of the Visible Features menu (`js/search/directions-profile.js`). A route drawn in the app — from an "X to Y" search, or a **Navigate** action in that menu — writes itself into the `directions` layer and stamps this same shorthand onto the URL, so sharing a drawn route hands over a short link rather than an inlined FeatureCollection of every coordinate. The markers it references are recolored/labeled as route waypoints (matching a drawn route's look) once both `?markers=` and this layer have resolved.
 
 **Breaking change:** the previous `route:<engine>-<profile>(<lng>/<lat>|<lng>/<lat>[|…])` form (raw coordinates, no route id) is no longer parsed.
 
@@ -307,26 +307,26 @@ Restore export (print/image) settings serialized as a JSON object. Set automatic
 
 ### `markers`
 
-Compact encoding of the selection markers on the map — each marker its own `marker-<id>(...)` call, comma-separated, since every marker now has a short id (see below). Set automatically when you select features, drop a marker, or share the URL.
+Compact encoding of the selection markers on the map — each marker its own `<id>(...)` call, comma-separated, since every marker now has a short id (see below). Set automatically when you select features, drop a marker, or share the URL.
 
-**Format:** `?markers=marker-<id>(<lng>,<lat>[,<name>[,<description>]][,@<dx>x<dy>]),<next marker>...`
+**Format:** `?markers=<id>(<lng>,<lat>[,<name>[,<description>]][,@<dx>x<dy>]),<next marker>...`
 
 **Example:**
 ```
-?markers=marker-1(73.8187,15.54845)
-?markers=marker-1(73.809867,15.606272),marker-2(73.82,15.61)
-?markers=marker-home(73.8187,15.54845,Home,Where%20I%20live)
-?markers=marker-Assagao_Survey_17_1_BARDEZ(73.77589,15.59916)
-?markers=marker-1(73.8187,15.54845,@140x-80)
+?markers=1(73.8187,15.54845)
+?markers=1(73.809867,15.606272),2(73.82,15.61)
+?markers=home(73.8187,15.54845,Home,Where%20I%20live)
+?markers=Assagao_Survey_17_1_BARDEZ(73.77589,15.59916)
+?markers=1(73.8187,15.54845,@140x-80)
 ```
 
-**IDs:** letters, digits, and underscore only; typing a space converts it to `_` rather than being rejected. A marker dropped by clicking the map is numbered serially ("1", "2", ...); one created by **choosing a search result** is named after that result's label instead, with every run of other characters collapsed to a single `_` and the whole thing capped at 64 characters — so `Assagao — Survey 17/1 — BARDEZ` becomes `marker-Assagao_Survey_17_1_BARDEZ(...)`. Choosing the same result twice suffixes the second `_2`. Either way the id can be renamed to anything unique via the "ID" field in the marker's own popup (`js/map-marker-manager.js`) — see the shared `js/shorthand-id-utils.js` library this and the [`route`](#dynamic-layer-shortcuts) waypoint references both validate ids against. `name`/`description` are optional and percent-encoded (so a comma or parenthesis inside one can't be mistaken for another argument).
+**IDs:** letters, digits, and underscore only; typing a space converts it to `_` rather than being rejected. A marker dropped by clicking the map is numbered serially ("1", "2", ...); one created by **choosing a search result** is named after that result's label instead, with every run of other characters collapsed to a single `_` and the whole thing capped at 64 characters — so `Assagao — Survey 17/1 — BARDEZ` becomes `Assagao_Survey_17_1_BARDEZ(...)`. Choosing the same result twice suffixes the second `_2`. Either way the id can be renamed to anything unique via the "ID" field in the marker's own popup (`js/map-marker-manager.js`) — see the shared `js/shorthand-id-utils.js` library this and the [`route`](#dynamic-layer-shortcuts) waypoint references both validate ids against. `name`/`description` are optional and percent-encoded (so a comma or parenthesis inside one can't be mistaken for another argument).
 
 **Panel offset:** a marker's panel opens just below-right of its point, joined to it by a leader line. Dragging the panel by its header moves it clear of whatever it covers, and that position is kept as `@<dx>x<dy>` — its pixel offset from the point at the shared view — so a link restores the arrangement, not just the locations. It is written only once a panel has actually been dragged. The two numbers are joined with `x` rather than a comma so the pair stays a single argument, and the `@` tells it apart from a name; `name`/`description` keep their own positions whether or not an offset follows. The offset is pixels from the marker, not a second map location, so the panel holds the same place beside its marker at every zoom.
 
 **Restoration behavior:** on load, once a marker's layers are ready, its location is re-queried exactly as if the user clicked there — this recovers the same selected features without the URL needing to spell out which `layerId`/`featureId` pairs they were (that would just duplicate what the location already implies, and is what `?selected` used to carry — see above).
 
-**Breaking change:** the previous `?markers=<lng>,<lat>|<next marker>...` format (and its `:<layerId>~<featureId>,...` legacy suffix) is no longer parsed. A route referencing one of these markers as a waypoint (see [`route`](#dynamic-layer-shortcuts) below) needs its id present here to resolve.
+**Breaking change:** the previous `?markers=<lng>,<lat>|<next marker>...` format (and its `:<layerId>~<featureId>,...` legacy suffix) is no longer parsed. The call token is the id on its own — an earlier revision prefixed every call with `marker-`, redundant with the param name it always sat inside; those links still parse (no valid id contains a `-`, so the prefix is unambiguous) but are no longer written. A route referencing one of these markers as a waypoint (see [`route`](#dynamic-layer-shortcuts) below) needs its id present here to resolve.
 
 ### `zoomTo`
 

@@ -218,6 +218,11 @@ export class MapMarkerManager {
         this._onOutsidePress = (e) => {
             if (!this._selectedMarkerId) return;
             if (e.target.closest?.('.selection-marker')) return;
+            // The shortcut menu (route-from/route-to among its items) lives
+            // outside the marker's own DOM, so a press on it would otherwise
+            // read as "outside" and deselect - discarding an unsaved marker
+            // (see _syncMarkerContent) before its own click handler ever runs.
+            if (e.target.closest?.('.shortcut-menu')) return;
             this._selectMarker(null);
         };
         document.addEventListener('mousedown', this._onOutsidePress, true);
@@ -1007,7 +1012,7 @@ export class MapMarkerManager {
      * icon (or a permanent underline) beside every collapsed chip on the map
      * would be noise. It stays a real <input>, swapped in on click, because
      * renaming is the point of showing the id at all (a shared link reads
-     * better as `marker-home` than `marker-3`); see _attachMarkerIdRowHandlers
+     * better as `home(...)` than `3(...)`); see _attachMarkerIdRowHandlers
      * for that swap, the rename commit, the options button, and the hover
      * highlight that previews the same affordance; _syncMarkerContent is what
      * shows/hides the underline as the marker expands and collapses.
@@ -1960,8 +1965,9 @@ export class MapMarkerManager {
      * Wires the header _buildMarkerMenuHeaderHTML renders: the underlined id,
      * and the options button that reveals to its right once the marker opens.
      *
-     * The label itself sanitizes as the user types (spaces -> `_`, disallowed
-     * characters dropped, matching shorthand-id-utils.sanitizeId), and commits
+     * The label itself sanitizes as the user types (spaces -> `_`, the
+     * shorthand grammar's own `(),:` dropped and everything else kept, matching
+     * shorthand-id-utils.sanitizeId), and commits
      * on blur or Enter (not a Save button - unlike the comment box, a bad
      * rename has an unambiguous, non-destructive fallback: just revert the
      * field to the last good id). A duplicate or otherwise-rejected id briefly
@@ -2858,12 +2864,18 @@ export class MapMarkerManager {
      * rather than being re-queried from whatever sits under it. Lets the marker
      * a destination click already dropped become that route's waypoint instead
      * of stacking a second pin on the same spot (see search/route-store.js).
+     *
+     * Also marks the marker saved: an unsaved marker is removed the moment it
+     * loses focus (see _syncMarkerContent), which would otherwise delete a
+     * brand-new marker - and the route pinned to it - the instant the route
+     * pick's own menu/selection closes.
      */
     adoptAsWaypoint(markerId, { pinColor, onDrag, onDragEnd, onRemove } = {}) {
         const markerData = this._markers.get(markerId);
         if (!markerData) return;
 
         markerData.role = 'route-waypoint';
+        markerData.saved = true;
         markerData.onDrag = onDrag;
         markerData.onDragEnd = onDragEnd;
         markerData.onRemove = onRemove;
@@ -2874,6 +2886,46 @@ export class MapMarkerManager {
             const tail = el?.querySelector('.marker-tail polygon');
             if (tail) tail.setAttribute('stroke', pinColor);
         }
+    }
+
+    /**
+     * Names a marker after something meaningful - a route endpoint's
+     * resolved address/feature label (see shortcut-menu-base.js's
+     * _resolveEndpointLabel, search/route-store.js's route.names) - instead
+     * of leaving its badge on the auto-numbered id "saved" quietly gave it
+     * (see adoptAsWaypoint), which would otherwise still read as a bare
+     * number or, worse, the "Click to save label" placeholder. Only touches
+     * a marker that hasn't already been given a real name: one already
+     * `saved` under a non-numeric id was either typed by the user or named
+     * by an earlier call here, and either way outranks this default.
+     */
+    setDefaultMarkerLabel(markerId, label) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData || !label) return;
+        if (markerData.saved && !/^\d+$/.test(markerData.urlId)) return;
+
+        const live = new Set([...this._markers.values()]
+            .map(m => m.urlId)
+            .filter(id => id !== markerData.urlId));
+        const newUrlId = uniqueId(labelToId(label), live);
+
+        markerRegistry.remove(markerData.urlId);
+        markerData.urlId = newUrlId;
+        markerData.saved = true;
+        markerRegistry.set(newUrlId, { id: newUrlId, lng: markerData.lngLat.lng, lat: markerData.lngLat.lat, name: '', description: '' });
+
+        const el = markerData.marker.getElement();
+        const badgeText = el?.querySelector('.marker-id-text');
+        if (badgeText) {
+            badgeText.textContent = idToLabel(newUrlId);
+            const badge = badgeText.closest('.marker-id-badge');
+            if (badge) {
+                badge.title = idToLabel(newUrlId);
+                badge.style.color = MARKER_ID_TEXT_COLOR;
+            }
+        }
+        const input = el?.querySelector('.marker-id-input');
+        if (input) input.value = idToLabel(newUrlId);
     }
 
     /**

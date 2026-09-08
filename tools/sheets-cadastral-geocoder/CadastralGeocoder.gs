@@ -1403,10 +1403,12 @@ function writeRowResult_(sheet, row, outputCols, result) {
 
 /**
  * `markers` (see geocodePlotGroup_) is every matched plot's own location.
- * Adds a "&markers=lon,lat|lon,lat|..." param right before the URL's
+ * Adds a "&markers=1(lon,lat),2(lon,lat),..." param right before the URL's
  * #zoom/lat/lon hash — amche.in's `markers=` param is what drops a pin (and
  * selects its feature) at each location, so it's added even for a single
  * matched plot; without it the link only centers the map with no visible pin.
+ * Each pin is one `<id>(lon,lat)` call, serially numbered (see docs/API.md's
+ * `markers` section); the older bare `lon,lat|lon,lat` form is no longer parsed.
  * The hash itself still centers on `lat`/`lon` (the first matched plot).
  *
  * The `layers=` value is built fresh from AMCHE_LAYER_CONFIG/AMCHE_OTHER_LAYERS
@@ -1422,7 +1424,9 @@ function buildAmcheUrl_(lat, lon, markers) {
     `#${AMCHE_ZOOM}/${lat.toFixed(6)}/${lon.toFixed(6)}`
   if (!markers || markers.length === 0) return base
 
-  const markersParam = markers.map(m => `${m.lon.toFixed(6)},${m.lat.toFixed(6)}`).join('|')
+  const markersParam = markers
+    .map((m, i) => `${i + 1}(${m.lon.toFixed(6)},${m.lat.toFixed(6)})`)
+    .join(',')
   const hashIdx = base.indexOf('#')
   return `${base.slice(0, hashIdx)}&markers=${markersParam}${base.slice(hashIdx)}`
 }

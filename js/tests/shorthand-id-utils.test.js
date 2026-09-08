@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeId, isValidId, nextSerialId, labelToId, uniqueId, parseCalls, splitArgs } from '../shorthand-id-utils.js';
+import { sanitizeId, isValidId, encodeId, nextSerialId, labelToId, uniqueId, parseCalls, splitArgs } from '../shorthand-id-utils.js';
 
 describe('shorthand-id-utils', () => {
     describe('sanitizeId', () => {
@@ -8,8 +8,16 @@ describe('shorthand-id-utils', () => {
             expect(sanitizeId('  a   b  ')).toBe('a_b');
         });
 
-        it('strips disallowed characters', () => {
-            expect(sanitizeId('a-b!c@d')).toBe('abcd');
+        it('keeps every character the shorthand grammar does not need', () => {
+            expect(sanitizeId('a-b!c@d')).toBe('a-b!c@d');
+            expect(sanitizeId('Survey 17/1')).toBe('Survey_17/1');
+            expect(sanitizeId('R&D 50%')).toBe('R&D_50%');
+            expect(sanitizeId('café')).toBe('café');
+        });
+
+        it('strips the grammar characters and control characters', () => {
+            expect(sanitizeId('a(b)c,d:e')).toBe('abcde');
+            expect(sanitizeId('a\u0000b\u007f')).toBe('ab');
         });
 
         it('keeps letters, digits, and underscores', () => {
@@ -23,10 +31,40 @@ describe('shorthand-id-utils', () => {
             expect(isValidId('1')).toBe(true);
         });
 
-        it('rejects empty strings and special characters', () => {
+        it('accepts special characters, which the URL carries percent-encoded', () => {
+            expect(isValidId('a-b')).toBe(true);
+            expect(isValidId('Survey_17/1')).toBe(true);
+            expect(isValidId('R&D')).toBe(true);
+            expect(isValidId('100%')).toBe(true);
+            expect(isValidId('café')).toBe(true);
+        });
+
+        it('rejects empty strings, whitespace, and the grammar characters', () => {
             expect(isValidId('')).toBe(false);
             expect(isValidId('a b')).toBe(false);
-            expect(isValidId('a-b')).toBe(false);
+            expect(isValidId('a(b')).toBe(false);
+            expect(isValidId('a)b')).toBe(false);
+            expect(isValidId('a,b')).toBe(false);
+            expect(isValidId('a:b')).toBe(false);
+        });
+    });
+
+    describe('encodeId', () => {
+        it('leaves an ordinary id alone', () => {
+            expect(encodeId('Home_1')).toBe('Home_1');
+        });
+
+        it('encodes what would otherwise break the URL, and survives the reader decode', () => {
+            expect(encodeId('R&D')).toBe('R%26D');
+            expect(encodeId('Survey_17/1')).toBe('Survey_17%2F1');
+            expect(encodeId('100%')).toBe('100%25');
+            expect(encodeId('café')).toBe('caf%C3%A9');
+
+            // What the param reader hands back is the id itself - nothing
+            // decodes the token a second time (see encodeId's docs).
+            ['R&D', 'Survey_17/1', '100%', 'café', '#1'].forEach(id => {
+                expect(new URLSearchParams(`markers=${encodeId(id)}(1,2)`).get('markers')).toBe(`${id}(1,2)`);
+            });
         });
     });
 
@@ -36,9 +74,14 @@ describe('shorthand-id-utils', () => {
             expect(labelToId('Panaji, Goa, India')).toBe('Panaji_Goa_India');
         });
 
-        it('keeps separators that sanitizeId would drop, so 17/1 and 171 differ', () => {
+        it('collapses punctuation to a separator, so 17/1 and 171 stay distinct', () => {
+            expect(labelToId('Survey 17/1')).toBe('Survey_17_1');
             expect(labelToId('Survey 17/1')).not.toBe(labelToId('Survey 171'));
-            expect(sanitizeId('Survey 17/1')).toBe(sanitizeId('Survey 171'));
+        });
+
+        it('stays stricter than sanitizeId, which keeps what the user typed', () => {
+            expect(labelToId('R&D 50%')).toBe('R_D_50');
+            expect(sanitizeId('R&D 50%')).toBe('R&D_50%');
         });
 
         it('collapses runs and trims leading/trailing separators', () => {
@@ -81,16 +124,23 @@ describe('shorthand-id-utils', () => {
 
     describe('parseCalls', () => {
         it('extracts a single call', () => {
-            expect(parseCalls('marker-1(73.8,15.5)')).toEqual([
-                { token: 'marker-1', argsStr: '73.8,15.5' }
+            expect(parseCalls('1(73.8,15.5)')).toEqual([
+                { token: '1', argsStr: '73.8,15.5' }
             ]);
         });
 
         it('extracts multiple calls regardless of the separator between them', () => {
-            const calls = parseCalls('marker-1(73.8,15.5),marker-2(73.9,15.6)');
+            const calls = parseCalls('1(73.8,15.5),2(73.9,15.6)');
             expect(calls).toEqual([
-                { token: 'marker-1', argsStr: '73.8,15.5' },
-                { token: 'marker-2', argsStr: '73.9,15.6' }
+                { token: '1', argsStr: '73.8,15.5' },
+                { token: '2', argsStr: '73.9,15.6' }
+            ]);
+        });
+
+        it('extracts a token holding the special characters an id may now have', () => {
+            expect(parseCalls('R&D(73.8,15.5),100%(73.9,15.6)')).toEqual([
+                { token: 'R&D', argsStr: '73.8,15.5' },
+                { token: '100%', argsStr: '73.9,15.6' }
             ]);
         });
 

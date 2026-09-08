@@ -9,10 +9,14 @@
  *   or renamed during the session, so js/url-manager.js's serialization and
  *   any later route write-back stay consistent with what's on the map.
  *
- * `markers=` shorthand: `marker-<id>(<lng>,<lat>[,<name>[,<description>]][,@<dx>x<dy>])`,
+ * `markers=` shorthand: `<id>(<lng>,<lat>[,<name>[,<description>]][,@<dx>x<dy>])`,
  * one call per marker (see shorthand-id-utils.js's parseCalls), joined with
  * `,` - name/description are percent-encoded so an embedded comma can't be
- * mistaken for another argument.
+ * mistaken for another argument. The call token is the marker id, percent-
+ * encoded (shorthand-id-utils.js's encodeId - the param reader decodes it
+ * again, so nothing here decodes the token itself); it once carried a
+ * `marker-` prefix, redundant with the param name it always sat inside, and
+ * links written that way are still parsed (see LEGACY_ID_PREFIX).
  *
  * `@<dx>x<dy>` is the pixel offset of a marker's panel from the point it
  * describes, present only when it has been dragged off its default position
@@ -24,7 +28,13 @@
 
 const OFFSET_ARG_RE = /^@(-?\d+)x(-?\d+)$/;
 
-import { parseCalls, splitArgs } from './shorthand-id-utils.js';
+// Dropped from what we write, still accepted from what we read. An id may
+// itself contain a `-`, so an id that literally starts with `marker-` reads
+// back one prefix shorter - a fair trade for keeping already-shared links
+// working, since nothing generates such an id.
+const LEGACY_ID_PREFIX = 'marker-';
+
+import { parseCalls, splitArgs, isValidId, encodeId } from './shorthand-id-utils.js';
 
 const registry = new Map();
 
@@ -57,18 +67,17 @@ export function allEntries() {
     return Array.from(registry.values());
 }
 
-/** Parses a `markers=` value into `[{id, lng, lat, name, description[, offset]}]`. Malformed calls (bad token prefix, non-numeric coordinates) are dropped. */
+/** Parses a `markers=` value into `[{id, lng, lat, name, description[, offset]}]`. Malformed calls (invalid id, non-numeric coordinates) are dropped. */
 export function parseMarkersParam(markersParam) {
     if (!markersParam) return [];
 
     return parseCalls(markersParam)
-        .filter(({ token }) => token.startsWith('marker-'))
         .map(({ token, argsStr }) => {
-            const id = token.slice('marker-'.length);
+            const id = token.startsWith(LEGACY_ID_PREFIX) ? token.slice(LEGACY_ID_PREFIX.length) : token;
             const args = splitArgs(argsStr);
             const lng = parseFloat(args[0]);
             const lat = parseFloat(args[1]);
-            if (!id || !Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+            if (!isValidId(id) || !Number.isFinite(lng) || !Number.isFinite(lat)) return null;
 
             // Pulled out first, so whatever is left keeps its name/description
             // positions regardless of where the offset was written.
@@ -107,6 +116,6 @@ export function buildMarkersParam(entries) {
         const dy = Math.round(offset?.y || 0);
         if (dx || dy) parts.push(`@${dx}x${dy}`);
 
-        return `marker-${id}(${parts.join(',')})`;
+        return `${encodeId(id)}(${parts.join(',')})`;
     }).join(',');
 }

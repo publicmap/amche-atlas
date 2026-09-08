@@ -4,10 +4,17 @@
  * (see js/marker-registry.js, js/route-url-api.js, js/search/route-store.js)
  * plus the balanced-paren `token(args)` call parsing both of those share.
  *
- * ID rules: letters, digits, or underscore only; any whitespace in a
- * user-typed id is converted to `_` rather than rejected outright (typing a
- * space is the common slip, not an attempt at a special character), and
- * every other disallowed character is dropped.
+ * ID rules: any character except whitespace and the four the shorthand grammar
+ * itself needs - `(`, `)`, `,` and `:`. Everything else is allowed, non-ASCII
+ * included: an id is percent-encoded on its way into the URL (encodeId below)
+ * and the `?param=` reader percent-decodes it back, so `Survey_17/1`, `R&D`,
+ * `50%` and `café` all survive the round trip. The four exceptions can't -
+ * that same reader turns `%28`/`%2C` back into `(`/`,` before parseCalls ever
+ * sees the value, so an id holding one would split its own call apart - and
+ * neither can whitespace, which is converted to `_` instead of encoded: `%20`
+ * is noise in a shared link, and the underscore is the readable stand-in that
+ * reads back as a space wherever the id is shown (map-marker-manager.js's
+ * idToLabel).
  *
  * A route waypoint's `ref` badge (map-marker-manager.js's setMarkerRefLabel,
  * assigned by search/route-store.js's _syncMarkers) is the one place `:` is
@@ -17,20 +24,39 @@
  * isValidRouteRefId/sanitizeRouteRefPrefix below).
  */
 
-const VALID_ID_RE = /^[A-Za-z0-9_]+$/;
+// Everything but whitespace, the grammar's own `(),:`, and control characters
+// (never typed on purpose, and unprintable in a URL either way).
+const ID_FORBIDDEN_RE = /[\s(),:\x00-\x1f\x7f]/g;
+const VALID_ID_RE = /^[^\s(),:\x00-\x1f\x7f]+$/;
 
-// `-` and `.` on top of the ordinary id charset: a ref prefix's default form
-// is `{mode}-{distanceText}` (e.g. "walking-1.2km"), so a renamed prefix needs
-// to keep both.
+// Deliberately narrower than an id: a ref prefix is a badge label the route
+// owns, and its default form is `{mode}-{distanceText}` (e.g. "walking-1.2km"),
+// so letters/digits/`_` plus the `-` and `.` that form needs is the whole of it.
+// The `:` before `stop_no` is the separator, hence excluded here.
 const VALID_ROUTE_REF_PREFIX_RE = /^[A-Za-z0-9_.-]+$/;
 const VALID_ROUTE_REF_RE = /^[A-Za-z0-9_.-]+:[0-9]+$/;
 
-/** Converts arbitrary user input into a valid id: spaces -> `_`, everything else not [A-Za-z0-9_] stripped. */
+/** Converts arbitrary user input into a valid id: whitespace -> `_`, the grammar's `(),:` and control characters stripped. */
 export function sanitizeId(raw) {
     return String(raw ?? '')
         .trim()
         .replace(/\s+/g, '_')
-        .replace(/[^A-Za-z0-9_]/g, '');
+        .replace(ID_FORBIDDEN_RE, '');
+}
+
+/**
+ * Percent-encodes an id for the URL - every write site of a `markers=` call
+ * token (marker-registry.js) or a `route-<rid>:` waypoint argument
+ * (search/route-geojson.js) goes through this.
+ *
+ * There is no matching decodeId: the param reader (`URLSearchParams.get`) has
+ * already percent-decoded the whole value by the time it reaches parseCalls,
+ * and decoding a second time would corrupt an id that legitimately contains a
+ * `%` (`100%25` -> `100%` -> `100 `). Since ids can hold none of the
+ * characters the grammar splits on, the decoded token *is* the id.
+ */
+export function encodeId(id) {
+    return encodeURIComponent(String(id ?? ''));
 }
 
 export function isValidId(id) {
@@ -72,9 +98,12 @@ export function isValidRouteRefPrefix(prefix) {
  * id: every run of characters outside [A-Za-z0-9_] collapses to a single `_`,
  * with no leading or trailing separator, truncated to `maxLength`.
  *
- * Unlike sanitizeId, which drops disallowed characters outright (the right fix
- * for an id someone typed by hand), this keeps them as separators - so
- * `Survey 17/1` and `Survey 171` stay distinct ids instead of colliding.
+ * This stays stricter than sanitizeId on purpose. A hand-typed id is the
+ * user's own business, so sanitizeId keeps whatever they typed; a generated one
+ * is read off a shared link by someone who never chose it, and
+ * `Assagao_Survey_17_1_BARDEZ` reads better there than the punctuation of
+ * `Assagao_—_Survey_17/1_—_BARDEZ`. Collapsing to a separator rather than
+ * dropping outright still keeps `Survey 17/1` and `Survey 171` distinct.
  */
 export function labelToId(raw, maxLength = 64) {
     const id = String(raw ?? '')
@@ -127,7 +156,10 @@ export function parseCalls(str) {
     const calls = [];
     if (typeof str !== 'string') return calls;
 
-    const CALL_START_RE = /([A-Za-z0-9_-]+)\(/g;
+    // Anything an id may hold (see VALID_ID_RE), plus the `-`/`:` a
+    // `route-<rid>:engine-profile` token carries - a leading `route-<rid>:` is
+    // left out of the token so that form still reports its engine-profile.
+    const CALL_START_RE = /([^\s(),:]+)\(/g;
     let match;
     while ((match = CALL_START_RE.exec(str))) {
         const token = match[1];

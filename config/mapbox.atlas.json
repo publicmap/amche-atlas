@@ -642,6 +642,10 @@
           0.5,
           0.4
         ],
+        "symbol-sort-key": [
+          "get",
+          "index"
+        ],
         "text-opacity": [
           "match",
           [
@@ -671,7 +675,7 @@
           0.1
         ],
         "symbol-placement": "line-center",
-        "symbol-spacing": 300,
+        "symbol-spacing": 100,
         "text-font": [
           "Barlow Regular"
         ],
@@ -695,9 +699,9 @@
             "zoom"
           ],
           12,
-          8,
+          10,
           17,
-          11
+          12
         ],
         "text-padding": 6,
         "text-halo-color": [
@@ -749,7 +753,7 @@
           "#9c3a23"
         ],
         "text-color": "black",
-        "text-halo-width": 2
+        "text-halo-width": 23
       },
       "inspect": {
         "id": "ele",

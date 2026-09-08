@@ -20,6 +20,7 @@
 
 import { formatDistance } from '../geo-distance-utils.js';
 import { routingEngineProfileToken } from './directions-router.js';
+import { encodeId } from '../shorthand-id-utils.js';
 
 /** The atlas layer (config/index.atlas.json) the live route is drawn into. */
 export const DIRECTIONS_LAYER_ID = 'directions';
@@ -245,7 +246,12 @@ function formatClockTime(date) {
  * needed, since each argument is a single id).
  */
 export function routeShorthand(rid, markerIds, engine, profile) {
-    return `route-${rid}:${routingEngineProfileToken(engine, profile)}(${markerIds.join(',')})`;
+    // Percent-encoded for the same reason a `markers=` call token is (see
+    // shorthand-id-utils.js's encodeId): an id may hold anything but the
+    // grammar's own characters, and `layers=`'s reader decodes it back before
+    // route-url-api.js splits this list apart.
+    const waypoints = markerIds.map(encodeId).join(',');
+    return `route-${rid}:${routingEngineProfileToken(engine, profile)}(${waypoints})`;
 }
 
 /** Bounds covering a route's line and waypoints, for fitBounds(). */

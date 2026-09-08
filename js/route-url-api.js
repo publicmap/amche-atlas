@@ -24,7 +24,7 @@
  *
  * `<rid>` is this route's own user-facing id, riding along in the shorthand
  * type token itself (`route-<rid>:...`) rather than inside the call, so it
- * stays stable across edits the way a `marker-<id>` does.
+ * stays stable across edits the way a `markers=` id does.
  *
  * The resulting layer is the same shape as the `directions` layer in
  * config/index.atlas.json — the route line with every property the API

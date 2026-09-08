@@ -140,7 +140,7 @@ describe('marker registry stays in step with the live markers', () => {
     describe('an id named by the shared link is used from the first draw', () => {
         it('claims a registry id that no live marker holds', () => {
             const manager = makeManager();
-            // The placeholder map-init hydrates from `?markers=marker-23ab(...)`.
+            // The placeholder map-init hydrates from `?markers=23ab(...)`.
             markerRegistry.set('23ab', { id: '23ab', lng: POINT.lng, lat: POINT.lat, name: '', description: '' });
 
             // Without the live-marker basis this returned "23ab_2" - the marker

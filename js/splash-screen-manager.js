@@ -408,6 +408,18 @@ export class SplashScreenManager {
 
         window.history.replaceState({}, '', newUrl);
 
+        // If map-init.js's loadConfiguration() already committed to loading the
+        // (now stale) atlas before this location-based decision landed - e.g. its
+        // startup race timed out while this permission prompt was still pending -
+        // the replaceState above updates the URL but not the live map: there is no
+        // later mechanism that re-applies a changed atlas/layers to an already-
+        // resolved map. Force a real reload so the new atlas/layers actually take
+        // effect, same as the manual switchAtlas() path below.
+        if (window.loadingStartupState?.configResolved) {
+            window.location.reload();
+            return;
+        }
+
         await this.loadAtlasById(bestAtlasId);
         this.state.locationSource = source;
         this.state.locationData = { lat, lng, zoom: hashZoom };

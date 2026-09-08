@@ -795,7 +795,7 @@ export class URLManager {
         // Marker changes arrive via updateLayers (marker manager) or updateSelections.
         if (options.updateLayers === true || options.updateSelections === true) {
             const newMarkersParam = this.serializeMarkersForURL();
-            const currentMarkersParam = urlParams.get('markers') || '';
+            const currentMarkersParam = this.canonicalMarkersParam(urlParams.get('markers'));
 
             if (newMarkersParam !== currentMarkersParam) {
                 markersParam = newMarkersParam;
@@ -944,7 +944,7 @@ export class URLManager {
             if (markersParam !== null && markersParam !== '') {
                 params.push('markers=' + markersParam);
             } else if (markersParam === null) {
-                const currentMarkersParam = urlParams.get('markers');
+                const currentMarkersParam = this.canonicalMarkersParam(urlParams.get('markers'));
                 if (currentMarkersParam) {
                     params.push('markers=' + currentMarkersParam);
                 }
@@ -1018,7 +1018,7 @@ export class URLManager {
 
     /**
      * Serialize every live marker into a compact `markers=` param of
-     * `marker-<id>(lng,lat[,name][,description])` calls (see
+     * `<id>(lng,lat[,name][,description])` calls (see
      * marker-registry.js's buildMarkersParam) - one per marker currently
      * registered there, which map-marker-manager.js keeps current as markers
      * are added, moved, or renamed. This includes route waypoint markers too
@@ -1036,8 +1036,24 @@ export class URLManager {
     }
 
     /**
-     * Parse a `markers=` param (marker-<id>(lng,lat[,name][,description])
-     * calls - see marker-registry.js's parseMarkersParam) back into a
+     * Re-encodes a `markers=` param read back off the URL into the exact form
+     * serializeMarkersForURL would have written.
+     *
+     * `urlParams.get()` percent-decodes, so a param carrying an id with a
+     * `&`/`%`/non-ASCII character in it (shorthand-id-utils.js's encodeId puts
+     * those in) comes back decoded - unusable both for comparing against a
+     * freshly serialized param and for writing straight back into the URL,
+     * where a bare `&` would end the param early. Round-tripping it through the
+     * parser restores the encoding; entries too malformed to parse are dropped,
+     * which is what they would have been on load anyway.
+     */
+    canonicalMarkersParam(markersParam) {
+        return buildMarkersParam(parseMarkersParam(markersParam));
+    }
+
+    /**
+     * Parse a `markers=` param (`<id>(lng,lat[,name][,description])` calls -
+     * see marker-registry.js's parseMarkersParam) back into a
      * selection-layer FeatureCollection. Inverse of serializeMarkersForURL.
      */
     parseMarkersFromURL(markersParam) {
