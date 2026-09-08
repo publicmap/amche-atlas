@@ -2208,8 +2208,14 @@ export class MapMarkerManager {
         // The one exception is the placeholder itself: "Click to save label" is
         // already an instruction to click it, so a single tap opens the editor
         // right away instead of asking for a second one first.
-        badge.addEventListener('click', (e) => {
+        // Bound to both events, same reasoning as shortcutsBtn below: mapbox's
+        // own touch handling on the marker element can swallow the synthetic
+        // 'click' a tap would otherwise produce, leaving a touch user's first
+        // (or only) tap on the badge doing nothing. `touchend`'s preventDefault
+        // heads that phantom click off, so this still runs exactly once.
+        const openBadge = (e) => {
             e.stopPropagation();
+            if (e.type === 'touchend') e.preventDefault();
             if (badgeText.textContent === MARKER_ID_PLACEHOLDER) {
                 this._selectMarker(markerId);
                 startEdit({ initial: true });
@@ -2221,7 +2227,9 @@ export class MapMarkerManager {
                 return;
             }
             startEdit();
-        });
+        };
+        badge.addEventListener('click', openBadge);
+        if (this._isTouch) badge.addEventListener('touchend', openBadge);
 
         const shortcutsBtn = group.querySelector('.marker-id-shortcuts');
         const openShortcuts = (e) => {
