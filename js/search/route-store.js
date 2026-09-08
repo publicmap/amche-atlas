@@ -24,7 +24,9 @@
  * route's own blue, which puts it in the `markers=` URL param alongside every
  * other selection. Those markers are the handles on the route: dragging one
  * moves its waypoint and re-routes live under the cursor, and closing one
- * drops that stop and re-routes what is left.
+ * drops that stop and re-routes what is left. The line between them is a
+ * handle too: dragging it inserts a stop where it was grabbed (see
+ * insertWaypoint, driven by directions-layer.js's RouteDragHandler).
  */
 
 import { fetchRouteForWaypoints } from './directions-router.js';
@@ -196,7 +198,44 @@ export class RouteStore {
         if (index < 0 || !route || !route.waypoints[index]) return;
 
         route.waypoints[index] = [lngLat.lng, lngLat.lat];
+        this._scheduleResolve(route, live);
+    }
 
+    /**
+     * Adds a stop between two existing ones - what dragging the route line
+     * itself does (see ./directions-layer.js's RouteDragHandler): the line is
+     * grabbed at a point, that point becomes a new waypoint, and the rest of
+     * the drag moves it with moveWaypoint.
+     *
+     * `index` is the position the new stop takes, clamped to somewhere
+     * between the start and the destination - a drag on the line can only
+     * insert between two stops, never replace either end of the route.
+     * A `null` is spliced into markerIds alongside it, so _syncMarkers builds
+     * (or adopts) this stop's own pin on the first re-route while every
+     * waypoint after it keeps the marker it already had.
+     *
+     * Returns the index actually inserted at, or -1 if there was no such
+     * route - the caller drives the rest of the drag by that index.
+     */
+    insertWaypoint(routeId, index, lngLat, { live = false } = {}) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route || route.waypoints.length < 2) return -1;
+
+        const at = Math.min(Math.max(index, 1), route.waypoints.length - 1);
+        route.waypoints.splice(at, 0, [lngLat.lng, lngLat.lat]);
+        route.names.splice(at, 0, '');
+        route.markerIds.splice(at, 0, null);
+
+        this._scheduleResolve(route, live);
+        return at;
+    }
+
+    /**
+     * Re-routes now, or on a trailing timer while a drag is still running - a
+     * drag fires every frame, and a request per frame is both wasted and
+     * slower than the drag it is trying to keep up with.
+     */
+    _scheduleResolve(route, live) {
         clearTimeout(route._rerouteTimer);
         if (!live) {
             this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
@@ -348,13 +387,22 @@ export class RouteStore {
             return `${prefix}:${index + 1}`;
         };
 
+        // The badge's own onRenameRef closes over `route.id` and whatever
+        // marker id it ends up attached to - built once here rather than
+        // inline below since all three branches need the same shape passed
+        // to setMarkerRefLabel.
+        const refOptions = (markerId) => ({
+            color: WAYPOINT_PIN_COLOR,
+            onRenameRef: (newPrefix) => this.renameWaypointRef(route.id, markerId, newPrefix)
+        });
+
         route.waypoints.forEach((coordinates, index) => {
             const lngLat = { lng: coordinates[0], lat: coordinates[1] };
             const existingId = route.markerIds[index];
 
             if (existingId && markers._markers?.has(existingId)) {
                 markers.moveMarker(existingId, lngLat);
-                markers.setMarkerRefLabel(existingId, refLabelFor(existingId, index));
+                markers.setMarkerRefLabel(existingId, route.id, refLabelFor(existingId, index), refOptions(existingId));
                 return;
             }
 
@@ -364,7 +412,7 @@ export class RouteStore {
             if (nearby) {
                 route.markerIds[index] = nearby;
                 markers.adoptAsWaypoint(nearby, this._waypointHandlers(route, { id: nearby }));
-                markers.setMarkerRefLabel(nearby, refLabelFor(nearby, index));
+                markers.setMarkerRefLabel(nearby, route.id, refLabelFor(nearby, index), refOptions(nearby));
                 return;
             }
 
@@ -378,7 +426,7 @@ export class RouteStore {
                 ...this._waypointHandlers(route, ref)
             });
             route.markerIds[index] = ref.id;
-            markers.setMarkerRefLabel(ref.id, refLabelFor(ref.id, index));
+            markers.setMarkerRefLabel(ref.id, route.id, refLabelFor(ref.id, index), refOptions(ref.id));
         });
     }
 
@@ -388,13 +436,7 @@ export class RouteStore {
             pinColor: WAYPOINT_PIN_COLOR,
             onDrag: (moved) => this.moveWaypoint(route.id, indexOf(), moved, { live: true }),
             onDragEnd: (moved) => this.moveWaypoint(route.id, indexOf(), moved),
-            onRemove: () => this.removeWaypoint(route.id, indexOf()),
-            // The prefix half of this waypoint's ref (map-marker-manager.js's
-            // ref-badge editor calls this on save) - stop_no is reapplied by
-            // _syncMarkers right after, from this same route.refOverrides
-            // entry, so the rename shows immediately without waiting for a
-            // re-route.
-            onRenameRef: (newPrefix) => this.renameWaypointRef(route.id, ref.id, newPrefix)
+            onRemove: () => this.removeWaypoint(route.id, indexOf())
         };
     }
 
@@ -415,7 +457,10 @@ export class RouteStore {
         if (newPrefix) route.refOverrides[markerId] = newPrefix;
         else delete route.refOverrides[markerId];
 
-        window.featureControl?._markerManager?.setMarkerRefLabel(markerId, `${newPrefix || route.code}:${index + 1}`);
+        window.featureControl?._markerManager?.setMarkerRefLabel(markerId, routeId, `${newPrefix || route.code}:${index + 1}`, {
+            color: WAYPOINT_PIN_COLOR,
+            onRenameRef: (p) => this.renameWaypointRef(routeId, markerId, p)
+        });
         return true;
     }
 
@@ -438,7 +483,7 @@ export class RouteStore {
         route.markerIds.splice(index, 1);
         delete route.refOverrides[markerId];
 
-        window.featureControl?._markerManager?.releaseWaypoint(markerId);
+        window.featureControl?._markerManager?.releaseWaypoint(markerId, routeId);
 
         if (route.waypoints.length < 2) {
             this.remove(routeId);

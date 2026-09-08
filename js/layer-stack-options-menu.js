@@ -68,19 +68,39 @@ export class LayerStackOptionsMenu extends ShortcutMenuBase {
      * the pending close, so crossing the gap between them keeps it open.
      */
     _bindHover() {
-        const enter = () => {
+        this._hoverEnter = () => {
             clearTimeout(this._closeTimer);
             if (!this._isOpen()) this.open();
         };
-        const leave = () => {
+        this._hoverLeave = () => {
             clearTimeout(this._closeTimer);
             this._closeTimer = setTimeout(() => this._hide(), HOVER_CLOSE_MS);
         };
 
         [this._button, this._menu].forEach(el => {
-            el.addEventListener('mouseenter', enter);
-            el.addEventListener('mouseleave', leave);
+            el.addEventListener('mouseenter', this._hoverEnter);
+            el.addEventListener('mouseleave', this._hoverLeave);
         });
+    }
+
+    /**
+     * Nested flyouts (e.g. "Toggle Basemaps") are separate panels appended
+     * straight to document.body (see ShortcutMenuBase._showSubmenuFor), so
+     * _bindHover's button/menu listeners never see the pointer move into one -
+     * without this, crossing into a flyout would let the pending close timer
+     * above fire and yank the whole menu out from under the pointer. Each
+     * panel is created lazily and reused (base class), so the hover pair is
+     * bound once per panel via `_hoverBound`.
+     */
+    _showSubmenuFor(item, button, depth) {
+        super._showSubmenuFor(item, button, depth);
+
+        const level = this._submenuLevels[depth];
+        if (level && !level._hoverBound) {
+            level._hoverBound = true;
+            level.element.addEventListener('mouseenter', this._hoverEnter);
+            level.element.addEventListener('mouseleave', this._hoverLeave);
+        }
     }
 
     _getMenuItems() {

@@ -22,6 +22,10 @@ import { routeBounds } from './search/route-geojson.js';
 import { WaypointPicker } from './waypoint-picker.js';
 import { reverseGeocodeAddress } from './nominatim-search.js';
 
+// Zoom "Zoom To Location" settles at when the map is further out than this -
+// the same detail level CameraUtils.DEFAULT_FIT_OPTIONS caps its fits at.
+const LOCATION_ZOOM = 16;
+
 export class ShortcutMenuBase {
     constructor() {
         this._map = null;
@@ -35,12 +39,6 @@ export class ShortcutMenuBase {
         // one. Cleared the moment something else turns it into a real marker
         // (see _ensureMarkerAt's `pending` doc below).
         this._pendingMarkerId = null;
-
-        // Item ids a subclass wants left out of its own menu even though it
-        // picks a parent that contains them (see _buildMenuItems). Filtering
-        // here rather than in _getMenuItems reaches items nested inside a
-        // flyout's lazily-resolved children too.
-        this._excludedItemIds = new Set();
 
         // Stack of flyout panels, one per nesting depth (0 = first flyout opened
         // from the top-level menu, 1 = a flyout opened from within that, etc).
@@ -162,6 +160,12 @@ export class ShortcutMenuBase {
     _getAllMenuItems() {
         return [
             {
+                // No menu shows this group as an entry of its own any more -
+                // both entry points pick its children by id instead ("Zoom To
+                // Selected" sits at the top level of the long-press menu, the
+                // rest in the strip's options menu). It stays as the place
+                // those two are defined, and as what _pickMenuItems walks
+                // through to find them.
                 id: 'selection-menu',
                 icon: 'hand-index-thumb',
                 iconChecked: 'hand-index-thumb-fill',
@@ -170,6 +174,12 @@ export class ShortcutMenuBase {
                 // can drop out once nothing is left to zoom to or clear (see
                 // _buildSelectionMenuItems).
                 children: () => this._buildSelectionMenuItems()
+            },
+            {
+                id: 'zoom-to-location',
+                icon: 'geo-alt',
+                label: 'Zoom To Location',
+                action: () => this._zoomToLocation()
             },
             {
                 id: 'route-menu',
@@ -278,7 +288,6 @@ export class ShortcutMenuBase {
      */
     _buildMenuItems(container, items, trackInto, depth) {
         items.forEach(item => {
-            if (item.id && this._excludedItemIds.has(item.id)) return;
             if (item.divider) {
                 const divider = document.createElement('div');
                 divider.className = 'shortcut-menu-divider';
@@ -411,6 +420,23 @@ export class ShortcutMenuBase {
     _hasSelectionMarkers() {
         const markers = window.featureControl?._markerManager?.getMarkers() || [];
         return markers.some(m => m.id !== this._pendingMarkerId);
+    }
+
+    /**
+     * Centers the map on the point the menu was opened at - the spot itself,
+     * whatever is or isn't selected there, unlike "Zoom To Selected" below it
+     * (zoomToSelected), which frames the selected feature's geometry or every
+     * marker on the map. Already being zoomed in past LOCATION_ZOOM is kept:
+     * this is a recenter, so it should never pull the map back out.
+     */
+    _zoomToLocation() {
+        if (!this._map || !this._lngLat) return;
+        this._map.flyTo({
+            center: this._lngLat,
+            zoom: Math.max(this._map.getZoom(), LOCATION_ZOOM),
+            duration: 1000,
+            essential: true
+        });
     }
 
     /**

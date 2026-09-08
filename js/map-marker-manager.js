@@ -2767,7 +2767,7 @@ export class MapMarkerManager {
                 const markerId = this.getMarkerByUrlId(urlId);
                 if (!markerId) return;
                 this.adoptAsWaypoint(markerId, { pinColor: WAYPOINT_PIN_COLOR });
-                this.setMarkerRefLabel(markerId, `${group.id}-${index + 1}`);
+                this.setMarkerRefLabel(markerId, group.id, `${group.id}-${index + 1}`, { color: WAYPOINT_PIN_COLOR });
             });
         });
     }
@@ -2859,7 +2859,7 @@ export class MapMarkerManager {
      * a destination click already dropped become that route's waypoint instead
      * of stacking a second pin on the same spot (see search/route-store.js).
      */
-    adoptAsWaypoint(markerId, { pinColor, onDrag, onDragEnd, onRemove, onRenameRef } = {}) {
+    adoptAsWaypoint(markerId, { pinColor, onDrag, onDragEnd, onRemove } = {}) {
         const markerData = this._markers.get(markerId);
         if (!markerData) return;
 
@@ -2867,21 +2867,18 @@ export class MapMarkerManager {
         markerData.onDrag = onDrag;
         markerData.onDragEnd = onDragEnd;
         markerData.onRemove = onRemove;
-        markerData.onRenameRef = onRenameRef;
 
         if (pinColor) {
             markerData.pinColor = pinColor;
             const el = markerData.marker.getElement();
-            const badge = el?.querySelector('.marker-id-badge');
             const tail = el?.querySelector('.marker-tail polygon');
-            if (badge) badge.style.borderColor = pinColor;
             if (tail) tail.setAttribute('stroke', pinColor);
         }
     }
 
     /**
-     * Renders (or updates, or removes when `refLabel` is falsy) a small text
-     * badge trailing a marker's id label - used for a route waypoint's `ref`
+     * Renders (updates, or removes when `refLabel` is falsy) one route's ref
+     * badge on a marker's id label - used for a route waypoint's `ref`
      * (`{mode}-{distanceText}:{stop_no}`, e.g. "walking-1.2km:3" - see
      * search/route-geojson.js's buildRouteFeatureCollection and
      * search/route-store.js's _syncMarkers, which keeps it current as
@@ -2889,30 +2886,69 @@ export class MapMarkerManager {
      * route can be pointed at visually by a short code rather than only by
      * position.
      *
+     * Keyed by `routeId` (not a single value) because a marker can be a stop
+     * on more than one route at once - each gets its own badge
+     * (markerData.routeRefs tracks all of them), all living together inline
+     * in a `.marker-id-refs` row of their own below the id text (badge is
+     * flex-direction: column - see _buildMarkerMenuHeaderHTML), rather than
+     * sharing a line with the id itself. That row only wraps onto a further
+     * line once it runs past the badge's own max-width - the same as a long
+     * id label wraps on its own. `options.color` becomes that badge's
+     * background - the same color as the route's own line (see
+     * search/route-store.js's WAYPOINT_PIN_COLOR) - so a badge reads as
+     * belonging to that route even with several shown at once.
+     *
      * The prefix (everything before the last `:`) is editable the same way
      * the marker id is - click to rename, Enter/blur to save, Escape to
-     * cancel (see _startRefLabelEdit) - but only while the marker is a route
-     * waypoint (`markerData.onRenameRef` set by adoptAsWaypoint). The
+     * cancel (see _startRefLabelEdit) - via `options.onRenameRef`. The
      * `:stop_no` suffix is never user-typed: it tracks the waypoint's
      * position in its route, so renaming only ever touches the prefix.
      */
-    setMarkerRefLabel(markerId, refLabel) {
+    setMarkerRefLabel(markerId, routeId, refLabel, { color = WAYPOINT_PIN_COLOR, onRenameRef = null } = {}) {
         const markerData = this._markers.get(markerId);
         if (!markerData) return;
-        markerData.refLabel = refLabel || null;
+        if (!markerData.routeRefs) markerData.routeRefs = new Map();
 
         const badge = markerData.marker.getElement()?.querySelector('.marker-id-badge');
-        if (!badge) return;
 
-        let label = badge.querySelector('.marker-id-ref');
         if (!refLabel) {
-            label?.remove();
+            markerData.routeRefs.delete(routeId);
+            const existing = badge && this._findRefLabelEl(badge, routeId);
+            existing?.remove();
+            // No stops left to show - drop the now-empty row rather than
+            // leaving a blank line under the marker's id.
+            if (badge && markerData.routeRefs.size === 0) badge.querySelector('.marker-id-refs')?.remove();
             return;
         }
 
+        markerData.routeRefs.set(routeId, { label: refLabel, color, onRenameRef });
+        if (!badge) return;
+
+        let row = badge.querySelector('.marker-id-refs');
+        if (!row) {
+            row = document.createElement('span');
+            row.className = 'marker-id-refs';
+            // Its own line below the id text (badge is flex-direction:
+            // column - see _buildMarkerMenuHeaderHTML) - every route's badge
+            // lives inline together within this row, wrapping onto a further
+            // line only once the row itself runs past the badge's own
+            // max-width, the same as a long id label wraps on its own.
+            row.style.cssText = `
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                row-gap: 2px;
+                column-gap: 4px;
+                margin-top: 2px;
+            `;
+            badge.appendChild(row);
+        }
+
+        let label = this._findRefLabelEl(badge, routeId);
         if (!label) {
             label = document.createElement('span');
             label.className = 'marker-id-ref';
+            label.dataset.routeId = routeId;
             label.title = 'Click to rename';
             label.style.cssText = `
                 display: inline-flex;
@@ -2920,27 +2956,28 @@ export class MapMarkerManager {
                 justify-content: center;
                 min-width: 16px;
                 height: 16px;
-                margin-top: 2px;
                 padding: 0 4px;
                 border-radius: 8px;
-                background: #000;
                 font-size: 10px;
                 font-weight: 700;
                 line-height: 1;
                 color: #fff;
+                flex-shrink: 0;
                 cursor: pointer;
             `;
-            // Trailing, on its own line below the marker's own id/name -
-            // which is what the marker is chiefly known by, with the route
-            // stop code as a secondary detail underneath it (see the badge's
-            // flex-direction: column in _buildMarkerMenuHeaderHTML).
-            badge.appendChild(label);
+            row.appendChild(label);
             label.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this._startRefLabelEdit(markerId);
+                this._startRefLabelEdit(markerId, routeId);
             });
         }
+        label.style.background = color;
         label.textContent = refLabel;
+    }
+
+    /** The `.marker-id-ref` badge for one specific route, if the marker's badge has one. */
+    _findRefLabelEl(badge, routeId) {
+        return Array.from(badge.querySelectorAll('.marker-id-ref')).find(el => el.dataset.routeId === String(routeId)) || null;
     }
 
     /**
@@ -2951,16 +2988,17 @@ export class MapMarkerManager {
      * Enter or blur sanitizes and saves via the marker's onRenameRef handler
      * (see search/route-store.js's _waypointHandlers); Escape reverts.
      */
-    _startRefLabelEdit(markerId) {
+    _startRefLabelEdit(markerId, routeId) {
         const markerData = this._markers.get(markerId);
-        if (!markerData?.onRenameRef) return;
+        const entry = markerData?.routeRefs?.get(routeId);
+        if (!entry?.onRenameRef) return;
 
         const badge = markerData.marker.getElement()?.querySelector('.marker-id-badge');
-        const label = badge?.querySelector('.marker-id-ref');
+        const label = badge && this._findRefLabelEl(badge, routeId);
         if (!label) return;
         if (label.querySelector('input')) return; // already editing
 
-        const currentRef = markerData.refLabel || '';
+        const currentRef = entry.label || '';
         const sepIndex = currentRef.lastIndexOf(':');
         const prefix = sepIndex === -1 ? currentRef : currentRef.slice(0, sepIndex);
         const stopSuffix = sepIndex === -1 ? '' : currentRef.slice(sepIndex);
@@ -3006,12 +3044,12 @@ export class MapMarkerManager {
                 const sanitized = sanitizeRouteRefPrefix(input.value);
                 const candidate = `${sanitized}:${stopSuffix.slice(1) || '1'}`;
                 if (sanitized && isValidRouteRefId(candidate)) {
-                    markerData.onRenameRef(sanitized);
+                    entry.onRenameRef(sanitized);
                     return; // onRenameRef -> setMarkerRefLabel rebuilds the badge
                 }
             }
             // Rejected or cancelled: just restore the badge text.
-            this.setMarkerRefLabel(markerId, currentRef);
+            this.setMarkerRefLabel(markerId, routeId, currentRef, entry);
         };
 
         input.addEventListener('keydown', (e) => {
@@ -3022,31 +3060,29 @@ export class MapMarkerManager {
     }
 
     /**
-     * The inverse of adoptAsWaypoint: a marker dropped off a route (see
-     * search/route-store.js's removeMarkerFromRoute) reverts to a plain
-     * marker rather than staying styled/behaved like a waypoint - its ref
-     * badge is cleared, its pin color/border reset, and the route-specific
-     * handlers (drag re-routing, onRemove dropping the waypoint, ref rename)
-     * are dropped so the marker's own ordinary handling takes back over.
+     * The inverse of adoptAsWaypoint for one route: a marker dropped off
+     * `routeId` (see search/route-store.js's removeMarkerFromRoute) loses
+     * that route's own ref badge, but only reverts to a plain
+     * marker - pin color reset, drag/close/rename handlers dropped - once it
+     * isn't a stop on any *other* route either (a marker shared by several
+     * routes keeps behaving/looking like a waypoint, and keeps whichever
+     * other routes' badges it still has, until the last one lets go of it).
      */
-    releaseWaypoint(markerId) {
+    releaseWaypoint(markerId, routeId) {
         const markerData = this._markers.get(markerId);
         if (!markerData) return;
+
+        this.setMarkerRefLabel(markerId, routeId, null);
+        if (markerData.routeRefs?.size) return;
 
         markerData.role = null;
         markerData.pinColor = null;
         markerData.onDrag = null;
         markerData.onDragEnd = null;
         markerData.onRemove = null;
-        markerData.onRenameRef = null;
 
-        const el = markerData.marker.getElement();
-        const badge = el?.querySelector('.marker-id-badge');
-        if (badge) badge.style.borderColor = 'transparent';
-        const tail = el?.querySelector('.marker-tail polygon');
+        const tail = markerData.marker.getElement()?.querySelector('.marker-tail polygon');
         if (tail) tail.setAttribute('stroke', '');
-
-        this.setMarkerRefLabel(markerId, null);
     }
 
     /**
@@ -3237,7 +3273,7 @@ export class MapMarkerManager {
         const infoSize = 20;
         el.innerHTML = `
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; height: ${infoSize}px; flex-shrink: 0;"></div>
-            <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);">
+            <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);">
                 ${this._buildMarkerBadgesHTML(features, lngLat)}
             </div>
         `;
@@ -3453,7 +3489,7 @@ export class MapMarkerManager {
         // it is the same kind of thing.
         el.innerHTML = `
             ${this._buildMarkerLeaderHTML()}
-            <div class="marker-content" style="position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: ${MARKER_CORNER_RADIUS}px; padding: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); pointer-events: auto;">
+            <div class="marker-content" style="position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: ${MARKER_CORNER_RADIUS}px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); pointer-events: auto;">
                 ${this._buildMarkerMenuHeaderHTML(urlId, saved)}
                 <div class="marker-menu-body" style="display: none; flex-direction: column; align-items: stretch;">
                     ${this._buildCommentSectionHTML(noteEntry)}

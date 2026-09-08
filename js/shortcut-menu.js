@@ -40,12 +40,14 @@ const LONG_PRESS_MOVE_THRESHOLD = 10;
 // Markers" and "Hover Tooltips" moved entirely to the layer-stack strip's
 // options menu (see layer-stack-options-menu.js's own ITEM_IDS) - this is
 // what's left for the long-press menu.
-const ITEM_IDS = ['selection-menu', 'route-menu'];
-
-// Clearing every marker at once belongs to the options menu, not to a menu
-// opened on one particular point - so the Select flyout here offers only
-// "Zoom To Selected".
-const EXCLUDED_ITEM_IDS = ['clear-selection'];
+//
+// There is no "Select" flyout any more: its one item that still belongs to a
+// menu opened on a point ("Zoom To Selected") is picked out of it and shown at
+// the top level here instead, under "Zoom To Location" - which frames the
+// pressed point itself rather than whatever is selected. "Zoom To Selected"
+// drops out on its own while there is nothing selected to frame (see
+// ShortcutMenuBase._buildSelectionMenuItems).
+const ITEM_IDS = ['zoom-to-location', 'zoom-to-selected', 'route-menu'];
 
 export class ShortcutMenu extends ShortcutMenuBase {
     constructor() {
@@ -54,7 +56,6 @@ export class ShortcutMenu extends ShortcutMenuBase {
         this._touchTimer = null;
         this._touchStart = null;
         this._longPressFired = false;
-        this._excludedItemIds = new Set(EXCLUDED_ITEM_IDS);
 
         this._handleTouchStart = this._handleTouchStart.bind(this);
         this._handleTouchMove = this._handleTouchMove.bind(this);

@@ -18,6 +18,7 @@ import { MapAttributionControl } from './map-attribution-control.js';
 import { StreetviewControl } from './streetview-control.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { ShortcutMenu } from './shortcut-menu.js';
+import { RouteDragHandler } from './search/directions-layer.js';
 import { LocationNavigatorControl } from './location-navigator-control.js';
 import { MapLocationMenuControl } from './map-location-menu-control.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
@@ -967,6 +968,13 @@ export class MapInitializer {
             // Right-click / long-press shortcut menu, relies on the controls above
             window.shortcutMenu = new ShortcutMenu();
             window.shortcutMenu.onAdd(map);
+
+            // Drag any drawn route line to route through the point grabbed
+            // (see search/directions-layer.js). Added after the shortcut menu
+            // so the two agree on the canvas: this one is mouse-only, the
+            // long-press menu owns the same gesture on touch.
+            window.routeDragHandler = new RouteDragHandler(map);
+            window.routeDragHandler.enable();
 
             const supportedExts = ['geojson', 'json', 'kml', 'csv', 'geojsonl', 'ndjson', 'jsonl', 'gpkg', 'zip'];
             const dropOverlay = document.createElement('div');

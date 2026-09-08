@@ -547,6 +547,217 @@
       }
     },
     {
+      "id": "hypsometry",
+      "tags": [
+        "terrain"
+      ],
+      "type": "vector",
+      "title": "Hypsometry",
+      "sourceLayer": "contour",
+      "description": "Elevation contour lines from <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-v2/' target='_blank'>Mapbox Terrain v2</a>. Index contours (every 5th and 10th line) are drawn heavier and carry the elevation label in metres; intermediate contours are lighter.",
+      "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
+      "url": "mapbox://mapbox.mapbox-terrain-v2",
+      "style": {
+        "fill-color": [
+          "step",
+          [
+            "get",
+            "ele"
+          ],
+          "#0b6b3a",
+          10,
+          "#1b7a41",
+          20,
+          "#2b8948",
+          30,
+          "#3b984f",
+          40,
+          "#4ba757",
+          50,
+          "#5eb662",
+          60,
+          "#72c46e",
+          70,
+          "#87d17c",
+          80,
+          "#9dde8c",
+          90,
+          "#b4e89e",
+          100,
+          "#cfeeae",
+          110,
+          "#e9f0a8",
+          120,
+          "#f2e595",
+          130,
+          "#f0d181",
+          140,
+          "#edbd6e",
+          150,
+          "#e9a95c",
+          160,
+          "#e2934c",
+          170,
+          "#d97d3f",
+          180,
+          "#c96534",
+          190,
+          "#b54f2b",
+          200,
+          "#9c3a23"
+        ],
+        "line-color": [
+          "case",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "selected"
+            ],
+            false
+          ],
+          "#ffcc4d",
+          [
+            "boolean",
+            [
+              "feature-state",
+              "hover"
+            ],
+            false
+          ],
+          "#ffcc4d",
+          "rgba(0, 0, 0, 0.5)"
+        ],
+        "line-opacity": [
+          "match",
+          [
+            "get",
+            "index"
+          ],
+          10,
+          1,
+          5,
+          1,
+          2,
+          0.5,
+          0.4
+        ],
+        "text-opacity": [
+          "match",
+          [
+            "get",
+            "index"
+          ],
+          10,
+          1,
+          5,
+          1,
+          2,
+          0.5,
+          0.4
+        ],
+        "line-width": [
+          "match",
+          [
+            "get",
+            "index"
+          ],
+          10,
+          1.2,
+          5,
+          0.8,
+          2,
+          0.5,
+          0.1
+        ],
+        "symbol-placement": "line-center",
+        "symbol-spacing": 300,
+        "text-font": [
+          "Barlow Regular"
+        ],
+        "text-field": [
+          "concat",
+          [
+            "to-string",
+            [
+              "get",
+              "ele"
+            ]
+          ],
+          " m"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          8,
+          17,
+          11
+        ],
+        "text-padding": 6,
+        "text-halo-color": [
+          "step",
+          [
+            "get",
+            "ele"
+          ],
+          "#0b6b3a",
+          10,
+          "#1b7a41",
+          20,
+          "#2b8948",
+          30,
+          "#3b984f",
+          40,
+          "#4ba757",
+          50,
+          "#5eb662",
+          60,
+          "#72c46e",
+          70,
+          "#87d17c",
+          80,
+          "#9dde8c",
+          90,
+          "#b4e89e",
+          100,
+          "#cfeeae",
+          110,
+          "#e9f0a8",
+          120,
+          "#f2e595",
+          130,
+          "#f0d181",
+          140,
+          "#edbd6e",
+          150,
+          "#e9a95c",
+          160,
+          "#e2934c",
+          170,
+          "#d97d3f",
+          180,
+          "#c96534",
+          190,
+          "#b54f2b",
+          200,
+          "#9c3a23"
+        ],
+        "text-color": "black",
+        "text-halo-width": 2
+      },
+      "inspect": {
+        "id": "ele",
+        "title": "Elevation",
+        "label": "ele"
+      }
+    },
+    {
       "initiallyChecked": true,
       "id": "satellite",
       "tags": [
