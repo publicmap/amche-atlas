@@ -47,7 +47,7 @@ const LONG_PRESS_MOVE_THRESHOLD = 10;
 // pressed point itself rather than whatever is selected. "Zoom To Selected"
 // drops out on its own while there is nothing selected to frame (see
 // ShortcutMenuBase._buildSelectionMenuItems).
-const ITEM_IDS = ['zoom-to-location', 'zoom-to-selected', 'route-menu'];
+const ITEM_IDS = ['edit-marker-label', 'remove-marker', 'zoom-to-location', 'zoom-to-selected', 'route-menu'];
 
 export class ShortcutMenu extends ShortcutMenuBase {
     constructor() {

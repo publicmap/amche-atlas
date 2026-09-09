@@ -176,6 +176,18 @@ export class ShortcutMenuBase {
                 children: () => this._buildSelectionMenuItems()
             },
             {
+                id: 'edit-marker-label',
+                icon: 'pencil',
+                label: 'Edit Label',
+                action: () => this._editMarkerLabel()
+            },
+            {
+                id: 'remove-marker',
+                icon: 'trash',
+                label: 'Remove Marker',
+                action: () => this._removeMarkerAtPoint()
+            },
+            {
                 id: 'zoom-to-location',
                 icon: 'geo-alt',
                 label: 'Zoom To Location',
@@ -420,6 +432,29 @@ export class ShortcutMenuBase {
     _hasSelectionMarkers() {
         const markers = window.featureControl?._markerManager?.getMarkers() || [];
         return markers.some(m => m.id !== this._pendingMarkerId);
+    }
+
+    /**
+     * The marker at this menu's own point, if any - both "Edit Label" and
+     * "Remove Marker" act on it. Opening the menu on a bare point still leaves
+     * a marker there (the placeholder _ensureMarkerAt drops, or the one the
+     * marker's own options button was clicked on), so this is the same marker
+     * either entry point would show a popup for.
+     */
+    _markerAtPoint() {
+        if (!this._lngLat) return null;
+        const markerManager = window.featureControl?._markerManager;
+        return markerManager?.findMarkerNear(this._lngLat) || null;
+    }
+
+    _editMarkerLabel() {
+        const markerId = this._markerAtPoint();
+        if (markerId) window.featureControl?._markerManager?.startIdEdit(markerId);
+    }
+
+    _removeMarkerAtPoint() {
+        const markerId = this._markerAtPoint();
+        if (markerId) window.featureControl?._markerManager?.removeMarker(markerId);
     }
 
     /**

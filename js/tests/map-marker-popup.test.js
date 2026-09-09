@@ -348,13 +348,12 @@ describe('marker popup layout', () => {
         });
     });
 
-    describe('chip -> feature flyout', () => {
+    describe('chip -> accordion details', () => {
         function mount(manager, features) {
             const el = document.createElement('div');
             el.innerHTML = `
                 <div class="marker-content" style="display:flex">
                     ${manager._buildMarkerSummaryHTML(features, LNG_LAT)}
-                    ${manager._buildFeatureFlyoutHTML()}
                 </div>
             `;
             host.appendChild(el);
@@ -371,124 +370,25 @@ describe('marker popup layout', () => {
             return el;
         }
 
-        it('opens one feature\'s table to the right on hover', () => {
+        it('expands one feature\'s table inline beneath its own row on click', () => {
             const layers = [{ id: 'plots' }, { id: 'wards' }];
             const manager = makeManager({ layers });
             const features = [feature('plots', { id: '17/1' }), feature('wards', { id: 'Ward 4' })];
             const el = mount(manager, features);
+            const items = el.querySelectorAll('.marker-summary-item');
 
-            el.querySelectorAll('.marker-summary-chip')[1].dispatchEvent(new Event('mouseenter'));
+            items[1].querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-            const flyout = el.querySelector('.marker-feature-flyout');
-            expect(flyout.style.display).toBe('block');
-            // Positioned beside the badge stack, not stacked inside it.
-            expect(flyout.style.left).toBe('100%');
+            const details = items[1].querySelector('.marker-summary-details');
+            expect(details.style.display).toBe('block');
             // Just that one feature's table, not every selected feature's.
             expect(manager._buildFeatureFlyoutContentHTML).toHaveBeenCalledTimes(1);
-            expect(flyout.querySelector('.feature-badge-details').textContent).toBe('Ward 4');
+            expect(details.querySelector('.feature-badge-details').textContent).toBe('Ward 4');
+            // The other row stays collapsed.
+            expect(items[0].querySelector('.marker-summary-details').style.display).toBe('none');
         });
 
-        it('swaps the flyout to the other feature rather than stacking both', () => {
-            const layers = [{ id: 'plots' }, { id: 'wards' }];
-            const manager = makeManager({ layers });
-            const features = [feature('plots', { id: '17/1' }), feature('wards', { id: 'Ward 4' })];
-            const el = mount(manager, features);
-            const chips = el.querySelectorAll('.marker-summary-chip');
-
-            chips[0].dispatchEvent(new Event('mouseenter'));
-            chips[1].dispatchEvent(new Event('mouseenter'));
-
-            const tables = el.querySelectorAll('.feature-badge-details');
-            expect(tables).toHaveLength(1);
-            expect(tables[0].textContent).toBe('Ward 4');
-        });
-
-        it('leads the table with the layer as a draggable header', () => {
-            const manager = makeManager({ layers: [{ id: 'plots' }] });
-            const features = [feature('plots', { id: '17/1' })];
-            const el = mount(manager, features);
-
-            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
-            const flyout = el.querySelector('.marker-feature-flyout');
-            const header = flyout.querySelector('.marker-feature-flyout__header .marker-flyout-drag-handle');
-            expect(header).not.toBeNull();
-            // The header precedes the fields in the DOM - it is a header, not a footer.
-            expect(header.compareDocumentPosition(flyout.querySelector('.feature-badge-details')))
-                .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-        });
-
-        const settle = () => new Promise(resolve => setTimeout(resolve, 220));
-
-        it('marks the active row while hovering it', () => {
-            const manager = makeManager({ layers: [{ id: 'plots' }] });
-            const el = mount(manager, [feature('plots', { id: '17/1' })]);
-            const chip = el.querySelector('.marker-summary-chip');
-
-            chip.dispatchEvent(new Event('mouseenter'));
-            expect(chip.style.borderColor).toBe('rgb(59, 130, 246)');
-        });
-
-        it('closes again when the pointer leaves an unpinned row', async () => {
-            const manager = makeManager({ layers: [{ id: 'plots' }] });
-            const el = mount(manager, [feature('plots', { id: '17/1' })]);
-            const chip = el.querySelector('.marker-summary-chip');
-            const flyout = el.querySelector('.marker-feature-flyout');
-
-            chip.dispatchEvent(new Event('mouseenter'));
-            expect(flyout.style.display).toBe('block');
-
-            chip.dispatchEvent(new Event('mouseleave'));
-            await settle();
-            expect(flyout.style.display).toBe('none');
-            // ...and the row stops reading as active.
-            expect(chip.style.borderColor).toBe('transparent');
-        });
-
-        it('stays open while the pointer moves into the table itself', async () => {
-            const manager = makeManager({ layers: [{ id: 'plots' }] });
-            const el = mount(manager, [feature('plots', { id: '17/1' })]);
-            const chip = el.querySelector('.marker-summary-chip');
-            const flyout = el.querySelector('.marker-feature-flyout');
-
-            chip.dispatchEvent(new Event('mouseenter'));
-            // Leaving the row starts the close, but reaching the table cancels it -
-            // otherwise the table would be unreachable.
-            chip.dispatchEvent(new Event('mouseleave'));
-            flyout.dispatchEvent(new Event('mouseenter'));
-            await settle();
-
-            expect(flyout.style.display).toBe('block');
-        });
-
-        it('pins on click, so it survives the pointer leaving', async () => {
-            const manager = makeManager({ layers: [{ id: 'plots' }] });
-            const el = mount(manager, [feature('plots', { id: '17/1' })]);
-            const chip = el.querySelector('.marker-summary-chip');
-            const flyout = el.querySelector('.marker-feature-flyout');
-
-            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            chip.dispatchEvent(new Event('mouseleave'));
-            await settle();
-
-            expect(flyout.style.display).toBe('block');
-            expect(el.dataset.flyoutPinned).toBe('0');
-        });
-
-        it('unpins when the same row is clicked again', async () => {
-            const manager = makeManager({ layers: [{ id: 'plots' }] });
-            const el = mount(manager, [feature('plots', { id: '17/1' })]);
-            const chip = el.querySelector('.marker-summary-chip');
-            const flyout = el.querySelector('.marker-feature-flyout');
-
-            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
-            expect(flyout.style.display).toBe('none');
-            expect(el.dataset.flyoutPinned).toBeUndefined();
-        });
-
-        it('moves the pin to another row rather than keeping both', () => {
+        it('closes the other row rather than stacking both open (accordion)', () => {
             const layers = [{ id: 'plots' }, { id: 'wards' }];
             const manager = makeManager({ layers });
             const features = [feature('plots', { id: '17/1' }), feature('wards', { id: 'Ward 4' })];
@@ -498,11 +398,55 @@ describe('marker popup layout', () => {
             chips[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
             chips[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-            expect(el.dataset.flyoutPinned).toBe('1');
-            expect(el.querySelectorAll('.feature-badge-details')).toHaveLength(1);
+            const open = [...el.querySelectorAll('.marker-summary-details')]
+                .filter(d => d.style.display !== 'none');
+            expect(open).toHaveLength(1);
+            expect(open[0].querySelector('.feature-badge-details').textContent).toBe('Ward 4');
         });
 
-        it('drops the pin when the marker itself closes', () => {
+        it('leads the table with the layer as a header', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const features = [feature('plots', { id: '17/1' })];
+            const el = mount(manager, features);
+
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            const details = el.querySelector('.marker-summary-details');
+            const header = details.querySelector('.marker-flyout-drag-handle');
+            expect(header).not.toBeNull();
+            // The header precedes the fields in the DOM - it is a header, not a footer.
+            expect(header.compareDocumentPosition(details.querySelector('.feature-badge-details')))
+                .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+        });
+
+        it('marks the active row and rotates its chevron open while expanded', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
+            const chip = el.querySelector('.marker-summary-chip');
+
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(chip.style.borderColor).toBe('rgb(59, 130, 246)');
+            expect(chip.getAttribute('aria-expanded')).toBe('true');
+            expect(chip.querySelector('.marker-summary-chevron').getAttribute('name')).toBe('chevron-down');
+        });
+
+        it('collapses again when the same row is clicked a second time', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
+            const chip = el.querySelector('.marker-summary-chip');
+            const details = el.querySelector('.marker-summary-details');
+
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(details.style.display).toBe('none');
+            expect(chip.style.borderColor).toBe('transparent');
+            expect(chip.getAttribute('aria-expanded')).toBe('false');
+            expect(chip.querySelector('.marker-summary-chevron').getAttribute('name')).toBe('chevron-right');
+        });
+
+        it('collapses every open row when the marker itself closes', () => {
             const manager = makeManager({ layers: [{ id: 'plots' }] });
             const el = mount(manager, [feature('plots', { id: '17/1' })]);
             // appendChild, not innerHTML += : re-parsing the element would throw
@@ -511,65 +455,24 @@ describe('marker popup layout', () => {
             body.className = 'marker-menu-body';
             el.appendChild(body);
 
-            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            expect(el.dataset.flyoutPinned).toBe('0');
+            const chip = el.querySelector('.marker-summary-chip');
+            const details = el.querySelector('.marker-summary-details');
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(details.style.display).toBe('block');
 
             manager._syncMarkerContent(el);
 
-            expect(el.dataset.flyoutPinned).toBeUndefined();
-            expect(el.querySelector('.marker-feature-flyout').style.display).toBe('none');
-        });
-
-        it('repositions the flyout by dragging its layer header', async () => {
-            const manager = makeManager({ layers: [{ id: 'plots' }] });
-            const features = [feature('plots', { id: '17/1' })];
-            const el = mount(manager, features);
-            el.querySelector('.marker-summary-chip').dispatchEvent(new Event('mouseenter'));
-
-            const flyout = el.querySelector('.marker-feature-flyout');
-            const handle = flyout.querySelector('.marker-flyout-drag-handle');
-
-            handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 100, clientY: 100 }));
-            // The map sits the drag out rather than running its hover query on
-            // every move underneath it - that is what made this crawl.
-            expect(manager._stateManager._isDraggingMarkerPanel).toBe(true);
-
-            window.dispatchEvent(new MouseEvent('mousemove', { clientX: 140, clientY: 130 }));
-            // Painted once per frame, not once per move event.
-            expect(flyout.style.transform).toBe('');
-            await new Promise(requestAnimationFrame);
-            expect(flyout.style.transform).toBe('translate3d(40px, 30px, 0)');
-
-            window.dispatchEvent(new MouseEvent('mouseup', { clientX: 140, clientY: 130 }));
-            expect(manager._stateManager._isDraggingMarkerPanel).toBe(false);
-        });
-
-        it('coalesces a burst of moves into a single paint', async () => {
-            const manager = makeManager({ layers: [{ id: 'plots' }] });
-            const el = mount(manager, [feature('plots', { id: '17/1' })]);
-            el.querySelector('.marker-summary-chip').dispatchEvent(new Event('mouseenter'));
-
-            const flyout = el.querySelector('.marker-feature-flyout');
-            flyout.querySelector('.marker-flyout-drag-handle')
-                .dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 0, clientY: 0 }));
-
-            for (let i = 1; i <= 20; i++) {
-                window.dispatchEvent(new MouseEvent('mousemove', { clientX: i, clientY: i }));
-            }
-            await new Promise(requestAnimationFrame);
-
-            // Only the latest position, not twenty intermediate ones.
-            expect(flyout.style.transform).toBe('translate3d(20px, 20px, 0)');
-            window.dispatchEvent(new MouseEvent('mouseup', { clientX: 20, clientY: 20 }));
+            expect(details.style.display).toBe('none');
+            expect(chip.getAttribute('aria-expanded')).toBe('false');
         });
 
         it('shows the reverse-geocoded address for the address chip', () => {
             const manager = makeManager();
             const el = mount(manager, []);
 
-            el.querySelector('.marker-summary-chip--address').dispatchEvent(new Event('mouseenter'));
+            el.querySelector('.marker-summary-chip--address').dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-            expect(el.querySelector('.marker-feature-flyout').style.display).toBe('block');
+            expect(el.querySelector('.marker-summary-details').style.display).toBe('block');
             expect(manager._fillAddressDetails).toHaveBeenCalled();
         });
     });
@@ -1499,22 +1402,28 @@ describe('marker popup layout', () => {
             expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
         });
 
-        it('still previews the actions on hover when not selected', () => {
+        it('still previews the actions when the marker itself is hovered, not selected', () => {
             const manager = makeManager();
             const el = mountMarker(manager, 'a', '1');
-            const group = el.querySelector('.marker-menu-header');
             const actions = el.querySelector('.marker-id-shortcuts');
 
-            group.dispatchEvent(new Event('mouseenter'));
+            // Hovering the marker (set by addMarker's own mouseenter/mouseleave,
+            // simulated directly here) previews the actions same as selecting it.
+            el.dataset.markerHover = '1';
+            manager._syncIdActions(el);
             expect(actions.style.display).toBe('flex');
 
-            group.dispatchEvent(new Event('mouseleave'));
+            delete el.dataset.markerHover;
+            manager._syncIdActions(el);
             expect(actions.style.display).toBe('none');
         });
 
-        it('shows them permanently on touch, which has no hover', () => {
+        it('needs the marker hovered or selected even on touch - a collapsed chip shows only its label', () => {
             const manager = makeManager({ isTouch: true });
             const el = mountMarker(manager, 'a', '1');
+            expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('none');
+
+            manager._selectMarker('a');
             expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
         });
     });
@@ -1700,24 +1609,37 @@ describe('marker popup layout', () => {
             window.dispatchEvent(new MouseEvent('mouseup', {}));
         }
 
-        it('offsets the panel when the panel is dragged', () => {
+        it('offsets the panel when dragged by its move handle while focused', () => {
             const manager = makeManager();
-            const { contentEl } = mountDraggable(manager);
+            const { el, contentEl } = mountDraggable(manager);
+            el.classList.add('marker-selected');
 
-            drag(contentEl, 40, 30);
+            drag(el.querySelector('.marker-id-move'), 40, 30);
 
             expect(manager._markers.get('m1').panelOffset).toEqual({ x: 56, y: 46 });
             expect(contentEl.style.transform).toContain('translate(56px, 46px)');
         });
 
-        it('offsets the panel when it is dragged by its header, as before', () => {
+        it('does not drag via the move handle unless the marker is focused', () => {
             const manager = makeManager();
             const { el, contentEl } = mountDraggable(manager);
+            // Not selected.
+
+            drag(el.querySelector('.marker-id-move'), 40, 30);
+
+            expect(manager._markers.get('m1').panelOffset).toEqual({ x: 16, y: 16 });
+            expect(contentEl.style.transform).not.toContain('translate3d');
+        });
+
+        it('no longer drags from the header/badge - only the move handle arms it', () => {
+            const manager = makeManager();
+            const { el, contentEl } = mountDraggable(manager);
+            el.classList.add('marker-selected');
 
             drag(el.querySelector('.marker-id-badge'), 40, 30);
 
-            expect(manager._markers.get('m1').panelOffset).toEqual({ x: 56, y: 46 });
-            expect(contentEl.style.transform).toContain('translate(56px, 46px)');
+            expect(manager._markers.get('m1').panelOffset).toEqual({ x: 16, y: 16 });
+            expect(contentEl.style.transform).not.toContain('translate3d');
         });
 
         it('keeps that press off mapbox, which would move the marker as well', () => {
@@ -1734,19 +1656,32 @@ describe('marker popup layout', () => {
             expect(reachedMapbox).not.toHaveBeenCalled();
         });
 
-        it('marks the tail as the handle for the marker itself, and nothing else in the leader', () => {
+        it('marks the tail as the handle for the marker itself, but only once expanded', () => {
             const manager = makeManager();
             const { el, tail } = mountDraggable(manager);
 
             // The surface spans 1200px in every direction, so only the triangle
-            // drawn on it may hit-test - and it says so with a move cursor.
+            // drawn on it may ever hit-test - and it says so with a move cursor.
             expect(el.querySelector('.marker-leader').style.pointerEvents).toBe('none');
-            expect(tail.style.pointerEvents).toBe('auto');
             expect(tail.style.cursor).toBe('move');
             // 4px of paint is too fine to aim at, so an invisible stroke widens
             // the target without widening the tail.
             expect(tail.getAttribute('stroke')).toBe('transparent');
             expect(Number(tail.getAttribute('stroke-width'))).toBeGreaterThan(4);
+
+            // Collapsed by default - a press glancing off it must not relocate
+            // the marker until it's the one in focus (see _syncMarkerContent).
+            expect(tail.style.pointerEvents).toBe('none');
+
+            // appendChild, not innerHTML += : re-parsing the element would throw
+            // away every listener mount() just attached.
+            const body = document.createElement('div');
+            body.className = 'marker-menu-body';
+            el.appendChild(body);
+            el.classList.add('marker-selected');
+            manager._syncMarkerContent(el, 'm1');
+
+            expect(tail.style.pointerEvents).toBe('auto');
         });
 
         it('lets a press on the tail reach mapbox, which is what moves the marker', () => {
@@ -1766,6 +1701,7 @@ describe('marker popup layout', () => {
         it('does not select the marker off the click a real drag still produces on release', () => {
             const manager = makeManager();
             const { el, contentEl } = mountDraggable(manager);
+            el.classList.add('marker-selected');
 
             // Stands in for addMarker's own click->select listener on the
             // marker element (also capture-phase) - a fix that only stopped
@@ -1774,7 +1710,7 @@ describe('marker popup layout', () => {
             const select = vi.fn();
             el.addEventListener('click', select, true);
 
-            drag(contentEl, 40, 30);
+            drag(el.querySelector('.marker-id-move'), 40, 30);
             // A real drag still ends with mousedown and mouseup sharing the
             // same target, so the browser fires an ordinary click right after -
             // `drag()` only replays the mouse events, so it is dispatched here.
@@ -1809,16 +1745,17 @@ describe('marker popup layout', () => {
             return el;
         }
 
-        it('reveals the actions on hover and hides them again on leave', () => {
+        it('reveals the actions once the marker is hovered or selected, and hides them again once it is not', () => {
             const manager = makeManager();
             const el = mountIdRow(manager);
-            const group = el.querySelector('.marker-menu-header');
             const actions = el.querySelector('.marker-id-shortcuts');
 
-            group.dispatchEvent(new Event('mouseenter'));
+            el.dataset.markerHover = '1';
+            manager._syncIdActions(el);
             expect(actions.style.display).toBe('flex');
 
-            group.dispatchEvent(new Event('mouseleave'));
+            delete el.dataset.markerHover;
+            manager._syncIdActions(el);
             expect(actions.style.display).toBe('none');
         });
 
@@ -1843,9 +1780,12 @@ describe('marker popup layout', () => {
             expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('none');
         });
 
-        it('shows the actions permanently on touch, which has no hover', () => {
+        it('needs the marker hovered or selected even on touch - a collapsed chip shows only its label', () => {
             const manager = makeManager({ isTouch: true });
             const el = mountIdRow(manager);
+            expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('none');
+
+            manager._selectMarker('m1');
             expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
         });
 
@@ -1905,17 +1845,17 @@ describe('marker popup layout', () => {
             expect(el.querySelector('.marker-id-badge')).not.toBeNull();
         });
 
-        it('takes the feature flyout down with the balloon', () => {
+        it('collapses any expanded accordion row when the balloon folds up', () => {
             const manager = makeManager();
             const el = mountIdRow(manager);
-            const flyout = document.createElement('div');
-            flyout.className = 'marker-feature-flyout';
-            flyout.style.display = 'block';
-            el.querySelector('.marker-content').appendChild(flyout);
+            const details = document.createElement('div');
+            details.className = 'marker-summary-details';
+            details.style.display = 'block';
+            el.querySelector('.marker-content').appendChild(details);
 
             manager._selectMarker(null);
 
-            expect(flyout.style.display).toBe('none');
+            expect(details.style.display).toBe('none');
         });
 
         it('sizes the edit input to its text so it reads as a label', () => {
