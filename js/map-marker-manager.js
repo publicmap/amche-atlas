@@ -65,6 +65,12 @@ const MARKER_PANEL_BG_RGB = '31, 41, 55'; // #1f2937
 const MARKER_PANEL_BG = `rgba(${MARKER_PANEL_BG_RGB}, 0.7)`;
 const MARKER_PANEL_BG_ACTIVE = `rgba(${MARKER_PANEL_BG_RGB}, 0.9)`;
 const MARKER_PANEL_BORDER = '#374151';
+// Separator between rows inside the panel (see _buildMarkerSummaryHTML) -
+// translucent black rather than MARKER_PANEL_BORDER's fixed gray, which reads
+// lighter than the panel's own translucent fill wherever it sits over a dark
+// map. Black-with-alpha only ever darkens whatever is behind it, so it stays
+// a shade below the panel's fill regardless of what that fill is blended over.
+const MARKER_ROW_BORDER = 'rgba(0, 0, 0, 0.35)';
 
 // The panel's resting shadow - unaffected by hover/selection, see MARKER_GLOW_FILTER below.
 const MARKER_PANEL_SHADOW = '0 4px 16px rgba(0, 0, 0, 0.35)';
@@ -92,8 +98,11 @@ const MARKER_GLOW_FILTER = [
 ].join(' ');
 
 // Height of the id header row, used to place things that sit below it without
-// having to measure a marker that may not be laid out yet.
-const MARKER_ID_ROW_HEIGHT = 26;
+// having to measure a marker that may not be laid out yet. Approximate, like
+// the row itself: the header's own padding (see _buildMarkerMenuHeaderHTML)
+// matches .shortcut-menu-item's 8px/10px so the label reads at the same size
+// as the feature rows beneath it.
+const MARKER_ID_ROW_HEIGHT = 36;
 
 // What the panel widens to once it opens into a menu. Matches .shortcut-menu's
 // own min-width (css/styles.css) so the two read as the same kind of surface.
@@ -1072,7 +1081,7 @@ export class MapMarkerManager {
         const badgeColor = saved ? MARKER_ID_TEXT_COLOR : MARKER_ID_MUTED_COLOR;
 
         return `
-            <div class="marker-menu-header" style="display: flex; align-items: center; gap: 4px; padding: 3px 4px;">
+            <div class="marker-menu-header" style="display: flex; align-items: center; gap: 4px; padding: 8px 10px;">
                 <button type="button" class="marker-id-action marker-id-move" title="Drag to reposition"
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
                            background: transparent; border: none; border-radius: 50%; cursor: move; flex-shrink: 0;">
@@ -1242,15 +1251,34 @@ export class MapMarkerManager {
      * so a marker says where it is whether or not anything was selected there.
      */
     _buildMarkerSummaryHTML(features, lngLat) {
+        // A hairline on every row rather than one thick divider above the
+        // whole list - the same per-row border _buildFeatureRowsHTML's own
+        // field rows use, just one level up. Doubles as the separator from
+        // whatever sits above the list (the comment box, or the header),
+        // since the first row gets one too.
+        // The pick checkbox (every row, the address included - see
+        // _applyLabelPick) sits outside the chip button so it doesn't itself
+        // toggle the accordion open; hidden until the id is being edited (see
+        // startEdit/endEdit), where it becomes the name-picker widget's row.
+        // It's centered against the chip alone (their own flex row, not the
+        // item as a whole) so it lines up with the label regardless of
+        // whether that row's details are open below it.
         const row = (iconHTML, fieldName, label, index, extraClass = '') => `
-            <div class="marker-summary-item" data-badge-index="${index}">
-                <button type="button" class="shortcut-menu-item marker-summary-chip ${extraClass}"
-                    data-badge-index="${index}" aria-expanded="false"
-                    title="${this._escapeAttr(fieldName ? `${fieldName}: ${label}` : label)}">
-                    ${iconHTML}
-                    <span class="marker-summary-chip__value" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this._escapeAttr(this._truncateName(label, 30))}</span>
-                    <sl-icon class="shortcut-menu-chevron marker-summary-chevron" name="chevron-right"></sl-icon>
-                </button>
+            <div class="marker-summary-item" data-badge-index="${index}" style="border-top: 1px solid ${MARKER_ROW_BORDER};">
+                <div style="display: flex; align-items: center;">
+                    <input type="checkbox" class="marker-summary-pick" data-badge-index="${index}"
+                        style="display: none; flex-shrink: 0; cursor: pointer; margin-left: 8px; accent-color: #3b82f6;" />
+                    <button type="button" class="shortcut-menu-item marker-summary-chip ${extraClass}"
+                        data-badge-index="${index}" aria-expanded="false" style="flex: 1; min-width: 0;"
+                        title="${this._escapeAttr(fieldName ? `${fieldName}: ${label}` : label)}">
+                        ${iconHTML}
+                        <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 0; overflow: hidden;">
+                            <span class="marker-summary-chip__value" style="flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this._escapeAttr(this._truncateName(label, 30))}</span>
+                            ${fieldName ? `<span class="marker-summary-chip__field" style="flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; line-height: 1.3; color: #9ca3af;">${this._escapeAttr(fieldName)}</span>` : ''}
+                        </div>
+                        <sl-icon class="shortcut-menu-chevron marker-summary-chevron" name="chevron-right"></sl-icon>
+                    </button>
+                </div>
                 <div class="marker-summary-details" style="display: none; width: 100%; box-sizing: border-box;"></div>
             </div>
         `;
@@ -1269,7 +1297,6 @@ export class MapMarkerManager {
             ADDRESS_BADGE_INDEX, 'marker-summary-chip--address'));
 
         return `
-            <div class="shortcut-menu-divider"></div>
             <div class="marker-summary-row" style="display: flex; flex-direction: column; align-items: stretch;">
                 ${rows.join('')}
             </div>
@@ -1732,6 +1759,28 @@ export class MapMarkerManager {
             const index = parseInt(chip.dataset.badgeIndex, 10);
             const f = index >= 0 ? (features || [])[index] : null;
 
+            // The name-picker checkbox (see _applyLabelPick, exposed by
+            // _attachMarkerIdRowHandlers) - stopPropagation so ticking it
+            // doesn't also toggle the chip's own accordion below, or arm the
+            // balloon drag the way any other press on the panel would.
+            const pick = item.querySelector('.marker-summary-pick');
+            if (pick) {
+                // Same reasoning as wireEditAction's save/delete/clear
+                // buttons: a plain click would first focus the checkbox,
+                // blurring the id textarea - and blur discards the edit
+                // (see discard()), closing the whole editor out from under
+                // the click before its own `change` handler ever runs.
+                // preventDefault on the press keeps focus on the textarea;
+                // the checkbox still toggles and fires `change` off the
+                // click that follows, since neither is prevented.
+                ['mousedown', 'touchstart'].forEach(type => pick.addEventListener(type, (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }));
+                pick.addEventListener('click', (e) => e.stopPropagation());
+                pick.addEventListener('change', () => el._applyLabelPick?.(index, pick.checked));
+            }
+
             const toggle = (e) => {
                 e.stopPropagation();
                 if (e.type === 'touchend') e.preventDefault();
@@ -1971,6 +2020,104 @@ export class MapMarkerManager {
             return duplicate;
         };
 
+        // Name-picker widget: which badge indices are currently "picked" into
+        // the id, in the order they were checked (see _applyLabelPick below).
+        // Rebuilt fresh by detectLabelPicks every time editing opens, so this
+        // only has to survive for the life of one edit session.
+        let labelPickOrder = [];
+
+        /**
+         * Every pickable row, in the same order _buildMarkerSummaryHTML shows
+         * them - the real features (inspector order), then the address last.
+         * The address entry's label reads null until _resolveMarkerAddress
+         * lands (see _renderMarkerAddress), same as its chip showing
+         * "Locating…" until then - renderLabelPicks/detectLabelPicks both
+         * treat a null label as "leave this one out" rather than picking the
+         * placeholder text.
+         */
+        // A comma can't survive in an id (see shorthand-id-utils.js's
+        // ID_FORBIDDEN_RE - sanitizeId strips it outright, along with the
+        // whitespace either side of it collapsing to `_`), so joining picks
+        // with one would leave no trace of where a name ended and the next
+        // began. A hyphen is a plain, allowed id character, so it survives
+        // sanitizeId untouched and reads as a name-piece separator - use it
+        // as this widget's own delimiter, not a comma.
+        const LABEL_PICK_SEPARATOR = '-';
+
+        const orderedPickables = () => {
+            const markerData = this._markers.get(markerId);
+            const entries = this._featuresInInspectorOrder(markerData?.badgeFeatures || [])
+                .map(({ f, index }) => ({ index, getLabel: () => this._getBadgeLabelInfo(f).value }));
+            entries.push({ index: ADDRESS_BADGE_INDEX, getLabel: () => markerData?.address?.text });
+            return entries;
+        };
+
+        /** A picked row's label text, read the same way its chip already shows it. */
+        const labelForBadgeIndex = (index) => {
+            const label = orderedPickables().find(e => e.index === index)?.getLabel();
+            return label ? String(label) : null;
+        };
+
+        /**
+         * Rebuilds the whole id field from labelPickOrder - never a splice
+         * into the existing text - so unchecking a name can't leave a stray
+         * or double separator behind for save's sanitizeId to trip on.
+         */
+        const renderLabelPicks = () => {
+            input.value = labelPickOrder.map(labelForBadgeIndex).filter(Boolean).join(LABEL_PICK_SEPARATOR);
+            sizeToContent();
+            syncValidity();
+        };
+
+        /**
+         * The name-picker widget itself: checking a feature row's box appends
+         * its label to the id, hyphen-separated, in the order checked;
+         * unchecking drops just that name. Exposed on `el` so
+         * _attachMarkerSummaryHandlers (wired separately, before this) can
+         * reach it once a checkbox actually changes.
+         */
+        el._applyLabelPick = (index, checked) => {
+            labelPickOrder = labelPickOrder.filter(i => i !== index);
+            if (checked) labelPickOrder.push(index);
+            renderLabelPicks();
+        };
+
+        /**
+         * Pre-checks whichever rows the current id could have come from this
+         * same picker, so reopening a label it already built lets you add or
+         * drop a name instead of starting over. Only an exact match counts:
+         * tries the longest inspector-ordered prefix of the feature list
+         * whose picked-and-sanitized join equals the id exactly - a partial
+         * or reordered match can't be told apart from a hand-typed
+         * coincidence, so it's left alone (empty picks) rather than guessed
+         * at. `sanitizeId` normalizes both sides the way a save would (spaces
+         * to `_` - see shorthand-id-utils.js), which is what lets this
+         * compare a hyphen-joined candidate against a hand-typed id that
+         * happens to use the same separator.
+         */
+        const detectLabelPicks = () => {
+            const markerData = this._markers.get(markerId);
+            const ordered = orderedPickables();
+            const currentId = markerData?.urlId || '';
+
+            labelPickOrder = [];
+            for (let k = ordered.length; k > 0; k--) {
+                const prefix = ordered.slice(0, k);
+                const labels = prefix.map(e => e.getLabel());
+                // An unresolved address can't have contributed to a saved id yet.
+                if (labels.some(l => !l)) continue;
+                const candidate = sanitizeId(labels.join(LABEL_PICK_SEPARATOR));
+                if (candidate && candidate === currentId) {
+                    labelPickOrder = prefix.map(e => e.index);
+                    break;
+                }
+            }
+
+            el.querySelectorAll('.marker-summary-pick').forEach(cb => {
+                cb.checked = labelPickOrder.includes(parseInt(cb.dataset.badgeIndex, 10));
+            });
+        };
+
         const startEdit = ({ initial = false } = {}) => {
             if (el.dataset.idEditing === '1') return;
             // Captured before anything below touches the badge - true only for
@@ -2019,6 +2166,12 @@ export class MapMarkerManager {
             sizeToContent();
             syncValidity();
             this._syncIdActions(el);
+            // Reveals the name-picker checkboxes and pre-checks whichever
+            // rows the id already came from (see detectLabelPicks) - after
+            // the placeholder auto-save above, so it reads the id that save
+            // actually committed rather than the placeholder it replaced.
+            el.querySelectorAll('.marker-summary-pick').forEach(cb => { cb.style.display = 'inline-block'; });
+            detectLabelPicks();
             input.focus();
             // Selected, so typing replaces the id outright - renaming is the
             // common case here, appending to it is not.
@@ -2071,6 +2224,15 @@ export class MapMarkerManager {
             clearBtn.style.display = 'none';
             badge.style.display = 'flex';
             this._syncIdActions(el);
+            // Hides the name-picker checkboxes and forgets what was picked -
+            // detectLabelPicks re-derives it from whatever the id ended up as
+            // next time editing opens, rather than carrying stale picks
+            // forward across a save that changed the feature list underneath.
+            labelPickOrder = [];
+            el.querySelectorAll('.marker-summary-pick').forEach(cb => {
+                cb.style.display = 'none';
+                cb.checked = false;
+            });
             // Reapplies the ordinary (non-editing) width cap now that
             // MARKER_ID_EDIT_MAX_WIDTH's wider one no longer applies - inlined
             // rather than calling _syncMarkerContent itself, which would also
@@ -3563,6 +3725,12 @@ export class MapMarkerManager {
             marker,
             lngLat,
             features,
+            // The note-filtered array the summary rows/checkboxes actually
+            // index into (see badgeFeatures above) - kept alongside the full
+            // `features` so the name-picker widget (_applyLabelPick) can map
+            // a row's data-badge-index back to a real feature without
+            // recomputing the notes filter itself.
+            badgeFeatures,
             contentEl: null,
             panelOffset: null,
             panelAnchor: 'top-left',

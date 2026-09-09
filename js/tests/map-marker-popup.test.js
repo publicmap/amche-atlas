@@ -250,6 +250,31 @@ describe('marker popup layout', () => {
             expect(chips.map(c => c.dataset.badgeIndex)).toEqual(['1', '0', '-2']);
         });
 
+        it("shows each row's field title as a muted subheader beneath its value", () => {
+            const layers = [{ id: 'plots', inspect: { label: 'id', title: 'Survey No' } }];
+            const manager = makeManager({ layers });
+            const features = [feature('plots', { id: '17/1' })];
+
+            host.innerHTML = manager._buildMarkerSummaryHTML(features, LNG_LAT);
+            const chip = host.querySelector('.marker-summary-chip');
+            const value = chip.querySelector('.marker-summary-chip__value');
+            const field = chip.querySelector('.marker-summary-chip__field');
+
+            expect(value.textContent).toBe('17/1');
+            expect(field.textContent).toBe('Survey No');
+            // Below, not above: it follows the value in the DOM.
+            expect(value.compareDocumentPosition(field)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+        });
+
+        it("shows 'Address' as the field title on the address row's own subheader", () => {
+            const manager = makeManager();
+
+            host.innerHTML = manager._buildMarkerSummaryHTML([], LNG_LAT);
+
+            const chip = host.querySelector('.marker-summary-chip--address');
+            expect(chip.querySelector('.marker-summary-chip__field').textContent).toBe('Address');
+        });
+
         it('renders each feature as a menu row with a submenu chevron', () => {
             const manager = makeManager({ layers: [{ id: 'plots' }, { id: 'wards' }] });
             const features = [feature('plots', { id: '17/1' }), feature('wards', { id: 'Ward 4' })];
@@ -262,7 +287,11 @@ describe('marker popup layout', () => {
             // Same vocabulary as the long-press shortcut menu.
             items.forEach(i => expect(i.classList.contains('shortcut-menu-item')).toBe(true));
             expect(items[0].querySelector('.shortcut-menu-chevron').getAttribute('name')).toBe('chevron-right');
-            expect(host.querySelector('.shortcut-menu-divider')).not.toBeNull();
+            // A hairline on every row instead of one thick divider above the list.
+            expect(host.querySelector('.shortcut-menu-divider')).toBeNull();
+            host.querySelectorAll('.marker-summary-item').forEach(item => {
+                expect(item.style.borderTop).toContain('1px');
+            });
         });
 
         it('keeps the address row even when features were selected', () => {
@@ -474,6 +503,180 @@ describe('marker popup layout', () => {
 
             expect(el.querySelector('.marker-summary-details').style.display).toBe('block');
             expect(manager._fillAddressDetails).toHaveBeenCalled();
+        });
+    });
+
+    describe('name-picker widget', () => {
+        function mount(manager, features, { markerId = 'm1', urlId = '1', saved = true, address = null } = {}) {
+            const el = document.createElement('div');
+            el.innerHTML = `
+                <div class="marker-content">
+                    ${manager._buildMarkerMenuHeaderHTML(urlId, saved)}
+                    <div class="marker-menu-body" style="display:none">
+                        ${manager._buildMarkerSummaryHTML(features, LNG_LAT)}
+                    </div>
+                </div>
+            `;
+            host.appendChild(el);
+            manager._markers.set(markerId, {
+                id: markerId, urlId, lngLat: LNG_LAT, saved, features, badgeFeatures: features, address,
+                marker: { getElement: () => el }
+            });
+            manager.removeMarker = vi.fn();
+            manager._attachMarkerSummaryHandlers(el, features, LNG_LAT);
+            manager._attachMarkerIdRowHandlers(el, markerId);
+            return el;
+        }
+
+        const picks = (el) => [...el.querySelectorAll('.marker-summary-pick')];
+
+        it('hides the checkboxes until the id is being edited', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
+
+            expect(picks(el)[0].style.display).toBe('none');
+
+            openEditor(el);
+            expect(picks(el)[0].style.display).toBe('inline-block');
+
+            el.querySelector('.marker-id-input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            expect(picks(el)[0].style.display).toBe('none');
+        });
+
+        it('keeps focus on the id textarea instead of letting the press blur it into discarding the edit', () => {
+            // A checkbox is focusable, so an ordinary click would first move
+            // focus onto it - blurring the id textarea, which discards the
+            // whole edit (see discard()) before the checkbox's own `change`
+            // handler ever runs. The press has to preventDefault to stop that,
+            // the same way wireEditAction's save/delete/clear buttons already do.
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
+            openEditor(el);
+            const [plotPick] = picks(el);
+
+            const mousedown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+            plotPick.dispatchEvent(mousedown);
+
+            expect(mousedown.defaultPrevented).toBe(true);
+            // The editor is still open - nothing was discarded.
+            expect(el.querySelector('.marker-id-input').hidden).toBe(false);
+        });
+
+        it('offers a checkbox for the address row too, appending its resolved text once picked', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })], { address: { text: 'Assagao, Bardez' } });
+            openEditor(el);
+            const input = el.querySelector('.marker-id-input');
+
+            const addressItem = el.querySelector('.marker-summary-chip--address').closest('.marker-summary-item');
+            const addressPick = addressItem.querySelector('.marker-summary-pick');
+            expect(addressPick).not.toBeNull();
+
+            addressPick.checked = true;
+            addressPick.dispatchEvent(new Event('change'));
+            expect(input.value).toBe('Assagao, Bardez');
+        });
+
+        it('does not append anything for an address checked before it has resolved', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            // No `address` - still "Locating…" when the box is checked.
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
+            openEditor(el);
+            const input = el.querySelector('.marker-id-input');
+
+            const addressPick = el.querySelector('.marker-summary-chip--address')
+                .closest('.marker-summary-item').querySelector('.marker-summary-pick');
+            addressPick.checked = true;
+            addressPick.dispatchEvent(new Event('change'));
+
+            expect(input.value).toBe('');
+        });
+
+        it("appends a checked row's label to the id, hyphen-separated, in check order", () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }, { id: 'wards' }] });
+            const features = [feature('plots', { id: '17/1' }), feature('wards', { id: 'Ward 4' })];
+            const el = mount(manager, features);
+            openEditor(el);
+            const input = el.querySelector('.marker-id-input');
+            const [plotPick, wardPick] = picks(el);
+
+            wardPick.checked = true;
+            wardPick.dispatchEvent(new Event('change'));
+            expect(input.value).toBe('Ward 4');
+
+            plotPick.checked = true;
+            plotPick.dispatchEvent(new Event('change'));
+            // Checked second, so it lands after - not sorted back into row order.
+            expect(input.value).toBe('Ward 4-17/1');
+        });
+
+        it('drops just the unchecked name, leaving no stray separator behind', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }, { id: 'wards' }] });
+            const features = [feature('plots', { id: '17/1' }), feature('wards', { id: 'Ward 4' })];
+            const el = mount(manager, features);
+            openEditor(el);
+            const input = el.querySelector('.marker-id-input');
+            const [plotPick, wardPick] = picks(el);
+
+            plotPick.checked = true;
+            plotPick.dispatchEvent(new Event('change'));
+            wardPick.checked = true;
+            wardPick.dispatchEvent(new Event('change'));
+            expect(input.value).toBe('17/1-Ward 4');
+
+            plotPick.checked = false;
+            plotPick.dispatchEvent(new Event('change'));
+            expect(input.value).toBe('Ward 4');
+        });
+
+        it('pre-checks the rows an existing id was built from', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }, { id: 'wards' }] });
+            const features = [feature('plots', { id: '17/1' }), feature('wards', { id: 'Ward 4' })];
+            // Matches sanitizeId('17/1-Ward 4') exactly.
+            const el = mount(manager, features, { urlId: '17/1-Ward_4' });
+
+            openEditor(el);
+
+            const [plotPick, wardPick] = picks(el);
+            expect(plotPick.checked).toBe(true);
+            expect(wardPick.checked).toBe(true);
+        });
+
+        it('pre-checks the address too when the id was built including it', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const features = [feature('plots', { id: '17/1' })];
+            // Matches sanitizeId('17/1-Assagao') exactly - the address always
+            // comes last, same as its row.
+            const el = mount(manager, features, { urlId: '17/1-Assagao', address: { text: 'Assagao' } });
+
+            openEditor(el);
+
+            const [plotPick, addressPick] = picks(el);
+            expect(plotPick.checked).toBe(true);
+            expect(addressPick.checked).toBe(true);
+        });
+
+        it('leaves the picks unchecked when the id does not match any combination', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })], { urlId: 'home' });
+
+            openEditor(el);
+
+            expect(picks(el)[0].checked).toBe(false);
+        });
+
+        it('lets an already-detected pick be unchecked to drop it', () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }, { id: 'wards' }] });
+            const features = [feature('plots', { id: '17/1' }), feature('wards', { id: 'Ward 4' })];
+            const el = mount(manager, features, { urlId: '17/1-Ward_4' });
+            openEditor(el);
+            const input = el.querySelector('.marker-id-input');
+            const [plotPick] = picks(el);
+
+            plotPick.checked = false;
+            plotPick.dispatchEvent(new Event('change'));
+
+            expect(input.value).toBe('Ward 4');
         });
     });
 
@@ -1725,7 +1928,7 @@ describe('marker popup layout', () => {
             const manager = makeManager();
             // The clicked point is the marker's own top-left corner, and the
             // panel clears it on both axes by the anchor gap.
-            expect(manager.getContentOffset()).toEqual({ x: 16, y: 46 });
+            expect(manager.getContentOffset()).toEqual({ x: 16, y: 56 });
         });
     });
 
