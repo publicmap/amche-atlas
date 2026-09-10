@@ -127,11 +127,11 @@
         .info-header-action {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             color: rgba(255, 255, 255, 0.75);
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
-            padding: 7px 12px;
+            padding: 5px 9px;
             border-radius: 6px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             background: rgba(255, 255, 255, 0.05);
@@ -223,15 +223,14 @@
         .layer-id-badge {
             display: inline-flex;
             align-items: center;
-            padding: 0.375rem 0.75rem;
+            padding: 0.2rem 0.5rem;
             background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            border-radius: 0.5rem;
-            font-size: 0.75rem;
+            border-radius: 0.4rem;
+            font-size: 0.65rem;
             font-weight: 600;
             color: white;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-right: 0.75rem;
             border: 1px solid rgba(255, 255, 255, 0.2);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
@@ -243,9 +242,9 @@
         .atlas-badge-chip {
             display: inline-flex;
             align-items: center;
-            padding: 0.375rem 0.75rem;
-            border-radius: 0.5rem;
-            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.4rem;
+            font-size: 0.65rem;
             font-weight: 600;
             color: white;
             letter-spacing: 0.02em;
@@ -278,27 +277,27 @@
 
 <body class="bg-gray-900 text-gray-100">
     <div class="flex flex-col h-screen max-w-[600px] w-full" style="margin: 0 auto;">
-        <div class="flex-shrink-0 relative bg-gray-900 border-b border-gray-700 px-5 py-4">
-            <button class="info-close-btn" id="close-layer-info" title="Close" style="position: absolute; top: 1rem; right: 1.25rem;">✕</button>
+        <div class="flex-shrink-0 relative bg-gray-900 border-b border-gray-700 px-4 py-3">
+            <button class="info-close-btn" id="close-layer-info" title="Close" style="position: absolute; top: 0.65rem; right: 1rem;">✕</button>
 
-            <div class="flex gap-4 items-start pr-10">
+            <div class="flex gap-3 items-center pr-9">
                 <div class="flex-shrink-0" id="thumbnail-container"></div>
                 <div class="flex-1 min-w-0">
-                    <h1 class="text-2xl font-bold text-gray-50 mb-2 leading-tight view-mode" id="layer-title"></h1>
-                    <input type="text" class="text-2xl font-bold text-gray-50 mb-2 leading-tight editable-input edit-mode" id="layer-title-edit" placeholder="Layer Title">
+                    <h1 class="text-base font-bold text-gray-50 mb-1 leading-tight truncate view-mode" id="layer-title"></h1>
+                    <input type="text" class="text-base font-bold text-gray-50 mb-1 leading-tight editable-input edit-mode" id="layer-title-edit" placeholder="Layer Title">
 
-                    <div class="flex items-center gap-3 mb-3 flex-wrap">
+                    <div class="flex items-center gap-1.5 flex-wrap">
                         <button class="atlas-badge-chip view-mode cursor-pointer" id="atlas-badge-display" title="Click to copy atlas config link" style="display: none;"></button>
                         <button class="layer-id-badge view-mode cursor-pointer transition-all hover:brightness-110 hover:scale-105" id="layer-id-display" title="Click to copy shareable link"></button>
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-700 rounded-lg text-xs font-semibold text-gray-300 uppercase tracking-wide" id="layer-type"></div>
+                        <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-700 rounded text-[10px] font-semibold text-gray-300 uppercase tracking-wide" id="layer-type"></div>
                     </div>
 
-                    <div class="edit-mode mb-3">
+                    <div class="edit-mode mt-2">
                         <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Layer ID</label>
                         <input type="text" class="editable-input text-sm font-mono" id="layer-id-edit" placeholder="layer-id">
                     </div>
 
-                    <div id="header-url-section" class="view-mode" style="display: none;">
+                    <div id="header-url-section" class="view-mode mt-2" style="display: none;">
                         <div class="flex gap-2 items-center">
                             <input type="text" id="header-url-input" readonly class="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-xs text-gray-200 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
                             <button id="header-copy-btn" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-2 whitespace-nowrap">
@@ -312,12 +311,48 @@
                 </div>
             </div>
 
-            <div class="flex items-center gap-3 mt-4 pt-4 border-t border-gray-700">
-                <div class="flex items-center gap-2 flex-1 min-w-0">
-                    <sl-icon name="circle-half" style="color: #9ca3af; font-size: 14px; flex-shrink: 0;"></sl-icon>
-                    <input type="range" id="opacity-slider" min="0" max="100" value="100" class="flex-1">
-                    <span id="opacity-value" class="text-xs text-gray-400 flex-shrink-0" style="width: 2.5rem; text-align: right;">100%</span>
-                </div>
+            <div class="flex items-center gap-2 mt-2.5">
+                <sl-icon name="circle-half" style="color: #9ca3af; font-size: 13px; flex-shrink: 0;"></sl-icon>
+                <input type="range" id="opacity-slider" min="0" max="100" value="100" class="flex-1">
+                <span id="opacity-value" class="text-xs text-gray-400 flex-shrink-0" style="width: 2.25rem; text-align: right;">100%</span>
+            </div>
+
+            <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+                <!-- Feature-specific actions - only shown when this panel was opened
+                     from a selected feature (see currentFeature/renderLayerInfo), the
+                     same two actions the marker popup's per-feature accordion row used
+                     to offer through a three-dot menu (js/map-marker-manager.js). -->
+                <button class="info-header-action" id="zoom-to-feature-btn" title="Zoom to this feature" style="display: none;">
+                    <sl-icon name="zoom-in"></sl-icon>
+                    <span>Zoom to Feature</span>
+                </button>
+
+                <sl-dropdown id="export-selected-dropdown" style="display: none;">
+                    <button slot="trigger" class="info-header-action" title="Export just this feature">
+                        <sl-icon name="download"></sl-icon>
+                        <span>Export Selected</span>
+                        <sl-icon name="chevron-down" style="font-size: 9px;"></sl-icon>
+                    </button>
+                    <sl-menu>
+                        <sl-menu-item value="geojson">GeoJSON</sl-menu-item>
+                        <sl-menu-item value="kml">KML</sl-menu-item>
+                        <sl-menu-item value="csv">GeoCSV</sl-menu-item>
+                    </sl-menu>
+                </sl-dropdown>
+
+                <sl-dropdown id="export-layer-dropdown">
+                    <button slot="trigger" class="info-header-action" title="Export the whole layer">
+                        <sl-icon name="download"></sl-icon>
+                        <span>Export Layer</span>
+                        <sl-icon name="chevron-down" style="font-size: 9px;"></sl-icon>
+                    </button>
+                    <sl-menu>
+                        <sl-menu-item value="geojson">GeoJSON</sl-menu-item>
+                        <sl-menu-item value="kml">KML</sl-menu-item>
+                        <sl-menu-item value="csv">GeoCSV</sl-menu-item>
+                    </sl-menu>
+                </sl-dropdown>
+
                 <button class="info-header-action" id="compare-layer-btn" title="Swipe-compare this layer against the current map">
                     <span class="compare-icons"><sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right"></sl-icon></span>
                     <span>Compare</span>
@@ -410,6 +445,14 @@
     <script type="module">
         let LayerThumbnail, LayerLegend, LAYER_SPECIFICATIONS;
         let currentLayer = null;
+        // The one feature this panel was opened for, if any - only set when
+        // opened from a marker's per-feature accordion row (see
+        // js/map-marker-manager.js's _attachLayerInfoRowHandler), never by
+        // layer-stack-strip.js/layer-thumbnail.js's plain "open this layer"
+        // sends. Gates the feature-specific actions (Zoom to Feature, Export
+        // Selected) below - a layer opened with nothing selected has nothing
+        // for those to act on.
+        let currentFeature = null;
         let isEditing = false;
         let hasChanges = false;
         let editModeRequested = false;
@@ -443,6 +486,7 @@
         function loadLayer(layer, options = {}) {
             currentLayer = layer;
             if (options.edit !== undefined) editModeRequested = !!options.edit;
+            if (options.feature !== undefined) currentFeature = options.feature || null;
             if (LayerThumbnail) {
                 renderLayerInfo(currentLayer);
                 maybeEnterEditMode();
@@ -454,7 +498,7 @@
         // parent sends it in reply to the layer-info-ready ping below.
         window.addEventListener('message', function (event) {
             if (event.data?.type === 'layer-info-data' && event.data.layer) {
-                loadLayer(event.data.layer, { edit: event.data.edit });
+                loadLayer(event.data.layer, { edit: event.data.edit, feature: event.data.feature });
             }
             if (event.data?.type === 'compare-enabled' || event.data?.type === 'compare-disabled') {
                 updateCompareButton();
@@ -485,6 +529,14 @@
             $('#remove-layer-btn').on('click', removeLayer);
             $('#compare-layer-btn').on('click', toggleCompare);
             $('#opacity-slider').on('input', handleOpacitySliderInput);
+            $('#zoom-to-feature-btn').on('click', zoomToFeature);
+            // Raw addEventListener, not jQuery, for Shoelace's own `sl-select`
+            // custom event - these two dropdowns are static markup (never
+            // rebuilt by renderLayerInfo), so wiring them once here is enough.
+            document.querySelector('#export-selected-dropdown sl-menu')
+                ?.addEventListener('sl-select', (e) => exportLayer('export-selected', e.detail.item?.value));
+            document.querySelector('#export-layer-dropdown sl-menu')
+                ?.addEventListener('sl-select', (e) => exportLayer('export-layer', e.detail.item?.value));
         });
 
         function handleOpacitySliderInput() {
@@ -580,6 +632,41 @@
             } else {
                 alert('Remove layer functionality requires the map to be embedded.');
             }
+        }
+
+        /**
+         * Zoom the parent map to the feature this panel was opened for - the
+         * same action the marker popup's per-feature accordion row used to
+         * offer through a three-dot menu (js/map-marker-manager.js's
+         * _handleZoomToFeatureAction). Only ever wired up while
+         * #zoom-to-feature-btn is visible, i.e. currentFeature is set (see
+         * renderLayerInfo), but guarded here too in case it's clicked mid-fade.
+         */
+        function zoomToFeature() {
+            if (!currentFeature || window.self === window.top) return;
+            window.parent.postMessage({ type: 'zoom-to-feature', feature: currentFeature }, '*');
+        }
+
+        /**
+         * "Export Selected" / "Export Layer" - the other two actions the
+         * per-feature accordion row's three-dot menu used to offer.
+         * `kind` is 'export-selected' (this one feature, requires
+         * currentFeature) or 'export-layer' (every feature currently loaded
+         * for this layer) - both are handled by
+         * MapFeatureControl._setupMessageListener forwarding into
+         * MapMarkerManager._handleLayerExportAction unchanged, so the message
+         * shape matches what that method already expects.
+         */
+        function exportLayer(kind, format) {
+            if (!format || !currentLayer || window.self === window.top) return;
+            if (kind === 'export-selected' && !currentFeature) return;
+
+            window.parent.postMessage({
+                type: kind,
+                format,
+                layerId: currentLayer.id,
+                feature: kind === 'export-selected' ? currentFeature : null
+            }, '*');
         }
 
         /**
@@ -881,6 +968,15 @@
             $('#description-content').empty();
 
             $('#layer-title').text(layer.title || layer.id || 'Unknown Layer');
+
+            // Feature-specific actions only make sense when this panel was
+            // opened for one (see currentFeature/loadLayer) - a plain "open
+            // this layer" from layer-stack-strip.js/layer-thumbnail.js has
+            // nothing for them to zoom to or export.
+            const hasFeature = !!currentFeature;
+            $('#zoom-to-feature-btn').toggle(hasFeature);
+            $('#export-selected-dropdown').toggle(hasFeature);
+
             const atlasId = layer._sourceAtlas || 'default';
             const layerId = layer.id || 'no-id';
             const fullId = layerId.startsWith(`${atlasId}-`) ? `#${layerId}` : `#${atlasId}-${layerId}`;
@@ -945,18 +1041,16 @@
                 });
             });
 
+            // Just the label, no icon - a second small pixel-art grid glyph
+            // next to the atlas/id badges read as clutter at this size; the
+            // color alone (from typeBadge) already sets it apart from them.
             const typeBadge = LayerThumbnail.getTypeBadge(layer.type);
-            $('#layer-type').html(`
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zM14 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3z"></path>
-                </svg>
-                <span>${typeBadge.label}</span>
-            `).css({
+            $('#layer-type').text(typeBadge.label).css({
                 'color': typeBadge.color,
                 'background-color': typeBadge.bg
             });
 
-            const thumbnail = LayerThumbnail.generate(layer, 96);
+            const thumbnail = LayerThumbnail.generate(layer, 48);
             $('#thumbnail-container').append(thumbnail);
 
             if (layer.description) {

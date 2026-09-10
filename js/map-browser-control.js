@@ -339,7 +339,7 @@ export class MapBrowserControl {
             }
 
             if (event.data.type === 'open-layer-info') {
-                this._openLayerInfo(event.data.layer, { edit: event.data.edit });
+                this._openLayerInfo(event.data.layer, { edit: event.data.edit, feature: event.data.feature });
             }
 
             if (event.data.type === 'load-atlas') {
@@ -423,6 +423,7 @@ export class MapBrowserControl {
             iframe.contentWindow.postMessage({
                 type: 'layer-info-data',
                 layer: layer,
+                feature: options.feature || null,
                 edit: !!options.edit
             }, '*');
         };

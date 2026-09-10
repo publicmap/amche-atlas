@@ -718,21 +718,46 @@ export class MapMarkerManager {
     /**
      * A feature's fields as label/value rows - the shared body of both the
      * stacked badge table (hover markers) and the flyout (selection markers).
+     *
+     * `withPicks` (the accordion only - see _buildFeatureFlyoutContentHTML)
+     * adds a checkbox to each row, aligned with the summary chip's own icon
+     * column above it, that drives a quick property filter on the layer (see
+     * _attachFeaturePropertyFilterHandlers) - left off for the hover badge
+     * table, whose popup is too transient for a filter toggle to make sense.
      */
-    _buildFeatureRowsHTML(f) {
+    _buildFeatureRowsHTML(f, withPicks = false) {
         if (!f || !f.feature) return '';
         const layerConfig = this._stateManager.getLayerConfig(f.layerId);
         const inspectConfig = layerConfig?.inspect || {};
         const properties = f.feature.properties || {};
         const fields = inspectConfig.fields || [];
         const fieldTitles = inspectConfig.fieldTitles || [];
+        // Checked by default: the field inspect.id names is usually the one
+        // someone opened this feature to look at, and starting there also
+        // means the filter it drives (see _attachFeaturePropertyFilterHandlers)
+        // opens already narrowed to just this feature, not the whole layer.
+        const idField = inspectConfig.id || null;
 
-        const buildRow = (label, value) => {
+        // Value first, field name as a subheader below it - the same
+        // hierarchy the summary chip's own label uses (marker-summary-chip__value
+        // / __field), just smaller and unbold here since a feature can have
+        // many of these stacked rows in a row, not one leading label. The
+        // pick checkbox (withPicks) sits in the same left column the chip's
+        // own icon occupies above, so every row - the chip's and each
+        // property's - lines up at the same indent.
+        const buildRow = (label, value, key) => {
             const valueHTML = formatAttributeValue(value, { truncateMax: 40 });
-            return `<div style="display:flex;gap:6px;font-size:9px;line-height:1.25;padding:1px 0;border-bottom:1px solid #374151;">` +
-                `<div style="color:#9ca3af;min-width:54px;max-width:88px;font-weight:600;flex-shrink:0;word-break:break-word;">${this._escapeAttr(label)}</div>` +
-                `<div style="color:#f3f4f6;flex:1;word-break:break-word;white-space:pre-line;">${valueHTML}</div>` +
-                `</div>`;
+            const pickHTML = withPicks
+                ? `<input type="checkbox" class="feature-row-pick" data-field-key="${this._escapeAttr(key ?? '')}"
+                    ${key && key === idField ? 'checked' : ''}
+                    style="flex-shrink:0; cursor:pointer; margin-top:2px; accent-color:#3b82f6;" />`
+                : '';
+            return `<div class="feature-row" style="display:flex; align-items:flex-start; gap:8px; padding:3px 0; border-bottom:1px solid #374151;">` +
+                pickHTML +
+                `<div style="display:flex;flex-direction:column;align-items:flex-start;flex:1;min-width:0;overflow:hidden;">` +
+                `<div style="color:#f3f4f6;font-size:10px;line-height:1.3;word-break:break-word;white-space:pre-line;">${valueHTML}</div>` +
+                `<div style="color:#9ca3af;font-size:8px;line-height:1.3;font-weight:400;word-break:break-word;">${this._escapeAttr(label)}</div>` +
+                `</div></div>`;
         };
 
         const validEntries = Object.entries(properties).filter(([, v]) => v !== null && v !== undefined && v !== '');
@@ -742,12 +767,12 @@ export class MapMarkerManager {
             rows = fields.map((fieldName, i) => {
                 const value = properties[fieldName];
                 if (value !== null && value !== undefined && value !== '') {
-                    return buildRow(fieldTitles[i] || fieldName, value);
+                    return buildRow(fieldTitles[i] || fieldName, value, fieldName);
                 }
                 return '';
             }).filter(Boolean);
         } else {
-            rows = validEntries.map(([k, v]) => buildRow(k, v));
+            rows = validEntries.map(([k, v]) => buildRow(k, v, k));
         }
 
         if (rows.length === 0) {
@@ -759,7 +784,7 @@ export class MapMarkerManager {
         let allPropertiesHTML = '';
         let showAllButton = '';
         if (fields.length > 0 && validEntries.length > rows.length) {
-            const allRows = validEntries.map(([k, v]) => buildRow(k, v));
+            const allRows = validEntries.map(([k, v]) => buildRow(k, v, k));
             allPropertiesHTML = `<div class="badge-all-properties" style="display:none;">${allRows.join('')}</div>`;
             const btnStyle = `margin-top:2px;padding:2px 0;background:transparent;color:#9ca3af;border:none;border-top:1px dashed #374151;font-size:9px;font-weight:600;cursor:pointer;width:100%;text-align:left;`;
             showAllButton = `<button class="badge-show-all-props-btn" data-total="${validEntries.length}" style="${btnStyle}">Show all ${validEntries.length} properties</button>`;
@@ -778,51 +803,95 @@ export class MapMarkerManager {
     }
 
     /**
-     * One feature's table for its accordion details: the layer it came from
-     * as a header bar (the same thumbnail/atlas/name/actions that used to sit
-     * in the footer, leading the table now since only one feature is expanded
-     * at a time), then its fields.
+     * One feature's table for its accordion details: just the fields now -
+     * the layer-info row that used to lead it (thumbnail/atlas/name/actions)
+     * has moved up into the chip itself (see _buildChipLayerRowHTML), since
+     * that row is what the chip's own icon collapses back down to when this
+     * feature isn't the one expanded.
      */
     _buildFeatureFlyoutContentHTML(f) {
-        return {
-            header: this._buildLayerHeaderHTML(f),
-            body: `<div class="feature-badge-details" ${this._featureHandlerAttrs(f)} style="display:block;width:100%;">` +
-                `<div class="custom-html-container"></div>` +
-                this._buildFeatureRowsHTML(f) +
-                `</div>`
-        };
+        return `<div class="feature-badge-details" ${this._featureHandlerAttrs(f)} style="display:block;width:100%;">` +
+            `<div class="custom-html-container"></div>` +
+            this._buildFeatureRowsHTML(f, true) +
+            `</div>`;
     }
 
     /**
-     * The layer bar that leads a feature's expanded accordion details:
-     * thumbnail, atlas badge, layer name, and the layer actions menu.
+     * The expanded form of a chip's own layer icon (see _buildMarkerSummaryHTML's
+     * `row`): a thumbnail beside the layer's title, one line, styled like
+     * layer-stack-strip.js's own item row. Sits inside the chip, above the
+     * value/field-title column, hidden until this row is the one expanded
+     * (_openSummaryDetails shows it and hides the plain icon in its place;
+     * _closeAllSummaryDetails swaps them back).
+     *
+     * The whole row is a button: clicking it opens map-information.html for
+     * this layer (see _attachChipLayerRowHandler), carrying this specific
+     * feature along so that panel can offer per-feature actions (zoom to
+     * feature, export selected) alongside the whole-layer ones - which used
+     * to crowd a three-dot menu into this row instead of living there.
      */
-    _buildLayerHeaderHTML(f) {
-        const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+    _buildChipLayerRowHTML(layerId) {
+        const layerConfig = this._stateManager.getLayerConfig(layerId);
         if (!layerConfig) return '';
 
-        const thumbnail = LayerThumbnail.generate(layerConfig, 18, { interactive: false });
+        const thumbnail = LayerThumbnail.generate(layerConfig, 20, { interactive: false });
         let thumbnailHTML = '';
         if (thumbnail) {
-            thumbnail.style.borderRadius = '3px';
+            thumbnail.style.borderRadius = '4px';
             thumbnail.style.margin = '0';
             thumbnailHTML = thumbnail.outerHTML;
         }
 
-        let atlasBadge = '';
-        const atlasName = layerConfig._sourceAtlas;
-        const atlasMetadata = atlasName && window.layerRegistry?._atlasMetadata?.get(atlasName);
-        if (atlasMetadata) {
-            atlasBadge = `<span style="font-size:8px;padding:1px 5px;border-radius:3px;font-weight:600;color:white;background-color:${atlasMetadata.color || '#2563eb'};flex-shrink:0;">${this._escapeAttr(atlasMetadata.name)}</span>`;
+        const layerName = this._escapeAttr(layerConfig.title || layerId);
+
+        return `
+            <div class="marker-layer-info-row" data-layer-id="${this._escapeAttr(layerId)}"
+                title="Open details for ${layerName}"
+                style="display:none; flex:none; align-items:center; gap:6px; width:100%; cursor:pointer;
+                       padding-bottom:6px; margin-bottom:3px; border-bottom:1px solid ${MARKER_ROW_BORDER};">
+                ${thumbnailHTML}
+                <span style="flex:1; min-width:0; overflow-wrap:break-word; white-space:normal; line-height:1.15; font-size:10px; color:#9ca3af; font-weight:700; text-transform:uppercase; letter-spacing:0.02em;">${layerName}</span>
+                <sl-icon name="info-circle" style="font-size:10px;color:#6b7280;flex:none;"></sl-icon>
+            </div>
+        `;
+    }
+
+    /**
+     * Wires the layer-info row built above, once per chip (not per open, since
+     * unlike the fields table this row is static markup built alongside the
+     * chip itself): a click posts the same `open-layer-info` message
+     * layer-stack-strip.js's own title button does, plus this feature - the
+     * one thing that message never carried before, since every other sender
+     * opens a layer's info with nothing selected. stopPropagation so it
+     * doesn't also toggle the chip's own accordion closed underneath it.
+     */
+    _attachChipLayerRowHandler(chip, f) {
+        const row = chip.querySelector('.marker-layer-info-row');
+        if (!row) return;
+        row.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+            if (!layerConfig) return;
+            window.postMessage({
+                type: 'open-layer-info',
+                layer: this._serializableForInfo(layerConfig),
+                feature: this._serializableForInfo(f.feature)
+            }, '*');
+        });
+    }
+
+    /**
+     * postMessage still structured-clones its payload even within the same
+     * window, and a resolved layer config or feature can carry values
+     * (functions, DOM nodes) that won't clone - same guard
+     * layer-stack-strip.js's own _serializable uses.
+     */
+    _serializableForInfo(value) {
+        try {
+            return JSON.parse(JSON.stringify(value));
+        } catch (e) {
+            return null;
         }
-
-        const layerName = this._escapeAttr(layerConfig.title || f.layerId);
-
-        return `<div class="marker-flyout-drag-handle" style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:#111827;border-bottom:1px solid #374151;">` +
-            `${thumbnailHTML}${atlasBadge}` +
-            `<span style="font-size:10px;color:#e5e7eb;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${layerName}</span>` +
-            this._buildLayerActionsMenuHTML(f.layerId, f.feature) +
-            `</div>`;
     }
 
     /**
@@ -1263,29 +1332,40 @@ export class MapMarkerManager {
         // It's centered against the chip alone (their own flex row, not the
         // item as a whole) so it lines up with the label regardless of
         // whether that row's details are open below it.
-        const row = (iconHTML, fieldName, label, index, extraClass = '') => `
+        // The layer-info row (_buildChipLayerRowHTML) is this chip's icon,
+        // grown up: collapsed, only the small icon shows beside the value;
+        // once this row is the one expanded, _openSummaryDetails hides that
+        // icon and reveals the layer row in its place, as a full line above
+        // the value instead of a small mark beside it (_closeAllSummaryDetails
+        // swaps them back). The address row has no layer behind it, so it
+        // keeps its plain icon always - layerRowHTML is just '' for it.
+        const row = (iconHTML, fieldName, label, index, extraClass = '', layerRowHTML = '') => `
             <div class="marker-summary-item" data-badge-index="${index}" style="border-top: 1px solid ${MARKER_ROW_BORDER};">
                 <div style="display: flex; align-items: center;">
                     <input type="checkbox" class="marker-summary-pick" data-badge-index="${index}"
                         style="display: none; flex-shrink: 0; cursor: pointer; margin-left: 8px; accent-color: #3b82f6;" />
                     <button type="button" class="shortcut-menu-item marker-summary-chip ${extraClass}"
-                        data-badge-index="${index}" aria-expanded="false" style="flex: 1; min-width: 0;"
+                        data-badge-index="${index}" aria-expanded="false"
+                        style="flex: 1; min-width: 0; flex-direction: column; align-items: stretch; gap: 3px;"
                         title="${this._escapeAttr(fieldName ? `${fieldName}: ${label}` : label)}">
-                        ${iconHTML}
-                        <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 0; overflow: hidden;">
-                            <span class="marker-summary-chip__value" style="flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this._escapeAttr(this._truncateName(label, 30))}</span>
-                            ${fieldName ? `<span class="marker-summary-chip__field" style="flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; line-height: 1.3; color: #9ca3af;">${this._escapeAttr(fieldName)}</span>` : ''}
+                        ${layerRowHTML}
+                        <div style="display: flex; align-items: center; gap: 8px; width: 100%; flex: none;">
+                            <span class="marker-summary-chip__icon" style="display: inline-flex; flex: none;">${iconHTML}</span>
+                            <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 0; overflow: hidden;">
+                                <span class="marker-summary-chip__value" style="flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this._escapeAttr(this._truncateName(label, 30))}</span>
+                                ${fieldName ? `<span class="marker-summary-chip__field" style="flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; line-height: 1.3; color: #9ca3af;">${this._escapeAttr(fieldName)}</span>` : ''}
+                            </div>
+                            <sl-icon class="shortcut-menu-chevron marker-summary-chevron" name="chevron-right" style="flex-shrink: 0;"></sl-icon>
                         </div>
-                        <sl-icon class="shortcut-menu-chevron marker-summary-chevron" name="chevron-right"></sl-icon>
                     </button>
                 </div>
-                <div class="marker-summary-details" style="display: none; width: 100%; box-sizing: border-box;"></div>
+                <div class="marker-summary-details" style="display: none; width: 100%; box-sizing: border-box; padding: 0 10px;"></div>
             </div>
         `;
 
         const rows = this._featuresInInspectorOrder(features).map(({ f, index }) => {
             const { fieldName, value } = this._getBadgeLabelInfo(f);
-            return row(this._layerIconHTML(f.layerId), fieldName, value, index);
+            return row(this._layerIconHTML(f.layerId), fieldName, value, index, '', this._buildChipLayerRowHTML(f.layerId));
         });
 
         // Always last, never instead: where the point is is one more thing known
@@ -1759,6 +1839,12 @@ export class MapMarkerManager {
             const index = parseInt(chip.dataset.badgeIndex, 10);
             const f = index >= 0 ? (features || [])[index] : null;
 
+            // Wired once here, not on every open/close - unlike the fields
+            // table below, the layer-info row is static markup built
+            // alongside the chip itself (_buildChipLayerRowHTML), just shown
+            // or hidden as this row expands and collapses.
+            if (f) this._attachChipLayerRowHandler(chip, f);
+
             // The name-picker checkbox (see _applyLabelPick, exposed by
             // _attachMarkerIdRowHandlers) - stopPropagation so ticking it
             // doesn't also toggle the chip's own accordion below, or arm the
@@ -1807,11 +1893,26 @@ export class MapMarkerManager {
         });
     }
 
-    /** Collapses every expanded summary row in this marker and drops the active highlight. */
+    /**
+     * Collapses every expanded summary row in this marker and drops the
+     * active highlight - including swapping each chip's layer-info row back
+     * down to its plain icon (see _buildChipLayerRowHTML/_openSummaryDetails)
+     * and restoring whatever quick property filter closing this row leaves
+     * applied (see _applyFeatureFilter).
+     */
     _closeAllSummaryDetails(el) {
         el.querySelectorAll('.marker-summary-details').forEach(d => { d.style.display = 'none'; });
         el.querySelectorAll('.marker-summary-chevron').forEach(c => c.setAttribute('name', 'chevron-right'));
         el.querySelectorAll('.marker-summary-chip').forEach(c => c.setAttribute('aria-expanded', 'false'));
+        // `visibility`, not `display: none` - the icon still has to hold its
+        // place in the row so the value beside it lines up with where it sat
+        // collapsed, the same indent the property rows below line up with too.
+        el.querySelectorAll('.marker-summary-chip__icon').forEach(icon => { icon.style.visibility = 'visible'; });
+        el.querySelectorAll('.marker-layer-info-row').forEach(row => { row.style.display = 'none'; });
+        if (this._activeFeatureFilterLayerId) {
+            this._restoreOriginalLayerFilter(this._activeFeatureFilterLayerId);
+            this._activeFeatureFilterLayerId = null;
+        }
         this._setActiveSummaryChip(el, null);
     }
 
@@ -1826,12 +1927,20 @@ export class MapMarkerManager {
         this._setActiveSummaryChip(el, chip);
         chip.setAttribute('aria-expanded', 'true');
         chip.querySelector('.marker-summary-chevron')?.setAttribute('name', 'chevron-down');
+        // The chip's own icon collapses back to this same layer-info row once
+        // expanded (see _buildChipLayerRowHTML) - swap them, rather than
+        // rebuilding either, since both were already built with the chip.
+        // `visibility`, not `display: none`, so the icon keeps its place in
+        // the row and the value beside it doesn't shift left to fill the gap.
+        const icon = chip.querySelector('.marker-summary-chip__icon');
+        if (icon) icon.style.visibility = 'hidden';
+        const layerRow = chip.querySelector('.marker-layer-info-row');
+        if (layerRow) layerRow.style.display = 'flex';
 
         if (f) {
-            const { header, body } = this._buildFeatureFlyoutContentHTML(f);
-            details.innerHTML = header + body;
+            details.innerHTML = this._buildFeatureFlyoutContentHTML(f);
             this._attachFeatureDetailsHandlers(details);
-            this._attachLayerActionsMenuHandlers(details);
+            this._attachFeaturePropertyFilterHandlers(details, f);
             const badgeDetails = details.querySelector('.feature-badge-details');
             if (badgeDetails) this._loadInspectionHandlerHTML(badgeDetails, f.layerId, f.featureId);
         } else {
@@ -1860,6 +1969,11 @@ export class MapMarkerManager {
             chip.style.background = isActive ? '#1e3a5f' : 'transparent';
             chip.style.borderColor = isActive ? '#3b82f6' : 'transparent';
             chip.querySelector('.marker-summary-chip__value').style.color = isActive ? '#93c5fd' : '#f3f4f6';
+            // The property list beneath an active chip carries the same fill,
+            // so the two read as one highlighted block for this feature
+            // rather than a plain list hanging off a highlighted label.
+            const details = chip.closest('.marker-summary-item')?.querySelector('.marker-summary-details');
+            if (details) details.style.background = isActive ? '#1e3a5f' : 'transparent';
         });
     }
 
@@ -1899,6 +2013,119 @@ export class MapMarkerManager {
             if (shown) shown.style.display = isShowingAll ? 'block' : 'none';
             showAllBtn.textContent = isShowingAll ? `Show all ${total} properties` : 'Show less';
         });
+    }
+
+    /**
+     * Wires each property row's pick checkbox (see _buildFeatureRowsHTML's
+     * `withPicks`) to a quick filter on the feature's own layer: checking one
+     * or more rows narrows the layer down to features matching all of them
+     * at once (an `all` of `==` checks, so pick "district" + "taluka" to see
+     * every plot in that combination, not just this one); unchecking widens
+     * it back the other way. Reads each row's real, typed property value off
+     * `f.feature` rather than off the DOM, so a numeric field filters as a
+     * number rather than the string its own rendered text would otherwise
+     * coerce it into.
+     */
+    _attachFeaturePropertyFilterHandlers(details, f) {
+        const picks = details.querySelectorAll('.feature-row-pick');
+        if (!picks.length) return;
+
+        const properties = f.feature?.properties || {};
+        const applyFilter = () => {
+            const conditions = [...picks]
+                .filter(pick => pick.checked && pick.dataset.fieldKey)
+                .map(pick => ({ key: pick.dataset.fieldKey, value: properties[pick.dataset.fieldKey] }));
+            this._applyFeatureFilter(f.layerId, conditions);
+        };
+
+        picks.forEach(pick => {
+            // Same reasoning as the summary row's own pick checkbox
+            // (_attachMarkerSummaryHandlers): stop the press from bubbling
+            // into the accordion row's own toggle or the balloon drag above it.
+            ['mousedown', 'touchstart'].forEach(type => pick.addEventListener(type, (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+            }));
+            pick.addEventListener('click', (e) => e.stopPropagation());
+            pick.addEventListener('change', applyFilter);
+        });
+
+        // Checked-by-default rows (inspect.id's own, see _buildFeatureRowsHTML)
+        // already filter the moment this feature's details open, so the map
+        // starts narrowed to just this record - the same starting point every
+        // time, ready to widen by unchecking it or picking another field.
+        applyFilter();
+    }
+
+    /**
+     * Every real Mapbox GL style layer id this app's layer renders as - a
+     * config layer often becomes more than one style layer (fill/line/circle
+     * passes), all tagged with the same `metadata.groupId` at add time (same
+     * pattern map-feature-control-iframe.js's _reorderLayers reads).
+     */
+    _getMapboxSubLayerIds(layerId) {
+        const styleLayers = this._map?.getStyle?.()?.layers || [];
+        return styleLayers.filter(l => l.metadata?.groupId === layerId).map(l => l.id);
+    }
+
+    /**
+     * Records a style layer's filter exactly once, the first time this
+     * session ever touches it - so however many times a property pick
+     * rewrites it afterward, _restoreOriginalLayerFilter always has the
+     * layer's true starting point (not just "no filter") to put back.
+     */
+    _saveOriginalLayerFilter(subLayerId) {
+        if (!this._originalLayerFilters) this._originalLayerFilters = new Map();
+        if (this._originalLayerFilters.has(subLayerId)) return;
+        let filter = null;
+        try {
+            filter = this._map.getFilter(subLayerId) ?? null;
+        } catch (e) {
+            // Layer may not exist yet, or getFilter isn't supported on it.
+        }
+        this._originalLayerFilters.set(subLayerId, filter);
+    }
+
+    /** Puts back whatever filter a layer had before a property pick ever touched it. */
+    _restoreOriginalLayerFilter(layerId) {
+        this._getMapboxSubLayerIds(layerId).forEach(subLayerId => {
+            if (!this._originalLayerFilters?.has(subLayerId)) return;
+            try {
+                this._map.setFilter(subLayerId, this._originalLayerFilters.get(subLayerId));
+            } catch (e) {
+                // Layer may have been removed from the map since.
+            }
+        });
+    }
+
+    /**
+     * Applies (`conditions.length > 0`) or clears (back to the original -
+     * see _restoreOriginalLayerFilter) the quick property filter for a
+     * layer's every real style layer. No-ops quietly with nothing to filter
+     * (no map yet, e.g. in a unit test, or a layer that isn't actually on
+     * the map any more).
+     */
+    _applyFeatureFilter(layerId, conditions) {
+        if (!this._map || !layerId) return;
+        const subLayerIds = this._getMapboxSubLayerIds(layerId);
+        if (!subLayerIds.length) return;
+
+        if (!conditions.length) {
+            this._restoreOriginalLayerFilter(layerId);
+            this._activeFeatureFilterLayerId = null;
+            return;
+        }
+
+        const filter = ['all', ...conditions.map(({ key, value }) => ['==', ['get', key], value])];
+        subLayerIds.forEach(subLayerId => {
+            this._saveOriginalLayerFilter(subLayerId);
+            try {
+                this._map.setFilter(subLayerId, filter);
+            } catch (e) {
+                console.warn(`[MapMarkerManager] Could not set filter on "${subLayerId}":`, e);
+            }
+        });
+        this._activeFeatureFilterLayerId = layerId;
     }
 
     /**

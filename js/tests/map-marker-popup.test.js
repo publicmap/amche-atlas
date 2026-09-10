@@ -391,10 +391,8 @@ describe('marker popup layout', () => {
             manager._loadInspectionHandlerHTML = vi.fn();
             manager._attachLayerActionsMenuHandlers = vi.fn();
             manager._fillAddressDetails = vi.fn();
-            manager._buildFeatureFlyoutContentHTML = vi.fn((f) => ({
-                header: `<div class="marker-flyout-drag-handle">${f.layerId}</div>`,
-                body: `<div class="feature-badge-details">${f.feature.properties.id}</div>`
-            }));
+            manager._buildFeatureFlyoutContentHTML = vi.fn((f) =>
+                `<div class="feature-badge-details">${f.feature.properties.id}</div>`);
             manager._attachMarkerSummaryHandlers(el, features, LNG_LAT);
             return el;
         }
@@ -433,19 +431,56 @@ describe('marker popup layout', () => {
             expect(open[0].querySelector('.feature-badge-details').textContent).toBe('Ward 4');
         });
 
-        it('leads the table with the layer as a header', () => {
-            const manager = makeManager({ layers: [{ id: 'plots' }] });
+        it("collapses the chip's icon into the full layer-info row above the label once expanded", () => {
+            const manager = makeManager({ layers: [{ id: 'plots', title: 'Plots' }] });
             const features = [feature('plots', { id: '17/1' })];
             const el = mount(manager, features);
+            const chip = el.querySelector('.marker-summary-chip');
+            const icon = chip.querySelector('.marker-summary-chip__icon');
+            const layerRow = chip.querySelector('.marker-layer-info-row');
+            const value = chip.querySelector('.marker-summary-chip__value');
 
-            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            // Collapsed: just the small icon beside the value, no layer row.
+            expect(icon.style.visibility).not.toBe('hidden');
+            expect(layerRow.style.display).toBe('none');
 
-            const details = el.querySelector('.marker-summary-details');
-            const header = details.querySelector('.marker-flyout-drag-handle');
-            expect(header).not.toBeNull();
-            // The header precedes the fields in the DOM - it is a header, not a footer.
-            expect(header.compareDocumentPosition(details.querySelector('.feature-badge-details')))
-                .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            // `visibility`, not `display: none` - the icon keeps its place in
+            // the row so the value beside it doesn't shift left to fill the gap.
+            expect(icon.style.visibility).toBe('hidden');
+            expect(layerRow.style.display).toBe('flex');
+            // Above the value, not below it.
+            expect(layerRow.compareDocumentPosition(value)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(icon.style.visibility).toBe('visible');
+            expect(layerRow.style.display).toBe('none');
+        });
+
+        it("opens map-information.html for the layer and feature when its layer-info row is clicked", () => {
+            const manager = makeManager({ layers: [{ id: 'plots', title: 'Plots' }] });
+            const features = [feature('plots', { id: '17/1' })];
+            const el = mount(manager, features);
+            const chip = el.querySelector('.marker-summary-chip');
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            const posted = vi.fn();
+            const originalPostMessage = window.postMessage;
+            window.postMessage = posted;
+            try {
+                chip.querySelector('.marker-layer-info-row')
+                    .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            } finally {
+                window.postMessage = originalPostMessage;
+            }
+
+            expect(posted).toHaveBeenCalledTimes(1);
+            const message = posted.mock.calls[0][0];
+            expect(message.type).toBe('open-layer-info');
+            expect(message.layer.id).toBe('plots');
+            expect(message.feature.properties.id).toBe('17/1');
         });
 
         it('marks the active row and rotates its chevron open while expanded', () => {
@@ -458,6 +493,19 @@ describe('marker popup layout', () => {
             expect(chip.style.borderColor).toBe('rgb(59, 130, 246)');
             expect(chip.getAttribute('aria-expanded')).toBe('true');
             expect(chip.querySelector('.marker-summary-chevron').getAttribute('name')).toBe('chevron-down');
+        });
+
+        it("carries the chip's own active fill down into its property list, so the two read as one block", () => {
+            const manager = makeManager({ layers: [{ id: 'plots' }] });
+            const el = mount(manager, [feature('plots', { id: '17/1' })]);
+            const chip = el.querySelector('.marker-summary-chip');
+            const details = el.querySelector('.marker-summary-details');
+
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(details.style.background).toBe(chip.style.background);
+
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(details.style.background).toBe('transparent');
         });
 
         it('collapses again when the same row is clicked a second time', () => {
@@ -503,6 +551,93 @@ describe('marker popup layout', () => {
 
             expect(el.querySelector('.marker-summary-details').style.display).toBe('block');
             expect(manager._fillAddressDetails).toHaveBeenCalled();
+        });
+    });
+
+    describe('quick property filter', () => {
+        function mount(manager, features, { markerId = 'm1' } = {}) {
+            const el = document.createElement('div');
+            el.innerHTML = `
+                <div class="marker-content">
+                    ${manager._buildMarkerSummaryHTML(features, LNG_LAT)}
+                </div>
+            `;
+            host.appendChild(el);
+            manager._markers.set(markerId, { id: markerId, urlId: '1', lngLat: LNG_LAT, marker: { getElement: () => el } });
+            manager._attachMarkerSummaryHandlers(el, features, LNG_LAT);
+            return el;
+        }
+
+        /** A fake mapbox map: just enough of getStyle/getFilter/setFilter to exercise the filter logic. */
+        function makeMap(styleLayers) {
+            const filters = new Map();
+            return {
+                getStyle: () => ({ layers: styleLayers }),
+                getFilter: (id) => filters.get(id),
+                setFilter: (id, filter) => filters.set(id, filter),
+                _filters: filters
+            };
+        }
+
+        it("filters to inspect.id's own value the moment the row opens", () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot', 'survey'], fieldTitles: ['Plot', 'Survey'] } }];
+            const manager = makeManager({ layers });
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            const el = mount(manager, [feature('plots', { plot: '17/1', survey: '17' })]);
+
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            const plotPick = [...el.querySelectorAll('.feature-row-pick')].find(p => p.dataset.fieldKey === 'plot');
+            expect(plotPick.checked).toBe(true);
+            expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
+        });
+
+        it('combines every checked row with `all`, using the real typed value rather than its rendered text', () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot', 'survey'], fieldTitles: ['Plot', 'Survey'] } }];
+            const manager = makeManager({ layers });
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            const el = mount(manager, [feature('plots', { plot: '17/1', survey: 17 })]);
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            const surveyPick = [...el.querySelectorAll('.feature-row-pick')].find(p => p.dataset.fieldKey === 'survey');
+            surveyPick.checked = true;
+            surveyPick.dispatchEvent(new Event('change'));
+
+            expect(manager._map._filters.get('plots-fill')).toEqual([
+                'all', ['==', ['get', 'plot'], '17/1'], ['==', ['get', 'survey'], 17]
+            ]);
+        });
+
+        it('restores the layer\'s original filter once every checkbox is unchecked', () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot'], fieldTitles: ['Plot'] } }];
+            const manager = makeManager({ layers });
+            const map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            map._filters.set('plots-fill', ['==', ['get', 'district'], '01']);
+            manager._map = map;
+            const el = mount(manager, [feature('plots', { plot: '17/1' })]);
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            const plotPick = el.querySelector('.feature-row-pick');
+            plotPick.checked = false;
+            plotPick.dispatchEvent(new Event('change'));
+
+            expect(map._filters.get('plots-fill')).toEqual(['==', ['get', 'district'], '01']);
+        });
+
+        it('restores the original filter when the row collapses, even with boxes still checked', () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot'], fieldTitles: ['Plot'] } }];
+            const manager = makeManager({ layers });
+            const map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            manager._map = map;
+            const el = mount(manager, [feature('plots', { plot: '17/1' })]);
+            const chip = el.querySelector('.marker-summary-chip');
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
+
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(map._filters.get('plots-fill')).toBeNull();
         });
     });
 

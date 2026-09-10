@@ -158,9 +158,25 @@ export class MapFeatureControl {
             } else if (event.data.type === 'remove-layer') {
                 await this._removeLayer(event.data.layerId);
             } else if (event.data.type === 'open-layer-info') {
-                this._openLayerInfo(event.data.layer, { edit: event.data.edit });
+                this._openLayerInfo(event.data.layer, { edit: event.data.edit, feature: event.data.feature });
             } else if (event.data.type === 'reorder-layers') {
                 this._reorderLayers(event.data.overlayOrder || [], event.data.basemapOrder || []);
+            } else if (event.data.type === 'zoom-to-feature') {
+                // From map-information.html's "Zoom to Feature" - the same
+                // action the marker popup's own accordion row used to offer
+                // through a three-dot menu (see MapMarkerManager._zoomToFeature).
+                if (this._markerManager) {
+                    this._markerManager._isProgrammaticZoom = true;
+                    this._markerManager._zoomToFeature(event.data.feature);
+                    setTimeout(() => { this._markerManager._isProgrammaticZoom = false; }, 1500);
+                }
+            } else if (event.data.type === 'export-selected' || event.data.type === 'export-layer') {
+                // From map-information.html's export buttons - reuses
+                // MapMarkerManager._handleLayerExportAction unchanged, so it
+                // still expects a feature encoded the same way the old
+                // three-dot menu's `data-feature-data` attribute carried it.
+                const featureData = event.data.feature ? encodeURIComponent(JSON.stringify(event.data.feature)) : '';
+                await this._markerManager?._handleLayerExportAction(event.data.type, event.data.format, event.data.layerId, featureData);
             }
         });
     }
@@ -257,6 +273,7 @@ export class MapFeatureControl {
             iframe.contentWindow.postMessage({
                 type: 'layer-info-data',
                 layer: layer,
+                feature: options.feature || null,
                 edit: !!options.edit
             }, '*');
         };
