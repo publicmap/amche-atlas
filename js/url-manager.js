@@ -101,16 +101,21 @@ export class URLManager {
         // If the layer has an _originalJson property, preserve it — merging in any
         // opacity override so custom URL layers don't lose their type/url/style/etc.
         if (layer._originalJson && !layer.geojson) {
-            if (layer.opacity === undefined) {
+            if (layer.opacity === undefined && layer.filter === undefined) {
                 return layer._originalJson;
             }
             // A dynamic layer shorthand string (e.g. "osm:relation/123") has nowhere
-            // to carry opacity inline, so fall back to the equivalent {type,id,opacity}
-            // object form, which dynamic-layer-shorthand.js accepts identically.
+            // to carry opacity/filter inline, so fall back to the equivalent
+            // {type,id,opacity,filter} object form, which dynamic-layer-shorthand.js
+            // accepts identically.
             const shorthand = parseDynamicLayerShorthandString(layer._originalJson);
             if (shorthand) {
-                if (layer.opacity !== 1) {
-                    return JSON.stringify({ ...shorthand, opacity: layer.opacity });
+                if (layer.opacity !== 1 || layer.filter !== undefined) {
+                    return JSON.stringify({
+                        ...shorthand,
+                        ...(layer.opacity !== 1 ? { opacity: layer.opacity } : {}),
+                        ...(layer.filter !== undefined ? { filter: layer.filter } : {})
+                    });
                 }
                 return layer._originalJson;
             }
@@ -126,6 +131,11 @@ export class URLManager {
                     parsed.opacity = layer.opacity;
                 } else {
                     delete parsed.opacity;
+                }
+                if (layer.filter !== undefined) {
+                    parsed.filter = layer.filter;
+                } else {
+                    delete parsed.filter;
                 }
                 return JSON.stringify(parsed).replace(/'/g, "\\'").replace(/"/g, "'");
             } catch (e) {
@@ -306,6 +316,12 @@ export class URLManager {
                     if (group.opacity !== undefined && group.opacity !== 1) {
                         layerObj.opacity = group.opacity;
                     }
+                    // A layer's own quick-property filter (see js/map-marker-manager.js's
+                    // _applyFeatureFilter) is a real property of the layer, not a
+                    // Mapbox-only side effect, so it round-trips through the URL too.
+                    if (group.filter !== undefined) {
+                        layerObj.filter = group.filter;
+                    }
                     activeLayers.push(layerObj);
                 } else if (group.id) {
                     // Get the proper normalized ID from the layer registry
@@ -322,6 +338,9 @@ export class URLManager {
                     // Include opacity if it exists and is different from default (1)
                     if (group.opacity !== undefined && group.opacity !== 1) {
                         layerObj.opacity = group.opacity;
+                    }
+                    if (group.filter !== undefined) {
+                        layerObj.filter = group.filter;
                     }
                     // Include geojson if it exists and has features. The selection layer is
                     // excluded here — its markers are carried in the compact `markers=` param
@@ -350,6 +369,9 @@ export class URLManager {
                         if (group.opacity !== undefined && group.opacity !== 1) {
                             layerObj.opacity = group.opacity;
                         }
+                        if (group.filter !== undefined) {
+                            layerObj.filter = group.filter;
+                        }
                         activeLayers.push(layerObj);
                     }
                 } else {
@@ -368,6 +390,9 @@ export class URLManager {
                     // Include opacity if it exists and is different from default (1)
                     if (group.opacity !== undefined && group.opacity !== 1) {
                         layerObj.opacity = group.opacity;
+                    }
+                    if (group.filter !== undefined) {
+                        layerObj.filter = group.filter;
                     }
                     activeLayers.push(layerObj);
                 }
@@ -466,6 +491,9 @@ export class URLManager {
                         // Include opacity if it exists and is different from default (1)
                         if (layer.opacity !== undefined && layer.opacity !== 1) {
                             layerObj.opacity = layer.opacity;
+                        }
+                        if (layer.filter !== undefined) {
+                            layerObj.filter = layer.filter;
                         }
 
                         activeLayers.push(layerObj);

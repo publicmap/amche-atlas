@@ -34,11 +34,13 @@ Override visible layers from the atlas configuration.
 - Comma-separated list of layer IDs
 - Supports inline JSON layer definitions with `{...}` syntax
 - Can include opacity: `{"id":"layer-name","opacity":0.5}`
+- Can include a Mapbox GL filter: `{"id":"layer-name","filter":["==",["get","district"],"01"]}` — see [Feature Property Quick Filter](#feature-property-quick-filter)
 
 **Examples:**
 ```
 ?layers=mapbox-streets,forests
 ?layers=goa-plots,{"id":"custom-layer","opacity":0.7}
+?layers=goa-plots,{"id":"goa-plots","filter":["all",["==",["get","plot"],"17/1"]]}
 ```
 
 #### Dynamic layer shortcuts
@@ -402,8 +404,18 @@ Available on all layer types unless noted otherwise.
 | `opacity` | number | 0–1 multiplier applied on top of any `style` opacity. |
 | `style` | object | Mapbox GL paint/layout properties. See `config/_defaults.json` for the cascade. Keys may be prefixed with `<name>/` to create additional style passes from the same source — see [Multi-pass style variants](#multi-pass-style-variants). |
 | `minzoom`, `maxzoom` | number | Standard Mapbox source zoom range. |
+| `filter` | array | Mapbox GL filter expression, applied on top of the layer's own rendering. `vector`/`geojson` only. Also the property a marker popup's quick property filter (see [Feature Property Quick Filter](#feature-property-quick-filter)) reads and writes live, so it round-trips through `?layers=` like `opacity` does. |
 | `inspect` | object | Configures the feature popup. See [Inspect Configuration](#inspect-configuration). Set to `false`/`null` to disable interactivity. |
 | `stylePreset` | string | Name of a preset declared at atlas-level under `stylePresets`. See [Atlas-level style and inspect defaults](#atlas-level-style-and-inspect-defaults). |
+
+#### Feature Property Quick Filter
+
+Selecting a feature in a marker popup's accordion (see `js/map-marker-manager.js`) lets you build a live Mapbox GL `filter` on that feature's layer directly from its own properties: clicking a property row selects it (also copying `key\tvalue` to the clipboard) and reveals **Replace Filter** / **Add To Filter** actions, which set or AND-combine an `["==", ["get", key], value]` condition onto the layer's `filter`.
+
+- Opening a feature's details filters its layer down to just that one feature (via `inspect.id`) by default.
+- The filter is written onto the layer's own config `filter` property (see Common Properties above), so it round-trips through `?layers=` exactly like `opacity` does — reload a shared link and the same filter is still applied.
+- Closing the popup, or expanding a different feature, does **not** reset it — the filter is retained.
+- The layer's filter from before it was touched is remembered and restored if the marker that applied the filter is later removed **while still unsaved** (never given a name/label). A saved marker's filter survives its own removal instead — by then it's a deliberate choice about the layer, not leftover marker state.
 
 #### Atlas-level style and inspect defaults
 

@@ -579,6 +579,18 @@ describe('marker popup layout', () => {
             };
         }
 
+        /** Row for `key`, inside a feature's expanded details. */
+        function rowFor(el, key) {
+            return [...el.querySelectorAll('.feature-row')].find(r => r.dataset.fieldKey === key);
+        }
+
+        const originalLayerControl = window.layerControl;
+        const originalUrlManager = window.urlManager;
+        afterEach(() => {
+            window.layerControl = originalLayerControl;
+            window.urlManager = originalUrlManager;
+        });
+
         it("filters to inspect.id's own value the moment the row opens", () => {
             const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot', 'survey'], fieldTitles: ['Plot', 'Survey'] } }];
             const manager = makeManager({ layers });
@@ -587,44 +599,205 @@ describe('marker popup layout', () => {
 
             el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-            const plotPick = [...el.querySelectorAll('.feature-row-pick')].find(p => p.dataset.fieldKey === 'plot');
-            expect(plotPick.checked).toBe(true);
             expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
         });
 
-        it('combines every checked row with `all`, using the real typed value rather than its rendered text', () => {
+        it('clicking a row selects it and copies its key\\tvalue to the clipboard, without touching the filter', () => {
             const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot', 'survey'], fieldTitles: ['Plot', 'Survey'] } }];
             const manager = makeManager({ layers });
             manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
             const el = mount(manager, [feature('plots', { plot: '17/1', survey: 17 })]);
             el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-            const surveyPick = [...el.querySelectorAll('.feature-row-pick')].find(p => p.dataset.fieldKey === 'survey');
-            surveyPick.checked = true;
-            surveyPick.dispatchEvent(new Event('change'));
+            const writeText = vi.fn().mockResolvedValue();
+            Object.assign(navigator, { clipboard: { writeText } });
 
+            const surveyRow = rowFor(el, 'survey');
+            surveyRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(writeText).toHaveBeenCalledWith('survey\t17');
+            expect(surveyRow.style.background).toBe('rgb(30, 58, 95)');
+            // Merely selecting it is not itself a filter action.
+            expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
+        });
+
+        it('offers only Replace Filter on another row while the filter is still just inspect.id', () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot', 'survey'], fieldTitles: ['Plot', 'Survey'] } }];
+            const manager = makeManager({ layers });
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            const el = mount(manager, [feature('plots', { plot: '17/1', survey: '17' })]);
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            navigator.clipboard = { writeText: vi.fn().mockResolvedValue() };
+
+            const surveyRow = rowFor(el, 'survey');
+            surveyRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(surveyRow.querySelector('[data-action="replace"]').style.display).toBe('inline-flex');
+            expect(surveyRow.querySelector('[data-action="add"]').style.display).toBe('none');
+        });
+
+        it('offers both actions on another row once the filter has actually been replaced with something else', () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot', 'survey', 'district'], fieldTitles: ['Plot', 'Survey', 'District'] } }];
+            const manager = makeManager({ layers });
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            const el = mount(manager, [feature('plots', { plot: '17/1', survey: '17', district: '01' })]);
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            navigator.clipboard = { writeText: vi.fn().mockResolvedValue() };
+
+            const surveyRow = rowFor(el, 'survey');
+            surveyRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            surveyRow.querySelector('[data-action="replace"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'survey'], '17']]);
+
+            const districtRow = rowFor(el, 'district');
+            districtRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(districtRow.querySelector('[data-action="replace"]').style.display).toBe('inline-flex');
+            expect(districtRow.querySelector('[data-action="add"]').style.display).toBe('inline-flex');
+
+            districtRow.querySelector('[data-action="add"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
             expect(manager._map._filters.get('plots-fill')).toEqual([
-                'all', ['==', ['get', 'plot'], '17/1'], ['==', ['get', 'survey'], 17]
+                'all', ['==', ['get', 'survey'], '17'], ['==', ['get', 'district'], '01']
             ]);
         });
 
-        it('restores the layer\'s original filter once every checkbox is unchecked', () => {
-            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot'], fieldTitles: ['Plot'] } }];
+        it("offers only Remove From Filter for inspect.id's own row while it's the one active, and only Replace once it isn't", () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot', 'survey'], fieldTitles: ['Plot', 'Survey'] } }];
             const manager = makeManager({ layers });
-            const map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
-            map._filters.set('plots-fill', ['==', ['get', 'district'], '01']);
-            manager._map = map;
-            const el = mount(manager, [feature('plots', { plot: '17/1' })]);
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            const el = mount(manager, [feature('plots', { plot: '17/1', survey: '17' })]);
             el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            navigator.clipboard = { writeText: vi.fn().mockResolvedValue() };
 
-            const plotPick = el.querySelector('.feature-row-pick');
-            plotPick.checked = false;
-            plotPick.dispatchEvent(new Event('change'));
+            const plotRow = rowFor(el, 'plot');
+            plotRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            // inspect.id is already part of the filter - only Remove is offered.
+            expect(plotRow.querySelector('.feature-row-actions').style.display).toBe('flex');
+            expect(plotRow.querySelector('[data-action="replace"]').style.display).toBe('none');
+            expect(plotRow.querySelector('[data-action="add"]').style.display).toBe('none');
+            expect(plotRow.querySelector('[data-action="remove"]').style.display).toBe('inline-flex');
 
-            expect(map._filters.get('plots-fill')).toEqual(['==', ['get', 'district'], '01']);
+            // Replace with something else, then come back to inspect.id's row.
+            const surveyRow = rowFor(el, 'survey');
+            surveyRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            surveyRow.querySelector('[data-action="replace"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            plotRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(plotRow.querySelector('[data-action="replace"]').style.display).toBe('inline-flex');
+            expect(plotRow.querySelector('[data-action="add"]').style.display).toBe('none');
+            expect(plotRow.querySelector('[data-action="remove"]').style.display).toBe('none');
         });
 
-        it('restores the original filter when the row collapses, even with boxes still checked', () => {
+        it('offers only Remove From Filter once a property has been added, and dropping it falls back to Replace/Add', () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot', 'survey', 'district'], fieldTitles: ['Plot', 'Survey', 'District'] } }];
+            const manager = makeManager({ layers });
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            const el = mount(manager, [feature('plots', { plot: '17/1', survey: '17', district: '01' })]);
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            navigator.clipboard = { writeText: vi.fn().mockResolvedValue() };
+
+            const surveyRow = rowFor(el, 'survey');
+            surveyRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            surveyRow.querySelector('[data-action="replace"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            const districtRow = rowFor(el, 'district');
+            districtRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            districtRow.querySelector('[data-action="add"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(manager._map._filters.get('plots-fill')).toEqual([
+                'all', ['==', ['get', 'survey'], '17'], ['==', ['get', 'district'], '01']
+            ]);
+
+            // Both are now part of the filter - each shows only Remove.
+            surveyRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(surveyRow.querySelector('[data-action="remove"]').style.display).toBe('inline-flex');
+            expect(surveyRow.querySelector('[data-action="replace"]').style.display).toBe('none');
+
+            surveyRow.querySelector('[data-action="remove"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'district'], '01']]);
+            // Dropped back out of the filter - Replace/Add are offered again.
+            expect(surveyRow.querySelector('[data-action="remove"]').style.display).toBe('none');
+            expect(surveyRow.querySelector('[data-action="replace"]').style.display).toBe('inline-flex');
+        });
+
+        it("previews Replace on hover without saving it, then commits only on click", () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot', 'survey'], fieldTitles: ['Plot', 'Survey'] } }];
+            const manager = makeManager({ layers });
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            const el = mount(manager, [feature('plots', { plot: '17/1', survey: '17' })]);
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            navigator.clipboard = { writeText: vi.fn().mockResolvedValue() };
+
+            const surveyRow = rowFor(el, 'survey');
+            surveyRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            const committed = manager._map._filters.get('plots-fill');
+            expect(committed).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
+
+            surveyRow.dispatchEvent(new MouseEvent('mouseenter'));
+            expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'survey'], '17']]);
+            const replaceBtn = surveyRow.querySelector('[data-action="replace"]');
+            expect(replaceBtn.style.background).toBe('rgba(59, 130, 246, 0.35)');
+
+            surveyRow.dispatchEvent(new MouseEvent('mouseleave'));
+            // Reverted - the preview was never saved.
+            expect(manager._map._filters.get('plots-fill')).toEqual(committed);
+            expect(replaceBtn.style.background).toBe('rgba(59, 130, 246, 0.15)');
+
+            replaceBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'survey'], '17']]);
+        });
+
+        it('previews Add (combined with the current filter) on hover, separately from Replace', () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot', 'survey', 'district'], fieldTitles: ['Plot', 'Survey', 'District'] } }];
+            const manager = makeManager({ layers });
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            const el = mount(manager, [feature('plots', { plot: '17/1', survey: '17', district: '01' })]);
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            navigator.clipboard = { writeText: vi.fn().mockResolvedValue() };
+
+            const surveyRow = rowFor(el, 'survey');
+            surveyRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            surveyRow.querySelector('[data-action="replace"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            const districtRow = rowFor(el, 'district');
+            districtRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            districtRow.querySelector('[data-action="add"]').dispatchEvent(new MouseEvent('mouseenter'));
+
+            expect(manager._map._filters.get('plots-fill')).toEqual([
+                'all', ['==', ['get', 'survey'], '17'], ['==', ['get', 'district'], '01']
+            ]);
+
+            districtRow.querySelector('[data-action="add"]').dispatchEvent(new MouseEvent('mouseleave'));
+            // Only committed the earlier Replace, so hovering off Add drops
+            // straight back to district's own Replace preview, not the
+            // combined filter that was never clicked.
+            expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'district'], '01']]);
+        });
+
+        it('previews dropping a property on hover over Remove From Filter', () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot', 'survey'], fieldTitles: ['Plot', 'Survey'] } }];
+            const manager = makeManager({ layers });
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            const el = mount(manager, [feature('plots', { plot: '17/1', survey: '17' })]);
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            navigator.clipboard = { writeText: vi.fn().mockResolvedValue() };
+
+            const plotRow = rowFor(el, 'plot');
+            plotRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            const removeBtn = plotRow.querySelector('[data-action="remove"]');
+
+            removeBtn.dispatchEvent(new MouseEvent('mouseenter'));
+            // Nothing left to filter by - previews back to no filter at all
+            // (the layer's own original, saved the moment the row first opened).
+            expect(manager._map._filters.get('plots-fill')).toBeNull();
+
+            removeBtn.dispatchEvent(new MouseEvent('mouseleave'));
+            expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
+        });
+
+        it('retains the filter when the row just collapses - collapsing is not undoing it', () => {
             const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot'], fieldTitles: ['Plot'] } }];
             const manager = makeManager({ layers });
             const map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
@@ -637,7 +810,111 @@ describe('marker popup layout', () => {
 
             chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
+            expect(map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
+        });
+
+        it('restores the filter when an unsaved marker is destroyed outright, not collapsed first', () => {
+            // The path an unsaved marker takes losing focus (_syncMarkerContent)
+            // goes straight to removeMarker - never through
+            // _closeAllSummaryDetails - so a filter left active by an expanded
+            // row would otherwise have nothing left to restore it.
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot'], fieldTitles: ['Plot'] } }];
+            const manager = makeManager({ layers });
+            const map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            manager._map = map;
+            const el = mount(manager, [feature('plots', { plot: '17/1' })]);
+            const markerData = manager._markers.get('m1');
+            markerData.features = [];
+            markerData.marker.remove = () => {};
+            markerData.saved = false;
+
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
+
+            manager.removeMarker('m1');
+
             expect(map._filters.get('plots-fill')).toBeNull();
+        });
+
+        it('retains the filter when a saved marker is removed - it is a decision about the layer by then', () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot'], fieldTitles: ['Plot'] } }];
+            const manager = makeManager({ layers });
+            const map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            manager._map = map;
+            const el = mount(manager, [feature('plots', { plot: '17/1' })]);
+            const markerData = manager._markers.get('m1');
+            markerData.features = [];
+            markerData.marker.remove = () => {};
+            markerData.saved = true;
+
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
+
+            manager.removeMarker('m1');
+
+            expect(map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
+        });
+
+        it("mirrors the filter onto the layer's own config entry and syncs the URL", () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot'], fieldTitles: ['Plot'] } }];
+            const manager = makeManager({ layers });
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            const group = { id: 'plots' };
+            window.layerControl = { _state: { groups: [group] } };
+            const updateURL = vi.fn();
+            window.urlManager = { updateURL };
+
+            const el = mount(manager, [feature('plots', { plot: '17/1' })]);
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            expect(group.filter).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
+            expect(updateURL).toHaveBeenCalledWith({ updateLayers: true });
+        });
+
+        it("drops the config entry's filter (rather than leaving it null) once the layer's original filter is restored", () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot'], fieldTitles: ['Plot'] } }];
+            const manager = makeManager({ layers });
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            // No `filter` to begin with - the common case for a layer nobody
+            // has authored one for.
+            const group = { id: 'plots' };
+            window.layerControl = { _state: { groups: [group] } };
+            window.urlManager = { updateURL: vi.fn() };
+
+            const el = mount(manager, [feature('plots', { plot: '17/1' })]);
+            const chip = el.querySelector('.marker-summary-chip');
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(group.filter).toBeDefined();
+
+            const markerData = manager._markers.get('m1');
+            markerData.features = [];
+            markerData.marker.remove = () => {};
+            markerData.saved = false;
+            manager.removeMarker('m1');
+
+            expect('filter' in group).toBe(false);
+        });
+
+        it("restores a layer's own authored filter, not just clears it, once its marker is removed", () => {
+            const layers = [{ id: 'plots', inspect: { id: 'plot', fields: ['plot'], fieldTitles: ['Plot'] } }];
+            const manager = makeManager({ layers });
+            manager._map = makeMap([{ id: 'plots-fill', metadata: { groupId: 'plots' } }]);
+            const authoredFilter = ['==', ['get', 'district'], '01'];
+            const group = { id: 'plots', filter: authoredFilter };
+            window.layerControl = { _state: { groups: [group] } };
+            window.urlManager = { updateURL: vi.fn() };
+
+            const el = mount(manager, [feature('plots', { plot: '17/1' })]);
+            el.querySelector('.marker-summary-chip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(group.filter).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
+
+            const markerData = manager._markers.get('m1');
+            markerData.features = [];
+            markerData.marker.remove = () => {};
+            markerData.saved = false;
+            manager.removeMarker('m1');
+
+            expect(group.filter).toBe(authoredFilter);
         });
     });
 

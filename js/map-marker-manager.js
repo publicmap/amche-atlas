@@ -719,45 +719,44 @@ export class MapMarkerManager {
      * A feature's fields as label/value rows - the shared body of both the
      * stacked badge table (hover markers) and the flyout (selection markers).
      *
-     * `withPicks` (the accordion only - see _buildFeatureFlyoutContentHTML)
-     * adds a checkbox to each row, aligned with the summary chip's own icon
-     * column above it, that drives a quick property filter on the layer (see
-     * _attachFeaturePropertyFilterHandlers) - left off for the hover badge
-     * table, whose popup is too transient for a filter toggle to make sense.
+     * `interactive` (the accordion only - see _buildFeatureFlyoutContentHTML)
+     * makes each row clickable (see _attachFeatureRowActionHandlers) - left
+     * off for the hover badge table, whose popup is too transient for that to
+     * make sense.
      */
-    _buildFeatureRowsHTML(f, withPicks = false) {
+    _buildFeatureRowsHTML(f, interactive = false) {
         if (!f || !f.feature) return '';
         const layerConfig = this._stateManager.getLayerConfig(f.layerId);
         const inspectConfig = layerConfig?.inspect || {};
         const properties = f.feature.properties || {};
         const fields = inspectConfig.fields || [];
         const fieldTitles = inspectConfig.fieldTitles || [];
-        // Checked by default: the field inspect.id names is usually the one
-        // someone opened this feature to look at, and starting there also
-        // means the filter it drives (see _attachFeaturePropertyFilterHandlers)
-        // opens already narrowed to just this feature, not the whole layer.
-        const idField = inspectConfig.id || null;
 
         // Value first, field name as a subheader below it - the same
         // hierarchy the summary chip's own label uses (marker-summary-chip__value
         // / __field), just smaller and unbold here since a feature can have
-        // many of these stacked rows in a row, not one leading label. The
-        // pick checkbox (withPicks) sits in the same left column the chip's
-        // own icon occupies above, so every row - the chip's and each
-        // property's - lines up at the same indent.
+        // many of these stacked rows in a row, not one leading label.
+        // Interactive rows also carry a Replace/Add Filter action pair,
+        // hidden until the row is clicked (see _attachFeatureRowActionHandlers).
         const buildRow = (label, value, key) => {
             const valueHTML = formatAttributeValue(value, { truncateMax: 40 });
-            const pickHTML = withPicks
-                ? `<input type="checkbox" class="feature-row-pick" data-field-key="${this._escapeAttr(key ?? '')}"
-                    ${key && key === idField ? 'checked' : ''}
-                    style="flex-shrink:0; cursor:pointer; margin-top:2px; accent-color:#3b82f6;" />`
-                : '';
-            return `<div class="feature-row" style="display:flex; align-items:flex-start; gap:8px; padding:3px 0; border-bottom:1px solid #374151;">` +
-                pickHTML +
-                `<div style="display:flex;flex-direction:column;align-items:flex-start;flex:1;min-width:0;overflow:hidden;">` +
+            const actionsHTML = interactive ? `
+                <div class="feature-row-actions" style="display:none; gap:6px; padding-top:3px;">
+                    <button type="button" class="feature-row-action" data-action="replace"
+                        style="display:inline-flex; align-items:center; gap:3px; font-size:8px; font-weight:600; color:#93c5fd; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); border-radius:4px; padding:2px 6px; cursor:pointer;">Replace Filter</button>
+                    <button type="button" class="feature-row-action" data-action="add"
+                        style="display:inline-flex; align-items:center; gap:3px; font-size:8px; font-weight:600; color:#93c5fd; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); border-radius:4px; padding:2px 6px; cursor:pointer;">
+                        <sl-icon name="plus-circle-dotted" style="font-size:9px;"></sl-icon>Add To Filter</button>
+                    <button type="button" class="feature-row-action" data-action="remove"
+                        style="display:none; align-items:center; gap:3px; font-size:8px; font-weight:600; color:#93c5fd; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); border-radius:4px; padding:2px 6px; cursor:pointer;">
+                        <sl-icon name="dash-circle" style="font-size:9px;"></sl-icon>Remove From Filter</button>
+                </div>` : '';
+            return `<div class="feature-row" data-field-key="${this._escapeAttr(key ?? '')}"
+                    style="display:flex; flex-direction:column; align-items:stretch; padding:3px 0; border-bottom:1px solid #374151; ${interactive ? 'cursor:pointer;' : ''}">` +
                 `<div style="color:#f3f4f6;font-size:10px;line-height:1.3;word-break:break-word;white-space:pre-line;">${valueHTML}</div>` +
                 `<div style="color:#9ca3af;font-size:8px;line-height:1.3;font-weight:400;word-break:break-word;">${this._escapeAttr(label)}</div>` +
-                `</div></div>`;
+                actionsHTML +
+                `</div>`;
         };
 
         const validEntries = Object.entries(properties).filter(([, v]) => v !== null && v !== undefined && v !== '');
@@ -1896,9 +1895,13 @@ export class MapMarkerManager {
     /**
      * Collapses every expanded summary row in this marker and drops the
      * active highlight - including swapping each chip's layer-info row back
-     * down to its plain icon (see _buildChipLayerRowHTML/_openSummaryDetails)
-     * and restoring whatever quick property filter closing this row leaves
-     * applied (see _applyFeatureFilter).
+     * down to its plain icon (see _buildChipLayerRowHTML/_openSummaryDetails).
+     *
+     * Deliberately leaves any quick property filter a row applied (see
+     * _applyFeatureFilter) exactly as it is: collapsing the row - to look at
+     * another feature, or just to tidy the panel up - isn't itself a decision
+     * to undo the filter, only removing the marker that never got a name
+     * counts as that (see removeMarker).
      */
     _closeAllSummaryDetails(el) {
         el.querySelectorAll('.marker-summary-details').forEach(d => { d.style.display = 'none'; });
@@ -1909,10 +1912,6 @@ export class MapMarkerManager {
         // collapsed, the same indent the property rows below line up with too.
         el.querySelectorAll('.marker-summary-chip__icon').forEach(icon => { icon.style.visibility = 'visible'; });
         el.querySelectorAll('.marker-layer-info-row').forEach(row => { row.style.display = 'none'; });
-        if (this._activeFeatureFilterLayerId) {
-            this._restoreOriginalLayerFilter(this._activeFeatureFilterLayerId);
-            this._activeFeatureFilterLayerId = null;
-        }
         this._setActiveSummaryChip(el, null);
     }
 
@@ -1940,7 +1939,7 @@ export class MapMarkerManager {
         if (f) {
             details.innerHTML = this._buildFeatureFlyoutContentHTML(f);
             this._attachFeatureDetailsHandlers(details);
-            this._attachFeaturePropertyFilterHandlers(details, f);
+            this._attachFeatureRowActionHandlers(details, f);
             const badgeDetails = details.querySelector('.feature-badge-details');
             if (badgeDetails) this._loadInspectionHandlerHTML(badgeDetails, f.layerId, f.featureId);
         } else {
@@ -2016,45 +2015,208 @@ export class MapMarkerManager {
     }
 
     /**
-     * Wires each property row's pick checkbox (see _buildFeatureRowsHTML's
-     * `withPicks`) to a quick filter on the feature's own layer: checking one
-     * or more rows narrows the layer down to features matching all of them
-     * at once (an `all` of `==` checks, so pick "district" + "taluka" to see
-     * every plot in that combination, not just this one); unchecking widens
-     * it back the other way. Reads each row's real, typed property value off
-     * `f.feature` rather than off the DOM, so a numeric field filters as a
-     * number rather than the string its own rendered text would otherwise
-     * coerce it into.
+     * Wires every property row (see _buildFeatureRowsHTML's `interactive`):
+     * clicking one selects it - highlighting it, hiding any other row's own
+     * actions, and copying `key\tvalue` to the clipboard as a quick
+     * reference - and reveals its Replace/Add/Remove Filter buttons.
+     * Hovering a row (or its Add/Remove button specifically) only previews
+     * what that action would do on the map; only an actual click ever
+     * touches `activeConditions`, the layer's own config, or the URL (all
+     * three are _applyFeatureFilter's job), so glancing at a row never has a
+     * side effect by itself.
+     *
+     * Once a property is already part of the filter, the only thing left to
+     * offer is dropping it again - not replacing or re-adding what's already
+     * there - so its row shows just "Remove From Filter" (see
+     * isConditionActive). Otherwise: the filter opens narrowed to
+     * inspect.id's own value by default (see `activeConditions`'s initial
+     * value below) - but since that field uniquely names one feature
+     * already, "Add"ing it to anything else would just collapse back to the
+     * same single feature "Replace" already gives you, so its row never
+     * offers that option. The same reasoning gates every *other* row's own
+     * "Add": from that one-feature starting filter, adding a second property
+     * on top of it is equally pointless - only once the filter has actually
+     * been replaced with something broader does combining further make
+     * sense.
      */
-    _attachFeaturePropertyFilterHandlers(details, f) {
-        const picks = details.querySelectorAll('.feature-row-pick');
-        if (!picks.length) return;
+    _attachFeatureRowActionHandlers(details, f) {
+        const rows = [...details.querySelectorAll('.feature-row')].filter(row => row.dataset.fieldKey);
+        if (!rows.length) return;
 
+        const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+        const idField = layerConfig?.inspect?.id || null;
         const properties = f.feature?.properties || {};
-        const applyFilter = () => {
-            const conditions = [...picks]
-                .filter(pick => pick.checked && pick.dataset.fieldKey)
-                .map(pick => ({ key: pick.dataset.fieldKey, value: properties[pick.dataset.fieldKey] }));
-            this._applyFeatureFilter(f.layerId, conditions);
+
+        let activeConditions = (idField && properties[idField] !== undefined)
+            ? [{ key: idField, value: properties[idField] }]
+            : [];
+        let selectedKey = null;
+
+        const isIdOnlyFilter = () => activeConditions.length === 1 && activeConditions[0].key === idField;
+        const applyConditions = () => this._applyFeatureFilter(f.layerId, activeConditions);
+
+        const setHighlighted = (btn, on) => {
+            if (!btn) return;
+            btn.style.background = on ? 'rgba(59, 130, 246, 0.35)' : 'rgba(59, 130, 246, 0.15)';
+            btn.style.borderColor = on ? '#3b82f6' : 'rgba(59, 130, 246, 0.4)';
+            btn.style.color = on ? '#ffffff' : '#93c5fd';
         };
 
-        picks.forEach(pick => {
+        /**
+         * A live preview only - never touches `activeConditions`, the
+         * layer's own config, or the URL (that's all _applyFeatureFilter,
+         * only ever run from a click below). Lets hovering a row or its Add
+         * button show what committing it would look like on the map without
+         * it being saved unless the button is actually clicked.
+         */
+        const previewConditions = (conditions) => {
+            if (!this._map || !f.layerId) return;
+            const saved = this._originalLayerFilters?.get(f.layerId);
+            const filter = conditions.length
+                ? ['all', ...conditions.map(({ key: k, value }) => ['==', ['get', k], value])]
+                : null;
+            this._getMapboxSubLayerIds(f.layerId).forEach(subLayerId => {
+                try {
+                    this._map.setFilter(subLayerId, filter ?? saved?.perSubLayer?.get(subLayerId) ?? null);
+                } catch (e) {
+                    // Layer may have been removed from the map since.
+                }
+            });
+        };
+        // Back to whatever is actually committed, not necessarily "no filter".
+        const cancelPreview = () => previewConditions(activeConditions);
+
+        const isConditionActive = (key) => activeConditions.some(c => c.key === key);
+
+        const syncRowActions = () => {
+            rows.forEach(row => {
+                const key = row.dataset.fieldKey;
+                const isSelected = key === selectedKey;
+                row.style.background = isSelected ? '#1e3a5f' : 'transparent';
+
+                const actions = row.querySelector('.feature-row-actions');
+                if (!actions) return;
+                actions.style.display = isSelected ? 'flex' : 'none';
+                if (!isSelected) return;
+
+                const replaceBtn = actions.querySelector('[data-action="replace"]');
+                const addBtn = actions.querySelector('[data-action="add"]');
+                const removeBtn = actions.querySelector('[data-action="remove"]');
+
+                // Already part of the filter - the only thing left to offer
+                // is dropping it, not replacing or re-adding what's already
+                // there.
+                if (isConditionActive(key)) {
+                    if (replaceBtn) replaceBtn.style.display = 'none';
+                    if (addBtn) addBtn.style.display = 'none';
+                    if (removeBtn) removeBtn.style.display = 'inline-flex';
+                    return;
+                }
+                if (removeBtn) removeBtn.style.display = 'none';
+
+                if (key === idField) {
+                    if (replaceBtn) replaceBtn.style.display = 'inline-flex';
+                    if (addBtn) addBtn.style.display = 'none';
+                } else {
+                    if (replaceBtn) replaceBtn.style.display = 'inline-flex';
+                    if (addBtn) addBtn.style.display = isIdOnlyFilter() ? 'none' : 'inline-flex';
+                }
+            });
+        };
+
+        rows.forEach(row => {
+            const key = row.dataset.fieldKey;
+
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('.feature-row-action')) return;
+                e.stopPropagation();
+
+                navigator.clipboard?.writeText?.(`${key}\t${properties[key]}`).catch(() => {});
+                selectedKey = selectedKey === key ? null : key;
+                syncRowActions();
+            });
+
+            const replaceBtn = row.querySelector('[data-action="replace"]');
+            const addBtn = row.querySelector('[data-action="add"]');
+            const removeBtn = row.querySelector('[data-action="remove"]');
             // Same reasoning as the summary row's own pick checkbox
             // (_attachMarkerSummaryHandlers): stop the press from bubbling
-            // into the accordion row's own toggle or the balloon drag above it.
-            ['mousedown', 'touchstart'].forEach(type => pick.addEventListener(type, (e) => {
+            // into the row's own click above, or the balloon drag beyond it.
+            [replaceBtn, addBtn, removeBtn].forEach(btn => btn?.addEventListener('mousedown', (e) => e.stopPropagation()));
+
+            // Hovering the row previews what its Replace Filter button would
+            // do - and highlights that button - without saving anything; only
+            // an actual click (below) ever touches the filter. Skipped once
+            // this property is already part of the filter: there's no Replace
+            // button showing then (see syncRowActions), only Remove, which
+            // previews its own effect below instead. A hidden/unselected
+            // row's actions never receive a real pointer event in the first
+            // place, so none of this needs an `isSelected` guard of its own.
+            row.addEventListener('mouseenter', () => {
+                if (isConditionActive(key)) return;
+                previewConditions([{ key, value: properties[key] }]);
+                setHighlighted(replaceBtn, true);
+            });
+            row.addEventListener('mouseleave', () => {
+                if (isConditionActive(key)) return;
+                cancelPreview();
+                setHighlighted(replaceBtn, false);
+            });
+
+            // Hovering Add specifically previews the combined filter instead
+            // of Replace's, and highlights Add instead - falling back to the
+            // row's own Replace preview on its way out rather than cancelling
+            // outright, since the pointer is still over the row at that point.
+            addBtn?.addEventListener('mouseenter', () => {
+                previewConditions([...activeConditions.filter(c => c.key !== key), { key, value: properties[key] }]);
+                setHighlighted(replaceBtn, false);
+                setHighlighted(addBtn, true);
+            });
+            addBtn?.addEventListener('mouseleave', () => {
+                previewConditions([{ key, value: properties[key] }]);
+                setHighlighted(addBtn, false);
+                setHighlighted(replaceBtn, true);
+            });
+
+            // Hovering Remove previews the filter with just this one
+            // condition dropped - the mirror image of Add's preview above.
+            removeBtn?.addEventListener('mouseenter', () => {
+                previewConditions(activeConditions.filter(c => c.key !== key));
+                setHighlighted(removeBtn, true);
+            });
+            removeBtn?.addEventListener('mouseleave', () => {
+                cancelPreview();
+                setHighlighted(removeBtn, false);
+            });
+
+            replaceBtn?.addEventListener('click', (e) => {
                 e.stopPropagation();
-                e.preventDefault();
-            }));
-            pick.addEventListener('click', (e) => e.stopPropagation());
-            pick.addEventListener('change', applyFilter);
+                activeConditions = [{ key, value: properties[key] }];
+                applyConditions();
+                setHighlighted(replaceBtn, false);
+                syncRowActions();
+            });
+
+            addBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                activeConditions = [...activeConditions.filter(c => c.key !== key), { key, value: properties[key] }];
+                applyConditions();
+                setHighlighted(addBtn, false);
+                syncRowActions();
+            });
+
+            removeBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                activeConditions = activeConditions.filter(c => c.key !== key);
+                applyConditions();
+                setHighlighted(removeBtn, false);
+                syncRowActions();
+            });
         });
 
-        // Checked-by-default rows (inspect.id's own, see _buildFeatureRowsHTML)
-        // already filter the moment this feature's details open, so the map
-        // starts narrowed to just this record - the same starting point every
-        // time, ready to widen by unchecking it or picking another field.
-        applyFilter();
+        // Narrows to just this feature the moment its details open, same
+        // starting point every time - see the doc comment above.
+        applyConditions();
     }
 
     /**
@@ -2069,63 +2231,111 @@ export class MapMarkerManager {
     }
 
     /**
-     * Records a style layer's filter exactly once, the first time this
-     * session ever touches it - so however many times a property pick
-     * rewrites it afterward, _restoreOriginalLayerFilter always has the
-     * layer's true starting point (not just "no filter") to put back.
+     * The live config entry a layer's own controls (opacity slider, compare,
+     * this quick filter) all read and write in place - the same group
+     * map-feature-control-iframe.js's _updateLayerOpacity mutates, and the
+     * same `id`/`_prefixedId`/`_originalId` match shortcut-menu-base.js's
+     * own _getGroupElement uses, so this finds a layer under whichever form
+     * of its id the caller happens to have.
      */
-    _saveOriginalLayerFilter(subLayerId) {
-        if (!this._originalLayerFilters) this._originalLayerFilters = new Map();
-        if (this._originalLayerFilters.has(subLayerId)) return;
-        let filter = null;
-        try {
-            filter = this._map.getFilter(subLayerId) ?? null;
-        } catch (e) {
-            // Layer may not exist yet, or getFilter isn't supported on it.
-        }
-        this._originalLayerFilters.set(subLayerId, filter);
+    _getLayerGroup(layerId) {
+        const groups = window.layerControl?._state?.groups;
+        if (!groups) return null;
+        return groups.find(g => g.id === layerId || g._prefixedId === layerId || g._originalId === layerId) || null;
     }
 
-    /** Puts back whatever filter a layer had before a property pick ever touched it. */
-    _restoreOriginalLayerFilter(layerId) {
+    /**
+     * Records a layer's filter exactly once, the first time this session
+     * ever touches it - both the real filter already sitting on each of its
+     * style layers, and whatever `filter` its own config carried (or didn't)
+     * - so however many times a property pick rewrites either afterward,
+     * _restoreOriginalLayerFilter always has the layer's true starting
+     * point (not just "no filter") to put back.
+     */
+    _saveOriginalLayerFilter(layerId) {
+        if (!this._originalLayerFilters) this._originalLayerFilters = new Map();
+        if (this._originalLayerFilters.has(layerId)) return;
+
+        const perSubLayer = new Map();
         this._getMapboxSubLayerIds(layerId).forEach(subLayerId => {
-            if (!this._originalLayerFilters?.has(subLayerId)) return;
+            let filter = null;
             try {
-                this._map.setFilter(subLayerId, this._originalLayerFilters.get(subLayerId));
+                filter = this._map.getFilter(subLayerId) ?? null;
+            } catch (e) {
+                // Layer may not exist yet, or getFilter isn't supported on it.
+            }
+            perSubLayer.set(subLayerId, filter);
+        });
+
+        this._originalLayerFilters.set(layerId, {
+            perSubLayer,
+            groupFilter: this._getLayerGroup(layerId)?.filter
+        });
+    }
+
+    /**
+     * Puts back whatever filter a layer had before a property pick ever
+     * touched it - on the map itself, and on its config entry (so a
+     * restored layer stops carrying a `filter` the URL would otherwise keep
+     * re-sharing, see _applyFeatureFilter).
+     */
+    _restoreOriginalLayerFilter(layerId) {
+        const saved = this._originalLayerFilters?.get(layerId);
+        if (!saved) return;
+
+        saved.perSubLayer.forEach((filter, subLayerId) => {
+            try {
+                this._map.setFilter(subLayerId, filter);
             } catch (e) {
                 // Layer may have been removed from the map since.
             }
         });
+
+        const group = this._getLayerGroup(layerId);
+        if (group) {
+            if (saved.groupFilter === undefined) delete group.filter;
+            else group.filter = saved.groupFilter;
+        }
     }
 
     /**
      * Applies (`conditions.length > 0`) or clears (back to the original -
      * see _restoreOriginalLayerFilter) the quick property filter for a
-     * layer's every real style layer. No-ops quietly with nothing to filter
-     * (no map yet, e.g. in a unit test, or a layer that isn't actually on
-     * the map any more).
+     * layer's every real style layer, and mirrors it onto the layer's own
+     * config entry (`group.filter`) so it's a real, sharable property of the
+     * layer rather than a Mapbox-only side effect - url-manager.js already
+     * serializes any non-default `filter` on a layer's config into the
+     * `?layers=` URL the same way it already does for `opacity` (see
+     * docs/API.md), so this alone is what makes the filter link-shareable.
+     * No-ops quietly with nothing to filter (no map yet, e.g. in a unit
+     * test, or a layer that isn't actually on the map any more).
      */
     _applyFeatureFilter(layerId, conditions) {
         if (!this._map || !layerId) return;
         const subLayerIds = this._getMapboxSubLayerIds(layerId);
         if (!subLayerIds.length) return;
 
+        this._saveOriginalLayerFilter(layerId);
+
         if (!conditions.length) {
             this._restoreOriginalLayerFilter(layerId);
             this._activeFeatureFilterLayerId = null;
+            window.urlManager?.updateURL({ updateLayers: true });
             return;
         }
 
         const filter = ['all', ...conditions.map(({ key, value }) => ['==', ['get', key], value])];
         subLayerIds.forEach(subLayerId => {
-            this._saveOriginalLayerFilter(subLayerId);
             try {
                 this._map.setFilter(subLayerId, filter);
             } catch (e) {
                 console.warn(`[MapMarkerManager] Could not set filter on "${subLayerId}":`, e);
             }
         });
+        const group = this._getLayerGroup(layerId);
+        if (group) group.filter = filter;
         this._activeFeatureFilterLayerId = layerId;
+        window.urlManager?.updateURL({ updateLayers: true });
     }
 
     /**
@@ -4559,6 +4769,21 @@ export class MapMarkerManager {
         const markerEl = markerData.marker?.getElement?.();
         if (markerEl?.matches?.(':hover')) {
             this._pointerOverMarker = false;
+        }
+
+        if (markerEl) this._closeAllSummaryDetails(markerEl);
+
+        // An unsaved marker can be destroyed outright the moment it loses
+        // focus (see _syncMarkerContent) - it was never a deliberate choice
+        // to keep, so any quick property filter a feature row of its left
+        // active (_applyFeatureFilter) goes with it too. A saved marker's
+        // filter survives its own removal, though: by the time you've named
+        // a marker, filtering the layer by one of its properties has become
+        // a decision about the layer, not leftover state from a marker that
+        // happened to still be open.
+        if (!markerData.saved && this._activeFeatureFilterLayerId) {
+            this._restoreOriginalLayerFilter(this._activeFeatureFilterLayerId);
+            this._activeFeatureFilterLayerId = null;
         }
 
         // Drop the feature selections anchored at this marker so closing it also
