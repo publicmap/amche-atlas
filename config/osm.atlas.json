@@ -25,6 +25,26 @@
   },
   "layers": [
     {
+      "id": "office-govt",
+      "title": "Government Offices",
+      "type": "overpass",
+      "description": "Live OSM features matching <code>office=government</code> <code>amenity=townhall</code> <code>amenity=courthouse</code>, fetched from the Overpass API as the viewport changes. Source query: <a href='https://overpass-turbo.eu/s/2wnj' target='_blank'>https://overpass-turbo.eu/s/2wn6</a>.",
+      "query": "[out:json][timeout:125];\n(\n  nwr[\"office\"=\"government\"]({{bbox}});\n  nwr[\"amenity\"=\"townhall\"]({{bbox}});\n  nwr[\"amenity\"=\"courthouse\"]({{bbox}});\n);\nout geom center;",
+      "minzoom": 11,
+      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a> via <a href='https://overpass-turbo.eu/s/2wnj'>Overpass Turbo</a>",
+      "style": {
+        "circle-color": "#10b981",
+        "circle-radius": 2,
+        "circle-stroke-color": "#fff",
+        "circle-stroke-width": 1
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Office Name",
+        "label": "name"
+      }
+    },
+    {
       "id": "places",
       "title": "Places",
       "description": "Places from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Place'>OpenStreetMap India Wiki</a> for details.",
