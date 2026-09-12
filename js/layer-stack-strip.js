@@ -89,6 +89,7 @@ export class LayerStackStrip {
         window.addEventListener('layersInitialized', this._onChange);
         window.addEventListener('layer-toggled', this._onChange);
         window.addEventListener('urlUpdated', this._onChange);
+        window.addEventListener('mask-changed', this._onChange);
 
         // The event may already have fired by the time this mounts.
         if (window.layersInitialized) this._onChange();
@@ -130,6 +131,7 @@ export class LayerStackStrip {
         window.removeEventListener('layersInitialized', this._onChange);
         window.removeEventListener('layer-toggled', this._onChange);
         window.removeEventListener('urlUpdated', this._onChange);
+        window.removeEventListener('mask-changed', this._onChange);
         clearTimeout(this._refreshTimer);
         clearTimeout(this._reorderTimer);
         this._clearIsolation({ immediate: true });
@@ -162,8 +164,9 @@ export class LayerStackStrip {
 
         const layers = this._getVisibleLayers();
         const comparedId = this._getComparedLayerId();
+        const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
-        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${comparedId}`;
+        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${comparedId}|mask:${maskedId}`;
         if (!force && signature === this._signature) return;
         this._signature = signature;
 
@@ -177,7 +180,7 @@ export class LayerStackStrip {
 
         [overlays, basemaps].forEach((list, section) => {
             list.forEach((layer, index) => {
-                const item = this._createItem(layer, { index, total: list.length, comparedId });
+                const item = this._createItem(layer, { index, total: list.length, comparedId, maskedId });
                 // The two groups meet at the first basemap, which carries the rule
                 if (section === 1 && index === 0 && overlays.length) {
                     item.classList.add('layer-stack-basemap-start');
@@ -391,7 +394,7 @@ export class LayerStackStrip {
         return LayerOrderManager.mapOrderToUrlOrder(visible);
     }
 
-    _createItem(layer, position = { index: 0, total: 1, comparedId: null }) {
+    _createItem(layer, position = { index: 0, total: 1, comparedId: null, maskedId: null }) {
         const item = document.createElement('div');
         item.className = 'layer-stack-item';
         item.dataset.layerItem = 'true';
@@ -414,6 +417,12 @@ export class LayerStackStrip {
         if (position.comparedId && position.comparedId === layer.id) {
             item.classList.add('layer-stack-comparing');
             item.appendChild(this._createCompareCell(layer, title));
+        } else if (position.maskedId && position.maskedId === layer.id) {
+            // The masked layer is displaced the same way (they share the CSS),
+            // with a mask cell in its slot instead. A layer can't be both, and
+            // compare wins if something has managed to set both.
+            item.classList.add('layer-stack-comparing', 'layer-stack-masking');
+            item.appendChild(this._createMaskCell(layer, title));
         }
 
         item.appendChild(thumbnail);
@@ -518,6 +527,36 @@ export class LayerStackStrip {
             this._post({ type: 'toggle-compare', layerId: layer.id, enabled: false });
             // Disabling rewrites the ?compare= param, but repaint on our own
             // schedule rather than waiting on that debounce.
+            this._scheduleReorderRepaint();
+        });
+        return button;
+    }
+
+    /**
+     * The layer currently cutting the `mask` layer, owned by MapMaskManager
+     * (and mirrored in the ?mask= URL param).
+     */
+    _getMaskedLayerId() {
+        return window.maskManager?.getMaskSourceLayerId?.() || null;
+    }
+
+    /**
+     * Stand-in cell shown in the masked layer's slot: clicking it stops
+     * masking, which also takes the `mask` layer back off the map (see
+     * MapMaskManager.clearMask).
+     */
+    _createMaskCell(layer, title) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'layer-stack-mask-cell layer-stack-cell';
+        button.title = `Stop masking the map to ${title}`;
+        button.setAttribute('aria-label', `Stop masking the map to ${title}`);
+        button.innerHTML = '<sl-icon name="mask"></sl-icon>';
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._post({ type: 'toggle-mask', layerId: layer.id, enabled: false });
+            // Clearing rewrites the ?mask= param and toggles the mask layer
+            // off, but repaint on our own schedule rather than waiting on that.
             this._scheduleReorderRepaint();
         });
         return button;

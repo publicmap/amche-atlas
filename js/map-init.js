@@ -23,6 +23,7 @@ import { LocationNavigatorControl } from './location-navigator-control.js';
 import { MapLocationMenuControl } from './map-location-menu-control.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
+import { MapMaskManager } from './map-mask-manager.js';
 import { NearbyFeaturesControl } from './map-nearby-features-control.js';
 import { MapOrientationControl } from './map-orientation-control.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
@@ -660,12 +661,16 @@ export class MapInitializer {
 
             // Ensure the system layers are always present, whatever atlas is
             // loaded: 'selection' holds map markers, 'directions' the route a
-            // navigation draws into (see search/directions-layer.js).
-            ['selection', 'directions'].forEach(systemLayerId => {
+            // navigation draws into (see search/directions-layer.js), and
+            // 'mask' the cutout MapMaskManager generates for `?mask=`. The
+            // first two are always on (they're empty until something writes to
+            // them); the mask is switched on only once a layer is linked to it.
+            const SYSTEM_LAYERS = { selection: true, directions: true, mask: false };
+            Object.entries(SYSTEM_LAYERS).forEach(([systemLayerId, initiallyChecked]) => {
                 if (config.layers.find(l => l.id === systemLayerId)) return;
                 const systemLayer = layerRegistry.getLayer(systemLayerId, 'index');
                 if (systemLayer) {
-                    config.layers.unshift({ ...systemLayer, id: systemLayerId, initiallyChecked: true });
+                    config.layers.unshift({ ...systemLayer, id: systemLayerId, initiallyChecked });
                 }
             });
 
@@ -1064,6 +1069,11 @@ export class MapInitializer {
 
             // Initialize feature control (click/hover engine + marker manager)
             window.featureControl.initialize(stateManager, config);
+
+            // Dynamic polygon mask (`?mask=<layer-id>`). Created here rather
+            // than lazily so the layer-stack strip and map-information.html can
+            // read the current mask state without having to trigger one first.
+            window.maskManager = new MapMaskManager(map);
 
             // Preload iframe-backed controls once the map is idle, so their
             // bundles (map-export.html, map-browser.html) load off the

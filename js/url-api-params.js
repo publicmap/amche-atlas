@@ -18,6 +18,7 @@ export const URL_API_PARAMS = [
     'geolocate',
     'q',
     'compare',
+    'mask',
     'terrain',
     'animate',
     'fog',

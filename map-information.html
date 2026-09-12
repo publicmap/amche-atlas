@@ -187,6 +187,17 @@
             border-color: #1d4ed8;
         }
 
+        .info-header-action.masking {
+            color: #fff;
+            background: #7c3aed;
+            border-color: #7c3aed;
+        }
+
+        .info-header-action.masking:hover {
+            background: #6d28d9;
+            border-color: #6d28d9;
+        }
+
         .info-header-action.apply {
             color: #fff;
             background: #16a34a;
@@ -357,6 +368,10 @@
                     <span class="compare-icons"><sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right"></sl-icon></span>
                     <span>Compare</span>
                 </button>
+                <button class="info-header-action" id="mask-layer-btn" title="Mask the map to this layer's polygons">
+                    <sl-icon name="mask"></sl-icon>
+                    <span>Toggle Mask</span>
+                </button>
                 <button class="info-header-action primary" id="edit-toggle-btn">
                     <sl-icon name="pencil"></sl-icon>
                     <span>Edit</span>
@@ -503,6 +518,9 @@
             if (event.data?.type === 'compare-enabled' || event.data?.type === 'compare-disabled') {
                 updateCompareButton();
             }
+            if (event.data?.type === 'mask-changed') {
+                updateMaskButton();
+            }
         });
 
         $(document).ready(function () {
@@ -528,6 +546,7 @@
             $('#config-copy-btn').on('click', copyRawConfig);
             $('#remove-layer-btn').on('click', removeLayer);
             $('#compare-layer-btn').on('click', toggleCompare);
+            $('#mask-layer-btn').on('click', toggleMask);
             $('#opacity-slider').on('input', handleOpacitySliderInput);
             $('#zoom-to-feature-btn').on('click', zoomToFeature);
             // Raw addEventListener, not jQuery, for Shoelace's own `sl-select`
@@ -716,6 +735,52 @@
 
         function updateCompareButton() {
             setCompareButtonState(isComparing());
+        }
+
+        /**
+         * Link this layer as the map's mask: everything outside its polygons
+         * is covered by the atlas's `mask` layer. The parent's MapMaskManager
+         * owns the generated geometry and allows only one masked layer at a
+         * time, so enabling here replaces whatever was masking before.
+         */
+        function toggleMask() {
+            if (!currentLayer) return;
+
+            if (window.self === window.top) {
+                alert('Masking requires the map to be embedded.');
+                return;
+            }
+
+            const enabled = !isMasking();
+            window.parent.postMessage({
+                type: 'toggle-mask',
+                layerId: currentLayer.id,
+                enabled: enabled
+            }, '*');
+
+            // Paint the new state straight away, then re-read the parent once
+            // the first cutout has been generated.
+            setMaskButtonState(enabled);
+            setTimeout(updateMaskButton, 600);
+        }
+
+        /**
+         * Whether this layer is the one currently cutting the mask - read
+         * straight off the parent's MapMaskManager, the same way isComparing()
+         * reads MapFeatureControl.
+         */
+        function isMasking() {
+            if (!currentLayer || window.self === window.top) return false;
+            return window.parent?.maskManager?.getMaskSourceLayerId?.() === currentLayer.id;
+        }
+
+        function setMaskButtonState(active) {
+            const $btn = $('#mask-layer-btn').toggleClass('masking', active);
+            $btn.find('span').text(active ? 'Masking' : 'Toggle Mask');
+        }
+
+        function updateMaskButton() {
+            setMaskButtonState(isMasking());
         }
 
         function toggleEditMode() {
@@ -1020,6 +1085,7 @@
 
             updateOpacityUI(layer.opacity);
             updateCompareButton();
+            updateMaskButton();
 
             // Setup click handler for layer ID badge to copy shareable link
             $('#layer-id-display').off('click').on('click', function() {

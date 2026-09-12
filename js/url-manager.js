@@ -564,6 +564,7 @@ export class URLManager {
         let selectedParam = null;
         let markersParam = null;
         let compareParam = null;
+        let maskParam = null;
 
         // Handle layers parameter
         if (options.updateLayers === true) {
@@ -805,6 +806,21 @@ export class URLManager {
             }
         }
 
+        // Handle mask parameter (layer whose polygons cut the `mask` layer)
+        if (options.mask !== undefined) {
+            const currentMaskParam = urlParams.get('mask');
+            if (options.mask) {
+                maskParam = options.mask;
+                if (currentMaskParam !== maskParam) {
+                    hasChanges = true;
+                }
+            } else {
+                if (currentMaskParam !== null) {
+                    hasChanges = true;
+                }
+            }
+        }
+
         // The `selected=<layerId>:<featureId>` parameter is never written anymore —
         // every selection has a corresponding marker (see MapMarkerManager._handleSelection),
         // and a marker's location is enough to recover the same features by re-querying
@@ -856,6 +872,7 @@ export class URLManager {
             otherParams.delete('selected');
             otherParams.delete('markers');
             otherParams.delete('compare');
+            otherParams.delete('mask');
 
             // Add other parameters first (these will be URL-encoded by URLSearchParams)
             const otherParamsString = otherParams.toString();
@@ -982,6 +999,12 @@ export class URLManager {
             const currentCompare = compareParam || (options.compare === undefined ? urlParams.get('compare') : null);
             if (currentCompare) {
                 params.push('compare=' + encodeURIComponent(currentCompare));
+            }
+
+            // Add mask parameter (either new or preserved from current URL)
+            const currentMask = maskParam || (options.mask === undefined ? urlParams.get('mask') : null);
+            if (currentMask) {
+                params.push('mask=' + encodeURIComponent(currentMask));
             }
 
             // Build the final pretty URL
@@ -1128,6 +1151,7 @@ export class URLManager {
         const selectedParam = urlParams.get('selected');
         const markersParam = urlParams.get('markers');
         const compareParam = urlParams.get('compare');
+        const maskParam = urlParams.get('mask');
         const hasLocationClick = urlParams.has('selected') && selectedParam === '';
         const zoomToParam = urlParams.get('zoomTo');
 
@@ -1157,7 +1181,7 @@ export class URLManager {
             console.warn('[URL API] Unsupported parameters ignored:', unsupportedParams);
         }
 
-        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !hasLocationClick && !zoomToParam) {
+        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !maskParam && !hasLocationClick && !zoomToParam) {
             return false;
         }
 
@@ -1332,6 +1356,12 @@ export class URLManager {
                 this.applyCompareFromURL(compareParam);
             }
 
+            // Handle mask parameter - mask the map to the given layer's polygons
+            if (maskParam) {
+                applied = true;
+                this.applyMaskFromURL(maskParam);
+            }
+
             // Handle zoomTo parameter - zoom to newly added layer
             const zoomToParam = urlParams.get('zoomTo');
             if (zoomToParam && this.mapLayerControl) {
@@ -1403,6 +1433,33 @@ export class URLManager {
         }
 
         setTimeout(() => this.applyCompareFromURL(layerId, attempt + 1), 300);
+    }
+
+    /**
+     * Mask the map to a layer's polygons (`?mask=<layer-id>`). Waits for the
+     * mask manager and for the target layer's sublayers to be on the map, the
+     * same way applyCompareFromURL does - the cutout is built by querying
+     * those sublayers' sources, so there is nothing to generate before then.
+     */
+    applyMaskFromURL(layerId, attempt = 0) {
+        const maxAttempts = 20; // ~6s at 300ms intervals
+
+        const layerOnMap = () => {
+            const style = this.map && this.map.getStyle && this.map.getStyle();
+            return !!(style && style.layers && style.layers.some(l => l.metadata && l.metadata.groupId === layerId));
+        };
+
+        if (window.maskManager && layerOnMap()) {
+            window.maskManager.setMask(layerId);
+            return;
+        }
+
+        if (attempt >= maxAttempts) {
+            console.warn('[URL API] mask layer not available, giving up:', layerId);
+            return;
+        }
+
+        setTimeout(() => this.applyMaskFromURL(layerId, attempt + 1), 300);
     }
 
     async applySelectionsFromURL(selectedParam) {
@@ -1944,5 +2001,12 @@ export class URLManager {
      */
     updateCompareParam(layerId) {
         this.updateURL({ compare: layerId || null, updateLayers: false });
+    }
+
+    /**
+     * Update mask parameter in URL (pass null/'' to remove)
+     */
+    updateMaskParam(layerId) {
+        this.updateURL({ mask: layerId || null, updateLayers: false });
     }
 }

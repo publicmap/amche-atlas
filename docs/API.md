@@ -182,6 +182,31 @@ The layer must also be loaded (via `?layers=` or the atlas config) for the compa
 ?layers=goa-plots,goa-satellite&compare=goa-satellite
 ```
 
+### `mask`
+
+Mask the map to one layer's polygons: everything **outside** them is covered by the atlas's `mask` layer, so the target area reads as a cutout of the surrounding map. Only one layer can be used as a mask at a time.
+
+**Format:** `?mask=<layer-id>`
+
+**Example:**
+```
+?layers=goa-village,mapbox-satellite&mask=goa-village
+```
+
+The cutout is generated at runtime by `js/map-mask-manager.js` and written into the `mask` layer's GeoJSON — it is never read from a file:
+
+- Polygons come from `querySourceFeatures` on the target layer's style sublayers, so only geometry present in the **currently loaded tiles** is cut out, and each sublayer's live Mapbox filter (including the quick property filter set from a feature's inspector row) is applied.
+- If any feature of that layer is **selected**, only the selection is cut out.
+- The union of those polygons is subtracted from a world-extent polygon with [turf](https://turfjs.org/) (`union` then `difference`).
+- A [`clip` layer](https://docs.mapbox.com/mapbox-gl-js/example/clip-layer/) (`mask-clip`) is added over the same geometry and kept at the top of the style, so basemap labels, POIs and 3D models inside the masked area are **erased** rather than drawn on top of the mask fill. A clip layer only affects layers below it, hence the placement. Narrow it with `clipLayerTypes` on the `mask` layer's config (an array of `"symbol"` / `"model"`, default both), or switch it off with `"clipLayerTypes": false`.
+
+**Notes:**
+- For vector tile layers the loaded geometry changes as you pan and zoom, so the mask is **rebuilt on every camera change** (driven by the map's `idle` event, debounced, and skipped when the collected geometry is unchanged). Expect the cutout to sharpen as more detailed tiles arrive.
+- The layer must be loaded (via `?layers=` or the atlas config) for the mask to appear; `?mask=` waits for it, then gives up after ~6s.
+- The atlas must define a layer with the id `mask` (`index.atlas.json` does, and it is injected into any atlas that doesn't — see `SYSTEM_LAYERS` in `js/map-init.js`). Style the cutout by styling that layer.
+- When no polygons are loaded for the target layer, nothing is masked rather than everything — a full-world mask would just blank the map.
+- Toggle it from the UI with **Toggle Mask** in a layer's info panel, or switch it off from the mask cell that replaces the layer's thumbnail in the layer-stack strip.
+
 ### `terrain`
 
 Control 3D terrain visualization and exaggeration level.
@@ -1188,6 +1213,7 @@ All other parameters (`terrain`, `geolocate`, `q`, `selected`, etc.) are applied
 | `js/map-search-control.js` | Calls `window.urlManager.updateSearchParam()` when the search query changes. |
 | `js/map-export-control.js` | Calls `window.urlManager.updateExportParam()` when export settings change. |
 | `js/map-feature-control-iframe.js` | Calls `window.urlManager.updateURL({ updateSelections: true, updateLayers: true })` after feature selections change. Calls `window.urlManager.updateCompareParam()` when swipe-comparison is toggled. Contains the map click handler that `applyLocationClickFromURL()` fires into. |
+| `js/map-mask-manager.js` | Owns `?mask=` (see [`mask`](#mask)). Builds the world-minus-polygons cutout for the atlas's `mask` layer from `querySourceFeatures` on the target layer, rebuilding it on every map `idle` (camera moves change which tiles are loaded), and calls `window.urlManager.updateMaskParam()` when the masked layer changes. Instantiated as `window.maskManager` in `map-init.js`. |
 | `js/map-layer-controls.js` | Calls `window.urlManager.onLayersChanged()` when layer visibility or opacity changes. |
 | `js/dynamic-layer-shorthand.js` | Parses and expands the `type:id` dynamic layer shortcuts (see [Dynamic layer shortcuts](#dynamic-layer-shortcuts)), dispatching via `layer-source-resolver.js`'s `DYNAMIC_SHORTHAND_PROVIDERS` table. `parseDynamicLayerShorthandString()` is called from `map-utils.js` and `url-manager.js` while splitting `?layers=`; `isDynamicLayerShorthand()`/`expandDynamicLayerShorthand()` are called from `map-init.js`'s per-layer loop in `loadConfiguration()`. |
 | `js/layer-source-resolver.js` | Single place that detects a pasted URL's source type (`detectLayerSourceType()`) and resolves it into a layer config (`resolveLayerSource()`) — used by both `map-creator.js`'s "Add Layer" URL box and `dynamic-layer-shorthand.js`'s shortcut dispatcher. Wraps the per-service API modules below plus WMS/GeoPackage/Shapefile/GeoJSONL/CSV/indianopenmaps/Mapbox-tileset/tile-template handling. A handful of formats (a multi-layer atlas JSON, a Google Sheet with several tabs) return `{status:'needs-input', kind, ...}` instead of a config — the caller's own picker UI re-resolves with the pick supplied via `urlOptions`. |
@@ -1213,7 +1239,7 @@ index.html loads
   → map-init.js loadConfiguration(): reads atlas + layers to build config object
   → map-init.js initializeMap(): creates Mapbox map, initializes controls
   → layersInitialized event fires
-  → url-manager.js applyURLParameters(): applies terrain, geolocate, q, selected, compare, zoomTo
+  → url-manager.js applyURLParameters(): applies terrain, geolocate, q, selected, compare, mask, zoomTo
 ```
 
 The `layersInitialized` event is the handoff point between Phase 1 and Phase 2.

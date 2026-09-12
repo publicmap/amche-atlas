@@ -4,7 +4,7 @@
  * Owns MapMarkerManager (the on-map attribute badges), the map's click/hover
  * pipeline, swipe-compare mode, and the selection APIs the shortcut menu,
  * search and URL restore drive. Also bridges a handful of postMessage types
- * (open-layer-info, zoom-to-layer, remove-layer, toggle-compare,
+ * (open-layer-info, zoom-to-layer, remove-layer, toggle-compare, toggle-mask,
  * reorder-layers, update-layer-opacity) sent by layer-stack-strip.js and
  * map-information.html.
  */
@@ -148,11 +148,27 @@ export class MapFeatureControl {
      * map-information.html and the layer-info modal all post into this window).
      */
     _setupMessageListener() {
+        // MapMaskManager fires this whenever the masked layer changes (from the
+        // URL, the layer-stack strip, or map-information.html itself) - mirror it
+        // into the layer-info iframe so its Toggle Mask button repaints, the same
+        // way _enableCompare posts 'compare-enabled'.
+        window.addEventListener('mask-changed', (event) => {
+            this._iframe?.contentWindow?.postMessage({
+                type: 'mask-changed',
+                layerId: event.detail?.layerId || null
+            }, '*');
+        });
+
         window.addEventListener('message', async (event) => {
             if (event.data.type === 'update-layer-opacity') {
                 this._updateLayerOpacity(event.data.layerId, event.data.opacity);
             } else if (event.data.type === 'toggle-compare') {
                 this._toggleCompare(event.data.layerId, event.data.enabled);
+            } else if (event.data.type === 'toggle-mask') {
+                // Masking is owned by MapMaskManager (js/map-mask-manager.js);
+                // this control only bridges the message, the way it does for
+                // compare above.
+                await window.maskManager?.toggleMask(event.data.layerId, event.data.enabled);
             } else if (event.data.type === 'zoom-to-layer') {
                 this._zoomToLayer(event.data.layerId);
             } else if (event.data.type === 'remove-layer') {

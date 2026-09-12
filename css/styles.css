@@ -476,6 +476,23 @@
     font-size: 12px;
 }
 
+/* The layer cutting the mask steps out of the column the same way the compared
+   one does - .layer-stack-masking is applied alongside .layer-stack-comparing
+   so the displacement rules above are shared - only the cell in the vacated
+   slot differs. */
+.layer-stack-mask-cell {
+    background: #6d28d9;
+    color: #fff;
+}
+
+.layer-stack-mask-cell:hover {
+    background: #7c3aed;
+}
+
+.layer-stack-mask-cell sl-icon {
+    font-size: 16px;
+}
+
 /* Drag to reorder. The drop indicator is a pseudo-element rather than a
    border: the cells are flush, so a border on the row would shift the whole
    column by 2px mid-drag. */
