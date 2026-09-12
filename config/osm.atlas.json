@@ -891,10 +891,18 @@
       "style": {
         "line-opacity": 0.2,
         "line-width": 2,
+        "ref/text-field": [
+          "get",
+          "ref"
+        ],
+        "ref/text-halo-color": "white",
+        "ref/text-halo-width": 2,
+        "ref/text-size": 10,
         "text-field": [
           "get",
           "name"
-        ]
+        ],
+        "symbol-placement": "line"
       },
       "inspect": {
         "id": "name",

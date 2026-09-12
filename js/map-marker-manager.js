@@ -388,6 +388,42 @@ export class MapMarkerManager {
         this._setMarkerPanelOffset(markerData, x, offset.y, { anchor: next });
     }
 
+    /**
+     * Toggles whether a marker's panel stays open regardless of focus/hover
+     * (see the `pinned` clause in _syncMarkerContent's `show`), and persists
+     * that choice in the marker registry alongside its offset so a shared
+     * link reopens it the same way (marker-registry.js's `@pin` token).
+     *
+     * Pinning also counts as naming a marker on purpose, the same as saving
+     * its id (see the header's save action) - a pinned marker is plainly one
+     * the user meant to keep, so it should survive the next click elsewhere
+     * (_clearUnsavedMarkers) rather than being replaced out from under its
+     * own open panel. Unpinning doesn't reverse that, same as moving a saved
+     * marker doesn't unsave it.
+     */
+    _toggleMarkerPinned(markerId) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData) return;
+
+        markerData.pinned = !markerData.pinned;
+        if (markerData.pinned) markerData.saved = true;
+
+        const entry = markerRegistry.get(markerData.urlId);
+        if (entry) markerRegistry.set(markerData.urlId, { ...entry, pinned: markerData.pinned });
+
+        const el = markerData.marker.getElement();
+        const pinBtn = el?.querySelector('.marker-id-pin');
+        const icon = pinBtn?.querySelector('sl-icon');
+        if (pinBtn) pinBtn.title = markerData.pinned ? 'Unpin (auto-collapses when unfocused)' : 'Pin open (stays open when unfocused)';
+        if (icon) {
+            icon.setAttribute('name', markerData.pinned ? 'pin-angle-fill' : 'pin-angle');
+            icon.style.color = markerData.pinned ? '#facc15' : '#9ca3af';
+        }
+
+        if (el) this._syncMarkerContent(el, markerId);
+        window.urlManager?.updateURL({ updateLayers: true });
+    }
+
     /** Puts a restored panel back where the link left it. */
     _applyStoredPanelOffset(markerId) {
         const markerData = this._markers.get(markerId);
@@ -1128,8 +1164,12 @@ export class MapMarkerManager {
      * badge's very first render only: false shows MARKER_ID_PLACEHOLDER instead
      * of the raw auto-numbered id, inviting the tap that names it. addMarker
      * passes the real flag for a freshly dropped marker.
+     *
+     * `pinned` governs the pin toggle beside the move handle - see
+     * _toggleMarkerPinned and the `pinned` clause in _syncMarkerContent's
+     * `show`, which is what a pin actually holds open.
      */
-    _buildMarkerMenuHeaderHTML(urlId, saved = true) {
+    _buildMarkerMenuHeaderHTML(urlId, saved = true, pinned = false) {
         const labelStyle = `
             box-sizing: content-box;
             max-width: ${MARKER_ID_MAX_WIDTH}px;
@@ -1154,6 +1194,11 @@ export class MapMarkerManager {
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
                            background: transparent; border: none; border-radius: 50%; cursor: move; flex-shrink: 0;">
                     <sl-icon name="arrows-move" style="font-size: 14px; color: #9ca3af; pointer-events: none;"></sl-icon>
+                </button>
+                <button type="button" class="marker-id-action marker-id-pin" title="${pinned ? 'Unpin (auto-collapses when unfocused)' : 'Pin open (stays open when unfocused)'}"
+                    style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
+                           background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
+                    <sl-icon name="${pinned ? 'pin-angle-fill' : 'pin-angle'}" style="font-size: 14px; color: ${pinned ? '#facc15' : '#9ca3af'}; pointer-events: none;"></sl-icon>
                 </button>
                 <button type="button" class="marker-id-badge" title="${this._escapeAttr(badgeLabel)}"
                     style="${labelStyle} display: flex; flex-direction: column; align-items: flex-start; white-space: normal; overflow-wrap: break-word; text-align: left; cursor: pointer;
@@ -2738,6 +2783,15 @@ export class MapMarkerManager {
         shortcutsBtn.addEventListener('click', openShortcuts);
         if (this._isTouch) shortcutsBtn.addEventListener('touchend', openShortcuts);
 
+        const pinBtn = group.querySelector('.marker-id-pin');
+        const togglePin = (e) => {
+            e.stopPropagation();
+            if (e.type === 'touchend') e.preventDefault();
+            this._toggleMarkerPinned(markerId);
+        };
+        pinBtn.addEventListener('click', togglePin);
+        if (this._isTouch) pinBtn.addEventListener('touchend', togglePin);
+
         // Same reasoning as the comment textarea: without this, using the
         // field at all would drag the marker balloon out from under the cursor.
         ['mousedown', 'click'].forEach(type => input.addEventListener(type, (e) => e.stopPropagation()));
@@ -2887,21 +2941,23 @@ export class MapMarkerManager {
     _syncIdActions(el) {
         const shortcuts = el.querySelector('.marker-id-shortcuts');
         const moveHandle = el.querySelector('.marker-id-move');
+        const pinHandle = el.querySelector('.marker-id-pin');
         // Pushes the trailing action buttons to the end of the header - kept
         // hidden whenever none of them are, so a collapsed chip (just the id
         // badge) doesn't pick up an extra gap on its trailing edge from a
         // flex item with nothing after it (see _buildMarkerMenuHeaderHTML's
         // `.marker-menu-header-spacer`).
         const spacer = el.querySelector('.marker-menu-header-spacer');
-        if (!shortcuts && !moveHandle && !spacer) return;
+        if (!shortcuts && !moveHandle && !pinHandle && !spacer) return;
 
         // Editing already offers its own save/delete actions right alongside
-        // it (see _buildMarkerMenuHeaderHTML) - the general options/move
+        // it (see _buildMarkerMenuHeaderHTML) - the general options/move/pin
         // buttons would just be clutter next to those, for actions unrelated
         // to naming the marker.
         if (el.dataset.idEditing === '1') {
             if (shortcuts) shortcuts.style.display = 'none';
             if (moveHandle) moveHandle.style.display = 'none';
+            if (pinHandle) pinHandle.style.display = 'none';
             if (spacer) spacer.style.display = 'flex';
             return;
         }
@@ -2912,7 +2968,10 @@ export class MapMarkerManager {
         // clicking away closes a marker, and add-mode keeps the ones you want.
         const expanded = focused || el.dataset.markerHover === '1';
         if (shortcuts) shortcuts.style.display = expanded ? 'flex' : 'none';
+        // Same as the move handle: pinning is something you do to the marker
+        // you're working with, not one you're just passing over.
         if (moveHandle) moveHandle.style.display = focused ? 'flex' : 'none';
+        if (pinHandle) pinHandle.style.display = focused ? 'flex' : 'none';
         if (spacer) spacer.style.display = expanded ? 'flex' : 'none';
     }
 
@@ -2957,7 +3016,13 @@ export class MapMarkerManager {
     _syncMarkerContent(el, markerId) {
         const selected = el.classList.contains('marker-selected');
         const hovered = el.dataset.markerHover === '1';
-        const show = selected || hovered;
+        // A pinned marker holds its menu open regardless of focus/hover - the
+        // whole point of the pin (see _toggleMarkerPinned) - and map-export.html
+        // exports whatever is live in the DOM (see _prepareMarkerCloneForExport
+        // in map-export-control.js), so a pinned marker's feature details are
+        // exported exactly as they render here.
+        const pinned = !!this._markers.get(markerId)?.pinned;
+        const show = selected || hovered || pinned;
 
         if (!show && markerId && el.dataset.idEditing !== '1' && !this._markers.get(markerId)?.saved) {
             this.removeMarker(markerId);
@@ -4064,6 +4129,15 @@ export class MapMarkerManager {
         const urlId = this._resolveNewUrlId(requestedUrlId ?? adopted?.urlId);
         // Moving a saved marker doesn't unsave it.
         const saved = savedOnCreate || !!adopted?.saved;
+        // Reclaiming a placeholder entry: keep the name/description the shared
+        // link carried rather than blanking them (see marker-registry.js's
+        // parseMarkersParam). A dragged marker's entry is already gone by now, so
+        // its details come from what it handed over instead.
+        const reclaimed = markerRegistry.get(urlId)
+            || (adopted?.urlId === urlId ? adopted : null);
+        // A pinned marker stays pinned across a rebuild too - see
+        // _toggleMarkerPinned.
+        const pinned = !!(reclaimed?.pinned || adopted?.pinned);
 
         // The corner the tail meets is square, the other three rounded, so the
         // pointer reads as an extension of the panel rather than a shape stuck
@@ -4078,7 +4152,7 @@ export class MapMarkerManager {
         el.innerHTML = `
             ${this._buildMarkerLeaderHTML()}
             <div class="marker-content" style="position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: ${MARKER_CORNER_RADIUS}px; box-shadow: ${MARKER_PANEL_SHADOW}; pointer-events: auto;">
-                ${this._buildMarkerMenuHeaderHTML(urlId, saved)}
+                ${this._buildMarkerMenuHeaderHTML(urlId, saved, pinned)}
                 <div class="marker-menu-body" style="display: none; flex-direction: column; align-items: stretch;
                            max-height: ${MARKER_BODY_MAX_HEIGHT}; overflow-y: auto; overflow-x: hidden;">
                     ${this._buildCommentSectionHTML(noteEntry)}
@@ -4180,21 +4254,20 @@ export class MapMarkerManager {
             // action), or carried in from a link, which named it already. A
             // saved marker is one the user meant to keep, so dropping a new
             // marker leaves it alone - only an explicit clear removes it.
-            saved
+            saved,
+            // Whether this marker's panel stays open regardless of focus/hover -
+            // see _toggleMarkerPinned and the `pinned` clause in
+            // _syncMarkerContent's `show`.
+            pinned
         };
-        // Reclaiming a placeholder entry: keep the name/description the shared
-        // link carried rather than blanking them (see marker-registry.js's
-        // parseMarkersParam). A dragged marker's entry is already gone by now, so
-        // its details come from what it handed over instead.
-        const reclaimed = markerRegistry.get(urlId)
-            || (adopted?.urlId === urlId ? adopted : null);
         markerRegistry.set(urlId, {
             id: urlId,
             lng: lngLat.lng,
             lat: lngLat.lat,
             name: reclaimed?.name || '',
             description: reclaimed?.description || '',
-            ...(reclaimed?.offset ? { offset: reclaimed.offset } : {})
+            ...(reclaimed?.offset ? { offset: reclaimed.offset } : {}),
+            ...(pinned ? { pinned: true } : {})
         });
 
         // Only the tail drags the actual location (mapbox's own marker drag, see

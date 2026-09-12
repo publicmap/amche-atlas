@@ -336,7 +336,7 @@ Restore export (print/image) settings serialized as a JSON object. Set automatic
 
 Compact encoding of the selection markers on the map — each marker its own `<id>(...)` call, comma-separated, since every marker now has a short id (see below). Set automatically when you select features, drop a marker, or share the URL.
 
-**Format:** `?markers=<id>(<lng>,<lat>[,<name>[,<description>]][,@<dx>x<dy>]),<next marker>...`
+**Format:** `?markers=<id>(<lng>,<lat>[,<name>[,<description>]][,@<dx>x<dy>][,@pin]),<next marker>...`
 
 **Example:**
 ```
@@ -345,6 +345,7 @@ Compact encoding of the selection markers on the map — each marker its own `<i
 ?markers=home(73.8187,15.54845,Home,Where%20I%20live)
 ?markers=Assagao_Survey_17_1_BARDEZ(73.77589,15.59916)
 ?markers=1(73.8187,15.54845,@140x-80)
+?markers=1(73.8187,15.54845,@pin)
 ```
 
 **IDs:** any character except whitespace and the four the shorthand grammar itself needs — `(`, `)`, `,` and `:`. Everything else is allowed, non-ASCII included: the id is percent-encoded when written into the URL and decoded when read back, so `Survey_17/1`, `R&D`, `100%` and `café` all survive being shared (`café(73.8,15.5)` travels as `caf%C3%A9(73.8,15.5)`). The four exceptions can't survive it — the reader turns `%28`/`%2C` back into `(`/`,` before the call parser sees them, so such an id would split its own call apart — and whitespace is converted to `_` rather than encoded, since `%20` is noise in a shared link and the underscore reads back as a space wherever the id is shown.
@@ -352,6 +353,8 @@ Compact encoding of the selection markers on the map — each marker its own `<i
 A marker dropped by clicking the map is numbered serially ("1", "2", ...); one created by **choosing a search result** is named after that result's label instead, with every run of characters outside `[A-Za-z0-9_]` collapsed to a single `_` and the whole thing capped at 64 characters — so `Assagao — Survey 17/1 — BARDEZ` becomes `Assagao_Survey_17_1_BARDEZ(...)`. Generated ids stay this strict on purpose: they're read off a shared link by someone who never chose them, so `Assagao_Survey_17_1_BARDEZ` beats the punctuation of `Assagao_—_Survey_17/1_—_BARDEZ`. Choosing the same result twice suffixes the second `_2`. Either way the id can be renamed to anything unique via the "ID" field in the marker's own popup (`js/map-marker-manager.js`) — see the shared `js/shorthand-id-utils.js` library this and the [`route`](#dynamic-layer-shortcuts) waypoint references both validate ids against. `name`/`description` are optional and percent-encoded (`%20` for a space). Like an id, neither can carry a literal `,`, `(` or `)`: the reader percent-decodes the whole param before the call parser runs, so the escape is restored to the raw character and splits the call — in practice this only constrains hand-written links, since every marker the app registers carries an empty name/description.
 
 **Panel offset:** a marker's panel opens just below-right of its point, joined to it by a leader line. Dragging the panel by its header moves it clear of whatever it covers, and that position is kept as `@<dx>x<dy>` — its pixel offset from the point at the shared view — so a link restores the arrangement, not just the locations. It is written only once a panel has actually been dragged. The two numbers are joined with `x` rather than a comma so the pair stays a single argument, and the `@` tells it apart from a name; `name`/`description` keep their own positions whether or not an offset follows. The offset is pixels from the marker, not a second map location, so the panel holds the same place beside its marker at every zoom.
+
+**Pinned:** the pin toggle beside a selected marker's move handle keeps its panel open — feature details and all — regardless of focus or hover, instead of collapsing to a bare id chip the moment you click away from it. That state is written as the literal token `@pin`, present only once a marker has been pinned. Pinning also saves the marker's id, the same as naming it, so it survives being replaced the next time you click elsewhere on the map. A pinned marker's expanded panel is also what map export (`map-export.html`) captures: the export overlay clones each marker exactly as it currently renders on screen, so a pinned marker's feature details export just as shown, with no extra step needed to expand them first.
 
 **Restoration behavior:** on load, once a marker's layers are ready, its location is re-queried exactly as if the user clicked there — this recovers the same selected features without the URL needing to spell out which `layerId`/`featureId` pairs they were (that would just duplicate what the location already implies, and is what `?selected` used to carry — see above).
 

@@ -24,9 +24,15 @@
  * joins its two numbers with `x` rather than a comma, so it stays one argument
  * and can be told apart from a name wherever it lands - name and description
  * keep their own positions whether or not an offset follows them.
+ *
+ * `@pin` marks a marker whose panel is pinned open - present only when pinned
+ * (see MapMarkerManager._toggleMarkerPinned). Same `@` sigil as the offset
+ * above for the same reason: encodeURIComponent always escapes a literal `@`
+ * in a name/description, so this token can never collide with one.
  */
 
 const OFFSET_ARG_RE = /^@(-?\d+)x(-?\d+)$/;
+const PINNED_ARG = '@pin';
 
 // Dropped from what we write, still accepted from what we read. An id may
 // itself contain a `-`, so an id that literally starts with `marker-` reads
@@ -67,7 +73,7 @@ export function allEntries() {
     return Array.from(registry.values());
 }
 
-/** Parses a `markers=` value into `[{id, lng, lat, name, description[, offset]}]`. Malformed calls (invalid id, non-numeric coordinates) are dropped. */
+/** Parses a `markers=` value into `[{id, lng, lat, name, description[, offset][, pinned]}]`. Malformed calls (invalid id, non-numeric coordinates) are dropped. */
 export function parseMarkersParam(markersParam) {
     if (!markersParam) return [];
 
@@ -80,13 +86,20 @@ export function parseMarkersParam(markersParam) {
             if (!isValidId(id) || !Number.isFinite(lng) || !Number.isFinite(lat)) return null;
 
             // Pulled out first, so whatever is left keeps its name/description
-            // positions regardless of where the offset was written.
+            // positions regardless of where the offset/pinned flag was written.
             let offset = null;
+            let pinned = false;
             const rest = args.slice(2).filter(arg => {
                 const match = OFFSET_ARG_RE.exec(arg);
-                if (!match) return true;
-                offset = { x: parseInt(match[1], 10), y: parseInt(match[2], 10) };
-                return false;
+                if (match) {
+                    offset = { x: parseInt(match[1], 10), y: parseInt(match[2], 10) };
+                    return false;
+                }
+                if (arg === PINNED_ARG) {
+                    pinned = true;
+                    return false;
+                }
+                return true;
             });
 
             return {
@@ -95,7 +108,8 @@ export function parseMarkersParam(markersParam) {
                 lat,
                 name: rest[0] ? decodeURIComponent(rest[0]) : '',
                 description: rest[1] ? decodeURIComponent(rest[1]) : '',
-                ...(offset ? { offset } : {})
+                ...(offset ? { offset } : {}),
+                ...(pinned ? { pinned: true } : {})
             };
         })
         .filter(Boolean);
@@ -105,7 +119,7 @@ export function parseMarkersParam(markersParam) {
 export function buildMarkersParam(entries) {
     const round = (n) => parseFloat(Number(n).toFixed(6));
 
-    return (entries || []).map(({ id, lng, lat, name, description, offset }) => {
+    return (entries || []).map(({ id, lng, lat, name, description, offset, pinned }) => {
         const parts = [round(lng), round(lat)];
         if (description) parts.push(encodeURIComponent(name || ''), encodeURIComponent(description));
         else if (name) parts.push(encodeURIComponent(name));
@@ -115,6 +129,8 @@ export function buildMarkersParam(entries) {
         const dx = Math.round(offset?.x || 0);
         const dy = Math.round(offset?.y || 0);
         if (dx || dy) parts.push(`@${dx}x${dy}`);
+
+        if (pinned) parts.push(PINNED_ARG);
 
         return `${encodeId(id)}(${parts.join(',')})`;
     }).join(',');

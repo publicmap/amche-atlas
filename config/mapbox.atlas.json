@@ -542,7 +542,7 @@
       },
       "inspect": {
         "id": "ele",
-        "title": "Elevation",
+        "title": "Elevation (m)",
         "label": "ele"
       }
     },

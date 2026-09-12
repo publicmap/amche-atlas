@@ -28,7 +28,7 @@ export class MapFeatureControl {
         this._globalHandlersAdded = false;
         this._isMapDragging = false;
         this._autoSelectEnabled = true;
-        this._hoverEnabled = true;
+        this._hoverEnabled = false;
     }
 
     /**

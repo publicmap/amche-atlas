@@ -302,9 +302,9 @@ export class ShortcutMenuBase {
                 // Off leaves the map inert under the pointer: no hover feature
                 // state, no hover popup (see MapFeatureControl.setHoverEnabled).
                 checkable: true,
-                checked: () => window.featureControl?.isHoverEnabled?.() ?? true,
+                checked: () => window.featureControl?.isHoverEnabled?.() ?? false,
                 action: () => {
-                    const enabled = !(window.featureControl?.isHoverEnabled?.() ?? true);
+                    const enabled = !(window.featureControl?.isHoverEnabled?.() ?? false);
                     window.featureControl?.setHoverEnabled(enabled);
                 }
             },

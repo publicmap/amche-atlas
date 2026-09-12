@@ -2030,6 +2030,29 @@ export class MapExportControl {
         clone.querySelectorAll('.layer-actions-dropdown, .more-layers-shortcut-btn, .marker-comment-save-btn, .pending-layer-badge')
             .forEach(node => node.remove());
 
+        // html2canvas renders an <svg> by serializing it (via XMLSerializer)
+        // into a standalone SVG document and rasterizing that separately (see
+        // its SVGElementContainer) — and that serialization copies the
+        // element's own computed `position`/`inset` onto the root of that
+        // standalone document. The marker leader (_buildMarkerLeaderHTML)
+        // sits `position: absolute; top: -1200px; left: -1200px` relative to
+        // its marker, so those values get applied with no containing block to
+        // resolve against, shifting the whole document's rendered viewport
+        // off its own raster canvas — the tail comes out blank, not just
+        // mispositioned. Moving that offset onto a plain wrapping <div>
+        // instead keeps the <svg> itself unpositioned (a no-op for html2canvas's
+        // serialize step) while the div — an ordinary element, not subject to
+        // this bug — carries the offset as normal.
+        clone.querySelectorAll('.marker-leader').forEach(svg => {
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = `position: absolute; top: ${svg.style.top}; left: ${svg.style.left};`;
+            svg.style.position = 'static';
+            svg.style.top = '';
+            svg.style.left = '';
+            svg.parentNode.insertBefore(wrapper, svg);
+            wrapper.appendChild(svg);
+        });
+
         // cloneNode doesn't carry over a live-edited (unsaved) textarea value —
         // only its original text content — so copy the current value across.
         const liveTextareas = el.querySelectorAll('textarea');
@@ -2066,7 +2089,16 @@ export class MapExportControl {
         // vertical overflow and giving the line real breathing room fixes it
         // without disturbing the horizontal ellipsis truncation these same
         // labels rely on.
+        //
+        // Excludes the summary chip's own label/field (marker-summary-chip__value/
+        // __field, see _buildMarkerSummaryHTML): those sit in a flex *row*
+        // alongside fixed-size siblings (the layer icon, the chevron), so
+        // doubling their line-height pads the line box without moving those
+        // siblings - which pushes the chip's glyphs down inside it, reading as
+        // a blank line above the label instead of fixing anything for a span
+        // that was never clipped in the first place.
         clone.querySelectorAll('[style*="text-overflow: ellipsis"], [style*="text-overflow:ellipsis"]').forEach(node => {
+            if (node.classList.contains('marker-summary-chip__value') || node.classList.contains('marker-summary-chip__field')) return;
             node.style.overflowY = 'visible';
             node.style.lineHeight = '2';
         });
