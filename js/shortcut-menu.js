@@ -47,7 +47,23 @@ const LONG_PRESS_MOVE_THRESHOLD = 10;
 // pressed point itself rather than whatever is selected. "Zoom To Selected"
 // drops out on its own while there is nothing selected to frame (see
 // ShortcutMenuBase._buildSelectionMenuItems).
-const ITEM_IDS = ['edit-marker-label', 'remove-marker', 'zoom-to-location', 'zoom-to-selected', 'route-menu'];
+//
+// The route rows are likewise flat rather than behind a "Route" flyout:
+// "Route From" starts a new route at the pressed point, "Route To" routes to
+// it from the pending origin (or the default GPS/map-centre one), and
+// "Routing Options" picks the travel profile they're drawn with.
+// "Remove from Route" drops out unless the pressed point is a stop on one
+// (see ShortcutMenuBase._buildRemoveFromRouteItems).
+const ITEM_IDS = [
+    'edit-marker-label',
+    'remove-marker',
+    'zoom-to-location',
+    'zoom-to-selected',
+    'route-from-here',
+    'route-to-here',
+    'remove-from-route-menu',
+    'routing-options-menu'
+];
 
 export class ShortcutMenu extends ShortcutMenuBase {
     constructor() {

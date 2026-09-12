@@ -21,6 +21,7 @@ import { routeStore } from './search/route-store.js';
 import { routeBounds } from './search/route-geojson.js';
 import { WaypointPicker } from './waypoint-picker.js';
 import { reverseGeocodeAddress } from './nominatim-search.js';
+import { DIRECTIONS_PROFILES, getDirectionsProfile, getDirectionsProfileInfo, setDirectionsProfile } from './search/directions-profile.js';
 
 // Zoom "Zoom To Location" settles at when the map is further out than this -
 // the same detail level CameraUtils.DEFAULT_FIT_OPTIONS caps its fits at.
@@ -68,8 +69,8 @@ export class ShortcutMenuBase {
         this._map = map;
         this._createMenu();
 
-        // Default origin for "To Here" when nothing was set via "Start from
-        // here" - the same picker, with the same GPS-else-map-center
+        // Default origin for "Route To" when nothing was set via "Route
+        // From" - the same picker, with the same GPS-else-map-center
         // preference, that map-nearby-features-control.js gives Route From, so
         // both menus start a route from the same place. Fed passively off
         // whatever GPS state already exists; this never triggers its own
@@ -117,15 +118,29 @@ export class ShortcutMenuBase {
         this._menu.className = 'shortcut-menu';
         this._menu.style.display = 'none';
 
-        const items = this._getMenuItems();
-
         this._menuButtons = [];
-        this._buildMenuItems(this._menu, items, this._menuButtons, 0);
-        this._items = items;
+        this._items = [];
+        this._renderMenuItems();
         document.body.appendChild(this._menu);
 
         this._submenuLevels = [];
         this._openSubmenuIds = [];
+    }
+
+    /**
+     * (Re)builds the top-level rows from _getMenuItems(). Called again on
+     * every open (see _show) rather than only at mount, so rows whose
+     * presence or label depends on the current state - "Zoom To Selected"
+     * dropping out with nothing selected, "Route To" naming the pending
+     * origin, "Remove from Route" appearing only on a marker some route
+     * claims - are resolved against the point the menu is opening at, the
+     * same way `children` functions already resolve per open.
+     */
+    _renderMenuItems() {
+        this._menu.innerHTML = '';
+        this._menuButtons = [];
+        this._items = this._getMenuItems();
+        this._buildMenuItems(this._menu, this._items, this._menuButtons, 0);
     }
 
     /**
@@ -193,14 +208,34 @@ export class ShortcutMenuBase {
                 label: 'Zoom To Location',
                 action: () => this._zoomToLocation()
             },
+            // The three route rows sit at the top level rather than behind a
+            // "Route" flyout: starting/extending a route from the pressed
+            // point is the common reason to open this menu, so it costs no
+            // extra step. Their labels/presence are resolved per open (see
+            // _renderMenuItems), and the point is read at click time so the
+            // row acts on wherever the menu was opened.
             {
-                id: 'route-menu',
-                icon: 'sign-turn-right',
-                label: 'Route',
-                // Resolved on each open so "From Here"/"To Here" reflect
-                // wherever the menu was opened this time, and the last item
-                // reflects whatever route is currently active.
-                children: () => this._buildRouteMenuItems()
+                id: 'route-from-here',
+                icon: 'record-circle',
+                iconClass: 'shortcut-menu-icon-from',
+                label: 'Route From',
+                action: () => this._handleRouteEndpoint('from', this._getExternalLinkPoint(), 'this location')
+            },
+            {
+                id: 'route-to-here',
+                icon: 'flag',
+                iconClass: 'shortcut-menu-icon-to',
+                // Naming the pending origin here saves the user remembering
+                // what their last "Route From" picked.
+                label: routeStore.pendingOrigin?.label ? `Route To from ${routeStore.pendingOrigin.label}` : 'Route To',
+                action: () => this._handleRouteEndpoint('to', this._getExternalLinkPoint(), 'this location')
+            },
+            ...this._buildRemoveFromRouteItems(),
+            {
+                id: 'routing-options-menu',
+                icon: getDirectionsProfileInfo().icon,
+                label: 'Routing Options',
+                children: () => this._buildRoutingProfileItems()
             },
             {
                 id: 'open-with-menu',
@@ -647,85 +682,82 @@ export class ShortcutMenuBase {
     }
 
     /**
-     * "Route": the point the shortcut menu was opened at as an origin or
-     * destination, plus a third row naming whatever route that point would
-     * currently extend - "New Route" or the matching route's own name, same
-     * as map-nearby-features-control.js's Route picker - which opens that
-     * control for full control (every waypoint category, the profile, past
-     * routes' turn-by-turn detail) rather than duplicating any of it here.
-     * "To Here"/"Start from here" icons are colored the same green/orange as
-     * that control's Route From/Route To headings, so the two menus read as
-     * the same system.
-     *
-     * A fourth "Remove from Route" flyout appears only when the point sits
-     * on a marker that is already a stop on one or more routes, listing each
-     * by name - picking one drops that stop via
+     * "Remove from Route", offered only when the point the menu was opened at
+     * sits on a marker one or more routes actually claim as a stop - each
+     * listed by name. Picking one drops that stop via
      * search/route-store.js's removeMarkerFromRoute, which (unlike closing
      * the marker outright) leaves the marker itself on the map.
+     *
+     * Returned as an array so _getAllMenuItems can spread it: with nothing to
+     * detach there is no row at all.
      */
-    _buildRouteMenuItems() {
+    _buildRemoveFromRouteItems() {
         const point = this._getExternalLinkPoint();
-        const items = [];
-
-        if (point) {
-            // "To Here" leads: routing to the point under the cursor is the
-            // common case, and it works on its own - with no origin picked it
-            // falls back to the same default Route From the nearby-features
-            // control uses. A pending origin is named in the label so the
-            // second press shows what the route will be measured from
-            // rather than leaving the user to remember.
-            const origin = routeStore.pendingOrigin;
-            items.push(
-                {
-                    id: 'route-to-here',
-                    icon: 'flag',
-                    iconClass: 'shortcut-menu-icon-to',
-                    label: origin?.label ? `To Here from ${origin.label}` : 'To Here',
-                    action: () => this._handleRouteEndpoint('to', point, 'this location')
-                },
-                {
-                    id: 'route-from-here',
-                    icon: 'record-circle',
-                    iconClass: 'shortcut-menu-icon-from',
-                    label: 'Start from here',
-                    action: () => this._handleRouteEndpoint('from', point, 'this location')
-                },
-                { divider: true }
-            );
-        }
-
-        const route = this._currentRoute();
-        items.push({
-            id: 'open-route-control',
-            icon: 'sign-turn-right',
-            label: route ? route.name : 'New Route',
-            action: () => window.nearbyFeaturesControl?.toggle()
-        });
-
-        // Only offered when this point sits on an actual marker that some
-        // route(s) actually claim as a stop - not the "New Route" case above,
-        // which is about starting/extending a route from wherever the menu
-        // was opened, not detaching an existing stop from one.
         const markerId = point ? window.featureControl?._markerManager?.findMarkerNear?.(point, 20) : null;
         const linkedRoutes = markerId ? routeStore.routes.filter(r => r.markerIds.includes(markerId)) : [];
-        if (linkedRoutes.length) {
-            items.push(
-                { divider: true },
-                {
-                    id: 'remove-from-route-menu',
-                    icon: 'dash-circle',
-                    label: 'Remove from Route',
-                    children: linkedRoutes.map(r => ({
-                        id: `remove-from-route-${r.id}`,
-                        icon: 'x-circle',
-                        label: r.name || `Route ${r.number}`,
-                        action: () => routeStore.removeMarkerFromRoute(r.id, markerId)
-                    }))
-                }
-            );
+        if (!linkedRoutes.length) return [];
+
+        return [{
+            id: 'remove-from-route-menu',
+            icon: 'dash-circle',
+            label: 'Remove from Route',
+            children: linkedRoutes.map(r => ({
+                id: `remove-from-route-${r.id}`,
+                icon: 'x-circle',
+                label: r.name || `Route ${r.number}`,
+                action: () => routeStore.removeMarkerFromRoute(r.id, markerId)
+            }))
+        }];
+    }
+
+    /**
+     * "Routing Options": the Mapbox routing profile
+     * (https://docs.mapbox.com/api/navigation/directions/#routing-profiles)
+     * every route drawn from this menu - and every "X to Y" search route - is
+     * built with (see search/directions-profile.js). The same picker
+     * map-nearby-features-control.js offers, reading and writing the same
+     * shared setting, so changing it in either place changes both.
+     */
+    _buildRoutingProfileItems() {
+        return DIRECTIONS_PROFILES.map(profile => ({
+            id: `routing-profile-${profile.id}`,
+            icon: profile.icon,
+            label: profile.label,
+            // A radio, not a toggle: the unselected rows say nothing rather
+            // than "OFF", which would read as "walking is turned off".
+            checkable: true,
+            stateOn: 'ON',
+            stateOff: '',
+            checked: () => getDirectionsProfile() === profile.id,
+            action: () => this._chooseRoutingProfile(profile)
+        }));
+    }
+
+    /**
+     * Changing the profile while a route is active re-fetches that route with
+     * the new profile rather than only affecting the next route drawn -
+     * matching map-nearby-features-control.js's own profile picker.
+     */
+    _chooseRoutingProfile(profile) {
+        setDirectionsProfile(profile.id);
+
+        const route = this._currentRoute();
+        if (!route) {
+            window.layerControl?._showToast(`Routes will use ${profile.label}`, 'info');
+            return;
         }
 
-        return items;
+        window.layerControl?._showToast(`Updating ${route.name} to ${profile.label}...`, 'info');
+        routeStore.setRouteProfile(route.id, profile.id)
+            .then(updated => {
+                if (!updated) return;
+                this._fitRoute(updated);
+                window.layerControl?._showToast(`Route ${updated.name} now uses ${profile.label}`, 'info');
+            })
+            .catch(error => {
+                console.error('[ShortcutMenu] Failed to update the route profile:', error);
+                window.layerControl?._showToast('Could not update the route', 'error');
+            });
     }
 
     /**
@@ -742,23 +774,23 @@ export class ShortcutMenuBase {
     }
 
     /**
-     * "Start from here" only records `point` as the pending origin for a later
-     * "To Here" - it doesn't build a route by itself, but it does drop (or
-     * promote the menu's own placeholder into) a real marker there via
+     * "Route From" starts a new route at `point`: it records it as the pending
+     * origin, flagged `startNew` so the "Route To" that consumes it never
+     * continues some other route that happens to end there. No request goes
+     * out yet - a route needs a destination - but it does drop (or promote
+     * the menu's own placeholder into) a real marker there via
      * _ensureMarkerAt, which route-store.js then re-colours and takes over as
      * a route marker, so the origin stays visible - and draggable - on the map
      * while the user goes to pick a destination. Without this, the placeholder
      * marker ShortcutMenu's long-press dropped (see
      * _ensureMarkerAt's `pending` doc) would just get removed the moment this
      * menu closes, since nothing else turned it into something real.
-     * "To Here" consumes
+     * "Route To" consumes
      * that pending origin - or, absent one, the default origin (GPS if
      * already available, else the map center; see _attachMap) - and hands
-     * both ends to route-store.js's routeTo, which decides on its own whether
-     * this continues a route already ending at the origin or starts a new
-     * one. It then leaves `point` as the new pending origin, so further
-     * "Route To" picks keep extending the same route without needing another
-     * "Route From" first.
+     * both ends to route-store.js's routeTo. It then leaves `point` as the new
+     * pending origin, unflagged, so further "Route To" picks keep extending
+     * the same route without needing another "Route From" first.
      */
     async _handleRouteEndpoint(direction, point, fallbackLabel) {
         // Additive: marks whatever's under the point selected (highlighted,
@@ -772,12 +804,12 @@ export class ShortcutMenuBase {
             // hands it to the store to re-colour and take over as the route's
             // origin - so it reads as a route marker, not a plain selection.
             this._ensureMarkerAt(point, { features });
-            routeStore.setPendingOrigin(point, label, { withMarker: true });
-            window.layerControl?._showToast(`Route from ${label} — now pick "To Here" a destination`, 'info');
+            routeStore.setPendingOrigin(point, label, { withMarker: true, startNew: true });
+            window.layerControl?._showToast(`New route from ${label} — now pick "Route To" a destination`, 'info');
             return;
         }
 
-        // "To Here" reuses whatever marker is already sitting on the point
+        // "Route To" reuses whatever marker is already sitting on the point
         // (the menu's own placeholder, most often) rather than leaving it
         // feature-less until route-store.js's _syncMarkers adopts it.
         this._ensureMarkerAt(point, { features });
@@ -789,7 +821,12 @@ export class ShortcutMenuBase {
         }
 
         window.layerControl?._showToast('Finding a route...', 'info');
-        routeStore.routeTo(origin, origin.label, point, label)
+        // An origin picked with "Route From" always starts a fresh route (see
+        // setPendingOrigin's `startNew`); anything else - the default GPS/map
+        // -centre origin, or the destination left pending by the last "Route
+        // To" - falls back to routeTo's own "does this continue a route
+        // already ending here" guess.
+        routeStore.routeTo(origin, origin.label, point, label, { routeId: origin.startNew ? 'new' : undefined })
             .then(route => {
                 if (!route) return;
                 routeStore.setPendingOrigin(point, label);
@@ -931,7 +968,10 @@ export class ShortcutMenuBase {
                 button.querySelector('sl-icon:not(.shortcut-menu-chevron)').setAttribute('name', isChecked ? item.iconChecked : item.icon);
             }
             const stateLabel = button.querySelector('.shortcut-menu-state');
-            if (stateLabel) stateLabel.textContent = isChecked ? 'ON' : 'OFF';
+            // `stateOn`/`stateOff` let a group of mutually exclusive items
+            // (the routing profiles) read as a radio: the chosen one is
+            // marked, the rest say nothing rather than "OFF".
+            if (stateLabel) stateLabel.textContent = isChecked ? (item.stateOn ?? 'ON') : (item.stateOff ?? 'OFF');
         });
     }
 
@@ -942,6 +982,7 @@ export class ShortcutMenuBase {
      * point) just passes that button's own bottom-left corner.
      */
     _show(clientX, clientY) {
+        this._renderMenuItems();
         this._updateCheckedStates();
 
         this._menu.style.display = 'block';

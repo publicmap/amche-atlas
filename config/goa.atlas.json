@@ -2925,67 +2925,6 @@
     },
     {
       "tags": [
-        "basemap"
-      ],
-      "title": "Goa Mask",
-      "description": "Mask for Goa.",
-      "id": "india-district",
-      "style": {
-        "fill-color": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          0,
-          [
-            "case",
-            [
-              "==",
-              [
-                "get",
-                "stname"
-              ],
-              "GOA"
-            ],
-            "rgba(0, 0, 0, 0)",
-            "rgba(255, 255, 255, 1)"
-          ],
-          8,
-          [
-            "case",
-            [
-              "==",
-              [
-                "get",
-                "stname"
-              ],
-              "GOA"
-            ],
-            "rgba(0, 0, 0, 0)",
-            "rgba(255, 255, 255, 1)"
-          ],
-          12,
-          [
-            "case",
-            [
-              "==",
-              [
-                "get",
-                "stname"
-              ],
-              "GOA"
-            ],
-            "rgba(0, 0, 0, 0)",
-            "rgba(255, 255, 255, 0.1)"
-          ]
-        ]
-      }
-    },
-    {
-      "tags": [
         "4.Government Publications"
       ],
       "title": "Forest Type Map of Goa",

@@ -345,9 +345,6 @@
       "initiallyChecked": false
     },
     {
-      "tags": [
-        "basemap"
-      ],
       "title": "Feature Mask",
       "description": "Everything outside the polygons of the layer linked with <code>?mask=&lt;layer-id&gt;</code>. Generated on the fly from the geometry loaded on the map, so it follows the layer's filters and selection and is rebuilt as you pan and zoom.",
       "headerImage": null,

@@ -78,14 +78,20 @@ export class RouteStore {
 
     /**
      * `withMarker` also puts a route-coloured pin on that point - what the
-     * shortcut menu's "Start from here" needs, so the origin looks like part
+     * shortcut menu's "Route From" needs, so the origin looks like part
      * of the route it is about to start rather than an ordinary selection, and
      * is draggable before any route exists. Once a destination is picked the
      * same marker is adopted as the route's first waypoint (see _syncMarkers),
      * so the pin the user placed is the pin the route keeps.
+     *
+     * `startNew` marks the origin as the start of a deliberately new route:
+     * the "Route To" that consumes it passes `routeId: 'new'` to routeTo,
+     * skipping the "does this point end an existing route" guess. Set by the
+     * shortcut menu's "Route From" (shortcut-menu-base.js), which is an
+     * explicit "start a route here" rather than a continuation.
      */
-    setPendingOrigin(point, label, { withMarker = false } = {}) {
-        this._pendingOrigin = point ? { lng: point.lng, lat: point.lat, label: label || '' } : null;
+    setPendingOrigin(point, label, { withMarker = false, startNew = false } = {}) {
+        this._pendingOrigin = point ? { lng: point.lng, lat: point.lat, label: label || '', startNew } : null;
         if (!withMarker || !this._pendingOrigin) return this._pendingOrigin;
 
         const markers = window.featureControl?._markerManager;
