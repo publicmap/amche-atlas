@@ -558,12 +558,29 @@
       "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
       "url": "mapbox://mapbox.mapbox-terrain-v2",
       "style": {
+        "fill-opacity": 0.1,
         "fill-color": [
           "step",
           [
             "get",
             "ele"
           ],
+          "#08306b",
+          -1000,
+          "#0b3d7a",
+          -500,
+          "#0e4a8a",
+          -200,
+          "#14609e",
+          -100,
+          "#1c74b1",
+          -50,
+          "#2f8fc4",
+          -20,
+          "#4aa8d8",
+          -10,
+          "#6ec0e6",
+          0,
           "#0b6b3a",
           10,
           "#1b7a41",
@@ -757,7 +774,7 @@
       },
       "inspect": {
         "id": "ele",
-        "title": "Elevation",
+        "title": "Elevation (m)",
         "label": "ele"
       }
     },

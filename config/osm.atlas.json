@@ -321,21 +321,21 @@
               "village",
               "hamlet"
             ],
-            0,
+            8,
             [
               "suburb",
               "quarter",
               "neighbourhood"
             ],
-            0,
+            8,
             "island",
-            0,
+            8,
             [
               "locality",
               "isolated_dwelling",
               "farm"
             ],
-            0,
+            8,
             10
           ],
           16,

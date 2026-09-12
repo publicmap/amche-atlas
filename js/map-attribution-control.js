@@ -570,8 +570,10 @@ export class MapAttributionControl {
         try {
             // Try to get the style - handle the error if it's not ready
             const style = this._map.getStyle();
-            // Keyed by attribution HTML so identical attributions (e.g. shared across
-            // layers) collapse to a single labeled line rather than repeating.
+            // Keyed by layer id (falling back to attribution HTML for unmanaged
+            // sources) so distinct layers that happen to share identical attribution
+            // text - e.g. multiple Bhunaksha layers all crediting the same source -
+            // each still get their own labeled line instead of collapsing to one.
             const attributionLabels = new Map();
             const visibleSources = new Set();
             const visibleConfigLayers = new Set();
@@ -624,12 +626,14 @@ export class MapAttributionControl {
             });
 
             // Add source attributions only for sources used by visible layers
+            const isAttributionDuplicated = attribution => Array.from(attributionLabels.values()).some(entry => entry.attribution === attribution);
+
             Object.entries(style.sources).forEach(([sourceId, source]) => {
                 if (source.attribution && visibleSources.has(sourceId)) {
                     // Skip sources that we're managing via _layerAttributions to avoid duplication
                     const isManaged = Array.from(this._layerAttributions.values()).some(entry => entry.attribution === source.attribution);
-                    if (!isManaged && !attributionLabels.has(source.attribution)) {
-                        attributionLabels.set(source.attribution, { label: sourceId, layer: null });
+                    if (!isManaged && !isAttributionDuplicated(source.attribution)) {
+                        attributionLabels.set(sourceId, { label: sourceId, layer: null, attribution: source.attribution });
                     }
                 }
             });
@@ -651,8 +655,8 @@ export class MapAttributionControl {
                             return isVisible && belongsToLayer;
                         });
 
-                        if (hasVisibleStyleLayer && !attributionLabels.has(attribution)) {
-                            attributionLabels.set(attribution, { label: title || layerId, layer });
+                        if (hasVisibleStyleLayer) {
+                            attributionLabels.set(layerId, { label: title || layerId, layer, attribution });
                         }
                     }
                 });
@@ -669,7 +673,7 @@ export class MapAttributionControl {
             const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
             const processed = [];
             this._itemLayers = [];
-            attributionLabels.forEach(({ label, layer }, attribution) => {
+            attributionLabels.forEach(({ label, layer, attribution }) => {
                 // One line per layer: rewrite any links in-place rather than splitting
                 // them into separate items, so a multi-link attribution still reads as
                 // a single labeled entry.

@@ -1226,25 +1226,6 @@
         "line-width": 1,
         "fill-opacity": 0.3
       },
-      "filter": [
-        "any",
-        [
-          "==",
-          [
-            "get",
-            "Village"
-          ],
-          "Saligao"
-        ],
-        [
-          "==",
-          [
-            "get",
-            "Village"
-          ],
-          "Goltim"
-        ]
-      ],
       "inspect": {
         "id": "Owners",
         "title": "Owners",
@@ -1288,10 +1269,10 @@
       "maxzoom": 14,
       "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
       "style": {
-        "fill-color": "blue",
-        "line-color": "blue",
-        "line-width": 1,
-        "fill-opacity": 0.3
+        "fill-color": "cyan",
+        "line-color": "cyan",
+        "line-width": 0.1,
+        "fill-opacity": 0.1
       },
       "inspect": {
         "id": "Owners",
@@ -1312,8 +1293,8 @@
       "style": {
         "fill-color": "Magenta",
         "line-color": "Magenta",
-        "line-width": 2,
-        "fill-opacity": 0.5
+        "line-width": 0.1,
+        "fill-opacity": 0.2
       },
       "inspect": {
         "id": "id",
