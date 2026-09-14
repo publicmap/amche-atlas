@@ -9,7 +9,7 @@ import * as SourceResolver from './layer-source-resolver.js';
 // A style value can be either a plain literal or the
 // ['coalesce', ['get', …], …, literal] form buildStyleFromControls() emits for
 // data-driven colours — both resolve to the trailing literal.
-function styleLiteral(value) {
+export function styleLiteral(value) {
     if (Array.isArray(value)) {
         return value[0] === 'coalesce' ? styleLiteral(value[value.length - 1]) : undefined;
     }
@@ -19,7 +19,7 @@ function styleLiteral(value) {
 // `<input type="color">` only accepts #rrggbb, so normalize the hex shorthands
 // and rgb()/rgba() forms a hand-written config may use. Anything else (a named
 // colour, an expression) returns undefined, leaving the control untouched.
-function toHexColor(value) {
+export function toHexColor(value) {
     if (typeof value !== 'string') return undefined;
     const color = value.trim();
 
@@ -41,7 +41,7 @@ function toHexColor(value) {
 
 // The alpha baked into an rgba()/#rrggbbaa colour, which the Style controls
 // keep separate from the colour itself.
-function colorAlpha(value) {
+export function colorAlpha(value) {
     if (typeof value !== 'string') return undefined;
     const color = value.trim();
 
