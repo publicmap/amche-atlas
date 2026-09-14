@@ -490,7 +490,7 @@ describe('marker popup layout', () => {
 
             chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-            expect(chip.style.borderColor).toBe('rgb(59, 130, 246)');
+            expect(chip.style.borderLeft).toBe('1px solid rgb(59, 130, 246)');
             expect(chip.getAttribute('aria-expanded')).toBe('true');
             expect(chip.querySelector('.marker-summary-chevron').getAttribute('name')).toBe('chevron-down');
         });
@@ -518,7 +518,7 @@ describe('marker popup layout', () => {
             chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
             expect(details.style.display).toBe('none');
-            expect(chip.style.borderColor).toBe('transparent');
+            expect(chip.style.borderLeft).toBe('1px solid transparent');
             expect(chip.getAttribute('aria-expanded')).toBe('false');
             expect(chip.querySelector('.marker-summary-chevron').getAttribute('name')).toBe('chevron-right');
         });

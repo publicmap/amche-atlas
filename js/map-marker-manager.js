@@ -3,6 +3,7 @@
  * Creates markers at selection locations with badges showing selected features
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
+import { getPrimaryColor } from './layer-style-utils.js';
 import { reverseGeocodeAddress, fetchNominatimAddressParts } from './nominatim-search.js';
 import { FeatureDisplayRenderer } from './feature-display-renderer.js';
 import { LayerOrderManager } from './layer-order-manager.js';
@@ -1390,7 +1391,7 @@ export class MapMarkerManager {
                         style="display: none; flex-shrink: 0; cursor: pointer; margin-left: 8px; accent-color: #3b82f6;" />
                     <button type="button" class="shortcut-menu-item marker-summary-chip ${extraClass}"
                         data-badge-index="${index}" aria-expanded="false"
-                        style="flex: 1; min-width: 0; flex-direction: column; align-items: stretch; gap: 3px;"
+                        style="flex: 1; min-width: 0; flex-direction: column; align-items: stretch; gap: 3px; border-left: 1px solid transparent;"
                         title="${this._escapeAttr(fieldName ? `${fieldName}: ${label}` : label)}">
                         ${layerRowHTML}
                         <div style="display: flex; align-items: center; gap: 8px; width: 100%; flex: none;">
@@ -1425,6 +1426,18 @@ export class MapMarkerManager {
                 ${rows.join('')}
             </div>
         `;
+    }
+
+    /**
+     * The color a layer's own paint properties render as - same lookup
+     * LayerThumbnail/LayerLegend use (fill, then line, then circle, then
+     * symbol text) - so a row's active-state accent matches what the
+     * feature-state "selected" highlight looks like on the map itself.
+     */
+    _getLayerAccentColor(layerId) {
+        const layerConfig = this._stateManager.getLayerConfig(layerId);
+        if (!layerConfig) return null;
+        return getPrimaryColor(layerConfig.style || layerConfig);
     }
 
     /** A layer's thumbnail sized for a menu row, falling back to a generic icon. */
@@ -1889,6 +1902,24 @@ export class MapMarkerManager {
             // or hidden as this row expands and collapses.
             if (f) this._attachChipLayerRowHandler(chip, f);
 
+            // Hovering a row previews the same filter that opening it would
+            // actually commit (see _attachFeatureRowActionHandlers's
+            // applyConditions(), run the moment details open) - so pointing at
+            // a feature in the list shows what selecting it isolates on the
+            // map before you've clicked. Skipped once this row's own details
+            // are already open: that filter is real by then, not a preview,
+            // and mouseleave must not clear it out from under the open row.
+            if (!this._isTouch && f) {
+                chip.addEventListener('mouseenter', () => {
+                    if (details.style.display !== 'none') return;
+                    this._previewFeatureIdFilter(f);
+                });
+                chip.addEventListener('mouseleave', () => {
+                    if (details.style.display !== 'none') return;
+                    this._cancelFeatureIdFilterPreview(f);
+                });
+            }
+
             // The name-picker checkbox (see _applyLabelPick, exposed by
             // _attachMarkerIdRowHandlers) - stopPropagation so ticking it
             // doesn't also toggle the chip's own accordion below, or arm the
@@ -1968,7 +1999,7 @@ export class MapMarkerManager {
      * _fillAddressDetails).
      */
     _openSummaryDetails(el, chip, details, f) {
-        this._setActiveSummaryChip(el, chip);
+        this._setActiveSummaryChip(el, chip, f ? this._getLayerAccentColor(f.layerId) : null);
         chip.setAttribute('aria-expanded', 'true');
         chip.querySelector('.marker-summary-chevron')?.setAttribute('name', 'chevron-down');
         // The chip's own icon collapses back to this same layer-info row once
@@ -2007,11 +2038,16 @@ export class MapMarkerManager {
         return null;
     }
 
-    _setActiveSummaryChip(el, activeChip) {
+    _setActiveSummaryChip(el, activeChip, accentColor = null) {
         el.querySelectorAll('.marker-summary-chip').forEach(chip => {
             const isActive = chip === activeChip;
             chip.style.background = isActive ? '#1e3a5f' : 'transparent';
-            chip.style.borderColor = isActive ? '#3b82f6' : 'transparent';
+            // Left border only, in the same color the layer's own paint
+            // properties render its feature-state "selected" highlight in
+            // (see _getLayerAccentColor) - falls back to the generic blue
+            // accent when a layer has no color of its own to borrow (e.g.
+            // the address row).
+            chip.style.borderLeft = isActive ? `1px solid ${accentColor || '#3b82f6'}` : '1px solid transparent';
             chip.querySelector('.marker-summary-chip__value').style.color = isActive ? '#93c5fd' : '#f3f4f6';
             // The property list beneath an active chip carries the same fill,
             // so the two read as one highlighted block for this feature
@@ -2381,6 +2417,52 @@ export class MapMarkerManager {
         if (group) group.filter = filter;
         this._activeFeatureFilterLayerId = layerId;
         window.urlManager?.updateURL({ updateLayers: true });
+    }
+
+    /**
+     * Live-only preview of the filter a feature's row would commit if it were
+     * clicked open (see _attachFeatureRowActionHandlers, whose `applyConditions()`
+     * narrows the layer to just this feature's `inspect.id` the moment its
+     * details actually open) - narrows the map to just this one feature the
+     * same way, but only on the map (via setFilter), never touching the
+     * layer's own config or the URL. Lets hovering a row preview what
+     * expanding it would isolate on the map without committing to it.
+     *
+     * Skipped entirely when this feature's own layer already has a real,
+     * committed filter open (another row of the same layer expanded) -
+     * otherwise hovering a sibling row would silently overwrite that open
+     * row's filter, and there'd be no way back to it: cancelling the preview
+     * only ever restores the layer's pre-session filter (see
+     * _cancelFeatureIdFilterPreview), not whatever a still-open row committed.
+     */
+    _previewFeatureIdFilter(f) {
+        if (!f || !this._map || !f.layerId) return;
+        if (this._activeFeatureFilterLayerId === f.layerId) return;
+        const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+        const idField = layerConfig?.inspect?.id || null;
+        const properties = f.feature?.properties || {};
+        if (!idField || properties[idField] === undefined) return;
+
+        this._saveOriginalLayerFilter(f.layerId);
+        const filter = ['all', ['==', ['get', idField], properties[idField]]];
+        this._getMapboxSubLayerIds(f.layerId).forEach(subLayerId => {
+            try {
+                this._map.setFilter(subLayerId, filter);
+            } catch (e) {
+                // Layer may have been removed from the map since.
+            }
+        });
+    }
+
+    /**
+     * Reverts _previewFeatureIdFilter's preview - unless this feature's own
+     * row is the one actually expanded right now, in which case its filter
+     * was really committed (not just previewed) and must be left alone.
+     */
+    _cancelFeatureIdFilterPreview(f) {
+        if (!f || !this._map || !f.layerId) return;
+        if (this._activeFeatureFilterLayerId === f.layerId) return;
+        this._restoreOriginalLayerFilter(f.layerId);
     }
 
     /**

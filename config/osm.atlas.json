@@ -744,6 +744,53 @@
       }
     },
     {
+      "title": "OpenInfraMap",
+      "description": "Vector tile layer from custom source",
+      "type": "vector",
+      "id": "inframap",
+      "url": "https://openinframap.org/20250311/{z}/{x}/{y}.mvt",
+      "sourceLayer": "default",
+      "minzoom": 0,
+      "maxzoom": 14,
+      "attribution": "© OpenStreetMap contributors",
+      "initiallyChecked": false,
+      "inspect": {
+        "id": "id",
+        "title": "Name",
+        "label": "description",
+        "fields": [
+          "id",
+          "description"
+        ],
+        "fieldTitles": [
+          "Id",
+          "Description"
+        ]
+      },
+      "style": {
+        "line-color": [
+          "coalesce",
+          [
+            "get",
+            "stroke-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#1e40af"
+        ],
+        "line-width": 2,
+        "text-field": [
+          "to-string",
+          [
+            "get",
+            "description"
+          ]
+        ]
+      }
+    },
+    {
       "title": "Railways",
       "description": "Railway network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",

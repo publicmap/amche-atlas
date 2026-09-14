@@ -299,6 +299,23 @@ export function collectStylePasses(style) {
 }
 
 /**
+ * The one color that best represents a style, in the same priority a
+ * thumbnail/legend draws in: fill, then line, then circle, then a symbol
+ * layer's text color. Used to accent UI chrome (e.g. a highlight border) with
+ * whatever color the layer actually renders as on the map.
+ * @param {Object} style - Layer style, possibly using "prefix/property" keys
+ * @returns {string|null}
+ */
+export function getPrimaryColor(style) {
+    const { fill, line, circle, base } = collectStylePasses(style || {});
+    if (fill.length) return fill[0].color;
+    if (line.length) return line[0].color;
+    if (circle.length) return circle[0].color;
+    if (base['text-color'] !== undefined) return resolveValue(base['text-color'], null);
+    return null;
+}
+
+/**
  * Turn a variant prefix or match key into a human label.
  */
 export function formatLabel(value) {
