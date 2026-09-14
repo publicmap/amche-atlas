@@ -332,11 +332,11 @@
               false
             ],
             "rgba(255, 255, 0, 0.8)",
-            "black"
+            "white"
           ],
           "circle-opacity": 0.8,
           "circle-stroke-width": 1,
-          "circle-stroke-color": "#FFFFFF",
+          "circle-stroke-color": "black",
           "circle-stroke-opacity": 1,
           "circle-blur": 0,
           "circle-translate": [
@@ -369,11 +369,11 @@
               false
             ],
             "rgba(255, 255, 0, 0.8)",
-            "black"
+            "white"
           ],
           "circle-opacity": 0.7,
           "circle-stroke-width": 1.5,
-          "circle-stroke-color": "#ffffff",
+          "circle-stroke-color": "black",
           "circle-stroke-opacity": 1,
           "circle-blur": 0,
           "circle-translate": [

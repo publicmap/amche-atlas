@@ -50,6 +50,7 @@
   },
   "homepage": "https://amche.in",
   "dependencies": {
+    "@mapbox/vector-tile": "^3.0.0",
     "@tarekraafat/autocomplete.js": "^10.2.10",
     "d3-geo": "^3.1.1",
     "fast-levenshtein": "^3.0.0",
@@ -59,6 +60,7 @@
     "hyparquet-compressors": "^1.1.1",
     "jspdf": "^4.2.1",
     "lz-string": "^1.5.0",
+    "pbf": "^5.1.2",
     "tokml": "^0.4.0"
   }
 }

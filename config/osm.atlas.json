@@ -744,48 +744,38 @@
       }
     },
     {
-      "title": "OpenInfraMap",
-      "description": "Vector tile layer from custom source",
+      "title": "OpenInfraMap Power Lines",
+      "description": "Power lines from the OpenInfraMap project. See <a href='https://openinframap.org'>OpenInfraMap</a> for details.",
       "type": "vector",
-      "id": "inframap",
-      "url": "https://openinframap.org/20250311/{z}/{x}/{y}.mvt",
-      "sourceLayer": "default",
+      "id": "openinframap-power",
+      "url": "https://openinframap.org/map/power/{z}/{x}/{y}.pbf",
+      "sourceLayer": "power_line",
       "minzoom": 0,
       "maxzoom": 14,
-      "attribution": "© OpenStreetMap contributors",
+      "attribution": "© OpenStreetMap contributors via <a href='https://openinframap.org/#2/26/12'>OpenInfraMap</a>",
       "initiallyChecked": false,
       "inspect": {
-        "id": "id",
+        "id": "osm_id",
         "title": "Name",
-        "label": "description",
+        "label": "name",
         "fields": [
-          "id",
-          "description"
-        ],
-        "fieldTitles": [
-          "Id",
-          "Description"
+          "type",
+          "location",
+          "operator",
+          "voltage",
+          "voltage_2",
+          "circuits"
         ]
       },
       "style": {
-        "line-color": [
-          "coalesce",
-          [
-            "get",
-            "stroke-color"
-          ],
-          [
-            "get",
-            "color"
-          ],
-          "#1e40af"
-        ],
+        "circle-radius": 1,
+        "line-color": "black",
         "line-width": 2,
         "text-field": [
           "to-string",
           [
             "get",
-            "description"
+            "name"
           ]
         ]
       }

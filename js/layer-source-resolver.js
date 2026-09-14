@@ -13,6 +13,8 @@
  * own picker UI re-calls with the pick supplied via `urlOptions`.
  */
 
+import { PbfReader } from 'pbf';
+import { VectorTile } from '@mapbox/vector-tile';
 import { MapUtils } from './map-utils.js';
 import { MapWarperAPI } from './mapwarper-url-api.js';
 import { AllmapsAPI } from './allmaps-url-api.js';
@@ -208,6 +210,28 @@ export function convertPbfTileUrlToTemplate(url) {
     return url.replace(/\/\d+\/\d+\/\d+\.(pbf|mvt)($|\?)/i, '/{z}/{x}/{y}.$1$2');
 }
 
+/**
+ * Best-effort detection of the source-layer names actually present in a
+ * vector tile — used when a pasted .pbf/.mvt URL has no companion TileJSON
+ * (so `vector_layers` metadata isn't available) to avoid falling back to the
+ * meaningless 'default' source-layer name.
+ * @param {string} tileUrl - A concrete (non-templated) tile URL to sample.
+ * @returns {Promise<string[]|null>} Layer names found, or null if none/failed.
+ */
+export async function probeVectorTileLayers(tileUrl) {
+    try {
+        const response = await fetch(tileUrl);
+        if (!response.ok) return null;
+        const buffer = await response.arrayBuffer();
+        const tile = new VectorTile(new PbfReader(buffer));
+        const names = Object.keys(tile.layers);
+        return names.length ? names : null;
+    } catch (error) {
+        console.warn('Failed to probe vector tile for source-layer names:', error);
+        return null;
+    }
+}
+
 export function convertTileUrlToTemplate(url, defaultExtension = null) {
     return url.replace(/\/\d+\/\d+\/\d+(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i, (match, ext, extName, end) => {
         if (!ext && defaultExtension) {
@@ -324,9 +348,10 @@ export function generateLayerId(title) {
  * @param {string} url - Data URL
  * @param {Object} tilejson - TileJSON object
  * @param {Object} metadata - Optional metadata
+ * @param {string[]|null} availableSourceLayers - Layer names detected from a sample tile (see probeVectorTileLayers)
  * @returns {Object} Layer configuration
  */
-export function makeLayerConfig(url, tilejson, metadata = null) {
+export function makeLayerConfig(url, tilejson, metadata = null, availableSourceLayers = null) {
     const type = guessLayerType(url);
     let config = {};
     if (type === 'vector') {
@@ -354,7 +379,7 @@ export function makeLayerConfig(url, tilejson, metadata = null) {
             type: 'vector',
             id: (tilejson?.name || 'vector-layer').toLowerCase().replace(/\s+/g, '-') + '-' + Math.random().toString(36).slice(2, 8),
             url: (tilejson?.tiles && tilejson.tiles[0]) || url,
-            sourceLayer: tilejson?.vector_layers?.[0]?.id || 'default',
+            sourceLayer: tilejson?.vector_layers?.[0]?.id || availableSourceLayers?.[0] || 'default',
             minzoom: tilejson?.minzoom || 0,
             maxzoom: tilejson?.maxzoom || 14,
             attribution: attribution,
@@ -533,8 +558,10 @@ export async function resolveTileSource(url) {
     let tilejson = null;
     let metadata = null;
     let wasConverted = false;
+    let sampleTileUrl = null;
 
     if (isPbfTileUrl(url)) {
+        sampleTileUrl = url;
         actualUrl = convertPbfTileUrlToTemplate(url);
         wasConverted = true;
     } else if (isTileUrl(url)) {
@@ -594,6 +621,7 @@ export async function resolveTileSource(url) {
     }
 
     const type = guessLayerType(actualUrl);
+    let availableSourceLayers = null;
     if (type === 'vector') {
         if (!tilejson && actualUrl.includes('indianopenmaps.fly.dev') && actualUrl.includes('{z}')) {
             try {
@@ -606,14 +634,21 @@ export async function resolveTileSource(url) {
         if (!tilejson) {
             tilejson = await MapUtils.fetchTileJSON(actualUrl);
         }
+
+        if (tilejson?.vector_layers?.length) {
+            availableSourceLayers = tilejson.vector_layers.map(layer => layer.id);
+        } else {
+            const probeUrl = sampleTileUrl || actualUrl.replace('{z}', '0').replace('{x}', '0').replace('{y}', '0');
+            availableSourceLayers = await probeVectorTileLayers(probeUrl);
+        }
     }
 
     if (wasConverted && type === 'raster') {
         metadata = { autoDetected: true };
     }
 
-    const config = makeLayerConfig(actualUrl, tilejson, metadata);
-    return { layerType: type, config };
+    const config = makeLayerConfig(actualUrl, tilejson, metadata, availableSourceLayers);
+    return { layerType: type, config, availableSourceLayers };
 }
 
 // ---------------------------------------------------------------------------
@@ -1199,8 +1234,8 @@ export async function resolveLayerSource(url, urlOptions = {}) {
         case SOURCE_TYPES.RASTER_TILE:
         case SOURCE_TYPES.MAPBOX_TILESET:
         case SOURCE_TYPES.INDIANOPENMAPS: {
-            const { layerType, config } = await resolveTileSource(resolvedUrl);
-            return { status: 'ok', layerType, config, resolvedUrl };
+            const { layerType, config, availableSourceLayers } = await resolveTileSource(resolvedUrl);
+            return { status: 'ok', layerType, config, availableSourceLayers, resolvedUrl };
         }
         default:
             return { status: 'unknown', resolvedUrl };

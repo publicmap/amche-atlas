@@ -883,6 +883,15 @@ File upload only: .zip containing shapefile">
                     <h3 class="text-sm font-semibold mb-3">Style</h3>
                     <div id="geometry-type-info" class="mb-3 text-xs text-gray-600"></div>
 
+                    <div class="mb-4" id="source-layer-field-container" style="display: none;">
+                        <label class="block text-xs font-medium mb-1">Source Layer</label>
+                        <select id="source-layer-field"
+                            class="w-full px-3 py-2 border border-gray-300 rounded text-sm"></select>
+                        <div class="text-xs text-gray-500 mt-1">
+                            Layer within the vector tile to render — detected from a sample tile.
+                        </div>
+                    </div>
+
                     <!-- Style type picker -->
                     <div class="flex flex-wrap gap-4 mb-4">
                         <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">

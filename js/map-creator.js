@@ -341,6 +341,10 @@ export class MapCreator {
             this.updateConfigPreview();
         });
 
+        $('#source-layer-field').on('change', () => {
+            this.updateConfigPreview();
+        });
+
         $('#enable-save-notes').on('change', (e) => {
             $('#save-notes-details').toggle(e.target.checked);
             this.updateConfigPreview();
@@ -445,6 +449,8 @@ export class MapCreator {
         this._styleTypesUserModified = false;
         this._lastLabelFieldsKey = undefined;
         this._lastDataFieldsKey = undefined;
+        this._availableSourceLayers = null;
+        $('#source-layer-field-container').hide();
         $('#config-json-status').html('');
         $('#reset-config-json-btn').addClass('hidden');
     }
@@ -952,6 +958,7 @@ export class MapCreator {
                 this.currentLayerType = result.layerType;
                 this.currentData = result.config;
                 this.currentDataSource = url;
+                this._availableSourceLayers = result.availableSourceLayers || null;
                 this.showTileLayerSuccess(result.config);
                 return;
             }
@@ -1580,6 +1587,7 @@ export class MapCreator {
             $('#style-type-point, #style-type-line, #style-type-area').prop('checked', false);
             $('#style-type-label').prop('checked', true);
             this.updateStyleSectionVisibility();
+            this.populateSourceLayerOptions(this._availableSourceLayers, config.sourceLayer);
 
             const fields = config.inspect?.fields || [];
             this.populateLabelFieldOptions(fields, config.inspect?.label);
@@ -1817,6 +1825,32 @@ export class MapCreator {
         if (value) $select.val(value);
     }
 
+    // Populates the Source Layer dropdown with layer names detected from a
+    // sample tile (see SourceResolver.probeVectorTileLayers) or the source's
+    // TileJSON `vector_layers`. Hidden entirely when nothing was detected —
+    // the JSON editor stays the fallback way to set an unlisted sourceLayer.
+    populateSourceLayerOptions(layers, currentSourceLayer) {
+        const $container = $('#source-layer-field-container');
+        const $select = $('#source-layer-field');
+
+        if (!layers || layers.length === 0) {
+            $container.hide();
+            return;
+        }
+
+        $container.show();
+        const current = $select.val();
+        $select.empty();
+        layers.forEach(layer => {
+            $select.append(`<option value="${layer}">${layer}</option>`);
+        });
+
+        const value = (currentSourceLayer && layers.includes(currentSourceLayer)) ? currentSourceLayer
+            : (current && layers.includes(current)) ? current
+            : layers[0];
+        $select.val(value);
+    }
+
     // Called when the parent map reports back geometry types / fields it
     // found while rendering the live tile preview (vector layers only — see
     // MapBrowserControl._detectVectorTileInfo). This fires once per freshly
@@ -1826,7 +1860,8 @@ export class MapCreator {
     _handleTileInfoDetected(geometryTypes, fields) {
         const active = document.activeElement;
         if (active && (active.id === 'config-preview' || active.id === 'label-field-select' ||
-            active.id === 'feature-id-field' || active.id === 'feature-name-field')) {
+            active.id === 'feature-id-field' || active.id === 'feature-name-field' ||
+            active.id === 'source-layer-field')) {
             return;
         }
 
@@ -2059,6 +2094,11 @@ export class MapCreator {
 
         if (layerType === 'vector' && !this._styleManuallyEdited) {
             config.style = this.buildStyleFromControls();
+        }
+
+        if (layerType === 'vector' && $('#source-layer-field-container').is(':visible')) {
+            const sourceLayer = $('#source-layer-field').val();
+            if (sourceLayer) config.sourceLayer = sourceLayer;
         }
 
         // Feature ID / Feature Name only get options once fields are known
