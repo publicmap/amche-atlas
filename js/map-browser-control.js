@@ -17,6 +17,12 @@ export class MapBrowserControl {
         this._iframe = null;
         this._isOpen = false;
         this._pendingFileData = null;
+        // Id of the layer live-added to the real map/registry while the
+        // creator's preview is showing it (see _handleCreatorLivePreview) —
+        // null once it's finalized via "Add Map Layer" or removed via Cancel.
+        this._creatorDraftLayerId = null;
+        this._creatorLivePreviewPromise = null;
+        this._overpassPreviewQuery = null;
         this._layerStack = new LayerStackStrip();
         this._setupMessageListener();
         this._setupViewHistory();
@@ -380,8 +386,17 @@ export class MapBrowserControl {
                 this._handleCreatorTilePreview(event.data.config, { bbox: event.data.bbox, fitBounds: event.data.fitBounds });
             }
 
+            if (event.data.type === 'creator-live-preview') {
+                this._creatorLivePreviewPromise = this._handleCreatorLivePreview(event.data.config, { bbox: event.data.bbox, fitBounds: event.data.fitBounds });
+            }
+
             if (event.data.type === 'creator-clear-preview') {
                 this._clearCreatorPreview();
+                this._removeCreatorDraftLayer();
+            }
+
+            if (event.data.type === 'finalize-creator-layer') {
+                this._finalizeCreatorLayer({ keepOpen: !!event.data.keepOpen });
             }
 
             if (event.data.type === 'atlas-preview') {
@@ -1219,6 +1234,103 @@ export class MapBrowserControl {
         );
     }
 
+    // Live preview for geojson/csv/vector/tms/wms/cog layers being configured
+    // in the creator: adds the config as a REAL layer (same _addLayerDirectly
+    // path "Add Map Layer" uses) rather than a separate throwaway rendering,
+    // so it's inspectable via MapMarkerManager and reflected in the URL just
+    // like it was already added. Each tick fully replaces the previous draft —
+    // there's no generic "restyle" path (see _renderVectorTilePreview above)
+    // and this also naturally handles the user switching data sources mid-edit.
+    async _handleCreatorLivePreview(config, { bbox, fitBounds } = {}) {
+        const mapLayerControl = window.layerControl;
+        if (!mapLayerControl || !config || !config.id) return;
+
+        if (this._creatorDraftLayerId) {
+            mapLayerControl.removeLayerCompletely(this._creatorDraftLayerId);
+            this._creatorDraftLayerId = null;
+        }
+
+        try {
+            await mapLayerControl._addLayerDirectly(config);
+            this._creatorDraftLayerId = config.id;
+        } catch (error) {
+            console.warn('[MapBrowserControl] Creator live preview failed:', error);
+            return;
+        }
+
+        // Overpass geometry is unknown up front (a query can return a mix of
+        // nodes/ways/relations) — detect it from the live layer's actual
+        // fetched data, same as _renderVectorTilePreview does for vector
+        // tiles, so the creator can auto-check the right Point/Line/Area
+        // boxes. Only re-arm on a genuinely new query, not on every style
+        // tweak (each of which still re-adds this layer — see the class
+        // comment above _renderVectorTilePreview). Needs retrying rather
+        // than a single check: unlike a vector tile (browser-cached, ready
+        // almost immediately), an Overpass API fetch can take several
+        // seconds.
+        if (config.type === 'overpass' && this._overpassPreviewQuery !== config.query) {
+            this._overpassPreviewQuery = config.query;
+            this._detectSourceInfo(`geojson-${config.id}`, { maxAttempts: 20, retryMs: 1000 });
+        }
+
+        if (fitBounds && Array.isArray(bbox) && bbox.length === 4) {
+            const [west, south, east, north] = bbox;
+            try {
+                this._map.fitBounds([[west, south], [east, north]], { padding: 50, maxZoom: 16, duration: 500 });
+            } catch (e) {
+                console.warn('[MapBrowserControl] Creator live preview fitBounds failed:', e);
+            }
+        }
+    }
+
+    // Discards the draft layer _handleCreatorLivePreview added — used when
+    // the creator cancels/closes/switches data source, so the layer added
+    // purely for previewing doesn't linger on the map or in the URL. Waits
+    // for any in-flight _handleCreatorLivePreview first (e.g. a slow remote
+    // fetch) so a fast Cancel can't race ahead of the add it's meant to undo,
+    // leaving the "cancelled" layer added anyway once that add resolves.
+    async _removeCreatorDraftLayer() {
+        if (this._creatorLivePreviewPromise) {
+            await this._creatorLivePreviewPromise.catch(() => {});
+        }
+        this._overpassPreviewQuery = null;
+        if (!this._creatorDraftLayerId) return;
+        window.layerControl?.removeLayerCompletely(this._creatorDraftLayerId);
+        this._creatorDraftLayerId = null;
+    }
+
+    // "Add Map Layer" for a layer type that's already live via
+    // _handleCreatorLivePreview: the layer is already added, so this just
+    // stops treating it as a discardable draft and shows the usual "Added
+    // map" confirmation, closing the creator unless more queued files remain.
+    // Also waits for any in-flight live-preview add first, for the same
+    // race reason as _removeCreatorDraftLayer above.
+    async _finalizeCreatorLayer({ keepOpen = false } = {}) {
+        if (this._creatorLivePreviewPromise) {
+            await this._creatorLivePreviewPromise.catch(() => {});
+        }
+
+        const mapLayerControl = window.layerControl;
+        const layerId = this._creatorDraftLayerId;
+        this._creatorDraftLayerId = null;
+        this._overpassPreviewQuery = null;
+
+        if (!keepOpen) {
+            this.closeBrowser();
+        }
+
+        const group = layerId && mapLayerControl?._state?.groups?.find(g => g.id === layerId);
+        if (!group || !mapLayerControl) return;
+
+        const layerTitle = mapLayerControl._escapeHtml?.(group.title || group.id) || (group.title || group.id);
+        const labelHtml = mapLayerControl._buildLayerLabelHTML?.(group, layerTitle) || `<strong>${layerTitle}</strong>`;
+        const zoomLink = mapLayerControl._buildZoomToLayerLink?.(group) || '';
+        MapContextMessagesControl.show(
+            `${labelHtml}${zoomLink ? ' &middot; ' + zoomLink : ''}`,
+            { duration: 3000 }
+        );
+    }
+
     _handleLoadAtlas(atlasUrl, { preserveHash = true } = {}) {
         console.log('[MapBrowserControl] Loading atlas:', atlasUrl);
 
@@ -1432,7 +1544,7 @@ export class MapBrowserControl {
     // browser-cached across the remove/re-add.
     //
     // Identity (url/sourceLayer/zoom) is tracked separately from style so that
-    // _detectVectorTileInfo — which posts a message back to the creator that
+    // _detectSourceInfo — which posts a message back to the creator that
     // can trigger another config render — only re-arms on a genuine source
     // change, not on every style tweak (that would risk a feedback loop).
     async _renderVectorTilePreview(config) {
@@ -1459,7 +1571,7 @@ export class MapBrowserControl {
 
             if (isNewIdentity) {
                 this._vectorPreviewIdentityKey = identityKey;
-                this._detectVectorTileInfo(`vector-${groupId}`, config.sourceLayer);
+                this._detectSourceInfo(`vector-${groupId}`, { sourceLayer: config.sourceLayer });
             }
         } catch (e) {
             console.warn('[MapBrowserControl] Vector tile preview failed:', e);
@@ -1555,25 +1667,35 @@ export class MapBrowserControl {
         return `${baseUrl}?${merged.toString()}`;
     }
 
-    // Best-effort: once the preview vector tiles have had a chance to load,
-    // sample rendered features to report back which geometry types and
-    // properties actually exist — the creator uses this to auto-check the
-    // right Point/Line/Area boxes and populate the label field dropdown.
-    // Returns nothing useful if the current viewport doesn't overlap the
-    // source's data (the user can still check boxes manually).
-    _detectVectorTileInfo(sourceId, sourceLayer) {
+    // Best-effort: once a preview source has had a chance to load, sample
+    // rendered features to report back which geometry types and properties
+    // actually exist — the creator uses this to auto-check the right
+    // Point/Line/Area boxes and populate the label field dropdown. Returns
+    // nothing useful if the current viewport doesn't overlap the source's
+    // data (the user can still check boxes manually).
+    //
+    // `sourceLayer` is vector-tile-only (omit for a geojson source, e.g. a
+    // live overpass layer). `maxAttempts` > 1 switches from a single
+    // idle-or-800ms check to fixed-interval polling — needed for a source
+    // that populates asynchronously well after the map goes idle, like an
+    // Overpass fetch that can take several seconds.
+    _detectSourceInfo(sourceId, { sourceLayer, retryMs = 1000, maxAttempts = 1 } = {}) {
         if (!this._map) return;
         const token = (this._tileInfoToken = (this._tileInfoToken || 0) + 1);
 
-        const query = () => {
+        const tryQuery = (attempt) => {
             if (this._tileInfoToken !== token || !this._iframe?.contentWindow) return;
             let features = [];
             try {
-                features = this._map.querySourceFeatures(sourceId, { sourceLayer });
+                features = this._map.querySourceFeatures(sourceId, sourceLayer ? { sourceLayer } : undefined);
             } catch (e) {
                 return;
             }
-            if (!features || features.length === 0) return;
+
+            if (!features || features.length === 0) {
+                if (attempt < maxAttempts) setTimeout(() => tryQuery(attempt + 1), retryMs);
+                return;
+            }
 
             const geometryTypes = new Set();
             const fields = new Set();
@@ -1589,12 +1711,17 @@ export class MapBrowserControl {
             }, '*');
         };
 
+        if (maxAttempts > 1) {
+            tryQuery(1);
+            return;
+        }
+
         const onIdle = () => {
-            query();
+            tryQuery(1);
             this._map.off('idle', onIdle);
         };
         this._map.on('idle', onIdle);
-        setTimeout(query, 800);
+        setTimeout(() => tryQuery(1), 800);
     }
 
     _clearCreatorTilePreview() {

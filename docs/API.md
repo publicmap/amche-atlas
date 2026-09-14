@@ -1092,7 +1092,8 @@ Below `minzoom`, the layer stops auto-refreshing (to avoid expensive worldwide q
 | Field | Notes |
 |---|---|
 | `query` | Overpass QL query. **Required.** Supports placeholders `{{bbox}}` (south,west,north,east — Overpass order), `{{center}}` (lat,lng), `{{zoom}}`. If the query does not begin with a setting block (`[...]`), `[out:json][timeout:N];` is auto-prepended. If you write your own settings block, **you must include `[out:json]`** — other output formats cannot be parsed. |
-| `endpoint` | Overpass API endpoint. Default: `https://overpass-api.de/api/interpreter`. Use a mirror (e.g. `https://overpass.kumi.systems/api/interpreter`) or self-hosted instance for higher rate limits. |
+| `endpoint` | Primary Overpass API endpoint. Default: `https://overpass-api.de/api/interpreter`. Use a mirror (e.g. `https://overpass.kumi.systems/api/interpreter`) or self-hosted instance for higher rate limits. A built-in fallback mirror is appended automatically (see below). |
+| `endpoints` | Explicit ordered endpoint list, tried in sequence on failure. Overrides `endpoint` and disables the built-in fallbacks. |
 | `minzoom` | Below this zoom, the layer doesn't auto-fetch (see above — the user can still manually refresh). Use to avoid expensive worldwide queries. Recommended ≥ 12 for point queries, ≥ 10 for areas. |
 | `bboxBuffer` | Multiplier applied to the viewport bbox before fetching, so small pans don't trigger refetches. Default `1.5` (50% extra on each axis). |
 | `timeout` | Overpass `[timeout:N]` seconds, used only when the header is auto-prepended. Default `25`. |
@@ -1126,6 +1127,8 @@ Below `minzoom`, the layer stops auto-refreshing (to avoid expensive worldwide q
 **Notes:**
 - Overpass is shared infrastructure with strict rate limits. Pick a high `minzoom` and a narrow query (specific tags + bbox) before deploying.
 - The default endpoint supports CORS; no proxy is needed.
+- **Endpoint failover:** `overpass-api.de` frequently returns `504` under load, so a failed request (network error, `429`, `500`, `502`, `503`, `504`) is retried against the next endpoint in the list — by default `https://maps.mail.ru/osm/tools/overpass/api/interpreter`, a CORS-enabled public mirror. The endpoint that last succeeded becomes sticky, so a dead primary isn't retried on every pan. Only when *every* endpoint fails does the error surface (and a rate-limit/timeout status then triggers the usual backoff). Set `endpoints` to control the list, e.g. a single self-hosted URL to opt out of the public mirror.
+- Mirrors can lag the main instance and can be slower, so features may differ slightly after a failover.
 - HTTP errors and timeouts are logged to the console; the layer keeps any features already loaded.
 
 ### `img` — Single image overlay

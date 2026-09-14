@@ -1039,6 +1039,49 @@ export class MapLayerControl {
     }
 
     /**
+     * Full teardown of a layer added via _addLayerDirectly() — the inverse
+     * operation. Unlike toggling a layer off (which just hides it and leaves
+     * it in _state.groups so it can be switched back on), this removes its
+     * map sources/layers, its control row, and its _state.groups entry
+     * entirely, as if it had never been added. Used by the map-creator.html
+     * live-preview flow to discard a draft layer (Cancel, or a superseded
+     * preview) without leaving a stale row in the layer list.
+     * @returns {boolean} Whether a matching layer was found and removed.
+     */
+    removeLayerCompletely(layerId) {
+        const index = this._state.groups.findIndex(g => g.id === layerId);
+        if (index === -1) return false;
+
+        const group = this._state.groups[index];
+
+        if (this._mapboxAPI) {
+            this._mapboxAPI.removeLayerGroup(layerId, group);
+        }
+
+        this._sourceControls[index]?.remove();
+        this._sourceControls.splice(index, 1);
+        this._state.groups.splice(index, 1);
+
+        if (this._stateManager) {
+            this._unregisterLayerWithStateManager(layerId);
+        }
+
+        if (window.attributionControl) {
+            window.attributionControl._updateAttribution();
+        }
+
+        window.dispatchEvent(new CustomEvent('layer-toggled', {
+            detail: { layerId, visible: false }
+        }));
+
+        if (window.urlManager) {
+            window.urlManager.onLayersChanged();
+        }
+
+        return true;
+    }
+
+    /**
      * Build a layer control row for a dynamically added layer and insert it at
      * `insertPosition`, keeping `_sourceControls` index-parallel with
      * `_state.groups`.

@@ -6,12 +6,24 @@
  * Viewport behavior: refetches on map moveend (debounced). A bbox-containment
  * cache skips the network call when the current viewport is already inside a
  * previously-fetched (buffered) bbox.
+ *
+ * Endpoint failover: the main overpass-api.de instance often returns 504 under
+ * load, so requests fall through to a CORS-enabled mirror and stick to
+ * whichever endpoint answered last.
  */
 
 import osmtogeojson from 'https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0-beta.5/+esm';
 import { OSMApi } from './osm-url-api.js';
 
 const DEFAULT_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+
+// Tried in order when the current endpoint is unreachable or returns an
+// overloaded/timeout status. The main instance regularly 504s under load.
+const FALLBACK_ENDPOINTS = [
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+];
+
+const FAILOVER_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 export class OverpassLoader {
     constructor({ map, groupId, config, onData, onError, onZoomGate }) {
@@ -22,7 +34,8 @@ export class OverpassLoader {
         this._onError = onError || ((err) => console.error(`Overpass layer ${groupId}:`, err));
         this._onZoomGate = onZoomGate;
 
-        this._endpoint = config.endpoint || DEFAULT_ENDPOINT;
+        this._endpoints = resolveEndpoints(config);
+        this._endpointIndex = 0;
         this._minzoom = config.minzoom ?? 0;
         this._bboxBuffer = config.bboxBuffer ?? 1.5;
         this._timeout = config.timeout ?? 25;
@@ -193,27 +206,66 @@ export class OverpassLoader {
             .replace(/\{\{\s*zoom\s*\}\}/g, zoom.toFixed(2));
     }
 
+    // Walks the endpoint list starting from the last one that worked, so a
+    // healthy mirror stays sticky instead of retrying a dead primary on every
+    // pan. Only when every endpoint fails does the error reach the caller -
+    // a rate-limit/timeout error then triggers the backoff in _maybeFetch.
     async _fetch(query, signal) {
-        const response = await fetch(this._endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'data=' + encodeURIComponent(query),
-            signal
-        });
-        if (!response.ok) {
-            if (response.status === 429 || response.status === 504) {
-                const retryAfter = parseInt(response.headers.get('Retry-After'), 10);
-                const retryAfterMs = Number.isFinite(retryAfter) ? retryAfter * 1000 : 10000;
-                const err = new Error(`Overpass HTTP ${response.status} ${response.statusText}`);
-                err.isRateLimit = true;
-                err.status = response.status;
-                err.retryAfterMs = retryAfterMs;
-                throw err;
+        const body = 'data=' + encodeURIComponent(query);
+        let lastError = null;
+
+        for (let attempt = 0; attempt < this._endpoints.length; attempt++) {
+            const index = (this._endpointIndex + attempt) % this._endpoints.length;
+            const endpoint = this._endpoints[index];
+            let response;
+
+            try {
+                response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body,
+                    signal
+                });
+            } catch (err) {
+                if (err.name === 'AbortError') throw err;
+                lastError = err;
+                this._logFailover(endpoint, err.message);
+                continue;
             }
-            throw new Error(`Overpass HTTP ${response.status} ${response.statusText}`);
+
+            if (response.ok) {
+                this._endpointIndex = index;
+                return response.json();
+            }
+
+            lastError = httpError(response);
+            if (!FAILOVER_STATUSES.has(response.status)) throw lastError;
+            this._logFailover(endpoint, `HTTP ${response.status}`);
         }
-        return response.json();
+
+        throw lastError || new Error('Overpass: no endpoints configured');
     }
+
+    _logFailover(endpoint, reason) {
+        console.warn(`Overpass layer ${this._groupId}: ${endpoint} failed (${reason}), trying next endpoint`);
+    }
+}
+
+function resolveEndpoints(config) {
+    if (Array.isArray(config.endpoints) && config.endpoints.length) return config.endpoints.slice();
+    const primary = config.endpoint || DEFAULT_ENDPOINT;
+    return [primary, ...FALLBACK_ENDPOINTS.filter(e => e !== primary)];
+}
+
+function httpError(response) {
+    const err = new Error(`Overpass HTTP ${response.status} ${response.statusText}`);
+    err.status = response.status;
+    if (response.status === 429 || response.status === 504) {
+        const retryAfter = parseInt(response.headers.get('Retry-After'), 10);
+        err.isRateLimit = true;
+        err.retryAfterMs = Number.isFinite(retryAfter) ? retryAfter * 1000 : 10000;
+    }
+    return err;
 }
 
 function containsBbox(outer, inner) {

@@ -47,10 +47,6 @@ export class MapCreator {
 
     setupMessageListener() {
         window.addEventListener('message', async (event) => {
-            if (event.data.type === 'bounds-update' && Array.isArray(event.data.bounds)) {
-                this._parentBounds = event.data.bounds;
-                return;
-            }
             if (event.data.type === 'creator-tile-info') {
                 this._handleTileInfoDetected(event.data.geometryTypes || [], event.data.fields || []);
                 return;
@@ -618,76 +614,18 @@ export class MapCreator {
             this.currentDataSource = sourceUrl || null;
             this.showTileLayerSuccess(config);
 
-            if (withPreview) {
-                await this.previewOverpassData(query, config);
-            } else {
-                $('#overpass-status').html(`<span style="color:#a7f3d0;">✓ Query loaded. Click <strong>Load Data →</strong> to preview, or <strong>Add Map Layer</strong> to add it.</span>`);
-            }
+            // showTileLayerSuccess() already scheduled a live preview (see
+            // sendPreview()) that adds this as a REAL overpass layer — the
+            // same fetch-from-viewport/refresh-on-pan behavior "Add Map
+            // Layer" always had (MapboxAPI._createOverpassLayer), just live
+            // now instead of only appearing once actually added.
+            $('#overpass-status').html(withPreview
+                ? `<span style="color:#a7f3d0;">✓ Previewing live on the map. Click <strong>Add Map Layer</strong> to keep it, or <strong>Cancel</strong> to discard.</span>`
+                : `<span style="color:#a7f3d0;">✓ Query loaded. Click <strong>Load Data →</strong> to preview, or <strong>Add Map Layer</strong> to add it.</span>`);
         } catch (error) {
             console.error('[MapCreator] Overpass import failed:', error);
             $('#overpass-status').html(`<span style="color:#fca5a5;">${error.message}</span>`);
             this.setLoadingState('error');
-        }
-    }
-
-    async previewOverpassData(query, config) {
-        if (!this._parentBounds || this._parentBounds.length !== 4) {
-            $('#overpass-status').html('<span style="color:#fbbf24;">⚠ Pan the parent map under this panel once so a viewport bbox is available, then click Load Data again.</span>');
-            return;
-        }
-        $('#overpass-status').html('<span style="color:#a7f3d0;">Fetching preview from Overpass…</span>');
-
-        try {
-            const [w, s, e, n] = this._parentBounds;
-            let q = String(query)
-                .replace(/\{\{\s*bbox\s*\}\}/g, `${s},${w},${n},${e}`)
-                .replace(/\{\{\s*center\s*\}\}/g, `${(s + n) / 2},${(w + e) / 2}`);
-            // Only inject [out:json][timeout:N]; if the query has no [out:...]
-            // setting block at all. Looking for the literal "[out:" anywhere
-            // is enough — Overpass QL puts all settings inside [...] blocks.
-            // Checking only the leading char misses queries that start with a
-            // /* ... */ comment (the overpass-turbo wizard format).
-            if (!/\[\s*out\s*:/i.test(q)) {
-                q = `[out:json][timeout:25];${q}`;
-            }
-
-            const resp = await fetch('https://overpass-api.de/api/interpreter', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'data=' + encodeURIComponent(q)
-            });
-            if (!resp.ok) {
-                if (resp.status === 429 || resp.status === 504) {
-                    throw new Error(`Overpass is rate-limiting (HTTP ${resp.status}). Wait a moment and try again.`);
-                }
-                throw new Error(`Overpass HTTP ${resp.status}`);
-            }
-            const osmJson = await resp.json();
-
-            const { default: osmtogeojson } = await import('https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0-beta.5/+esm');
-            const geojson = osmtogeojson(osmJson);
-            const features = geojson.features || [];
-            if (features.length === 0) {
-                $('#overpass-status').html('<span style="color:#fbbf24;">⚠ Query returned no features in the current viewport.</span>');
-                return;
-            }
-
-            const bbox = this.calculateBBox(geojson);
-            const geometryType = this.detectGeometryType(geojson);
-
-            window.parent.postMessage({
-                type: 'creator-preview',
-                geojson,
-                style: config.style,
-                geometryType,
-                bbox,
-                fitBounds: false
-            }, '*');
-
-            $('#overpass-status').html(`<span style="color:#a7f3d0;">✓ Previewing ${features.length} feature${features.length === 1 ? '' : 's'}. Click <strong>Add Map Layer</strong> to add it.</span>`);
-        } catch (error) {
-            console.error('[MapCreator] Overpass preview failed:', error);
-            $('#overpass-status').html(`<span style="color:#fca5a5;">Preview failed: ${error.message}</span>`);
         }
     }
 
@@ -1577,18 +1515,25 @@ export class MapCreator {
         $('#layer-description').val(config.description || '');
         $('#layer-attribution').val(config.attribution || '');
 
-        // Point/Line/Area/Label style checkboxes only make sense for vector
-        // tile layers — geometry is unknown up front, so start with just
-        // Label checked and let live tile detection (see
-        // _handleTileInfoDetected) or the user fill in the rest.
-        if ((config.type || 'tms') === 'vector') {
+        // Point/Line/Area/Label style checkboxes only make sense when
+        // geometry is unknown up front (vector tiles, and overpass — a query
+        // can return any mix of nodes/ways/relations) — start with just
+        // Label checked and let live detection (see _handleTileInfoDetected,
+        // fed by MapBrowserControl._detectSourceInfo) or the user fill in
+        // the rest.
+        if (config.type === 'vector' || config.type === 'overpass') {
             $('#style-controls').show();
-            $('#geometry-type-info').text('Geometry type unknown until tiles load — check the box(es) that match your data below, or wait for it to auto-detect once the preview loads.');
+            $('#geometry-type-info').text(config.type === 'overpass'
+                ? 'Geometry type unknown until the query returns — check the box(es) that match your data below, or wait for it to auto-detect once the preview loads.'
+                : 'Geometry type unknown until tiles load — check the box(es) that match your data below, or wait for it to auto-detect once the preview loads.');
             this._styleTypesUserModified = false;
             $('#style-type-point, #style-type-line, #style-type-area').prop('checked', false);
             $('#style-type-label').prop('checked', true);
             this.updateStyleSectionVisibility();
-            this.populateSourceLayerOptions(this._availableSourceLayers, config.sourceLayer);
+
+            if (config.type === 'vector') {
+                this.populateSourceLayerOptions(this._availableSourceLayers, config.sourceLayer);
+            }
 
             const fields = config.inspect?.fields || [];
             this.populateLabelFieldOptions(fields, config.inspect?.label);
@@ -2093,7 +2038,7 @@ export class MapCreator {
             delete config.attribution;
         }
 
-        if (layerType === 'vector' && !this._styleManuallyEdited) {
+        if ((layerType === 'vector' || layerType === 'overpass') && !this._styleManuallyEdited) {
             config.style = this.buildStyleFromControls();
         }
 
@@ -2172,58 +2117,78 @@ export class MapCreator {
         this._previewTimer = setTimeout(() => this.sendPreview(), 150);
     }
 
+    // Builds the live-preview config for geojson/csv/vector/tms/wms/cog/overpass
+    // layer types and posts it to the parent to be added as a REAL layer (see
+    // MapBrowserControl._handleCreatorLivePreview) — live previewing one of
+    // these is now equivalent to having already clicked "Add Map Layer": it's
+    // a real, inspectable layer and the URL updates to match. 'atlas' and
+    // 'osm' aren't covered here (see addToMap()) — atlas imports go through
+    // their own load-atlas/add-custom-layer flow, and OSM's embedded geometry
+    // is rendered via the older lightweight creator-preview path instead.
     sendPreview() {
+        let config = null;
+        let bbox = null;
+        let fitBounds = false;
+
         if (this.currentLayerType === 'geojson' || this.currentLayerType === 'csv') {
-            let geojson = null;
-            let config = null;
-
-            if (this.currentLayerType === 'geojson') {
-                geojson = this.currentData;
-                config = this.generateLayerConfig();
-            } else {
-                geojson = this.currentData?.geojson;
-                if (!geojson) return;
-                config = this.generateCSVLayerConfig();
-            }
-
+            const geojson = this.currentLayerType === 'geojson' ? this.currentData : this.currentData?.geojson;
             if (!geojson || !geojson.features || geojson.features.length === 0) return;
 
-            const bbox = this.calculateBBox(geojson);
-            const fitBounds = !this._previewFitted;
-            this._previewFitted = true;
+            config = this.currentLayerType === 'geojson' ? this.generateLayerConfig() : this.generateCSVLayerConfig();
+            this._persistLocalGeoJSON(config);
 
-            window.parent.postMessage({
-                type: 'creator-preview',
-                geojson: geojson,
-                style: config.style,
-                geometryType: this.currentGeometryType,
-                bbox: bbox,
-                fitBounds: fitBounds
-            }, '*');
-            return;
+            bbox = this.calculateBBox(geojson);
+            fitBounds = !this._previewFitted;
+            this._previewFitted = true;
+        } else {
+            // Tile-based layer types (vector/tms/wms/cog), plus overpass —
+            // which has no tile `url` but fetches live from `query` instead
+            // (MapboxAPI._createOverpassLayer already substitutes {{bbox}}
+            // from the real map viewport and re-fetches as it changes, so
+            // this reuses that instead of the creator fetching its own
+            // one-off copy via osmtogeojson).
+            config = this.currentData;
+            if (!config || !config.type) return;
+
+            const isTile = ['vector', 'tms', 'wms', 'cog'].includes(config.type) && !!config.url;
+            const isOverpass = config.type === 'overpass' && !!config.query;
+            if (!isTile && !isOverpass) return;
+
+            // COG previews have no XYZ tile template to eyeball scale from
+            // (unlike vector/tms/wms), and the source bbox (e.g. a STAC
+            // item's, far from wherever the creator map happens to be
+            // pointed) is usually the only way the raster is even in view —
+            // fit to it once per distinct URL.
+            fitBounds = config.type === 'cog' && Array.isArray(config.bbox) &&
+                this._cogPreviewFittedUrl !== config.url;
+            if (fitBounds) this._cogPreviewFittedUrl = config.url;
+            bbox = fitBounds ? config.bbox : null;
         }
 
-        // Tile-based layer types (vector/tms/wms/cog): render actual tiles on
-        // the parent map so styling/zoom edits made in the JSON below are
-        // visible live.
-        const config = this.currentData;
-        if (!config || !config.type || !config.url) return;
-        if (!['vector', 'tms', 'wms', 'cog'].includes(config.type)) return;
-
-        // COG previews have no XYZ tile template to eyeball scale from (unlike
-        // vector/tms/wms), and the source bbox (e.g. a STAC item's, far from
-        // wherever the creator map happens to be pointed) is usually the only
-        // way the raster is even in view — fit to it once per distinct URL.
-        const fitBounds = config.type === 'cog' && Array.isArray(config.bbox) &&
-            this._cogPreviewFittedUrl !== config.url;
-        if (fitBounds) this._cogPreviewFittedUrl = config.url;
+        if (!config.id) return;
 
         window.parent.postMessage({
-            type: 'creator-tile-preview',
-            config: config,
-            bbox: fitBounds ? config.bbox : undefined,
+            type: 'creator-live-preview',
+            config,
+            bbox,
             fitBounds
         }, '*');
+    }
+
+    // Stores a local (non-URL) geojson/csv layer's data the same way
+    // addToMap() used to at the final "Add" step — now needed at preview
+    // time too, since the live-added draft must carry the same
+    // dataSource:'localStorage' config a finalized layer would (rather than
+    // embedding the full geojson inline, which would bloat the shareable URL).
+    _persistLocalGeoJSON(config) {
+        if (config.dataSource !== 'localStorage') return;
+        const geojsonData = this.currentLayerType === 'csv' ? this.currentData.geojson : this.currentData;
+        try {
+            LayerConfigGenerator.storeGeoJSONData(config.id, geojsonData);
+        } catch (e) {
+            delete config.dataSource;
+            if (!config.url) config.geojson = geojsonData;
+        }
     }
 
     clearPreview() {
@@ -2437,8 +2402,6 @@ export class MapCreator {
     addToMap() {
         console.log('[MapCreator] addToMap called, layer type:', this.currentLayerType);
 
-        let config;
-
         if (this.currentLayerType === 'atlas') {
             const selectedValue = $('#atlas-layer-select').val();
 
@@ -2452,47 +2415,58 @@ export class MapCreator {
                     atlasUrl: atlasUrl
                 }, '*');
                 return; // Exit early, don't send add-custom-layer message
-            } else {
-                // Import specific layer
-                const selectedIndex = parseInt(selectedValue);
-                const selectedLayer = this.currentAtlasLayers[selectedIndex];
-                config = { ...selectedLayer };
-
-                // Override title if user provided one
-                const userTitle = $('#layer-title').val();
-                if (userTitle && userTitle.trim()) {
-                    config.title = userTitle;
-                }
             }
-        } else if (this.currentLayerType === 'csv') {
-            config = this.generateCSVLayerConfig();
-        } else if (this.currentLayerType === 'geojson') {
-            config = this.generateLayerConfig();
-        } else if (this.currentLayerType === 'osm' && this._dataMode === 'dynamic') {
-            config = this.getOsmDynamicConfig();
-        } else {
-            config = this.currentData;
+
+            // Import specific layer
+            const selectedIndex = parseInt(selectedValue);
+            const selectedLayer = this.currentAtlasLayers[selectedIndex];
+            const config = { ...selectedLayer };
+
+            // Override title if user provided one
+            const userTitle = $('#layer-title').val();
+            if (userTitle && userTitle.trim()) {
+                config.title = userTitle;
+            }
+
+            this._sendAddCustomLayer(config);
+            return;
         }
 
+        if (this.currentLayerType === 'osm' && this._dataMode === 'dynamic') {
+            this._sendAddCustomLayer(this.getOsmDynamicConfig());
+            return;
+        }
+
+        // geojson/csv/vector/tms/wms/cog are already live on the map via
+        // sendPreview()'s draft-layer mechanism (see MapBrowserControl
+        // .handleCreatorLivePreview) — flush any pending debounced update so
+        // the draft reflects the latest edits, then just finalize it instead
+        // of adding it a second time.
+        const isLivePreviewed = this.currentLayerType === 'geojson' || this.currentLayerType === 'csv' ||
+            (['vector', 'tms', 'wms', 'cog'].includes(this.currentData?.type) && !!this.currentData?.url) ||
+            (this.currentData?.type === 'overpass' && !!this.currentData?.query);
+
+        if (isLivePreviewed) {
+            clearTimeout(this._previewTimer);
+            this.sendPreview();
+
+            const hasMore = this.hasMoreQueuedFiles();
+            window.parent.postMessage({ type: 'finalize-creator-layer', keepOpen: hasMore }, '*');
+            if (hasMore) this.advanceFileQueue();
+            return;
+        }
+
+        // Everything else (OSM 'static' mode, ...) isn't live
+        // previewed — build its config and add it in one shot, as before.
+        this._sendAddCustomLayer(this.currentData);
+    }
+
+    _sendAddCustomLayer(config) {
         console.log('[MapCreator] Generated config:', config);
 
         if (!config.title || !config.title.trim()) {
             alert('Please enter a layer title');
             return;
-        }
-
-        if (config.dataSource === 'localStorage') {
-            const geojsonData = this.currentLayerType === 'csv'
-                ? this.currentData.geojson
-                : this.currentData;
-            try {
-                LayerConfigGenerator.storeGeoJSONData(config.id, geojsonData);
-            } catch (e) {
-                delete config.dataSource;
-                if (!config.url) {
-                    config.geojson = geojsonData;
-                }
-            }
         }
 
         // Keep the creator open while files from the same selection are still
