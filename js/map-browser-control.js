@@ -382,10 +382,6 @@ export class MapBrowserControl {
                 this._handleCreatorPreview(event.data);
             }
 
-            if (event.data.type === 'creator-tile-preview') {
-                this._handleCreatorTilePreview(event.data.config, { bbox: event.data.bbox, fitBounds: event.data.fitBounds });
-            }
-
             if (event.data.type === 'creator-live-preview') {
                 this._creatorLivePreviewPromise = this._handleCreatorLivePreview(event.data.config, { bbox: event.data.bbox, fitBounds: event.data.fitBounds });
             }
@@ -1234,13 +1230,15 @@ export class MapBrowserControl {
         );
     }
 
-    // Live preview for geojson/csv/vector/tms/wms/cog layers being configured
-    // in the creator: adds the config as a REAL layer (same _addLayerDirectly
-    // path "Add Map Layer" uses) rather than a separate throwaway rendering,
-    // so it's inspectable via MapMarkerManager and reflected in the URL just
-    // like it was already added. Each tick fully replaces the previous draft —
-    // there's no generic "restyle" path (see _renderVectorTilePreview above)
-    // and this also naturally handles the user switching data sources mid-edit.
+    // Live preview for geojson/csv/vector/tms/wms/cog/overpass layers being
+    // configured in the creator: adds the config as a REAL layer (same
+    // _addLayerDirectly path "Add Map Layer" uses) rather than a separate
+    // throwaway rendering, so it's inspectable via MapMarkerManager and
+    // reflected in the URL just like it was already added. Each tick fully
+    // replaces the previous draft — MapboxAPI has no generic "restyle" path,
+    // so a style edit needs a full removeLayerGroup + createLayerGroup
+    // anyway — and this also naturally handles the user switching data
+    // sources mid-edit.
     async _handleCreatorLivePreview(config, { bbox, fitBounds } = {}) {
         const mapLayerControl = window.layerControl;
         if (!mapLayerControl || !config || !config.id) return;
@@ -1260,11 +1258,10 @@ export class MapBrowserControl {
 
         // Overpass geometry is unknown up front (a query can return a mix of
         // nodes/ways/relations) — detect it from the live layer's actual
-        // fetched data, same as _renderVectorTilePreview does for vector
-        // tiles, so the creator can auto-check the right Point/Line/Area
-        // boxes. Only re-arm on a genuinely new query, not on every style
-        // tweak (each of which still re-adds this layer — see the class
-        // comment above _renderVectorTilePreview). Needs retrying rather
+        // fetched data (see _detectSourceInfo below) so the creator can
+        // auto-check the right Point/Line/Area boxes. Only re-arm on a
+        // genuinely new query, not on every style tweak (each of which still
+        // re-adds this layer — see the comment above). Needs retrying rather
         // than a single check: unlike a vector tile (browser-cached, ready
         // almost immediately), an Overpass API fetch can take several
         // seconds.
@@ -1464,207 +1461,6 @@ export class MapBrowserControl {
             if (this._map.getLayer(id)) this._map.removeLayer(id);
         });
         if (this._map.getSource(sourceId)) this._map.removeSource(sourceId);
-
-        this._clearCreatorTilePreview();
-    }
-
-    // Live preview for tile-based layer configs (vector/tms/wms/cog) being
-    // edited in the creator's Configuration JSON box.
-    //
-    // Vector and COG previews render through the real MapboxAPI.createLayerGroup() /
-    // removeLayerGroup() — the exact code path used for every real layer —
-    // so the preview always matches fill/line/circle/symbol (labels) or the
-    // geotiff.js TileProvider exactly, with no separate reimplementation to
-    // keep in sync (see _renderVectorTilePreview / _renderCogPreview).
-    //
-    // Raster (tms/wms) previews stay a simple opacity-only render here since
-    // that's all MapboxAPI does for raster tiles anyway.
-    _handleCreatorTilePreview(config, { bbox, fitBounds } = {}) {
-        if (!this._map || !config || !config.url) return;
-
-        if (config.type === 'vector') {
-            if (!config.sourceLayer) return;
-            this._renderVectorTilePreview(config);
-            return;
-        }
-
-        if (config.type === 'cog') {
-            this._renderCogPreview(config, { bbox, fitBounds });
-            return;
-        }
-
-        if (config.type !== 'tms' && config.type !== 'wms') return;
-
-        const sourceId = '__creator_tile_preview__';
-        const layerId = '__creator_tile_preview_raster__';
-        const sourceKey = JSON.stringify([config.type, config.url, config.minzoom || 0, config.maxzoom || 22, config.tileSize || 256, config.srs || '']);
-        const isSameSource = this._tilePreviewSourceKey === sourceKey && this._map.getSource(sourceId);
-
-        try {
-            const opacity = config.style?.['raster-opacity'] ?? config.opacity ?? 1;
-
-            if (isSameSource) {
-                this._setLayerPaint(layerId, { 'raster-opacity': opacity });
-                return;
-            }
-
-            this._clearCreatorRasterPreview();
-            const tileUrl = config.type === 'wms'
-                ? this._buildWmsPreviewTileUrl(config.url, config.tileSize, config.srs)
-                : config.url;
-            this._map.addSource(sourceId, {
-                type: 'raster',
-                tileSize: config.tileSize || 256,
-                minzoom: config.minzoom || 0,
-                maxzoom: config.maxzoom || 22,
-                tiles: [tileUrl]
-            });
-            this._map.addLayer({
-                id: layerId,
-                type: 'raster',
-                source: sourceId,
-                paint: { 'raster-opacity': opacity }
-            });
-
-            this._tilePreviewSourceKey = sourceKey;
-        } catch (e) {
-            console.warn('[MapBrowserControl] Tile preview failed:', e);
-        }
-    }
-
-    // Renders the vector tile preview by adding/replacing a real layer group
-    // through the shared MapboxAPI instance (the same one that renders every
-    // layer already on the map — see js/map-layer-controls.js). This is the
-    // only way to get fill/line/circle/symbol, layout properties, and default
-    // styling to always match the final layer exactly.
-    //
-    // MapboxAPI has no generic "restyle" method, so every style edit does a
-    // full removeLayerGroup + createLayerGroup. That's fine here: schedulePreview()
-    // in map-creator.js already debounces edits, and the vector tiles stay
-    // browser-cached across the remove/re-add.
-    //
-    // Identity (url/sourceLayer/zoom) is tracked separately from style so that
-    // _detectSourceInfo — which posts a message back to the creator that
-    // can trigger another config render — only re-arms on a genuine source
-    // change, not on every style tweak (that would risk a feedback loop).
-    async _renderVectorTilePreview(config) {
-        const mapboxAPI = window.layerControl?._mapboxAPI;
-        if (!mapboxAPI) return;
-
-        const groupId = '__creator_vector_preview__';
-        const identityKey = JSON.stringify([config.url, config.sourceLayer, config.minzoom || 0, config.maxzoom || 22]);
-        const isNewIdentity = this._vectorPreviewIdentityKey !== identityKey;
-        const generation = (this._vectorPreviewGeneration = (this._vectorPreviewGeneration || 0) + 1);
-
-        try {
-            if (this._vectorPreviewActive) {
-                mapboxAPI.removeLayerGroup(groupId, this._vectorPreviewConfig);
-            }
-            this._vectorPreviewActive = true;
-            this._vectorPreviewConfig = config;
-
-            await mapboxAPI.createLayerGroup(groupId, config, { visible: true });
-
-            // A newer preview started while this one was loading (e.g. async
-            // icon prep for a symbol layer) — bail so we don't clobber it.
-            if (generation !== this._vectorPreviewGeneration) return;
-
-            if (isNewIdentity) {
-                this._vectorPreviewIdentityKey = identityKey;
-                this._detectSourceInfo(`vector-${groupId}`, { sourceLayer: config.sourceLayer });
-            }
-        } catch (e) {
-            console.warn('[MapBrowserControl] Vector tile preview failed:', e);
-        }
-    }
-
-    _clearVectorTilePreview() {
-        if (!this._vectorPreviewActive) return;
-        const mapboxAPI = window.layerControl?._mapboxAPI;
-        if (mapboxAPI && this._vectorPreviewConfig) {
-            mapboxAPI.removeLayerGroup('__creator_vector_preview__', this._vectorPreviewConfig);
-        }
-        this._vectorPreviewActive = false;
-        this._vectorPreviewConfig = null;
-        this._vectorPreviewIdentityKey = null;
-        this._vectorPreviewGeneration = (this._vectorPreviewGeneration || 0) + 1;
-    }
-
-    // COG previews have no XYZ tile template (see _handleCreatorTilePreview's
-    // comment on the tms/wms branch above), so — like vector — this goes
-    // through the real MapboxAPI.createLayerGroup()/removeLayerGroup(), which
-    // already knows how to register the geotiff.js-backed TileProvider (see
-    // js/mapbox-api.js's _createCOGLayer / js/cog-tile-provider.js).
-    async _renderCogPreview(config, { bbox, fitBounds } = {}) {
-        const mapboxAPI = window.layerControl?._mapboxAPI;
-        if (!mapboxAPI) return;
-
-        const groupId = '__creator_cog_preview__';
-
-        try {
-            if (this._cogPreviewActive) {
-                mapboxAPI.removeLayerGroup(groupId, this._cogPreviewConfig);
-            }
-            this._cogPreviewActive = true;
-            this._cogPreviewConfig = config;
-
-            await mapboxAPI.createLayerGroup(groupId, config, { visible: true });
-
-            if (fitBounds && Array.isArray(bbox) && bbox.length === 4) {
-                const [west, south, east, north] = bbox;
-                this._map.fitBounds([[west, south], [east, north]], { padding: 50, maxZoom: 16, duration: 500 });
-            }
-        } catch (e) {
-            console.warn('[MapBrowserControl] COG preview failed:', e);
-        }
-    }
-
-    _clearCogPreview() {
-        if (!this._cogPreviewActive) return;
-        const mapboxAPI = window.layerControl?._mapboxAPI;
-        if (mapboxAPI && this._cogPreviewConfig) {
-            mapboxAPI.removeLayerGroup('__creator_cog_preview__', this._cogPreviewConfig);
-        }
-        this._cogPreviewActive = false;
-        this._cogPreviewConfig = null;
-    }
-
-    _clearCreatorRasterPreview() {
-        if (!this._map) return;
-        this._tilePreviewSourceKey = null;
-        const sourceId = '__creator_tile_preview__';
-        if (this._map.getLayer('__creator_tile_preview_raster__')) this._map.removeLayer('__creator_tile_preview_raster__');
-        if (this._map.getSource(sourceId)) this._map.removeSource(sourceId);
-    }
-
-    _setLayerPaint(layerId, paint) {
-        if (!this._map.getLayer(layerId)) return;
-        Object.entries(paint).forEach(([prop, value]) => {
-            this._map.setPaintProperty(layerId, prop, value);
-        });
-    }
-
-    _buildWmsPreviewTileUrl(wmsUrl, tileSize = 256, srs = 'EPSG:3857') {
-        const [baseUrl, query = ''] = wmsUrl.split('?');
-        const params = new URLSearchParams(query);
-        const lower = {};
-        for (const [key, value] of params.entries()) lower[key.toLowerCase()] = value;
-
-        const version = lower.version || '1.1.1';
-        const merged = new URLSearchParams();
-        merged.set('service', 'WMS');
-        merged.set('version', version);
-        merged.set('request', 'GetMap');
-        merged.set('layers', lower.layers || lower.layer || '');
-        merged.set('styles', lower.styles || '');
-        merged.set('format', lower.format || 'image/png');
-        merged.set('transparent', lower.transparent || 'true');
-        merged.set('width', String(tileSize));
-        merged.set('height', String(tileSize));
-        merged.set(version.startsWith('1.3') ? 'crs' : 'srs', srs);
-        merged.set('bbox', '{bbox-epsg-3857}');
-
-        return `${baseUrl}?${merged.toString()}`;
     }
 
     // Best-effort: once a preview source has had a chance to load, sample
@@ -1722,14 +1518,6 @@ export class MapBrowserControl {
         };
         this._map.on('idle', onIdle);
         setTimeout(() => tryQuery(1), 800);
-    }
-
-    _clearCreatorTilePreview() {
-        if (!this._map) return;
-        this._tileInfoToken = (this._tileInfoToken || 0) + 1;
-        this._clearVectorTilePreview();
-        this._clearCogPreview();
-        this._clearCreatorRasterPreview();
     }
 
     // Build a bbox rectangle Feature from [west, south, east, north], or null.
