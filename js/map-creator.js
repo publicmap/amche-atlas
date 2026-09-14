@@ -297,6 +297,7 @@ export class MapCreator {
         $('#add-to-map-btn').on('click', () => this.addToMap());
         $('#cancel-btn, #back-btn').on('click', () => this.returnToBrowser());
         $('#close-btn').on('click', () => this.closeBrowser());
+        $('#remove-other-maps-btn').on('click', () => this.removeOtherMaps());
 
         $('.color-preview').on('click', function() {
             $(this).siblings('input[type="color"]').click();
@@ -958,8 +959,7 @@ export class MapCreator {
                 this.currentLayerType = result.layerType;
                 this.currentData = result.config;
                 this.currentDataSource = url;
-                this._availableSourceLayers = result.availableSourceLayers || null;
-                this.showTileLayerSuccess(result.config);
+                this.showTileLayerSuccess(result.config, result.availableSourceLayers || null);
                 return;
             }
 
@@ -1554,8 +1554,9 @@ export class MapCreator {
         this.setLoadingState('success');
     }
 
-    showTileLayerSuccess(config) {
+    showTileLayerSuccess(config, availableSourceLayers = null) {
         this._resetConfigEditorState();
+        this._availableSourceLayers = availableSourceLayers;
         this._originalTileConfig = JSON.parse(JSON.stringify(config));
 
         if (this.currentLayerType !== 'osm') {
@@ -2523,6 +2524,16 @@ export class MapCreator {
         this.clearPreview();
         window.parent.postMessage({
             type: 'close-browser'
+        }, '*');
+    }
+
+    // Turns off every currently active map except the basemap — mirrors the
+    // "Hide all maps" atlas-header button (see MapBrowserControl.hideAllLayers)
+    // so a layer being tested here doesn't stay buried under everything else
+    // already on the map.
+    removeOtherMaps() {
+        window.parent.postMessage({
+            type: 'remove-other-maps'
         }, '*');
     }
 

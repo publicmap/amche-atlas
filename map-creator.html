@@ -752,6 +752,15 @@ File upload only: .zip containing shapefile">
                             class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
                     </div>
 
+                    <div class="mb-4" id="source-layer-field-container" style="display: none;">
+                        <label class="block text-xs font-medium mb-1">Source Layer</label>
+                        <select id="source-layer-field"
+                            class="w-full px-3 py-2 border border-gray-300 rounded text-sm"></select>
+                        <div class="text-xs text-gray-500 mt-1">
+                            Layer within the vector tile to render — detected from a sample tile.
+                        </div>
+                    </div>
+
                     <div class="mb-4" id="data-fields-section" style="display: none;">
                         <h4 class="text-sm font-semibold mb-3">Data Fields</h4>
 
@@ -882,15 +891,6 @@ File upload only: .zip containing shapefile">
                 <div id="style-controls" class="mt-4 pt-4 border-t border-gray-200">
                     <h3 class="text-sm font-semibold mb-3">Style</h3>
                     <div id="geometry-type-info" class="mb-3 text-xs text-gray-600"></div>
-
-                    <div class="mb-4" id="source-layer-field-container" style="display: none;">
-                        <label class="block text-xs font-medium mb-1">Source Layer</label>
-                        <select id="source-layer-field"
-                            class="w-full px-3 py-2 border border-gray-300 rounded text-sm"></select>
-                        <div class="text-xs text-gray-500 mt-1">
-                            Layer within the vector tile to render — detected from a sample tile.
-                        </div>
-                    </div>
 
                     <!-- Style type picker -->
                     <div class="flex flex-wrap gap-4 mb-4">
@@ -1048,6 +1048,12 @@ File upload only: .zip containing shapefile">
                 class="px-4 py-2 rounded text-sm transition-colors"
                 style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
                 Cancel
+            </button>
+            <button id="remove-other-maps-btn"
+                class="px-4 py-2 rounded text-sm transition-colors"
+                style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;"
+                title="Turn off every currently active map except the basemap, for a fresh inspector">
+                Remove Other Maps
             </button>
             <button id="add-to-map-btn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold text-sm" disabled>
                 Add Map Layer

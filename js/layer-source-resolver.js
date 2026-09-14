@@ -232,6 +232,41 @@ export async function probeVectorTileLayers(tileUrl) {
     }
 }
 
+// Amsterdam — picked as a densely-mapped OSM reference point so probe tiles
+// are likely to actually contain data, not just ocean/empty tiles. Point
+// layers (substations, plants, ...) are often omitted below some minzoom, so
+// a single low-zoom tile can miss them entirely even where they do exist —
+// sampling several zooms and merging what each finds catches those too.
+const PROBE_SAMPLE_POINT = { lng: 4.9, lat: 52.37 };
+const PROBE_ZOOMS = [6, 9, 12];
+
+function lngLatToTileXY(lng, lat, z) {
+    const n = 2 ** z;
+    const x = Math.floor((lng + 180) / 360 * n);
+    const latRad = lat * Math.PI / 180;
+    const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+    return { x, y };
+}
+
+/**
+ * Like probeVectorTileLayers, but for a still-templated {z}/{x}/{y} URL with
+ * no concrete sample tile to go on (e.g. pasted without real coordinates) —
+ * samples a few zooms over a reference point known to have real data and
+ * merges the layer names found across all of them.
+ * @param {string} urlTemplate - A tile URL containing {z}/{x}/{y} placeholders.
+ * @returns {Promise<string[]|null>} Merged layer names found, or null if none/failed.
+ */
+export async function probeVectorTileLayersAtZooms(urlTemplate) {
+    const results = await Promise.all(PROBE_ZOOMS.map(z => {
+        const { x, y } = lngLatToTileXY(PROBE_SAMPLE_POINT.lng, PROBE_SAMPLE_POINT.lat, z);
+        const tileUrl = urlTemplate.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+        return probeVectorTileLayers(tileUrl);
+    }));
+    const names = new Set();
+    results.forEach(list => (list || []).forEach(name => names.add(name)));
+    return names.size ? [...names] : null;
+}
+
 export function convertTileUrlToTemplate(url, defaultExtension = null) {
     return url.replace(/\/\d+\/\d+\/\d+(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i, (match, ext, extName, end) => {
         if (!ext && defaultExtension) {
@@ -637,9 +672,10 @@ export async function resolveTileSource(url) {
 
         if (tilejson?.vector_layers?.length) {
             availableSourceLayers = tilejson.vector_layers.map(layer => layer.id);
+        } else if (sampleTileUrl) {
+            availableSourceLayers = await probeVectorTileLayers(sampleTileUrl);
         } else {
-            const probeUrl = sampleTileUrl || actualUrl.replace('{z}', '0').replace('{x}', '0').replace('{y}', '0');
-            availableSourceLayers = await probeVectorTileLayers(probeUrl);
+            availableSourceLayers = await probeVectorTileLayersAtZooms(actualUrl);
         }
     }
 

@@ -338,6 +338,10 @@ export class MapBrowserControl {
                 this._handleAddCustomLayer(event.data.config, { keepOpen: !!event.data.keepOpen });
             }
 
+            if (event.data.type === 'remove-other-maps') {
+                this.hideAllLayers();
+            }
+
             if (event.data.type === 'open-layer-info') {
                 this._openLayerInfo(event.data.layer, { edit: event.data.edit, feature: event.data.feature });
             }
