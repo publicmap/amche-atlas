@@ -99,3 +99,86 @@ describe('OverpassLoader endpoint failover', () => {
         await expect(loader._fetch('q')).rejects.toMatchObject({ isRateLimit: true, status: 504, retryAfterMs: 10000 });
     });
 });
+
+describe('OverpassLoader fetch gating and cache', () => {
+    function makeGatedLoader({ zoom = 14, minzoom = 13, query = 'nwr[amenity=cafe]({{bbox}});out geom;' } = {}) {
+        const onData = vi.fn();
+        const map = {
+            on: () => {},
+            off: () => {},
+            getZoom: () => zoom,
+            getCenter: () => ({ lat: 15.45, lng: 73.85 }),
+            getBounds: () => ({ getWest: () => 73.8, getSouth: () => 15.4, getEast: () => 73.9, getNorth: () => 15.5 })
+        };
+        const loader = new OverpassLoader({
+            map, groupId: 'test', config: { query, minzoom }, onData, onError: () => {}
+        });
+        return { loader, onData };
+    }
+
+    beforeEach(() => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('skips the fetch below minzoom but not when refreshNow bypasses the gate', async () => {
+        const { loader } = makeGatedLoader({ zoom: 12.4 });
+        const fetchMock = vi.fn(async () => response(200, { features: [] }));
+        vi.stubGlobal('fetch', fetchMock);
+        loader._enabled = true;
+
+        await loader._maybeFetch();
+        expect(fetchMock).not.toHaveBeenCalled();
+
+        await loader.refreshNow();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('reuses a covered viewport unless the caller asks to ignore the cache', async () => {
+        const { loader } = makeGatedLoader();
+        const fetchMock = vi.fn(async () => response(200, { features: [] }));
+        vi.stubGlobal('fetch', fetchMock);
+        loader._enabled = true;
+
+        await loader._maybeFetch();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(loader.needsFetch()).toBe(false);
+
+        await loader.refreshNow({ ignoreCache: false });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+
+        await loader.refreshNow();
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('restores a cache from the same query and then skips the network', async () => {
+        const { loader } = makeGatedLoader();
+        const fetchMock = vi.fn(async () => response(200, {
+            features: [{ id: 'node/1', properties: {}, geometry: { type: 'Point', coordinates: [73.85, 15.45] } }]
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+        loader._enabled = true;
+        await loader._maybeFetch();
+
+        const cache = loader.getCache();
+        expect(cache.features).toHaveLength(1);
+
+        const { loader: revived, onData } = makeGatedLoader();
+        expect(revived.restore(cache)).toBe(true);
+        expect(onData.mock.calls[0][0].features).toHaveLength(1);
+
+        revived._enabled = true;
+        fetchMock.mockClear();
+        await revived._maybeFetch();
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects a cache taken under a different query or with nothing fetched', () => {
+        const { loader } = makeGatedLoader();
+        expect(loader.restore({ query: 'other', features: [], bboxes: [[0, 0, 1, 1]] })).toBe(false);
+        expect(loader.restore({ query: loader._config.query, features: [], bboxes: [] })).toBe(false);
+        expect(loader.restore(undefined)).toBe(false);
+    });
+});

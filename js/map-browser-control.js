@@ -1270,6 +1270,18 @@ export class MapBrowserControl {
             this._detectSourceInfo(`geojson-${config.id}`, { maxAttempts: 20, retryMs: 1000 });
         }
 
+        // Previewing is an explicit "show me this query" action, so fetch right
+        // away instead of leaving the layer empty behind its minzoom gate — a
+        // query is authored at whatever zoom the map happens to sit at, and a
+        // silently blank preview reads as a broken query. Runs on every preview
+        // tick (not just a new query) because each tick re-adds the layer from
+        // scratch, so a style tweak below minzoom would otherwise blank it —
+        // `ignoreCache: false` makes those style ticks reuse the features the
+        // torn-down loader already had instead of re-querying Overpass.
+        if (config.type === 'overpass') {
+            window.layerControl?._mapboxAPI?.refreshOverpassLayer(config.id, { ignoreCache: false });
+        }
+
         if (fitBounds && Array.isArray(bbox) && bbox.length === 4) {
             const [west, south, east, north] = bbox;
             try {

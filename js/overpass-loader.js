@@ -76,18 +76,50 @@ export class OverpassLoader {
         this._setBelowMinZoom(false);
     }
 
-    // Bypasses the minzoom gate and the fetched-bbox cache for an explicit,
-    // user-triggered refresh (e.g. clicking "Refresh" on the zoom-gate message).
-    // Returns a promise that settles once the fetch finishes (success or
-    // error - _maybeFetch handles its own errors internally, so this never
-    // rejects), so the caller can show/clear a loading indicator.
-    refreshNow() {
+    // Bypasses the minzoom gate for an explicit, user-triggered load (e.g.
+    // clicking "Load now" on the zoom-gate message). `ignoreCache` also
+    // re-queries a viewport that's already covered - true for a real refresh,
+    // false for callers that only want to guarantee the layer has data (see
+    // MapboxAPI.refreshOverpassLayer). Returns a promise that settles once the
+    // fetch finishes (success or error - _maybeFetch handles its own errors
+    // internally, so this never rejects), so the caller can show/clear a
+    // loading indicator.
+    refreshNow({ ignoreCache = true } = {}) {
         if (!this._enabled) return Promise.resolve();
         if (this._debounceTimer) {
             clearTimeout(this._debounceTimer);
             this._debounceTimer = null;
         }
-        return this._maybeFetch(true);
+        return this._maybeFetch({ ignoreMinZoom: true, ignoreCache });
+    }
+
+    // Whether the current viewport falls outside everything fetched so far, so
+    // callers can skip a no-op refresh (and its loading indicator).
+    needsFetch() {
+        if (!this._enabled) return false;
+        const viewBbox = this._getViewportBbox();
+        return !this._fetchedBboxes.some(b => containsBbox(b, viewBbox));
+    }
+
+    // Snapshot of everything fetched so far. A loader re-created for the same
+    // query (the creator re-adds its draft layer on every style tweak) resumes
+    // from this instead of re-querying Overpass for data it already had.
+    getCache() {
+        return {
+            query: this._config.query,
+            features: Array.from(this._features.values()),
+            bboxes: this._fetchedBboxes.slice()
+        };
+    }
+
+    // Rehydrates from getCache(). Rejects a snapshot taken under a different
+    // query, whose features would be wrong for this layer.
+    restore(cache) {
+        if (!cache || !cache.bboxes?.length || cache.query !== this._config.query) return false;
+        for (const f of cache.features) this._features.set(String(f.id), f);
+        this._fetchedBboxes = cache.bboxes.slice();
+        this._emit();
+        return true;
     }
 
     destroy() {
@@ -109,18 +141,18 @@ export class OverpassLoader {
         }, delay);
     }
 
-    async _maybeFetch(force = false) {
+    async _maybeFetch({ ignoreMinZoom = false, ignoreCache = false } = {}) {
         if (!this._enabled) return;
 
         const zoom = this._map.getZoom();
         const belowMinZoom = zoom < this._minzoom;
         this._setBelowMinZoom(belowMinZoom);
-        if (belowMinZoom && !force) return;
+        if (belowMinZoom && !ignoreMinZoom) return;
 
         if (Date.now() < this._rateLimitedUntil) return;
 
         const viewBbox = this._getViewportBbox();
-        if (!force && this._fetchedBboxes.some(b => containsBbox(b, viewBbox))) return;
+        if (!ignoreCache && this._fetchedBboxes.some(b => containsBbox(b, viewBbox))) return;
 
         const fetchBbox = expandBbox(viewBbox, this._bboxBuffer);
 
@@ -154,11 +186,7 @@ export class OverpassLoader {
             }
             this._fetchedBboxes.push(fetchBbox);
 
-            const merged = {
-                type: 'FeatureCollection',
-                features: Array.from(this._features.values())
-            };
-            this._onData(merged, OSMApi.mergeStyleForGeometryTypes(merged, this._config.style));
+            this._emit();
         } catch (err) {
             if (err.name === 'AbortError') return;
             if (err.isRateLimit) {
@@ -171,6 +199,14 @@ export class OverpassLoader {
             this._inflight = false;
             this._abortController = null;
         }
+    }
+
+    _emit() {
+        const merged = {
+            type: 'FeatureCollection',
+            features: Array.from(this._features.values())
+        };
+        this._onData(merged, OSMApi.mergeStyleForGeometryTypes(merged, this._config.style));
     }
 
     _setBelowMinZoom(belowMinZoom) {

@@ -12,6 +12,11 @@ import ConfigManager from './config-manager.js';
 import { handlerLoader } from './inspection-handler-loader.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
 
+// How many removed Overpass layers keep their fetched features around for a
+// possible re-add. The creator mints a fresh layer id per import, so without a
+// bound these would accumulate across a long authoring session.
+const OVERPASS_CACHE_LIMIT = 10;
+
 const COG_PROVIDER_URL = new URL('./cog-tile-provider.js', import.meta.url).href;
 let _cogProviderRegistered = false;
 function registerCOGProvider() {
@@ -37,6 +42,7 @@ export class MapboxAPI {
         this._overpassLoaders = new Map(); // OverpassLoader instances keyed by groupId
         this._overpassPaintLayersCreated = new Set(); // groupIds whose fill/line/circle layers have been created
         this._overpassConfigs = new Map(); // groupId -> config, for rebuilding the zoom-gate message on manual refresh
+        this._overpassCaches = new Map(); // groupId -> OverpassLoader.getCache(), so a re-added layer resumes without re-querying
         this._layerDataPrefetch = new Map(); // url -> in-flight/resolved GeoJSON promise, see prefetchLayerData
         this._dimSnapshots = new Map(); // groupId -> [[layerId, paintProp, originalValue]], see setLayerGroupDimmed
         this._opacityRecorder = null; // active snapshot array while a dim is being applied
@@ -2439,6 +2445,15 @@ export class MapboxAPI {
     _removeOverpassLayer(groupId, config) {
         const loader = this._overpassLoaders.get(groupId);
         if (loader) {
+            // Keep the fetched features around rather than dropping them with
+            // the loader: the creator tears this layer down and rebuilds it on
+            // every style tweak, and re-querying Overpass for data we already
+            // have is both slow and rude to a free API.
+            this._overpassCaches.delete(groupId);
+            this._overpassCaches.set(groupId, loader.getCache());
+            if (this._overpassCaches.size > OVERPASS_CACHE_LIMIT) {
+                this._overpassCaches.delete(this._overpassCaches.keys().next().value);
+            }
             loader.destroy();
             this._overpassLoaders.delete(groupId);
         }
@@ -2475,6 +2490,7 @@ export class MapboxAPI {
                 onZoomGate: (belowMinZoom) => this._handleOverpassZoomGate(groupId, config, belowMinZoom)
             });
             this._overpassLoaders.set(groupId, loader);
+            loader.restore(this._overpassCaches.get(groupId));
         }
         loader.start();
     }
@@ -2483,15 +2499,21 @@ export class MapboxAPI {
         return `overpass-zoom-gate-${groupId}`;
     }
 
-    // Shared markup for the zoom-gate message so the initial "Refresh" link
-    // and the in-flight spinner (refreshOverpassLayer) stay in sync.
+    // Shared markup for the zoom-gate message so the idle "Load now" link and
+    // the in-flight spinner (refreshOverpassLayer) stay in sync. The idle copy
+    // has to say why the map is empty — a bare title with a link reads as a
+    // failed layer rather than a zoom gate.
     _overpassZoomGateMessageHtml(groupId, config, { loading = false } = {}) {
         const title = GeoUtils.escapeXml(config.title || groupId);
         if (loading) {
-            return `${title} &middot; Refresh ${LOADING_ICON_HTML}`;
+            return `${title} &middot; Loading ${LOADING_ICON_HTML}`;
         }
         const jsEscapedGroupId = groupId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        return `${title} &middot; <a href="#" onclick="window.layerControl?._mapboxAPI?.refreshOverpassLayer('${jsEscapedGroupId}');return false;">Refresh</a>`;
+        const minzoom = config.minzoom;
+        const reason = minzoom != null
+            ? `zoom to level ${minzoom} to load OSM data`
+            : 'zoom in to load OSM data';
+        return `${title} &middot; ${reason} &middot; <a href="#" onclick="window.layerControl?._mapboxAPI?.refreshOverpassLayer('${jsEscapedGroupId}');return false;">Load now</a>`;
     }
 
     // Below the layer's minzoom, OverpassLoader stops auto-refreshing (to
@@ -2509,13 +2531,16 @@ export class MapboxAPI {
         );
     }
 
-    // Manually forces an Overpass layer to refetch the current viewport,
-    // bypassing the minzoom gate - used by the zoom-gate message's "Refresh"
-    // link. Swaps the link for a spinner while in flight, then closes the
-    // message once a response (success or error) comes back.
-    refreshOverpassLayer(groupId) {
+    // Makes an Overpass layer load the current viewport, bypassing the minzoom
+    // gate - used by the zoom-gate message's "Load now" link, and by the
+    // creator's live preview. `ignoreCache: false` skips the call entirely when
+    // the viewport is already covered, so a style tweak reuses what's loaded.
+    // Swaps the link for a spinner while in flight, then closes the message
+    // once a response (success or error) comes back.
+    refreshOverpassLayer(groupId, { ignoreCache = true } = {}) {
         const loader = this._overpassLoaders.get(groupId);
         if (!loader) return;
+        if (!ignoreCache && !loader.needsFetch()) return;
 
         const config = this._overpassConfigs.get(groupId) || {};
         const messageId = this._overpassZoomGateMessageId(groupId);
@@ -2524,7 +2549,7 @@ export class MapboxAPI {
             { id: messageId, duration: 0 }
         );
 
-        loader.refreshNow().then(() => {
+        loader.refreshNow({ ignoreCache }).then(() => {
             MapContextMessagesControl.close(messageId);
         });
     }

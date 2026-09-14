@@ -6,6 +6,57 @@ import { StreamingGPKGReader } from './streaming-gpkg-reader.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
 import * as SourceResolver from './layer-source-resolver.js';
 
+// A style value can be either a plain literal or the
+// ['coalesce', ['get', …], …, literal] form buildStyleFromControls() emits for
+// data-driven colours — both resolve to the trailing literal.
+function styleLiteral(value) {
+    if (Array.isArray(value)) {
+        return value[0] === 'coalesce' ? styleLiteral(value[value.length - 1]) : undefined;
+    }
+    return typeof value === 'number' || typeof value === 'string' ? value : undefined;
+}
+
+// `<input type="color">` only accepts #rrggbb, so normalize the hex shorthands
+// and rgb()/rgba() forms a hand-written config may use. Anything else (a named
+// colour, an expression) returns undefined, leaving the control untouched.
+function toHexColor(value) {
+    if (typeof value !== 'string') return undefined;
+    const color = value.trim();
+
+    const hex = color.match(/^#([0-9a-f]{3,8})$/i)?.[1];
+    if (hex) {
+        if (hex.length === 3 || hex.length === 4) return '#' + [...hex.slice(0, 3)].map(c => c + c).join('');
+        if (hex.length === 6 || hex.length === 8) return '#' + hex.slice(0, 6).toLowerCase();
+        return undefined;
+    }
+
+    const rgb = color.match(/^rgba?\(([^)]+)\)$/i)?.[1];
+    if (!rgb) return undefined;
+    const parts = rgb.split(',').map(p => parseFloat(p.trim()));
+    if (parts.length < 3 || parts.slice(0, 3).some(n => !Number.isFinite(n))) return undefined;
+    return '#' + parts.slice(0, 3)
+        .map(n => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0'))
+        .join('');
+}
+
+// The alpha baked into an rgba()/#rrggbbaa colour, which the Style controls
+// keep separate from the colour itself.
+function colorAlpha(value) {
+    if (typeof value !== 'string') return undefined;
+    const color = value.trim();
+
+    const hex = color.match(/^#([0-9a-f]{4}|[0-9a-f]{8})$/i)?.[1];
+    if (hex) {
+        const alpha = hex.length === 4 ? hex[3] + hex[3] : hex.slice(6);
+        return parseInt(alpha, 16) / 255;
+    }
+
+    const parts = color.match(/^rgba\(([^)]+)\)$/i)?.[1]?.split(',');
+    if (!parts || parts.length < 4) return undefined;
+    const alpha = parseFloat(parts[3]);
+    return Number.isFinite(alpha) ? alpha : undefined;
+}
+
 export class MapCreator {
     constructor() {
         this.currentData = null;
@@ -1530,6 +1581,7 @@ export class MapCreator {
             $('#style-type-point, #style-type-line, #style-type-area').prop('checked', false);
             $('#style-type-label').prop('checked', true);
             this.updateStyleSectionVisibility();
+            this.applyStyleToControls(config.style);
 
             if (config.type === 'vector') {
                 this.populateSourceLayerOptions(this._availableSourceLayers, config.sourceLayer);
@@ -1698,6 +1750,45 @@ export class MapCreator {
     // checkboxes are checked. Multiple style "families" (fill-*, line-*,
     // circle-*, text-*) can coexist in one flat object — MapboxAPI splits them
     // into the right layer types when the layer is actually added to the map.
+    // Seeds the Style controls from a config's own paint properties. Without
+    // this, the first edit to any field replaces a layer's supplied style with
+    // the markup's blue defaults — updateTileConfigPreview() rebuilds
+    // config.style from buildStyleFromControls(), which reads only these
+    // inputs, so a colour not reflected here is silently dropped. Notably hits
+    // overpass layers, whose generated style is green (buildOverpassLayerConfig).
+    applyStyleToControls(style) {
+        if (!style || typeof style !== 'object') return;
+
+        const setColor = (selector, value) => {
+            const hex = toHexColor(styleLiteral(value));
+            if (!hex) return;
+            $(selector).val(hex).siblings('.color-preview').css('background-color', hex);
+        };
+
+        const setRange = (selector, value) => {
+            if (typeof value !== 'number' || !Number.isFinite(value)) return;
+            $(selector).val(value);
+            $(`${selector}-value`).text(value);
+        };
+
+        // Line paint strokes polygon outlines too, so line-* seeds both the
+        // Line section and the Area section's stroke.
+        setColor('#area-fill-color', style['fill-color']);
+        setColor('#area-stroke-color', style['line-color']);
+        setColor('#line-color', style['line-color']);
+        setColor('#point-fill-color', style['circle-color']);
+        setColor('#point-stroke-color', style['circle-stroke-color']);
+
+        setRange('#area-stroke-width', styleLiteral(style['line-width']));
+        setRange('#line-width', styleLiteral(style['line-width']));
+        setRange('#point-radius', styleLiteral(style['circle-radius']));
+
+        const fillOpacity = styleLiteral(style['fill-opacity']);
+        setRange('#area-fill-opacity', typeof fillOpacity === 'number'
+            ? fillOpacity
+            : colorAlpha(styleLiteral(style['fill-color'])));
+    }
+
     buildStyleFromControls() {
         const style = {};
 
@@ -2039,7 +2130,17 @@ export class MapCreator {
         }
 
         if ((layerType === 'vector' || layerType === 'overpass') && !this._styleManuallyEdited) {
-            config.style = this.buildStyleFromControls();
+            // Until geometry detection (or the user) checks a Point/Line/Area
+            // box, buildStyleFromControls() can only emit the label — taking it
+            // wholesale would blank a style the config already carries (an
+            // overpass layer's green, say) and leave the layer on the renderer's
+            // bare defaults until detection lands. Layer the label over the
+            // config's own style instead, and only hand the controls full
+            // authority once they actually describe a geometry type.
+            const geometryStyled = $('#style-type-point, #style-type-line, #style-type-area').is(':checked');
+            config.style = geometryStyled
+                ? this.buildStyleFromControls()
+                : { ...(baseConfig.style || {}), ...this.buildStyleFromControls() };
         }
 
         if (layerType === 'vector' && $('#source-layer-field-container').is(':visible')) {
