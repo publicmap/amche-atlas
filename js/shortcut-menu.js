@@ -41,12 +41,12 @@ const LONG_PRESS_MOVE_THRESHOLD = 10;
 // options menu (see layer-stack-options-menu.js's own ITEM_IDS) - this is
 // what's left for the long-press menu.
 //
-// There is no "Select" flyout any more: its one item that still belongs to a
-// menu opened on a point ("Zoom To Selected") is picked out of it and shown at
-// the top level here instead, under "Zoom To Location" - which frames the
-// pressed point itself rather than whatever is selected. "Zoom To Selected"
-// drops out on its own while there is nothing selected to frame (see
-// ShortcutMenuBase._buildSelectionMenuItems).
+// There is no "Select" flyout any more: the two items that still belong to a
+// menu opened on a point ("Zoom To Selected" and "Export Selected As KML") are
+// picked out of it and shown at the top level here instead, under "Zoom To
+// Location" - which frames the pressed point itself rather than whatever is
+// selected. Both drop out on their own while there is nothing selected to
+// frame or write out (see ShortcutMenuBase._buildSelectionMenuItems).
 //
 // The route rows are likewise flat rather than behind a "Route" flyout:
 // "Route From" starts a new route at the pressed point, "Route To" routes to
@@ -59,6 +59,7 @@ const ITEM_IDS = [
     'remove-marker',
     'zoom-to-location',
     'zoom-to-selected',
+    'export-selected-kml',
     'route-from-here',
     'route-to-here',
     'remove-from-route-menu',

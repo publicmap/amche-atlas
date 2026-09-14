@@ -537,20 +537,37 @@ export class ShortcutMenuBase {
     _buildSelectionMenuItems() {
         if (!this._hasSelectionMarkers()) return [];
 
-        return [
+        const items = [
             {
                 id: 'zoom-to-selected',
                 icon: 'bounding-box',
                 label: 'Zoom To Selected',
                 action: () => window.featureControl?.zoomToSelected(this._lngLat)
-            },
-            {
-                id: 'clear-selection',
-                icon: 'x-circle',
-                label: 'Clear All Locations',
-                action: () => window.featureControl?.clearSelection()
             }
         ];
+
+        // A marker on a bare point has no features to write out, so this row
+        // waits until something is actually selected rather than downloading
+        // an empty file. Exports every selected feature across every layer,
+        // reassembled from its vector tile fragments (see
+        // MapMarkerManager.exportSelectedFeatures).
+        if (window.exportControl?._hasSelectedFeatures?.()) {
+            items.push({
+                id: 'export-selected-kml',
+                icon: 'download',
+                label: 'Export Selected As KML',
+                action: () => window.featureControl?._markerManager?.exportSelectedFeatures('kml')
+            });
+        }
+
+        items.push({
+            id: 'clear-selection',
+            icon: 'x-circle',
+            label: 'Clear All Locations',
+            action: () => window.featureControl?.clearSelection()
+        });
+
+        return items;
     }
 
     /**

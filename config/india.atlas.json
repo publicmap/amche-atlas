@@ -3582,7 +3582,7 @@
       "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
       "proxyReferer": "https://bhuvan.nrsc.gov.in/",
       "tileSize": 256,
-      "maxzoom": 18,
+      "maxzoom": 15,
       "description": "Imagery captured by US <a href='https://en.wikipedia.org/wiki/CORONA_(satellite)'>CORONA</a> series fo spy satellites between 1965-1980.",
       "attribution": "CORONA via <a href='https://bhuvanmaps.nrsc.gov.in/ras2mapcache'>Bhuvan</a>"
     }

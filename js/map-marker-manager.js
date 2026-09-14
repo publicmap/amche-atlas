@@ -4682,6 +4682,11 @@ export class MapMarkerManager {
      * "export-selected" exports only the single feature the menu was opened
      * from; "export-layer" pulls every feature currently loaded for that
      * layer's source, regardless of selection.
+     *
+     * Either way the features are reassembled from their vector tile fragments
+     * first (see _assembleTiledFeature) - a feature clipped across tiles is
+     * several features to the map, and writing out only the piece that was
+     * clicked is what "Export Selected" used to do.
      */
     async _handleLayerExportAction(action, format, layerId, featureData) {
         const exportControl = window.exportControl;
@@ -4699,22 +4704,188 @@ export class MapMarkerManager {
                 console.warn('[MapMarkerManager] Could not parse feature for export:', err);
                 return;
             }
-            config.customSelectedFeatures = [{ feature, layerId, layerConfig }];
+            config.customSelectedFeatures = [{
+                feature: this._assembleTiledFeature(feature, layerId, layerConfig),
+                layerId,
+                layerConfig
+            }];
         }
 
         if (action === 'export-layer') {
-            const sourceId = layerConfig?.source || `${layerConfig?.type}-${layerId}`;
-            let features = [];
-            try {
-                features = this._map.querySourceFeatures(sourceId, { sourceLayer: layerConfig?.sourceLayer }) || [];
-            } catch (err) {
-                console.warn(`[MapMarkerManager] Could not query features for layer "${layerId}":`, err);
-            }
+            const features = this._querySourceFeatures(layerId, layerConfig);
             if (features.length === 0) return;
-            config.customSelectedFeatures = features.map(feature => ({ feature, layerId, layerConfig }));
+            config.customSelectedFeatures = this._reassembleTiledFeatures(features)
+                .map(feature => ({ feature, layerId, layerConfig }));
         }
 
         await exportControl._handleExport(config);
+    }
+
+    /**
+     * "Export Selected As KML" from the shortcut menus - every feature selected
+     * across every layer, rather than the one feature a marker's own export
+     * acts on. Each is reassembled from its tile fragments the same way (see
+     * _assembleTiledFeature), so a multipolygon selected at a tile boundary
+     * still writes out whole.
+     */
+    async exportSelectedFeatures(format = 'kml') {
+        const exportControl = window.exportControl;
+        if (!exportControl) return;
+
+        const selected = exportControl._getSelectedFeatures();
+        if (selected.length === 0) return;
+
+        await exportControl._handleExport({
+            format,
+            exportSelectedOnly: true,
+            customSelectedFeatures: selected.map(item => ({
+                ...item,
+                feature: this._assembleTiledFeature(
+                    typeof item.feature?.toJSON === 'function' ? item.feature.toJSON() : item.feature,
+                    item.layerId,
+                    item.layerConfig
+                )
+            }))
+        });
+    }
+
+    /** Every feature the layer's source currently has decoded, or []. */
+    _querySourceFeatures(layerId, layerConfig) {
+        const sourceId = layerConfig?.source || `${layerConfig?.type}-${layerId}`;
+        try {
+            return this._map.querySourceFeatures(sourceId, { sourceLayer: layerConfig?.sourceLayer }) || [];
+        } catch (err) {
+            console.warn(`[MapMarkerManager] Could not query features for layer "${layerId}":`, err);
+            return [];
+        }
+    }
+
+    /**
+     * A vector tile carries only the part of a feature that falls inside it, so
+     * one multipolygon spanning several tiles reaches the map as several
+     * fragments and the clicked one is just the piece under the cursor.
+     * Re-query the source and stitch every fragment of the same feature back
+     * together, so "Export Selected" writes the whole thing.
+     *
+     * Only fragments in tiles the map has already loaded can be found - a
+     * feature reaching beyond the viewport still exports only as much of itself
+     * as has been decoded.
+     */
+    _assembleTiledFeature(feature, layerId, layerConfig) {
+        const key = this._tileFragmentKey(feature);
+        if (!key || !this._isMergeableGeometry(feature?.geometry?.type)) return feature;
+
+        const fragments = this._querySourceFeatures(layerId, layerConfig)
+            .filter(f => this._tileFragmentKey(f) === key)
+            .map(f => (typeof f.toJSON === 'function' ? f.toJSON() : f));
+
+        return this._mergeFeatureFragments([feature, ...fragments]);
+    }
+
+    /**
+     * The same reassembly across a whole layer: fragments of one feature come
+     * back as one feature, anything without a usable identity is left alone.
+     */
+    _reassembleTiledFeatures(sourceFeatures) {
+        const groups = new Map();
+        const loose = [];
+
+        sourceFeatures.forEach(f => {
+            const plain = typeof f.toJSON === 'function' ? f.toJSON() : f;
+            const key = this._tileFragmentKey(plain);
+            if (!key || !this._isMergeableGeometry(plain?.geometry?.type)) {
+                loose.push(plain);
+                return;
+            }
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(plain);
+        });
+
+        return [
+            ...[...groups.values()].map(group => this._mergeFeatureFragments(group)),
+            ...loose
+        ];
+    }
+
+    /**
+     * What two tile fragments of the same feature share. Only explicit ids are
+     * trusted: the looser fallbacks MapFeatureStateManager._getFeatureId falls
+     * back on (a `name` property, a geometry hash) would respectively merge
+     * genuinely distinct features and never match at all.
+     */
+    _tileFragmentKey(feature) {
+        if (feature?.id !== undefined && feature?.id !== null) return `id:${feature.id}`;
+        const properties = feature?.properties || {};
+        for (const name of ['id', 'fid', 'giscode']) {
+            const value = properties[name];
+            if (value !== undefined && value !== null && value !== '') return `${name}:${value}`;
+        }
+        return null;
+    }
+
+    /** Only areas and lines are split across tiles in a way worth rejoining. */
+    _isMergeableGeometry(type) {
+        return type === 'Polygon' || type === 'MultiPolygon'
+            || type === 'LineString' || type === 'MultiLineString';
+    }
+
+    /**
+     * One feature carrying every fragment's geometry. Properties come from the
+     * first fragment - they are identical across the fragments of one feature,
+     * that being what identifies them as fragments of it.
+     */
+    _mergeFeatureFragments(fragments) {
+        const base = fragments[0];
+        const geometries = [];
+        const seen = new Set();
+
+        fragments.forEach(f => {
+            const geometry = f?.geometry;
+            if (!geometry?.coordinates) return;
+            // The same tile can come back more than once (querySourceFeatures
+            // answers per style sublayer of the source), and the clicked
+            // feature is usually also among the fragments queried below.
+            const signature = JSON.stringify(geometry.coordinates);
+            if (seen.has(signature)) return;
+            seen.add(signature);
+            geometries.push(geometry);
+        });
+
+        if (geometries.length <= 1) return base;
+        return { ...base, geometry: this._mergeFragmentGeometries(geometries) };
+    }
+
+    /**
+     * Concatenating the fragments' parts is always complete, so that is the
+     * result unless turf can dissolve the tile-boundary seams between them into
+     * cleaner rings covering the same ground. Fragments overlap slightly (tiles
+     * are decoded with a buffer), so the union has something to bite on.
+     */
+    _mergeFragmentGeometries(geometries) {
+        const isPolygon = geometries[0].type === 'Polygon' || geometries[0].type === 'MultiPolygon';
+
+        const parts = [];
+        geometries.forEach(({ type, coordinates }) => {
+            if (type === 'Polygon' || type === 'LineString') parts.push(coordinates);
+            else if (type === 'MultiPolygon' || type === 'MultiLineString') parts.push(...coordinates);
+        });
+        const concatenated = {
+            type: isPolygon ? 'MultiPolygon' : 'MultiLineString',
+            coordinates: parts
+        };
+
+        if (!isPolygon || typeof turf === 'undefined') return concatenated;
+
+        try {
+            const dissolved = turf.union(turf.featureCollection(
+                geometries.map(geometry => ({ type: 'Feature', properties: {}, geometry }))
+            ));
+            if (dissolved?.geometry?.coordinates?.length) return dissolved.geometry;
+        } catch (err) {
+            console.warn('[MapMarkerManager] Could not dissolve tile fragments, exporting them unmerged:', err);
+        }
+
+        return concatenated;
     }
 
     _navigateMarker(direction) {
