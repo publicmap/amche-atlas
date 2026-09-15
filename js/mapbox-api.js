@@ -7,6 +7,7 @@ import { DataUtils, GeoUtils } from './map-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { OverpassLoader } from './overpass-loader.js';
+import { OSMApi } from './osm-url-api.js';
 import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
 import ConfigManager from './config-manager.js';
 import { handlerLoader } from './inspection-handler-loader.js';
@@ -40,7 +41,7 @@ export class MapboxAPI {
         this._eventListeners = new Map(); // Cache for event listeners
         this._timeBasedLayers = new Map(); // Cache for layers with time parameters
         this._overpassLoaders = new Map(); // OverpassLoader instances keyed by groupId
-        this._overpassPaintLayersCreated = new Set(); // groupIds whose fill/line/circle layers have been created
+        this._overpassPaintSignatures = new Map(); // groupId -> geometry signature the current fill/line/circle layers were built for
         this._overpassConfigs = new Map(); // groupId -> config, for rebuilding the zoom-gate message on manual refresh
         this._overpassCaches = new Map(); // groupId -> OverpassLoader.getCache(), so a re-added layer resumes without re-querying
         this._layerDataPrefetch = new Map(); // url -> in-flight/resolved GeoJSON promise, see prefetchLayerData
@@ -2418,6 +2419,11 @@ export class MapboxAPI {
             this._map.addSource(sourceId, {
                 type: 'geojson',
                 data: { type: 'FeatureCollection', features: [] },
+                // Same promoteId rule the geojson/csv sources use, so
+                // setFeatureState targets features by their inspect id rather
+                // than relying on osmtogeojson happening to mirror the OSM ref
+                // into both `feature.id` and `properties.id`.
+                ...(config.inspect?.id ? { promoteId: config.inspect.id } : {}),
                 ...(config.attribution ? { attribution: config.attribution } : {})
             });
             // Paint layers (fill/line/circle) are created lazily on the first
@@ -2457,7 +2463,7 @@ export class MapboxAPI {
             loader.destroy();
             this._overpassLoaders.delete(groupId);
         }
-        this._overpassPaintLayersCreated.delete(groupId);
+        this._overpassPaintSignatures.delete(groupId);
         this._overpassConfigs.delete(groupId);
         MapContextMessagesControl.close(this._overpassZoomGateMessageId(groupId));
         return this._removeGeoJSONLayer(groupId, config);
@@ -2481,11 +2487,27 @@ export class MapboxAPI {
                 onData: (geojson, style) => {
                     const source = this._map.getSource(sourceId);
                     if (!source) return;
-                    if (!this._overpassPaintLayersCreated.has(groupId)) {
-                        this._overpassPaintLayersCreated.add(groupId);
-                        this._addGeoJSONLayers(groupId, { ...config, style }, sourceId, visible);
-                    }
                     source.setData(geojson);
+
+                    // Which paint layers a query needs - and the style they get
+                    // built with - depends on the geometry it actually returned:
+                    // OSMApi.mergeStyleForGeometryTypes drops every fill-* key
+                    // when no polygon is present, every circle-* key when no
+                    // point is. So an empty batch is not something to build
+                    // from at all, and a batch whose geometry mix differs from
+                    // the one already on the map has to rebuild - otherwise the
+                    // first batch latches the layer into a style missing the
+                    // config's own colours (polygons stuck on the bare
+                    // _defaults.json white) for the rest of the session.
+                    if (!geojson.features?.length) return;
+
+                    const signature = this._overpassGeometrySignature(geojson);
+                    if (this._overpassPaintSignatures.get(groupId) === signature) return;
+                    if (this._overpassPaintSignatures.has(groupId)) {
+                        this._removeLayersForSource(sourceId);
+                    }
+                    this._overpassPaintSignatures.set(groupId, signature);
+                    this._addGeoJSONLayers(groupId, { ...config, style }, sourceId, visible);
                 },
                 onZoomGate: (belowMinZoom) => this._handleOverpassZoomGate(groupId, config, belowMinZoom)
             });
@@ -2493,6 +2515,25 @@ export class MapboxAPI {
             loader.restore(this._overpassCaches.get(groupId));
         }
         loader.start();
+    }
+
+    // Which of point/line/polygon a batch contains, as a comparable key -
+    // the only thing that decides which paint layers an overpass layer needs.
+    _overpassGeometrySignature(geojson) {
+        const { hasPoint, hasLine, hasPolygon } = OSMApi.detectGeometryTypes(geojson);
+        return `${hasPoint ? 'P' : '-'}${hasLine ? 'L' : '-'}${hasPolygon ? 'A' : '-'}`;
+    }
+
+    // Drops every style layer drawing from a source, leaving the source itself
+    // in place - used to rebuild an overpass layer's paint without touching its
+    // loaded data.
+    _removeLayersForSource(sourceId) {
+        const style = this._map.getStyle();
+        (style?.layers || [])
+            .filter(layer => layer.source === sourceId)
+            .forEach(layer => {
+                if (this._map.getLayer(layer.id)) this._map.removeLayer(layer.id);
+            });
     }
 
     _overpassZoomGateMessageId(groupId) {
@@ -3747,21 +3788,27 @@ export class MapboxAPI {
     }
 
     /**
-     * Intelligently combine user color with default style expression (preserving feature-state logic)
-     * @param {*} userColor - User-provided color value
+     * Slot a user-provided value into a default style expression's fallback
+     * branch, so the expression's feature-state (hover/selected) branches
+     * survive. Works for any paint property, not just colors - a pinned
+     * `line-width` or `fill-opacity` would otherwise flatten the highlight.
+     * @param {*} userValue - User-provided value (color, number, or expression)
      * @param {*} defaultStyleExpression - Default style expression (may contain feature-state logic)
      * @returns {*} - Combined style expression
      */
-    _combineWithDefaultStyle(userColor, defaultStyleExpression) {
-        // If no user color is provided, return the default style unchanged
-        if (!userColor) return defaultStyleExpression;
+    _combineWithDefaultStyle(userValue, defaultStyleExpression) {
+        // No user value: keep the default untouched. Checked explicitly rather
+        // than by falsiness, since 0 is a legitimate width/opacity.
+        if (userValue === undefined || userValue === null || userValue === '') {
+            return defaultStyleExpression;
+        }
 
-        // If default style is not an expression (just a simple color), return user color
-        if (!Array.isArray(defaultStyleExpression)) return userColor;
+        // If default style is not an expression (just a simple value), return the user value
+        if (!Array.isArray(defaultStyleExpression)) return userValue;
 
-        // If user color contains a zoom expression (interpolate/step with zoom), use it directly
-        if (Array.isArray(userColor) && this._hasZoomExpression(userColor)) {
-            return userColor;
+        // If the user value contains a zoom expression (interpolate/step with zoom), use it directly
+        if (Array.isArray(userValue) && this._hasZoomExpression(userValue)) {
+            return userValue;
         }
 
         // Clone the default style expression to avoid modifying the original
@@ -3769,17 +3816,30 @@ export class MapboxAPI {
 
         // Handle different types of expressions
         if (result[0] === 'case') {
-            // Simple case expression - replace the fallback color (last value)
-            result[result.length - 1] = userColor;
+            // Simple case expression - replace the fallback value (last value)
+            result[result.length - 1] = userValue;
         } else if (result[0] === 'interpolate' && result[2] && Array.isArray(result[2]) && result[2][0] === 'zoom') {
-            // Interpolate expression with zoom - replace fallback colors in nested case expressions
-            this._replaceColorsInInterpolateExpression(result, userColor);
+            // Interpolate expression with zoom - replace fallback values in nested case expressions
+            this._replaceColorsInInterpolateExpression(result, userValue);
         } else {
-            // For other expression types, return user color directly
-            return userColor;
+            // For other expression types, return the user value directly
+            return userValue;
         }
 
         return result;
+    }
+
+    /**
+     * Whether an expression branches on feature-state anywhere inside it -
+     * i.e. whether overwriting it would cost the layer its hover/selection
+     * highlight.
+     * @param {*} expression - The expression to check
+     * @returns {boolean}
+     */
+    _hasFeatureState(expression) {
+        if (!Array.isArray(expression)) return false;
+        if (expression[0] === 'feature-state') return true;
+        return expression.some(part => Array.isArray(part) && this._hasFeatureState(part));
     }
 
     /**
@@ -3851,11 +3911,15 @@ export class MapboxAPI {
             const userValue = userStyles[property];
             const defaultValue = defaultStyles[property];
 
-            // For color properties, use intelligent combining
-            if (property.includes('-color') && defaultValue) {
+            // A default that branches on feature-state carries this layer's
+            // hover/selection highlight, so fold the user value into its
+            // fallback branch rather than overwriting it. This used to be
+            // gated on `-color`, which silently cost any layer pinning a
+            // `line-width` or `fill-opacity` (OSM/Overpass layers, notably)
+            // its highlight on those properties.
+            if (this._hasFeatureState(defaultValue)) {
                 mergedStyles[property] = this._combineWithDefaultStyle(userValue, defaultValue);
             } else {
-                // For non-color properties, user value takes precedence
                 mergedStyles[property] = userValue;
             }
         });

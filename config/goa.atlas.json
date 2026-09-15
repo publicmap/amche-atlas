@@ -500,14 +500,14 @@
             [
               "boolean",
               [
-                "boolean",
-                [
-                  "feature-state",
-                  "hover"
-                ],
-                false
+                "feature-state",
+                "hover"
               ],
-              2,
+              false
+            ],
+            2,
+            [
+              "boolean",
               [
                 "feature-state",
                 "selected"
@@ -1146,14 +1146,14 @@
             [
               "boolean",
               [
-                "boolean",
-                [
-                  "feature-state",
-                  "hover"
-                ],
-                false
+                "feature-state",
+                "hover"
               ],
-              2,
+              false
+            ],
+            2,
+            [
+              "boolean",
               [
                 "feature-state",
                 "selected"

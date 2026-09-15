@@ -1401,10 +1401,13 @@
         ],
         "line-width": [
           "/",
-          4,
+          20,
           [
-            "get",
-            "protect_class"
+            "to-number",
+            [
+              "get",
+              "protect_class"
+            ]
           ]
         ],
         "text-field": [
@@ -1413,6 +1416,10 @@
             "get",
             "name"
           ]
+        ],
+        "symbol-sort-key": [
+          "get",
+          "protect_class"
         ]
       },
       "inspect": {
@@ -2312,6 +2319,32 @@
         "title": "OSM Type",
         "label": "kind"
       }
+    },
+    {
+      "title": "OpenRailwayMap (Raster)",
+      "description": "Railway network features including tracks and stations, from the <a href='https://www.openrailwaymap.org/' target='_blank'>OpenRailwayMap project</a>.",
+      "type": "tms",
+      "id": "openrailwaymap",
+      "url": "https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+      "attribution": "<a href='https://openrailwaymap.app/#view=1.37/9/0' target='_blank'>© OpenRailwayMap contributors</a>",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.95,
+          18,
+          0.8,
+          19,
+          0.3
+        ]
+      },
+      "initiallyChecked": false
     },
     {
       "initiallyChecked": true,

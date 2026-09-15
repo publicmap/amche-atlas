@@ -133,14 +133,14 @@
               [
                 "boolean",
                 [
-                  "boolean",
-                  [
-                    "feature-state",
-                    "hover"
-                  ],
-                  false
+                  "feature-state",
+                  "hover"
                 ],
-                1,
+                false
+              ],
+              1,
+              [
+                "boolean",
                 [
                   "feature-state",
                   "selected"
