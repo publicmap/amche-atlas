@@ -1400,14 +1400,18 @@
           "#10b981"
         ],
         "line-width": [
-          "/",
-          20,
+          "-",
+          2,
           [
-            "to-number",
+            "/",
             [
-              "get",
-              "protect_class"
-            ]
+              "to-number",
+              [
+                "get",
+                "protect_class"
+              ]
+            ],
+            6
           ]
         ],
         "text-field": [

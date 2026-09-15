@@ -540,7 +540,7 @@ export class ShortcutMenuBase {
         const items = [
             {
                 id: 'zoom-to-selected',
-                icon: 'bounding-box',
+                icon: 'arrows-fullscreen',
                 label: 'Zoom To Selected',
                 action: () => window.featureControl?.zoomToSelected(this._lngLat)
             }

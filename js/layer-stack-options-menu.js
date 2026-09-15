@@ -19,12 +19,12 @@ import { ShortcutMenuBase } from './shortcut-menu-base.js';
 const HOVER_CLOSE_MS = 180;
 
 const ITEM_IDS = [
+    'toggle-hover-tooltips',
     'zoom-to-selected',
     'clear-selection',
     'clear-all-markers',
     'clear-all-maps',
     'toggle-basemaps-menu',
-    'toggle-hover-tooltips',
     'open-with-menu',
     'toggle-comments'
 ];

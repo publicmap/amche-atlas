@@ -24,6 +24,12 @@ const MARKER_DRAG_CLICK_SUPPRESS_MS = 400;
 // Nominatim's usage policy: no more than one request a second per origin.
 const ADDRESS_LOOKUP_GAP_MS = 1100;
 
+// How long a feature row's hover preview (its filter and layer isolation)
+// outlives the cursor leaving it, long enough to cross the gap to the next
+// row without the map flashing back in between - see _endRowHover. Matches
+// the same deferral in layer-stack-strip.js.
+const ROW_HOVER_END_DELAY_MS = 60;
+
 // Gap between the id label and the actions beside it.
 const MARKER_ACTION_ROW_GAP = 4;
 
@@ -1910,14 +1916,13 @@ export class MapMarkerManager {
             // are already open: that filter is real by then, not a preview,
             // and mouseleave must not clear it out from under the open row.
             if (!this._isTouch && f) {
-                chip.addEventListener('mouseenter', () => {
-                    if (details.style.display !== 'none') return;
-                    this._previewFeatureIdFilter(f);
-                });
-                chip.addEventListener('mouseleave', () => {
-                    if (details.style.display !== 'none') return;
-                    this._cancelFeatureIdFilterPreview(f);
-                });
+                // Whether this row's own filter is only previewed by the
+                // hover or really committed: an open row's is committed (by
+                // _attachFeatureRowActionHandlers' applyConditions), so the
+                // hover must leave it alone in both directions.
+                const previews = () => details.style.display === 'none';
+                chip.addEventListener('mouseenter', () => this._beginRowHover(f, previews()));
+                chip.addEventListener('mouseleave', () => this._endRowHover(f, previews()));
             }
 
             // The name-picker checkbox (see _applyLabelPick, exposed by
@@ -1969,6 +1974,61 @@ export class MapMarkerManager {
     }
 
     /**
+     * Pointing at a feature row shows what opening it would isolate: the
+     * layer narrowed to just this feature (_previewFeatureIdFilter) and,
+     * since that only reads as "just this feature" with the other overlays
+     * out of the way, its layer isolated too - hoverIsolate dims every
+     * toggled-on sibling in the same section and leaves the basemaps alone,
+     * exactly as pointing at the layer's own card in the layer strip does.
+     *
+     * Both go on immediately; undoing them is deferred (see _endRowHover),
+     * and any deferred undo still pending is resolved here first. Its
+     * isolation half is simply dropped: hoverIsolate moves straight from the
+     * previous row's layer to this one, without the everything-back-on frame
+     * in between that made a row-to-row move flash. Its filter half still has
+     * to run when it belongs to a different layer than this row's - just now,
+     * before this row's own preview goes on, rather than on its own timer.
+     */
+    _beginRowHover(f, previewFilter) {
+        if (!f) return;
+        const pending = this._pendingRowHoverEnd;
+        clearTimeout(this._rowHoverEndTimer);
+        this._pendingRowHoverEnd = null;
+        if (pending?.previewFilter && pending.f.layerId !== f.layerId) {
+            this._cancelFeatureIdFilterPreview(pending.f);
+        }
+
+        if (previewFilter) this._previewFeatureIdFilter(f);
+        window.layerControl?.isolation?.hoverIsolate(f.layerId, this._isLayerBasemap(f.layerId));
+    }
+
+    /**
+     * Deferred by a few frames rather than run on the spot: moving the cursor
+     * from one row to the next crosses the gap between them, firing this row's
+     * mouseleave before the next row's mouseenter, and letting the restore
+     * land in that gap tears every other layer back on for a frame before the
+     * next row immediately re-isolates. The next _beginRowHover cancels it, so
+     * a row-to-row move is a single re-isolation; only actually leaving the
+     * list lets it through.
+     *
+     * The isolation half restores whatever isolation was committed underneath
+     * it (an open row's, see _openSummaryDetails) rather than clearing
+     * outright - so leaving a chip can never strand an open row un-isolated.
+     */
+    _endRowHover(f, previewFilter) {
+        if (!f) return;
+        clearTimeout(this._rowHoverEndTimer);
+        this._pendingRowHoverEnd = { f, previewFilter };
+        this._rowHoverEndTimer = setTimeout(() => {
+            const pending = this._pendingRowHoverEnd;
+            this._pendingRowHoverEnd = null;
+            if (!pending) return;
+            if (pending.previewFilter) this._cancelFeatureIdFilterPreview(pending.f);
+            window.layerControl?.isolation?.clearHover();
+        }, ROW_HOVER_END_DELAY_MS);
+    }
+
+    /**
      * Collapses every expanded summary row in this marker and drops the
      * active highlight - including swapping each chip's layer-info row back
      * down to its plain icon (see _buildChipLayerRowHTML/_openSummaryDetails).
@@ -1989,6 +2049,16 @@ export class MapMarkerManager {
         el.querySelectorAll('.marker-summary-chip__icon').forEach(icon => { icon.style.visibility = 'visible'; });
         el.querySelectorAll('.marker-layer-info-row').forEach(row => { row.style.display = 'none'; });
         this._setActiveSummaryChip(el, null);
+        // Unlike the quick property filter above, the layer isolation an open
+        // row applied is purely a way of looking at that one row - nothing is
+        // expanded any more, so nothing is being isolated for.
+        window.layerControl?.isolation?.clear();
+    }
+
+    /** Whether a layer sits in the basemap section (see LayerIsolationManager). */
+    _isLayerBasemap(layerId) {
+        const config = this._stateManager?.getLayerConfig?.(layerId);
+        return !!(config && Array.isArray(config.tags) && config.tags.includes('basemap'));
     }
 
     /**
@@ -2013,6 +2083,12 @@ export class MapMarkerManager {
         if (layerRow) layerRow.style.display = 'flex';
 
         if (f) {
+            // The row's own filter is committed the moment its details open
+            // (_attachFeatureRowActionHandlers' applyConditions below), so the
+            // matching layer isolation is committed here too - it outlives the
+            // pointer leaving the chip, and is dropped again when the row (or
+            // the whole panel) closes, see _closeAllSummaryDetails.
+            window.layerControl?.isolation?.isolate(f.layerId, this._isLayerBasemap(f.layerId));
             details.innerHTML = this._buildFeatureFlyoutContentHTML(f);
             this._attachFeatureDetailsHandlers(details);
             this._attachFeatureRowActionHandlers(details, f);

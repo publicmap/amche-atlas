@@ -1765,7 +1765,16 @@
           "blue",
           "grey"
         ],
-        "circle-radius": 1,
+        "circle-radius": [
+          "match",
+          [
+            "get",
+            "Class"
+          ],
+          "Hazard Line",
+          2,
+          1
+        ],
         "circle-stroke-width": 0,
         "line-color": [
           "match",
