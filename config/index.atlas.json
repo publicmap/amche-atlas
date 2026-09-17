@@ -14,10 +14,12 @@
     ],
     "zoom": 11.4
   },
-  "ui": {
-    "title": "Maps",
-    "shareButton": "Share"
-  },
+  "bbox": [
+    -180,
+    -90,
+    180,
+    90
+  ],
   "atlases": [
     "goa",
     "osm",
@@ -37,42 +39,6 @@
     "mapillary",
     "https://raw.githubusercontent.com/alansaviolobo/dfes-dmp/refs/heads/main/config/dfes-dmp.atlas.json"
   ],
-  "geojson": {
-    "type": "FeatureCollection",
-    "features": [
-      {
-        "type": "Feature",
-        "properties": {},
-        "geometry": {
-          "coordinates": [
-            [
-              [
-                73.60909843765532,
-                15.83078184315373
-              ],
-              [
-                73.60909843765532,
-                14.884455164549962
-              ],
-              [
-                74.37035790884673,
-                14.884455164549962
-              ],
-              [
-                74.37035790884673,
-                15.83078184315373
-              ],
-              [
-                73.60909843765532,
-                15.83078184315373
-              ]
-            ]
-          ],
-          "type": "Polygon"
-        }
-      }
-    ]
-  },
   "layers": [
     {
       "tags": [

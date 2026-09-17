@@ -64,12 +64,16 @@
                 "get",
                 "kind"
               ],
-              "country",
+              [
+                "country",
+                "capital"
+              ],
               1,
               [
                 "state",
                 "region",
-                "province"
+                "province",
+                "state_capital"
               ],
               2,
               "city",
@@ -113,8 +117,15 @@
           ]
         ],
         "text-field": [
-          "get",
-          "name"
+          "coalesce",
+          [
+            "get",
+            "name_en"
+          ],
+          [
+            "get",
+            "name"
+          ]
         ],
         "text-font": [
           "match",
@@ -126,21 +137,25 @@
           [
             "literal",
             [
-              "Noto Sans Bold"
+              "PT Sans Bold"
             ]
           ],
           [
             "state",
             "region",
-            "province"
+            "province",
+            "capital",
+            "state_capital"
           ],
           [
             "literal",
             [
-              "Noto Sans Bold"
+              "PT Sans Bold"
             ]
           ],
-          "city",
+          [
+            "city"
+          ],
           [
             "step",
             [
@@ -231,18 +246,13 @@
             "get",
             "kind"
           ],
-          "country",
-          "uppercase",
           [
+            "country",
             "state",
             "region",
-            "province"
-          ],
-          "uppercase",
-          [
-            "suburb",
-            "quarter",
-            "neighbourhood"
+            "province",
+            "capital",
+            "state_capital"
           ],
           "uppercase",
           "none"
@@ -284,15 +294,21 @@
               "get",
               "kind"
             ],
-            "country",
-            14.5,
+            [
+              "country"
+            ],
+            18,
             [
               "state",
               "region",
               "province"
             ],
-            11,
-            "city",
+            14,
+            [
+              "city",
+              "capital",
+              "state_capital"
+            ],
             [
               "interpolate",
               [
@@ -345,15 +361,21 @@
               "get",
               "kind"
             ],
-            "country",
-            16,
+            [
+              "country"
+            ],
+            30,
             [
               "state",
               "region",
               "province"
             ],
-            14,
-            "city",
+            20,
+            [
+              "city",
+              "capital",
+              "state_capital"
+            ],
             [
               "interpolate",
               [
@@ -414,7 +436,11 @@
             "province"
           ],
           "#e0e0e0",
-          "city",
+          [
+            "capital",
+            "state_capital",
+            "city"
+          ],
           "#ffffff",
           "town",
           "#e8e8e8",
@@ -451,7 +477,9 @@
             "country",
             "state",
             "region",
-            "province"
+            "province",
+            "capital",
+            "state_capital"
           ],
           2,
           [
@@ -461,6 +489,96 @@
           1.5,
           1
         ],
+        "capital/circle-color": [
+          "match",
+          [
+            "get",
+            "kind"
+          ],
+          "capital",
+          "red",
+          "black"
+        ],
+        "capital/circle-radius": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          [
+            "match",
+            [
+              "get",
+              "kind"
+            ],
+            [
+              "capital",
+              "state_capital"
+            ],
+            [
+              "interpolate",
+              [
+                "linear"
+              ],
+              [
+                "coalesce",
+                [
+                  "get",
+                  "population"
+                ],
+                0
+              ],
+              0,
+              0.5,
+              100000,
+              1,
+              1000000,
+              2,
+              5000000,
+              3
+            ],
+            0
+          ],
+          16,
+          [
+            "match",
+            [
+              "get",
+              "kind"
+            ],
+            [
+              "capital",
+              "state_capital"
+            ],
+            [
+              "interpolate",
+              [
+                "linear"
+              ],
+              [
+                "coalesce",
+                [
+                  "get",
+                  "population"
+                ],
+                0
+              ],
+              0,
+              2,
+              100000,
+              4,
+              1000000,
+              6,
+              5000000,
+              8
+            ],
+            0
+          ]
+        ],
+        "capital/circle-opacity": 1,
         "circle-radius": [
           "interpolate",
           [
@@ -484,7 +602,11 @@
               "province"
             ],
             2.5,
-            "city",
+            [
+              "city",
+              "capital",
+              "state_capital"
+            ],
             [
               "interpolate",
               [
@@ -545,7 +667,11 @@
               "province"
             ],
             5,
-            "city",
+            [
+              "city",
+              "capital",
+              "state_capital"
+            ],
             [
               "interpolate",
               [
@@ -1356,13 +1482,66 @@
       },
       "inspect": {
         "id": "kind",
-        "title": "OSM Type",
+        "title": "Road Class",
         "label": "kind",
         "fields": [
           "surface"
         ],
         "fieldTitles": [
           "Surface"
+        ]
+      }
+    },
+    {
+      "id": "aeroway",
+      "title": "Aeroway",
+      "type": "overpass",
+      "description": "Live OSM features matching <code>aeroway=*</code>, fetched from the Overpass API as the viewport changes. Source query: <a href='https://overpass-turbo.eu/s/2wDM' target='_blank'>https://overpass-turbo.eu/s/2wDM</a>.",
+      "query": "[out:json][timeout:25];\n// gather results\nnwr[\"aeroway\"]({{bbox}});\n// print results\nout geom;",
+      "minzoom": 7,
+      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a> via <a href='https://overpass-turbo.eu/s/2wDM'>Overpass Turbo</a>",
+      "style": {
+        "fill-color": [
+          "coalesce",
+          [
+            "get",
+            "fill-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#10b981"
+        ],
+        "fill-opacity": 0.2,
+        "line-color": [
+          "coalesce",
+          [
+            "get",
+            "stroke-color"
+          ],
+          [
+            "get",
+            "color"
+          ],
+          "#10b981"
+        ],
+        "line-width": 2,
+        "text-field": [
+          "to-string",
+          [
+            "get",
+            "name"
+          ]
+        ]
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Name",
+        "label": "name",
+        "fields": [
+          "ref",
+          "wikidata"
         ]
       }
     },
