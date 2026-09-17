@@ -11,6 +11,7 @@ import { OSMApi } from './osm-url-api.js';
 import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
 import ConfigManager from './config-manager.js';
 import { handlerLoader } from './inspection-handler-loader.js';
+import { STYLE_PROPERTY_MAPPING, guessPropertyKind } from './mapbox-style-spec.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
 
 // How many removed Overpass layers keep their fetched features around for a
@@ -373,31 +374,11 @@ export class MapboxAPI {
     }
 
     /**
-     * Initialize comprehensive mapping of Mapbox GL style properties
+     * Mapping of Mapbox GL style properties to layer types, from the shared
+     * style-spec tables in js/mapbox-style-spec.js.
      */
     _initializeStylePropertyMapping() {
-        return {
-            layout: {
-                common: ['visibility'],
-                fill: ['fill-sort-key'],
-                line: ['line-cap', 'line-join', 'line-miter-limit', 'line-round-limit', 'line-sort-key'],
-                symbol: ['icon-allow-overlap', 'icon-anchor', 'icon-image', 'icon-size', 'icon-rotate', 'text-field', 'text-font', 'text-size', 'text-anchor', 'text-line-height', 'text-max-width', 'text-justify', 'text-allow-overlap', 'text-transform', 'text-offset', 'text-rotation-alignment', 'text-pitch-alignment', 'text-writing-mode', 'text-variable-anchor', 'text-radial-offset', 'text-keep-upright', 'text-padding', 'symbol-placement', 'symbol-spacing', 'symbol-avoid-edges', 'icon-rotation-alignment', 'icon-pitch-alignment', 'icon-keep-upright'],
-                circle: ['circle-sort-key'],
-                raster: [],
-                background: [],
-                hillshade: []
-            },
-            paint: {
-                fill: ['fill-color', 'fill-opacity', 'fill-outline-color', 'fill-translate'],
-                'fill-extrusion': ['fill-extrusion-opacity', 'fill-extrusion-color', 'fill-extrusion-translate', 'fill-extrusion-height', 'fill-extrusion-base', 'fill-extrusion-vertical-gradient'],
-                line: ['line-color', 'line-width', 'line-opacity', 'line-dasharray', 'line-translate', 'line-offset'],
-                symbol: ['icon-color', 'icon-opacity', 'text-color', 'text-halo-color', 'text-halo-width', 'text-opacity', 'text-letter-spacing'],
-                circle: ['circle-radius', 'circle-color', 'circle-opacity', 'circle-stroke-width', 'circle-stroke-color'],
-                raster: ['raster-opacity', 'raster-contrast', 'raster-saturation', 'raster-brightness-min', 'raster-brightness-max'],
-                background: ['background-color', 'background-opacity'],
-                hillshade: ['hillshade-exaggeration', 'hillshade-highlight-color', 'hillshade-shadow-color']
-            }
-        };
+        return STYLE_PROPERTY_MAPPING;
     }
 
     /**
@@ -3376,6 +3357,57 @@ export class MapboxAPI {
         });
     }
 
+    /**
+     * Apply an edited style object to a layer group's already-rendered map
+     * layers - the live preview behind map-information.html's Style controls.
+     *
+     * Each style variant ("overlay/line-color") paints its own map layer, so a
+     * variant's properties go only to the sublayers carrying its suffix;
+     * _applyStyleProperties then drops whatever doesn't belong to each
+     * sublayer's own type. `resetProperties` (keys the editor removed) are sent
+     * as undefined, which returns them to their style-spec default.
+     *
+     * Only repaints layers that exist: a property needing a pass the group
+     * never created (text-field on a layer with no symbol pass) shows up when
+     * the config is re-added, not here.
+     *
+     * @param {string} groupId - Layer group identifier
+     * @param {Object} config - Layer configuration carrying the edited style
+     * @param {string[]} resetProperties - Style keys to clear
+     * @returns {boolean} - Success status
+     */
+    applyLayerGroupStyle(groupId, config, resetProperties = []) {
+        if (!this._map || !config) return false;
+
+        const variants = this._parseStyleVariants(config.style)
+            .map(variant => ({ ...variant, suffix: this._getVariantSuffix(variant.prefix) }))
+            .sort((a, b) => b.suffix.length - a.suffix.length);
+        const baseVariant = variants.find(variant => !variant.suffix);
+
+        const resets = new Map();
+        resetProperties.forEach(key => {
+            const slashIdx = key.indexOf('/');
+            const prefix = slashIdx > 0 ? key.substring(0, slashIdx) : '';
+            const property = slashIdx > 0 ? key.substring(slashIdx + 1) : key;
+            if (!resets.has(prefix)) resets.set(prefix, {});
+            resets.get(prefix)[property] = undefined;
+        });
+
+        this.getLayerGroupIds(groupId, config).forEach(layerId => {
+            if (!this._map.getLayer(layerId)) return;
+
+            const variant = variants.find(v => v.suffix && layerId.endsWith(v.suffix)) || baseVariant;
+            if (!variant) return;
+
+            this._applyStyleProperties(layerId, {
+                ...(resets.get(variant.prefix) || {}),
+                ...variant.style
+            });
+        });
+
+        return true;
+    }
+
     _updateRasterStyleLayerVisibility(groupId, config, visible) {
         return this._createRasterStyleLayer(groupId, config, visible);
     }
@@ -3580,24 +3612,12 @@ export class MapboxAPI {
                 layout[property] = style[property];
             } else if (paintProps.includes(property)) {
                 paint[property] = style[property];
+            } else if (guessPropertyKind(property) === 'layout') {
+                // Not in the tables for this layer type - fall back to the
+                // shared name-pattern guess (js/mapbox-style-spec.js)
+                layout[property] = style[property];
             } else {
-                // If property is not in our mapping, make an educated guess
-                // Most properties are paint properties, layout properties are fewer
-                if (property === 'visibility' || property.includes('-sort-key') ||
-                    property.includes('-placement') || property.includes('-anchor') ||
-                    property.includes('-field') || property.includes('-font') ||
-                    property.includes('-size') || property.includes('-image') ||
-                    property.includes('-cap') || property.includes('-join') ||
-                    property.includes('-allow-overlap') || property.includes('-keep-upright') ||
-                    property.includes('-writing-mode') || property.includes('-transform') ||
-                    property.includes('-offset') || property.includes('-alignment') ||
-                    property.includes('-justify') || property.includes('-line-height') ||
-                    property.includes('-max-width') || property.includes('-variable-anchor') ||
-                    property.includes('-radial-offset') || property.includes('-padding')) {
-                    layout[property] = style[property];
-                } else {
-                    paint[property] = style[property];
-                }
+                paint[property] = style[property];
             }
         });
 

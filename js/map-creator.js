@@ -5,57 +5,12 @@ import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { StreamingGPKGReader } from './streaming-gpkg-reader.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
 import * as SourceResolver from './layer-source-resolver.js';
+import { styleLiteral, toHexColor, colorAlpha } from './layer-style-utils.js';
 
-// A style value can be either a plain literal or the
-// ['coalesce', ['get', …], …, literal] form buildStyleFromControls() emits for
-// data-driven colours — both resolve to the trailing literal.
-export function styleLiteral(value) {
-    if (Array.isArray(value)) {
-        return value[0] === 'coalesce' ? styleLiteral(value[value.length - 1]) : undefined;
-    }
-    return typeof value === 'number' || typeof value === 'string' ? value : undefined;
-}
-
-// `<input type="color">` only accepts #rrggbb, so normalize the hex shorthands
-// and rgb()/rgba() forms a hand-written config may use. Anything else (a named
-// colour, an expression) returns undefined, leaving the control untouched.
-export function toHexColor(value) {
-    if (typeof value !== 'string') return undefined;
-    const color = value.trim();
-
-    const hex = color.match(/^#([0-9a-f]{3,8})$/i)?.[1];
-    if (hex) {
-        if (hex.length === 3 || hex.length === 4) return '#' + [...hex.slice(0, 3)].map(c => c + c).join('');
-        if (hex.length === 6 || hex.length === 8) return '#' + hex.slice(0, 6).toLowerCase();
-        return undefined;
-    }
-
-    const rgb = color.match(/^rgba?\(([^)]+)\)$/i)?.[1];
-    if (!rgb) return undefined;
-    const parts = rgb.split(',').map(p => parseFloat(p.trim()));
-    if (parts.length < 3 || parts.slice(0, 3).some(n => !Number.isFinite(n))) return undefined;
-    return '#' + parts.slice(0, 3)
-        .map(n => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0'))
-        .join('');
-}
-
-// The alpha baked into an rgba()/#rrggbbaa colour, which the Style controls
-// keep separate from the colour itself.
-export function colorAlpha(value) {
-    if (typeof value !== 'string') return undefined;
-    const color = value.trim();
-
-    const hex = color.match(/^#([0-9a-f]{4}|[0-9a-f]{8})$/i)?.[1];
-    if (hex) {
-        const alpha = hex.length === 4 ? hex[3] + hex[3] : hex.slice(6);
-        return parseInt(alpha, 16) / 255;
-    }
-
-    const parts = color.match(/^rgba\(([^)]+)\)$/i)?.[1]?.split(',');
-    if (!parts || parts.length < 4) return undefined;
-    const alpha = parseFloat(parts[3]);
-    return Number.isFinite(alpha) ? alpha : undefined;
-}
+// Re-exported for the Style controls' own callers (and their tests), which have
+// always imported these from here; they now live in js/layer-style-utils.js so
+// the style editor can share them without pulling in the creator.
+export { styleLiteral, toHexColor, colorAlpha };
 
 export class MapCreator {
     constructor() {

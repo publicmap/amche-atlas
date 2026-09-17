@@ -932,6 +932,31 @@
         false
       ],
       "style": {
+        "overlay/line-color": [
+          "match",
+          [
+            "get",
+            "kind"
+          ],
+          [
+            "rail"
+          ],
+          "#ff7a7a",
+          [
+            "subway"
+          ],
+          "blue",
+          "green"
+        ],
+        "overlay/line-width": [
+          "case",
+          [
+            "has",
+            "service"
+          ],
+          0,
+          0.5
+        ],
         "line-opacity": 0.9,
         "line-color": [
           "match",
@@ -942,7 +967,7 @@
           [
             "rail"
           ],
-          "darkred",
+          "#660000",
           [
             "subway"
           ],
@@ -956,7 +981,7 @@
             "service"
           ],
           1,
-          5
+          3
         ]
       },
       "inspect": {
@@ -1387,11 +1412,11 @@
             [
               "motorway"
             ],
-            2,
+            5,
             [
               "trunk"
             ],
-            1,
+            2,
             [
               "primary"
             ],
@@ -1421,7 +1446,7 @@
             [
               "motorway"
             ],
-            5,
+            8,
             [
               "trunk"
             ],

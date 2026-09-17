@@ -406,14 +406,20 @@
                     <div class="text-sm leading-relaxed text-gray-300" id="attribution-content"></div>
                 </div>
 
+                <!-- In view mode this is the rendered legend; in edit mode it
+                     becomes one input control per paint/layout property of the
+                     layer's style (js/style-property-editor.js). -->
                 <div id="legend-section" class="bg-gray-800 rounded-xl p-5 mb-4 shadow-lg border border-gray-700" style="display: none;">
                     <div class="flex items-center gap-2 text-base font-bold text-gray-50 mb-3 pb-3 border-b border-gray-700">
                         <svg class="icon text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
                         </svg>
-                        <span>Legend</span>
+                        <span class="view-mode">Legend</span>
+                        <span class="edit-mode">Style</span>
+                        <button id="reset-style-btn" class="edit-mode ml-auto px-2.5 py-1 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg text-xs font-medium transition-colors" title="Discard style customizations and restore this layer's configured default">Reset</button>
                     </div>
-                    <div class="mt-2" id="legend-content"></div>
+                    <div class="mt-2 view-mode" id="legend-content"></div>
+                    <div class="mt-2 edit-mode" id="style-editor-content"></div>
                 </div>
 
 
@@ -458,8 +464,16 @@
     </div>
 
     <script type="module">
-        let LayerThumbnail, LayerLegend, LAYER_SPECIFICATIONS;
+        let LayerThumbnail, LayerLegend, LAYER_SPECIFICATIONS, StylePropertyEditor;
+        let styleEditor = null;
         let currentLayer = null;
+        // The layer exactly as this panel received it, and the id it had then.
+        // The snapshot says which fields an edit actually changed (see
+        // changedFields) and what to fall back to when resetting the style;
+        // the id addresses the map layer for live previews, so renaming the
+        // layer mid-edit doesn't point them at nothing.
+        let originalLayer = null;
+        let originalLayerId = null;
         // The one feature this panel was opened for, if any - only set when
         // opened from a marker's per-feature accordion row (see
         // js/map-marker-manager.js's _attachLayerInfoRowHandler), never by
@@ -483,11 +497,13 @@
                 const modules = await Promise.all([
                     import('./js/layer-thumbnail.js'),
                     import('./js/layer-legend.js'),
-                    import('./js/config-manager.js')
+                    import('./js/config-manager.js'),
+                    import('./js/style-property-editor.js')
                 ]);
                 LayerThumbnail = modules[0].LayerThumbnail;
                 LayerLegend = modules[1].LayerLegend;
                 LAYER_SPECIFICATIONS = modules[2].LAYER_SPECIFICATIONS;
+                StylePropertyEditor = modules[3].StylePropertyEditor;
                 console.log('[Layer Info] Modules loaded successfully');
                 if (currentLayer) {
                     renderLayerInfo(currentLayer);
@@ -500,6 +516,8 @@
 
         function loadLayer(layer, options = {}) {
             currentLayer = layer;
+            originalLayer = cloneLayer(layer);
+            originalLayerId = layer?.id || null;
             if (options.edit !== undefined) editModeRequested = !!options.edit;
             if (options.feature !== undefined) currentFeature = options.feature || null;
             if (LayerThumbnail) {
@@ -784,44 +802,137 @@
         }
 
         function toggleEditMode() {
-            isEditing = !isEditing;
-            $('body').toggleClass('editing', isEditing);
-
-            const $btn = $('#edit-toggle-btn');
-
-            if (isEditing) {
-                $btn.html('<sl-icon name="check-circle"></sl-icon><span>Apply Changes</span>')
-                    .removeClass('primary')
-                    .addClass('apply');
-
-                $('#config-content').attr('contenteditable', 'true').addClass('editable');
-                setupEditMode();
-            } else {
-                if (hasChanges) {
-                    applyChanges();
-                } else {
-                    $btn.html('<sl-icon name="pencil"></sl-icon><span>Edit</span>')
-                        .removeClass('apply')
-                        .addClass('primary');
-                    $('#config-content').attr('contenteditable', 'false').removeClass('editable');
-                }
+            if (!isEditing) {
+                enterEditMode();
+                return;
             }
+
+            // Invalid config: stay in edit mode so the error can be fixed
+            if (hasChanges && !applyChanges()) return;
+            exitEditMode();
+        }
+
+        function enterEditMode() {
+            isEditing = true;
+            $('body').addClass('editing');
+            $('#edit-toggle-btn')
+                .html('<sl-icon name="check-circle"></sl-icon><span>Apply Changes</span>')
+                .removeClass('primary')
+                .addClass('apply');
+            $('#config-content').attr('contenteditable', 'true').addClass('editable');
+            setupEditMode();
+        }
+
+        /**
+         * Back to the read-only view. Every edit has reached the map and the URL
+         * by the time we get here - style and opacity live as they were typed,
+         * the rest applied in place by the parent (see applyChanges) - so the
+         * panel just re-renders itself from the edited layer. Only an edit the
+         * parent can't apply without rebuilding the layer (a new url, type or
+         * id) still reloads, and that reload replaces this page anyway.
+         */
+        function exitEditMode() {
+            isEditing = false;
+            hasChanges = false;
+            $('body').removeClass('editing');
+            $('#edit-toggle-btn')
+                .html('<sl-icon name="pencil"></sl-icon><span>Edit</span>')
+                .removeClass('apply')
+                .addClass('primary');
+            $('#config-content').attr('contenteditable', 'false').removeClass('editable');
+
+            originalLayer = cloneLayer(currentLayer);
+            renderLayerInfo(currentLayer);
+        }
+
+        function cloneLayer(layer) {
+            if (!layer) return null;
+            try {
+                return structuredClone(layer);
+            } catch (e) {
+                return JSON.parse(JSON.stringify(layer));
+            }
+        }
+
+        /**
+         * Which of the layer's own fields this edit session actually changed,
+         * compared with the config the panel opened with. Internal `_` fields
+         * are bookkeeping, not layer config, so they don't count.
+         */
+        function changedFields() {
+            const before = originalLayer || {};
+            const after = currentLayer || {};
+            const fields = new Set(
+                [...Object.keys(before), ...Object.keys(after)].filter(key => !key.startsWith('_'))
+            );
+            return [...fields].filter(field => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
         }
 
         function setupEditMode() {
             populateEditFields();
+            renderStyleEditor();
+            $('#legend-section').show();
 
-            $('#config-content').on('input', function() {
+            // Edit mode can be re-entered now that Apply no longer reloads the
+            // page, so clear the previous session's handlers before rebinding.
+            $('#config-content').off('input').on('input', function() {
                 validateAndSyncFromRaw();
             });
 
-            $('.editable-input, input, textarea, select').not('#opacity-slider').on('input change', function() {
-                hasChanges = true;
-                syncToRawConfig();
-                if ($(this).data('field') === 'opacity') {
-                    updateOpacityUI(currentLayer.opacity);
-                }
-            });
+            $('#reset-style-btn').off('click').on('click', resetStyle);
+
+            // The style editor owns its own inputs and reports through
+            // handleStyleChange, so it stays out of this blanket binding.
+            $('.editable-input, input, textarea, select')
+                .not('#opacity-slider')
+                .not('#style-editor-content input, #style-editor-content textarea, #style-editor-content select')
+                .off('input change')
+                .on('input change', function() {
+                    hasChanges = true;
+                    syncToRawConfig();
+                    if ($(this).data('field') === 'opacity') {
+                        updateOpacityUI(currentLayer.opacity);
+                    }
+                });
+        }
+
+        /**
+         * Build (or reseed) the per-property style controls that replace the
+         * legend in edit mode. One editor instance is kept for the life of the
+         * panel so a row switched to JSON stays switched across reseeds.
+         */
+        function renderStyleEditor() {
+            if (!StylePropertyEditor || !currentLayer) return;
+
+            if (!styleEditor) {
+                styleEditor = new StylePropertyEditor({ onChange: handleStyleChange });
+                $('#style-editor-content').empty().append(styleEditor.element);
+            }
+
+            styleEditor.setLayer(currentLayer);
+        }
+
+        /**
+         * Every accepted edit in the style controls: written straight onto the
+         * layer, mirrored into the raw-config panel, and applied to the parent
+         * map (which also syncs the URL). By the time Apply Changes is pressed
+         * the style is already live, so it only has to leave edit mode.
+         */
+        function handleStyleChange(style, meta = {}) {
+            if (!currentLayer) return;
+
+            currentLayer.style = style;
+            hasChanges = true;
+            $('#config-content').text(JSON.stringify(filterLayerForDisplay(currentLayer), null, 2));
+
+            if (window.self !== window.top) {
+                window.parent.postMessage({
+                    type: 'update-layer-style',
+                    layerId: originalLayerId || currentLayer.id,
+                    style: style,
+                    resetProperties: meta.removed || []
+                }, '*');
+            }
         }
 
         function populateEditFields() {
@@ -842,9 +953,8 @@
                 }
             });
 
-            if (currentLayer.style) {
-                $metadataFields.append(createEditField('style', JSON.stringify(currentLayer.style, null, 2), { type: 'object', description: 'Mapbox GL style properties' }));
-            }
+            // `style` is edited property-by-property in the Style section
+            // (renderStyleEditor), not as one JSON blob here.
         }
 
         function createEditField(name, value, propertySpec) {
@@ -956,6 +1066,8 @@
                 $('#layer-id-edit').val(parsed.id || '');
                 $('#description-edit').val(parsed.description || '');
 
+                renderStyleEditor();
+
                 $('[data-field]').each(function() {
                     const field = $(this).data('field');
                     const value = parsed[field];
@@ -973,34 +1085,85 @@
             }
         }
 
+        /**
+         * Commit the edit session. The parent writes every changed field it can
+         * straight onto the live layer and syncs the URL - style and opacity are
+         * usually already there, having been applied as they were typed - and
+         * falls back to a URL reload only for a change that needs the layer
+         * rebuilt (a new url, type or id).
+         *
+         * @returns {boolean} Whether the panel may leave edit mode.
+         */
         function applyChanges() {
-            const $content = $('#config-content');
-            if ($content.hasClass('invalid')) {
+            if ($('#config-content').hasClass('invalid')) {
                 alert('Cannot apply changes: Invalid JSON in raw configuration');
-                return;
+                return false;
             }
 
             if (!currentLayer) {
                 console.error('[Layer Info] No layer data to apply');
-                return;
+                return false;
             }
 
-            console.log('[Layer Info] Applying changes:', currentLayer);
+            const changed = changedFields();
+            if (!changed.length) return true;
+
+            console.log('[Layer Info] Applying changes to:', changed, currentLayer);
+
+            if (window.self === window.top) {
+                // Standalone page: there's no map to write to, so the edited
+                // config lives in this page's own URL.
+                const layerJson = encodeURIComponent(JSON.stringify(currentLayer));
+                window.location.href = `${window.location.pathname}?layer=${layerJson}`;
+                return true;
+            }
+
+            window.parent.postMessage({
+                type: 'update-layer',
+                layer: currentLayer,
+                originalId: originalLayerId,
+                changedFields: changed
+            }, '*');
+
+            return true;
+        }
+
+        /**
+         * Discard the layer's style customizations: back to the style its
+         * preset in the parent's layerRegistry declares, or - for a layer the
+         * registry doesn't know (a custom one from the URL) - the style it
+         * arrived with. Properties added on top are cleared from the map, and
+         * the parent stops inlining the style in the URL.
+         */
+        function resetStyle() {
+            if (!currentLayer) return;
+
+            const defaultStyle = getDefaultStyle();
+            const removed = Object.keys(currentLayer.style || {}).filter(key => !(key in defaultStyle));
+
+            currentLayer.style = defaultStyle;
+            hasChanges = true;
+            styleEditor?.setLayer(currentLayer, { resetControlModes: true });
+            $('#config-content').text(JSON.stringify(filterLayerForDisplay(currentLayer), null, 2));
 
             if (window.self !== window.top) {
                 window.parent.postMessage({
-                    type: 'update-layer',
-                    layer: currentLayer
+                    type: 'update-layer-style',
+                    layerId: originalLayerId || currentLayer.id,
+                    style: defaultStyle,
+                    resetProperties: removed,
+                    isDefaultStyle: true
                 }, '*');
-
-                setTimeout(() => {
-                    closePanel();
-                }, 300);
-            } else {
-                const layerJson = encodeURIComponent(JSON.stringify(currentLayer));
-                const newUrl = `${window.location.pathname}?layer=${layerJson}`;
-                window.location.href = newUrl;
             }
+        }
+
+        function getDefaultStyle() {
+            const registry = window.parent?.layerRegistry;
+            const preset = registry?.getLayer?.(originalLayerId, currentLayer._sourceAtlas, true)
+                || registry?.getLayer?.(originalLayerId, null, true);
+
+            const style = preset?.style || originalLayer?.style || {};
+            return cloneLayer({ style }).style;
         }
 
         function createInfoItem(key, value) {
@@ -1133,7 +1296,12 @@
             });
             if (legend) {
                 $('#legend-content').append(legend);
+            }
+            if (legend || isEditing) {
                 $('#legend-section').show();
+            }
+            if (isEditing) {
+                renderStyleEditor();
             }
 
             let layerUrl = layer.url || layer.tiles?.[0] || layer.data || '';

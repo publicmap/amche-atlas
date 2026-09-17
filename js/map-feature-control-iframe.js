@@ -5,12 +5,35 @@
  * pipeline, swipe-compare mode, and the selection APIs the shortcut menu,
  * search and URL restore drive. Also bridges a handful of postMessage types
  * (open-layer-info, zoom-to-layer, remove-layer, toggle-compare, toggle-mask,
- * reorder-layers, update-layer-opacity) sent by layer-stack-strip.js and
- * map-information.html.
+ * reorder-layers, update-layer, update-layer-opacity, update-layer-style) sent
+ * by layer-stack-strip.js and map-information.html.
  */
 
 import { MapMarkerManager } from './map-marker-manager.js';
 import ConfigManager from './config-manager.js';
+
+/**
+ * Layer config fields that can be written onto a layer that is already on the
+ * map. Anything else - a new url/type/sourceLayer, a renamed id - changes what
+ * the map actually renders, so an edit touching those still goes through the
+ * ?layers= rewrite and reload (see _updateLayer).
+ */
+const IN_PLACE_LAYER_FIELDS = [
+    'style', 'opacity', 'title', 'description', 'attribution',
+    'headerImage', 'legendImage', 'tags', 'bbox'
+];
+
+/**
+ * Record (or unrecord) the fields a layer's config now diverges from its preset
+ * in. url-manager reads `_editedFields` to decide which definition fields have
+ * to travel in ?layers= instead of being left to the preset.
+ */
+function markEditedFields(config, added = [], removed = []) {
+    const fields = new Set(config._editedFields || []);
+    added.forEach(field => fields.add(field));
+    removed.forEach(field => fields.delete(field));
+    config._editedFields = [...fields];
+}
 
 export class MapFeatureControl {
     constructor() {
@@ -162,6 +185,11 @@ export class MapFeatureControl {
         window.addEventListener('message', async (event) => {
             if (event.data.type === 'update-layer-opacity') {
                 this._updateLayerOpacity(event.data.layerId, event.data.opacity);
+            } else if (event.data.type === 'update-layer-style') {
+                this._updateLayerStyle(event.data.layerId, event.data.style, event.data.resetProperties, event.data.isDefaultStyle);
+            } else if (event.data.type === 'update-layer') {
+                // "Apply Changes" in map-information.html's edit mode
+                this._updateLayer(event.data.layer, event.data.originalId || event.data.layer?.id, event.data.changedFields);
             } else if (event.data.type === 'toggle-compare') {
                 this._toggleCompare(event.data.layerId, event.data.enabled);
             } else if (event.data.type === 'toggle-mask') {
@@ -739,6 +767,132 @@ export class MapFeatureControl {
      */
     _getIsolation() {
         return window.layerControl?.isolation || null;
+    }
+
+    /**
+     * Live style preview from map-information.html's Style controls. The edited
+     * style is written onto the layer's own config - so the URL, and any later
+     * re-render of the group, carry it - then pushed onto the rendered map
+     * layers. `resetProperties` are the keys the editor removed.
+     */
+    _updateLayerStyle(layerId, style, resetProperties = [], isDefaultStyle = false) {
+        const mapboxAPI = this._getMapboxAPI();
+        if (!mapboxAPI || !style) return;
+
+        const layerData = this._getActiveLayersFromConfig().get(layerId);
+        if (!layerData) return;
+
+        layerData.config.style = style;
+        // Marks the config as diverging from whatever preset it came from, so
+        // url-manager writes the style into ?layers= instead of just the id.
+        // A style reset puts it back to the preset's own, so the mark goes too.
+        markEditedFields(layerData.config, isDefaultStyle ? [] : ['style'], isDefaultStyle ? ['style'] : []);
+        this._refreshCustomLayerJson(layerData.config);
+
+        mapboxAPI.applyLayerGroupStyle(layerId, layerData.config, resetProperties);
+
+        if (window.urlManager) {
+            window.urlManager.updateURL({ updateLayers: true });
+        }
+    }
+
+    /**
+     * Apply an edited layer config from map-information.html. Fields that can
+     * be written onto a live layer (IN_PLACE_LAYER_FIELDS) are, so the panel
+     * can simply drop out of edit mode; anything that changes what the map
+     * renders needs the layer rebuilt, which is still done by rewriting
+     * ?layers= and reloading.
+     */
+    _updateLayer(updatedLayer, originalId, changedFields = null) {
+        if (!updatedLayer) return;
+
+        const groups = window.layerControl?._state?.groups || [];
+        const group = groups.find(g => g.id === originalId || g._prefixedId === originalId);
+
+        // The panel reports which fields its edit session actually touched;
+        // without that (or without a live layer to write to) fall back to
+        // diffing the whole config against the one on the map.
+        const fields = changedFields || (group ? this._changedLayerFields(group, updatedLayer) : null);
+
+        if (group && fields && fields.every(field => IN_PLACE_LAYER_FIELDS.includes(field))) {
+            this._applyLayerFieldsInPlace(group, updatedLayer, fields);
+            return;
+        }
+
+        window.browserControl?._handleLayerUpdate(updatedLayer, originalId);
+    }
+
+    _changedLayerFields(group, updatedLayer) {
+        const fields = new Set(
+            [...Object.keys(group), ...Object.keys(updatedLayer)].filter(key => !key.startsWith('_'))
+        );
+
+        return [...fields].filter(field => JSON.stringify(group[field]) !== JSON.stringify(updatedLayer[field]));
+    }
+
+    _applyLayerFieldsInPlace(group, updatedLayer, fields) {
+        const mapboxAPI = this._getMapboxAPI();
+        // Style and opacity are normally already on the map, applied as they
+        // were edited (see _updateLayerStyle and _updateLayerOpacity) - but not
+        // when they were edited through the panel's raw-config JSON, so check
+        // rather than assume. A style that is already in sync also keeps
+        // whatever the live path last recorded in _editedFields, so a style
+        // reset isn't re-marked as an edit here.
+        const styleChanged = fields.includes('style') &&
+            JSON.stringify(group.style) !== JSON.stringify(updatedLayer.style);
+
+        fields.forEach(field => {
+            if (updatedLayer[field] === undefined) {
+                delete group[field];
+            } else {
+                group[field] = updatedLayer[field];
+            }
+        });
+
+        if (styleChanged) {
+            markEditedFields(group, ['style']);
+            mapboxAPI?.applyLayerGroupStyle(group.id, group);
+        }
+        if (fields.includes('opacity')) {
+            mapboxAPI?.updateLayerOpacity(group.id, group, 1.0);
+        }
+
+        // Metadata (title, attribution, ...) comes from the layer's preset, so
+        // it only survives a reload if the URL carries it.
+        markEditedFields(group, fields.filter(field => field !== 'opacity' && field !== 'style'));
+        this._refreshCustomLayerJson(group);
+
+        // Repaint whatever shows the layer's metadata: the layer-stack strip
+        // and marker badges listen for 'layer-toggled', the attribution bar
+        // reads the config directly.
+        window.attributionControl?._updateAttribution?.();
+        window.dispatchEvent(new CustomEvent('layer-toggled', {
+            detail: { layerId: group.id, visible: true }
+        }));
+
+        if (window.urlManager) {
+            window.urlManager.updateURL({ updateLayers: true });
+        }
+    }
+
+    /**
+     * A layer the registry doesn't know (added from map-creator.html or the
+     * URL) round-trips through ?layers= as the verbatim `_originalJson` blob it
+     * arrived as, so an edit has to be written back into that blob - the same
+     * single-quote dialect MapLayerControl._addLayerDirectly produces.
+     */
+    _refreshCustomLayerJson(config) {
+        // Only a full inline definition is rewritten - a dynamic-layer
+        // shorthand ("osm:relation/123") has to stay the shorthand url-manager
+        // knows how to re-expand.
+        if (!config?._originalJson || !config._originalJson.trim().startsWith('{')) return;
+
+        const definition = {};
+        Object.keys(config).forEach(key => {
+            if (!key.startsWith('_') && key !== 'initiallyChecked') definition[key] = config[key];
+        });
+
+        config._originalJson = JSON.stringify(definition).replace(/'/g, "\\'").replace(/"/g, "'");
     }
 
     /**

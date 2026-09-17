@@ -8,6 +8,27 @@ import { URL_API_PARAMS } from './url-api-params.js';
 import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
 import { allEntries as allRegisteredMarkers, buildMarkersParam, parseMarkersParam } from './marker-registry.js';
 
+/**
+ * The definition fields a layer's config diverges from its preset in, and their
+ * current values — what `_editedFields` marks after an edit in
+ * map-information.html (see MapFeatureControl._applyLayerFieldsInPlace). These
+ * are the fields that would otherwise be dropped from the URL as "comes from
+ * the preset anyway".
+ */
+function copyEditedFields(group, layerObj) {
+    if (!group._editedFields?.length) return;
+    layerObj._editedFields = group._editedFields;
+    Object.assign(layerObj, editedFieldValues(group));
+}
+
+function editedFieldValues(layer) {
+    const values = {};
+    (layer._editedFields || []).forEach(field => {
+        if (field !== 'id' && layer[field] !== undefined) values[field] = layer[field];
+    });
+    return values;
+}
+
 export class URLManager {
     constructor(mapLayerControl, map) {
         this.mapLayerControl = mapLayerControl;
@@ -101,7 +122,7 @@ export class URLManager {
         // If the layer has an _originalJson property, preserve it — merging in any
         // opacity override so custom URL layers don't lose their type/url/style/etc.
         if (layer._originalJson && !layer.geojson) {
-            if (layer.opacity === undefined && layer.filter === undefined) {
+            if (layer.opacity === undefined && layer.filter === undefined && !layer._editedFields?.length) {
                 return layer._originalJson;
             }
             // A dynamic layer shorthand string (e.g. "osm:relation/123") has nowhere
@@ -110,11 +131,12 @@ export class URLManager {
             // accepts identically.
             const shorthand = parseDynamicLayerShorthandString(layer._originalJson);
             if (shorthand) {
-                if (layer.opacity !== 1 || layer.filter !== undefined) {
+                if (layer.opacity !== 1 || layer.filter !== undefined || layer._editedFields?.length) {
                     return JSON.stringify({
                         ...shorthand,
                         ...(layer.opacity !== 1 ? { opacity: layer.opacity } : {}),
-                        ...(layer.filter !== undefined ? { filter: layer.filter } : {})
+                        ...(layer.filter !== undefined ? { filter: layer.filter } : {}),
+                        ...editedFieldValues(layer)
                     });
                 }
                 return layer._originalJson;
@@ -137,6 +159,7 @@ export class URLManager {
                 } else {
                     delete parsed.filter;
                 }
+                Object.assign(parsed, editedFieldValues(layer));
                 return JSON.stringify(parsed).replace(/'/g, "\\'").replace(/"/g, "'");
             } catch (e) {
                 // Fallthrough to generic serialization if parse fails
@@ -165,12 +188,17 @@ export class URLManager {
 
         // If it's a layer with opacity, geojson, or other properties, create a clean object
         const cleanLayer = { id: layerId };
+        // Definition fields like `style` and `title` normally stay out of the
+        // URL - they come from the layer's preset - but one edited in
+        // map-information.html has to travel with the layer. `_editedFields`
+        // lists those (see MapFeatureControl._applyLayerFieldsInPlace).
+        const editedFields = layer._editedFields || [];
         Object.keys(layer).forEach(key => {
-            if (key !== '_originalJson' && key !== '_normalizedId' &&
-                key !== '_sourceAtlas' && key !== '_prefixedId' &&
-                key !== 'id' && key !== 'initiallyChecked' && key !== 'tags' &&
-                key !== 'type' && key !== 'title' && key !== 'description' &&
-                key !== 'headerImage' && key !== 'attribution' && key !== 'style') {
+            if (key.startsWith('_') || key === 'id') return;
+            const isDefinitionField = key === 'initiallyChecked' || key === 'tags' ||
+                key === 'type' || key === 'title' || key === 'description' ||
+                key === 'headerImage' || key === 'attribution' || key === 'style';
+            if (!isDefinitionField || editedFields.includes(key)) {
                 cleanLayer[key] = layer[key];
             }
         });
@@ -322,6 +350,7 @@ export class URLManager {
                     if (group.filter !== undefined) {
                         layerObj.filter = group.filter;
                     }
+                    copyEditedFields(group, layerObj);
                     activeLayers.push(layerObj);
                 } else if (group.id) {
                     // Get the proper normalized ID from the layer registry
@@ -348,6 +377,7 @@ export class URLManager {
                     if (group.id !== 'selection' && group.geojson && group.geojson.features && group.geojson.features.length > 0) {
                         layerObj.geojson = group.geojson;
                     }
+                    copyEditedFields(group, layerObj);
                     activeLayers.push(layerObj);
                 } else if (group.layers && group.layers.length > 0) {
                     // For style groups with sublayers, check which sublayers are active

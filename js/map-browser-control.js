@@ -450,18 +450,6 @@ export class MapBrowserControl {
                 iframe.src = '';
                 window.removeEventListener('message', readyHandler);
                 window.removeEventListener('message', closeHandler);
-                window.removeEventListener('message', updateHandler);
-            }
-        };
-
-        const updateHandler = (e) => {
-            if (e.data.type === 'update-layer') {
-                this._handleLayerUpdate(e.data.layer, layer.id);
-                modal.style.display = 'none';
-                iframe.src = '';
-                window.removeEventListener('message', readyHandler);
-                window.removeEventListener('message', closeHandler);
-                window.removeEventListener('message', updateHandler);
             }
         };
 
@@ -472,15 +460,22 @@ export class MapBrowserControl {
                 document.removeEventListener('keydown', keyHandler);
                 window.removeEventListener('message', readyHandler);
                 window.removeEventListener('message', closeHandler);
-                window.removeEventListener('message', updateHandler);
             }
         };
 
+        // 'update-layer' (the panel's Apply Changes) is handled once, globally,
+        // by MapFeatureControl._updateLayer - it writes what it can onto the
+        // live layer and calls _handleLayerUpdate below only for an edit that
+        // needs the layer rebuilt. The panel stays open either way.
         window.addEventListener('message', closeHandler);
-        window.addEventListener('message', updateHandler);
         document.addEventListener('keydown', keyHandler);
     }
 
+    // The reload path for an edit that can't be applied to the live layer (a new
+    // url, type or id): rewrite the layer's ?layers= segment and reload. Called
+    // by MapFeatureControl._updateLayer, which handles everything it can in
+    // place instead.
+    //
     // originalId is the layer's id *before* this edit — needed to find its
     // existing URL segment when the edit itself renames the id (updatedLayer.id
     // would otherwise never match anything already in the URL).
