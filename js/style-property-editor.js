@@ -105,6 +105,16 @@ function literalOf(value) {
     return literal !== undefined ? literal : resolveValue(value, null);
 }
 
+/**
+ * A short value stays on one line - `[2, 2]` or `["get","name"]` read better
+ * whole than spread over three lines of a small textarea; anything longer is
+ * indented so its structure is visible.
+ */
+function formatJson(value) {
+    const compact = JSON.stringify(value === undefined ? null : value);
+    return compact.length <= 60 ? compact : JSON.stringify(value, null, 1);
+}
+
 function el(tag, className, props = {}) {
     const node = Object.assign(document.createElement(tag), props);
     if (className) node.className = className;
@@ -222,7 +232,7 @@ export class StylePropertyEditor {
         const wrap = el('div', 'spe-control');
         const textarea = el('textarea', 'spe-input spe-json', {
             spellcheck: false,
-            value: this._drafts.has(key) && value === undefined ? '' : JSON.stringify(value === undefined ? null : value, null, 1),
+            value: this._drafts.has(key) && value === undefined ? '' : formatJson(value),
             placeholder: 'JSON value or Mapbox expression'
         });
 

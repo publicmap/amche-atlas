@@ -9,11 +9,11 @@ import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
 import { allEntries as allRegisteredMarkers, buildMarkersParam, parseMarkersParam } from './marker-registry.js';
 
 /**
- * The definition fields a layer's config diverges from its preset in, and their
- * current values — what `_editedFields` marks after an edit in
- * map-information.html (see MapFeatureControl._applyLayerFieldsInPlace). These
- * are the fields that would otherwise be dropped from the URL as "comes from
- * the preset anyway".
+ * `_editedFields` lists the definition fields a layer's config diverges from
+ * its preset in, after an edit in map-information.html (see
+ * MapFeatureControl._applyLayerFieldsInPlace). Those fields would otherwise be
+ * left out of the URL as "the preset has them anyway", so they are carried over
+ * onto the serializable copy of the layer here, and written out by layerToURL.
  */
 function copyEditedFields(group, layerObj) {
     if (!group._editedFields?.length) return;
@@ -27,6 +27,21 @@ function editedFieldValues(layer) {
         if (field !== 'id' && layer[field] !== undefined) values[field] = layer[field];
     });
     return values;
+}
+
+/**
+ * Whether `layer.filter` is just whatever its preset already declares (config's
+ * own `filter`, or a temporary preview/isolation change that never touched the
+ * layer's own config entry) rather than something a user actually customized
+ * (map-information.html's editor, or MapMarkerManager's quick-filter commit -
+ * see its _applyFeatureFilter). Only a real customization is worth spending
+ * URL bytes on; the preset default is already implied by the layer id.
+ */
+function isDefaultFilter(layer) {
+    const registry = window.layerRegistry;
+    const preset = registry?.getLayer?.(layer.id, layer._sourceAtlas, true)
+        || registry?.getLayer?.(layer.id, null, true);
+    return JSON.stringify(layer.filter) === JSON.stringify(preset?.filter);
 }
 
 export class URLManager {
@@ -174,12 +189,14 @@ export class URLManager {
             layerId = window.layerRegistry.normalizeLayerId(layer.id);
         }
 
-        // If it's a simple layer with just an ID (no opacity, geojson, or other properties), return the normalized ID
+        // If it's a simple layer with just an ID (no opacity, geojson, or other properties), return the normalized ID.
+        // A `filter` matching the preset's own default doesn't count - see isDefaultFilter.
         const simpleLayerKeys = Object.keys(layer).filter(k =>
             !k.startsWith('_') &&
             k !== 'tags' &&
             k !== 'initiallyChecked' &&
-            k !== 'geojson'
+            k !== 'geojson' &&
+            !(k === 'filter' && isDefaultFilter(layer))
         );
 
         if (layer.id && simpleLayerKeys.length === 1 && !layer.geojson) {
@@ -195,6 +212,7 @@ export class URLManager {
         const editedFields = layer._editedFields || [];
         Object.keys(layer).forEach(key => {
             if (key.startsWith('_') || key === 'id') return;
+            if (key === 'filter' && isDefaultFilter(layer)) return;
             const isDefinitionField = key === 'initiallyChecked' || key === 'tags' ||
                 key === 'type' || key === 'title' || key === 'description' ||
                 key === 'headerImage' || key === 'attribution' || key === 'style';

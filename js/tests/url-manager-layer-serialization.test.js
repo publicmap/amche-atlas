@@ -76,6 +76,44 @@ describe('URLManager.layerToURL', () => {
         });
     });
 
+    it('leaves out a filter that just matches the preset\'s own config default', () => {
+        window.layerRegistry = {
+            getLayer: (id) => id === 'osm-railways'
+                ? { filter: ['match', ['get', 'kind'], ['rail'], true, false] }
+                : null
+        };
+        try {
+            expect(layerToURL({
+                id: 'osm-railways',
+                _normalizedId: 'osm-railways',
+                filter: ['match', ['get', 'kind'], ['rail'], true, false]
+            })).toBe('osm-railways');
+        } finally {
+            delete window.layerRegistry;
+        }
+    });
+
+    it('carries a filter that actually diverges from the preset default (a quick-filter pick or edit)', () => {
+        window.layerRegistry = {
+            getLayer: (id) => id === 'osm-railways'
+                ? { filter: ['match', ['get', 'kind'], ['rail'], true, false] }
+                : null
+        };
+        try {
+            const serialized = layerToURL({
+                id: 'osm-railways',
+                _normalizedId: 'osm-railways',
+                filter: ['all', ['==', ['get', 'kind'], 'rail']]
+            });
+            expect(JSON.parse(serialized)).toEqual({
+                id: 'osm-railways',
+                filter: ['all', ['==', ['get', 'kind'], 'rail']]
+            });
+        } finally {
+            delete window.layerRegistry;
+        }
+    });
+
     it('keeps a dynamic-layer shorthand as an object form when something diverges', () => {
         const serialized = layerToURL({
             id: 'relation/123',

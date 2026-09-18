@@ -90,8 +90,14 @@ function row(property) {
     return frame.locator(`.spe-row:has(.spe-name:text-is("${property}"))`);
 }
 
+// A layer's own value is folded into the atlas default's feature-state
+// expression (the hover/selection highlight), so assertions look for the value
+// inside the applied paint rather than expecting it verbatim.
 const paintProperty = (property, layerId = FILL_LAYER_ID) =>
-    page.evaluate(([id, prop]) => window.map.getPaintProperty(id, prop), [layerId, property]);
+    page.evaluate(
+        ([id, prop]) => JSON.stringify(window.map.getPaintProperty(id, prop) ?? null),
+        [layerId, property]
+    );
 
 test('renders a control per style property, typed by the style spec', async () => {
     await expect(frame.locator('.spe-name')).toHaveText(['fill-color', 'fill-opacity', 'line-width']);
@@ -103,7 +109,7 @@ test('renders a control per style property, typed by the style spec', async () =
 test('a colour edit repaints the map layer and lands in the URL', async () => {
     await row('fill-color').locator('input[type="color"]').fill('#0000ff');
 
-    await expect.poll(() => paintProperty('fill-color'), { timeout: 10000 }).toBe('#0000ff');
+    await expect.poll(() => paintProperty('fill-color'), { timeout: 10000 }).toContain('#0000ff');
     await expect.poll(() => decodeURIComponent(page.url()), { timeout: 10000 }).toContain("'fill-color':'#0000ff'");
 });
 
@@ -111,20 +117,21 @@ test('a number edit is validated before it reaches the map', async () => {
     const opacity = row('fill-opacity').locator('input[type="number"]');
 
     await opacity.fill('0.9');
-    await expect.poll(() => paintProperty('fill-opacity'), { timeout: 10000 }).toBe(0.9);
+    await expect.poll(() => paintProperty('fill-opacity'), { timeout: 10000 }).toContain('0.9');
 
     // Out of the property's 0-1 range: flagged in the panel, never applied
     await opacity.fill('7');
     await expect(row('fill-opacity').locator('.spe-error')).toBeVisible();
-    expect(await paintProperty('fill-opacity')).toBe(0.9);
+    expect(await paintProperty('fill-opacity')).toContain('0.9');
 });
 
-test('removing a property returns it to its spec default', async () => {
+test('removing a property drops its value from the map layer', async () => {
+    await row('fill-opacity').locator('input[type="number"]').fill('0.9');
+    await expect.poll(() => paintProperty('fill-opacity'), { timeout: 10000 }).toContain('0.9');
+
     await row('fill-opacity').locator('.spe-remove').click();
 
-    // Cleared on the map layer: getPaintProperty reports nothing set, so the
-    // spec default (1) is what renders again.
-    await expect.poll(() => paintProperty('fill-opacity'), { timeout: 10000 }).toBeUndefined();
+    await expect.poll(() => paintProperty('fill-opacity'), { timeout: 10000 }).not.toContain('0.9');
     await expect(frame.locator('.spe-name')).toHaveText(['fill-color', 'line-width']);
 });
 
@@ -133,19 +140,19 @@ test('a property added from the picker reaches the map', async () => {
     await expect(row('line-color').locator('input[type="color"]')).toHaveValue('#3b82f6');
 
     await expect.poll(() => paintProperty('line-color', `geojson-${LAYER.id}-line`), { timeout: 10000 })
-        .toBe('#3b82f6');
+        .toContain('#3b82f6');
 });
 
 test('Reset restores the layer\'s configured style', async () => {
     await row('fill-color').locator('input[type="color"]').fill('#0000ff');
     await row('fill-opacity').locator('.spe-remove').click();
-    await expect.poll(() => paintProperty('fill-color'), { timeout: 10000 }).toBe('#0000ff');
+    await expect.poll(() => paintProperty('fill-color'), { timeout: 10000 }).toContain('#0000ff');
 
     await frame.locator('#reset-style-btn').click();
 
     await expect(row('fill-color').locator('input[type="color"]')).toHaveValue('#ff0000');
-    await expect.poll(() => paintProperty('fill-color'), { timeout: 10000 }).toBe('#ff0000');
-    await expect.poll(() => paintProperty('fill-opacity'), { timeout: 10000 }).toBe(0.5);
+    await expect.poll(() => paintProperty('fill-color'), { timeout: 10000 }).toContain('#ff0000');
+    await expect.poll(() => paintProperty('fill-opacity'), { timeout: 10000 }).toContain('0.5');
     await expect.poll(() => decodeURIComponent(page.url()), { timeout: 10000 }).not.toContain('#0000ff');
 });
 
@@ -167,9 +174,10 @@ test('Apply Changes leaves edit mode in place, without reloading the page', asyn
     )).toBe('Renamed Layer');
     await expect.poll(() => decodeURIComponent(page.url()), { timeout: 10000 }).toContain("'title':'Renamed Layer'");
 
-    // Back in view mode: the legend is rendered again, from the edited style
+    // Back in view mode: the legend is rendered again from the edited style,
+    // and the Style controls are out of sight
     await expect(frame.locator('#legend-content svg')).toBeVisible();
-    await expect(frame.locator('.spe-row')).toHaveCount(0);
+    await expect(frame.locator('#style-editor-content')).toBeHidden();
 });
 
 test('an edit that needs the layer rebuilt still reloads with the new config', async () => {
@@ -178,9 +186,14 @@ test('an edit that needs the layer rebuilt still reloads with the new config', a
     await frame.fill('#layer-id-edit', 'style-editor-renamed');
     await frame.locator('#edit-toggle-btn').click();
 
+    // window.map is replaced during startup, so only the reloaded page's own
+    // map answers getLayer - the marker above is gone by then either way.
     await page.waitForFunction(
-        () => !window.__notReloaded && !!window.map?.getLayer('geojson-style-editor-renamed-fill'),
+        () => !window.__notReloaded
+            && typeof window.map?.getLayer === 'function'
+            && !!window.map.getLayer('geojson-style-editor-renamed-fill'),
         undefined,
         { timeout: 90000 }
     );
+    expect(decodeURIComponent(page.url())).toContain("'id':'style-editor-renamed'");
 });

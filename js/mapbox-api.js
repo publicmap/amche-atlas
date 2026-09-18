@@ -3362,10 +3362,12 @@ export class MapboxAPI {
      * layers - the live preview behind map-information.html's Style controls.
      *
      * Each style variant ("overlay/line-color") paints its own map layer, so a
-     * variant's properties go only to the sublayers carrying its suffix;
-     * _applyStyleProperties then drops whatever doesn't belong to each
-     * sublayer's own type. `resetProperties` (keys the editor removed) are sent
-     * as undefined, which returns them to their style-spec default.
+     * variant's properties go only to the sublayers carrying its suffix, and
+     * each sublayer gets the same filter + default merge _createLayerConfig
+     * applied when the layer was built - so a default that branches on
+     * feature-state keeps this layer's hover/selection highlight, and a
+     * property in `resetProperties` (one the style editor removed) falls back
+     * to the atlas default rather than the bare style-spec one.
      *
      * Only repaints layers that exist: a property needing a pass the group
      * never created (text-field on a layer with no symbol pass) shows up when
@@ -3394,15 +3396,26 @@ export class MapboxAPI {
         });
 
         this.getLayerGroupIds(groupId, config).forEach(layerId => {
-            if (!this._map.getLayer(layerId)) return;
+            const mapLayer = this._map.getLayer(layerId);
+            if (!mapLayer) return;
+
+            // Cluster layers paint from the clustering options rather than the
+            // layer's own style (see createLayerGroup), so leave them alone.
+            if (/-clusters$|-cluster-count$/.test(layerId)) return;
 
             const variant = variants.find(v => v.suffix && layerId.endsWith(v.suffix)) || baseVariant;
             if (!variant) return;
 
-            this._applyStyleProperties(layerId, {
+            const variantStyle = this._filterStyleForLayerType({
                 ...(resets.get(variant.prefix) || {}),
                 ...variant.style
-            });
+            }, mapLayer.type);
+
+            // Secondary variants are pure overlays and take no defaults, the
+            // same way _createLayerConfig treats them.
+            const defaultStyles = variant.prefix ? {} : this._getDefaultStylesForLayerType(mapLayer.type);
+
+            this._applyStyleProperties(layerId, this._intelligentStyleMerge(variantStyle, defaultStyles));
         });
 
         return true;
