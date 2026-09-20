@@ -948,6 +948,8 @@ export class URLManager {
             otherParams.delete('fov');
             otherParams.delete('bearing');
             otherParams.delete('pitch');
+            otherParams.delete('time');
+            otherParams.delete('timeStart');
             otherParams.delete('sound');
             otherParams.delete('export');
             otherParams.delete('selected');

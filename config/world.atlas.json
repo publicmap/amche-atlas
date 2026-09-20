@@ -25,6 +25,10 @@
       "id": "inaturalist",
       "description": "Observations from iNaturalist",
       "attribution": "<a href='https://inaturalist.org/'>iNaturalist</a>",
+      "tags": [
+        "biodiversity",
+        "citizen-science"
+      ],
       "url": "https://api.inaturalist.org/v1/points/{z}/{x}/{y}.png",
       "headerImage": "assets/map-layers/world/map-layer-inaturalist.png",
       "legendImage": "assets/map-layers/world/legend-inaturalist.png",
@@ -52,6 +56,10 @@
       "attribution": "<a href='https://www.iqair.com/in-en/world-air-quality'>IQAir</a>",
       "type": "tms",
       "id": "iqair-pm2.5",
+      "tags": [
+        "air-quality",
+        "climate"
+      ],
       "url": "https://osm.airvisual.net/cog/pm25/tiles/{z}/{x}/{y}.png",
       "style": {
         "raster-opacity": [
@@ -79,6 +87,10 @@
       "description": "Building presence in 2016 generated using ML from 10m satellite imagery. See <a href='https://research.google/blog/open-buildings-25d-temporal-dataset-tracks-building-changes-across-the-global-south'>methodology</a> for details.",
       "attribution": "<a href='https://mmeka-ee.projects.earthengine.app/view/open-buildings-temporal-dataset'>Open Buildings 2.5D Temporal Dataset, Google Research</a>",
       "headerImage": "assets/map-layers/world/map-layer-open-buildings-2016.png",
+      "tags": [
+        "buildings",
+        "settlement"
+      ],
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -123,6 +135,10 @@
       "type": "tms",
       "maxzoom": 9,
       "id": "weather-satellite",
+      "tags": [
+        "weather",
+        "satellite"
+      ],
       "url": "https://earthlive.maptiles.arcgis.com/arcgis/rest/services/GOES/GOES31D/MapServer/tile/{z}/{y}/{x}",
       "attribution": "<a href='https://www.star.nesdis.noaa.gov/goes/index.php'>NOAA GOES</a> + <a href='https://himawari8.nict.go.jp'>JMA Himwari</a> via <a href='https://www.arcgis.com/home/item.html?id=37a875ff3611496883b7ccca97f0f5f4'>JMA Himawari</a>"
     },
@@ -133,6 +149,10 @@
       "legendImage": null,
       "type": "tms",
       "id": "esri-world-imagery",
+      "tags": [
+        "basemap",
+        "imagery"
+      ],
       "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       "attribution": "<a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9'>ESRI World Imagery</a> via <a href='https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer'>ArcGIS Online</a>"
     },
@@ -143,13 +163,18 @@
       "legendImage": null,
       "type": "tms",
       "id": "esri-hillshade",
+      "tags": [
+        "basemap",
+        "terrain"
+      ],
       "url": "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
       "attribution": "<a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9'>ESRI World Imagery</a> via <a href='https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer'>ArcGIS Online</a>"
     },
     {
       "title": "TopPlusOpen",
       "tags": [
-        "basemap"
+        "basemap",
+        "topographic"
       ],
       "description": "Open topographic web map from the German Federal Agency for Cartography and Geodesy (BKG).",
       "headerImage": null,
@@ -163,7 +188,8 @@
     {
       "title": "TopPlusOpen Grey",
       "tags": [
-        "basemap"
+        "basemap",
+        "topographic"
       ],
       "description": "Grayscale variant of the TopPlusOpen basemap from BKG, Germany.",
       "headerImage": null,
@@ -179,7 +205,12 @@
       "type": "tms",
       "title": "Landsat C2 L2 (Mosaic) (Lwir11)",
       "description": "Thermal (band 11) mosaic of the most recent low-cloud Landsat 8/9 scene per tile, re-registered as you pan/zoom and as you change the date range with the time control.",
-      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7a2999ddb16deec76db97f332bb1d965/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=lwir11&rescale=44000,50500&colormap_name=inferno",
+      "tags": [
+        "imagery",
+        "thermal",
+        "landsat"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=lwir11&rescale=44000,50500&colormap_name=inferno",
       "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
@@ -205,7 +236,12 @@
       "type": "tms",
       "title": "Landsat C2 L2 (Mosaic) (True Color)",
       "description": "True color (red/green/blue) mosaic of the most recent low-cloud Landsat 8/9 scene per tile, re-registered as you pan/zoom and as you change the date range with the time control.",
-      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7a2999ddb16deec76db97f332bb1d965/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=red&assets=green&assets=blue&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
+      "tags": [
+        "imagery",
+        "true-color",
+        "landsat"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=red&assets=green&assets=blue&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
       "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
@@ -231,7 +267,13 @@
       "type": "tms",
       "title": "Landsat C2 L2 (Mosaic) (False Color)",
       "description": "False color infrared (near-infrared/red/green) mosaic of the most recent low-cloud Landsat 8/9 scene per tile — vegetation renders bright red, making forest cover and crop health easier to distinguish than true color. Re-registered as you pan/zoom and as you change the date range with the time control.",
-      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7a2999ddb16deec76db97f332bb1d965/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=nir08&assets=red&assets=green&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
+      "tags": [
+        "imagery",
+        "false-color",
+        "landsat",
+        "vegetation"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=nir08&assets=red&assets=green&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
       "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
@@ -257,7 +299,12 @@
       "type": "tms",
       "title": "Landsat C2 L2 (Mosaic) (NDVI)",
       "description": "Normalized Difference Vegetation Index — (NIR-Red)/(NIR+Red) — mosaic of the most recent low-cloud Landsat 8/9 scene per tile, quantifying vegetation vigor. Re-registered as you pan/zoom and as you change the date range with the time control.",
-      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7a2999ddb16deec76db97f332bb1d965/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=red&assets=nir08&asset_as_band=True&expression=(nir08-red)/(nir08%2Bred)&rescale=-1,1&colormap_name=rdylgn",
+      "tags": [
+        "vegetation",
+        "landsat",
+        "index"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=red&assets=nir08&asset_as_band=True&expression=(nir08-red)/(nir08%2Bred)&rescale=-1,1&colormap_name=rdylgn",
       "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
@@ -283,7 +330,12 @@
       "type": "tms",
       "title": "Landsat C2 L2 (Mosaic) (NDWI)",
       "description": "Normalized Difference Water Index — (Green-NIR)/(Green+NIR) — mosaic of the most recent low-cloud Landsat 8/9 scene per tile, highlighting open water and wet soil. Re-registered as you pan/zoom and as you change the date range with the time control.",
-      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7a2999ddb16deec76db97f332bb1d965/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=green&assets=nir08&asset_as_band=True&expression=(green-nir08)/(green%2Bnir08)&rescale=-1,1&colormap_name=blues",
+      "tags": [
+        "water",
+        "landsat",
+        "index"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=green&assets=nir08&asset_as_band=True&expression=(green-nir08)/(green%2Bnir08)&rescale=-1,1&colormap_name=blues",
       "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
@@ -309,7 +361,11 @@
       "type": "tms",
       "title": "Landsat C2 L2 (Mosaic) (Agriculture)",
       "description": "Short-wave infrared/NIR/blue composite mosaic of the most recent low-cloud Landsat 8/9 scene per tile — commonly used to assess crop moisture and distinguish bare soil, burn scars, and vegetation. Re-registered as you pan/zoom and as you change the date range with the time control.",
-      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7a2999ddb16deec76db97f332bb1d965/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=swir16&assets=nir08&assets=blue&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
+      "tags": [
+        "agriculture",
+        "landsat"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=swir16&assets=nir08&assets=blue&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
       "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
@@ -322,6 +378,395 @@
             "lt": 20
           }
         },
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sentinel-1-sar",
+      "type": "tms",
+      "title": "Sentinel-1 SAR (Mosaic)",
+      "description": "Synthetic aperture radar composite (VV/VH decorrelation) mosaic of the most recent Sentinel-1 GRD scene per tile. Unlike the Landsat/Sentinel-2 optical layers, radar sees through cloud cover — useful during monsoon when optical mosaics keep landing on cloudy scenes. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "imagery",
+        "radar",
+        "sentinel"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/c932260f94ece68190385a68709e725a/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=sentinel-1-grd&assets=vv&assets=vh&expression=vv;vh;vv/vh&rescale=0,600&rescale=0,270&rescale=0,9&asset_as_band=True",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-1-grd' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "sentinel-1-grd"
+        ],
+        "viewportBbox": true,
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sentinel-2-true-color",
+      "type": "tms",
+      "title": "Sentinel-2 True Color (Mosaic)",
+      "description": "True color mosaic of the most recent low-cloud Sentinel-2 scene per tile, using the pre-rendered visual asset. 10m resolution — sharper than the Landsat true color layer, with a ~5-day revisit. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "imagery",
+        "true-color",
+        "sentinel"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3096748e869bb4f11942c97f9ac99064/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=sentinel-2-l2a&assets=visual&asset_bidx=visual|1,2,3&nodata=0",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "sentinel-2-l2a"
+        ],
+        "viewportBbox": true,
+        "query": {
+          "eo:cloud_cover": {
+            "lt": 20
+          }
+        },
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "modis-ndvi",
+      "type": "tms",
+      "title": "MODIS NDVI 16-Day (Mosaic)",
+      "description": "MODIS 16-day composited vegetation index (250m) mosaic — pre-composited across 16 days to minimize cloud gaps, giving more consistent year-round coverage than the single-scene Landsat NDVI layer at the cost of resolution. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "vegetation",
+        "modis",
+        "index"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/e38240e92a8a6d68af4fe49a4348a6dc/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=modis-13Q1-061&assets=250m_16_days_NDVI&colormap_name=modis-13A1|Q1&rescale=0,10000",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-13Q1-061' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "modis-13Q1-061"
+        ],
+        "viewportBbox": true,
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "modis-lst",
+      "type": "tms",
+      "title": "MODIS Land Surface Temperature 8-Day (Mosaic)",
+      "description": "MODIS 8-day composited daytime land surface temperature (1km) mosaic — cloud-composited, complementing the single-scene Landsat thermal layer with more consistent coverage at coarser resolution. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "climate",
+        "modis",
+        "thermal"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/79f3b4b1cece28eead8861c56fe0029a/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=modis-11A2-061&assets=LST_Day_1km&colormap_name=jet&rescale=255,310",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-11A2-061' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "modis-11A2-061"
+        ],
+        "viewportBbox": true,
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "modis-fire",
+      "type": "tms",
+      "title": "MODIS Thermal Anomalies / Fire 8-Day (Mosaic)",
+      "description": "MODIS 8-day active fire and thermal anomaly detection mosaic — mostly blank outside active fire events, by design. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "fire",
+        "modis"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/34958fd0da78d9838913718b9399804f/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=modis-14A2-061&assets=FireMask&colormap_name=modis-14A1|A2",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-14A2-061' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "modis-14A2-061"
+        ],
+        "viewportBbox": true,
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "esa-worldcover",
+      "type": "tms",
+      "title": "ESA WorldCover (Land Cover)",
+      "description": "Global 10m land cover classification (2021) from ESA WorldCover — a single static epoch, so this layer uses a fixed global search rather than the time-control/viewport-following mosaic pattern of the layers above.",
+      "tags": [
+        "land-cover"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/04e13b67e78515f940bb3e662eb04178/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=esa-worldcover&assets=map&colormap_name=esa-worldcover",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=esa-worldcover' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false
+    },
+    {
+      "id": "jrc-global-surface-water",
+      "type": "tms",
+      "title": "JRC Global Surface Water",
+      "description": "Water occurrence (1984-2020) from the JRC Global Surface Water dataset — permanent water in dark blue, seasonal/intermittent water in lighter shades. A single static epoch, using a fixed global search rather than the time-control pattern above.",
+      "tags": [
+        "water"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/715067ee8c23aa2629a0049ff8d6d897/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=jrc-gsw&assets=occurrence&colormap_name=jrc-occurrence&nodata=0",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=jrc-gsw' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false
+    },
+    {
+      "id": "copernicus-dem",
+      "type": "tms",
+      "title": "Copernicus DEM GLO-30 (Elevation)",
+      "description": "Global 30m digital elevation model from Copernicus (2021) — a single static epoch, using a fixed global search rather than the time-control pattern above. Contrast is tuned for global relief, so low-relief coastal areas render fairly flat.",
+      "tags": [
+        "elevation",
+        "terrain"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/1a9fc5b5c12058bd9b59120b9f90c7e0/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=cop-dem-glo-30&assets=data&colormap_name=terrain&rescale=-1000,4000",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=cop-dem-glo-30' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false
+    },
+    {
+      "id": "hrea-electricity-access",
+      "type": "tms",
+      "title": "HREA Electricity Access (Nightlight Brightness)",
+      "description": "Settlement-level estimated nighttime brightness (2012-2019) from the HREA project, used as a proxy for electricity access and reliability — brighter areas indicate more consistent lit infrastructure. <strong>Covers 89 nations only and does not include India</strong> (nearby coverage includes Sri Lanka, Pakistan, Nepal, Bhutan, and Bangladesh); renders blank over Goa and most of India. A single static epoch, using a fixed global search rather than the time-control pattern above.",
+      "tags": [
+        "infrastructure",
+        "socioeconomic"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/ef424e741a4ff72a5f890128e47b130d/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=hrea&assets=estimated-brightness&colormap_name=magma&rescale=1,200",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=hrea' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false
+    },
+    {
+      "id": "sentinel-2-false-color",
+      "type": "tms",
+      "title": "Sentinel-2 False Color (Mosaic)",
+      "description": "False color infrared (NIR/red/green) mosaic of the most recent low-cloud Sentinel-2 scene per tile at 10m resolution — vegetation renders bright red. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "imagery",
+        "false-color",
+        "sentinel",
+        "vegetation"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3096748e869bb4f11942c97f9ac99064/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=sentinel-2-l2a&assets=B08&assets=B04&assets=B03&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "sentinel-2-l2a"
+        ],
+        "viewportBbox": true,
+        "query": {
+          "eo:cloud_cover": {
+            "lt": 20
+          }
+        },
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sentinel-2-ndvi",
+      "type": "tms",
+      "title": "Sentinel-2 NDVI (Mosaic)",
+      "description": "Normalized Difference Vegetation Index — (NIR-Red)/(NIR+Red) — mosaic of the most recent low-cloud Sentinel-2 scene per tile at 10m resolution. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "vegetation",
+        "sentinel",
+        "index"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3096748e869bb4f11942c97f9ac99064/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=sentinel-2-l2a&assets=B04&assets=B08&asset_as_band=True&expression=(B08-B04)/(B08%2BB04)&rescale=-1,1&colormap_name=rdylgn",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "sentinel-2-l2a"
+        ],
+        "viewportBbox": true,
+        "query": {
+          "eo:cloud_cover": {
+            "lt": 20
+          }
+        },
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sentinel-2-ndwi",
+      "type": "tms",
+      "title": "Sentinel-2 NDWI (Mosaic)",
+      "description": "Normalized Difference Water Index — (Green-NIR)/(Green+NIR) — mosaic of the most recent low-cloud Sentinel-2 scene per tile at 10m resolution, highlighting open water and wet soil. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "water",
+        "sentinel",
+        "index"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3096748e869bb4f11942c97f9ac99064/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=sentinel-2-l2a&assets=B03&assets=B08&asset_as_band=True&expression=(B03-B08)/(B03%2BB08)&rescale=-1,1&colormap_name=blues",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "sentinel-2-l2a"
+        ],
+        "viewportBbox": true,
+        "query": {
+          "eo:cloud_cover": {
+            "lt": 20
+          }
+        },
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "alos-forest-nonforest",
+      "type": "tms",
+      "title": "ALOS Forest/Non-Forest Mosaic",
+      "description": "Global forest/non-forest classification derived from ALOS PALSAR radar — complements the goa.atlas.json Private Forests and Slope Zoning layers with a global forest-cover baseline. A single static epoch, using a fixed global search rather than the time-control pattern above.",
+      "tags": [
+        "forest",
+        "land-cover"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3cb5d339ae18d4024b39fc818a476324/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=alos-fnf-mosaic&assets=C&colormap_name=alos-fnf",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=alos-fnf-mosaic' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false
+    },
+    {
+      "id": "esri-annual-lulc",
+      "type": "tms",
+      "title": "Esri 10m Annual Land Use/Land Cover (Mosaic)",
+      "description": "Annual global 10m land use/land cover classification (2017-present) — unlike ESA WorldCover's single epoch, this is a real yearly time series, so the time control lets you scrub land cover year by year. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "land-cover"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/f34f0a9f34e5295e6c5c7c50457ea409/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=io-lulc-annual-v02&assets=data&colormap_name=io-lulc-9-class",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=io-lulc-annual-v02' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "io-lulc-annual-v02"
+        ],
+        "viewportBbox": true,
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "esa-cci-land-cover",
+      "type": "tms",
+      "title": "ESA CCI Land Cover (Mosaic)",
+      "description": "Global 300m land cover time series back to 1992 — coarser resolution than ESA WorldCover or the Esri annual LULC, but the longest available record for tracking long-run land-use change. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "land-cover"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/43853e455a99ce4c9048c46a9c0bedf1/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=esa-cci-lc&assets=lccs_class&colormap_name=esa-cci-lc",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=esa-cci-lc' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "esa-cci-lc"
+        ],
+        "viewportBbox": true,
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "modis-burned-area",
+      "type": "tms",
+      "title": "MODIS Burned Area Monthly (Mosaic)",
+      "description": "MODIS monthly burned-area extent mosaic — actual burned area, complementing the MODIS Thermal Anomalies/Fire layer's active-fire detections. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "fire",
+        "modis"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3ee6def6c1025ad0f0c8447e38d3a160/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=modis-64A1-061&assets=Burn_Date&colormap_name=modis-64A1",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-64A1-061' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "modis-64A1-061"
+        ],
+        "viewportBbox": true,
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "noaa-sea-surface-temperature",
+      "type": "tms",
+      "title": "NOAA Sea Surface Temperature (Mosaic)",
+      "description": "Daily global optimum-interpolation sea surface temperature — relevant to Goa's coastal/marine monitoring. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "tags": [
+        "ocean",
+        "climate"
+      ],
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7013718fb077a2fcc8576b6ac4f7ff80/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=noaa-cdr-sea-surface-temperature-optimum-interpolation&assets=sst&colormap_name=rdylbu_r&rescale=-1000,3500",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=noaa-cdr-sea-surface-temperature-optimum-interpolation' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "noaa-cdr-sea-surface-temperature-optimum-interpolation"
+        ],
+        "viewportBbox": true,
         "sortby": [
           {
             "field": "properties.datetime",
