@@ -70,9 +70,11 @@ export class SearchSuggestionsPanel {
     }
 
     /**
-     * @param {Array<{ ariaLabel: string, items: object[], attribution?: string }>} sections
+     * @param {Array<{ ariaLabel: string, items: object[], sourceLabel?: string, sourceUrl?: string }>} sections
      *   Each item is a GeoJSON-like feature (properties.name / properties.place_name).
-     *   Sections with no items are dropped.
+     *   Sections with no items are dropped. `sourceLabel`/`sourceUrl` render a
+     *   visible header naming where that section's results come from, with an
+     *   optional link (opened in a new tab) to that source for more detail.
      */
     render(sections) {
         const nonEmptySections = (sections || []).filter(s => s.items && s.items.length)
@@ -134,28 +136,52 @@ export class SearchSuggestionsPanel {
                 `
             }).join('')
 
-            const attributionHtml = section.attribution ? `
-                <div class="local-suggestion-attribution" aria-hidden="true" style="
-                    padding: 4px 12px;
-                    font-size: 11px;
-                    color: #6b7280;
-                    text-align: right;
-                    background: #1f2937;
-                    border-bottom: 1px solid #374151;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                ">${this._escapeHtml(section.attribution)}</div>
+            const label = this._escapeHtml(section.ariaLabel || 'Suggestions')
+            const sourceLinkHtml = section.sourceUrl ? `
+                <a href="${this._escapeHtml(section.sourceUrl)}" target="_blank" rel="noopener noreferrer"
+                   class="local-suggestion-source-link"
+                   style="color: #60a5fa; text-decoration: none; font-weight: 400;"
+                >${this._escapeHtml(section.sourceLabel || 'Source')} ↗</a>
             ` : ''
 
-            return `<div role="group" aria-label="${this._escapeHtml(section.ariaLabel || 'Suggestions')}">${itemsHtml}${attributionHtml}</div>`
+            const headerHtml = `
+                <div class="local-suggestion-section-header" style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 8px;
+                    padding: 6px 12px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    letter-spacing: 0.04em;
+                    text-transform: uppercase;
+                    color: #9ca3af;
+                    background: #111827;
+                    border-bottom: 1px solid #374151;
+                    position: sticky;
+                    top: 0;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                "><span>${label}</span>${sourceLinkHtml}</div>
+            `
+
+            return `<div role="group" aria-label="${label}">${headerHtml}${itemsHtml}</div>`
         }).join('')
 
         const rect = this.searchBoxEl.getBoundingClientRect()
+        const top = this._getAnchorBottom(rect)
         const $panel = $(`<div id="${PANEL_ID}" role="listbox" aria-label="Search suggestions"></div>`)
         $panel.css({
             position: 'fixed',
-            top: `${this._getAnchorBottom(rect)}px`,
+            top: `${top}px`,
             left: `${rect.left}px`,
             width: `${rect.width}px`,
+            // Long result lists (many sections, each up to 5 items) would
+            // otherwise run off the bottom of the viewport - cap the panel to
+            // the space actually available below it and let it scroll
+            // internally instead.
+            maxHeight: `${Math.max(160, window.innerHeight - top - 16)}px`,
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
             // The control corner it now lives in does not take pointer events
             pointerEvents: 'auto',
             zIndex: 9999

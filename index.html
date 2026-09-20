@@ -87,11 +87,11 @@
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
         href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
-        href="https://cdn.jsdelivr.net/npm/mapbox-gl@v3.28.0/dist/mapbox-gl.min.css">
+        href="https://cdn.jsdelivr.net/npm/mapbox-gl@v3.31.0/dist/mapbox-gl.min.css">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
-        href="https://cdn.jsdelivr.net/npm/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.css">
+        href="https://cdn.jsdelivr.net/npm/@mapbox/mapbox-gl-draw@1.5.2/dist/mapbox-gl-draw.css">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
-        href="https://cdn.jsdelivr.net/npm/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.css">
+        href="https://cdn.jsdelivr.net/npm/@mapbox/mapbox-gl-draw@1.5.2/dist/mapbox-gl-draw.css">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
         href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.min.css">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="css/styles.css">
@@ -285,7 +285,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script><!-- Add jQuery -->
     <script defer src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
     <!-- Turf.js for geospatial operations -->
-    <script defer src="https://cdn.jsdelivr.net/npm/mapbox-gl@v3.28.0/dist/mapbox-gl.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mapbox-gl@v3.31.0/dist/mapbox-gl.min.js"></script>
     <!-- Mapbox GL JS -->
     <script defer src="https://cdn.jsdelivr.net/npm/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.js"></script>
     <!-- Mapbox GL Draw (for measure control) -->
@@ -300,6 +300,11 @@
         // (raw coordinate input, handled locally instead of via the Mapbox search API).
         (function () {
             var originalFetch = window.fetch.bind(window);
+            // Exposed so our own direct callers of the Search Box REST API
+            // (js/search/providers/mapbox-place-provider.js) can bypass this
+            // patch entirely - it's meant to intercept only the search-js-web
+            // widget's own internal suggest call, not every request to this URL.
+            window.amche.rawFetch = originalFetch;
             window.fetch = function (input, init) {
                 var url = typeof input === 'string' ? input : (input && input.url);
                 if (url && url.indexOf('/search/searchbox/v1/suggest') !== -1 &&

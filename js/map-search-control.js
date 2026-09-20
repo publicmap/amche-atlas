@@ -1,8 +1,8 @@
 import { reverseGeocodeNominatim } from './nominatim-search.js'
 import { trackEvent } from './analytics.js'
 import { parseCoordinateInput } from './search/coordinate-parser.js'
-import { parseDirectionsQuery } from './search/directions-query.js'
 import { createNominatimProvider } from './search/providers/nominatim-provider.js'
+import { createMapboxPlaceProvider } from './search/providers/mapbox-place-provider.js'
 import { createCadastralProvider } from './search/providers/cadastral-provider.js'
 import { createAtlasLayerProvider } from './search/providers/atlas-layer-provider.js'
 import { createFeatureInViewProvider } from './search/providers/feature-in-view-provider.js'
@@ -12,6 +12,15 @@ import { createDirectionsProvider } from './search/providers/directions-provider
 import { fetchRoute } from './search/directions-router.js'
 import { DirectionsLayer } from './search/directions-layer.js'
 import { SearchSuggestionsPanel } from './search/search-suggestions-panel.js'
+
+// "Learn more" links shown in each suggestions-panel section header (see
+// _renderSuggestions) - where each category of result actually comes from.
+const SOURCE_LINKS = {
+    mapbox: 'https://www.mapbox.com/about/maps/',
+    nominatim: 'https://www.openstreetmap.org/copyright',
+    config: 'https://github.com/publicmap/amche-atlas/tree/main/config',
+    layerDocs: 'https://github.com/publicmap/amche-atlas/blob/main/docs/API.md#layer-source-formats'
+};
 
 /**
  * MapSearchControl - Mapbox search with coordinate search and Goa cadastral
@@ -33,6 +42,7 @@ export class MapSearchControl {
         this.isCoordinateInput = false;
         this.coordinateSuggestion = null;
         this.localSuggestions = []; // place/parcel/current-location features - marker-eligible
+        this.placeSuggestions = []; // Mapbox Search Box place matches - the default "Places" section
         this.mapSuggestions = []; // atlas/layer matches - never marker-eligible
         this.mapFeatureSuggestions = []; // rendered features currently in view
         this.markerSuggestions = []; // user-added markers/notes
@@ -50,6 +60,10 @@ export class MapSearchControl {
 
         this.cadastralProvider = createCadastralProvider();
         this.nominatimProvider = createNominatimProvider();
+        this.mapboxPlaceProvider = createMapboxPlaceProvider({
+            accessToken: this.options.accessToken,
+            language: this.options.language
+        });
         this.atlasLayerProvider = createAtlasLayerProvider();
         this.featureInViewProvider = createFeatureInViewProvider();
         this.markerProvider = createMarkerProvider();
@@ -99,14 +113,12 @@ export class MapSearchControl {
         // The fetch() patch in index.html (installed before the search-js CDN script loads,
         // since that library caches globalThis.fetch at load time) consults this to decide
         // whether to bypass the suggest endpoint's network request for the current input.
-        // Also bypassed for a directions-shaped query ("X to Y"): otherwise Mapbox's own
-        // native place suggest keeps running in the background regardless of what we show,
-        // and can independently resolve and fire its own 'retrieve' well after the user
-        // picked our Directions result - flying the camera to an unrelated place and
-        // undoing the route view (confirmed live: it fired seconds after a route was
-        // already drawn and fitted).
-        window.amche.shouldBypassSearchSuggest = () =>
-            this.isCoordinateInput || !!parseDirectionsQuery(this.currentQuery);
+        // Always bypassed: this.mapboxPlaceProvider makes its own suggest/retrieve calls and
+        // renders them into the shared suggestions panel, so the widget's own native suggest
+        // request would just be a second, wasted network call whose results (shown in its own
+        // dropdown, hidden via CSS - see mapbox-search-listbox in css/styles.css) are never
+        // used.
+        window.amche.shouldBypassSearchSuggest = () => true;
         this.searchBox.bindMap(this.map);
 
         // Add required ARIA attributes for the combobox input
@@ -249,6 +261,7 @@ export class MapSearchControl {
      */
     resetSearchState() {
         this.localSuggestions = [];
+        this.placeSuggestions = [];
         this.mapSuggestions = [];
         this.mapFeatureSuggestions = [];
         this.markerSuggestions = [];
@@ -257,6 +270,8 @@ export class MapSearchControl {
         this.currentQuery = '';
         this.isCoordinateInput = false;
         this.coordinateSuggestion = null;
+
+        this.mapboxPlaceProvider.cancel();
 
         // Clear suggestion markers
         this.clearSuggestionMarkers();
@@ -593,6 +608,7 @@ export class MapSearchControl {
             this.clearInjectedSuggestions();
             this.clearSuggestionMarkers();
             this.localSuggestions = [];
+            this.placeSuggestions = [];
             this.mapSuggestions = [];
             this.mapFeatureSuggestions = [];
             this.markerSuggestions = [];
@@ -697,12 +713,14 @@ export class MapSearchControl {
             };
 
             this.localSuggestions = [];
+            this.placeSuggestions = [];
             this.mapSuggestions = [];
             this.mapFeatureSuggestions = [];
             this.markerSuggestions = [];
             this.countrySuggestions = [];
             this.directionsSuggestions = [];
             this.directionsProvider.cancel();
+            this.mapboxPlaceProvider.cancel();
             this.directionsLayer.clear();
 
             this.addSearchMarker([lng, lat], this.coordinateSuggestion.properties.place_name);
@@ -727,6 +745,16 @@ export class MapSearchControl {
             this.mapFeatureSuggestions = this.featureInViewProvider.search(query);
             this.markerSuggestions = this.markerProvider.search(query);
             this.countrySuggestions = this.countryProvider.search(query);
+
+            this.placeSuggestions = [];
+            this.mapboxPlaceProvider.search(query, {
+                proximity: this._getMapProximity(),
+                types: this._getSearchTypes(),
+                onResult: (items) => {
+                    this.placeSuggestions = items;
+                    this._renderSuggestions();
+                }
+            });
 
             this.directionsSuggestions = [];
             this.directionsProvider.search(query, {
@@ -816,9 +844,10 @@ export class MapSearchControl {
 
         if (this.isCoordinateInput) return;
 
-        if (this.localSuggestions.length > 0 || this.mapSuggestions.length > 0 ||
-            this.mapFeatureSuggestions.length > 0 || this.markerSuggestions.length > 0 ||
-            this.countrySuggestions.length > 0 || this.directionsSuggestions.length > 0) {
+        if (this.localSuggestions.length > 0 || this.placeSuggestions.length > 0 ||
+            this.mapSuggestions.length > 0 || this.mapFeatureSuggestions.length > 0 ||
+            this.markerSuggestions.length > 0 || this.countrySuggestions.length > 0 ||
+            this.directionsSuggestions.length > 0) {
             clearTimeout(this.injectionTimeout);
             this.scheduleSuggestionInjection();
         }
@@ -894,6 +923,7 @@ export class MapSearchControl {
         this.suggestionsPanel.clear();
         this.cadastralProvider.cancel();
         this.nominatimProvider.cancel();
+        this.mapboxPlaceProvider.cancel();
         this.directionsProvider.cancel();
         this.directionsLayer.clear();
 
@@ -947,7 +977,6 @@ export class MapSearchControl {
                 if (this.currentQuery !== query) return;
                 this._renderSuggestions();
                 this.showSuggestionMarkers();
-                this.fitToContextWithAllSuggestions();
             }, delay);
         });
     }
@@ -982,12 +1011,37 @@ export class MapSearchControl {
             sections.push({ ariaLabel: 'Directions', items: this.directionsSuggestions });
         }
 
-        if (this.mapSuggestions.length) {
-            sections.push({ ariaLabel: 'Maps', items: this.mapSuggestions });
+        // this.mapSuggestions bundles two distinct sources from
+        // atlas-layer-provider.js (atlas matches and layer toggle matches) -
+        // split for a clearly-labeled section per source.
+        const atlasItems = this.mapSuggestions.filter(item => item._searchResultType === 'atlas');
+        const layerItems = this.mapSuggestions.filter(item => item._searchResultType === 'layer');
+
+        if (atlasItems.length) {
+            sections.push({
+                ariaLabel: 'Atlases',
+                items: atlasItems,
+                sourceLabel: 'Configs',
+                sourceUrl: SOURCE_LINKS.config
+            });
+        }
+
+        if (layerItems.length) {
+            sections.push({
+                ariaLabel: 'Layers',
+                items: layerItems,
+                sourceLabel: 'Configs',
+                sourceUrl: SOURCE_LINKS.config
+            });
         }
 
         if (this.mapFeatureSuggestions.length) {
-            sections.push({ ariaLabel: 'On the map', items: this.mapFeatureSuggestions });
+            sections.push({
+                ariaLabel: 'Features',
+                items: this.mapFeatureSuggestions,
+                sourceLabel: 'Layer docs',
+                sourceUrl: SOURCE_LINKS.layerDocs
+            });
         }
 
         if (this.markerSuggestions.length) {
@@ -998,17 +1052,32 @@ export class MapSearchControl {
             sections.push({ ariaLabel: 'Countries', items: this.countrySuggestions });
         }
 
+        // The default place-search results (Mapbox Search Box), shown ahead of
+        // Nominatim's own section below since Mapbox is the primary geocoder
+        // and Nominatim is only a supplementary source.
+        if (this.placeSuggestions.length) {
+            sections.push({
+                ariaLabel: 'Mapbox',
+                items: this.placeSuggestions.slice(0, 5),
+                sourceLabel: 'Mapbox',
+                sourceUrl: SOURCE_LINKS.mapbox
+            });
+        }
+
         if (this.localSuggestions.length) {
             const isCurrentLocation = this.localSuggestions.some(s => s.properties._isCurrentLocation);
             const isNominatim = this.localSuggestions.some(s => s.properties._isNominatim);
             const ariaLabel = isCurrentLocation
                 ? 'Current location'
-                : (isNominatim ? 'Place suggestions' : 'Cadastral plot suggestions');
+                : (isNominatim ? 'Nominatim' : 'Cadastral plots');
 
             sections.push({
                 ariaLabel,
                 items: this.localSuggestions.slice(0, 5),
-                attribution: isNominatim ? 'Powered by Nominatim' : undefined
+                // "Current location" is itself a Nominatim reverse-geocode result
+                // (see showCurrentLocationSuggestion) - same source, same link.
+                sourceLabel: (isCurrentLocation || isNominatim) ? 'OpenStreetMap' : undefined,
+                sourceUrl: (isCurrentLocation || isNominatim) ? SOURCE_LINKS.nominatim : undefined
             });
         }
 
@@ -1079,10 +1148,37 @@ export class MapSearchControl {
             return;
         }
 
+        if (item._searchResultType === 'mapbox-place') {
+            this._selectMapboxPlaceSuggestion(item);
+            return;
+        }
+
         const retrieveEvent = new CustomEvent('retrieve', {
             detail: { features: [item] }
         });
         this.searchBox.dispatchEvent(retrieveEvent);
+    }
+
+    /**
+     * Resolve a Mapbox Search Box suggestion (suggest results only carry a
+     * mapbox_id, not coordinates) via its own retrieve call, then feed the
+     * resulting feature through the same 'retrieve' handling every other
+     * result type uses.
+     */
+    async _selectMapboxPlaceSuggestion(item) {
+        trackEvent('search_select', { search_type: 'place', result_name: item.properties.name });
+
+        try {
+            const feature = await this.mapboxPlaceProvider.retrieve(item);
+            if (!feature) return;
+
+            const retrieveEvent = new CustomEvent('retrieve', {
+                detail: { features: [feature] }
+            });
+            this.searchBox.dispatchEvent(retrieveEvent);
+        } catch (error) {
+            console.error('[mapbox-place]', error);
+        }
     }
 
     /**
@@ -1289,7 +1385,7 @@ export class MapSearchControl {
                                 markerData.marker.togglePopup();
                             }
 
-                            this.fitToContextWithAllSuggestions();
+                            this.restoreReferenceView();
                         }
                     }
                 }
@@ -1350,35 +1446,28 @@ export class MapSearchControl {
     }
 
     /**
-     * Fit map to show reference view and all current suggestions
+     * Move the map back to the view it had before the user started
+     * hovering suggestions - the view stays put otherwise; nothing pans or
+     * zooms merely because suggestions arrived while typing, only in
+     * response to an explicit hover (fitToContextWithHoveredSuggestion) or
+     * selection (handleRetrieve/flyTo).
      */
-    fitToContextWithAllSuggestions() {
+    restoreReferenceView() {
         try {
-            if (!this.referenceView || this.localSuggestions.length === 0) {
-                return;
-            }
+            if (!this.referenceView) return;
 
-            const suggestionCoordinates = this.localSuggestions.map(s => s.geometry.coordinates);
-
-            const bounds = this.calculateContextBounds(suggestionCoordinates);
-
-            if (bounds) {
-                // Tag this as a search preview so map-init.js's reverse-geocode-on-move
-                // listener can skip it — hovering/typing through suggestions can fire
-                // this repeatedly and would otherwise spam Nominatim's reverse endpoint.
-                this.map.fitBounds(bounds, {
-                    padding: {
-                        top: 50,
-                        bottom: 50,
-                        left: 50,
-                        right: 50
-                    },
-                    maxZoom: 16,
-                    duration: 1000
-                }, { _isSearchPreview: true });
-            }
+            // Tag this as a search preview so map-init.js's reverse-geocode-on-move
+            // listener can skip it — hovering through suggestions can fire this
+            // repeatedly and would otherwise spam Nominatim's reverse endpoint.
+            this.map.easeTo({
+                center: this.referenceView.center,
+                zoom: this.referenceView.zoom,
+                bearing: this.referenceView.bearing,
+                pitch: this.referenceView.pitch,
+                duration: 500
+            }, { _isSearchPreview: true });
         } catch (error) {
-            console.error('Error fitting to context with all suggestions:', error);
+            console.error('Error restoring reference view:', error);
         }
     }
 
