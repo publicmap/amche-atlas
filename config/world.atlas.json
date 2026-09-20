@@ -227,6 +227,110 @@
       }
     },
     {
+      "id": "landsat-false-color",
+      "type": "tms",
+      "title": "Landsat C2 L2 (Mosaic) (False Color)",
+      "description": "False color infrared (near-infrared/red/green) mosaic of the most recent low-cloud Landsat 8/9 scene per tile — vegetation renders bright red, making forest cover and crop health easier to distinguish than true color. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7a2999ddb16deec76db97f332bb1d965/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=nir08&assets=red&assets=green&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "landsat-c2-l2"
+        ],
+        "viewportBbox": true,
+        "query": {
+          "eo:cloud_cover": {
+            "lt": 20
+          }
+        },
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "landsat-ndvi",
+      "type": "tms",
+      "title": "Landsat C2 L2 (Mosaic) (NDVI)",
+      "description": "Normalized Difference Vegetation Index — (NIR-Red)/(NIR+Red) — mosaic of the most recent low-cloud Landsat 8/9 scene per tile, quantifying vegetation vigor. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7a2999ddb16deec76db97f332bb1d965/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=red&assets=nir08&asset_as_band=True&expression=(nir08-red)/(nir08%2Bred)&rescale=-1,1&colormap_name=rdylgn",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "landsat-c2-l2"
+        ],
+        "viewportBbox": true,
+        "query": {
+          "eo:cloud_cover": {
+            "lt": 20
+          }
+        },
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "landsat-ndwi",
+      "type": "tms",
+      "title": "Landsat C2 L2 (Mosaic) (NDWI)",
+      "description": "Normalized Difference Water Index — (Green-NIR)/(Green+NIR) — mosaic of the most recent low-cloud Landsat 8/9 scene per tile, highlighting open water and wet soil. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7a2999ddb16deec76db97f332bb1d965/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=green&assets=nir08&asset_as_band=True&expression=(green-nir08)/(green%2Bnir08)&rescale=-1,1&colormap_name=blues",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "landsat-c2-l2"
+        ],
+        "viewportBbox": true,
+        "query": {
+          "eo:cloud_cover": {
+            "lt": 20
+          }
+        },
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "landsat-agriculture",
+      "type": "tms",
+      "title": "Landsat C2 L2 (Mosaic) (Agriculture)",
+      "description": "Short-wave infrared/NIR/blue composite mosaic of the most recent low-cloud Landsat 8/9 scene per tile — commonly used to assess crop moisture and distinguish bare soil, burn scars, and vegetation. Re-registered as you pan/zoom and as you change the date range with the time control.",
+      "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7a2999ddb16deec76db97f332bb1d965/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=swir16&assets=nir08&assets=blue&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "initiallyChecked": false,
+      "pcMosaicSearch": {
+        "collections": [
+          "landsat-c2-l2"
+        ],
+        "viewportBbox": true,
+        "query": {
+          "eo:cloud_cover": {
+            "lt": 20
+          }
+        },
+        "sortby": [
+          {
+            "field": "properties.datetime",
+            "direction": "desc"
+          }
+        ]
+      }
+    },
+    {
       "title": "GEBCO Bathymetry",
       "tags": [
         "basemap",
