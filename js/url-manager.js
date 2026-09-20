@@ -607,6 +607,8 @@ export class URLManager {
         let fovParam = null;
         let bearingParam = null;
         let pitchParam = null;
+        let timeParam = null;
+        let timeStartParam = null;
         let soundParam = null;
         let exportParam = null;
         let selectedParam = null;
@@ -804,6 +806,37 @@ export class URLManager {
             } else {
                 // Remove parameter when using default pitch
                 if (currentPitchParam !== null) {
+                    hasChanges = true;
+                }
+            }
+        }
+
+        // Handle time parameter (TimeControl's selected "as of" date)
+        if (options.time !== undefined) {
+            const currentTimeParam = urlParams.get('time');
+            if (options.time) {
+                timeParam = encodeURIComponent(options.time);
+                if (currentTimeParam !== options.time) {
+                    hasChanges = true;
+                }
+            } else {
+                if (currentTimeParam !== null) {
+                    hasChanges = true;
+                }
+            }
+        }
+
+        // Handle timeStart parameter (TimeControl's range-start date, only used
+        // by layers with a date-range search like a Planetary Computer mosaic)
+        if (options.timeStart !== undefined) {
+            const currentTimeStartParam = urlParams.get('timeStart');
+            if (options.timeStart) {
+                timeStartParam = encodeURIComponent(options.timeStart);
+                if (currentTimeStartParam !== options.timeStart) {
+                    hasChanges = true;
+                }
+            } else {
+                if (currentTimeStartParam !== null) {
                     hasChanges = true;
                 }
             }
@@ -1009,6 +1042,18 @@ export class URLManager {
                 params.push('pitch=' + currentPitch);
             }
 
+            // Add time parameter (either new or preserved from current URL)
+            const currentTime = timeParam || (options.time === undefined ? urlParams.get('time') : null);
+            if (currentTime) {
+                params.push('time=' + currentTime);
+            }
+
+            // Add timeStart parameter (either new or preserved from current URL)
+            const currentTimeStart = timeStartParam || (options.timeStart === undefined ? urlParams.get('timeStart') : null);
+            if (currentTimeStart) {
+                params.push('timeStart=' + currentTimeStart);
+            }
+
             // Add sound parameter (either new or preserved from current URL)
             const currentSound = soundParam || (options.sound === undefined ? urlParams.get('sound') : null);
             if (currentSound === 'true') {
@@ -1196,6 +1241,8 @@ export class URLManager {
         const fovParam = urlParams.get('fov');
         const bearingParam = urlParams.get('bearing');
         const pitchParam = urlParams.get('pitch');
+        const timeParam = urlParams.get('time');
+        const timeStartParam = urlParams.get('timeStart');
         const selectedParam = urlParams.get('selected');
         const markersParam = urlParams.get('markers');
         const compareParam = urlParams.get('compare');
@@ -1340,6 +1387,25 @@ export class URLManager {
                 const pitch = parseFloat(pitchParam);
                 if (!isNaN(pitch) && pitch >= 0 && pitch <= 85) {
                     window.terrain3DControl.setPitch(pitch);
+                }
+            }
+
+            // Handle time / timeStart parameters (TimeControl's as-of date and,
+            // for range-capable layers like a Planetary Computer mosaic, its
+            // range-start date). Order matters: set the range start first so
+            // setSelectedDate's re-emit carries both.
+            if (timeStartParam && window.timeControl) {
+                applied = true;
+                const rangeStart = new Date(timeStartParam);
+                if (!isNaN(rangeStart.getTime())) {
+                    window.timeControl.setRangeStart(rangeStart);
+                }
+            }
+            if (timeParam && window.timeControl) {
+                applied = true;
+                const selectedDate = new Date(timeParam);
+                if (!isNaN(selectedDate.getTime())) {
+                    window.timeControl.setSelectedDate(selectedDate);
                 }
             }
 
@@ -2028,6 +2094,20 @@ export class URLManager {
      */
     updatePitchParam(pitch) {
         this.updateURL({ pitch: pitch, updateLayers: false });
+    }
+
+    /**
+     * Update time parameter in URL (TimeControl's selected "as of" date)
+     */
+    updateTimeParam(time) {
+        this.updateURL({ time: time, updateLayers: false });
+    }
+
+    /**
+     * Update timeStart parameter in URL (TimeControl's range-start date)
+     */
+    updateTimeStartParam(timeStart) {
+        this.updateURL({ timeStart: timeStart, updateLayers: false });
     }
 
     /**

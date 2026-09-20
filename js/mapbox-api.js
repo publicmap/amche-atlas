@@ -48,12 +48,17 @@ export class MapboxAPI {
         this._layerDataPrefetch = new Map(); // url -> in-flight/resolved GeoJSON promise, see prefetchLayerData
         this._dimSnapshots = new Map(); // groupId -> [[layerId, paintProp, originalValue]], see setLayerGroupDimmed
         this._opacityRecorder = null; // active snapshot array while a dim is being applied
+        this._mosaicDateRanges = new Map(); // groupId -> {startIso, endIso} last used to register a PC mosaic search
+        this._mosaicRegisteredBbox = new Map(); // groupId -> padded [w,s,e,n] a viewportBbox search is currently registered for
 
         // Initialize style property mapping for different layer types
         this._stylePropertyMapping = this._initializeStylePropertyMapping();
 
         // Set up time change event listener
         this._setupTimeChangeListener();
+
+        // Re-register viewport-following Planetary Computer mosaic searches on pan/zoom
+        this._setupMosaicViewportListener();
     }
 
     /**
@@ -62,8 +67,7 @@ export class MapboxAPI {
     _setupTimeChangeListener() {
         // Listen for time change events from TimeControl
         const timeChangeHandler = (event) => {
-            const { selectedDate, isoString, urlFormat } = event.detail;
-            this._updateTimeBasedLayers(urlFormat);
+            this._updateTimeBasedLayers(event.detail);
         };
 
         // Listen on both map container and window for maximum compatibility
@@ -75,10 +79,11 @@ export class MapboxAPI {
     }
 
     /**
-     * Update all time-based layers with new time parameter
-     * @param {string} timeString - ISO time string for URL parameters
+     * Update all time-based layers with the new time selection
+     * @param {Object} detail - `timechange` event detail (selectedDate, isoString,
+     *   urlFormat, and for range-capable layers startIso/endIso)
      */
-    _updateTimeBasedLayers(timeString) {
+    _updateTimeBasedLayers(detail) {
 
         this._timeBasedLayers.forEach((layerInfo, groupId) => {
             const { config, visible } = layerInfo;
@@ -88,7 +93,7 @@ export class MapboxAPI {
             }
 
             try {
-                this._updateLayerTime(groupId, config, timeString);
+                this._updateLayerTime(groupId, config, detail);
             } catch (error) {
             }
         });
@@ -98,11 +103,17 @@ export class MapboxAPI {
      * Update a specific layer's time parameter
      * @param {string} groupId - Layer group identifier
      * @param {Object} config - Layer configuration
-     * @param {string} timeString - ISO time string
+     * @param {Object} detail - `timechange` event detail
      */
-    _updateLayerTime(groupId, config, timeString) {
+    _updateLayerTime(groupId, config, detail) {
+        const { urlFormat, startIso, endIso } = detail;
+
         if (config.timeProperty) {
-            this._updateVectorLayerTime(groupId, config, timeString);
+            this._updateVectorLayerTime(groupId, config, urlFormat);
+        }
+
+        if (config.pcMosaicSearch) {
+            this._updatePlanetaryComputerMosaicRange(groupId, config, startIso, endIso);
         }
 
         if (!config.urlTimeParam) {
@@ -110,7 +121,7 @@ export class MapboxAPI {
         }
 
         // Generate new URL with time parameter
-        const newUrl = this._generateTimeBasedUrl(config.url, config.urlTimeParam, timeString);
+        const newUrl = this._generateTimeBasedUrl(config.url, config.urlTimeParam, urlFormat);
 
         // Update the source based on layer type
         switch (config.type) {
@@ -223,6 +234,145 @@ export class MapboxAPI {
             LayerOrderManager.logLayerStack(this._map, `After adding WMTS layer: ${config.id}`);
 
         }
+    }
+
+    /**
+     * Debounce a Planetary Computer mosaic search re-registration so dragging
+     * the time-control range sliders doesn't fire a `mosaic/register` POST
+     * per tick (see CLAUDE.md's debounced-updates pattern).
+     */
+    _updatePlanetaryComputerMosaicRange(groupId, config, startIso, endIso) {
+        if (!startIso || !endIso) return;
+        this._mosaicDateRanges.set(groupId, { startIso, endIso });
+
+        if (!this._pcMosaicDebounceTimers) this._pcMosaicDebounceTimers = new Map();
+        clearTimeout(this._pcMosaicDebounceTimers.get(groupId));
+
+        const timer = setTimeout(() => {
+            this._registerPlanetaryComputerMosaicRange(groupId, config, startIso, endIso)
+                .catch(error => console.warn('[MapboxAPI] Failed to update Planetary Computer mosaic range:', error));
+        }, 400);
+        this._pcMosaicDebounceTimers.set(groupId, timer);
+    }
+
+    /**
+     * Re-register every visible layer whose `pcMosaicSearch.viewportBbox` is
+     * set, using the map's current viewport instead of a fixed `bbox` — so
+     * panning/zooming keeps the mosaic search scoped to what's on screen
+     * rather than baking one area in at layer-creation time. Debounced on
+     * `moveend` the same way date-range changes are debounced above, and
+     * skipped entirely when the current view is already covered by the last
+     * registered (padded) bbox — see `_registerPlanetaryComputerMosaicRange` —
+     * so zooming in or nudging around inside an already-loaded area doesn't
+     * fire another `mosaic/register` request.
+     */
+    _setupMosaicViewportListener() {
+        this._map.on('moveend', () => {
+            clearTimeout(this._mosaicViewportDebounceTimer);
+            this._mosaicViewportDebounceTimer = setTimeout(() => {
+                const bounds = this._map.getBounds();
+                const viewportBbox = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
+
+                this._timeBasedLayers.forEach((layerInfo, groupId) => {
+                    const { config, visible } = layerInfo;
+                    if (!visible || !config.pcMosaicSearch?.viewportBbox) return;
+
+                    const registeredBbox = this._mosaicRegisteredBbox.get(groupId);
+                    if (registeredBbox && this._bboxContains(registeredBbox, viewportBbox)) return;
+
+                    const range = this._mosaicDateRanges.get(groupId);
+                    if (!range) return; // no date range known yet (createLayerGroup's seed fetch is still in flight)
+
+                    this._registerPlanetaryComputerMosaicRange(groupId, config, range.startIso, range.endIso)
+                        .catch(error => console.warn('[MapboxAPI] Failed to update Planetary Computer mosaic viewport:', error));
+                });
+            }, 400);
+        });
+    }
+
+    /** True if `inner` [w,s,e,n] lies entirely within `outer` [w,s,e,n]. */
+    _bboxContains(outer, inner) {
+        return inner[0] >= outer[0] && inner[1] >= outer[1] && inner[2] <= outer[2] && inner[3] <= outer[3];
+    }
+
+    /**
+     * Seed `_mosaicDateRanges` for a newly created `pcMosaicSearch` layer from
+     * the `datetime` range baked into its current search id, so a viewport pan
+     * before the user ever touches the time-control range still has a date
+     * range to re-register with. Fire-and-forget — a failure just means the
+     * layer won't respond to viewport moves until the time control is used.
+     */
+    async _seedMosaicDateRange(groupId, config) {
+        if (this._mosaicDateRanges.has(groupId)) return;
+        const match = config.url.match(/\/mosaic\/([^/]+)\/tiles\//);
+        if (!match) return;
+        try {
+            const response = await fetch(`https://planetarycomputer.microsoft.com/api/data/v1/mosaic/${match[1]}/info`);
+            if (!response.ok) return;
+            const info = await response.json();
+            const datetime = info?.search?.search?.datetime;
+            const [startIso, endIso] = typeof datetime === 'string' ? datetime.split('/') : [];
+            if (startIso && endIso) this._mosaicDateRanges.set(groupId, { startIso, endIso });
+        } catch (error) {
+            console.warn('[MapboxAPI] Failed to seed Planetary Computer mosaic date range:', error);
+        }
+    }
+
+    /**
+     * Re-register the layer's Planetary Computer mosaic search with a new
+     * `datetime` range, then swap the TMS source to the new search id's tile
+     * URL. See js/planetary-computer-api.js for the mosaic search shape.
+     */
+    async _registerPlanetaryComputerMosaicRange(groupId, config, startIso, endIso) {
+        const search = config.pcMosaicSearch;
+        if (!search) return;
+
+        // `viewportBbox: true` scopes the search to what's currently on screen instead
+        // of a fixed area — see _setupMosaicViewportListener. Otherwise `pcMosaicSearch.bbox`
+        // is normally omitted (see planetary-computer-api.js) since it would just duplicate
+        // the layer's own top-level `bbox` — fall back to that, then to the active atlas's
+        // own bbox (config/*.atlas.json `bbox`, or derived from `map.bounds`/`geojson` by
+        // LayerRegistry._extractBbox).
+        // A viewport search is registered against a *padded* bbox — 1x the current
+        // viewport size on each side (i.e. a 3x3 area centered on the view) — so
+        // subsequent zoom-ins or small pans inside that margin (checked in
+        // _setupMosaicViewportListener via _bboxContains) reuse this same search
+        // instead of firing another register call.
+        let bbox;
+        if (search.viewportBbox) {
+            const bounds = this._map.getBounds();
+            const w = bounds.getWest(), s = bounds.getSouth(), e = bounds.getEast(), n = bounds.getNorth();
+            const padX = (e - w), padY = (n - s);
+            bbox = [w - padX, s - padY, e + padX, n + padY];
+        } else {
+            const atlasBbox = window.layerRegistry?.getAtlasMetadata?.(window.layerRegistry.getCurrentAtlas?.())?.bbox;
+            bbox = search.bbox || config.bbox || atlasBbox;
+        }
+
+        const response = await fetch('https://planetarycomputer.microsoft.com/api/data/v1/mosaic/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                collections: search.collections,
+                ...(bbox && { bbox: Array.isArray(bbox) ? bbox : String(bbox).split(',').map(Number) }),
+                ...(search.query && { query: search.query }),
+                ...(search.sortby && { sortby: search.sortby }),
+                datetime: `${startIso}/${endIso}`
+            })
+        });
+        if (!response.ok) return;
+
+        const result = await response.json();
+        const searchId = result.searchid || result.id;
+        if (!searchId) return;
+
+        this._mosaicDateRanges.set(groupId, { startIso, endIso });
+        if (search.viewportBbox) this._mosaicRegisteredBbox.set(groupId, bbox);
+
+        const newUrl = config.url.replace(/\/mosaic\/[^/]+\/tiles\//, `/mosaic/${searchId}/tiles/`);
+        config.url = newUrl;
+
+        this._updateTMSLayerTime(groupId, config, newUrl);
     }
 
     /**
@@ -399,8 +549,11 @@ export class MapboxAPI {
             config = ConfigManager.applyDefaultMetadata(config);
 
             // Register time-based layers
-            if (config.urlTimeParam || config.timeProperty) {
+            if (config.urlTimeParam || config.timeProperty || config.pcMosaicSearch) {
                 this._timeBasedLayers.set(groupId, { config, visible });
+                if (config.pcMosaicSearch?.viewportBbox) {
+                    this._seedMosaicDateRange(groupId, config);
+                }
             }
 
             switch (config.type) {
@@ -453,7 +606,7 @@ export class MapboxAPI {
     updateLayerGroupVisibility(groupId, config, visible) {
         try {
             // Update time-based layer visibility tracking
-            if ((config.urlTimeParam || config.timeProperty) && this._timeBasedLayers.has(groupId)) {
+            if ((config.urlTimeParam || config.timeProperty || config.pcMosaicSearch) && this._timeBasedLayers.has(groupId)) {
                 const layerInfo = this._timeBasedLayers.get(groupId);
                 layerInfo.visible = visible;
                 this._timeBasedLayers.set(groupId, layerInfo);
@@ -515,6 +668,10 @@ export class MapboxAPI {
             if (this._timeBasedLayers.has(groupId)) {
                 this._timeBasedLayers.delete(groupId);
             }
+            this._mosaicDateRanges.delete(groupId);
+            this._mosaicRegisteredBbox.delete(groupId);
+            clearTimeout(this._pcMosaicDebounceTimers?.get(groupId));
+            this._pcMosaicDebounceTimers?.delete(groupId);
 
             switch (config.type) {
                 case 'style':
@@ -4077,6 +4234,15 @@ export class MapboxAPI {
         // Clear all refresh timers
         this._refreshTimers.forEach(timer => clearInterval(timer));
         this._refreshTimers.clear();
+
+        // Clear Planetary Computer mosaic re-registration debounce timers
+        if (this._pcMosaicDebounceTimers) {
+            this._pcMosaicDebounceTimers.forEach(timer => clearTimeout(timer));
+            this._pcMosaicDebounceTimers.clear();
+        }
+        clearTimeout(this._mosaicViewportDebounceTimer);
+        this._mosaicDateRanges.clear();
+        this._mosaicRegisteredBbox.clear();
 
         // Clear caches
         this._layerCache.clear();

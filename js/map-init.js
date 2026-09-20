@@ -1030,7 +1030,8 @@ export class MapInitializer {
             // previous one, so add order is top-to-bottom.
             map.addControl(window.orientationControl, 'top-right');
             map.addControl(window.terrain3DControl, 'top-right');
-            map.addControl(new TimeControl(), 'top-right');
+            window.timeControl = new TimeControl();
+            map.addControl(window.timeControl, 'top-right');
             window.contextMessagesControl = new MapContextMessagesControl();
             window.contextMessagesControl.onAdd(map);
             // Not mounted as a map control - triggered from the last item in

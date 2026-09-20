@@ -8,15 +8,18 @@ export class TimeControl {
             initialDaysBack: 0, // Start at current time
             maxDaysBack: 7,    // Maximum 7 days back
             stepHours: 24,     // Step by 24 hours
+            initialRangeDays: 90, // Default range width for range-capable (e.g. mosaic) layers
             ...options
         };
 
         this._selectedDate = new Date(); // Default to current date/time
+        this._rangeStartDate = null; // Only used when a range-capable layer is active
         this._panel = null;
         this._map = null;
         this._container = null;
         this._eventListeners = new Set();
         this._isVisible = false; // Track visibility state
+        this._isRangeMode = false; // Whether an active layer needs a start/end range, not just a single date
         this._stateManager = null; // Reference to state manager for layer monitoring
 
         // Calculate min and max dates
@@ -169,6 +172,42 @@ export class TimeControl {
 
         $inputContainer.append($inputLabel, $dateTimeInput);
 
+        // Range-start input container — only shown when an active layer
+        // needs a date range (e.g. a Planetary Computer mosaic search)
+        // rather than a single as-of date.
+        const $rangeStartContainer = $('<div>', {
+            css: {
+                marginBottom: '15px',
+                display: 'none'
+            }
+        });
+
+        const $rangeStartLabel = $('<label>', {
+            text: 'Range Start',
+            css: {
+                display: 'block',
+                marginBottom: '5px',
+                fontWeight: '500'
+            }
+        });
+
+        const $rangeStartInput = $('<input>', {
+            type: 'datetime-local',
+            id: 'time-control-range-start',
+            css: {
+                width: '100%',
+                padding: '8px',
+                borderRadius: '3px',
+                border: '1px solid #ccc',
+                fontSize: '14px'
+            }
+        });
+
+        this._updateRangeStartInput($rangeStartInput);
+
+        $rangeStartContainer.append($rangeStartLabel, $rangeStartInput);
+        this._$rangeStartContainer = $rangeStartContainer;
+
         // Slider container
         const $sliderContainer = $('<div>', {
             css: {
@@ -242,7 +281,7 @@ export class TimeControl {
         });
 
         // Assemble panel
-        $content.append($title, $inputContainer, $sliderContainer, $infoText);
+        $content.append($title, $inputContainer, $rangeStartContainer, $sliderContainer, $infoText);
         this._panel.append($closeButton, $content);
 
         // Add event handlers
@@ -252,6 +291,14 @@ export class TimeControl {
                 this._selectedDate = newDate;
                 this._updateDateRange();
                 this._updateSliderFromDate($slider, $sliderValue);
+                this._emitTimeChangeEvent();
+            }
+        });
+
+        $rangeStartInput.on('change', (e) => {
+            const newDate = new Date(e.target.value);
+            if (!isNaN(newDate.getTime())) {
+                this._rangeStartDate = newDate;
                 this._emitTimeChangeEvent();
             }
         });
@@ -327,6 +374,21 @@ export class TimeControl {
         $input.val(dateTimeString);
     }
 
+    _updateRangeStartInput($input) {
+        if (!this._rangeStartDate) {
+            this._rangeStartDate = new Date(this._selectedDate);
+            this._rangeStartDate.setDate(this._rangeStartDate.getDate() - this.options.initialRangeDays);
+        }
+
+        const year = this._rangeStartDate.getFullYear();
+        const month = String(this._rangeStartDate.getMonth() + 1).padStart(2, '0');
+        const day = String(this._rangeStartDate.getDate()).padStart(2, '0');
+        const hours = String(this._rangeStartDate.getHours()).padStart(2, '0');
+        const minutes = String(this._rangeStartDate.getMinutes()).padStart(2, '0');
+
+        $input.val(`${year}-${month}-${day}T${hours}:${minutes}`);
+    }
+
     _togglePanel() {
         if (this._panel.css('display') === 'none') {
             this._showPanel();
@@ -350,7 +412,11 @@ export class TimeControl {
                 selectedDate: new Date(this._selectedDate),
                 isoString: this._selectedDate.toISOString(),
                 // Format for URL parameters (YYYY-MM-DDTHH:mm:ssZ)
-                urlFormat: this._selectedDate.toISOString()
+                urlFormat: this._selectedDate.toISOString(),
+                // Only meaningful for range-capable layers (e.g. a Planetary
+                // Computer mosaic search) — endIso mirrors isoString/urlFormat.
+                startIso: this._rangeStartDate ? this._rangeStartDate.toISOString() : null,
+                endIso: this._selectedDate.toISOString()
             }
         });
 
@@ -359,6 +425,12 @@ export class TimeControl {
 
         // Also emit on window for global listeners
         window.dispatchEvent(event);
+
+        // Reflect the selection in the shareable URL (see js/url-manager.js's
+        // `time`/`timeStart` params and docs/API.md), the same way
+        // terrain-3d-control.js pushes its own state straight into urlManager.
+        window.urlManager?.updateTimeParam?.(event.detail.endIso);
+        window.urlManager?.updateTimeStartParam?.(event.detail.startIso || '');
     }
 
     // Public methods for external control
@@ -379,6 +451,24 @@ export class TimeControl {
 
                 this._updateDateTimeInput($input);
                 this._updateSliderFromDate($slider, $sliderValue);
+            }
+
+            this._emitTimeChangeEvent();
+            return true;
+        }
+        return false;
+    }
+
+    getRangeStartDate() {
+        return this._rangeStartDate ? new Date(this._rangeStartDate) : null;
+    }
+
+    setRangeStart(date) {
+        if (date instanceof Date && !isNaN(date.getTime())) {
+            this._rangeStartDate = new Date(date);
+
+            if (this._panel) {
+                this._updateRangeStartInput($('#time-control-range-start'));
             }
 
             this._emitTimeChangeEvent();
@@ -508,32 +598,58 @@ export class TimeControl {
         if (hasTimeBasedLayers !== this._isVisible) {
             this._setVisibility(hasTimeBasedLayers);
         }
+
+        this._applyRangeMode();
     }
 
     /**
-     * Check if there are any active layers with urlTimeParam defined
+     * Show/hide the "Range Start" input based on whether the last
+     * `_hasActiveTimeBasedLayers()` scan found a range-capable layer
+     * (e.g. a Planetary Computer mosaic search).
+     */
+    _applyRangeMode() {
+        if (!this._$rangeStartContainer) return;
+
+        if (this._isRangeMode) {
+            this._updateRangeStartInput($('#time-control-range-start'));
+            this._$rangeStartContainer.show();
+        } else {
+            this._$rangeStartContainer.hide();
+        }
+    }
+
+    /**
+     * Check if there are any active layers with urlTimeParam/timeProperty/
+     * pcMosaicSearch defined. As a side effect, updates `_isRangeMode` to
+     * reflect whether any active layer needs a start/end range rather than
+     * a single as-of date.
      */
     _hasActiveTimeBasedLayers() {
+        let hasAny = false;
+        let needsRange = false;
+
+        const consider = (config) => {
+            if (!config) return;
+            if (config.urlTimeParam || config.timeProperty || config.pcMosaicSearch) hasAny = true;
+            if (config.pcMosaicSearch) needsRange = true;
+        };
+
         // Method 1: Check via state manager (most reliable)
         if (this._stateManager) {
             const activeLayers = this._stateManager.getActiveLayers();
 
             for (const [layerId, layerData] of activeLayers) {
-                if (layerData.config && (layerData.config.urlTimeParam || layerData.config.timeProperty)) {
-                    return true;
-                }
+                consider(layerData.config);
             }
         }
 
         // Method 2: Check via MapboxAPI time-based layers
-        if (window.mapboxAPI) {
-            if (window.mapboxAPI._timeBasedLayers) {
-                const timeBasedLayers = window.mapboxAPI._timeBasedLayers;
+        if (window.mapboxAPI && window.mapboxAPI._timeBasedLayers) {
+            const timeBasedLayers = window.mapboxAPI._timeBasedLayers;
 
-                for (const [layerId, layerInfo] of timeBasedLayers) {
-                    if (layerInfo.visible) {
-                        return true;
-                    }
+            for (const [layerId, layerInfo] of timeBasedLayers) {
+                if (layerInfo.visible) {
+                    consider(layerInfo.config);
                 }
             }
         }
@@ -564,13 +680,12 @@ export class TimeControl {
                     layerConfig = layerControl._state.groups.find(group => group.id === layerId);
                 }
 
-                if (layerConfig && (layerConfig.urlTimeParam || layerConfig.timeProperty)) {
-                    return true;
-                }
+                consider(layerConfig);
             }
         }
 
-        return false;
+        this._isRangeMode = needsRange;
+        return hasAny;
     }
 
     /**

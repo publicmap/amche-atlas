@@ -27,6 +27,8 @@ export const URL_API_PARAMS = [
     'fov',
     'bearing',
     'pitch',
+    'time',
+    'timeStart',
     'sound',
     'export',
     'zoomTo'

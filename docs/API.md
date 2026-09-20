@@ -310,6 +310,35 @@ Map tilt, in degrees.
 ?pitch=60
 ```
 
+### `time`
+
+Selected date/time for the time control (`js/time-control.js`), shown when
+any active layer has `urlTimeParam`, `timeProperty`, or `pcMosaicSearch`
+defined. Sets the "as of" date used to filter time-based layers or, for a
+Planetary Computer mosaic layer, the end of its search date range.
+
+**Format:** `?time=<ISO 8601 timestamp>`
+
+**Example:**
+```
+?time=2026-03-01T00:00:00.000Z
+```
+
+### `timeStart`
+
+Range-start date for the time control's "Range Start" input, shown only when
+an active layer defines `pcMosaicSearch` (e.g. a Planetary Computer mosaic
+search — see the `tms` layer type). Combined with `time` as the search's
+`datetime` range (`timeStart/time`). Omitted for layers that only use a
+single as-of date (`urlTimeParam`/`timeProperty`).
+
+**Format:** `?timeStart=<ISO 8601 timestamp>`
+
+**Example:**
+```
+?timeStart=2025-01-01T00:00:00.000Z&time=2026-03-01T00:00:00.000Z
+```
+
 ### `sound`
 
 Enable the sound visualization layer.
