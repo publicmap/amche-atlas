@@ -670,6 +670,20 @@ Standard raster tile services (`/{z}/{x}/{y}.png|.jpg`). Supports an optional pr
 }
 ```
 
+#### Microsoft Planetary Computer support
+
+Pasting a tile URL copied from the [Microsoft Planetary Computer](https://planetarycomputer.microsoft.com/docs/reference/stac/) data API resolves to a `tms` layer automatically — no need to hand-build the `{z}/{x}/{y}` template or figure out attribution yourself. Resolution lives in `js/planetary-computer-api.js`'s `PlanetaryComputerAPI`, wired into `js/layer-source-resolver.js` the same way as the other services above.
+
+**Recognized input:** any `https://planetarycomputer.microsoft.com/api/data/v1/{item|collection|mosaic}/tiles/...` URL — e.g. a concrete single-tile link copied out of the browser while previewing a STAC item, with `collection`/`item`/`assets`/`rescale`/`colormap_name`/etc. as query params:
+
+```
+https://planetarycomputer.microsoft.com/api/data/v1/item/tiles/WebMercatorQuad/11/1480/949@2x?collection=landsat-c2-l2&item=LC08_L2SP_142051_20260825_02_T1&format=png&assets=lwir11&rescale=44000,50500&colormap_name=inferno
+```
+
+- The concrete `/{z}/{x}/{y}` (and any `@2x`/`@3x`/`@4x` retina suffix on the y segment) is converted to a template; every other query param (`format`, `assets`, `rescale`, `colormap_name`, ...) is passed through unchanged.
+- **Title/description**: best-effort fetches the STAC item at `collection`+`item` from the Planetary Computer's own STAC API to prefix the title with its capture date and name it after the collection + first asset (e.g. `[2026-08-25] Landsat C2 L2 (Lwir11)`); a failed or missing fetch still resolves the layer, just without those extras.
+- **Attribution** links to the matching `https://planetarycomputer.microsoft.com/explore?collection=...&item=...` Explorer page.
+
 ### `wmts` — Web Map Tile Service
 
 OGC WMTS endpoints. The `TileMatrix={z}` / `TileCol={x}` / `TileRow={y}` placeholders in the URL are converted to XYZ. The application defaults to requesting `GoogleMapsCompatible_Level9` tilematrixset (EPSG:3857) when possible.

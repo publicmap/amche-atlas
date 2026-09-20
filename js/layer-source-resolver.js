@@ -23,8 +23,9 @@ import { StacAPI } from './stac-url-api.js';
 import { RouteApi } from './route-url-api.js';
 import { KMLConverter } from './kml-converter.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
+import { PlanetaryComputerAPI } from './planetary-computer-api.js';
 
-export { StacAPI };
+export { StacAPI, PlanetaryComputerAPI };
 
 export const SOURCE_TYPES = {
     OVERPASS_SHARE: 'overpass-share',
@@ -46,7 +47,8 @@ export const SOURCE_TYPES = {
     INDIANOPENMAPS: 'indianopenmaps',
     MAPBOX_TILESET: 'mapbox-tileset',
     VECTOR_TILE: 'vector-tile',
-    RASTER_TILE: 'raster-tile'
+    RASTER_TILE: 'raster-tile',
+    PLANETARY_COMPUTER: 'planetary-computer'
 };
 
 export const SOURCE_TYPE_LABELS = {
@@ -69,7 +71,8 @@ export const SOURCE_TYPE_LABELS = {
     [SOURCE_TYPES.INDIANOPENMAPS]: 'Vector Tiles',
     [SOURCE_TYPES.MAPBOX_TILESET]: 'Vector Tiles',
     [SOURCE_TYPES.VECTOR_TILE]: 'Vector Tiles',
-    [SOURCE_TYPES.RASTER_TILE]: 'Raster Tiles'
+    [SOURCE_TYPES.RASTER_TILE]: 'Raster Tiles',
+    [SOURCE_TYPES.PLANETARY_COMPUTER]: 'Planetary Computer'
 };
 
 // ---------------------------------------------------------------------------
@@ -196,18 +199,21 @@ export function formatIndianOpenMapsAttribution(attribution, tileUrl) {
     return `${attr} via <a href='${viewerUrl}' target='_blank' rel='noopener noreferrer'>IndianOpenMaps</a>`;
 }
 
-// Match pattern like /12/2875/1827.pbf or /12/2875/1827.mvt
+// Match pattern like /12/2875/1827.pbf, /12/2875/1827.mvt, or a retina
+// variant like /12/2875/1827@2x.pbf.
 export function isPbfTileUrl(url) {
-    return /\/\d+\/\d+\/\d+\.(pbf|mvt)($|\?)/i.test(url);
+    return /\/\d+\/\d+\/\d+(@[1-4]x)?\.(pbf|mvt)($|\?)/i.test(url);
 }
 
-// Match pattern like /15/23112/14953 or /12/2875/1827.png
+// Match pattern like /15/23112/14953, /12/2875/1827.png, or a retina variant
+// like /12/2875/1827@2x.png or /12/2875/1827@2x (no extension, e.g. Microsoft
+// Planetary Computer tile URLs that carry `format=` as a query param instead).
 export function isTileUrl(url) {
-    return /\/\d+\/\d+\/\d+(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i.test(url);
+    return /\/\d+\/\d+\/\d+(@[1-4]x)?(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i.test(url);
 }
 
 export function convertPbfTileUrlToTemplate(url) {
-    return url.replace(/\/\d+\/\d+\/\d+\.(pbf|mvt)($|\?)/i, '/{z}/{x}/{y}.$1$2');
+    return url.replace(/\/\d+\/\d+\/\d+(@[1-4]x)?\.(pbf|mvt)($|\?)/i, '/{z}/{x}/{y}$1.$2$3');
 }
 
 /**
@@ -268,11 +274,12 @@ export async function probeVectorTileLayersAtZooms(urlTemplate) {
 }
 
 export function convertTileUrlToTemplate(url, defaultExtension = null) {
-    return url.replace(/\/\d+\/\d+\/\d+(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i, (match, ext, extName, end) => {
+    return url.replace(/\/\d+\/\d+\/\d+(@[1-4]x)?(\.(pbf|mvt|png|jpg|jpeg|webp))?($|\?)/i, (match, retina, ext, extName, end) => {
+        const suffix = retina || '';
         if (!ext && defaultExtension) {
-            return `/{z}/{x}/{y}.${defaultExtension}${end}`;
+            return `/{z}/{x}/{y}${suffix}.${defaultExtension}${end}`;
         }
-        return `/{z}/{x}/{y}${ext || ''}${end}`;
+        return `/{z}/{x}/{y}${suffix}${ext || ''}${end}`;
     });
 }
 
@@ -342,6 +349,12 @@ export function detectLayerSourceType(url) {
     if (/\.gpkg\/?$/i.test(urlLower)) return SOURCE_TYPES.GPKG;
     if (/\.zip\/?$/i.test(urlLower)) return SOURCE_TYPES.SHAPEFILE;
     if (isIndianOpenMapsViewerUrl(url) || isIndianOpenMapsFlyDevViewUrl(url)) return SOURCE_TYPES.INDIANOPENMAPS;
+    // Must be checked before the generic tile-coordinate fallbacks below —
+    // a Planetary Computer item/mosaic tile URL is a concrete (non-templated)
+    // `/{z}/{x}/{y}` URL that those checks would otherwise happily match too,
+    // just with a generic "Raster Layer" title/no attribution instead of one
+    // built from the STAC item it points at.
+    if (PlanetaryComputerAPI.isTileUrl(url)) return SOURCE_TYPES.PLANETARY_COMPUTER;
     if (urlLower.includes('{z}') && (urlLower.includes('.pbf') || urlLower.includes('.mvt'))) return SOURCE_TYPES.VECTOR_TILE;
     if (urlLower.includes('{z}') && (urlLower.includes('.png') || urlLower.includes('.jpg'))) return SOURCE_TYPES.RASTER_TILE;
     if (urlLower.includes('{x}') && urlLower.includes('{y}') && urlLower.includes('{z}')) return SOURCE_TYPES.RASTER_TILE;
@@ -1265,6 +1278,10 @@ export async function resolveLayerSource(url, urlOptions = {}) {
                 return { status: 'ok', layerType: data.type, config: data, resolvedUrl };
             }
             throw new Error('Invalid layer configuration from JSON URL');
+        }
+        case SOURCE_TYPES.PLANETARY_COMPUTER: {
+            const config = await PlanetaryComputerAPI.createConfigFromTileUrl(resolvedUrl);
+            return { status: 'ok', layerType: 'tms', config, resolvedUrl };
         }
         case SOURCE_TYPES.VECTOR_TILE:
         case SOURCE_TYPES.RASTER_TILE:
