@@ -16,7 +16,13 @@
         window.amche.DEFAULT_ATLAS = 'config/index.atlas.json';
         window.amche.LAYER_DEFAULTS = 'config/_defaults.json';
         window.amche.MAPBOX_MAP_OPTIONS = {
-            container: 'map'
+            container: 'map',
+            // Raster layers with a legendMap (docs/API.md "Categorical Raster
+            // Legends") are click-inspected by reading the rendered pixel color
+            // back off the WebGL canvas (js/raster-pixel-inspector.js). Without
+            // this, the drawing buffer is cleared right after each frame and
+            // readPixels() returns nothing.
+            preserveDrawingBuffer: true
         };
         window.amche.geoip = null;
         (async function () {

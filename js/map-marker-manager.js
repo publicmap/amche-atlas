@@ -14,6 +14,12 @@ import { formatAttributeValue } from './attribute-value-renderer.js';
 import { sanitizeId, isValidId, nextSerialId, labelToId, uniqueId, sanitizeRouteRefPrefix, isValidRouteRefId } from './shorthand-id-utils.js';
 import * as markerRegistry from './marker-registry.js';
 import { WAYPOINT_PIN_COLOR } from './search/route-store.js';
+import { RasterPixelInspector } from './raster-pixel-inspector.js';
+
+// Raster layer types whose tiles carry a baked-in colormap rather than
+// vector properties — the only types a legendMap (see docs/API.md) can
+// label via pixel-color matching.
+const RASTER_INSPECTABLE_TYPES = new Set(['tms', 'wmts', 'wms', 'cog']);
 
 // How long to ignore map clicks after a touch marker/balloon drag ends. Covers
 // the browser's phantom click (fired from touch-to-mouse-event emulation,
@@ -568,8 +574,48 @@ export class MapMarkerManager {
         this._clearAllMarkerHoverStates();
 
         this._clearUnsavedMarkers();
-        // Empty features array — the marker shows layer info only.
-        this.addMarker(lngLat, []);
+        // No vector feature was under the click — the marker otherwise shows
+        // layer info only, but a legendMap-backed raster layer can still name
+        // the class rendered at this pixel (see _inspectRasterPixel).
+        const rasterFeature = this._inspectRasterPixel(lngLat);
+        this.addMarker(lngLat, rasterFeature ? [rasterFeature] : []);
+    }
+
+    /**
+     * Labels the pixel at `lngLat` using the topmost active raster layer's
+     * `legendMap`, if any (see docs/API.md's "Categorical Raster Legends"
+     * section and js/raster-pixel-inspector.js). Returns a feature-shaped
+     * object compatible with addMarker()'s badge rendering
+     * (_getBadgeLabelInfo falls back to `featureId` when there's no
+     * `feature.properties` field to read), or null if nothing matched.
+     */
+    _inspectRasterPixel(lngLat) {
+        if (!this._map) return null;
+
+        const legendLayers = this._getAllActiveLayersInInspectorOrder()
+            .filter(layer => RASTER_INSPECTABLE_TYPES.has(layer.type) && Array.isArray(layer.legendMap) && layer.legendMap.length);
+        if (!legendLayers.length) return null;
+
+        const point = this._map.project(lngLat);
+        const pixel = RasterPixelInspector.sample(this._map, point);
+        if (!pixel) return null;
+
+        // Only one composite color is sampled (the final blended pixel), so
+        // this tries each active legendMap top-down and takes the first
+        // match rather than knowing which layer actually painted the pixel.
+        for (const layer of legendLayers) {
+            const match = RasterPixelInspector.matchClass(layer.legendMap, pixel);
+            if (match) {
+                return {
+                    layerId: layer.id,
+                    featureId: match.label || String(match.value),
+                    feature: { properties: {} },
+                    lngLat
+                };
+            }
+        }
+
+        return null;
     }
 
     /**

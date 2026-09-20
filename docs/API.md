@@ -456,6 +456,7 @@ Available on all layer types unless noted otherwise.
 | `tags` | string[] | Used to group layers in the UI. Prefix with `N.` (e.g. `"1.Development Plans"`) to control sort order. |
 | `headerImage` | string | Thumbnail shown in the layer control. |
 | `legendImage` | string | Image shown in the legend panel when the layer is active. |
+| `legendMap` | array | Categorical raster legend — `[{ value, color, label }, ...]`. See [Categorical Raster Legends](#categorical-raster-legends-legendmap). Raster types (`tms`, `wmts`, `wms`, `cog`) only. |
 | `attribution` | string | HTML allowed. Shown in the bottom-right attribution control while the layer is visible. |
 | `initiallyChecked` | boolean | If `true`, the layer is on at first load (unless `?layers=` overrides). |
 | `opacity` | number | 0–1 multiplier applied on top of any `style` opacity. |
@@ -473,6 +474,30 @@ Selecting a feature in a marker popup's accordion (see `js/map-marker-manager.js
 - The filter is written onto the layer's own config `filter` property (see Common Properties above), so it round-trips through `?layers=` exactly like `opacity` does — reload a shared link and the same filter is still applied.
 - Closing the popup, or expanding a different feature, does **not** reset it — the filter is retained.
 - The layer's filter from before it was touched is remembered and restored if the marker that applied the filter is later removed **while still unsaved** (never given a name/label). A saved marker's filter survives its own removal instead — by then it's a deliberate choice about the layer, not leftover marker state.
+
+#### Categorical Raster Legends (`legendMap`)
+
+A raster tile (`tms`, `wmts`, `wms`, `cog`) has no vector properties to inspect — the server (or `js/cog-tile-provider.js`) bakes a colormap into the tile's pixels before it ever reaches the browser. `legendMap` describes that colormap so the app can (1) draw a categorical swatch legend and (2) label the class under a click, without knowing anything about the source dataset's own value encoding beyond its rendered colors.
+
+```json
+"legendMap": [
+  { "value": 10, "color": "#006400", "label": "Tree cover" },
+  { "value": 20, "color": "#ffbb22", "label": "Shrubland" },
+  { "value": 80, "color": "#0064c8", "label": "Permanent water bodies" }
+]
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `value` | number \| string | The source dataset's own class code (e.g. an ESA WorldCover pixel value). Not read by the UI directly — carried through for reference/export. |
+| `color` | string | CSS color (hex recommended) exactly matching the color the tile renders that class as. |
+| `label` | string | Display name shown in the legend and in the click-inspect badge. |
+
+**Legend rendering**: `js/layer-legend.js` renders `legendMap` as a swatch-per-class list, taking priority over `legendImage` when both are present on a layer.
+
+**Click inspection**: Mapbox GL JS's `Map#queryRasterValue()` only supports `raster-array` sources (a special numeric-tile format) — none of this app's raster types use it, since their tiles are plain colored images with the classification already applied server-side. Instead, `js/raster-pixel-inspector.js` reads the actual rendered pixel color at the clicked point via `WebGLRenderingContext#readPixels` and matches it to the nearest `color` in the topmost active layer's `legendMap` (Euclidean RGB distance, capped by a max-distance threshold so an unrelated color doesn't get mis-labeled). This requires the map to be constructed with `preserveDrawingBuffer: true` (see `index.html`) — without it, the WebGL drawing buffer is cleared before it can be read back.
+
+Because the match works on the final composited pixel, a `legendMap` only reliably labels clicks while its layer is the topmost visible raster layer at full opacity — stacking two `legendMap` layers with blended opacity produces a mixed color that may not match either legend cleanly.
 
 #### Atlas-level style and inspect defaults
 

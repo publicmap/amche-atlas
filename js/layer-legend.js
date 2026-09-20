@@ -20,6 +20,10 @@ export class LayerLegend {
      * @returns {HTMLElement|null} Legend element or null if no legend available
      */
     static generate(layer) {
+        if (Array.isArray(layer.legendMap) && layer.legendMap.length) {
+            return this._generateCategoricalLegend(layer);
+        }
+
         if (layer.legendImage) {
             return this._generateRasterLegend(layer);
         }
@@ -29,6 +33,60 @@ export class LayerLegend {
         }
 
         return null;
+    }
+
+    /**
+     * Generate legend for categorical raster layers using legendMap
+     * (value/color/label triples — see docs/API.md's "Categorical Raster
+     * Legends" section). Takes priority over legendImage since it's
+     * data-driven rather than a static picture.
+     */
+    static _generateCategoricalLegend(layer) {
+        const container = document.createElement('div');
+        container.className = 'legend-categorical';
+        container.style.cssText = `
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 6px 10px;
+            max-height: 220px;
+            overflow-y: auto;
+        `;
+
+        layer.legendMap.forEach(entry => {
+            const row = document.createElement('div');
+            row.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 3px 0;
+            `;
+
+            const swatch = document.createElement('span');
+            swatch.style.cssText = `
+                display: inline-block;
+                width: 14px;
+                height: 14px;
+                flex-shrink: 0;
+                border-radius: 2px;
+                border: 1px solid rgba(0,0,0,0.15);
+                background: ${entry.color};
+            `;
+
+            const label = document.createElement('span');
+            label.style.cssText = `
+                font-size: 12px;
+                color: #111827;
+                line-height: 1.3;
+            `;
+            label.textContent = entry.label || String(entry.value);
+
+            row.appendChild(swatch);
+            row.appendChild(label);
+            container.appendChild(row);
+        });
+
+        return container;
     }
 
     /**

@@ -504,6 +504,16 @@
         "fire",
         "modis"
       ],
+      "legendMap": [
+        { "value": 0, "color": "#ffffff", "label": "Missing input data" },
+        { "value": 3, "color": "#ffffff", "label": "Non-fire water" },
+        { "value": 4, "color": "#808080", "label": "Cloud" },
+        { "value": 5, "color": "#ffffff", "label": "Non-fire land" },
+        { "value": 6, "color": "#ffffff", "label": "Unknown" },
+        { "value": 7, "color": "#f7a00a", "label": "Fire (low confidence)" },
+        { "value": 8, "color": "#de6000", "label": "Fire (nominal confidence)" },
+        { "value": 9, "color": "#f20400", "label": "Fire (high confidence)" }
+      ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/34958fd0da78d9838913718b9399804f/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=modis-14A2-061&assets=FireMask&colormap_name=modis-14A1|A2",
       "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-14A2-061' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
@@ -527,6 +537,19 @@
       "description": "Global 10m land cover classification (2021) from ESA WorldCover — a single static epoch, so this layer uses a fixed global search rather than the time-control/viewport-following mosaic pattern of the layers above.",
       "tags": [
         "land-cover"
+      ],
+      "legendMap": [
+        { "value": 10, "color": "#006400", "label": "Tree cover" },
+        { "value": 20, "color": "#ffbb22", "label": "Shrubland" },
+        { "value": 30, "color": "#ffff4c", "label": "Grassland" },
+        { "value": 40, "color": "#f096ff", "label": "Cropland" },
+        { "value": 50, "color": "#fa0000", "label": "Built-up" },
+        { "value": 60, "color": "#b4b4b4", "label": "Bare / sparse vegetation" },
+        { "value": 70, "color": "#f0f0f0", "label": "Snow and ice" },
+        { "value": 80, "color": "#0064c8", "label": "Permanent water bodies" },
+        { "value": 90, "color": "#0096a0", "label": "Herbaceous wetland" },
+        { "value": 95, "color": "#00cf75", "label": "Mangrove" },
+        { "value": 100, "color": "#fae6a0", "label": "Moss and lichen" }
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/04e13b67e78515f940bb3e662eb04178/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=esa-worldcover&assets=map&colormap_name=esa-worldcover",
       "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=esa-worldcover' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
@@ -673,6 +696,12 @@
         "forest",
         "land-cover"
       ],
+      "legendMap": [
+        { "value": 1, "color": "#00b200", "label": "Dense forest" },
+        { "value": 2, "color": "#83ef62", "label": "Non-dense forest" },
+        { "value": 3, "color": "#ffff99", "label": "Non-forest" },
+        { "value": 4, "color": "#0000ff", "label": "Water" }
+      ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3cb5d339ae18d4024b39fc818a476324/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=alos-fnf-mosaic&assets=C&colormap_name=alos-fnf",
       "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=alos-fnf-mosaic' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false
@@ -684,6 +713,17 @@
       "description": "Annual global 10m land use/land cover classification (2017-present) — unlike ESA WorldCover's single epoch, this is a real yearly time series, so the time control lets you scrub land cover year by year. Re-registered as you pan/zoom and as you change the date range with the time control.",
       "tags": [
         "land-cover"
+      ],
+      "legendMap": [
+        { "value": 1, "color": "#419bdf", "label": "Water" },
+        { "value": 2, "color": "#397d49", "label": "Trees" },
+        { "value": 4, "color": "#7a87c6", "label": "Flooded vegetation" },
+        { "value": 5, "color": "#e49635", "label": "Crops" },
+        { "value": 7, "color": "#c4281b", "label": "Built area" },
+        { "value": 8, "color": "#a59b8f", "label": "Bare ground" },
+        { "value": 9, "color": "#a8ebff", "label": "Snow and ice" },
+        { "value": 10, "color": "#616161", "label": "Clouds" },
+        { "value": 11, "color": "#e3e2c3", "label": "Rangeland" }
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/f34f0a9f34e5295e6c5c7c50457ea409/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=io-lulc-annual-v02&assets=data&colormap_name=io-lulc-9-class",
       "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=io-lulc-annual-v02' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
@@ -708,6 +748,45 @@
       "description": "Global 300m land cover time series back to 1992 — coarser resolution than ESA WorldCover or the Esri annual LULC, but the longest available record for tracking long-run land-use change. Re-registered as you pan/zoom and as you change the date range with the time control.",
       "tags": [
         "land-cover"
+      ],
+      "legendMap": [
+        { "value": 10, "color": "#ffff64", "label": "Cropland, rainfed" },
+        { "value": 11, "color": "#ffff64", "label": "Cropland, rainfed — herbaceous cover" },
+        { "value": 12, "color": "#ffff00", "label": "Cropland, rainfed — tree or shrub cover" },
+        { "value": 20, "color": "#aaf0f0", "label": "Cropland, irrigated or post-flooding" },
+        { "value": 30, "color": "#dcf064", "label": "Mosaic cropland (>50%) / natural vegetation (<50%)" },
+        { "value": 40, "color": "#c8c864", "label": "Mosaic natural vegetation (>50%) / cropland (<50%)" },
+        { "value": 50, "color": "#006400", "label": "Tree cover, broadleaved, evergreen, closed to open (>15%)" },
+        { "value": 60, "color": "#00a000", "label": "Tree cover, broadleaved, deciduous, closed to open (>15%)" },
+        { "value": 61, "color": "#00a000", "label": "Tree cover, broadleaved, deciduous, closed (>40%)" },
+        { "value": 62, "color": "#aac800", "label": "Tree cover, broadleaved, deciduous, open (15-40%)" },
+        { "value": 70, "color": "#003c00", "label": "Tree cover, needleleaved, evergreen, closed to open (>15%)" },
+        { "value": 71, "color": "#003c00", "label": "Tree cover, needleleaved, evergreen, closed (>40%)" },
+        { "value": 72, "color": "#005000", "label": "Tree cover, needleleaved, evergreen, open (15-40%)" },
+        { "value": 80, "color": "#285000", "label": "Tree cover, needleleaved, deciduous, closed to open (>15%)" },
+        { "value": 81, "color": "#285000", "label": "Tree cover, needleleaved, deciduous, closed (>40%)" },
+        { "value": 82, "color": "#286400", "label": "Tree cover, needleleaved, deciduous, open (15-40%)" },
+        { "value": 90, "color": "#788200", "label": "Tree cover, mixed leaf type" },
+        { "value": 100, "color": "#8ca000", "label": "Mosaic tree and shrub (>50%) / herbaceous cover (<50%)" },
+        { "value": 110, "color": "#be9600", "label": "Mosaic herbaceous cover (>50%) / tree and shrub (<50%)" },
+        { "value": 120, "color": "#966400", "label": "Shrubland" },
+        { "value": 121, "color": "#966400", "label": "Shrubland, evergreen" },
+        { "value": 122, "color": "#966400", "label": "Shrubland, deciduous" },
+        { "value": 130, "color": "#ffb432", "label": "Grassland" },
+        { "value": 140, "color": "#ffdcd2", "label": "Lichens and mosses" },
+        { "value": 150, "color": "#ffebaf", "label": "Sparse vegetation (<15%)" },
+        { "value": 151, "color": "#ffc864", "label": "Sparse tree (<15%)" },
+        { "value": 152, "color": "#ffd278", "label": "Sparse shrub (<15%)" },
+        { "value": 153, "color": "#ffebaf", "label": "Sparse herbaceous cover (<15%)" },
+        { "value": 160, "color": "#00785a", "label": "Tree cover, flooded, fresh or brackish water" },
+        { "value": 170, "color": "#009678", "label": "Tree cover, flooded, saline water" },
+        { "value": 180, "color": "#00dc82", "label": "Shrub or herbaceous cover, flooded" },
+        { "value": 190, "color": "#c31400", "label": "Urban areas" },
+        { "value": 200, "color": "#fff5d7", "label": "Bare areas" },
+        { "value": 201, "color": "#dcdcdc", "label": "Consolidated bare areas" },
+        { "value": 202, "color": "#fff5d7", "label": "Unconsolidated bare areas" },
+        { "value": 210, "color": "#0046c8", "label": "Water bodies" },
+        { "value": 220, "color": "#ffffff", "label": "Permanent snow and ice" }
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/43853e455a99ce4c9048c46a9c0bedf1/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=esa-cci-lc&assets=lccs_class&colormap_name=esa-cci-lc",
       "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=esa-cci-lc' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
