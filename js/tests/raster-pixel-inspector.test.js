@@ -43,6 +43,14 @@ describe('RasterPixelInspector.matchClass', () => {
     });
 });
 
+describe('RasterPixelInspector.toHex', () => {
+    it('formats a pixel as a lowercase hex string', () => {
+        expect(RasterPixelInspector.toHex({ r: 0, g: 100, b: 0 })).toBe('#006400');
+        expect(RasterPixelInspector.toHex({ r: 255, g: 255, b: 255 })).toBe('#ffffff');
+        expect(RasterPixelInspector.toHex({ r: 10, g: 2, b: 250 })).toBe('#0a02fa');
+    });
+});
+
 describe('RasterPixelInspector.sample', () => {
     it('returns null when the map has no canvas', () => {
         expect(RasterPixelInspector.sample({ getCanvas: () => null }, { x: 0, y: 0 })).toBeNull();

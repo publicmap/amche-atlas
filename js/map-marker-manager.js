@@ -558,7 +558,14 @@ export class MapMarkerManager {
         this._clearAllMarkerHoverStates();
 
         this._clearUnsavedMarkers();
-        this.addMarker(lngLat, features);
+        // A raster layer (e.g. a regional plan overlay) is very often stacked
+        // above/below a vector layer whose fill covers the whole click area
+        // (cadastral plots, panchayat boundaries) - that vector feature is
+        // what's actually reported here, so raster inspection can't rely on
+        // this being an empty click (see _handleEmptyMapClick) to ever run.
+        // Append it alongside whatever vector feature(s) were found instead.
+        const rasterFeature = this._inspectRasterPixel(lngLat);
+        this.addMarker(lngLat, rasterFeature ? [...features, rasterFeature] : features);
     }
 
     _handleEmptyMapClick(data) {
@@ -575,47 +582,82 @@ export class MapMarkerManager {
 
         this._clearUnsavedMarkers();
         // No vector feature was under the click — the marker otherwise shows
-        // layer info only, but a legendMap-backed raster layer can still name
-        // the class rendered at this pixel (see _inspectRasterPixel).
+        // layer info only, but the topmost active raster layer can still
+        // label this pixel (a legendMap class, or the raw color as a
+        // fallback — see _inspectRasterPixel).
         const rasterFeature = this._inspectRasterPixel(lngLat);
         this.addMarker(lngLat, rasterFeature ? [rasterFeature] : []);
     }
 
     /**
-     * Labels the pixel at `lngLat` using the topmost active raster layer's
-     * `legendMap`, if any (see docs/API.md's "Categorical Raster Legends"
-     * section and js/raster-pixel-inspector.js). Returns a feature-shaped
-     * object compatible with addMarker()'s badge rendering
-     * (_getBadgeLabelInfo falls back to `featureId` when there's no
-     * `feature.properties` field to read), or null if nothing matched.
+     * Labels the pixel at `lngLat` using the active raster layers' own
+     * `legendMap`s (see docs/API.md's "Categorical Raster Legends" section
+     * and js/raster-pixel-inspector.js), or the raw pixel color as a
+     * fallback when none apply (suppressed if a basemap raster is active
+     * beneath the topmost layer, since a fallback color there can't be
+     * told apart from basemap leaking through a transparent spot in the
+     * overlay). Returns a feature-shaped object compatible with
+     * addMarker()'s badge rendering (_getBadgeLabelInfo falls back to
+     * `featureId` when there's no `feature.properties` field to read), or
+     * null if there's no active raster layer or nothing rendered there.
      */
     _inspectRasterPixel(lngLat) {
         if (!this._map) return null;
 
-        const legendLayers = this._getAllActiveLayersInInspectorOrder()
-            .filter(layer => RASTER_INSPECTABLE_TYPES.has(layer.type) && Array.isArray(layer.legendMap) && layer.legendMap.length);
-        if (!legendLayers.length) return null;
+        const rasterLayers = this._getAllActiveLayersInInspectorOrder()
+            .filter(l => RASTER_INSPECTABLE_TYPES.has(l.type));
+        if (!rasterLayers.length) return null;
 
         const point = this._map.project(lngLat);
         const pixel = RasterPixelInspector.sample(this._map, point);
-        if (!pixel) return null;
+        if (!pixel || pixel.a === 0) return null;
 
         // Only one composite color is sampled (the final blended pixel), so
-        // this tries each active legendMap top-down and takes the first
-        // match rather than knowing which layer actually painted the pixel.
-        for (const layer of legendLayers) {
+        // there's no way to tell which layer actually painted it once more
+        // than one raster is stacked - e.g. a legend-less overlay (a
+        // regional plan raster) sitting semi-transparently above a
+        // classified one (ESA WorldCover). Checking only the topmost layer
+        // would make every legendMap layer beneath it permanently
+        // uninspectable, so every active layer's legendMap gets a try
+        // against the same sampled color, topmost first.
+        for (const layer of rasterLayers) {
+            if (!Array.isArray(layer.legendMap) || !layer.legendMap.length) continue;
             const match = RasterPixelInspector.matchClass(layer.legendMap, pixel);
             if (match) {
                 return {
                     layerId: layer.id,
                     featureId: match.label || String(match.value),
                     feature: { properties: {} },
-                    lngLat
+                    lngLat,
+                    isRasterInspection: true
                 };
             }
         }
 
-        return null;
+        // Nothing matched (or no active layer has a legendMap at all) - fall
+        // back to the raw color, attributed to the topmost raster layer
+        // since that's the one actually visible at this pixel. But the
+        // composited alpha only reflects the *final* canvas, not whether
+        // the topmost layer itself painted anything here - a raster with
+        // partial coverage (e.g. a cloud-masked NDVI mosaic) reads back
+        // fully opaque wherever an opaque basemap sits beneath its
+        // transparent areas, so its "color" there is really just the
+        // basemap leaking through. Rather than mislabel that as the
+        // overlay's own reading, skip the fallback whenever a basemap
+        // raster is active anywhere below the topmost non-basemap layer.
+        const topLayer = rasterLayers[0];
+        const isTopLayerBasemap = Array.isArray(topLayer.tags) && topLayer.tags.includes('basemap');
+        const hasBasemapBeneath = !isTopLayerBasemap && rasterLayers.slice(1)
+            .some(l => Array.isArray(l.tags) && l.tags.includes('basemap'));
+        if (hasBasemapBeneath) return null;
+
+        return {
+            layerId: topLayer.id,
+            featureId: RasterPixelInspector.toHex(pixel),
+            feature: { properties: {} },
+            lngLat,
+            isRasterInspection: true
+        };
     }
 
     /**
@@ -900,7 +942,26 @@ export class MapMarkerManager {
     _buildFeatureFlyoutContentHTML(f) {
         return `<div class="feature-badge-details" ${this._featureHandlerAttrs(f)} style="display:block;width:100%;">` +
             `<div class="custom-html-container"></div>` +
+            this._buildLegendImageHTML(f) +
             this._buildFeatureRowsHTML(f, true) +
+            `</div>`;
+    }
+
+    /**
+     * A raster pixel's inspect flyout (see _inspectRasterPixel) can only
+     * show a color or a class name in the chip itself - the layer's own
+     * legendImage, if it has one, is the fuller picture. Shown clickable to
+     * expand (see _attachLegendImageHandler); vector features never carry
+     * one, so this is a no-op for them.
+     */
+    _buildLegendImageHTML(f) {
+        if (!f.isRasterInspection) return '';
+        const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+        if (!layerConfig?.legendImage) return '';
+
+        return `<div style="padding:4px 0 6px;">` +
+            `<img class="marker-legend-image" src="${this._escapeAttr(layerConfig.legendImage)}" alt="Legend" title="Click to expand"
+                style="display:block; max-width:100%; border-radius:4px; cursor:zoom-in;" />` +
             `</div>`;
     }
 
@@ -2202,6 +2263,14 @@ export class MapMarkerManager {
         const details = root.querySelector('.feature-badge-details');
         if (!details) return;
 
+        const legendImage = details.querySelector('.marker-legend-image');
+        if (legendImage) {
+            legendImage.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._showImageLightbox(legendImage.src, legendImage.alt);
+            });
+        }
+
         const showAllBtn = details.querySelector('.badge-show-all-props-btn');
         if (!showAllBtn) return;
 
@@ -2215,6 +2284,48 @@ export class MapMarkerManager {
             if (shown) shown.style.display = isShowingAll ? 'block' : 'none';
             showAllBtn.textContent = isShowingAll ? `Show all ${total} properties` : 'Show less';
         });
+    }
+
+    /**
+     * Full-screen overlay for a legend image (see _buildLegendImageHTML) -
+     * the inline thumbnail is too small to read a busy categorical legend
+     * off. No existing modal/lightbox in the app to reuse (checked
+     * button-external-map-links.js and intro-content-manager.js's sl-dialog
+     * uses - neither expands an image), so this is a plain fixed overlay:
+     * click the backdrop, click the close button, or press Escape to
+     * dismiss.
+     */
+    _showImageLightbox(src, alt = 'Legend') {
+        document.querySelectorAll('.raster-legend-lightbox').forEach(el => el.remove());
+
+        const overlay = document.createElement('div');
+        overlay.className = 'raster-legend-lightbox';
+        overlay.style.cssText = `
+            position: fixed; inset: 0; z-index: 10000;
+            background: rgba(0,0,0,0.8);
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px; cursor: zoom-out;
+        `;
+        overlay.innerHTML = `
+            <img src="${this._escapeAttr(src)}" alt="${this._escapeAttr(alt)}"
+                style="max-width:100%; max-height:100%; border-radius:6px; box-shadow:0 10px 40px rgba(0,0,0,0.5); cursor:default;" />
+            <button type="button" class="raster-legend-lightbox-close" aria-label="Close"
+                style="position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:50%;
+                       background:rgba(255,255,255,0.15); border:none; color:white; font-size:18px; cursor:pointer;
+                       display:flex; align-items:center; justify-content:center;">✕</button>
+        `;
+
+        const close = () => {
+            overlay.remove();
+            document.removeEventListener('keydown', onKey);
+        };
+        const onKey = (e) => { if (e.key === 'Escape') close(); };
+
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('.raster-legend-lightbox-close').addEventListener('click', close);
+        document.addEventListener('keydown', onKey);
+
+        document.body.appendChild(overlay);
     }
 
     /**

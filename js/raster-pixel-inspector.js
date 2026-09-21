@@ -78,6 +78,16 @@ export class RasterPixelInspector {
     }
 
     /**
+     * Format a sampled pixel as a "#rrggbb" hex string — the fallback label
+     * shown for a raster layer with no legendMap (or whose legendMap didn't
+     * match), since there's no class name to give it, only the color itself.
+     */
+    static toHex({ r, g, b }) {
+        const toByte = (n) => n.toString(16).padStart(2, '0');
+        return `#${toByte(r)}${toByte(g)}${toByte(b)}`;
+    }
+
+    /**
      * Parse a CSS hex color (#rgb, #rrggbb) into {r,g,b}. Legend colors are
      * documented as hex; other CSS color forms aren't supported here.
      */
