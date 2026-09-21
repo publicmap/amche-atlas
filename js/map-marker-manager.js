@@ -593,11 +593,8 @@ export class MapMarkerManager {
      * Labels the pixel at `lngLat` using the active raster layers' own
      * `legendMap`s (see docs/API.md's "Categorical Raster Legends" section
      * and js/raster-pixel-inspector.js), or the raw pixel color as a
-     * fallback when none apply (suppressed if a basemap raster is active
-     * beneath the topmost layer, since a fallback color there can't be
-     * told apart from basemap leaking through a transparent spot in the
-     * overlay). Returns a feature-shaped object compatible with
-     * addMarker()'s badge rendering (_getBadgeLabelInfo falls back to
+     * fallback when none apply. Returns a feature-shaped object compatible
+     * with addMarker()'s badge rendering (_getBadgeLabelInfo falls back to
      * `featureId` when there's no `feature.properties` field to read), or
      * null if there's no active raster layer or nothing rendered there.
      */
@@ -636,23 +633,17 @@ export class MapMarkerManager {
 
         // Nothing matched (or no active layer has a legendMap at all) - fall
         // back to the raw color, attributed to the topmost raster layer
-        // since that's the one actually visible at this pixel. But the
+        // since that's the one actually visible at this pixel. Caveat: the
         // composited alpha only reflects the *final* canvas, not whether
-        // the topmost layer itself painted anything here - a raster with
-        // partial coverage (e.g. a cloud-masked NDVI mosaic) reads back
-        // fully opaque wherever an opaque basemap sits beneath its
-        // transparent areas, so its "color" there is really just the
-        // basemap leaking through. Rather than mislabel that as the
-        // overlay's own reading, skip the fallback whenever a basemap
-        // raster is active anywhere below the topmost non-basemap layer.
-        const topLayer = rasterLayers[0];
-        const isTopLayerBasemap = Array.isArray(topLayer.tags) && topLayer.tags.includes('basemap');
-        const hasBasemapBeneath = !isTopLayerBasemap && rasterLayers.slice(1)
-            .some(l => Array.isArray(l.tags) && l.tags.includes('basemap'));
-        if (hasBasemapBeneath) return null;
-
+        // the topmost layer itself painted anything here, so a raster with
+        // real per-pixel transparency (a cloud-masked mosaic, a
+        // georeferenced scan that doesn't cover the whole tile) can read
+        // back as whatever basemap/layer is sitting beneath its gaps
+        // instead of "nothing" - see docs/API.md. There's no way to
+        // distinguish that from a genuinely opaque reading without
+        // sampling each layer in isolation, which this doesn't do.
         return {
-            layerId: topLayer.id,
+            layerId: rasterLayers[0].id,
             featureId: RasterPixelInspector.toHex(pixel),
             feature: { properties: {} },
             lngLat,
