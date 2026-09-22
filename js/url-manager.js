@@ -618,7 +618,6 @@ export class URLManager {
         let maskParam = null;
         let countryParam = null;
         let langParam = null;
-        let fallbackLangParam = null;
 
         // Handle layers parameter
         if (options.updateLayers === true) {
@@ -906,8 +905,11 @@ export class URLManager {
             }
         }
 
-        // Handle locale (country/lang/fallbackLang) parameters - see
-        // js/locale-manager.js, the single owner of this state.
+        // Handle locale (country/lang) parameters - see js/locale-manager.js,
+        // the single owner of this state. `lang` is comma-separated, primary
+        // language first followed by fallbacks in priority order (e.g.
+        // `?lang=hi,en`) - one parameter for the whole priority list rather
+        // than a separate `fallbackLang`.
         if (options.country !== undefined) {
             const currentCountryParam = urlParams.get('country');
             if (options.country) {
@@ -924,16 +926,6 @@ export class URLManager {
                 langParam = options.lang;
                 if (currentLangParam !== langParam) hasChanges = true;
             } else if (currentLangParam !== null) {
-                hasChanges = true;
-            }
-        }
-
-        if (options.fallbackLang !== undefined) {
-            const currentFallbackLangParam = urlParams.get('fallbackLang');
-            if (options.fallbackLang) {
-                fallbackLangParam = options.fallbackLang;
-                if (currentFallbackLangParam !== fallbackLangParam) hasChanges = true;
-            } else if (currentFallbackLangParam !== null) {
                 hasChanges = true;
             }
         }
@@ -994,7 +986,6 @@ export class URLManager {
             otherParams.delete('mask');
             otherParams.delete('country');
             otherParams.delete('lang');
-            otherParams.delete('fallbackLang');
 
             // Add other parameters first (these will be URL-encoded by URLSearchParams)
             const otherParamsString = otherParams.toString();
@@ -1150,10 +1141,6 @@ export class URLManager {
             if (currentLang) {
                 params.push('lang=' + encodeURIComponent(currentLang));
             }
-            const currentFallbackLang = fallbackLangParam || (options.fallbackLang === undefined ? urlParams.get('fallbackLang') : null);
-            if (currentFallbackLang) {
-                params.push('fallbackLang=' + encodeURIComponent(currentFallbackLang));
-            }
 
             // Build the final pretty URL
             let newUrl = baseUrl;
@@ -1306,7 +1293,6 @@ export class URLManager {
         const zoomToParam = urlParams.get('zoomTo');
         const countryParam = urlParams.get('country');
         const langParam = urlParams.get('lang');
-        const fallbackLangParam = urlParams.get('fallbackLang');
 
         // Debug: surface every supported URL API parameter present in the URL on
         // load, so it's easy to confirm the URL API parsed as expected. URL_API_PARAMS
@@ -1334,7 +1320,7 @@ export class URLManager {
             console.warn('[URL API] Unsupported parameters ignored:', unsupportedParams);
         }
 
-        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !maskParam && !hasLocationClick && !zoomToParam && !countryParam && !langParam && !fallbackLangParam) {
+        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !maskParam && !hasLocationClick && !zoomToParam && !countryParam && !langParam) {
             return false;
         }
 
@@ -1386,12 +1372,11 @@ export class URLManager {
             }
 
             // Handle locale parameters (see js/locale-manager.js)
-            if (countryParam || langParam || fallbackLangParam) {
+            if (countryParam || langParam) {
                 applied = true;
                 localeManager.initializeFromURL({
                     country: countryParam,
-                    lang: langParam,
-                    fallbackLang: fallbackLangParam
+                    lang: langParam
                 });
             }
 
@@ -2143,12 +2128,9 @@ export class URLManager {
         this.updateURL({ country: countryCode || '', updateLayers: false });
     }
 
-    updateLangParam(langCode) {
-        this.updateURL({ lang: langCode || '', updateLayers: false });
-    }
-
-    updateFallbackLangParam(fallbackLangCodes) {
-        this.updateURL({ fallbackLang: fallbackLangCodes || '', updateLayers: false });
+    /** `langCodes` - comma-separated, primary language first (see js/locale-manager.js). */
+    updateLangParam(langCodes) {
+        this.updateURL({ lang: langCodes || '', updateLayers: false });
     }
 
     /**

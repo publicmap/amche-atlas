@@ -15,8 +15,9 @@
  *   take effect without a reload since it decides which GL library's
  *   <script> tag index.html injects before any other app code runs.
  * - "Locale": country/primary/fallback-language fields (see js/locale-ui.js
- *   and js/locale-manager.js), mirrored to the `?country=`/`?lang=`/
- *   `?fallbackLang=` URL params - takes effect immediately, no reload.
+ *   and js/locale-manager.js), mirrored to the `?country=`/`?lang=` URL
+ *   params (`lang` is comma-separated, primary language first) - takes
+ *   effect immediately, no reload.
  *
  * Not a mapboxgl control - this lives in the header-nav DOM, not on the map.
  */

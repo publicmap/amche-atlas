@@ -431,24 +431,13 @@ Override the app's current locale country (see js/locale-manager.js). Defaults t
 
 ### `lang`
 
-Override the app's current locale primary language. Defaults to `config/_defaults.json`'s `locale.primaryLanguage` (`en` by default).
+Override the app's current locale primary + fallback languages (see js/locale-manager.js), as one comma-separated priority list - the first code is the primary language, every code after it is a fallback, in priority order. Defaults to `config/_defaults.json`'s `locale.primaryLanguage`/`locale.fallbackLanguages` (`en` / `[]` by default).
 
-**Format:** `?lang=<ISO 639-1 code>`
-
-**Example:**
-```
-?lang=en
-```
-
-### `fallbackLang`
-
-Override the app's current locale fallback languages, in priority order. Defaults to `config/_defaults.json`'s `locale.fallbackLanguages` (`[]` by default).
-
-**Format:** `?fallbackLang=<comma-separated ISO 639-1 codes>`
+**Format:** `?lang=<primary ISO 639-1 code>[,<fallback ISO 639-1 code>...]`
 
 **Example:**
 ```
-?fallbackLang=hi,ml
+?lang=hi,en
 ```
 
 ## Complete Examples

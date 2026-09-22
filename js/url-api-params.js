@@ -34,6 +34,5 @@ export const URL_API_PARAMS = [
     'export',
     'zoomTo',
     'country',
-    'lang',
-    'fallbackLang'
+    'lang'
 ];

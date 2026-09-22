@@ -11,8 +11,9 @@
  * currently centered over", read live from js/map-attribution-control.js's
  * last Nominatim reverse-geocode (window.attributionControl.getAddress()).
  * A value the user actually sets (via the modal, or already present in the
- * URL on load) overrides both and is mirrored to `?country=`/`?lang=`/
- * `?fallbackLang=` via js/url-manager.js - see docs/API.md.
+ * URL on load) overrides both and is mirrored to `?country=`/`?lang=` via
+ * js/url-manager.js - see docs/API.md. `?lang=` is comma-separated, primary
+ * language first followed by fallbacks in priority order (e.g. `?lang=hi,en`).
  */
 import { findLanguageByCode } from './language-data.js';
 import { COUNTRIES } from './search/providers/country-provider.js';
@@ -127,23 +128,31 @@ class LocaleManager {
     _syncURL() {
         if (!window.urlManager) return;
         window.urlManager.updateCountryParam(this._country?.code || null);
-        window.urlManager.updateLangParam(this._primaryLanguage?.code || null);
-        window.urlManager.updateFallbackLangParam(
-            this._fallbackLanguages.length ? this._fallbackLanguages.map(l => l.code).join(',') : null
-        );
+        // Primary language first, then fallbacks - one comma-separated list
+        // rather than a separate fallback param (see getLanguageCodes()).
+        // Written whenever either has an explicit override, using the
+        // *effective* value for whichever one doesn't (e.g. adding just a
+        // fallback still needs to spell out the still-default primary, since
+        // this one list has no other way to mark "keep the default here").
+        const hasOverride = !this.isPrimaryLanguageDefault() || !this.isFallbackLanguagesDefault();
+        const codes = hasOverride
+            ? [this.getPrimaryLanguage(), ...this.getFallbackLanguages()].filter(Boolean).map(l => l.code)
+            : [];
+        window.urlManager.updateLangParam(codes.length ? codes.join(',') : null);
     }
 
     /**
      * Called once from js/url-manager.js's applyURLParameters() with whatever
-     * `?country=`/`?lang=`/`?fallbackLang=` were present on load.
+     * `?country=`/`?lang=` were present on load. `lang` is comma-separated -
+     * the first code is the primary language, the rest are fallbacks in
+     * priority order.
      */
-    initializeFromURL({ country, lang, fallbackLang } = {}) {
+    initializeFromURL({ country, lang } = {}) {
         if (country) this._country = findCountryByCode(country);
-        if (lang) this._primaryLanguage = findLanguageByCode(lang) || { code: lang, name: lang };
-        if (fallbackLang) {
-            this._fallbackLanguages = fallbackLang.split(',')
-                .map(c => c.trim()).filter(Boolean)
-                .map(c => findLanguageByCode(c) || { code: c, name: c });
+        if (lang) {
+            const [primaryCode, ...fallbackCodes] = lang.split(',').map(c => c.trim()).filter(Boolean);
+            if (primaryCode) this._primaryLanguage = findLanguageByCode(primaryCode) || { code: primaryCode, name: primaryCode };
+            this._fallbackLanguages = fallbackCodes.map(c => findLanguageByCode(c) || { code: c, name: c });
         }
         this._notify();
     }
