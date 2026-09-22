@@ -15,6 +15,8 @@ import { sanitizeId, isValidId, nextSerialId, labelToId, uniqueId, sanitizeRoute
 import * as markerRegistry from './marker-registry.js';
 import { WAYPOINT_PIN_COLOR } from './search/route-store.js';
 import { RasterPixelInspector } from './raster-pixel-inspector.js';
+import { resolveLocalizedProperty } from './locale-text-field.js';
+import { localeManager } from './locale-manager.js';
 
 // Raster layer types whose tiles carry a baked-in colormap rather than
 // vector properties — the only types a legendMap (see docs/API.md) can
@@ -741,11 +743,22 @@ export class MapMarkerManager {
             const layerConfig = this._stateManager.getLayerConfig(f.layerId);
             const inspectConfig = layerConfig?.inspect || {};
             const labelField = inspectConfig.label || inspectConfig.id || 'id';
-            return f.feature.properties?.[labelField] || f.featureId;
+            return this._localizedValue(f.feature.properties, labelField) || f.featureId;
         });
         const labelText = labels.join(', ');
 
         this._showHoverMarker(lngLat, labelText, freshFeatures);
+    }
+
+    /**
+     * inspect.label / inspect.fields' name-field values (see docs/API.md)
+     * follow the current locale's fallback chain (js/locale-text-field.js,
+     * js/locale-manager.js) instead of the literal property, so switching
+     * languages updates these labels the same way it does the map's own
+     * `text-field`. A non-name field passes through unchanged.
+     */
+    _localizedValue(properties, field) {
+        return resolveLocalizedProperty(properties, field, localeManager.getLanguageCodes());
     }
 
     _truncateName(value, max = 50) {
@@ -765,7 +778,7 @@ export class MapMarkerManager {
         const layerConfig = this._stateManager.getLayerConfig(f.layerId);
         const inspectConfig = layerConfig?.inspect || {};
         const labelField = inspectConfig.label || inspectConfig.id || 'id';
-        const value = f.feature?.properties?.[labelField] ?? f.featureId;
+        const value = this._localizedValue(f.feature?.properties, labelField) ?? f.featureId;
         return { fieldName: inspectConfig.title || inspectConfig.label || labelField, value };
     }
 
@@ -886,7 +899,7 @@ export class MapMarkerManager {
         let rows = [];
         if (fields.length > 0) {
             rows = fields.map((fieldName, i) => {
-                const value = properties[fieldName];
+                const value = this._localizedValue(properties, fieldName);
                 if (value !== null && value !== undefined && value !== '') {
                     return buildRow(fieldTitles[i] || fieldName, value, fieldName);
                 }
@@ -3700,7 +3713,7 @@ export class MapMarkerManager {
             const layerConfig = this._stateManager.getLayerConfig(f.layerId);
             const inspectConfig = layerConfig?.inspect || {};
             const labelField = inspectConfig.label || inspectConfig.id || 'id';
-            return f.feature.properties?.[labelField] || f.featureId;
+            return this._localizedValue(f.feature.properties, labelField) || f.featureId;
         }).join(', ');
     }
 

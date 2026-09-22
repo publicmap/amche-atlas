@@ -232,12 +232,11 @@ export async function mountLocaleSection(container) {
     fallbackField.append(fallbackLabel, fallbackList);
     container.appendChild(fallbackField);
 
-    const fallbackEntries = [];
-    const commitFallback = () => {
+    function commitFallback() {
         localeManager.setFallbackLanguages(fallbackEntries.map(e => e.value).filter(Boolean));
-    };
+    }
 
-    const addFallbackRow = (lang) => {
+    function addFallbackRow(lang) {
         const row = document.createElement('div');
         row.className = 'locale-fallback-row';
 
@@ -245,7 +244,7 @@ export async function mountLocaleSection(container) {
         inputEl.className = 'locale-fallback-row-input';
         row.appendChild(inputEl);
 
-        const entry = { value: lang || null };
+        const entry = { value: lang || null, input: null };
         const input = new AutocompleteBadgeInput({
             placeholder: 'Not set',
             getItems: buildLanguageItems,
@@ -256,6 +255,7 @@ export async function mountLocaleSection(container) {
                 commitFallback();
             }
         });
+        entry.input = input;
         inputEl.appendChild(input.mount());
         paintBadge(input, lang, 'translate');
 
@@ -275,7 +275,7 @@ export async function mountLocaleSection(container) {
 
         fallbackList.appendChild(row);
         fallbackEntries.push(entry);
-    };
+    }
 
     const existingFallbacks = localeManager.getFallbackLanguages();
     if (existingFallbacks.length === 0) {

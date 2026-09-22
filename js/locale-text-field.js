@@ -40,8 +40,32 @@ export function buildNameCoalesce(languageCodes) {
 // configured.
 const NAME_FIELD_PATTERN = /^name([_:].+)?$/;
 
-function isNameField(field) {
+export function isNameField(field) {
     return typeof field === 'string' && NAME_FIELD_PATTERN.test(field);
+}
+
+/**
+ * Same fallback chain buildNameCoalesce() bakes into a map style's
+ * `text-field`, applied instead to a plain feature-properties object - for
+ * anywhere else a name field's value is shown outside the map's own
+ * rendering, e.g. js/map-marker-manager.js's inspect popups/badges (see
+ * inspect.label / inspect.fields in docs/API.md). Returns `undefined` if
+ * nothing in the chain (or the bare field itself) has a value.
+ *
+ * A non-name field (e.g. `ref`, or `Name` capitalised - a different,
+ * deliberately-authored field) passes through untouched, exactly like
+ * localizeTextField's own node-matching does.
+ */
+export function resolveLocalizedProperty(properties, field, languageCodes) {
+    if (!properties || !isNameField(field)) return properties?.[field];
+    for (const lang of languageCodes || []) {
+        if (!lang) continue;
+        for (const template of NAME_FIELD_TEMPLATES) {
+            const value = properties[template.replace('{lang}', lang)];
+            if (value !== null && value !== undefined && value !== '') return value;
+        }
+    }
+    return properties[field] ?? properties.name;
 }
 
 /** `["get", "<name field>"]`, optionally wrapped in a single `to-string`. */
