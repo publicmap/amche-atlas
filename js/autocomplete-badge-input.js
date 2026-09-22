@@ -30,10 +30,30 @@ import autoComplete from '@tarekraafat/autocomplete.js';
 
 let instanceCounter = 0;
 
+/**
+ * `item.icon`/`display.icon` is normally a Bootstrap Icons name (bare
+ * lowercase-with-hyphens, e.g. "geo-alt-fill" - see js/map-nearby-features-
+ * control.js) rendered as `<sl-icon>`, but a caller can hand this an emoji
+ * instead (see js/locale-ui.js's country flags) - anything that isn't a
+ * plain icon-name-shaped string renders as literal text instead.
+ */
+function createIconEl(value, fallbackIconName) {
+    if (!value || /^[a-z0-9-]+$/i.test(value)) {
+        const el = document.createElement('sl-icon');
+        el.setAttribute('name', value || fallbackIconName);
+        return el;
+    }
+    const el = document.createElement('span');
+    el.className = 'ac-badge-input-emoji';
+    el.setAttribute('aria-hidden', 'true');
+    el.textContent = value;
+    return el;
+}
+
 export class AutocompleteBadgeInput {
     /**
-     * @param {() => Array<{category:string, icon:string, label:string, subtext?:string, value:*, checked?:boolean, onHover?:(enter:boolean)=>void}>} getItems -
-     *   rebuilt fresh each time the field is focused or the query changes, so it can reflect live state (markers, GPS, features in view).
+     * @param {(query?: string) => Array<{category:string, icon:string, label:string, subtext?:string, value:*, checked?:boolean, onHover?:(enter:boolean)=>void}>} getItems -
+     *   rebuilt fresh each time the field is focused or the query changes (the typed text so far, '' on focus), so it can reflect live state (markers, GPS, features in view) or re-rank/re-group results around what's been typed.
      * @param {(text:string) => (object|null|Promise<object|null>)} [parseText] -
      *   called with the typed text on blur/Enter when nothing in the list matched it. Returning an item (same shape as a list item) commits it; null/undefined reverts to the previous value.
      * @param {(item:object) => void} onSelect - a list item or a parsed item was committed as this field's value.
@@ -52,18 +72,33 @@ export class AutocompleteBadgeInput {
         this._clearBtn = null;
         this._ac = null;
         this._display = { label: '', icon: 'crosshair', subtext: '', isUnset: true, isPending: false };
+        this._repositionList = null;
+        this._pointerOverField = false;
+        this._onListMouseEnter = () => { this._pointerOverField = true; };
+        this._onListMouseLeave = () => { this._pointerOverField = false; this._scheduleLeaveCheck(); };
     }
 
     mount() {
         this._root = document.createElement('div');
         this._root.className = 'ac-badge-input';
-        // Leaving the whole field (input + its dropdown, both descendants of
-        // root - see _enterEdit) reverts it to a badge, same as a blur -
-        // moving the pointer down into the dropdown to click a suggestion
-        // never leaves root, so this doesn't fight that.
-        this._root.addEventListener('mouseleave', () => this._commitTyped());
+        // The dropdown (see _enterEdit) is portaled to <body> so a scrolling
+        // ancestor can't clip it, so it's no longer a descendant of root and
+        // a plain root mouseleave now fires while the pointer is legitimately
+        // moving down into it. Track "is the pointer over root OR the list"
+        // instead, with a short delay before committing so the brief gap
+        // between the two elements' boxes (crossed on the way from one to
+        // the other) doesn't collapse the field.
+        this._root.addEventListener('mouseenter', () => { this._pointerOverField = true; });
+        this._root.addEventListener('mouseleave', () => { this._pointerOverField = false; this._scheduleLeaveCheck(); });
         this._showBadge();
         return this._root;
+    }
+
+    _scheduleLeaveCheck() {
+        setTimeout(() => {
+            if (!this._input || this._pointerOverField) return;
+            this._commitTyped();
+        }, 200);
     }
 
     /** Updates the badge's shown value. A no-op while the field is being edited. */
@@ -86,8 +121,7 @@ export class AutocompleteBadgeInput {
     _paintBadge() {
         const { icon, label, subtext, isUnset, isPending } = this._display;
         this._badge.innerHTML = '';
-        const iconEl = document.createElement('sl-icon');
-        iconEl.setAttribute('name', icon || 'crosshair');
+        const iconEl = createIconEl(icon, 'crosshair');
         const text = document.createElement('div');
         text.className = 'shortcut-menu-item-text';
         const labelEl = document.createElement('span');
@@ -198,8 +232,13 @@ export class AutocompleteBadgeInput {
             },
             data: {
                 // autoComplete.js always calls .then() on this, even for a
-                // synchronous source.
-                src: () => Promise.resolve(this._getItems() || [])
+                // synchronous source. `cache: false` so this actually runs
+                // on every keystroke (its default caches after the first
+                // call and never invokes `src` again), passing the query
+                // through so getItems can re-rank/re-group around it -
+                // e.g. js/locale-ui.js surfacing an exact code match first.
+                cache: false,
+                src: (query) => Promise.resolve(this._getItems(query) || [])
             },
             events: {
                 input: {
@@ -207,6 +246,29 @@ export class AutocompleteBadgeInput {
                 }
             }
         });
+
+        // The list is created as a sibling of the input inside a `position:
+        // relative` wrapper (see autoComplete.js's services/init.js), which
+        // ancestors like js/settings-menu-control.js's scrolling panel clip
+        // once the dropdown extends past their bounds. Move it to <body> and
+        // position it with `position: fixed` off the input's own rect
+        // instead, kept in sync with scroll/resize for as long as this field
+        // is being edited (see _teardownInput for cleanup).
+        if (this._ac?.list) {
+            document.body.appendChild(this._ac.list);
+            this._ac.list.classList.add('ac-badge-input-list-portaled');
+            const reposition = () => {
+                if (!this._input || !this._ac?.list) return;
+                const rect = this._input.getBoundingClientRect();
+                this._ac.list.style.left = `${rect.left}px`;
+                this._ac.list.style.top = `${rect.bottom + 2}px`;
+                this._ac.list.style.width = `${rect.width}px`;
+            };
+            this._repositionList = reposition;
+            reposition();
+            window.addEventListener('scroll', reposition, true);
+            window.addEventListener('resize', reposition);
+        }
 
         requestAnimationFrame(() => {
             this._input?.focus();
@@ -224,8 +286,7 @@ export class AutocompleteBadgeInput {
         const item = result.value;
         el.classList.add('shortcut-menu-item', 'ac-badge-input-item');
         el.innerHTML = '';
-        const icon = document.createElement('sl-icon');
-        icon.setAttribute('name', item.icon || 'geo-alt');
+        const icon = createIconEl(item.icon, 'geo-alt');
         const text = document.createElement('div');
         text.className = 'shortcut-menu-item-text';
         const label = document.createElement('span');
@@ -300,6 +361,14 @@ export class AutocompleteBadgeInput {
 
     _teardownInput() {
         if (!this._input) return;
+        if (this._repositionList) {
+            window.removeEventListener('scroll', this._repositionList, true);
+            window.removeEventListener('resize', this._repositionList);
+            this._repositionList = null;
+        }
+        // Portaled to <body> in _enterEdit, so it's no longer inside the
+        // wrapper unInit() below removes - detach it ourselves first.
+        this._ac?.list?.parentNode?.removeChild(this._ac.list);
         this._ac?.unInit?.();
         this._ac = null;
         this._input = null;

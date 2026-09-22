@@ -77,6 +77,19 @@ class LocaleManager {
         return this._fallbackLanguages.length ? this._fallbackLanguages : (this._defaults.fallbackLanguages || []);
     }
 
+    /**
+     * Language codes in priority order (primary first, then fallbacks) -
+     * what js/locale-text-field.js's buildNameCoalesce/localizeTextField
+     * take, and what js/locale-map-sync.js re-applies to the map's
+     * `text-field` layout properties whenever this changes.
+     */
+    getLanguageCodes() {
+        const primary = this.getPrimaryLanguage();
+        const codes = primary ? [primary.code] : [];
+        this.getFallbackLanguages().forEach(lang => { if (lang?.code) codes.push(lang.code); });
+        return codes;
+    }
+
     /** True once any field has been explicitly set (by the user or the URL), not just defaulted. */
     isCountryDefault() { return this._country === null; }
     isPrimaryLanguageDefault() { return this._primaryLanguage === null; }

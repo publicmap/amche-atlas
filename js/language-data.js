@@ -320,12 +320,108 @@ export const LANGUAGES = [
 ];
 
 /**
+ * ISO 3166-1 alpha-2 country code -> official/widely-spoken language codes,
+ * most-widely-spoken first. This is what js/locale-ui.js actually groups
+ * the language autocomplete's "Suggested for <Country>" list by - specific
+ * enough that India doesn't suggest Indonesian regional languages just for
+ * both being "somewhere in Asia" (see COUNTRY_REGION below, which is that
+ * coarse and is now only a fallback for a country not listed here).
+ * Deliberately not exhaustive per country (a handful of the most relevant
+ * languages, not every recognised minority language) - covers every country
+ * in js/search/providers/country-provider.js's COUNTRIES list.
+ */
+export const COUNTRY_LANGUAGES = {
+    IN: ['hi', 'en', 'bn', 'te', 'mr', 'ta', 'ur', 'gu', 'kn', 'or', 'ml', 'pa', 'as', 'gom', 'kok'],
+    PK: ['ur', 'en', 'pa', 'ps', 'sd', 'bal'],
+    BD: ['bn', 'en'],
+    LK: ['si', 'ta', 'en'],
+    NP: ['ne', 'en'],
+    BT: ['dz', 'en'],
+    MV: ['dv', 'en'],
+    AF: ['ps', 'prs', 'uz'],
+    CN: ['zh', 'en'],
+    JP: ['ja'],
+    KR: ['ko'],
+    KP: ['ko'],
+    TW: ['zh'],
+    MN: ['mn'],
+    ID: ['id', 'jv', 'su'],
+    TH: ['th'],
+    VN: ['vi'],
+    PH: ['tl', 'en'],
+    MY: ['ms', 'en', 'zh', 'ta'],
+    SG: ['en', 'zh', 'ms', 'ta'],
+    MM: ['my'],
+    KH: ['km'],
+    LA: ['lo'],
+    SA: ['ar'],
+    AE: ['ar', 'en'],
+    QA: ['ar', 'en'],
+    KW: ['ar', 'en'],
+    BH: ['ar', 'en'],
+    OM: ['ar', 'en'],
+    YE: ['ar'],
+    IQ: ['ar', 'ku'],
+    IR: ['fa'],
+    IL: ['he', 'ar', 'en'],
+    JO: ['ar'],
+    LB: ['ar', 'fr'],
+    SY: ['ar'],
+    TR: ['tr', 'ku'],
+    KZ: ['kk', 'ru'],
+    UZ: ['uz', 'ru'],
+    GB: ['en', 'cy', 'gd'],
+    IE: ['en', 'ga'],
+    FR: ['fr'],
+    DE: ['de'],
+    ES: ['es', 'ca', 'eu', 'gl'],
+    PT: ['pt'],
+    IT: ['it'],
+    NL: ['nl'],
+    BE: ['nl', 'fr', 'de'],
+    CH: ['de', 'fr', 'it', 'rm'],
+    AT: ['de'],
+    PL: ['pl'],
+    CZ: ['cs'],
+    HU: ['hu'],
+    RO: ['ro'],
+    BG: ['bg'],
+    GR: ['el'],
+    SE: ['sv'],
+    NO: ['no'],
+    DK: ['da'],
+    FI: ['fi', 'sv'],
+    IS: ['is'],
+    RU: ['ru'],
+    UA: ['uk', 'ru'],
+    EG: ['ar'],
+    MA: ['ar', 'fr'],
+    NG: ['en', 'ha', 'yo', 'ig'],
+    KE: ['sw', 'en'],
+    ET: ['am', 'om'],
+    ZA: ['en', 'af', 'zu', 'xh'],
+    GH: ['en'],
+    TZ: ['sw', 'en'],
+    US: ['en', 'es'],
+    CA: ['en', 'fr'],
+    MX: ['es'],
+    BR: ['pt'],
+    AR: ['es'],
+    CL: ['es'],
+    CO: ['es'],
+    PE: ['es', 'qu'],
+    CU: ['es'],
+    AU: ['en'],
+    NZ: ['en', 'mi'],
+    FJ: ['en', 'fj', 'hi']
+};
+
+/**
  * ISO 3166-1 alpha-2 country code -> ULS macro-region(s) (see LANGUAGES
  * above). Approximate by design (a whole country maps to one broad region,
- * not the other way around) - just enough to sort "languages spoken
- * somewhere near here" ahead of the rest in the autocomplete list, not an
- * authoritative geographic claim. Countries not listed here simply skip the
- * region-based sort (still fully searchable, just unordered by region).
+ * not the other way around) - only used as a fallback for a country
+ * missing from COUNTRY_LANGUAGES above, so a country outside that list
+ * still gets *something* ahead of the rest rather than nothing.
  */
 export const COUNTRY_REGION = {
     AF: 'ME', DZ: 'AF', EG: 'AF', LY: 'AF', MA: 'AF', SD: 'AF', TN: 'AF', BJ: 'AF', BF: 'AF',
@@ -386,10 +482,31 @@ export function languageDisplayName(code, autonym) {
     return autonym || code;
 }
 
+/**
+ * Native-script autonym first, English name in parens, then the code - e.g.
+ * "தமிழ் (Tamil) [ta]" - so the language's own speakers see their own
+ * script leading, with the English gloss for everyone else. Skips the
+ * parenthetical when the two would be identical (e.g. "English [en]").
+ */
+export function formatLanguageLabel(code, autonym) {
+    const native = autonym || code;
+    const english = languageDisplayName(code, autonym);
+    if (english && english !== native) {
+        return `${native} (${english}) [${code}]`;
+    }
+    return `${native} [${code}]`;
+}
+
 export function findLanguageByCode(code) {
     if (!code) return null;
     const lower = code.toLowerCase();
     const match = LANGUAGES.find(([c]) => c === lower);
     if (!match) return null;
-    return { code: match[0], name: languageDisplayName(match[0], match[1]) };
+    const [matchedCode, autonym] = match;
+    return {
+        code: matchedCode,
+        name: languageDisplayName(matchedCode, autonym),
+        autonym,
+        label: formatLanguageLabel(matchedCode, autonym)
+    };
 }

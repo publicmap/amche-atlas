@@ -342,6 +342,32 @@
     color: #f3f4f6;
 }
 
+/* Muted variant of the same badge look used by the country/language fields
+   above (.ac-badge-input-badge reuses .shortcut-menu-item) - a dashed border
+   and dimmer text/icon says "add a new one" without looking like an already-
+   set value. */
+.locale-add-fallback-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: 1px dashed #4b5563;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+}
+
+.locale-add-fallback-btn:hover {
+    border-color: #6b7280;
+    color: #f3f4f6;
+    background: #1f2937;
+}
+
+.locale-add-fallback-btn sl-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
 /* Map Browser Control */
 .map-browser-btn {
     height: 36px !important;
@@ -1895,6 +1921,16 @@ body {
     color: #6b7280 !important;
 }
 
+/* Emoji stand-in for an sl-icon (see createIconEl in
+   autocomplete-badge-input.js) - country flags in js/locale-ui.js. Sized to
+   match the sl-icons it sits alongside instead of the browser's default
+   emoji glyph size. */
+.ac-badge-input-emoji {
+    font-size: 15px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
 .ac-badge-input-field {
     font: inherit;
     color: #f3f4f6;
@@ -1965,6 +2001,21 @@ body {
 
 .ac-badge-input-list[hidden] {
     display: none;
+}
+
+/* Reparented to <body> in autocomplete-badge-input.js's _enterEdit so a
+   scrolling ancestor (e.g. js/settings-menu-control.js's panel) can't clip
+   it - position: fixed with left/top/width set inline from the input's own
+   rect, kept in sync on scroll/resize while editing. */
+.ac-badge-input-list-portaled {
+    position: fixed;
+    top: auto;
+    left: auto;
+    right: auto;
+    /* Now a sibling of .atlas-layer-menu-panel/.settings-menu-panel (z-index:
+       10000) in <body>, not a descendant clipped by it - needs to outrank
+       that to actually show above it. */
+    z-index: 10001;
 }
 
 .ac-badge-input-group-heading {

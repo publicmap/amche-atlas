@@ -12,6 +12,8 @@ import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-mess
 import ConfigManager from './config-manager.js';
 import { handlerLoader } from './inspection-handler-loader.js';
 import { STYLE_PROPERTY_MAPPING, guessPropertyKind } from './mapbox-style-spec.js';
+import { localizeTextField } from './locale-text-field.js';
+import { localeManager } from './locale-manager.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
 
 // How many removed Overpass layers keep their fetched features around for a
@@ -3790,6 +3792,16 @@ export class MapboxAPI {
                 paint[property] = style[property];
             }
         });
+
+        // Rewrite any name-field lookup (however deeply nested inside a
+        // step/match/case/... expression) to the current locale's fallback
+        // chain - see js/locale-text-field.js. A locale change afterward is
+        // re-applied to already-created layers separately (see
+        // js/locale-map-sync.js); this only has to get it right at
+        // creation time.
+        if (layout['text-field'] !== undefined) {
+            layout['text-field'] = localizeTextField(layout['text-field'], localeManager.getLanguageCodes());
+        }
 
         return { paint, layout };
     }

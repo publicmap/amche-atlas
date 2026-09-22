@@ -15,6 +15,7 @@ import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
 import { AtlasLayerMenuControl } from './atlas-layer-menu-control.js';
 import { SettingsMenuControl } from './settings-menu-control.js';
+import { initLocaleMapSync } from './locale-map-sync.js';
 import { MapAttributionControl } from './map-attribution-control.js';
 import { StreetviewControl } from './streetview-control.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
@@ -949,6 +950,11 @@ export class MapInitializer {
             map.on('dragend', () => {
                 canvas.style.cursor = 'grab';
             });
+
+            // Applies the current locale (country worldview, text-field
+            // language) to the map now and again on every locale change -
+            // see js/locale-manager.js / js/locale-map-sync.js.
+            initLocaleMapSync(map);
 
             // Initialize centralized state manager (NEW ARCHITECTURE)
             const stateManager = new MapFeatureStateManager(map);

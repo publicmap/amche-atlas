@@ -11,39 +11,88 @@
  * a modal's show()) without leaking the previous ones.
  */
 import { AutocompleteBadgeInput } from './autocomplete-badge-input.js';
-import { LANGUAGES, COUNTRY_REGION, languageDisplayName, findLanguageByCode } from './language-data.js';
+import { LANGUAGES, COUNTRY_LANGUAGES, COUNTRY_REGION, languageDisplayName, formatLanguageLabel, findLanguageByCode } from './language-data.js';
 import { COUNTRIES } from './search/providers/country-provider.js';
 import { localeManager } from './locale-manager.js';
 
-function buildCountryItems() {
-    return COUNTRIES.map(([name, code]) => ({
-        category: 'Countries', icon: 'flag', label: `${name} [${code}]`, value: { name, code }
-    }));
+/**
+ * ISO 3166-1 alpha-2 -> flag emoji, via Unicode's Regional Indicator Symbol
+ * letters (U+1F1E6..U+1F1FF map 1:1 onto A-Z at a fixed offset) - every
+ * two-letter country code composes into its flag this way, no lookup table
+ * needed. Returns null for anything that isn't exactly two letters (a
+ * free-typed/unrecognised code - falls back to the generic flag icon).
+ */
+function countryFlagEmoji(code) {
+    if (!/^[A-Za-z]{2}$/.test(code || '')) return null;
+    return code.toUpperCase().split('').map(c => String.fromCodePoint(c.codePointAt(0) + 127397)).join('');
+}
+
+function countryIcon(value) {
+    return (value && countryFlagEmoji(value.code)) || 'flag';
 }
 
 /**
- * Languages relevant to the current locale country's ULS macro-region (see
- * js/language-data.js) sort first, under their own category heading, ahead
- * of the full list - approximate (a whole country maps to one broad region,
- * not the other way around), but enough that e.g. a Goa/India locale finds
- * Konkani/Marathi/Hindi before scrolling past everything else.
+ * Exact code matches (typing "ta" for Tamil, or a country's own ISO code)
+ * sort first, under their own "Best Match" heading, ahead of whatever
+ * category they'd otherwise land in - a query this specific means the user
+ * already knows what they want, and a substring hit elsewhere in a long
+ * autonym/name (e.g. "ta" inside "Batak") shouldn't outrank it.
  */
-function buildLanguageItems() {
-    const countryCode = localeManager.getCountry()?.code;
-    const region = countryCode ? COUNTRY_REGION[countryCode] : null;
-    const countryName = localeManager.getCountry()?.name;
+function withExactCodeFirst(items, query) {
+    if (!query) return items;
+    const lower = query.trim().toLowerCase();
+    if (!lower) return items;
+    const exact = [];
+    const rest = [];
+    items.forEach(item => {
+        if (item.value?.code?.toLowerCase() === lower) {
+            exact.push({ ...item, category: 'Best Match' });
+        } else {
+            rest.push(item);
+        }
+    });
+    return exact.concat(rest);
+}
+
+function buildCountryItems(query) {
+    const items = COUNTRIES.map(([name, code]) => ({
+        category: 'Countries', icon: countryFlagEmoji(code) || 'flag', label: `${name} [${code}]`, value: { name, code }
+    }));
+    return withExactCodeFirst(items, query);
+}
+
+/**
+ * Languages relevant to the current locale country sort first, under their
+ * own category heading, ahead of the full list. Prefers COUNTRY_LANGUAGES'
+ * actual official/major languages for that specific country (see
+ * js/language-data.js); falls back to its coarser ULS macro-region only for
+ * a country missing from that table, so e.g. India doesn't surface
+ * Indonesian regional languages just for both being "somewhere in Asia".
+ */
+function buildLanguageItems(query) {
+    const country = localeManager.getCountry();
+    const preferredCodes = country?.code ? COUNTRY_LANGUAGES[country.code] : null;
+    const region = !preferredCodes && country?.code ? COUNTRY_REGION[country.code] : null;
 
     const suggested = [];
     const rest = [];
     LANGUAGES.forEach(([code, autonym, regions]) => {
         const name = languageDisplayName(code, autonym);
-        const item = { icon: 'translate', label: `${name} [${code}]`, value: { name, code } };
-        (region && regions?.includes(region) ? suggested : rest).push(item);
+        const label = formatLanguageLabel(code, autonym);
+        const item = { icon: 'translate', label, value: { name, autonym, code, label } };
+        const isSuggested = preferredCodes ? preferredCodes.includes(code) : (region && regions?.includes(region));
+        (isSuggested ? suggested : rest).push(item);
     });
 
-    suggested.forEach(item => { item.category = `Suggested for ${countryName}`; });
+    // COUNTRY_LANGUAGES is itself already most-relevant-first; LANGUAGES is
+    // sorted by code, which loses that ordering when filtering - restore it.
+    if (preferredCodes) {
+        suggested.sort((a, b) => preferredCodes.indexOf(a.value.code) - preferredCodes.indexOf(b.value.code));
+    }
+
+    suggested.forEach(item => { item.category = `Suggested for ${country.name}`; });
     rest.forEach(item => { item.category = 'All Languages'; });
-    return suggested.concat(rest);
+    return withExactCodeFirst(suggested.concat(rest), query);
 }
 
 function parseCountryText(text) {
@@ -67,7 +116,7 @@ function parseLanguageText(text) {
 function paintBadge(input, value, icon) {
     input.render({
         icon,
-        label: value ? `${value.name} [${value.code}]` : '',
+        label: value ? (value.label || `${value.name} [${value.code}]`) : '',
         subtext: '',
         isUnset: !value
     });
@@ -96,20 +145,34 @@ export async function mountLocaleSection(container) {
         parseText: parseCountryText,
         onSelect: (item) => {
             localeManager.setCountry(item.value);
-            paintBadge(countryInput, item.value, 'flag');
+            paintBadge(countryInput, item.value, countryIcon(item.value));
         }
     });
     countryInputEl.appendChild(countryInput.mount());
-    paintBadge(countryInput, localeManager.getCountry(), 'flag');
+    paintBadge(countryInput, localeManager.getCountry(), countryIcon(localeManager.getCountry()));
 
     const primaryField = document.createElement('div');
     primaryField.className = 'locale-field';
     const primaryLabel = document.createElement('label');
     primaryLabel.className = 'locale-field-label';
     primaryLabel.textContent = 'Primary Language';
+    const primaryRow = document.createElement('div');
+    primaryRow.className = 'locale-fallback-row';
     const primaryInputEl = document.createElement('div');
-    primaryField.append(primaryLabel, primaryInputEl);
+    primaryInputEl.className = 'locale-fallback-row-input';
+    primaryRow.appendChild(primaryInputEl);
+    const primaryClearBtn = document.createElement('button');
+    primaryClearBtn.type = 'button';
+    primaryClearBtn.className = 'locale-fallback-remove-btn';
+    primaryClearBtn.setAttribute('aria-label', 'Reset to default primary language');
+    primaryClearBtn.innerHTML = '<sl-icon name="x-lg"></sl-icon>';
+    primaryRow.appendChild(primaryClearBtn);
+    primaryField.append(primaryLabel, primaryRow);
     container.appendChild(primaryField);
+
+    const updatePrimaryClearVisibility = () => {
+        primaryClearBtn.hidden = localeManager.isPrimaryLanguageDefault();
+    };
 
     const primaryInput = new AutocompleteBadgeInput({
         placeholder: 'Not set',
@@ -118,10 +181,18 @@ export async function mountLocaleSection(container) {
         onSelect: (item) => {
             localeManager.setPrimaryLanguage(item.value);
             paintBadge(primaryInput, item.value, 'translate');
+            updatePrimaryClearVisibility();
         }
     });
     primaryInputEl.appendChild(primaryInput.mount());
     paintBadge(primaryInput, localeManager.getPrimaryLanguage(), 'translate');
+    updatePrimaryClearVisibility();
+
+    primaryClearBtn.addEventListener('click', () => {
+        localeManager.setPrimaryLanguage(null);
+        paintBadge(primaryInput, localeManager.getPrimaryLanguage(), 'translate');
+        updatePrimaryClearVisibility();
+    });
 
     const fallbackField = document.createElement('div');
     fallbackField.className = 'locale-field';
@@ -185,10 +256,10 @@ export async function mountLocaleSection(container) {
         existingFallbacks.forEach(addFallbackRow);
     }
 
-    const addBtn = document.createElement('sl-button');
-    addBtn.setAttribute('size', 'small');
-    addBtn.className = 'locale-add-fallback-btn';
-    addBtn.innerHTML = '<sl-icon slot="prefix" name="plus-lg"></sl-icon>Add fallback language';
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'shortcut-menu-item locale-add-fallback-btn';
+    addBtn.innerHTML = '<sl-icon name="plus-lg"></sl-icon><span>Add fallback language</span>';
     addBtn.addEventListener('click', () => addFallbackRow(null));
     fallbackField.appendChild(addBtn);
 }

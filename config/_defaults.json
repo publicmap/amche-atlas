@@ -4,7 +4,7 @@
     "shareButton": "Share"
   },
   "locale": {
-    "country": null,
+    "country": "IN",
     "primaryLanguage": {
       "name": "English",
       "code": "en"
