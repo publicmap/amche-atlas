@@ -1,0 +1,395 @@
+/**
+ * Language codes + native names (autonyms) + ULS macro-regions, for the
+ * locale settings' language autocomplete fields (see
+ * js/layer-settings-modal.js, js/settings-menu-control.js, js/locale-ui.js,
+ * and js/locale-manager.js).
+ *
+ * Sourced from Wikimedia's actively-maintained Universal Language Selector
+ * data (https://github.com/wikimedia/jquery.uls/blob/master/src/jquery.uls.data.js,
+ * GPL-2.0/MIT dual-licensed), extracted to [code, autonym, regions] triples -
+ * far broader than ISO 639-1 alone (includes many OSM `name:<code>` tag
+ * values - regional/minority languages, script variants like
+ * "aeb-arab"/"aeb-latn" - that ISO 639-1's ~184 two-letter codes don't
+ * cover), which is what this app's OSM label fallback-language chains
+ * actually need to match against.
+ *
+ * `regions` is the ULS source's own broad grouping (not per-country data -
+ * `AF`/`AM`/`AS`/`EU`/`ME`/`PA` are continent-ish groups it uses to organise
+ * its own language-picker UI, plus `WW` for "worldwide"/constructed
+ * languages like Esperanto), used here to sort the language list so
+ * whichever region the current locale country falls in (see
+ * COUNTRY_REGION below) surfaces first, ahead of the rest.
+ *
+ * Re-extract with the same script (see the PR/commit introducing this file)
+ * if that source updates its language list.
+ */
+export const LANGUAGES = [
+    ["aa", "Qafár af", ["AF"]], ["aae", "arbërisht", ["EU"]], ["ab", "аԥсшәа", ["EU"]],
+    ["abe", "Wôbanakiôdwawôgan", ["AM"]], ["abr", "Abron", ["AF"]], ["abs", "Bahasa Ambon", ["AS"]],
+    ["ace", "Acèh", ["AS", "PA"]], ["acf", "Kwéyòl Sent Lisi", ["AM"]], ["ach", "Acoli", ["AF"]],
+    ["acm", "عراقي", ["ME"]], ["acq", "تعزية-عدنية", ["ME", "AF"]], ["ada", "Dangme", ["AF"]],
+    ["ady", "адыгабзэ", ["EU", "ME"]], ["ady-cyrl", "ady-cyrl", []], ["ady-latn", "Adygabze", ["EU", "ME"]],
+    ["aeb", "تونسي", ["AF"]], ["aeb-arab", "aeb-arab", []], ["aeb-latn", "Tûnsî", ["AF"]],
+    ["af", "Afrikaans", ["AF"]], ["agq", "aghɨ̂m", ["AF"]], ["agr", "Awajún", ["AM"]],
+    ["ahr", "अहिराणी", ["AS"]], ["aig", "Aanteegan an' Baabyuudan", ["AM"]], ["aii", "ܣܘܪܝܬ", ["ME"]],
+    ["ajg", "ajagbe", ["AF"]], ["ajp", "ajp", []], ["ajp-arab", "ajp-arab", []],
+    ["ajp-latn", "ajp-latn", []], ["akb", "Batak Angkola", ["AS", "PA"]], ["akz", "Albaamo innaaɬiilka", ["AM"]],
+    ["ale", "unangam tunuu", ["AM", "AS"]], ["ale-cyrl", "унаӈам тунуу", ["AS"]], ["aln", "Gegë", ["EU"]],
+    ["als", "als", []], ["alt", "алтай тил", ["EU", "AS"]], ["am", "አማርኛ", ["AF"]],
+    ["ami", "Pangcah", ["AS"]], ["an", "aragonés", ["EU"]], ["ang", "Ænglisc", ["EU"]],
+    ["ann", "Obolo", ["AF"]], ["anp", "अंगिका", ["AS"]], ["apc", "شامي", ["ME"]],
+    ["apc-arab", "apc-arab", []], ["apc-latn", "šāmi", ["ME"]], ["apw", "Ndee biyati'", ["AM"]],
+    ["ar", "العربية", ["AF", "ME"]], ["ar-001", "ar-001", []], ["arc", "ܐܪܡܝܐ", ["ME"]],
+    ["arn", "mapudungun", ["AM"]], ["aro", "Araona", ["AM"]], ["arq", "جازايرية", ["AF", "ME"]],
+    ["ars", "نجدي", ["ME"]], ["ary", "الدارجة", ["AF", "ME"]], ["ary-arab", "ary-arab", []],
+    ["ary-latn", "ed-dārija", ["AF", "ME"]], ["arz", "مصرى", ["AF", "ME"]], ["as", "অসমীয়া", ["AS"]],
+    ["ase", "American Sign Language", ["AM"]], ["ast", "asturianu", ["EU"]], ["atj", "atikamekw", ["AM"]],
+    ["atv", "тÿндÿк алтай тил", ["EU", "AS"]], ["av", "авар", ["EU"]], ["avk", "Kotava", ["WW"]],
+    ["awa", "अवधी", ["AS"]], ["ay", "Aymar aru", ["AM"]], ["ayh", "الحضرمية", ["ME"]],
+    ["az", "azərbaycanca", ["EU", "ME"]], ["az-arab", "az-arab", []], ["az-cyrl", "азәрбајҹанҹа", ["EU", "ME"]],
+    ["az-latn", "az-latn", []], ["azb", "تۆرکجه", ["AS", "ME"]], ["azj", "azj", []],
+    ["ba", "башҡортса", ["EU"]], ["ban", "Bali", ["AS", "PA"]], ["ban-bali", "ᬩᬮᬶ", ["AS", "PA"]],
+    ["bar", "Boarisch", ["EU"]], ["bas", "ɓasaá", ["AF"]], ["bat-smg", "bat-smg", []],
+    ["bax", "Shüpamom", ["AF"]], ["bax-bamu", "ꚶꛉ꛰꛲ꚫꛦꚳ", ["AF"]], ["bbc", "bbc", []],
+    ["bbc-batk", "ᯅᯖᯂ᯲ ᯖᯬᯅ", ["AS"]], ["bbc-latn", "Batak Toba", ["AS"]], ["bcc", "جهلسری بلوچی", ["AS", "ME"]],
+    ["bci", "wawle", ["AF"]], ["bcl", "Bikol Central", ["AS"]], ["bdr", "Bajau Sama", ["AS"]],
+    ["be", "беларуская", ["EU"]], ["be-tarask", "беларуская (тарашкевіца)", ["EU"]], ["be-x-old", "be-x-old", []],
+    ["bem", "IciBemba", ["AF"]], ["bew", "Betawi", ["AS"]], ["bfa", "Bari", ["AF"]],
+    ["bfq", "படகா", ["AS"]], ["bft", "بلتی", ["AS"]], ["bfw", "ରେମସାମ୍", ["AS"]],
+    ["bg", "български", ["EU"]], ["bgc", "हरियाणवी", ["AS"]], ["bgc-arab", "ہریانوی", ["AS"]],
+    ["bgn", "روچ کپتین بلوچی", ["AS", "ME"]], ["bh", "bh", []], ["bho", "भोजपुरी", ["AS"]],
+    ["bi", "Bislama", ["PA"]], ["bin", "Ẹdo", ["AF"]], ["bjn", "Banjar", ["AS"]],
+    ["bkm", "Itaŋikom", ["AF"]], ["blc", "ItNuxalkmc", ["AM"]], ["blk", "ပအိုဝ်ႏဘာႏသာႏ", ["AS"]],
+    ["bm", "bamanankan", ["AF"]], ["bn", "বাংলা", ["AS"]], ["bnn", "bunun", ["AS"]],
+    ["bo", "བོད་ཡིག", ["AS"]], ["bol", "bòo pìkkà", ["AF"]], ["bom", "bèrom", ["AF"]],
+    ["bpy", "বিষ্ণুপ্রিয়া মণিপুরী", ["AS"]], ["bqi", "بختیاری", ["AS", "ME"]], ["br", "brezhoneg", ["EU"]],
+    ["brh", "Bráhuí", ["ME", "AS"]], ["brx", "बर'", ["AS"]], ["bs", "bosanski", ["EU"]],
+    ["btd", "Batak Dairi", ["AS", "PA"]], ["btm", "Mandailing", ["AS"]], ["bto", "Iriga Bicolano", ["AS"]],
+    ["bts", "Sahap Simalungun", ["AS", "PA"]], ["btx", "cakap Karo", ["AS", "PA"]], ["btz", "Batak Alas-Kluet", ["AS", "PA"]],
+    ["bug", "Basa Ugi", ["AS", "PA"]], ["bug-bugi", "ᨅᨔ ᨕᨘᨁᨗ", ["AS", "PA"]], ["bug-latn", "bug-latn", []],
+    ["bum", "bulu", ["AF"]], ["bwr", "bura", ["AF"]], ["bxr", "буряад", ["AS"]],
+    ["byn", "ብሊን", ["AF"]], ["byv", "Mə̀dʉ̂mbɑ̀", ["AF"]], ["bzj", "Bileez Kriol", ["AM"]],
+    ["bzs", "Língua brasileira de sinais", ["AM"]], ["ca", "català", ["EU"]], ["cak", "Kaqchikel", ["AM"]],
+    ["cbk", "Chavacano de Zamboanga", ["AS"]], ["cbk-zam", "cbk-zam", []], ["ccp", "𑄌𑄋𑄴𑄟𑄳𑄦", ["AS"]],
+    ["cdo", "閩東語 / Mìng-dĕ̤ng-ngṳ̄", ["AS"]], ["cdo-hani", "閩東語（漢字）", ["AS"]], ["cdo-hans", "闽东语（简化汉字）", ["AS"]],
+    ["cdo-hant", "閩東語（傳統漢字）", ["AS"]], ["cdo-latn", "Mìng-dĕ̤ng-ngṳ̄ (Bàng-uâ-cê)", ["AS"]], ["ce", "нохчийн", ["EU"]],
+    ["ceb", "Cebuano", ["AS"]], ["ch", "Chamoru", ["PA"]], ["chm", "chm", []],
+    ["chn", "chinuk wawa", ["AM"]], ["cho", "Chahta anumpa", ["AM"]], ["chr", "ᏣᎳᎩ", ["AM"]],
+    ["chy", "Tsetsêhestâhese", ["AM"]], ["ciw", "Anishinaabemowin", ["AM"]], ["cja", "cja", []],
+    ["cja-arab", "چم فور", ["AS"]], ["cja-cham", "ꨌꩌ ꨚꨭꩉ", ["AS"]], ["cja-latn", "Cam pur", ["AS"]],
+    ["cjk", "cokwe", ["AF"]], ["cjm", "cjm", []], ["cjm-arab", "چم فاي", ["AS"]],
+    ["cjm-cham", "ꨌꩌ ꨚꨰ", ["AS"]], ["cjm-latn", "Cam pai", ["AS"]], ["cjy", "晉語", ["AS"]],
+    ["cjy-hans", "晋语（简化字）", ["AS"]], ["cjy-hant", "晉語（正字）", ["AS"]], ["ckb", "کوردی", ["ME"]],
+    ["cko", "Anufɔ", ["AF"]], ["ckt", "ԓыгъоравэтԓьэн", ["AS"]], ["ckv", "Kebalan", ["AS"]],
+    ["cnh", "Lai holh", ["AS"]], ["cnr", "cnr", []], ["cnr-cyrl", "црногорски", ["EU"]],
+    ["cnr-latn", "crnogorski", ["EU"]], ["co", "corsu", ["EU"]], ["cop", "ϯⲙⲉⲧⲣⲉⲙⲛ̀ⲭⲏⲙⲓ", ["AF", "ME"]],
+    ["cps", "Capiceño", ["AS"]], ["cpx", "莆仙語 / Pó-sing-gṳ̂", ["AS"]], ["cpx-hans", "莆仙语（简体）", ["AS"]],
+    ["cpx-hant", "莆仙語（繁體）", ["AS"]], ["cpx-latn", "Pó-sing-gṳ̂ (Báⁿ-uā-ci̍)", ["AS"]], ["cr", "ᓀᐦᐃᔭᐍᐏᐣ", ["AM"]],
+    ["cr-cans", "cr-cans", []], ["cr-latn", "Nēhiyawēwin", ["AM"]], ["crg", "Michif", ["AM"]],
+    ["crh", "qırımtatarca", ["EU"]], ["crh-cyrl", "къырымтатарджа", ["EU"]], ["crh-latn", "crh-latn", []],
+    ["crh-ro", "tatarşa", ["EU"]], ["cs", "čeština", ["EU"]], ["csb", "kaszëbsczi", ["EU"]],
+    ["cu", "словѣньскъ / ⰔⰎⰑⰂⰡⰐⰠⰔⰍⰟ", ["EU"]], ["cv", "чӑвашла", ["EU"]], ["cy", "Cymraeg", ["EU"]],
+    ["da", "dansk", ["EU"]], ["dag", "dagbanli", ["AF"]], ["dar", "дарган", ["EU"]],
+    ["ddn", "dendi", ["AF"]], ["de", "Deutsch", ["EU"]], ["de-at", "Österreichisches Deutsch", ["EU"]],
+    ["de-ch", "Schweizer Hochdeutsch", ["EU"]], ["de-formal", "Deutsch (Sie-Form)", ["EU"]], ["dga", "Dagaare", ["AF"]],
+    ["dik", "dik", []], ["din", "Thuɔŋjäŋ", ["AF"]], ["diq", "Zazaki", ["EU", "AS"]],
+    ["dlg", "долган тыла", ["EU", "AS"]], ["doi", "डोगरी", ["AS"]], ["dru", "drekai", ["AS"]],
+    ["dsb", "dolnoserbski", ["EU"]], ["dso", "ଦେଶିଆ", ["AS"]], ["dtp", "Kadazandusun", ["AS"]],
+    ["dty", "डोटेली", ["AS"]], ["dua", "Duálá", ["AF"]], ["dv", "ދިވެހިބަސް", ["AS"]],
+    ["dyu", "Julakan", ["AF"]], ["dz", "ཇོང་ཁ", ["AS"]], ["ee", "eʋegbe", ["AF"]],
+    ["efi", "efịk", ["AF"]], ["egl", "Emiliàn", ["EU"]], ["ekp", "ẹkpeye", ["AF"]],
+    ["el", "Ελληνικά", ["EU"]], ["elm", "Eleme", ["AF"]], ["eml", "emiliàn e rumagnòl", ["EU"]],
+    ["en", "English", ["EU", "AM", "AF", "ME", "AS", "PA", "WW"]], ["en-ca", "Canadian English", ["AM"]], ["en-gb", "British English", ["EU", "AS", "PA"]],
+    ["en-simple", "Simple English", ["WW"]], ["en-us", "American English", ["AM"]], ["eo", "Esperanto", ["WW"]],
+    ["es", "español", ["EU", "AM", "AF", "WW", "PA"]], ["es-419", "español de América Latina", ["AM"]], ["es-formal", "español (formal)", ["EU", "AM", "AF", "WW"]],
+    ["es-ni", "español nicaragüense", ["AM"]], ["esu", "Yup'ik", ["AM"]], ["et", "eesti", ["EU"]],
+    ["eu", "euskara", ["EU"]], ["ext", "estremeñu", ["EU"]], ["eya", "I·ya·q", ["AM"]],
+    ["fa", "فارسی", ["AS", "ME"]], ["fan", "Faŋ", ["AF"]], ["fat", "mfantse", ["AF"]],
+    ["fax", "Fala", ["EU"]], ["ff", "Fulfulde", ["AF"]], ["fi", "suomi", ["EU"]],
+    ["fil", "fil", []], ["fit", "meänkieli", ["EU"]], ["fiu-vro", "fiu-vro", []],
+    ["fj", "Na Vosa Vakaviti", ["PA"]], ["fkv", "kvääni", ["EU"]], ["fo", "føroyskt", ["EU"]],
+    ["fon", "fɔ̀ngbè", ["AF"]], ["fr", "français", ["EU", "AM", "WW"]], ["frc", "français cadien", ["AM"]],
+    ["frp", "arpetan", ["EU"]], ["frr", "Nordfriisk", ["EU"]], ["frs", "Oostfräisk", ["EU"]],
+    ["fuf", "Fuuta Jalon", ["AF"]], ["fur", "furlan", ["EU"]], ["fuv", "fuv", []],
+    ["fvr", "poor’íŋ belé’ŋ", ["AF"]], ["fy", "Frysk", ["EU"]], ["ga", "Gaeilge", ["EU"]],
+    ["gaa", "Ga", ["AF"]], ["gag", "Gagauz", ["EU"]], ["gah", "Alekano", ["AS"]],
+    ["gan", "贛語", ["AS"]], ["gan-hans", "赣语（简体）", ["AS"]], ["gan-hant", "贛語（繁體）", ["AS"]],
+    ["gaz", "gaz", []], ["gbm", "गढ़वळि", ["AS"]], ["gbz", "Dari-e Mazdeyasnā", ["AS"]],
+    ["gcf", "kréyòl Gwadloup", ["AM"]], ["gcr", "kriyòl gwiyannen", ["AM"]], ["gd", "Gàidhlig", ["EU"]],
+    ["gdo", "гъибдилӀи мицци", ["EU"]], ["gez", "ግዕዝ", ["AF"]], ["gju-arab", "گوجری", ["AS"]],
+    ["gju-deva", "गुज्जरी", ["AS"]], ["gl", "galego", ["EU"]], ["gld", "на̄ни", ["AS"]],
+    ["glk", "گیلکی", ["AS", "ME"]], ["gn", "Avañe'ẽ", ["AM"]], ["gom", "gom", []],
+    ["gom-deva", "गोंयची कोंकणी", ["AS"]], ["gom-latn", "Gõychi Konknni", ["AS"]], ["gor", "Bahasa Hulontalo", ["AS"]],
+    ["got", "𐌲𐌿𐍄𐌹𐍃𐌺", ["EU"]], ["gpe", "Ghanaian Pidgin", ["AF"]], ["grc", "Ἀρχαία ἑλληνικὴ", ["EU"]],
+    ["gsw", "Alemannisch", ["EU"]], ["gu", "ગુજરાતી", ["AS"]], ["guc", "wayuunaiki", ["AM"]],
+    ["gum", "Namtrik", ["AM"]], ["gur", "farefare", ["AF"]], ["guw", "gungbe", ["AF"]],
+    ["gv", "Gaelg", ["EU"]], ["ha", "Hausa", ["AF"]], ["ha-arab", "هَوُسَ", ["AF"]],
+    ["ha-latn", "ha-latn", []], ["hai", "X̱aat Kíl", ["AM"]], ["hak", "客家語 / Hak-kâ-ngî", ["AS"]],
+    ["hak-hans", "客家语（简体）", ["AS"]], ["hak-hant", "客家語（繁體）", ["AS"]], ["hak-latn", "Hak-kâ-ngî (Pha̍k-fa-sṳ)", ["AS"]],
+    ["hav", "Kihavu", ["AF"]], ["haw", "Hawaiʻi", ["AM", "PA"]], ["he", "עברית", ["ME"]],
+    ["hi", "हिन्दी", ["AS"]], ["hif", "Fiji Hindi", ["PA", "AS"]], ["hif-deva", "फ़ीजी हिन्दी", ["AS"]],
+    ["hif-latn", "hif-latn", []], ["hil", "Ilonggo", ["AS"]], ["hke", "kihunde", ["AF"]],
+    ["hne", "छत्तीसगढ़ी", ["AS"]], ["hno", "ہندکو", ["AS"]], ["ho", "Hiri Motu", ["PA"]],
+    ["hoc", "𑢹𑣉𑣉", ["AS"]], ["hoc-latn", "Ho", ["AS"]], ["hr", "hrvatski", ["EU"]],
+    ["hrx", "Hunsrik", ["AM"]], ["hsb", "hornjoserbsce", ["EU"]], ["hsn", "湘語", ["AS"]],
+    ["ht", "Kreyòl ayisyen", ["AM"]], ["hu", "magyar", ["EU"]], ["hu-formal", "Magyar (magázó)", ["EU"]],
+    ["hy", "հայերեն", ["EU", "ME"]], ["hyw", "Արեւմտահայերէն", ["EU", "ME"]], ["hz", "Otsiherero", ["AF"]],
+    ["ia", "interlingua", ["WW"]], ["iba", "Jaku Iban", ["AS", "PA"]], ["ibb", "ibibio", ["AF"]],
+    ["id", "Bahasa Indonesia", ["AS", "PA"]], ["ie", "Interlingue", ["WW"]], ["ig", "Igbo", ["AF"]],
+    ["igb", "Ebira", ["AF"]], ["igl", "Igala", ["AF"]], ["ii", "ꆇꉙ", ["AS"]],
+    ["ik", "Iñupiatun", ["AM"]], ["ike-cans", "ᐃᓄᒃᑎᑐᑦ", ["AM"]], ["ike-latn", "inuktitut", ["AM"]],
+    ["ilo", "Ilokano", ["AS"]], ["inh", "гӀалгӀай", ["EU"]], ["io", "Ido", ["WW"]],
+    ["is", "íslenska", ["EU"]], ["ish", "awain", ["AF"]], ["isv", "isv", []],
+    ["isv-cyrl", "меджусловјанскы", ["EU"]], ["isv-latn", "medžuslovjansky", ["EU"]], ["it", "italiano", ["EU"]],
+    ["iu", "iu", []], ["izh", "ižoran keel", ["EU"]], ["izr", "Izere", ["AF"]],
+    ["ja", "日本語", ["AS"]], ["jab", "Hyam", ["AF"]], ["jac", "Abꞌxubꞌal Poptiꞌ", ["AM"]],
+    ["jam", "Patois", ["AM"]], ["jax", "Jambi", ["AS", "PA"]], ["jbo", "lojban", ["WW"]],
+    ["jdt", "jdt", []], ["jdt-cyrl", "жугьури", ["EU", "AS"]], ["jje", "제주말", ["AS"]],
+    ["juk", "Nene Wapan", ["AF"]], ["jut", "jysk", ["EU"]], ["jv", "Jawa", ["AS", "PA"]],
+    ["jv-java", "ꦗꦮ", ["AS", "PA"]], ["ka", "ქართული", ["EU"]], ["kaa", "Qaraqalpaqsha", ["AS"]],
+    ["kab", "Taqbaylit", ["AF", "EU"]], ["kac", "Jinghpaw", ["AS"]], ["kai", "Karai-karai", ["AF"]],
+    ["kaj", "Jju", ["AF"]], ["kam", "kĩkamba", ["AF"]], ["kbd", "адыгэбзэ", ["EU", "ME"]],
+    ["kbd-cyrl", "kbd-cyrl", []], ["kbd-latn", "Qabardjajəbza", ["EU"]], ["kbp", "Kabɩyɛ", ["AF"]],
+    ["kcg", "Tyap", ["AF"]], ["kck", "tjikalanga", ["AF"]], ["kea", "kabuverdianu", ["AF"]],
+    ["ken", "kɛ́nyáŋ", ["AF"]], ["kg", "Kongo", ["AF"]], ["kge", "Kumoring", ["AS", "PA"]],
+    ["kge-arab", "كوموريڠ", ["AS", "PA"]], ["kgg", "गेम्येहाक़ गिपन", ["AS"]], ["kgp", "Kaingáng", ["AM"]],
+    ["kha", "Khasi", ["AS"]], ["khk", "khk", []], ["khw", "کھوار", ["ME", "AS"]],
+    ["ki", "Gĩkũyũ", ["AF"]], ["kip", "शेषी पाङ", ["AS"]], ["kiu", "Kırmancki", ["EU", "ME"]],
+    ["kix", "Khiamniungan", ["AS"]], ["kj", "Kwanyama", ["AF"]], ["kjh", "хакас", ["AS"]],
+    ["kjp", "ဖၠုံလိက်", ["AS"]], ["kk", "kk", []], ["kk-arab", "قازاقشا (تٶتە)", ["EU", "AS"]],
+    ["kk-cn", "kk-cn", []], ["kk-cyrl", "қазақша", ["EU", "AS"]], ["kk-kz", "kk-kz", []],
+    ["kk-latn", "qazaqşa", ["EU", "AS", "ME"]], ["kk-tr", "kk-tr", []], ["kl", "kalaallisut", ["AM", "EU"]],
+    ["km", "ភាសាខ្មែរ", ["AS"]], ["kmb", "kimbundu", ["AF"]], ["kmr", "kmr", []],
+    ["kn", "ಕನ್ನಡ", ["AS"]], ["knc", "Yerwa Kanuri", ["AF"]], ["knn", "महाराष्ट्रीय कोंकणी", ["AS"]],
+    ["ko", "한국어", ["AS"]], ["ko-kp", "조선말", ["AS"]], ["koi", "перем коми", ["EU"]],
+    ["koy", "Denaakkenaageʼ", ["AM"]], ["kr", "kanuri", ["AF"]], ["krc", "къарачай-малкъар", ["EU"]],
+    ["kri", "Krio", ["AF"]], ["krj", "Kinaray-a", ["AS"]], ["krl", "Karjala", ["EU"]],
+    ["ks", "کٲشُر", ["AS"]], ["ks-arab", "ks-arab", []], ["ks-deva", "कॉशुर", ["AS"]],
+    ["ksf", "Bafia", ["AF"]], ["ksh", "Ripoarisch", ["EU"]], ["ksw", "စှီၤ", ["AS"]],
+    ["ku", "ku", []], ["ku-arab", "کوردی (عەرەبی)", ["EU", "ME"]], ["ku-latn", "kurdî", ["EU", "ME"]],
+    ["kum", "къумукъ", ["EU"]], ["kus", "Kʋsaal", ["AF"]], ["kv", "коми", ["EU"]],
+    ["kw", "kernowek", ["EU"]], ["ky", "кыргызча", ["AS"]], ["la", "Latina", ["EU"]],
+    ["lad", "lad", []], ["lad-hebr", "לאדינו", ["ME", "EU", "AM"]], ["lad-latn", "Ladino", ["ME", "EU", "AM"]],
+    ["lag", "Kilaangi", ["AF"]], ["laj", "Lëblaŋo", ["AF"]], ["lb", "Lëtzebuergesch", ["EU"]],
+    ["lbe", "лакку", ["EU"]], ["ldn", "Láadan", ["WW"]], ["lez", "лезги", ["EU"]],
+    ["lfn", "Lingua Franca Nova", ["WW"]], ["lg", "Luganda", ["AF"]], ["li", "Limburgs", ["EU"]],
+    ["lij", "Ligure", ["EU"]], ["lij-mc", "munegascu", ["EU"]], ["liv", "Līvõ kēļ", ["EU"]],
+    ["ljp", "Lampung Api", ["AS", "PA"]], ["lki", "لەکی", ["AS", "ME"]], ["lkt", "Lakȟótiyapi", ["AM"]],
+    ["lld", "Ladin", ["EU"]], ["lmo", "lombard", ["EU"]], ["ln", "lingála", ["AF"]],
+    ["lo", "ລາວ", ["AS"]], ["lou", "Kouri-Vini", ["AM"]], ["loz", "Silozi", ["AF"]],
+    ["lrc", "لۊری شومالی", ["AS", "ME"]], ["lt", "lietuvių", ["EU"]], ["ltg", "latgaļu", ["EU"]],
+    ["lua", "ciluba", ["AF"]], ["lud", "lüüdi", ["EU"]], ["lue", "chiluvale", ["AF"]],
+    ["luo", "dholuo", ["AF"]], ["lus", "Mizo ţawng", ["AS"]], ["lut", "dxʷləšucid", ["AM"]],
+    ["luz", "لئری دوٙمینی", ["ME"]], ["lv", "latviešu", ["EU"]], ["lvs", "lvs", []],
+    ["lzh", "文言", ["AS"]], ["lzz", "Lazuri", ["EU", "ME"]], ["mad", "Madhurâ", ["AS"]],
+    ["mag", "मगही", ["AS"]], ["mai", "मैथिली", ["AS"]], ["mak", "Mangkasarak", ["AS", "PA"]],
+    ["mak-bugi", "ᨆᨀᨔᨑ", ["AS", "PA"]], ["map-bms", "Basa Banyumasan", ["AS"]], ["maw", "Ŋmampulli", ["AF"]],
+    ["mcn", "vùn màsànà", ["AF"]], ["mdf", "мокшень", ["EU"]], ["mdh", "Magindanawn", ["AS", "PA"]],
+    ["mey", "الحسانية", ["AF"]], ["mfa", "Klate-Ttaning", ["AS", "PA"]], ["mfe", "Morisyen", ["AM"]],
+    ["mg", "Malagasy", ["AF"]], ["mh", "Ebon", ["PA"]], ["mhr", "олык марий", ["EU"]],
+    ["mi", "Māori", ["PA"]], ["mic", "Mi'kmaq", ["AM"]], ["min", "Minangkabau", ["AS"]],
+    ["miq", "Mískitu", ["AM"]], ["mk", "македонски", ["EU"]], ["ml", "മലയാളം", ["AS", "ME"]],
+    ["mn", "монгол", ["AS"]], ["mn-cyrl", "mn-cyrl", []], ["mn-mong", "mn-mong", []],
+    ["mnc", "manju gisun", ["AS"]], ["mnc-latn", "mnc-latn", []], ["mnc-mong", "ᠮᠠᠨᠵᡠ ᡤᡳᠰᡠᠨ", ["AS"]],
+    ["mni", "ꯃꯤꯇꯩ ꯂꯣꯟ", ["AS"]], ["mni-beng", "মেইতেই লোন্", ["AS"]], ["mns", "ма̄ньси", ["EU", "AS"]],
+    ["mnw", "ဘာသာမန်", ["AS"]], ["mo", "молдовеняскэ", ["EU"]], ["moe", "innu-aimun", ["AM"]],
+    ["mos", "moore", ["AF"]], ["mr", "मराठी", ["AS", "ME"]], ["mrh", "Mara", ["AS"]],
+    ["mrj", "кырык мары", ["EU"]], ["mrt", "Margi", ["AF"]], ["mrv", "Magareva", ["PA"]],
+    ["ms", "Bahasa Melayu", ["AS"]], ["ms-arab", "بهاس ملايو", ["AS"]], ["msi", "Bahasa Sabah", ["AS"]],
+    ["mt", "Malti", ["EU"]], ["mui", "Baso Palembang", ["AS"]], ["mus", "Mvskoke", ["AM"]],
+    ["mvf", "ᠮᠣᠩᠭᠣᠯ", ["AS"]], ["mwl", "Mirandés", ["EU"]], ["mwv", "Behase Mentawei", ["AS"]],
+    ["mww", "mww", []], ["mww-latn", "Hmoob Dawb", ["AS"]], ["my", "မြန်မာဘာသာ", ["AS"]],
+    ["myv", "эрзянь", ["EU"]], ["mzn", "مازِرونی", ["ME", "AS"]], ["na", "Dorerin Naoero", ["PA"]],
+    ["nah", "Nāhuatl", ["AM"]], ["nan", "閩南語 / Bân-lâm-gí", ["AS"]], ["nan-hani", "閩南語（漢字）", ["AS"]],
+    ["nan-hans", "闽南语（简化汉字）", ["AS"]], ["nan-hant", "閩南語（傳統漢字）", ["AS"]], ["nan-latn", "Bân-lâm-gí (Lô-má-jī)", ["AS"]],
+    ["nan-latn-pehoeji", "Bân-lâm-gí (Pe̍h-ōe-jī)", ["AS"]], ["nan-latn-tailo", "Bân-lâm-gí (Tâi-lô)", ["AS"]], ["nap", "Napulitano", ["EU"]],
+    ["naq", "Khoekhoegowab", ["AF"]], ["nb", "norsk (bokmål)", ["EU"]], ["nd", "siNdebele saseNyakatho", ["AF"]],
+    ["nds", "Plattdüütsch", ["EU"]], ["nds-nl", "Nedersaksisch", ["EU"]], ["ne", "नेपाली", ["AS"]],
+    ["new", "नेपाल भाषा", ["AS"]], ["ng", "Oshiwambo", ["AF"]], ["nia", "Li Niha", ["AS"]],
+    ["nit", "కొలామి", ["AS"]], ["niu", "ko e vagahau Niuē", ["PA"]], ["njo", "Ao", ["AS"]],
+    ["nl", "Nederlands", ["EU", "AM"]], ["nl-informal", "Nederlands (informeel)", ["EU", "AM"]], ["nmz", "nawdm", ["AF"]],
+    ["nn", "norsk (nynorsk)", ["EU"]], ["nn-hognorsk", "norsk (høgnorsk)", ["EU"]], ["nnh", "ngiembɔɔn", ["AF"]],
+    ["no", "norsk", ["EU"]], ["nod", "ᨣᩴᩤᨾᩮᩥᩬᨦ", ["AS"]], ["nod-thai", "คำเมือง", ["AS"]],
+    ["nog", "ногайша", ["EU"]], ["nov", "Novial", ["WW"]], ["npi", "npi", []],
+    ["nqo", "ߒߞߏ", ["AF"]], ["nr", "isiNdebele seSewula", ["AF"]], ["nrf-gg", "Guernésiais", ["EU"]],
+    ["nrf-je", "Jèrriais", ["EU"]], ["nrm", "Nouormand", ["EU"]], ["nso", "Sesotho sa Leboa", ["AF"]],
+    ["nup", "Nupe", ["AF"]], ["nus", "Thok Naath", ["AF"]], ["nv", "Diné bizaad", ["AM"]],
+    ["ny", "Chi-Chewa", ["AF"]], ["nyn", "runyankore", ["AF"]], ["nyo", "Orunyoro", ["AF"]],
+    ["nys", "Nyungar", ["PA"]], ["nzi", "Nzema", ["AF"]], ["oc", "occitan", ["EU"]],
+    ["ojb", "Ojibwemowin", ["AM"]], ["oka", "n̓səl̓xcin̓", ["AM"]], ["olo", "livvinkarjala", ["EU"]],
+    ["om", "Oromoo", ["AF"]], ["ood", "ʼOʼodham ha-ñeʼokĭ", ["AM"]], ["or", "ଓଡ଼ିଆ", ["AS"]],
+    ["ory", "ory", []], ["os", "ирон", ["EU"]], ["osi", "Using", ["AS"]],
+    ["ota", "لسان عثمانى", ["AS", "EU"]], ["ovd", "övdalsk", ["EU"]], ["pa", "ਪੰਜਾਬੀ", ["AS"]],
+    ["pa-arab", "pa-arab", []], ["pa-guru", "pa-guru", []], ["pag", "Pangasinan", ["AS"]],
+    ["pam", "Kapampangan", ["AS"]], ["pap", "Papiamentu", ["AM"]], ["pap-aw", "Papiamento (Aruba)", ["AM"]],
+    ["pbb", "Nasa Yuwe", ["AM"]], ["pbt", "pbt", []], ["pcd", "Picard", ["EU"]],
+    ["pcm", "Naijá", ["AF"]], ["pdc", "Deitsch", ["EU", "AM"]], ["pdt", "Plautdietsch", ["EU", "AM"]],
+    ["pes", "pes", []], ["pey", "Petjoh", ["EU", "PA", "AS"]], ["pfl", "Pälzisch", ["EU"]],
+    ["phr", "پوٹھواری", ["AS"]], ["pi", "पालि", ["AS"]], ["pih", "Norfuk / Pitkern", ["PA"]],
+    ["pis", "Solomon Aelan Pijin", ["PA"]], ["piu", "Pintupi-Luritja", ["PA"]], ["pjt", "Pitjantjatjara", ["PA"]],
+    ["pko", "Pökoot", ["AF"]], ["pl", "polski", ["EU"]], ["plt", "plt", []],
+    ["pms", "Piemontèis", ["EU"]], ["pnb", "پنجابی", ["AS", "ME"]], ["pnt", "Ποντιακά", ["EU"]],
+    ["pov", "guinensi", ["AF"]], ["ppl", "Nawat", ["AM"]], ["prg", "Prūsiskan", ["EU"]],
+    ["prs", "دری", ["AS", "ME"]], ["ps", "پښتو", ["AS", "ME"]], ["pt", "português", ["EU", "AM", "AS", "PA", "AF", "WW"]],
+    ["pt-br", "português do Brasil", ["AM"]], ["pwn", "pinayuanan", ["AS"]], ["pwo", "ဖျိၩ့ၡိ", ["AS"]],
+    ["pzh", "Pazeh", ["AS"]], ["qu", "Runa Simi", ["AM"]], ["quc", "K'iche'", ["AM"]],
+    ["qug", "Runa shimi", ["AM"]], ["quy", "quy", []], ["qwh", "anqash qichwa", ["AM"]],
+    ["qxp", "Punu qhichwa", ["AM"]], ["rag", "Lologooli", ["AF"]], ["raj", "राजस्थानी", ["AS"]],
+    ["rap", "arero rapa nui", ["PA", "AM"]], ["rcf", "Kreol Réyoné", ["AF"]], ["rej", "Jang", ["AS", "PA"]],
+    ["rgn", "Rumagnôl", ["EU"]], ["rhg", "𐴌𐴟𐴇𐴥𐴝𐴚𐴒𐴙𐴝", ["AS"]], ["rhg-arab", "رُحَ࣪ڠۡگَ࣪ࢬ عَرࣤبِي لࣦكَ࣪", ["AS"]],
+    ["rhg-rohg", "rhg-rohg", []], ["rif", "Tarifit", ["AF"]], ["rki", "ရခိုင်", ["AS"]],
+    ["rm", "rumantsch", ["EU"]], ["rm-puter", "puter", ["EU"]], ["rm-rumgr", "rumantsch grischun", ["EU"]],
+    ["rm-surmiran", "surmiran", ["EU"]], ["rm-sursilv", "sursilvan", ["EU"]], ["rm-sutsilv", "sutsilvan", ["EU"]],
+    ["rm-vallader", "vallader", ["EU"]], ["rmc", "romaňi čhib", ["EU"]], ["rmf", "kaalengo tšimb", ["EU"]],
+    ["rml-cyrl", "романы", ["EU"]], ["rmy", "Romani", ["EU"]], ["rn", "ikirundi", ["AF"]],
+    ["ro", "română", ["EU"]], ["roa-rup", "roa-rup", []], ["roa-tara", "tarandíne", ["EU"]],
+    ["rsk", "руски", ["EU"]], ["rtm", "Faeag Rotuma", ["PA"]], ["ru", "русский", ["EU", "AS", "ME"]],
+    ["rue", "русиньскый", ["EU"]], ["rup", "armãneashti", ["EU"]], ["ruq", "Влахесте", ["EU"]],
+    ["ruq-cyrl", "ruq-cyrl", []], ["ruq-latn", "Vlăheşte", ["EU"]], ["rut", "мыхаӀбишды", ["EU"]],
+    ["rw", "Ikinyarwanda", ["AF"]], ["rwr", "मारवाड़ी", ["AS"]], ["ryu", "うちなーぐち", ["AS"]],
+    ["sa", "संस्कृतम्", ["AS"]], ["sah", "саха тыла", ["EU", "AS"]], ["sas", "Sasak", ["AS"]],
+    ["sat", "ᱥᱟᱱᱛᱟᱲᱤ", ["AS"]], ["saz", "ꢱꣃꢬꢵꢯ꣄ꢡ꣄ꢬꢵ", ["AS"]], ["sc", "sardu", ["EU"]],
+    ["scn", "sicilianu", ["EU"]], ["sco", "Scots", ["EU"]], ["sd", "سنڌي", ["AS"]],
+    ["sd-arab", "sd-arab", []], ["sd-deva", "सिंधी", ["AS"]], ["sd-sind", "𑋝𑋡𑋟𑋐𑋢", ["AS"]],
+    ["sdc", "Sassaresu", ["EU"]], ["sdh", "کوردی خوارگ", ["ME"]], ["se", "davvisámegiella", ["EU"]],
+    ["se-fi", "davvisámegiella (Suoma bealde)", ["EU"]], ["se-no", "davvisámegiella (Norgga bealde)", ["EU"]], ["se-se", "davvisámegiella (Ruoŧa bealde)", ["EU"]],
+    ["sei", "Cmique Itom", ["AM"]], ["ses", "Koyraboro Senni", ["AF"]], ["sg", "Sängö", ["AF"]],
+    ["sgh", "xuɣ̌nůni", ["AS"]], ["sgs", "žemaitėška", ["EU"]], ["sh", "srpskohrvatski / српскохрватски", ["EU"]],
+    ["sh-cyrl", "српскохрватски", ["EU"]], ["sh-latn", "srpskohrvatski", ["EU"]], ["shi", "shi", []],
+    ["shi-latn", "Taclḥit", ["AF"]], ["shi-tfng", "ⵜⴰⵛⵍⵃⵉⵜ", ["AF"]], ["shn", "တႆး", ["AS"]],
+    ["shy", "shy", []], ["shy-latn", "tacawit", ["AF"]], ["si", "සිංහල", ["AS"]],
+    ["simple", "simple", []], ["sjd", "кӣллт са̄мь кӣлл", ["EU"]], ["sje", "bidumsámegiella", ["EU"]],
+    ["sjo", "ᠰᡞᠪᡝ ᡤᡞᠰᡠᠨ", ["AS"]], ["sju", "ubmejesámiengiälla", ["EU"]], ["sk", "slovenčina", ["EU"]],
+    ["skr", "skr", []], ["skr-arab", "سرائیکی", ["AS"]], ["sl", "slovenščina", ["EU"]],
+    ["sli", "Schläsch", ["EU"]], ["slr", "Salırça", ["AS"]], ["sly", "Bahasa Selayar", ["AS"]],
+    ["sm", "Gagana Samoa", ["PA"]], ["sma", "åarjelsaemien", ["EU"]], ["smj", "julevsámegiella", ["EU"]],
+    ["smn", "anarâškielâ", ["EU"]], ["sms", "nuõrttsääʹmǩiõll", ["EU"]], ["sn", "chiShona", ["AF"]],
+    ["so", "Soomaaliga", ["AF"]], ["son", "soŋay", ["AF"]], ["sq", "shqip", ["EU"]],
+    ["sr", "sr", []], ["sr-cyrl", "српски", ["EU"]], ["sr-ec", "sr-ec", []],
+    ["sr-el", "sr-el", []], ["sr-latn", "srpski", ["EU"]], ["srn", "Sranantongo", ["AM", "EU"]],
+    ["sro", "sardu campidanesu", ["EU"]], ["srq", "mbia cheë", ["AM"]], ["ss", "SiSwati", ["AF"]],
+    ["ssy", "Saaho", ["AF"]], ["st", "Sesotho", ["AF"]], ["stq", "Seeltersk", ["EU"]],
+    ["sty", "себертатар", ["EU", "AS"]], ["su", "Sunda", ["AS"]], ["sv", "svenska", ["EU"]],
+    ["sw", "Kiswahili", ["AF"]], ["swb", "Shikomoro", ["AF"]], ["swh", "swh", []],
+    ["sxr", "Hla'alua", ["AS"]], ["sxu", "Säggssch", ["EU"]], ["syc", "ܣܘܪܝܝܐ", ["ME"]],
+    ["syl", "ꠍꠤꠟꠐꠤ", ["AS"]], ["syl-beng", "সিলেটি", ["AS"]], ["syl-sylo", "syl-sylo", []],
+    ["szl", "ślůnski", ["EU"]], ["szy", "Sakizaya", ["AS"]], ["ta", "தமிழ்", ["AS"]],
+    ["tao", "Ciriciring No Tao", ["AS"]], ["taq", "taq", []], ["taq-latn", "təmajəq", ["AF"]],
+    ["taq-tfng", "ⵜⴰⵎⴰⵌⴰⵆ", ["AF"]], ["tay", "Tayal", ["AS"]], ["tcy", "ತುಳು", ["AS"]],
+    ["tdd", "ᥖᥭᥰ ᥖᥬᥲ ᥑᥨᥒᥰ", ["AS"]], ["te", "తెలుగు", ["AS"]], ["tet", "tetun", ["AS", "PA"]],
+    ["tg", "тоҷикӣ", ["AS"]], ["tg-cyrl", "tg-cyrl", []], ["tg-latn", "tojikī", ["AS"]],
+    ["th", "ไทย", ["AS"]], ["thq", "काेचिला थारु", ["AS"]], ["thr", "राना थारू", ["AS"]],
+    ["ti", "ትግርኛ", ["AF"]], ["tig", "ትግሬ", ["AF"]], ["tiv", "tiv", ["AF"]],
+    ["tji", "bifzivsar", ["AS"]], ["tk", "Türkmençe", ["AS"]], ["tkr", "цӀаӀхна миз", ["AS"]],
+    ["tl", "Tagalog", ["AS"]], ["tly", "tolışi", ["EU", "AS", "ME"]], ["tly-cyrl", "толыши", ["EU", "AS", "ME"]],
+    ["tmr", "ארמית בבלית", ["ME", "EU", "AM"]], ["tn", "Setswana", ["AF"]], ["to", "lea faka-Tonga", ["PA"]],
+    ["toi", "chitonga", ["AF"]], ["tok", "toki pona", ["WW"]], ["tokipona", "tokipona", []],
+    ["tpi", "Tok Pisin", ["PA", "AS"]], ["tr", "Türkçe", ["EU", "ME"]], ["trp", "Kokborok", ["AS"]],
+    ["tru", "Ṫuroyo", ["AS"]], ["trv", "Seediq", ["AS"]], ["trw", "توروالی", ["AS"]],
+    ["ts", "Xitsonga", ["AF"]], ["tsd", "Τσακωνικά", ["EU"]], ["tsg", "Sinūg", ["AS"]],
+    ["tsu", "cou", ["AS"]], ["tsw", "Tsishingini", ["AF"]], ["tt", "татарча", ["EU"]],
+    ["tt-cyrl", "tt-cyrl", []], ["tt-latn", "tatarça", ["EU"]], ["ttj", "Orutooro", ["AF"]],
+    ["ttt", "Tati", ["AS"]], ["tum", "chiTumbuka", ["AF"]], ["tw", "Twi", ["AF"]],
+    ["twd", "Tweants", ["EU"]], ["ty", "reo tahiti", ["PA"]], ["tyv", "тыва дыл", ["AS"]],
+    ["tzl", "Talossan", ["WW"]], ["tzm", "ⵜⴰⵎⴰⵣⵉⵖⵜ", ["AF"]], ["udm", "удмурт", ["EU"]],
+    ["ug", "ug", []], ["ug-arab", "ئۇيغۇرچە", ["AS"]], ["ug-cyrl", "уйғурчә", ["AS"]],
+    ["ug-latn", "uyghurche", ["AS"]], ["uk", "українська", ["EU"]], ["umb", "umbundu", ["AF"]],
+    ["umu", "Huluníixsuwaakan", ["AM"]], ["ur", "اردو", ["AS", "ME"]], ["uz", "oʻzbekcha", ["AS"]],
+    ["uz-arab", "uz-arab", []], ["uz-cyrl", "ўзбекча", ["AS"]], ["uz-latn", "uz-latn", []],
+    ["uzn", "uzn", []], ["uzs", "اۉزبېکچه", ["AS"]], ["vai", "ꕙꔤ", ["AF"]],
+    ["ve", "Tshivenda", ["AF"]], ["vec", "vèneto", ["EU", "AM"]], ["vep", "vepsän kel’", ["EU"]],
+    ["vi", "Tiếng Việt", ["AS"]], ["vls", "West-Vlams", ["EU"]], ["vmf", "Mainfränkisch", ["EU"]],
+    ["vmw", "emakhuwa", ["AF"]], ["vo", "Volapük", ["WW"]], ["vot", "Vaďďa", ["EU"]],
+    ["vro", "võro", ["EU"]], ["wa", "walon", ["EU"]], ["wal", "wolaytta", ["AF"]],
+    ["war", "Winaray", ["AS"]], ["wls", "Faka'uvea", ["PA"]], ["wlx", "waale", ["AF"]],
+    ["wo", "Wolof", ["AF"]], ["wsg", "గోండి", ["AS"]], ["wuu", "吴语", ["AS"]],
+    ["wuu-hans", "吴语（简体）", ["AS"]], ["wuu-hant", "吳語（正體）", ["AS"]], ["xal", "хальмг", ["EU"]],
+    ["xh", "isiXhosa", ["AF"]], ["xmf", "მარგალური", ["EU"]], ["xmm", "Manado", ["AS", "PA"]],
+    ["xnb", "Kanakanavu", ["AS"]], ["xon", "likpakpaanl", ["AF"]], ["xsy", "SaiSiyat", ["AS"]],
+    ["ydd", "ydd", []], ["yi", "ייִדיש", ["ME", "EU", "AM"]], ["yo", "Yorùbá", ["AF"]],
+    ["yoi", "与那国物言", ["AS"]], ["yrk", "ненэцяʼ вада", ["AS"]], ["yrl", "Nhẽẽgatú", ["AM"]],
+    ["yua", "Maaya T'aan", ["AM"]], ["yue", "粵語", ["AS"]], ["yue-hans", "粵语（简体）", ["AS"]],
+    ["yue-hant", "粵語（繁體）", ["AS"]], ["za", "Vahcuengh", ["AS"]], ["zea", "Zeêuws", ["EU"]],
+    ["zgh", "ⵜⴰⵎⴰⵣⵉⵖⵜ ⵜⴰⵏⴰⵡⴰⵢⵜ", ["AF"]], ["zgh-latn", "tamaziɣt tanawayt", ["AF"]], ["zh", "中文", ["AS", "PA", "AM", "WW"]],
+    ["zh-cdo", "zh-cdo", []], ["zh-classical", "zh-classical", []], ["zh-cn", "中文（中国大陆）", ["AS"]],
+    ["zh-hans", "中文（简体）", ["AS", "PA", "AM", "WW"]], ["zh-hant", "中文（繁體）", ["AS", "PA", "AM", "WW"]], ["zh-hk", "中文（香港）", ["AS"]],
+    ["zh-min-nan", "zh-min-nan", []], ["zh-mo", "中文（澳門）", ["AS"]], ["zh-my", "中文（马来西亚）", ["AS"]],
+    ["zh-sg", "中文（新加坡）", ["AS"]], ["zh-tw", "中文（臺灣）", ["AS"]], ["zh-yue", "zh-yue", []],
+    ["zmi", "Nismilan", ["AS", "PA"]], ["zsm", "zsm", []], ["zu", "isiZulu", ["AF"]],
+    ["zun", "Shiwi'ma", ["AM"]]
+];
+
+/**
+ * ISO 3166-1 alpha-2 country code -> ULS macro-region(s) (see LANGUAGES
+ * above). Approximate by design (a whole country maps to one broad region,
+ * not the other way around) - just enough to sort "languages spoken
+ * somewhere near here" ahead of the rest in the autocomplete list, not an
+ * authoritative geographic claim. Countries not listed here simply skip the
+ * region-based sort (still fully searchable, just unordered by region).
+ */
+export const COUNTRY_REGION = {
+    AF: 'ME', DZ: 'AF', EG: 'AF', LY: 'AF', MA: 'AF', SD: 'AF', TN: 'AF', BJ: 'AF', BF: 'AF',
+    CV: 'AF', CI: 'AF', GM: 'AF', GH: 'AF', GN: 'AF', GW: 'AF', LR: 'AF', ML: 'AF', MR: 'AF',
+    NE: 'AF', NG: 'AF', SN: 'AF', SL: 'AF', TG: 'AF', BI: 'AF', KM: 'AF', DJ: 'AF', ER: 'AF',
+    ET: 'AF', KE: 'AF', MG: 'AF', MW: 'AF', MU: 'AF', MZ: 'AF', RW: 'AF', SC: 'AF', SO: 'AF',
+    SS: 'AF', TZ: 'AF', UG: 'AF', ZM: 'AF', ZW: 'AF', AO: 'AF', CM: 'AF', CF: 'AF', TD: 'AF',
+    CG: 'AF', CD: 'AF', GQ: 'AF', GA: 'AF', ST: 'AF', BW: 'AF', SZ: 'AF', LS: 'AF', NA: 'AF', ZA: 'AF',
+    US: 'AM', CA: 'AM', MX: 'AM', GT: 'AM', BZ: 'AM', SV: 'AM', HN: 'AM', NI: 'AM', CR: 'AM', PA: 'AM',
+    CU: 'AM', DO: 'AM', HT: 'AM', JM: 'AM', TT: 'AM', BS: 'AM', BB: 'AM', GD: 'AM', LC: 'AM', VC: 'AM',
+    AG: 'AM', DM: 'AM', KN: 'AM', SR: 'AM', GY: 'AM', VE: 'AM', CO: 'AM', EC: 'AM', PE: 'AM', BO: 'AM',
+    PY: 'AM', CL: 'AM', AR: 'AM', UY: 'AM', BR: 'AM',
+    CN: 'AS', JP: 'AS', KR: 'AS', KP: 'AS', MN: 'AS', TW: 'AS', HK: 'AS', MO: 'AS', IN: 'AS', PK: 'AS',
+    BD: 'AS', LK: 'AS', NP: 'AS', BT: 'AS', MV: 'AS', AF: 'AS', ID: 'AS', TH: 'AS', VN: 'AS', PH: 'AS',
+    MY: 'AS', SG: 'AS', MM: 'AS', KH: 'AS', LA: 'AS', BN: 'AS', TL: 'AS', KZ: 'AS', UZ: 'AS', TM: 'AS',
+    KG: 'AS', TJ: 'AS',
+    GB: 'EU', IE: 'EU', FR: 'EU', DE: 'EU', ES: 'EU', PT: 'EU', IT: 'EU', NL: 'EU', BE: 'EU', LU: 'EU',
+    CH: 'EU', AT: 'EU', PL: 'EU', CZ: 'EU', SK: 'EU', HU: 'EU', RO: 'EU', BG: 'EU', GR: 'EU', SE: 'EU',
+    NO: 'EU', DK: 'EU', FI: 'EU', IS: 'EU', EE: 'EU', LV: 'EU', LT: 'EU', BY: 'EU', UA: 'EU', RU: 'EU',
+    MD: 'EU', RS: 'EU', HR: 'EU', SI: 'EU', BA: 'EU', ME: 'EU', MK: 'EU', AL: 'EU', MT: 'EU', CY: 'EU',
+    LI: 'EU', MC: 'EU', SM: 'EU', VA: 'EU', AD: 'EU',
+    SA: 'ME', AE: 'ME', QA: 'ME', KW: 'ME', BH: 'ME', OM: 'ME', YE: 'ME', IQ: 'ME', IR: 'ME', IL: 'ME',
+    JO: 'ME', LB: 'ME', SY: 'ME', TR: 'ME', PS: 'ME', AZ: 'ME', AM: 'ME', GE: 'ME',
+    AU: 'PA', NZ: 'PA', FJ: 'PA', PG: 'PA', SB: 'PA', VU: 'PA', WS: 'PA', TO: 'PA', KI: 'PA', FM: 'PA',
+    MH: 'PA', PW: 'PA', NR: 'PA', TV: 'PA'
+};
+
+/**
+ * The best available display name for a language code: the browser's own
+ * localized name (via Intl.DisplayNames, when the code is one it
+ * recognises) preferred over the bundled autonym, since a reader of this
+ * app is far more likely to recognise "Malayalam" than "മലയാളം" - the
+ * autonym still carries the meaning for codes Intl.DisplayNames doesn't
+ * know, e.g. many regional/script-variant OSM tags in LANGUAGES.
+ */
+let displayNames = null;
+function getDisplayNames() {
+    if (displayNames === undefined) return null;
+    if (displayNames) return displayNames;
+    try {
+        displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
+    } catch (error) {
+        displayNames = undefined;
+        return null;
+    }
+    return displayNames;
+}
+
+export function languageDisplayName(code, autonym) {
+    try {
+        const resolved = getDisplayNames()?.of(code);
+        // Intl.DisplayNames.of() echoes back unknown codes unchanged rather
+        // than throwing - treat that as "unknown" and fall back to the autonym.
+        if (resolved && resolved.toLowerCase() !== code.toLowerCase()) return resolved;
+    } catch (error) {
+        // Malformed/unsupported code - fall through to the autonym.
+    }
+    return autonym || code;
+}
+
+export function findLanguageByCode(code) {
+    if (!code) return null;
+    const lower = code.toLowerCase();
+    const match = LANGUAGES.find(([c]) => c === lower);
+    if (!match) return null;
+    return { code: match[0], name: languageDisplayName(match[0], match[1]) };
+}

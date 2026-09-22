@@ -3,6 +3,14 @@
     "title": "Maps",
     "shareButton": "Share"
   },
+  "locale": {
+    "country": null,
+    "primaryLanguage": {
+      "name": "English",
+      "code": "en"
+    },
+    "fallbackLanguages": []
+  },
   "map": {
     "style": "mapbox://styles/mapbox/streets-v12",
     "center": [

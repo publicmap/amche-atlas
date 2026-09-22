@@ -28,15 +28,18 @@ Load a specific atlas configuration.
 
 Select the GL rendering library. Applies to script loading only and is read once at page load - it is not part of the debounced URL-write flow other parameters use.
 
-**Format:** `?renderer=<value>`
+**Format:** `?renderer=<value>` or `?renderer=<value>@<version>`
 
 **Values:**
 - `mapbox` - Mapbox GL JS (default, set in `index.html`'s `window.amche.RENDERER`)
 - `maplibre` - MapLibre GL JS instead, with no other config changes required (see `js/gl-compat.js`). Has better complex-script (e.g. Indic) text shaping.
+- `<value>@<version>` - either of the above, pinned to an exact CDN version for this load only (e.g. `maplibre@6.9.0`), instead of the version pinned in `window.amche.RENDERER_ASSETS`. The `v` prefix some npm tags use is optional (`maplibre@v6.9.0` and `maplibre@6.9.0` are equivalent). MapLibre's own UMD-vs-ES-module split (v6+ dropped the UMD build - see the `module` flag in `RENDERER_ASSETS`) is resolved from the version's major number, not assumed.
 
 **Examples:**
 ```
 ?renderer=maplibre
+?renderer=maplibre@6.9.0
+?renderer=mapbox@v2.15.0
 ```
 
 ### `layers`
@@ -413,6 +416,39 @@ Zoom to a layer's bounding box on load, then remove the parameter from the URL. 
 **Example:**
 ```
 ?zoomTo=goa-plots
+```
+
+### `country`
+
+Override the app's current locale country (see js/locale-manager.js). Defaults to `config/_defaults.json`'s `locale.country` (`null` by default, meaning "whatever the map is currently centered over" - read from the last reverse-geocode in js/map-attribution-control.js). Edited from the "Locale" section of any layer's settings modal (js/layer-settings-modal.js).
+
+**Format:** `?country=<ISO 3166-1 alpha-2 code>`
+
+**Example:**
+```
+?country=IN
+```
+
+### `lang`
+
+Override the app's current locale primary language. Defaults to `config/_defaults.json`'s `locale.primaryLanguage` (`en` by default).
+
+**Format:** `?lang=<ISO 639-1 code>`
+
+**Example:**
+```
+?lang=en
+```
+
+### `fallbackLang`
+
+Override the app's current locale fallback languages, in priority order. Defaults to `config/_defaults.json`'s `locale.fallbackLanguages` (`[]` by default).
+
+**Format:** `?fallbackLang=<comma-separated ISO 639-1 codes>`
+
+**Example:**
+```
+?fallbackLang=hi,ml
 ```
 
 ## Complete Examples

@@ -5,25 +5,37 @@
  * map-location-menu-control.js) rather than a Shoelace <sl-dropdown>, so it
  * looks and behaves identically to its neighbors.
  *
- * Currently holds a single "Map Rendering Engine" section that switches
- * between Mapbox GL JS and MapLibre GL JS (see js/gl-compat.js and the
- * `?renderer=` URL param in docs/API.md) - the version shown next to each
- * comes from window.amche.RENDERER_ASSETS (set in index.html), and the one
- * matching window.amche.DEFAULT_RENDERER is labelled "(Default)".
- *
- * Switching renderer reloads the page with `?renderer=` set (or removed, if
- * switching back to the default) - the choice can't take effect without a
- * reload since it decides which GL library's <script> tag index.html injects
- * before any other app code runs.
+ * Two sections:
+ * - "Map Rendering Engine": switches between Mapbox GL JS and MapLibre GL JS
+ *   (see js/gl-compat.js and the `?renderer=` URL param in docs/API.md) -
+ *   the version shown next to each comes from window.amche.RENDERER_ASSETS
+ *   (set in index.html), and the one matching window.amche.DEFAULT_RENDERER
+ *   is labelled "(Default)". Switching reloads the page with `?renderer=`
+ *   set (or removed, if switching back to the default) - the choice can't
+ *   take effect without a reload since it decides which GL library's
+ *   <script> tag index.html injects before any other app code runs.
+ * - "Locale": country/primary/fallback-language fields (see js/locale-ui.js
+ *   and js/locale-manager.js), mirrored to the `?country=`/`?lang=`/
+ *   `?fallbackLang=` URL params - takes effect immediately, no reload.
  *
  * Not a mapboxgl control - this lives in the header-nav DOM, not on the map.
  */
+import { mountLocaleSection } from './locale-ui.js';
+
 export class SettingsMenuControl {
     constructor() {
         this._container = null;
         this._button = null;
         this._panel = null;
         this._isOpen = false;
+        // mousedown+capture, not click+bubble: AutocompleteBadgeInput (see
+        // js/locale-ui.js) replaces its badge <button> with an <input> as
+        // the very first thing its own click handler does - by the time a
+        // bubble-phase document 'click' listener runs afterward, that badge
+        // is already detached from the DOM, so `container.contains(e.target)`
+        // reads false and this closed the whole panel out from under the
+        // edit it was trying to open. Capture-phase mousedown runs before
+        // any of that, while the target is still where the user clicked.
         this._onDocClick = (e) => {
             if (!this._isOpen || this._container.contains(e.target)) return;
             this.close();
@@ -48,11 +60,20 @@ export class SettingsMenuControl {
         this._panel.style.display = 'none';
         this._panel.appendChild(this._buildRendererSection());
 
+        const localeHeader = document.createElement('div');
+        localeHeader.className = 'atlas-layer-menu-atlas-header';
+        localeHeader.innerHTML = '<span class="atlas-layer-menu-atlas-name">Locale</span>';
+        this._panel.appendChild(localeHeader);
+
+        this._localeBody = document.createElement('div');
+        this._localeBody.className = 'settings-locale-body';
+        this._panel.appendChild(this._localeBody);
+
         this._container.appendChild(this._button);
         this._container.appendChild(this._panel);
         hostEl.appendChild(this._container);
 
-        document.addEventListener('click', this._onDocClick);
+        document.addEventListener('mousedown', this._onDocClick, true);
     }
 
     toggle() {
@@ -65,6 +86,10 @@ export class SettingsMenuControl {
         this._panel.style.display = 'block';
         this._button.classList.add('active');
         this._button.querySelector('sl-icon')?.setAttribute('name', 'gear-fill');
+        // Rebuilt fresh on every open, not just once at mount - the country
+        // default (js/locale-manager.js) tracks the map's live Nominatim
+        // reverse-geocode, which resolves well after this control mounts.
+        mountLocaleSection(this._localeBody);
     }
 
     close() {

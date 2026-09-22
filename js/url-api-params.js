@@ -32,5 +32,8 @@ export const URL_API_PARAMS = [
     'timeStart',
     'sound',
     'export',
-    'zoomTo'
+    'zoomTo',
+    'country',
+    'lang',
+    'fallbackLang'
 ];

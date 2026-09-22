@@ -326,6 +326,15 @@ export class MapAttributionControl {
         this._updateAttribution();
     }
 
+    /**
+     * The raw Nominatim `address` object from the last reverse-geocode (see
+     * setLocation above) - used by js/locale-manager.js to default the
+     * locale country to wherever the map is currently centered.
+     */
+    getAddress() {
+        return this._address;
+    }
+
     _ensureContentStructure() {
         if (this._contentEl) return;
 

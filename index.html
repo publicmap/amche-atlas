@@ -15,13 +15,19 @@
         // with Mapbox GL JS unless changed here; 'maplibre' renders with
         // MapLibre GL JS instead (no code/config changes needed - see
         // js/gl-compat.js), which has better complex-script text shaping
-        // (Indic scripts). Override per-load with ?renderer=maplibre, or
-        // switch permanently from the settings (gear) menu in the header nav
-        // (see js/settings-menu-control.js).
+        // (Indic scripts). Override per-load with ?renderer=maplibre (or
+        // ?renderer=maplibre@6.9.0 to also pin an exact version - see
+        // RENDERER_ASSETS below), or switch permanently from the settings
+        // (gear) menu in the header nav (see js/settings-menu-control.js).
         window.amche.DEFAULT_RENDERER = 'mapbox';
         window.amche.RENDERER = (function () {
             var override = new URLSearchParams(window.location.search).get('renderer');
-            return (override === 'maplibre' || override === 'mapbox') ? override : window.amche.DEFAULT_RENDERER;
+            if (!override) return window.amche.DEFAULT_RENDERER;
+            var at = override.indexOf('@');
+            var id = at === -1 ? override : override.slice(0, at);
+            if (id !== 'maplibre' && id !== 'mapbox') return window.amche.DEFAULT_RENDERER;
+            if (at !== -1) window.amche.RENDERER_VERSION_OVERRIDE = override.slice(at + 1).replace(/^v/i, '');
+            return id;
         })();
         // Pinned CDN builds for each renderer - bump either independently as
         // the libraries release new versions. `version` and `homepage` are
@@ -46,6 +52,33 @@
                 css: 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.10.0/dist/maplibre-gl.css'
             }
         };
+        // `?renderer=<id>@<version>` (see above) pins an exact version for
+        // this load only, rebuilding that one entry's URLs from the same CDN
+        // templates rather than editing RENDERER_ASSETS by hand. MapLibre's
+        // UMD-vs-module split (see the `module` comment above) is version-
+        // dependent - v6+ only ships the module build - so this picks the
+        // right one from the major version number rather than assuming v6+.
+        if (window.amche.RENDERER_VERSION_OVERRIDE) {
+            (function () {
+                var v = window.amche.RENDERER_VERSION_OVERRIDE;
+                var id = window.amche.RENDERER;
+                var homepage = window.amche.RENDERER_ASSETS[id].homepage;
+                if (id === 'mapbox') {
+                    window.amche.RENDERER_ASSETS.mapbox = {
+                        version: v, homepage: homepage,
+                        js: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v' + v + '/dist/mapbox-gl.min.js',
+                        css: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v' + v + '/dist/mapbox-gl.min.css'
+                    };
+                } else {
+                    var isModule = (parseInt(v, 10) || 0) >= 6;
+                    window.amche.RENDERER_ASSETS.maplibre = {
+                        version: v, homepage: homepage, module: isModule,
+                        js: 'https://cdn.jsdelivr.net/npm/maplibre-gl@' + v + '/dist/maplibre-gl.' + (isModule ? 'mjs' : 'js'),
+                        css: 'https://cdn.jsdelivr.net/npm/maplibre-gl@' + v + '/dist/maplibre-gl.css'
+                    };
+                }
+            })();
+        }
         window.amche.GOOGLE_ANALYTICS = 'G-FBVGZ4HJV0';
         window.amche.DOMAIN_URL = 'amche.in';
         window.amche.DEFAULT_ATLAS = 'config/index.atlas.json';

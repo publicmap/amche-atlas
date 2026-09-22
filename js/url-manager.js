@@ -7,6 +7,7 @@ import { LayerOrderManager } from './layer-order-manager.js';
 import { URL_API_PARAMS } from './url-api-params.js';
 import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
 import { allEntries as allRegisteredMarkers, buildMarkersParam, parseMarkersParam } from './marker-registry.js';
+import { localeManager } from './locale-manager.js';
 
 /**
  * `_editedFields` lists the definition fields a layer's config diverges from
@@ -615,6 +616,9 @@ export class URLManager {
         let markersParam = null;
         let compareParam = null;
         let maskParam = null;
+        let countryParam = null;
+        let langParam = null;
+        let fallbackLangParam = null;
 
         // Handle layers parameter
         if (options.updateLayers === true) {
@@ -902,6 +906,38 @@ export class URLManager {
             }
         }
 
+        // Handle locale (country/lang/fallbackLang) parameters - see
+        // js/locale-manager.js, the single owner of this state.
+        if (options.country !== undefined) {
+            const currentCountryParam = urlParams.get('country');
+            if (options.country) {
+                countryParam = options.country;
+                if (currentCountryParam !== countryParam) hasChanges = true;
+            } else if (currentCountryParam !== null) {
+                hasChanges = true;
+            }
+        }
+
+        if (options.lang !== undefined) {
+            const currentLangParam = urlParams.get('lang');
+            if (options.lang) {
+                langParam = options.lang;
+                if (currentLangParam !== langParam) hasChanges = true;
+            } else if (currentLangParam !== null) {
+                hasChanges = true;
+            }
+        }
+
+        if (options.fallbackLang !== undefined) {
+            const currentFallbackLangParam = urlParams.get('fallbackLang');
+            if (options.fallbackLang) {
+                fallbackLangParam = options.fallbackLang;
+                if (currentFallbackLangParam !== fallbackLangParam) hasChanges = true;
+            } else if (currentFallbackLangParam !== null) {
+                hasChanges = true;
+            }
+        }
+
         // The `selected=<layerId>:<featureId>` parameter is never written anymore —
         // every selection has a corresponding marker (see MapMarkerManager._handleSelection),
         // and a marker's location is enough to recover the same features by re-querying
@@ -956,6 +992,9 @@ export class URLManager {
             otherParams.delete('markers');
             otherParams.delete('compare');
             otherParams.delete('mask');
+            otherParams.delete('country');
+            otherParams.delete('lang');
+            otherParams.delete('fallbackLang');
 
             // Add other parameters first (these will be URL-encoded by URLSearchParams)
             const otherParamsString = otherParams.toString();
@@ -1100,6 +1139,20 @@ export class URLManager {
             const currentMask = maskParam || (options.mask === undefined ? urlParams.get('mask') : null);
             if (currentMask) {
                 params.push('mask=' + encodeURIComponent(currentMask));
+            }
+
+            // Add locale parameters (either new or preserved from current URL)
+            const currentCountry = countryParam || (options.country === undefined ? urlParams.get('country') : null);
+            if (currentCountry) {
+                params.push('country=' + encodeURIComponent(currentCountry));
+            }
+            const currentLang = langParam || (options.lang === undefined ? urlParams.get('lang') : null);
+            if (currentLang) {
+                params.push('lang=' + encodeURIComponent(currentLang));
+            }
+            const currentFallbackLang = fallbackLangParam || (options.fallbackLang === undefined ? urlParams.get('fallbackLang') : null);
+            if (currentFallbackLang) {
+                params.push('fallbackLang=' + encodeURIComponent(currentFallbackLang));
             }
 
             // Build the final pretty URL
@@ -1251,6 +1304,9 @@ export class URLManager {
         const maskParam = urlParams.get('mask');
         const hasLocationClick = urlParams.has('selected') && selectedParam === '';
         const zoomToParam = urlParams.get('zoomTo');
+        const countryParam = urlParams.get('country');
+        const langParam = urlParams.get('lang');
+        const fallbackLangParam = urlParams.get('fallbackLang');
 
         // Debug: surface every supported URL API parameter present in the URL on
         // load, so it's easy to confirm the URL API parsed as expected. URL_API_PARAMS
@@ -1278,7 +1334,7 @@ export class URLManager {
             console.warn('[URL API] Unsupported parameters ignored:', unsupportedParams);
         }
 
-        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !maskParam && !hasLocationClick && !zoomToParam) {
+        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !maskParam && !hasLocationClick && !zoomToParam && !countryParam && !langParam && !fallbackLangParam) {
             return false;
         }
 
@@ -1327,6 +1383,16 @@ export class URLManager {
                         window.terrain3DControl.setEnabled(true);
                     }
                 }
+            }
+
+            // Handle locale parameters (see js/locale-manager.js)
+            if (countryParam || langParam || fallbackLangParam) {
+                applied = true;
+                localeManager.initializeFromURL({
+                    country: countryParam,
+                    lang: langParam,
+                    fallbackLang: fallbackLangParam
+                });
             }
 
             // Handle animate parameter
@@ -2068,6 +2134,21 @@ export class URLManager {
      */
     updateTerrainSourceParam(terrainSource) {
         this.updateURL({ terrainSource: terrainSource, updateLayers: false });
+    }
+
+    /**
+     * Update locale parameters in URL (see js/locale-manager.js)
+     */
+    updateCountryParam(countryCode) {
+        this.updateURL({ country: countryCode || '', updateLayers: false });
+    }
+
+    updateLangParam(langCode) {
+        this.updateURL({ lang: langCode || '', updateLayers: false });
+    }
+
+    updateFallbackLangParam(fallbackLangCodes) {
+        this.updateURL({ fallbackLang: fallbackLangCodes || '', updateLayers: false });
     }
 
     /**

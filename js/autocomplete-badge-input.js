@@ -178,6 +178,14 @@ export class AutocompleteBadgeInput {
             placeHolder: placeholderText,
             threshold: 0,
             debounce: this._debounceMs,
+            // Top-level, not nested under `data` - autoComplete.js's own
+            // findMatches() reads `ctx.searchEngine` directly (see its
+            // dataController.js), so a `data.searchEngine` here is just
+            // silently ignored: every field fell back to matching nothing
+            // typed (an empty query always matches via `_match`'s early
+            // return, which is why the initial full list on focus/threshold
+            // still worked and hid this for so long).
+            searchEngine: (query, item) => this._match(query, item),
             resultsList: {
                 class: 'ac-badge-input-list',
                 element: (list, feedback) => this._renderGroups(list, feedback),
@@ -191,8 +199,7 @@ export class AutocompleteBadgeInput {
             data: {
                 // autoComplete.js always calls .then() on this, even for a
                 // synchronous source.
-                src: () => Promise.resolve(this._getItems() || []),
-                searchEngine: (query, item) => this._match(query, item)
+                src: () => Promise.resolve(this._getItems() || [])
             },
             events: {
                 input: {

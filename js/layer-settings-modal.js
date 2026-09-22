@@ -2,6 +2,7 @@
  * LayerSettingsModal - Handles the layer settings modal functionality
  */
 import { MapUtils } from './map-utils.js';
+import { mountLocaleSection } from './locale-ui.js';
 
 export class LayerSettingsModal {
     constructor(mapLayerControl) {
@@ -37,6 +38,10 @@ export class LayerSettingsModal {
                                 <div class="description mb-4"></div>
                                 <div class="attribution mb-4"></div>
                                 <div class="live-section mb-4"></div>
+                                <div class="locale-section mb-4">
+                                    <h3 class="text-sm font-bold mb-2">Locale</h3>
+                                    <div class="locale-fields"></div>
+                                </div>
                                 <div class="data-source mb-4">
                                     <h3 class="text-sm font-bold mb-2">Data Source</h3>
                                     <div class="source-details"></div>
@@ -128,6 +133,9 @@ export class LayerSettingsModal {
         } else {
             attributionEl.style.display = 'none';
         }
+
+        // Locale section (global setting, not per-layer - see js/locale-manager.js)
+        await mountLocaleSection(content.querySelector('.locale-fields'));
 
         // Update live section
         const liveSection = content.querySelector('.live-section');

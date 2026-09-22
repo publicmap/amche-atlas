@@ -9,7 +9,7 @@ const MAX_RESULTS = 5
  * name not listed here still surfaces through the ordinary Nominatim place
  * search below, just without the dedicated "Countries" section/icon.
  */
-const COUNTRIES = [
+export const COUNTRIES = [
     ['India', 'IN', 79.0, 22.5, 4],
     ['Pakistan', 'PK', 69.3, 30.4, 5],
     ['Bangladesh', 'BD', 90.4, 23.7, 6],
