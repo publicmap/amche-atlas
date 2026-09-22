@@ -120,6 +120,10 @@
           "coalesce",
           [
             "get",
+            "name_hi"
+          ],
+          [
+            "get",
             "name_en"
           ],
           [

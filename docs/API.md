@@ -24,6 +24,21 @@ Load a specific atlas configuration.
 
 **Note:** The atlas display name comes from the config's top-level `name`; `title` is accepted as an alias for configs authored elsewhere (e.g. STAC-derived atlases). If neither is present, an imported atlas falls back to "Imported Map".
 
+### `renderer`
+
+Select the GL rendering library. Applies to script loading only and is read once at page load - it is not part of the debounced URL-write flow other parameters use.
+
+**Format:** `?renderer=<value>`
+
+**Values:**
+- `mapbox` - Mapbox GL JS (default, set in `index.html`'s `window.amche.RENDERER`)
+- `maplibre` - MapLibre GL JS instead, with no other config changes required (see `js/gl-compat.js`). Has better complex-script (e.g. Indic) text shaping.
+
+**Examples:**
+```
+?renderer=maplibre
+```
+
 ### `layers`
 
 Override visible layers from the atlas configuration.

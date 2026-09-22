@@ -11,6 +11,41 @@
         window.amche = {};
         window.amche.ENABLE_INTRO_CONTENT = false; // Set to true to enable intro content auto-loading
         window.amche.MAPBOXGL_ACCESS_TOKEN = 'pk.eyJ1Ijoib3NtaW5kaWEiLCJhIjoiY202czRpbWdpMDNyZjJwczJqZXdkMGR1eSJ9.eQQf--msfqtZIamJN-KKVQ'; // Mapbox Token by OpenStreetMap India Community for amche.in under not for profit community use https://www.mapbox.com/nonprofit . Please replace token for other uses
+        // GL renderer selection. window.amche.DEFAULT_RENDERER (below) renders
+        // with Mapbox GL JS unless changed here; 'maplibre' renders with
+        // MapLibre GL JS instead (no code/config changes needed - see
+        // js/gl-compat.js), which has better complex-script text shaping
+        // (Indic scripts). Override per-load with ?renderer=maplibre, or
+        // switch permanently from the settings (gear) menu in the header nav
+        // (see js/settings-menu-control.js).
+        window.amche.DEFAULT_RENDERER = 'mapbox';
+        window.amche.RENDERER = (function () {
+            var override = new URLSearchParams(window.location.search).get('renderer');
+            return (override === 'maplibre' || override === 'mapbox') ? override : window.amche.DEFAULT_RENDERER;
+        })();
+        // Pinned CDN builds for each renderer - bump either independently as
+        // the libraries release new versions. `version` and `homepage` are
+        // display-only (the settings menu label/link); update `version`
+        // alongside the URLs below.
+        window.amche.RENDERER_ASSETS = {
+            mapbox: {
+                version: '3.31.0',
+                homepage: 'https://docs.mapbox.com/mapbox-gl-js/guides/',
+                js: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.31.0/dist/mapbox-gl.min.js',
+                css: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.31.0/dist/mapbox-gl.min.css'
+            },
+            maplibre: {
+                version: '6.10.0',
+                homepage: 'https://maplibre.org/maplibre-gl-js/docs/',
+                // v6 dropped the UMD build (no more plain dist/maplibre-gl.js
+                // global) - only ships an ES module now, so this needs the
+                // `module: true` loading path below instead of a plain
+                // `<script defer src="...">`.
+                module: true,
+                js: 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.10.0/dist/maplibre-gl.mjs',
+                css: 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.10.0/dist/maplibre-gl.css'
+            }
+        };
         window.amche.GOOGLE_ANALYTICS = 'G-FBVGZ4HJV0';
         window.amche.DOMAIN_URL = 'amche.in';
         window.amche.DEFAULT_ATLAS = 'config/index.atlas.json';
@@ -92,8 +127,10 @@
 
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
         href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap">
-    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
-        href="https://cdn.jsdelivr.net/npm/mapbox-gl@v3.31.0/dist/mapbox-gl.min.css">
+    <script>
+        document.write('<link rel="preload" as="style" onload="this.onload=null;this.rel=\'stylesheet\'" href="' +
+            window.amche.RENDERER_ASSETS[window.amche.RENDERER].css + '">');
+    </script>
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
         href="https://cdn.jsdelivr.net/npm/@mapbox/mapbox-gl-draw@1.5.2/dist/mapbox-gl-draw.css">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
@@ -291,8 +328,24 @@
     <script defer src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script><!-- Add jQuery -->
     <script defer src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
     <!-- Turf.js for geospatial operations -->
-    <script defer src="https://cdn.jsdelivr.net/npm/mapbox-gl@v3.31.0/dist/mapbox-gl.min.js"></script>
-    <!-- Mapbox GL JS -->
+    <script>
+        (function () {
+            var asset = window.amche.RENDERER_ASSETS[window.amche.RENDERER];
+            // Module scripts (see `module: true` assets above - currently
+            // just MapLibre, which dropped its UMD build in v6) don't create
+            // a global on their own; import the namespace and assign it
+            // ourselves so js/gl-compat.js still finds `window.maplibregl`.
+            // Module scripts are deferred the same as `defer` classic
+            // scripts and execute in the same relative document order, so
+            // this still runs - and finishes its import - before gl-compat.js.
+            document.write(asset.module
+                ? '<script type="module">import * as maplibregl from "' + asset.js + '"; window.maplibregl = maplibregl;<' + '/script>'
+                : '<script defer src="' + asset.js + '"><' + '/script>');
+        })();
+    </script>
+    <!-- Mapbox GL JS or MapLibre GL JS, chosen by window.amche.RENDERER above -->
+    <script defer src="js/gl-compat.js"></script>
+    <!-- Bridges the chosen renderer's global onto `mapboxgl` for the rest of the app -->
     <script defer src="https://cdn.jsdelivr.net/npm/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.js"></script>
     <!-- Mapbox GL Draw (for measure control) -->
     <script defer src="https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js"></script><!-- Mapbox GL JS -->
@@ -1243,6 +1296,7 @@
         <!-- Left: Atlas + Layers nested menu, then the location navigator (add
              or jump to a saved marker, see js/location-navigator-control.js) -->
         <div class="flex items-center min-w-0 gap-1">
+            <div id="settings-menu-container" class="flex items-center flex-shrink-0"></div>
             <div id="atlas-layer-menu-container" class="flex items-center min-w-0"></div>
             <div id="location-navigator-container" class="flex items-center flex-shrink-0"></div>
             <div id="nearby-features-menu-container" class="flex items-center flex-shrink-0"></div>

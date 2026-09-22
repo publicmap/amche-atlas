@@ -70,6 +70,9 @@ export default defineConfig({
         { src: 'sound/*.js', dest: 'sound' },
         { src: 'warper/*.js', dest: 'warper' },
         { src: 'game/*.js', dest: 'game' },
+        // Same deal for the root index.html's renderer-bridge script - it
+        // must run as a classic global-scope script (see js/gl-compat.js).
+        { src: 'js/gl-compat.js', dest: 'js' },
         // Root-level static files.
         { src: 'service-worker.js', dest: '.' },
         { src: 'manifest.json', dest: '.' },

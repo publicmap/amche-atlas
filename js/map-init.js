@@ -14,6 +14,7 @@ import { MeasureControl } from './map-measure-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
 import { AtlasLayerMenuControl } from './atlas-layer-menu-control.js';
+import { SettingsMenuControl } from './settings-menu-control.js';
 import { MapAttributionControl } from './map-attribution-control.js';
 import { StreetviewControl } from './streetview-control.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
@@ -807,6 +808,11 @@ export class MapInitializer {
 
     // Initialize the map with the configuration
     static async initializeMap() {
+        // Doesn't depend on the map or atlas config - mount immediately so
+        // the gear icon is available right away.
+        window.settingsMenuControl = new SettingsMenuControl();
+        window.settingsMenuControl.mount(document.getElementById('settings-menu-container'));
+
         // Kick off the full atlas registry in parallel. We do NOT await it
         // here — loadConfiguration() awaits it inside map.on('load') once the
         // map is already rendering. The registry dedupes concurrent calls so
@@ -820,6 +826,16 @@ export class MapInitializer {
         const configParam = URLUtils.getUrlParameter('atlas');
         const initialMapOptions = await this._loadInitialMapOptions(configParam);
         Object.assign(window.amche.MAPBOX_MAP_OPTIONS, initialMapOptions);
+
+        // Configs author `map.style` as a `mapbox://styles/...` URL either
+        // way - resolve it (and patch known Mapbox/MapLibre incompatibilities)
+        // when running MapLibre. No-op under Mapbox GL JS, which resolves the
+        // mapbox:// scheme itself and has no such incompatibilities.
+        if (window.amche.MAPBOX_MAP_OPTIONS.style) {
+            window.amche.MAPBOX_MAP_OPTIONS.style = await window.amche.resolveMapboxStyle(
+                window.amche.MAPBOX_MAP_OPTIONS.style
+            );
+        }
 
         // Snapshot whether the incoming URL already had a position hash
         // *before* constructing the map — Mapbox's `hash: true` option (see

@@ -11,6 +11,7 @@
  * docs/API.md (and vice versa).
  */
 export const URL_API_PARAMS = [
+    'renderer',
     'atlas',
     'layers',
     'selected',
