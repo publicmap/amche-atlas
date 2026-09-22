@@ -268,6 +268,11 @@ export class AutocompleteBadgeInput {
             reposition();
             window.addEventListener('scroll', reposition, true);
             window.addEventListener('resize', reposition);
+            // Same "pointer over root or list" tracking as mount()'s root
+            // listeners (see _scheduleLeaveCheck) - the list lives outside
+            // root now, so it needs its own enter/leave pair.
+            this._ac.list.addEventListener('mouseenter', this._onListMouseEnter);
+            this._ac.list.addEventListener('mouseleave', this._onListMouseLeave);
         }
 
         requestAnimationFrame(() => {
@@ -368,10 +373,15 @@ export class AutocompleteBadgeInput {
         }
         // Portaled to <body> in _enterEdit, so it's no longer inside the
         // wrapper unInit() below removes - detach it ourselves first.
-        this._ac?.list?.parentNode?.removeChild(this._ac.list);
+        if (this._ac?.list) {
+            this._ac.list.removeEventListener('mouseenter', this._onListMouseEnter);
+            this._ac.list.removeEventListener('mouseleave', this._onListMouseLeave);
+            this._ac.list.parentNode?.removeChild(this._ac.list);
+        }
         this._ac?.unInit?.();
         this._ac = null;
         this._input = null;
         this._clearBtn = null;
+        this._pointerOverField = false;
     }
 }

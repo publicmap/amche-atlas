@@ -1118,6 +1118,10 @@ export class NearbyFeaturesControl {
         if (this._container?.contains(e.target)) return;
         if (this._menu?.contains(e.target)) return;
         if (this._flyout.contains(e.target)) return;
+        // AutocompleteBadgeInput (js/autocomplete-badge-input.js) portals its
+        // dropdown to <body> so scrolling ancestors can't clip it - it's no
+        // longer a descendant of any of the containers above while open.
+        if (e.target.closest?.('.ac-badge-input-list')) return;
         this._hide();
     }
 

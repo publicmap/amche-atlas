@@ -38,6 +38,11 @@ export class SettingsMenuControl {
         // any of that, while the target is still where the user clicked.
         this._onDocClick = (e) => {
             if (!this._isOpen || this._container.contains(e.target)) return;
+            // AutocompleteBadgeInput portals its dropdown to <body> so a
+            // scrolling ancestor (this panel) can't clip it - it's no longer
+            // a descendant of _container while open, so it needs its own
+            // exemption here or every click inside it reads as "outside".
+            if (e.target.closest?.('.ac-badge-input-list')) return;
             this.close();
         };
     }

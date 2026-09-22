@@ -130,6 +130,29 @@ export async function mountLocaleSection(container) {
     await localeManager.ensureDefaultsLoaded();
     container.innerHTML = '';
 
+    // Referenced by the primary-language field below, defined further down
+    // (function declarations hoist, so the DOM build order - country,
+    // primary, fallback - can stay as-is).
+    const fallbackEntries = [];
+
+    /**
+     * When a primary language with no fallback set gets replaced, the old
+     * primary becomes the fallback rather than being lost outright - it's
+     * still a language the user chose, just no longer the first choice.
+     * A no-op once any fallback already exists (nothing to fill).
+     */
+    function replacePrimaryAsFallback(oldPrimary) {
+        if (!oldPrimary || fallbackEntries.some(e => e.value)) return;
+        const emptyEntry = fallbackEntries.find(e => !e.value);
+        if (emptyEntry) {
+            emptyEntry.value = oldPrimary;
+            paintBadge(emptyEntry.input, oldPrimary, 'translate');
+        } else {
+            addFallbackRow(oldPrimary);
+        }
+        commitFallback();
+    }
+
     const countryField = document.createElement('div');
     countryField.className = 'locale-field';
     const countryLabel = document.createElement('label');
@@ -179,9 +202,11 @@ export async function mountLocaleSection(container) {
         getItems: buildLanguageItems,
         parseText: parseLanguageText,
         onSelect: (item) => {
+            const previous = localeManager.getPrimaryLanguage();
             localeManager.setPrimaryLanguage(item.value);
             paintBadge(primaryInput, item.value, 'translate');
             updatePrimaryClearVisibility();
+            if (previous?.code !== item.value?.code) replacePrimaryAsFallback(previous);
         }
     });
     primaryInputEl.appendChild(primaryInput.mount());
@@ -189,9 +214,12 @@ export async function mountLocaleSection(container) {
     updatePrimaryClearVisibility();
 
     primaryClearBtn.addEventListener('click', () => {
+        const previous = localeManager.getPrimaryLanguage();
         localeManager.setPrimaryLanguage(null);
-        paintBadge(primaryInput, localeManager.getPrimaryLanguage(), 'translate');
+        const next = localeManager.getPrimaryLanguage();
+        paintBadge(primaryInput, next, 'translate');
         updatePrimaryClearVisibility();
+        if (previous?.code !== next?.code) replacePrimaryAsFallback(previous);
     });
 
     const fallbackField = document.createElement('div');
