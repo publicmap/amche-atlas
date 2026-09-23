@@ -16,6 +16,11 @@ import { localeManager } from './locale-manager.js';
  * left out of the URL as "the preset has them anyway", so they are carried over
  * onto the serializable copy of the layer here, and written out by layerToURL.
  */
+// Mirrors Terrain3DControl's own per-renderer default (Mapbox's DEM tileset
+// 401s under MapLibre - see js/terrain-3d-control.js), so the terrainSource
+// param is only written when it differs from that default.
+const DEFAULT_TERRAIN_SOURCE = window.amche?.RENDERER === 'maplibre' ? 'maplibre' : 'mapbox';
+
 function copyEditedFields(group, layerObj) {
     if (!group._editedFields?.length) return;
     layerObj._editedFields = group._editedFields;
@@ -749,14 +754,14 @@ export class URLManager {
         // Handle terrain source parameter
         if (options.terrainSource !== undefined) {
             const currentTerrainSourceParam = urlParams.get('terrainSource');
-            if (options.terrainSource && options.terrainSource !== 'mapbox') {
-                // Only set if not default (mapbox is default)
+            if (options.terrainSource && options.terrainSource !== DEFAULT_TERRAIN_SOURCE) {
+                // Only set if not default
                 terrainSourceParam = options.terrainSource;
                 if (currentTerrainSourceParam !== terrainSourceParam) {
                     hasChanges = true;
                 }
             } else {
-                // Remove parameter when using default mapbox terrain
+                // Remove parameter when using the default terrain source
                 if (currentTerrainSourceParam !== null) {
                     hasChanges = true;
                 }

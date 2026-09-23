@@ -277,18 +277,18 @@ Display terrain as a wireframe mesh for debugging.
 
 ### `terrainSource`
 
-Select the terrain data source (default: `mapbox`).
+Select the terrain data source (default: `mapbox` under Mapbox GL JS, `maplibre` under MapLibre GL JS - Mapbox's DEM tileset requires Mapbox GL JS's own session-token auth and doesn't load under MapLibre).
 
 **Format:** `?terrainSource=<source>`
 
 **Values:**
-- `mapbox` (default)
-- `maptiler`
-- Other configured terrain sources
+- `mapbox` (default renderer) - Mapbox's own terrain-DEM tileset
+- `maplibre` (default under MapLibre) - Mapterhorn's free terrain tiles, the source used by MapLibre GL JS's own 3D terrain example
+- `cartodem` - ISRO/Bhuvan CartoDEM 30m
 
 **Example:**
 ```
-?terrain=2&terrainSource=maptiler
+?terrain=2&terrainSource=maplibre
 ```
 
 ### `fov`

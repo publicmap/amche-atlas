@@ -65,7 +65,10 @@ export class Terrain3DControl {
         this._animationFrame = null; // For requestAnimationFrame
         this._panel = null;
         this._map = null;
-        this._terrainSource = 'mapbox'; // Default to Mapbox terrain
+        // Mapbox's DEM tileset doesn't work under MapLibre (see
+        // _terrainSources.maplibre above), so MapLibre defaults to its own
+        // token-less source instead.
+        this._terrainSource = window.amche?.RENDERER === 'maplibre' ? 'maplibre' : 'mapbox';
         this._buildingSource = 'mapbox'; // Which vendor's building tiles the chip toggles
         this._initializing = false; // Flag to prevent URL updates during initialization
         this._pitchListener = null; // Track pitch change listener for cleanup
@@ -100,6 +103,21 @@ export class Terrain3DControl {
                     'maxzoom': 14
                 },
                 sourceId: 'mapbox-dem'
+            },
+            // Mapbox's DEM tileset requires Mapbox GL JS's own proprietary
+            // session-token auth - under MapLibre every tile 401s (same
+            // limitation js/gl-compat.js documents for the style-embedded
+            // terrain case; this addSource call hits the identical tileset).
+            // Mapterhorn is the free, token-less DEM source MapLibre's own
+            // 3D terrain example uses, so it stands in as the default under
+            // MapLibre - see _terrainSource below and initializeFromURL().
+            'maplibre': {
+                name: 'MapLibre Terrain (Mapterhorn)',
+                sourceConfig: {
+                    'type': 'raster-dem',
+                    'url': 'https://tiles.mapterhorn.com/tilejson.json'
+                },
+                sourceId: 'maplibre-dem'
             },
             'cartodem': {
                 name: 'ISRO CartoDEM 30m',
@@ -316,7 +334,7 @@ export class Terrain3DControl {
             pitch: 0,
             fov: 0.643,
             exaggeration: this.options.initialExaggeration,
-            source: 'mapbox',
+            source: window.amche?.RENDERER === 'maplibre' ? 'maplibre' : 'mapbox',
             wireframe: false
         };
 
@@ -858,7 +876,7 @@ export class Terrain3DControl {
 
     _resetToDefaults() {
         // Reset all values to defaults
-        this.setTerrainSource('mapbox');
+        this.setTerrainSource(window.amche?.RENDERER === 'maplibre' ? 'maplibre' : 'mapbox');
         this.setAnimate(false);
         this.setFog(true);
         this.setEnabled(true);
@@ -1000,7 +1018,8 @@ export class Terrain3DControl {
         } else {
             // Fallback to direct URL manipulation
             const url = new URL(window.location);
-            if (this._terrainSource !== 'mapbox') { // Only set if not default
+            const defaultSource = window.amche?.RENDERER === 'maplibre' ? 'maplibre' : 'mapbox';
+            if (this._terrainSource !== defaultSource) { // Only set if not default
                 url.searchParams.set('terrainSource', this._terrainSource);
             } else {
                 url.searchParams.delete('terrainSource');
@@ -1397,7 +1416,7 @@ export class Terrain3DControl {
         if (terrainSourceParam && this._terrainSources[terrainSourceParam]) {
             this.setTerrainSource(terrainSourceParam);
         } else {
-            this.setTerrainSource('mapbox');
+            this.setTerrainSource(window.amche?.RENDERER === 'maplibre' ? 'maplibre' : 'mapbox');
         }
 
         if (terrainParam) {
