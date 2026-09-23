@@ -18,6 +18,13 @@ import { showGeolocationErrorDialog, geolocationErrorMessage } from './geolocati
 
 const STATUS_MESSAGE_ID = 'geolocation-status';
 
+// MapLibre renders its own control DOM with `maplibregl-*` class names
+// instead of Mapbox's `mapboxgl-*` (see js/gl-compat.js). The button read
+// back here is never mounted into the document (see onAdd below), so it
+// never gets caught by gl-compat.js's class-mirroring, which only observes
+// the live map container - the actual prefix has to be selected directly.
+const CTRL_PREFIX = window.amche?.RENDERER === 'maplibre' ? 'maplibregl' : 'mapboxgl';
+
 export const WATCH = {
     OFF: 'off',
     LOCATING: 'locating',
@@ -100,7 +107,7 @@ export class GeolocationWatch {
     // so wait for it rather than assuming onAdd left one behind.
     _whenButtonReady(callback) {
         const attach = () => {
-            this._button = this._element.querySelector('.mapboxgl-ctrl-geolocate');
+            this._button = this._element.querySelector(`.${CTRL_PREFIX}-ctrl-geolocate`);
             if (!this._button) return false;
             this._observer = new MutationObserver(this._sync);
             this._observer.observe(this._button, { attributes: true, attributeFilter: ['class'] });
@@ -113,7 +120,7 @@ export class GeolocationWatch {
     }
 
     _sync = () => {
-        const has = (suffix) => this._button.classList.contains(`mapboxgl-ctrl-geolocate-${suffix}`);
+        const has = (suffix) => this._button.classList.contains(`${CTRL_PREFIX}-ctrl-geolocate-${suffix}`);
         // Order matters: the error and waiting states carry more than one of
         // these classes (see watchStateClasses in GL JS).
         let state;
