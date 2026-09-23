@@ -287,9 +287,7 @@ export class KeyboardController {
     }
 
     openWelcomeScreen() {
-        if (window.IntroContentManager) {
-            new window.IntroContentManager({ enableAutoClose: false });
-        }
+        window.location.href = './docs/index.html';
     }
 
     setupIframeFocus(iframeId) {

@@ -5,13 +5,9 @@ import { LayerRegistry } from './layer-registry.js';
 import './mapbox-api.js';
 import { MapInitializer } from './map-init.js';
 import { PermalinkManager } from './permalink-manager.js';
-import { IntroContentManager } from './intro-content-manager.js';
 import { initializeKeyboardController } from './keyboard-controller.js';
 import { SplashScreenManager } from './splash-screen-manager.js';
 import { initAnalytics, trackEvent } from './analytics.js';
-
-// Make IntroContentManager available globally for inline navigation menu
-window.IntroContentManager = IntroContentManager;
 
 const layerRegistry = new LayerRegistry();
 window.layerRegistry = layerRegistry;
@@ -63,10 +59,6 @@ $(window).on('load', async function () {
     MapInitializer.initializeMap().then(() => {
         MapInitializer.initializeSearch();
     });
-
-    if (window.amche.ENABLE_INTRO_CONTENT === true) {
-        new IntroContentManager();
-    }
 })
 
 

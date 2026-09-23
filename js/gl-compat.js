@@ -264,6 +264,33 @@
         maplibregl.Map.prototype.addLayer = patchedAddLayer;
     }
 
+    // Mapbox GL JS-only GeolocateControl method, added after MapLibre forked
+    // from the same original code. js/geolocation-watch.js drives
+    // start/unlock/turnOff through it rather than trigger() alone precisely
+    // to reach the ACTIVE_LOCK <-> BACKGROUND transition trigger() can't -
+    // from ACTIVE_LOCK, trigger() only ever turns the whole control off.
+    // Reimplemented against MapLibre's own _watchState/_geolocateButton
+    // fields, mirroring Mapbox GL JS's real implementation (see
+    // src/ui/control/geolocate_control.ts upstream).
+    if (typeof maplibregl.GeolocateControl.prototype.setFollowUserLocation !== 'function') {
+        maplibregl.GeolocateControl.prototype.setFollowUserLocation = function (follow) {
+            if (!this.options.trackUserLocation || this._watchState === 'OFF') return this;
+            if (follow && (this._watchState === 'BACKGROUND' || this._watchState === 'BACKGROUND_ERROR')) {
+                this._watchState = 'ACTIVE_LOCK';
+                this._geolocateButton.classList.remove('maplibregl-ctrl-geolocate-background', 'maplibregl-ctrl-geolocate-background-error');
+                this._geolocateButton.classList.add('maplibregl-ctrl-geolocate-active');
+                if (this._lastKnownPosition) this._updateCamera(this._lastKnownPosition);
+                this.fire('trackuserlocationstart');
+            } else if (!follow && (this._watchState === 'ACTIVE_LOCK' || this._watchState === 'ACTIVE_ERROR')) {
+                this._watchState = 'BACKGROUND';
+                this._geolocateButton.classList.remove('maplibregl-ctrl-geolocate-active', 'maplibregl-ctrl-geolocate-active-error');
+                this._geolocateButton.classList.add('maplibregl-ctrl-geolocate-background');
+                this.fire('trackuserlocationend');
+            }
+            return this;
+        };
+    }
+
     // MapLibre renders every control/marker/popup element with
     // `maplibregl-*` class names instead of Mapbox's `mapboxgl-*` (a
     // deliberate rename at the fork). This app's CSS and several JS files

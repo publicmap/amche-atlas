@@ -99,45 +99,12 @@
     },
     {
       "id": "countries",
-      "tags": [
-        "basemap"
-      ],
       "title": "Mapbox Country Boundaries",
       "description": "Admin-0 level boundaries from Mapbox. See <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-countries-v1/' target='_blank'>Mapbox Countries v1 Docs</a> for details.",
       "type": "vector",
       "attribution": "<a href='https://www.mapbox.com/boundaries'>© Mapbox Boundaries</a>",
       "url": "mapbox://mapbox.country-boundaries-v1",
       "sourceLayer": "country_boundaries",
-      "filter": [
-        "all",
-        [
-          "==",
-          [
-            "get",
-            "disputed"
-          ],
-          "false"
-        ],
-        [
-          "any",
-          [
-            "==",
-            "all",
-            [
-              "get",
-              "worldview"
-            ]
-          ],
-          [
-            "in",
-            "IN",
-            [
-              "get",
-              "worldview"
-            ]
-          ]
-        ]
-      ],
       "style": {
         "fill-color": "rgba(255, 255, 255, 0.2)"
       },

@@ -2294,10 +2294,9 @@ export class MapMarkerManager {
      * Full-screen overlay for a legend image (see _buildLegendImageHTML) -
      * the inline thumbnail is too small to read a busy categorical legend
      * off. No existing modal/lightbox in the app to reuse (checked
-     * button-external-map-links.js and intro-content-manager.js's sl-dialog
-     * uses - neither expands an image), so this is a plain fixed overlay:
-     * click the backdrop, click the close button, or press Escape to
-     * dismiss.
+     * button-external-map-links.js's sl-dialog use - it doesn't expand an
+     * image either), so this is a plain fixed overlay: click the backdrop,
+     * click the close button, or press Escape to dismiss.
      */
     _showImageLightbox(src, alt = 'Legend') {
         document.querySelectorAll('.raster-legend-lightbox').forEach(el => el.remove());

@@ -8,6 +8,7 @@ import { URL_API_PARAMS } from './url-api-params.js';
 import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
 import { allEntries as allRegisteredMarkers, buildMarkersParam, parseMarkersParam } from './marker-registry.js';
 import { localeManager } from './locale-manager.js';
+import { rebaseOnEmbedHost } from './embed-host.js';
 
 /**
  * `_editedFields` lists the definition fields a layer's config diverges from
@@ -1996,8 +1997,10 @@ export class URLManager {
      * Get shareable URL for current state
      */
     getShareableURL() {
-        // Return current URL which should already have the latest layer state
-        return this.getCurrentURL();
+        // Current URL already carries the latest layer state; rebase it onto
+        // the embedding page when there is one, so the printed QR sends people
+        // to the site they were looking at (see embed-host.js).
+        return rebaseOnEmbedHost(this.getCurrentURL());
     }
 
     /**

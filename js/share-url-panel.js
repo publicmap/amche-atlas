@@ -14,7 +14,13 @@
  * that current (debounced) as the map moves - and re-read by `refresh()` while
  * the menu is open. Re-reading keeps each parameter's enabled/disabled state
  * but takes fresh values, so unchecking e.g. `layers` survives panning.
+ *
+ * When the atlas is embedded in someone else's page the link is rebased onto
+ * that page (see embed-host.js), so what gets shared is the map the visitor is
+ * actually looking at rather than a bare amche.in link.
  */
+
+import { rebaseOnEmbedHost } from './embed-host.js';
 
 const PARAM_ORDER = ['atlas', 'layers', 'lat', 'lng', 'zoom', 'bearing', 'pitch'];
 const COPY_FEEDBACK_MS = 2000;
@@ -173,10 +179,10 @@ export class ShareUrlPanel {
                 if (data.enabled && data.value) search.set(key, data.value);
             }
             url.search = search.toString();
-            return url.toString();
+            return rebaseOnEmbedHost(url.toString());
         } catch (error) {
             console.debug('[ShareUrlPanel] Failed to build share URL:', error);
-            return this._sourceUrl || window.location.href;
+            return rebaseOnEmbedHost(this._sourceUrl || window.location.href);
         }
     }
 

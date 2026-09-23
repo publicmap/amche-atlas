@@ -9,7 +9,6 @@
     <script>
         console.log(`[Timing] inline-script (page head) parsing at t=${Math.round(performance.now())}ms`);
         window.amche = {};
-        window.amche.ENABLE_INTRO_CONTENT = false; // Set to true to enable intro content auto-loading
         window.amche.MAPBOXGL_ACCESS_TOKEN = 'pk.eyJ1Ijoib3NtaW5kaWEiLCJhIjoiY202czRpbWdpMDNyZjJwczJqZXdkMGR1eSJ9.eQQf--msfqtZIamJN-KKVQ'; // Mapbox Token by OpenStreetMap India Community for amche.in under not for profit community use https://www.mapbox.com/nonprofit . Please replace token for other uses
         // GL renderer selection. window.amche.DEFAULT_RENDERER (below) renders
         // with Mapbox GL JS unless changed here; 'maplibre' renders with
@@ -1205,7 +1204,7 @@
                         </div>
                     </a>
 
-                    <a href="#" id="help-menu-item" class="nav-menu-item"
+                    <a href="./docs/index.html" id="help-menu-item" class="nav-menu-item"
                         style="display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.625rem 0.75rem; color: #f9fafb; text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s; margin-bottom: 0.25rem;">
                         <svg style="width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px;" fill="currentColor"
                             viewBox="0 0 20 20">
@@ -1215,7 +1214,7 @@
                         <div>
                             <div style="font-size: 0.9375rem; font-weight: 500; line-height: 1.2;">Welcome</div>
                             <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.125rem; line-height: 1.3;">
-                                Learn how to explore and use the atlas</div>
+                                Guide, tutorials and controls</div>
                         </div>
                     </a>
 
@@ -1438,7 +1437,6 @@
             const overlay = document.getElementById('nav-menu-overlay');
             const trigger = document.getElementById('nav-menu-trigger');
             const closeBtn = document.getElementById('nav-menu-close');
-            const helpItem = document.getElementById('help-menu-item');
             const latestUpdatesItem = document.getElementById('latest-updates-menu-item');
             const updatesModalOverlay = document.getElementById('updates-modal-overlay');
             const updatesModalClose = document.getElementById('updates-modal-close');
@@ -1502,16 +1500,6 @@
             overlay.addEventListener('click', function (e) {
                 if (e.target === overlay) {
                     closeMenu();
-                }
-            });
-
-            // Handle help menu item
-            helpItem.addEventListener('click', function (e) {
-                e.preventDefault();
-                closeMenu();
-                // IntroContentManager will be initialized by map-init.js
-                if (window.IntroContentManager) {
-                    new window.IntroContentManager({ enableAutoClose: false });
                 }
             });
 
