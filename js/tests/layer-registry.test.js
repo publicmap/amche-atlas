@@ -100,6 +100,47 @@ describe('LayerRegistry deferred external atlas loading', () => {
         expect(registry.getLayer('ext-poi')).toBeTruthy();
     });
 
+    it('lets an imported config curate the collection with its own atlases list', async () => {
+        const IMPORTED_URL = 'https://openstreetmap.in/config/index.atlas.json';
+        global.window.location.search = `?atlas=${IMPORTED_URL}`;
+        const configs = baseConfigs();
+        configs['config/world.atlas.json'] = {
+            name: 'World',
+            layers: [{ id: 'imagery', type: 'tms', title: 'Imagery', url: 'https://example.com/{z}/{x}/{y}.png' }]
+        };
+        configs[IMPORTED_URL] = {
+            name: 'OpenStreetMap India',
+            atlases: ['world'],
+            layers: [{ id: 'world-imagery', initiallyChecked: true }]
+        };
+        global.fetch = mockFetchJson(configs);
+
+        const registry = new LayerRegistry();
+        await registry.initialize();
+
+        // The imported list replaces the local index's, rather than adding to it.
+        expect(registry.getAtlasMetadata('world')).toBeTruthy();
+        expect(registry.getLayer('world-imagery')).toBeTruthy();
+        expect(registry.getAtlasMetadata('goa')).toBeNull();
+        expect(registry._pendingAtlases.has('ext')).toBe(false);
+
+        // The local index still loads - it defines the app's own working layers.
+        expect(registry.getLayer('selection')).toBeTruthy();
+    });
+
+    it('falls back to the local index when an imported config names no collection', async () => {
+        const IMPORTED_URL = 'https://example.org/just-one.atlas.json';
+        global.window.location.search = `?atlas=${IMPORTED_URL}`;
+        const configs = baseConfigs();
+        configs[IMPORTED_URL] = { name: 'Just one', layers: [{ id: 'thing', type: 'geojson', title: 'Thing' }] };
+        global.fetch = mockFetchJson(configs);
+
+        const registry = new LayerRegistry();
+        await registry.initialize();
+
+        expect(registry.getAtlasMetadata('goa')).toBeTruthy();
+    });
+
     it('ensureAllAtlasesLoaded loads every remaining deferred atlas', async () => {
         const configs = baseConfigs();
         global.fetch = mockFetchJson(configs);

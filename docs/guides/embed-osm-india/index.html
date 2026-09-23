@@ -14,10 +14,12 @@
 
         Two things are wired up here:
 
-        1. This page -> the atlas. The map is configured entirely through URL
-           parameters (see the URL API guide), so CONFIG below is the whole
-           customization surface: which atlas, which layers, which languages.
-           Any parameter already on this page's own URL wins over the default,
+        1. This page -> the atlas. The map is configured through URL
+           parameters (see the URL API guide), and the biggest of those is
+           `atlas`, pointed here at config/index.atlas.json sitting next to
+           this file: the layers this map opens with, and the short list of
+           atlases its switcher offers, are ours rather than amche.in's. Any
+           parameter already on this page's own URL wins over the default,
            which is what makes a shared link reopen the view it was shared from.
 
         2. The atlas -> this page. An embedded Amche Atlas posts
@@ -79,18 +81,26 @@
     </noscript>
 
     <script>
+        // A browser won't let an https atlas read a config from http://localhost,
+        // so while this page is served from a local amche-atlas checkout
+        // (npm start) embed that same instance: same origin, config loads,
+        // nothing to deploy first. Everywhere else, the public instance.
+        const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+
         const CONFIG = {
             // The Amche Atlas instance to embed.
-            atlasUrl: 'https://amche.in/dev',
+            atlasUrl: isLocal ? new URL('../../../', location.href).href : 'https://amche.in/dev',
+
+            // Our own collection, hosted alongside this page. It must be an
+            // absolute URL because the atlas fetches it from its own origin.
+            configUrl: new URL('config/index.atlas.json', location.href).href,
 
             // Default URL parameters - the customization of this instance.
             // Anything here is overridden by the same parameter on this page's URL.
             params: {
                 renderer: 'maplibre',
-                atlas: 'osm',
                 terrain: '5.5',
-                lang: 'ml,en',
-                layers: 'osm-places,mapbox-admin-lines,boundaries-india,topo,mapbox-satellite'
+                lang: 'ml,en'
             },
 
             // Opening camera, as zoom/lat/lng/bearing/pitch.
@@ -102,6 +112,7 @@
         function buildSrc() {
             const src = new URL(CONFIG.atlasUrl, location.href);
             const hostParams = new URLSearchParams(location.search);
+            src.searchParams.set('atlas', CONFIG.configUrl);
             for (const [key, value] of Object.entries(CONFIG.params)) src.searchParams.set(key, value);
             for (const [key, value] of hostParams) src.searchParams.set(key, value);
             src.hash = location.hash || `#${CONFIG.view}`;

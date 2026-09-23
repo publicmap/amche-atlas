@@ -18,15 +18,33 @@ Because every part of the map's state — the atlas, the visible layers, languag
 
 Two details matter in practice:
 
-- **`allow="geolocation"` is required.** Permissions aren't inherited across a cross-origin iframe, so without it the embedded map can never find the visitor.
+- **The `allow` list is required.** Permissions aren't inherited across a cross-origin iframe: without `geolocation` the embedded map can never find the visitor, and without the motion sensors the compass can't rotate the map with the device.
 - **The embedded atlas talks back.** It posts `{ type: 'url', href }` to the parent window once the map has loaded and again after every map move. Listen for that and mirror it onto your own address bar, and links to your homepage become shareable deep links into the map.
 - **Its share links point at you, not at amche.in.** The atlas works out that it's embedded and rebases the URLs it hands visitors — the share panel, the QR codes, printed exports — onto your page, keeping the parameters that describe the view. It uses the referrer by default; post `{ type: 'amche:embed', href: location.href }` into the frame to say so explicitly, which also survives a stripped referrer.
 
+### Bring your own collection
+
+Point `?atlas=` at a config file you host, and the map opens with your layers instead of amche.in's defaults — no fork of the application needed. If that config carries an `atlases` array, it curates the switcher too, so visitors are offered your short list rather than every atlas amche.in knows about:
+
+```json
+{
+  "name": "OpenStreetMap India",
+  "atlases": ["osm", "world", "mapbox"],
+  "map": { "center": [76.9541, 10.8293], "zoom": 10.32 },
+  "layers": [
+    { "id": "osm-places", "initiallyChecked": true },
+    { "id": "mapbox-satellite", "initiallyChecked": true }
+  ]
+}
+```
+
+Ids in `atlases` name the atlases of the instance you're embedding; a full URL loads a collection hosted anywhere. Layer ids are `<atlas>-<layer>`. See [Curating a map atlas for your community](?page=curating-atlas).
+
+Your config has to be reachable by the atlas's own origin, so serve it with `Access-Control-Allow-Origin` (GitHub Pages already does). One wrinkle while developing: a browser won't let `https://amche.in` read a config from `http://localhost`, so test against a deployed copy or an https tunnel rather than your local server.
+
 ### Working example
 
-[A complete homepage that embeds a customized instance](code/embed-osm-india.html), with both directions of URL syncing wired up — this implements the approach in [osm-in.github.io#90](https://github.com/osm-in/osm-in.github.io/issues/90). It's a single self-contained file: [read the source](https://github.com/publicmap/amche-atlas/blob/main/docs/guides/code/embed-osm-india.html), change the `CONFIG` block at the top, and it's your map.
-
-To go further, fork an atlas config such as [`config/osm.atlas.json`](https://github.com/publicmap/amche-atlas/blob/main/config/osm.atlas.json), host the forked file anywhere, and point `?atlas=` at its URL — a fully customized layer collection, still with nothing to deploy. See [Curating a map atlas for your community](?page=curating-atlas).
+[A complete homepage that embeds a customized instance](embed-osm-india/), with its own hosted collection and both directions of URL syncing wired up — this implements the approach in [osm-in.github.io#90](https://github.com/osm-in/osm-in.github.io/issues/90). Two files, [both readable on GitHub](https://github.com/publicmap/amche-atlas/tree/main/docs/guides/embed-osm-india): an `index.html` whose `CONFIG` block is the only thing you need to change, and the `config/index.atlas.json` next to it that decides what the map holds.
 
 ## Option 2: Fork and host your own copy
 

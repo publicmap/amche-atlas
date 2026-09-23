@@ -45,16 +45,31 @@ export class LayerRegistry {
         const indexAtlasId = window.amche.DEFAULT_ATLAS.slice(window.amche.DEFAULT_ATLAS.indexOf('config/') + 7, window.amche.DEFAULT_ATLAS.indexOf('.atlas.json'));
         const atlasEntries = [{ atlasId: indexAtlasId, url: window.amche.DEFAULT_ATLAS, baseUrl: null }];
 
-        const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
-        if (indexResponse.ok) {
-            const indexConfig = await indexResponse.json();
-            if (indexConfig.atlases && Array.isArray(indexConfig.atlases)) {
-                indexConfig.atlases.forEach(entry => {
-                    const parsed = this._parseAtlasEntry(entry);
-                    if (parsed) atlasEntries.push(parsed);
-                });
+        const params = new URLSearchParams(window.location.search);
+        const atlasParam = params.get('atlas');
+        const layersParam = params.get('layers');
+
+        // An imported config (`?atlas=<url>`) that carries its own `atlases`
+        // array curates the whole collection rather than just adding one atlas
+        // to this instance's - so a site embedding the atlas can offer its own
+        // short list in the switcher (see docs/guides/hosting-instance.md).
+        // Short ids in it still name this instance's own atlases; full URLs
+        // load from wherever they are hosted. The local index is always loaded
+        // regardless: it defines the app's own working layers (selection,
+        // directions, mask).
+        let atlases = await this._importedAtlasList(atlasParam);
+        if (!atlases) {
+            const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
+            if (indexResponse.ok) {
+                const indexConfig = await indexResponse.json();
+                if (Array.isArray(indexConfig.atlases)) atlases = indexConfig.atlases;
             }
         }
+
+        (atlases || []).forEach(entry => {
+            const parsed = this._parseAtlasEntry(entry);
+            if (parsed) atlasEntries.push(parsed);
+        });
 
         // Create a Set for fast lookup of known atlas IDs
         this._knownAtlases = new Set(atlasEntries.map(e => e.atlasId));
@@ -67,9 +82,6 @@ export class LayerRegistry {
         // defer external entries, and only the ones not needed immediately: the one
         // explicitly targeted via `?atlas=<id>`, or referenced by an id in `?layers=`,
         // still loads eagerly so a direct link to it isn't broken.
-        const params = new URLSearchParams(window.location.search);
-        const atlasParam = params.get('atlas');
-        const layersParam = params.get('layers');
         const eagerExternalIds = new Set();
         if (atlasParam) eagerExternalIds.add(atlasParam);
         if (layersParam) {
@@ -119,6 +131,24 @@ export class LayerRegistry {
         this._applyCrossAtlasOverrides(this._pendingCrossAtlasOverrides);
 
         this._initialized = true;
+    }
+
+    /**
+     * The `atlases` array of a config imported via `?atlas=<url>`, or null when
+     * the parameter isn't a URL, can't be fetched, or names no collection - in
+     * which case the local index's own list is used instead.
+     */
+    async _importedAtlasList(atlasParam) {
+        if (!atlasParam || !(atlasParam.startsWith('http://') || atlasParam.startsWith('https://'))) return null;
+        try {
+            const response = await fetch(atlasParam);
+            if (!response.ok) return null;
+            const config = await response.json();
+            return Array.isArray(config.atlases) ? config.atlases : null;
+        } catch (error) {
+            console.warn('[LayerRegistry] Could not read atlases from imported config:', error);
+            return null;
+        }
     }
 
     /**
