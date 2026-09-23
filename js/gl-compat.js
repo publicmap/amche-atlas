@@ -140,6 +140,17 @@
             if (styleJson.projection && typeof styleJson.projection === 'object') {
                 delete styleJson.projection;
             }
+            // The glyphs PBF format is fixed-width bitmap glyphs per
+            // codepoint - it can't do the shaping complex scripts need
+            // (Devanagari/other Indic conjuncts, Arabic joining, ...), so
+            // Indic-language labels render as broken/disconnected glyph
+            // sequences under it. MapLibre no longer requires `glyphs` to be
+            // set at all: with it absent, MapLibre falls back to shaping
+            // text with the browser's own font rendering instead of the PBF
+            // glyph atlas. Mapbox GL JS still needs `glyphs` set (its
+            // renderer has no such fallback), so this only strips it here,
+            // not from the style Mapbox GL JS itself loads.
+            delete styleJson.glyphs;
             // Mapbox's dedicated terrain-elevation tileset
             // (mapbox.mapbox-terrain-dem-v1, the `style.terrain.source`'s
             // source) requires Mapbox GL JS's own proprietary session-token

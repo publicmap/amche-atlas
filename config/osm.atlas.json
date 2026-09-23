@@ -338,16 +338,16 @@
             "town",
             10,
             [
-              "village",
-              "hamlet"
+              "suburb",
+              "village"
             ],
             8,
             [
-              "suburb",
               "quarter",
-              "neighbourhood"
+              "neighbourhood",
+              "hamlet"
             ],
-            8,
+            0,
             "island",
             8,
             [
@@ -355,7 +355,7 @@
               "isolated_dwelling",
               "farm"
             ],
-            8,
+            0,
             10
           ],
           16,
@@ -636,25 +636,25 @@
             "town",
             2,
             [
-              "village",
-              "hamlet"
-            ],
-            1.5,
-            [
               "suburb",
-              "quarter",
-              "neighbourhood"
+              "village"
             ],
             1,
+            [
+              "quarter",
+              "neighbourhood",
+              "hamlet"
+            ],
+            0,
             "island",
-            1.5,
+            0,
             [
               "locality",
               "isolated_dwelling",
               "farm"
             ],
-            1,
-            1.5
+            0,
+            0
           ],
           16,
           [
@@ -701,29 +701,50 @@
             "town",
             4,
             [
-              "village",
-              "hamlet"
-            ],
-            3,
-            [
               "suburb",
-              "quarter",
-              "neighbourhood"
+              "village"
             ],
             2,
+            [
+              "quarter",
+              "neighbourhood",
+              "hamlet"
+            ],
+            0,
             "island",
-            3,
+            0,
             [
               "locality",
               "isolated_dwelling",
               "farm"
             ],
-            2,
-            3
+            0,
+            0
           ]
         ],
         "circle-color": "#fff",
-        "circle-stroke-width": 1.5,
+        "circle-stroke-width": [
+          "match",
+          [
+            "get",
+            "kind"
+          ],
+          [
+            "quarter",
+            "neighbourhood",
+            "hamlet"
+          ],
+          1,
+          "island",
+          0,
+          [
+            "locality",
+            "isolated_dwelling",
+            "farm"
+          ],
+          0,
+          1.5
+        ],
         "circle-stroke-color": "#000"
       },
       "inspect": {
@@ -2626,18 +2647,6 @@
           0
         ]
       }
-    },
-    {
-      "initiallyChecked": true,
-      "tags": [
-        "basemap"
-      ],
-      "id": "maptiler-satellite",
-      "title": "Maptiler Satellite",
-      "description": "Satellite imagery from <a href='https://cloud.maptiler.com/tiles/>Maptiler</a>",
-      "type": "json",
-      "url": "https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=8n1qroRJ9APPiRFK8YVe",
-      "attribution": "<a href='https://www.maptiler.com/maps/#style=hybrid-v4&lang=auto&mode=2d&position=1.89/32.18/-24.83'>© MapTiler</a> <a href='https://www.maxar.com/'>© Maxar</a>"
     },
     {
       "tags": [
