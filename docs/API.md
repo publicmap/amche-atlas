@@ -275,6 +275,17 @@ Display terrain as a wireframe mesh for debugging.
 ?terrain=2&wireframe=true
 ```
 
+### `hillshade`
+
+Show a shaded-relief layer generated from the active terrain source's elevation data.
+
+**Format:** `?hillshade=true`
+
+**Example:**
+```
+?terrain=2&hillshade=true
+```
+
 ### `terrainSource`
 
 Select the terrain data source (default: `mapbox` under Mapbox GL JS, `maplibre` under MapLibre GL JS - Mapbox's DEM tileset requires Mapbox GL JS's own session-token auth and doesn't load under MapLibre).

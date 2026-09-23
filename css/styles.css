@@ -7203,6 +7203,7 @@ sl-tab:hover::part(base) {
 .t3d-chips-sub {
     padding-top: 6px;
     border-top: none;
+    flex-wrap: wrap;
 }
 
 .t3d-chip {

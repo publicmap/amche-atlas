@@ -609,6 +609,7 @@ export class URLManager {
         let animateParam = null;
         let fogParam = null;
         let wireframeParam = null;
+        let hillshadeParam = null;
         let terrainSourceParam = null;
         let fovParam = null;
         let bearingParam = null;
@@ -746,6 +747,21 @@ export class URLManager {
                 }
             } else {
                 if (currentWireframeParam !== null) {
+                    hasChanges = true;
+                }
+            }
+        }
+
+        // Handle hillshade parameter
+        if (options.hillshade !== undefined) {
+            const currentHillshadeParam = urlParams.get('hillshade');
+            if (options.hillshade) {
+                hillshadeParam = 'true';
+                if (currentHillshadeParam !== 'true') {
+                    hasChanges = true;
+                }
+            } else {
+                if (currentHillshadeParam !== null) {
                     hasChanges = true;
                 }
             }
@@ -1055,6 +1071,12 @@ export class URLManager {
                 params.push('wireframe=true');
             }
 
+            // Add hillshade parameter (either new or preserved from current URL)
+            const currentHillshade = hillshadeParam || (options.hillshade === undefined ? urlParams.get('hillshade') : null);
+            if (currentHillshade === 'true') {
+                params.push('hillshade=true');
+            }
+
             // Add terrain source parameter (either new or preserved from current URL)
             const currentTerrainSource = terrainSourceParam || (options.terrainSource === undefined ? urlParams.get('terrainSource') : null);
             if (currentTerrainSource && currentTerrainSource !== 'mapbox') {
@@ -1284,6 +1306,7 @@ export class URLManager {
         const animateParam = urlParams.get('animate');
         const fogParam = urlParams.get('fog');
         const wireframeParam = urlParams.get('wireframe');
+        const hillshadeParam = urlParams.get('hillshade');
         const terrainSourceParam = urlParams.get('terrainSource');
         const fovParam = urlParams.get('fov');
         const bearingParam = urlParams.get('bearing');
@@ -1325,7 +1348,7 @@ export class URLManager {
             console.warn('[URL API] Unsupported parameters ignored:', unsupportedParams);
         }
 
-        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !maskParam && !hasLocationClick && !zoomToParam && !countryParam && !langParam) {
+        if (!layersParam && !geolocateParam && !searchParam && !terrainParam && !animateParam && !fogParam && !wireframeParam && !hillshadeParam && !terrainSourceParam && !fovParam && !bearingParam && !pitchParam && !selectedParam && !markersParam && !compareParam && !maskParam && !hasLocationClick && !zoomToParam && !countryParam && !langParam) {
             return false;
         }
 
@@ -1412,6 +1435,16 @@ export class URLManager {
                     window.terrain3DControl.setWireframe(true);
                 } else {
                     window.terrain3DControl.setWireframe(false);
+                }
+            }
+
+            // Handle hillshade parameter
+            if (hillshadeParam && window.terrain3DControl) {
+                applied = true;
+                if (hillshadeParam === 'true') {
+                    window.terrain3DControl.setHillshade(true);
+                } else {
+                    window.terrain3DControl.setHillshade(false);
                 }
             }
 
@@ -2117,6 +2150,13 @@ export class URLManager {
      */
     updateWireframeParam(showWireframe) {
         this.updateURL({ wireframe: showWireframe, updateLayers: false });
+    }
+
+    /**
+     * Update hillshade parameter in URL
+     */
+    updateHillshadeParam(showHillshade) {
+        this.updateURL({ hillshade: showHillshade, updateLayers: false });
     }
 
     /**

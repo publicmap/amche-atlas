@@ -24,6 +24,7 @@ export const URL_API_PARAMS = [
     'animate',
     'fog',
     'wireframe',
+    'hillshade',
     'terrainSource',
     'fov',
     'bearing',

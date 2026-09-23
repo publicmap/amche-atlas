@@ -57,6 +57,7 @@ export class Terrain3DControl {
         this._exaggeration = this.options.initialExaggeration;
         this._animate = false; // Default to disabled
         this._showWireframe = false; // Default to disabled
+        this._showHillshade = false; // Default to disabled
         this._enableFog = true; // Default to enabled
         this._visualizeSound = false; // Default to disabled
         this._fov = 0.643; // Default FOV in radians (~36.87°)
@@ -102,7 +103,8 @@ export class Terrain3DControl {
                     'tileSize': 512,
                     'maxzoom': 14
                 },
-                sourceId: 'mapbox-dem'
+                sourceId: 'mapbox-dem',
+                hillshadeLayerId: 'mapbox-dem-hillshade'
             },
             // Mapbox's DEM tileset requires Mapbox GL JS's own proprietary
             // session-token auth - under MapLibre every tile 401s (same
@@ -117,7 +119,8 @@ export class Terrain3DControl {
                     'type': 'raster-dem',
                     'url': 'https://tiles.mapterhorn.com/tilejson.json'
                 },
-                sourceId: 'maplibre-dem'
+                sourceId: 'maplibre-dem',
+                hillshadeLayerId: 'maplibre-dem-hillshade'
             },
             'cartodem': {
                 name: 'ISRO CartoDEM 30m',
@@ -285,6 +288,9 @@ export class Terrain3DControl {
                 <label class="t3d-chip" title="Elevation contour lines from Mapbox Terrain">
                     <input type="checkbox" id="terrain-3d-contours"><span>Contours</span>
                 </label>
+                <label class="t3d-chip" title="Shaded relief from the terrain source">
+                    <input type="checkbox" id="terrain-3d-hillshade"><span>Hillshade</span>
+                </label>
             </div>
 
             <div class="t3d-chips t3d-chips-sub t3d-building-source" hidden>
@@ -451,6 +457,8 @@ export class Terrain3DControl {
 
         find('#terrain-3d-contours').on('change', (e) => this.setAtlasLayerVisible(CONTOURS_LAYER, e.target.checked));
 
+        find('#terrain-3d-hillshade').on('change', (e) => this.setHillshade(e.target.checked));
+
         find('#terrain-3d-wireframe').on('change', (e) => this.setWireframe(e.target.checked));
         find('#terrain-3d-fog').on('change', (e) => this.setFog(e.target.checked));
         find('#terrain-3d-animate').on('change', (e) => this.setAnimate(e.target.checked));
@@ -462,6 +470,7 @@ export class Terrain3DControl {
             this.setEnabled(true);
             this.setExaggeration(defaults.exaggeration);
             this.setWireframe(defaults.wireframe);
+            this.setHillshade(false);
             this.setFov(defaults.fov);
             this.setBearing(defaults.bearing);
             this.setLockToDeviceOrientation(false);
@@ -640,6 +649,7 @@ export class Terrain3DControl {
                     'source': terrainConfig.sourceId,
                     'exaggeration': this._exaggeration
                 });
+                this._updateHillshade();
                 this._updateURLParameter();
                 this._notifySync();
                 return;
@@ -658,22 +668,13 @@ export class Terrain3DControl {
                 this._map.addSource(terrainConfig.sourceId, terrainConfig.sourceConfig);
             }
 
-            // For CartoDEM, also add hillshade layer
-            if (this._terrainSource === 'cartodem' && terrainConfig.hillshadeLayerId) {
-                if (!this._map.getLayer(terrainConfig.hillshadeLayerId)) {
-                    this._map.addLayer({
-                        'id': terrainConfig.hillshadeLayerId,
-                        'type': 'hillshade',
-                        'source': terrainConfig.sourceId
-                    });
-                }
-            }
-
             // Set terrain with the new source
             this._map.setTerrain({
                 'source': terrainConfig.sourceId,
                 'exaggeration': this._exaggeration
             });
+
+            this._updateHillshade();
         } else {
             // Disable terrain, remove sources
             this._map.setTerrain(null);
@@ -687,6 +688,29 @@ export class Terrain3DControl {
         this._updateURLParameter();
 
         this._notifySync();
+    }
+
+    // Adds or removes the hillshade layer for the active terrain source's DEM,
+    // per Mapbox's and MapLibre's terrain examples which pair the `hillshade`
+    // layer with the same raster-dem source `setTerrain` uses.
+    _updateHillshade() {
+        if (!this._map) return;
+
+        const terrainConfig = this._terrainSources[this._terrainSource];
+        if (!terrainConfig?.hillshadeLayerId) return;
+
+        const shouldShow = this._enabled && this._showHillshade;
+        const layerExists = !!this._map.getLayer(terrainConfig.hillshadeLayerId);
+
+        if (shouldShow && !layerExists && this._map.getSource(terrainConfig.sourceId)) {
+            this._map.addLayer({
+                'id': terrainConfig.hillshadeLayerId,
+                'type': 'hillshade',
+                'source': terrainConfig.sourceId
+            });
+        } else if (!shouldShow && layerExists) {
+            this._map.removeLayer(terrainConfig.hillshadeLayerId);
+        }
     }
 
     _removeExistingTerrainSources() {
@@ -882,6 +906,7 @@ export class Terrain3DControl {
         this.setEnabled(true);
         this.setExaggeration(this.options.initialExaggeration);
         this.setWireframe(false);
+        this.setHillshade(false);
         this.setVisualizeSound(false);
         this.setFov(0.643);
         this.setBearing(0);
@@ -904,6 +929,29 @@ export class Terrain3DControl {
                 url.searchParams.set('wireframe', 'true');
             } else {
                 url.searchParams.delete('wireframe');
+            }
+
+            // Update URL without reloading the page
+            window.history.replaceState({}, '', url);
+        }
+    }
+
+    _updateHillshadeURLParameter() {
+        // Skip URL updates during initialization to prevent encoding issues
+        if (this._initializing) {
+            return;
+        }
+
+        // Use URL API if available, otherwise fall back to direct URL manipulation
+        if (window.urlManager && window.urlManager.updateHillshadeParam) {
+            window.urlManager.updateHillshadeParam(this._showHillshade);
+        } else {
+            // Fallback to direct URL manipulation
+            const url = new URL(window.location);
+            if (this._showHillshade) {
+                url.searchParams.set('hillshade', 'true');
+            } else {
+                url.searchParams.delete('hillshade');
             }
 
             // Update URL without reloading the page
@@ -1114,6 +1162,18 @@ export class Terrain3DControl {
 
     getWireframe() {
         return this._showWireframe;
+    }
+
+    setHillshade(showHillshade) {
+        this._showHillshade = showHillshade;
+        $('#terrain-3d-hillshade').prop('checked', showHillshade);
+        this._updateHillshade();
+        this._updateHillshadeURLParameter();
+        this._notifySync();
+    }
+
+    getHillshade() {
+        return this._showHillshade;
     }
 
     setTerrainSource(source) {
@@ -1404,6 +1464,7 @@ export class Terrain3DControl {
         const terrainParam = urlParams.get('terrain');
         const animateParam = urlParams.get('animate');
         const wireframeParam = urlParams.get('wireframe');
+        const hillshadeParam = urlParams.get('hillshade');
         const terrainSourceParam = urlParams.get('terrainSource');
         const fogParam = urlParams.get('fog');
         const soundParam = urlParams.get('sound');
@@ -1456,6 +1517,13 @@ export class Terrain3DControl {
             this.setFog(false);
         } else {
             this.setFog(true);
+        }
+
+        // Handle hillshade parameter
+        if (hillshadeParam === 'true') {
+            this.setHillshade(true);
+        } else {
+            this.setHillshade(false);
         }
 
         // Handle sound parameter
