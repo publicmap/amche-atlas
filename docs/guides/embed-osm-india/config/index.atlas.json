@@ -31,6 +31,30 @@
       "inspect": false
     },
     {
+      "id": "osm-public-transport",
+      "initiallyChecked": true
+    },
+    {
+      "id": "osm-roads",
+      "initiallyChecked": true
+    },
+    {
+      "id": "osm-railways",
+      "initiallyChecked": true
+    },
+    {
+      "id": "osm-landuse",
+      "initiallyChecked": true
+    },
+    {
+      "id": "osm-pois",
+      "initiallyChecked": true
+    },
+    {
+      "id": "osm-sites",
+      "initiallyChecked": true
+    },
+    {
       "id": "mapbox-countries",
       "initiallyChecked": true,
       "style": {
@@ -45,6 +69,10 @@
     {
       "id": "osm-topo",
       "initiallyChecked": false
+    },
+    {
+      "id": "osm-ocean",
+      "initiallyChecked": true
     },
     {
       "id": "mapbox-satellite",
