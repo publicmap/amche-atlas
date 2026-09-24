@@ -99,8 +99,8 @@
             // Anything here is overridden by the same parameter on this page's URL.
             params: {
                 renderer: 'maplibre',
-                terrain: '5.5',
-                lang: 'ml,en'
+                terrain: '1.5',
+                lang: 'en,hi'
             },
 
             // Opening camera, as zoom/lat/lng/bearing/pitch.
@@ -129,12 +129,15 @@
         frame.src = buildSrc();
 
         // Mirror the map's own URL onto this page, so the address bar always
-        // describes what the visitor is looking at.
+        // describes what the visitor is looking at. `atlas` is dropped: it is
+        // this page's own default (buildSrc puts it back), so showing it would
+        // only expose plumbing and let a shared link pin a stale config.
         window.addEventListener('message', (event) => {
             if (event.origin !== atlasOrigin) return;
             if (event.data?.type !== 'url' || typeof event.data.href !== 'string') return;
 
             const mapUrl = new URL(event.data.href);
+            mapUrl.searchParams.delete('atlas');
             history.replaceState(null, '', location.pathname + mapUrl.search + mapUrl.hash);
         });
     </script>
