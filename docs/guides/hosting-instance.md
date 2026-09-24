@@ -38,7 +38,7 @@ Point `?atlas=` at a config file you host, and the map opens with your layers in
 }
 ```
 
-Ids in `atlases` name the atlases of the instance you're embedding; a full URL loads a collection hosted anywhere. Layer ids are `<atlas>-<layer>`. See [Curating a map atlas for your community](?page=curating-atlas).
+Each id in `atlases` is looked for next to your own config first — publish `osm.atlas.json` alongside it and yours is used; leave it out and the embedded instance's own `osm` atlas fills in. So you override only what you actually want to change. A full URL instead of an id loads a collection hosted anywhere. Layer ids are `<atlas>-<layer>`. See [Curating a map atlas for your community](?page=curating-atlas).
 
 Your config has to be reachable by the atlas's own origin, so serve it with `Access-Control-Allow-Origin` (GitHub Pages already does). One wrinkle while developing: a browser won't let `https://amche.in` read a config from `http://localhost`, so test against a deployed copy or an https tunnel rather than your local server.
 

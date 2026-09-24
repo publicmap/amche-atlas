@@ -133,6 +133,35 @@ describe('LayerRegistry deferred external atlas loading', () => {
         expect(registry.getAllAtlasMetadata().map(([id]) => id)).toContain('world');
     });
 
+    it('prefers an atlas hosted beside the collection, falling back to this instance', async () => {
+        const IMPORTED_URL = 'https://openstreetmap.in/config/index.atlas.json';
+        global.window.location.search = `?atlas=${IMPORTED_URL}`;
+        const configs = baseConfigs();
+        configs[IMPORTED_URL] = { name: 'Collection', atlases: ['goa', 'osm'] };
+        // The collection ships its own goa.atlas.json but no osm.atlas.json.
+        configs['https://openstreetmap.in/config/goa.atlas.json'] = {
+            name: 'Their Goa',
+            layers: [{ id: 'theirs', type: 'geojson', title: 'Theirs' }]
+        };
+        configs['config/osm.atlas.json'] = {
+            name: 'OpenStreetMap',
+            layers: [{ id: 'places', type: 'vector', title: 'Places', url: 'https://example.com/{z}/{x}/{y}.pbf', sourceLayer: 'places' }]
+        };
+        global.fetch = mockFetchJson(configs);
+
+        const registry = new LayerRegistry();
+        await registry.initialize();
+
+        // Theirs wins where they published one...
+        expect(registry.getAtlasMetadata('goa').name).toBe('Their Goa');
+        expect(registry.getLayer('goa-theirs')).toBeTruthy();
+        expect(registry.getLayer('goa-villages')).toBeNull();
+
+        // ...and the embedded instance's own copy fills the gap where they didn't.
+        expect(registry.getAtlasMetadata('osm').name).toBe('OpenStreetMap');
+        expect(registry.getLayer('osm-places')).toBeTruthy();
+    });
+
     it('falls back to the local index when an imported config names no collection', async () => {
         const IMPORTED_URL = 'https://example.org/just-one.atlas.json';
         global.window.location.search = `?atlas=${IMPORTED_URL}`;

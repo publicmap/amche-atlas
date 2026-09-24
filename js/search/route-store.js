@@ -59,6 +59,18 @@ export class RouteStore {
     constructor() {
         this._routes = [];
         this._pendingOrigin = null;
+
+        // Switching a route's layer off - its toggle in the layer drawer, or
+        // Remove in the layer stack strip - throws the routes drawn in it away
+        // rather than just hiding them. The layer is only on the map because
+        // they are (see _setLayerVisible), so keeping them would redraw the
+        // layer on the next re-route, and every handle they left behind (the
+        // waypoint pins, the draggable line) would outlive what it belongs to.
+        if (typeof window !== 'undefined') {
+            window.addEventListener('layer-toggled', (event) => {
+                if (event.detail?.visible === false) this.removeGroup(event.detail.layerId);
+            });
+        }
     }
 
     get routes() {
@@ -141,7 +153,14 @@ export class RouteStore {
                 if (known.has(id)) return;
 
                 const adopted = routeFromFeatures(id, group.id, routeFeatures);
-                if (adopted) this._routes.push(adopted);
+                if (!adopted) return;
+                // A route restored from a shared link references its waypoints
+                // by `markers=` id (route-url-api.js's `_waypointMarkerIds`);
+                // resolving them to the live markers now means removing the
+                // route releases the pins it was drawn on, without waiting for
+                // a re-route to rebuild markerIds through _syncMarkers.
+                adopted.markerIds = waypointMarkerIds(group, adopted.waypoints.length);
+                this._routes.push(adopted);
             });
         });
     }
@@ -307,13 +326,52 @@ export class RouteStore {
         if (!route) return;
 
         this._routes = this._routes.filter(r => r.id !== id);
+        this._releaseMarkers(route);
         this._write(route.groupId);
+    }
+
+    /**
+     * Drops every route drawn in one layer - what switching that layer off
+     * means (see the 'layer-toggled' listener in the constructor). Only the
+     * shared `directions` layer is rewritten afterwards: a route restored from
+     * a shared link has a layer of its own, which the toggle has already taken
+     * off the map, and rewriting it would strip the `route-<rid>:` shorthand it
+     * needs to come back if it is switched on again.
+     */
+    removeGroup(groupId) {
+        const dropped = this._routes.filter(r => r.groupId === groupId);
+        if (!dropped.length) return;
+
+        this._routes = this._routes.filter(r => r.groupId !== groupId);
+        dropped.forEach(route => this._releaseMarkers(route));
+        if (groupId === DIRECTIONS_LAYER_ID) this._write(groupId);
+    }
+
+    /**
+     * Lets go of a dropped route's waypoint pins. A pin the routing put there
+     * itself (see _syncMarkers) goes with the route - it was only ever the
+     * route's own handle - while one that was already on the map when the
+     * route adopted it stays, reverting to an ordinary marker (see
+     * MapMarkerManager.releaseWaypoint): the user placed it, and losing a
+     * marker to a route being removed isn't something they asked for.
+     */
+    _releaseMarkers(route) {
+        const markers = window.featureControl?._markerManager;
+        if (!markers) return;
+
+        route.markerIds.filter(Boolean).forEach(markerId => {
+            if (route.ownedMarkerIds?.has(markerId)) markers.removeMarker(markerId, { silent: true });
+            else markers.releaseWaypoint(markerId, route.id);
+        });
+        route.markerIds = [];
     }
 
     clearAll() {
         const groupIds = new Set(this._routes.map(r => r.groupId));
+        const dropped = this._routes;
         this._routes = [];
         this._pendingOrigin = null;
+        dropped.forEach(route => this._releaseMarkers(route));
         groupIds.add(DIRECTIONS_LAYER_ID);
         groupIds.forEach(groupId => this._write(groupId));
     }
@@ -337,6 +395,10 @@ export class RouteStore {
             profile: getDirectionsProfile(),
             geojson: EMPTY_DATA,
             markerIds: [],
+            // The subset of markerIds this route put on the map itself, rather
+            // than adopted from a marker that was already there - the ones that
+            // go with it when it is removed (see _releaseMarkers).
+            ownedMarkerIds: new Set(),
             // A waypoint's ref defaults to `{mode}-{distanceText}:{stop_no}`
             // (see route-geojson.js's buildRouteFeatureCollection), but a user
             // can rename the prefix (see renameWaypointRef) - keyed by marker
@@ -436,6 +498,7 @@ export class RouteStore {
                 ...this._waypointHandlers(route, ref)
             });
             route.markerIds[index] = ref.id;
+            route.ownedMarkerIds.add(ref.id);
             markers.setDefaultMarkerLabel(ref.id, route.names[index]);
             markers.setMarkerRefLabel(ref.id, route.id, refLabelFor(ref.id, index), refOptions(ref.id));
         });
@@ -492,6 +555,7 @@ export class RouteStore {
         route.waypoints.splice(index, 1);
         route.names.splice(index, 1);
         route.markerIds.splice(index, 1);
+        route.ownedMarkerIds.delete(markerId);
         delete route.refOverrides[markerId];
 
         window.featureControl?._markerManager?.releaseWaypoint(markerId, routeId);
@@ -538,12 +602,32 @@ export class RouteStore {
         );
 
         const geojson = { type: 'FeatureCollection', features };
-        api()?.updateGeoJSONLayerData(groupId, geojson);
+        const findGroup = () => window.layerControl?._state?.groups?.find(g => g.id === groupId);
+        const config = findGroup();
+        if (config) config.geojson = geojson;
 
-        const group = window.layerControl?._state?.groups?.find(g => g.id === groupId);
+        // Written to the group's config first: the layer is created from that
+        // config the moment it is switched on below, so the first route drawn
+        // in a session is already in it. Only a layer that is actually on the
+        // map has a source to push data into - asking for one that was never
+        // created just logs a warning.
+        if (api()?._map?.getSource(`geojson-${groupId}`)) {
+            api().updateGeoJSONLayerData(groupId, geojson);
+        }
+
+        // The routes layer follows its routes: switched on by the first one
+        // drawn, off again when the last one goes - like the `mask` layer (see
+        // ../map-mask-manager.js), rather than sitting empty in the layer stack
+        // and in every shared URL. Routes restored from a shared link have a
+        // layer of their own, already switched on by `?layers=`.
+        if (groupId === DIRECTIONS_LAYER_ID) this._setLayerVisible(groupId, features.length > 0);
+
+        // Looked up again: switching a layer on can replace its entry in
+        // _state.groups with a copy carrying the metadata the registry filled
+        // in (see MapLayerControl._toggleLayerGroup), and the shorthand below
+        // has to land on the entry the URL is actually serialized from.
+        const group = findGroup();
         if (!group) return;
-
-        group.geojson = geojson;
 
         // Several routes in one layer serialize as several `route-<rid>:`
         // entries. url-manager.js joins layer entries with commas (now
@@ -566,6 +650,45 @@ export class RouteStore {
 
         window.urlManager?.updateURL({ updateLayers: true });
     }
+
+    /**
+     * Switches a layer on or off through the layer control's own checkbox and
+     * _toggleLayerGroup pair - the same two steps the layer stack strip's
+     * Remove takes (see ../map-feature-control-iframe.js's _removeLayer), so
+     * the drawer, the strip and the `?layers=` URL all read the same state.
+     *
+     * Announced afterwards because _toggleLayerGroup only fires
+     * 'layer-toggled' on the way down; the strip repaints on that event, and
+     * without it the layer would go on the map without a thumbnail appearing.
+     */
+    _setLayerVisible(groupId, visible) {
+        const control = window.layerControl;
+        const index = control?._state?.groups?.findIndex(g => g.id === groupId) ?? -1;
+        if (index === -1) return;
+
+        const checkbox = control._sourceControls?.[index]?.querySelector('.toggle-switch input[type="checkbox"]');
+        if (!checkbox || checkbox.checked === visible) return;
+
+        checkbox.checked = visible;
+        Promise.resolve(control._toggleLayerGroup(index, visible)).then(() => {
+            if (!visible) return;
+            window.dispatchEvent(new CustomEvent('layer-toggled', { detail: { layerId: groupId, visible } }));
+        });
+    }
+}
+
+/**
+ * The live markers a restored route's waypoints sit on, resolved from the
+ * `markers=` ids its layer carries (route-url-api.js's `_waypointMarkerIds`).
+ * All or nothing: a partial list would pair waypoints with the wrong pins.
+ */
+function waypointMarkerIds(group, count) {
+    const urlIds = group?._waypointMarkerIds;
+    const markers = window.featureControl?._markerManager;
+    if (!Array.isArray(urlIds) || urlIds.length !== count || !markers) return [];
+
+    const ids = urlIds.map(urlId => markers.getMarkerByUrlId(urlId));
+    return ids.every(Boolean) ? ids : [];
 }
 
 /**
@@ -641,6 +764,9 @@ function routeFromFeatures(id, groupId, features) {
         geojson: { type: 'FeatureCollection', features },
         result: line?.properties || null,
         markerIds: [],
+        // Nothing here was drawn by this session - the pins a restored route
+        // sits on came back from `markers=` on their own (see _releaseMarkers).
+        ownedMarkerIds: new Set(),
         refOverrides: {},
         name: ''
     };

@@ -60,6 +60,11 @@ export class LayerRegistry {
         this._indexAtlasId = indexAtlasId;
         let atlases = await this._importedAtlasList(atlasParam);
         this._collectionImported = Array.isArray(atlases);
+        // Short ids in an imported collection name a sibling file first
+        // (config/osm.atlas.json next to the collection), so a community can
+        // override just the atlases it wants to and inherit the rest from the
+        // instance it embeds - see _parseAtlasEntry's fallbackUrl.
+        const collectionBase = this._collectionImported ? this._getBaseUrl(atlasParam) : null;
         if (!atlases) {
             const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
             if (indexResponse.ok) {
@@ -69,7 +74,7 @@ export class LayerRegistry {
         }
 
         (atlases || []).forEach(entry => {
-            const parsed = this._parseAtlasEntry(entry);
+            const parsed = this._parseAtlasEntry(entry, collectionBase);
             if (parsed) atlasEntries.push(parsed);
         });
 
@@ -96,12 +101,21 @@ export class LayerRegistry {
         // Fetch eager entries now; record deferred external entries for later
         // on-demand loading via ensureAtlasLoaded()/ensureAllAtlasesLoaded().
         const atlasPromises = atlasEntries.map(async (entry) => {
-            const isExternalEntry = !!entry.baseUrl;
+            // Deferral is about third-party hosts, not about having a baseUrl:
+            // a collection's own sibling atlases are as cheap as local ones and
+            // several UI surfaces assume they're already registered.
+            const isExternalEntry = !!entry.baseUrl && !entry.fallbackUrl;
             if (isExternalEntry && !eagerExternalIds.has(entry.atlasId)) {
                 this._pendingAtlases.set(entry.atlasId, { url: entry.url, baseUrl: entry.baseUrl });
                 return { atlasId: entry.atlasId, deferred: true };
             }
-            return this._fetchAtlasConfig(entry.atlasId, entry.url, entry.baseUrl);
+            const result = await this._fetchAtlasConfig(entry.atlasId, entry.url, entry.baseUrl);
+            // A collection that doesn't ship this atlas itself inherits the
+            // embedded instance's own copy of it.
+            if (!result.success && entry.fallbackUrl) {
+                return this._fetchAtlasConfig(entry.atlasId, entry.fallbackUrl, null);
+            }
+            return result;
         });
 
         // Wait for all eager atlas fetches to complete (whether successful or not)
@@ -502,7 +516,7 @@ export class LayerRegistry {
      * @param {string} entry - Atlas reference
      * @returns {{atlasId: string, url: string|null, baseUrl: string|null}|null}
      */
-    _parseAtlasEntry(entry) {
+    _parseAtlasEntry(entry, collectionBase = null) {
         if (!entry || typeof entry !== 'string') return null;
 
         if (entry.startsWith('http://') || entry.startsWith('https://')) {
@@ -513,6 +527,15 @@ export class LayerRegistry {
                 return null;
             }
             return { atlasId, url: entry, baseUrl: this._getBaseUrl(entry) };
+        }
+
+        // A short id inside an imported collection looks next to that
+        // collection first, then falls back to this instance's own atlas of
+        // the same name - so `"atlases": ["osm"]` works whether or not the
+        // collection ships its own osm.atlas.json.
+        if (collectionBase) {
+            const url = `${collectionBase}${entry}.atlas.json`;
+            return { atlasId: entry, url, baseUrl: collectionBase, fallbackUrl: `config/${entry}.atlas.json` };
         }
 
         return { atlasId: entry, url: null, baseUrl: null };

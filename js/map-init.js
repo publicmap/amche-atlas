@@ -586,8 +586,11 @@ export class MapInitializer {
                     // cross-atlas definition with a copy of this same unresolved stub
                     // (e.g. "imported-osm-landuse" matching before "osm-landuse" ever
                     // gets tried). Discard a stub hit and keep looking instead of
-                    // treating it as a real answer.
-                    if (resolvedLayer && MapInitializer._isUnresolvedTypeStub(resolvedLayer)) {
+                    // treating it as a real answer. A hit carrying no type at all is
+                    // the same thing one step earlier: a bare `{id, initiallyChecked}`
+                    // reference to a layer defined in another atlas, which can only
+                    // render once that definition is found.
+                    if (resolvedLayer && (!resolvedLayer.type || MapInitializer._isUnresolvedTypeStub(resolvedLayer))) {
                         resolvedLayer = null;
                     }
 
@@ -662,12 +665,14 @@ export class MapInitializer {
                 validLayers.map(l => ({ id: l.id, type: l.type, initiallyChecked: !!l.initiallyChecked })));
 
             // Ensure the system layers are always present, whatever atlas is
-            // loaded: 'selection' holds map markers, 'directions' the route a
-            // navigation draws into (see search/directions-layer.js), and
-            // 'mask' the cutout MapMaskManager generates for `?mask=`. The
-            // first two are always on (they're empty until something writes to
-            // them); the mask is switched on only once a layer is linked to it.
-            const SYSTEM_LAYERS = { selection: true, directions: true, mask: false };
+            // loaded: 'selection' holds map markers, 'directions' the routes a
+            // navigation draws (see search/route-store.js), and 'mask' the
+            // cutout MapMaskManager generates for `?mask=`. Only 'selection' is
+            // on from the start; the other two are switched on by their owner
+            // once there is something to draw - a route drawn on the map, a
+            // layer linked to the mask - so neither sits empty in the layer
+            // stack and in every shared URL.
+            const SYSTEM_LAYERS = { selection: true, directions: false, mask: false };
             Object.entries(SYSTEM_LAYERS).forEach(([systemLayerId, initiallyChecked]) => {
                 if (config.layers.find(l => l.id === systemLayerId)) return;
                 const systemLayer = layerRegistry.getLayer(systemLayerId, 'index');

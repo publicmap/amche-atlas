@@ -6,7 +6,8 @@
   "atlases": [
     "osm",
     "world",
-    "mapbox"
+    "mapbox",
+    "india"
   ],
   "map": {
     "center": [
@@ -25,12 +26,25 @@
       "initiallyChecked": true
     },
     {
+      "id": "india-state",
+      "initiallyChecked": true,
+      "inspect": false
+    },
+    {
+      "id": "mapbox-countries",
+      "initiallyChecked": true,
+      "style": {
+        "fill-opacity": 1,
+        "fill-color": "#7ebc6f"
+      }
+    },
+    {
       "id": "osm-boundaries-india",
       "initiallyChecked": true
     },
     {
       "id": "osm-topo",
-      "initiallyChecked": true
+      "initiallyChecked": false
     },
     {
       "id": "mapbox-satellite",
