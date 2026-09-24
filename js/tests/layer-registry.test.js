@@ -126,6 +126,11 @@ describe('LayerRegistry deferred external atlas loading', () => {
 
         // The local index still loads - it defines the app's own working layers.
         expect(registry.getLayer('selection')).toBeTruthy();
+
+        // ...but it isn't offered as somewhere to browse, so the switcher shows
+        // the imported collection rather than the host instance's own.
+        expect(registry.getAllAtlasMetadata().map(([id]) => id)).not.toContain('index');
+        expect(registry.getAllAtlasMetadata().map(([id]) => id)).toContain('world');
     });
 
     it('falls back to the local index when an imported config names no collection', async () => {
@@ -139,6 +144,7 @@ describe('LayerRegistry deferred external atlas loading', () => {
         await registry.initialize();
 
         expect(registry.getAtlasMetadata('goa')).toBeTruthy();
+        expect(registry.getAllAtlasMetadata().map(([id]) => id)).toContain('index');
     });
 
     it('ensureAllAtlasesLoaded loads every remaining deferred atlas', async () => {

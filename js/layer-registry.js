@@ -57,7 +57,9 @@ export class LayerRegistry {
         // load from wherever they are hosted. The local index is always loaded
         // regardless: it defines the app's own working layers (selection,
         // directions, mask).
+        this._indexAtlasId = indexAtlasId;
         let atlases = await this._importedAtlasList(atlasParam);
+        this._collectionImported = Array.isArray(atlases);
         if (!atlases) {
             const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
             if (indexResponse.ok) {
@@ -1013,11 +1015,16 @@ export class LayerRegistry {
 
     /**
      * All known atlases as [atlasId, metadata] pairs, for search/listing UIs
-     * (e.g. atlas-name search in the map search box).
+     * (e.g. atlas-name search in the map search box). An imported collection
+     * replaces the host instance's own index, which stays loaded for the app's
+     * working layers (selection, directions, mask) but shouldn't be offered as
+     * somewhere to browse - the visitor is in someone else's collection.
      * @returns {Array<[string, object]>}
      */
     getAllAtlasMetadata() {
-        return Array.from(this._atlasMetadata.entries());
+        const entries = Array.from(this._atlasMetadata.entries());
+        if (!this._collectionImported) return entries;
+        return entries.filter(([atlasId]) => atlasId !== this._indexAtlasId);
     }
 
     /**
