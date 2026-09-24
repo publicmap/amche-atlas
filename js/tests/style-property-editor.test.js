@@ -9,10 +9,23 @@ import {
 import { getSpecProperties, guessPropertyKind, lookupPropertyKind } from '../mapbox-style-spec.js';
 
 // jsdom has no canvas, so the colour probe cssColorToHex() falls back to for
-// named/hsl colours is unavailable here - stub it out rather than let jsdom log
-// its not-implemented warning on every call. Hex and rgb()/rgba() forms, which
-// the assertions below use, are parsed without it.
-HTMLCanvasElement.prototype.getContext = () => null;
+// named/hsl colours is unavailable here - stub a minimal 2d context that
+// normalizes this small set of named colours to their hex value (and rejects
+// anything else, leaving fillStyle unchanged) the way a real canvas would, so
+// cssColorToHex() can be exercised end-to-end without jsdom's "not
+// implemented" console noise. Hex and rgb()/rgba() forms bypass this probe
+// entirely (cssColorToHex checks them first), so most assertions don't need it.
+const NAMED_COLOR_HEX = { red: '#ff0000', green: '#008000', blue: '#0000ff', lime: '#00ff00', orange: '#ffa500', black: '#000000' };
+HTMLCanvasElement.prototype.getContext = () => ({
+    _fillStyle: '#000000',
+    get fillStyle() { return this._fillStyle; },
+    set fillStyle(value) {
+        if (Object.prototype.hasOwnProperty.call(NAMED_COLOR_HEX, value)) this._fillStyle = NAMED_COLOR_HEX[value];
+        else if (/^#[0-9a-f]{6}$/i.test(value)) this._fillStyle = value;
+        // any other value (an unknown colour, or one of the probe sentinels
+        // re-applied) is silently rejected, leaving fillStyle unchanged.
+    }
+});
 
 function mount(layer) {
     const onChange = vi.fn();
@@ -293,5 +306,57 @@ describe('StylePropertyEditor', () => {
         const { editor } = mount({ type: 'geojson', style: { 'line-width': 2 } });
         const sections = [...editor.element.querySelectorAll('.spe-section')].map(node => node.textContent);
         expect(sections).not.toContain('Colors');
+    });
+
+    it('finds named colours (not just hex) used as match/case/interpolate/step outputs', () => {
+        const { editor } = mount({
+            type: 'geojson',
+            style: {
+                // Real-world shape: a match branching on a data field, with
+                // named-colour outputs and a coalesce fallback.
+                'circle-color': ['match', ['get', '$sheet'], '17(2)', 'red', '39A', 'red', 'Ht & FAR', 'blue', '#3b82f6'],
+                'circle-stroke-color': ['case', ['==', ['get', 'ok'], true], 'lime', 'black'],
+                'text-halo-color': ['interpolate', ['linear'], ['zoom'], 10, 'green', 15, 'blue'],
+                'fill-color': ['step', ['zoom'], 'red', 12, 'green']
+            }
+        });
+
+        const swatches = [...editor.element.querySelectorAll('.spe-color-gallery .spe-color-swatch')];
+        const hexes = swatches.map(s => s.value).sort();
+        // red, blue, #3b82f6, lime, black, green - six distinct colours
+        expect(hexes).toEqual(['#008000', '#0000ff', '#000000', '#00ff00', '#3b82f6', '#ff0000'].sort());
+    });
+
+    it('does not mistake a match label for a colour, even when the label is itself a colour name', () => {
+        const { editor } = mount({
+            type: 'geojson',
+            // "orange" here is a *label* (a data value being matched), not an
+            // output colour - it must not appear as a swatch, and editing the
+            // real "red" swatch must not touch it.
+            style: { 'circle-color': ['match', ['get', 'kind'], 'orange', 'red', 'blue'] }
+        });
+
+        const swatches = [...editor.element.querySelectorAll('.spe-color-gallery .spe-color-swatch')];
+        expect(swatches.map(s => s.value).sort()).toEqual(['#0000ff', '#ff0000']);
+
+        const redSwatch = swatches.find(s => s.value === '#ff0000');
+        redSwatch.value = '#123456';
+        redSwatch.dispatchEvent(new Event('input'));
+
+        expect(editor.getStyle()['circle-color']).toEqual(['match', ['get', 'kind'], 'orange', '#123456', 'blue']);
+    });
+
+    it('finds a colour hidden behind a coalesce fallback', () => {
+        const { editor } = mount({
+            type: 'geojson',
+            style: { 'circle-color': ['coalesce', ['get', 'fill-color'], ['get', 'color'], 'red'] }
+        });
+
+        const swatches = [...editor.element.querySelectorAll('.spe-color-gallery .spe-color-swatch')];
+        expect(swatches.map(s => s.value)).toEqual(['#ff0000']);
+
+        swatches[0].value = '#00ff00';
+        swatches[0].dispatchEvent(new Event('input'));
+        expect(editor.getStyle()['circle-color']).toEqual(['coalesce', ['get', 'fill-color'], ['get', 'color'], '#00ff00']);
     });
 });

@@ -464,12 +464,52 @@ function rgbaFromHex(hex, alpha) {
     return `rgba(${r}, ${g}, ${b}, ${Math.round(alpha * 100) / 100})`;
 }
 
-/** Every string leaf that parses as a colour, walking into expression arrays. */
+const ZOOM_STOP_OPS = new Set(['interpolate', 'interpolate-hcl', 'interpolate-lab']);
+
+/**
+ * Visit every position in a style value that can hold a literal output colour
+ * - not a `match` label or a `case`/interpolation/step condition or stop
+ * input, which can coincidentally read like a colour name ("red" as a
+ * category value) without being one. Indices mirror the same expression
+ * shapes layer-style-utils.js's resolveValue()/extractBranches() already
+ * assume for `match`, `case`, `interpolate` and `step`.
+ */
+function eachColorPosition(value, visitIndex) {
+    if (!Array.isArray(value) || value.length === 0) return;
+    const op = value[0];
+
+    if (op === 'match') {
+        // ['match', input, label1, output1, label2, output2, ..., fallback]
+        for (let i = 2; i < value.length - 1; i += 2) visitIndex(value, i + 1);
+        visitIndex(value, value.length - 1);
+    } else if (op === 'case') {
+        // ['case', cond1, output1, cond2, output2, ..., fallback]
+        for (let i = 2; i < value.length - 1; i += 2) visitIndex(value, i);
+        visitIndex(value, value.length - 1);
+    } else if (ZOOM_STOP_OPS.has(op)) {
+        // ['interpolate', type, input, stop1, output1, stop2, output2, ...]
+        for (let i = 3; i < value.length - 1; i += 2) visitIndex(value, i + 1);
+    } else if (op === 'step') {
+        // ['step', input, output0, stop1, output1, stop2, output2, ...]
+        if (value.length > 2) visitIndex(value, 2);
+        for (let i = 3; i < value.length - 1; i += 2) visitIndex(value, i + 1);
+    } else if (op === 'coalesce' || op === 'to-color') {
+        for (let i = 1; i < value.length; i++) visitIndex(value, i);
+    } else if (op === 'literal') {
+        if (typeof value[1] === 'string') visitIndex(value, 1);
+    }
+    // Any other operator (get, boolean expressions, arithmetic, concat, …)
+    // carries no literal colour among its arguments worth surfacing here.
+}
+
+/** Every colour-position leaf in a style value, including nested expressions. */
 function collectColorLeaves(value, out = []) {
     if (typeof value === 'string') {
-        if (toHexColor(value)) out.push(value);
-    } else if (Array.isArray(value)) {
-        value.forEach(item => collectColorLeaves(item, out));
+        out.push(value);
+        return out;
+    }
+    if (Array.isArray(value)) {
+        eachColorPosition(value, (arr, i) => collectColorLeaves(arr[i], out));
     }
     return out;
 }
@@ -480,24 +520,26 @@ function sameAlpha(a, b) {
     return Math.abs(a - b) < 0.001;
 }
 
-/** Replace every leaf matching (hex, alpha) with `newHex`, preserving structure. */
+/** Replace every colour-position leaf matching (hex, alpha), preserving structure. */
 function replaceColorLeaves(value, hex, alpha, newHex) {
     if (typeof value === 'string') {
-        if (toHexColor(value) === hex && sameAlpha(colorAlpha(value), alpha)) {
+        if (cssColorToHex(value) === hex && sameAlpha(colorAlpha(value), alpha)) {
             return alpha !== undefined ? rgbaFromHex(newHex, alpha) : newHex;
         }
         return value;
     }
-    if (Array.isArray(value)) {
-        let changed = false;
-        const next = value.map(item => {
-            const replaced = replaceColorLeaves(item, hex, alpha, newHex);
-            if (replaced !== item) changed = true;
-            return replaced;
-        });
-        return changed ? next : value;
-    }
-    return value;
+    if (!Array.isArray(value) || value.length === 0) return value;
+
+    const next = value.slice();
+    let changed = false;
+    eachColorPosition(value, (arr, i) => {
+        const replaced = replaceColorLeaves(arr[i], hex, alpha, newHex);
+        if (replaced !== arr[i]) {
+            next[i] = replaced;
+            changed = true;
+        }
+    });
+    return changed ? next : value;
 }
 
 const STYLESHEET_ID = 'style-property-editor-css';
