@@ -42,9 +42,33 @@ Each id in `atlases` is looked for next to your own config first — publish `os
 
 Your config has to be reachable by the atlas's own origin, so serve it with `Access-Control-Allow-Origin` (GitHub Pages already does). One wrinkle while developing: a browser won't let `https://amche.in` read a config from `http://localhost`, so test against a deployed copy or an https tunnel rather than your local server.
 
+### Put your own name on it
+
+A page that stands in for your community's homepage needs its own branding, and an iframe can be covered. The embedded atlas's header is a fixed 21px tall: the left-hand end is the map's own controls (atlas, layers, markers) and should stay, while the right-hand end is amche.in's logo and menu. Pin a bar of exactly that height to the top right of your page and it hides the second without touching the first — and because the map's own controls (compass, terrain, time) begin below the header on that same edge, stopping at 21px is what keeps them reachable:
+
+```css
+.site-bar {
+  position: fixed; top: 0; right: 0; height: 21px; min-width: 124px;
+  display: flex; align-items: center; gap: 10px; padding: 0 8px;
+  background: #111827; border-bottom: 1px solid #1f2937;
+  color: #fff; font: 600 0.625rem/1 system-ui, sans-serif;
+}
+```
+
+Matching the header's own colours and type sizes (above) makes the result read as one continuous bar rather than as a sticker on top of someone else's site. Hang your logo, a few links and a menu button off it, and put everything that needs more room — your about text, community links, data downloads — in a panel that button opens.
+
+Links in that menu can follow the map. The `{type: 'url', href}` message the frame posts after every move carries the current `#zoom/lat/lng`, so substituting those into an "Edit the map" link sends the visitor to the OSM editor at whatever they are looking at.
+
 ### Working example
 
-[A complete homepage that embeds a customized instance](embed-osm-india/), with its own hosted collection and both directions of URL syncing wired up — this implements the approach in [osm-in.github.io#90](https://github.com/osm-in/osm-in.github.io/issues/90). Two files, [both readable on GitHub](https://github.com/publicmap/amche-atlas/tree/main/docs/guides/embed-osm-india): an `index.html` whose `CONFIG` block is the only thing you need to change, and the `config/index.atlas.json` next to it that decides what the map holds.
+[A complete homepage that embeds a customized instance](embed-osm-india/), branded as OpenStreetMap India, with its own hosted collection and both directions of URL syncing wired up — this implements the approach in [osm-in.github.io#90](https://github.com/osm-in/osm-in.github.io/issues/90). Four files, [all readable on GitHub](https://github.com/publicmap/amche-atlas/tree/main/docs/guides/embed-osm-india), and only the last is yours to edit:
+
+- `index.html` — the page shell and the iframe
+- `site-chrome.js` — loads the config, builds the frame URL, draws the bar and panel
+- `site-chrome.css` — how that bar and panel look
+- `config/index.atlas.json` — **your community**
+
+That last file does double duty. Amche reads the keys it knows (`name`, `color`, `map`, `layers`, `atlases`) and ignores the rest; the page reads a `site` block that Amche ignores, and builds its branding from it — logo, tagline, menu sections, about text, plus the handful of URL parameters like `renderer`, `terrain` and `lang` that have no atlas-config equivalent. So adopting this for your own community is a fork of the folder and a rewrite of one JSON file.
 
 ## Option 2: Fork and host your own copy
 

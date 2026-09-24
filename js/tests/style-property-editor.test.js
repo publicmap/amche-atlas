@@ -281,6 +281,51 @@ describe('StylePropertyEditor', () => {
         expect(onChange).toHaveBeenCalled();
     });
 
+    it('keeps applying colour across a drag\'s repeated input events without rebuilding the swatch (which would close the native picker)', () => {
+        const { editor } = mount({
+            type: 'geojson',
+            style: { 'fill-color': '#ff0000', 'line-color': '#ff0000' }
+        });
+
+        const swatch = editor.element.querySelector('.spe-color-gallery .spe-color-swatch');
+
+        swatch.value = '#00ff00';
+        swatch.dispatchEvent(new Event('input'));
+        // A rerender would have replaced this node - same identity means the
+        // gallery (and any open native picker) was left alone.
+        expect(editor.element.querySelector('.spe-color-gallery .spe-color-swatch')).toBe(swatch);
+        expect(editor.getStyle()['fill-color']).toBe('#00ff00');
+        expect(editor.getStyle()['line-color']).toBe('#00ff00');
+
+        // The drag continues to another colour - must match against the
+        // colour just applied, since the style no longer holds the original.
+        swatch.value = '#0000ff';
+        swatch.dispatchEvent(new Event('input'));
+        expect(editor.element.querySelector('.spe-color-gallery .spe-color-swatch')).toBe(swatch);
+        expect(editor.getStyle()['fill-color']).toBe('#0000ff');
+        expect(editor.getStyle()['line-color']).toBe('#0000ff');
+    });
+
+    it('only rebuilds the gallery once the picker closes (change), merging swatches that now match', () => {
+        const { editor } = mount({
+            type: 'geojson',
+            style: { 'fill-color': '#ff0000', 'line-color': '#00ff00' }
+        });
+
+        let swatches = [...editor.element.querySelectorAll('.spe-color-gallery .spe-color-swatch')];
+        expect(swatches).toHaveLength(2);
+
+        const redSwatch = swatches[0];
+        redSwatch.value = '#00ff00';
+        redSwatch.dispatchEvent(new Event('input'));
+        expect(editor.element.querySelectorAll('.spe-color-gallery .spe-color-swatch')).toHaveLength(2);
+
+        redSwatch.dispatchEvent(new Event('change'));
+        swatches = [...editor.element.querySelectorAll('.spe-color-gallery .spe-color-swatch')];
+        expect(swatches).toHaveLength(1);
+        expect(swatches[0].value).toBe('#00ff00');
+    });
+
     it('keeps a colour with alpha distinct from its opaque form and preserves alpha on edit', () => {
         const { editor } = mount({
             type: 'geojson',

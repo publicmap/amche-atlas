@@ -224,9 +224,24 @@ export class StylePropertyEditor {
                 value: hex,
                 title: `${raw} — used in ${propList}`
             });
+
+            // The colour a further drag should still match: starts at this
+            // swatch's own colour and tracks each applied value, since after
+            // the first `input` the style no longer contains the original.
+            let liveHex = hex;
+
+            // Rerendering mid-drag would tear down and rebuild this very
+            // <input>, which closes the native picker - so `input` (fired
+            // continuously while the picker is open) only mutates the style
+            // and previews live; `change` (fired once the picker closes)
+            // rebuilds the gallery, e.g. to merge swatches that now match.
             swatch.addEventListener('input', () => {
-                this._replaceColor(hex, alpha, swatch.value);
+                if (this._replaceColor(liveHex, alpha, swatch.value, { rerender: false })) {
+                    liveHex = swatch.value;
+                }
             });
+            swatch.addEventListener('change', () => this.render());
+
             gallery.appendChild(swatch);
         });
 
@@ -234,8 +249,11 @@ export class StylePropertyEditor {
         return wrap;
     }
 
-    /** Rewrite every occurrence of one colour (hex + alpha) across the style. */
-    _replaceColor(hex, alpha, newHex) {
+    /**
+     * Rewrite every occurrence of one colour (hex + alpha) across the style.
+     * @returns {boolean} Whether anything actually changed.
+     */
+    _replaceColor(hex, alpha, newHex, { rerender = true } = {}) {
         const changedKeys = [];
         Object.keys(this._style).forEach(key => {
             const next = replaceColorLeaves(this._style[key], hex, alpha, newHex);
@@ -244,10 +262,11 @@ export class StylePropertyEditor {
                 changedKeys.push(key);
             }
         });
-        if (!changedKeys.length) return;
+        if (!changedKeys.length) return false;
 
-        this.render();
+        if (rerender) this.render();
         this._onChange(this.getStyle(), { property: changedKeys[0], colorReplaced: true });
+        return true;
     }
 
     _buildRow(key) {
