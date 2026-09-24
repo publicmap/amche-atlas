@@ -8,6 +8,7 @@
  */
 
 import { DataUtils } from './map-utils.js';
+import { fetchConfigJson, fetchConfigResult } from './config-cache.js';
 
 export class SplashScreenManager {
     constructor() {
@@ -153,8 +154,7 @@ export class SplashScreenManager {
                     atlasConfig = JSON.parse(atlasParam);
                     atlasId = 'imported';
                 } else if (atlasParam.startsWith('http')) {
-                    const response = await fetch(atlasParam);
-                    atlasConfig = await response.json();
+                    atlasConfig = await fetchConfigJson(atlasParam);
                     atlasId = 'imported';
                 } else {
                     // Short-id atlas: try the conventional local path directly first —
@@ -166,25 +166,24 @@ export class SplashScreenManager {
                     // if the local guess turns out to be wrong (a static-file server's
                     // SPA fallback returns index.html with a 200, not a real 404, hence
                     // the content-type check, mirrored from LayerRegistry._doInitialize).
-                    let fetchUrl = `config/${atlasParam}.atlas.json`;
-                    let response = await fetch(fetchUrl);
-                    const contentType = response.headers.get('content-type') || '';
-                    const looksLikeJson = contentType.includes('json');
-                    if (!response.ok || !looksLikeJson) {
+                    let result = await fetchConfigResult(`config/${atlasParam}.atlas.json`);
+                    if (!result.ok || !result.contentType.includes('json')) {
                         await this.waitForLayerRegistry();
                         const meta = window.layerRegistry?.getAtlasMetadata?.(atlasParam);
                         if (meta?.url) {
-                            fetchUrl = meta.url;
-                            response = await fetch(fetchUrl);
+                            result = await fetchConfigResult(meta.url);
                         }
                     }
-                    atlasConfig = await response.json();
+                    atlasConfig = result.json;
                     atlasId = atlasParam;
                 }
             } else {
-                const response = await fetch('config/index.atlas.json');
-                atlasConfig = await response.json();
+                atlasConfig = await fetchConfigJson(window.amche.DEFAULT_ATLAS);
             }
+
+            // fetchConfigJson answers null rather than throwing, so the
+            // fall-through to loadFallbackConfiguration() needs an explicit push.
+            if (!atlasConfig) throw new Error(`Could not load atlas config: ${atlasParam || window.amche.DEFAULT_ATLAS}`);
 
             this.state.atlas = this._atlasFromConfig(atlasId, atlasConfig);
 
@@ -232,31 +231,29 @@ export class SplashScreenManager {
     }
 
     async loadDefaultConfiguration() {
-        try {
-            const response = await fetch('config/index.atlas.json');
-            const config = await response.json();
-            this.state.atlas = this._atlasFromConfig('index', config);
-            this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
-        } catch (error) {
-            console.error('[SplashScreen] Error loading default configuration:', error);
+        const config = await fetchConfigJson(window.amche.DEFAULT_ATLAS);
+        if (!config) {
+            console.error('[SplashScreen] Error loading default configuration');
             await this.loadFallbackConfiguration();
+            return;
         }
+        this.state.atlas = this._atlasFromConfig('index', config);
+        this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
     }
 
     async loadFallbackConfiguration() {
-        try {
-            const response = await fetch('config/index.atlas.json');
-            const config = await response.json();
-            this.state.atlas = {
-                ...this._atlasFromConfig('index', config),
-                name: 'Goa Map (Fallback)',
-                description: 'Default map view',
-                color: '#3b82f6'
-            };
-            this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
-        } catch (error) {
+        const config = await fetchConfigJson(window.amche.DEFAULT_ATLAS);
+        if (!config) {
             console.error('[SplashScreen] Critical error: Cannot load fallback configuration');
+            return;
         }
+        this.state.atlas = {
+            ...this._atlasFromConfig('index', config),
+            name: 'Goa Map (Fallback)',
+            description: 'Default map view',
+            color: '#3b82f6'
+        };
+        this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
     }
 
     _atlasFromConfig(id, config) {
@@ -426,16 +423,14 @@ export class SplashScreenManager {
     }
 
     async loadAtlasById(atlasId) {
-        try {
-            const meta = window.layerRegistry?.getAtlasMetadata?.(atlasId);
-            const fetchUrl = meta?.url || `config/${atlasId}.atlas.json`;
-            const response = await fetch(fetchUrl);
-            const config = await response.json();
-            this.state.atlas = this._atlasFromConfig(atlasId, config);
-            this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
-        } catch (error) {
-            console.error('[SplashScreen] Error loading atlas:', atlasId, error);
+        const meta = window.layerRegistry?.getAtlasMetadata?.(atlasId);
+        const config = await fetchConfigJson(meta?.url || `config/${atlasId}.atlas.json`);
+        if (!config) {
+            console.error('[SplashScreen] Error loading atlas:', atlasId);
+            return;
         }
+        this.state.atlas = this._atlasFromConfig(atlasId, config);
+        this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
     }
 
     applyAtlasName() {

@@ -21,6 +21,27 @@ import * as GoogleSheetsAPI from './google-sheets-api.js';
 // bound these would accumulate across a long authoring session.
 const OVERPASS_CACHE_LIMIT = 10;
 
+/**
+ * Which vector layers share which map source, keyed by the map rather than by
+ * the MapboxAPI instance: more than one instance exists over the same map
+ * (MapFeatureStateManager builds its own - see its constructor), and they all
+ * have to agree about the sources actually on it.
+ * @type {WeakMap<object, {shared: Map, byGroup: Map}>}
+ */
+const vectorSourceRegistry = new WeakMap();
+
+function vectorRegistryFor(map) {
+    let registry = vectorSourceRegistry.get(map);
+    if (!registry) {
+        registry = {
+            shared: new Map(),  // source key -> { sourceId, consumers:Set<groupId>, promoteId }
+            byGroup: new Map()  // groupId -> the source id that group renders from
+        };
+        vectorSourceRegistry.set(map, registry);
+    }
+    return registry;
+}
+
 const COG_PROVIDER_URL = new URL('./cog-tile-provider.js', import.meta.url).href;
 let _cogProviderRegistered = false;
 function registerCOGProvider() {
@@ -39,6 +60,10 @@ export class MapboxAPI {
         registerCOGProvider();
         this._layerCache = new Map(); // Cache for layer configurations
         this._sourceCache = new Map(); // Cache for sources
+        // Shared with every other MapboxAPI over this same map - see _acquireVectorSource
+        const vectorRegistry = vectorRegistryFor(map);
+        this._sharedVectorSources = vectorRegistry.shared;
+        this._vectorSourceByGroup = vectorRegistry.byGroup;
         this._refreshTimers = new Map(); // Cache for refresh timers
         this._blinkTimers = new Map(); // Cache for blink timers
         this._eventListeners = new Map(); // Cache for event listeners
@@ -817,7 +842,17 @@ export class MapboxAPI {
                     .filter(styleLayer => styleLayer['source-layer'] === layer.sourceLayer)
                     .map(styleLayer => styleLayer.id);
 
-                if (layerIds.length === 0) {
+                if (layerIds.length === 0 && visible) {
+                    // A `style` layer only toggles layers the base style already
+                    // has. Nothing matched, so this toggle does nothing at all -
+                    // the usual cause is an atlas on `"style": "blank"` (see
+                    // docs/API.md) referencing layers only a full Mapbox style
+                    // carries. Silent until now, which made it hard to explain.
+                    console.warn(
+                        `[MapboxAPI] Style layer "${groupId}" found no base-style layers with ` +
+                        `source-layer "${layer.sourceLayer}" - nothing to show. ` +
+                        `Style layers need a base style that defines them (map.style).`
+                    );
                 }
 
                 layerIds.forEach(layerId => {
@@ -849,41 +884,205 @@ export class MapboxAPI {
             this._setupBlinking(groupId, config);
         }
 
-        const sourceId = `vector-${groupId}`;
+        const sourceId = this._acquireVectorSource(groupId, config);
 
-        if (!this._map.getSource(sourceId)) {
-            // Add source
-            const sourceConfig = {
-                type: 'vector',
-                minzoom: config.minzoom || 0,
-                maxzoom: config.maxzoom || 22
-            };
+        // The source may be shared with other groups, so "already built?" has to
+        // ask about this group's own style layers rather than about the source.
+        const alreadyBuilt = this._vectorLayerIds(groupId, config).some(id => this._map.getLayer(id));
 
-            if (config.url.startsWith('mapbox://')) {
-                sourceConfig.url = config.url;
-            } else {
-                sourceConfig.tiles = [config.url];
-            }
-
-            if (config.inspect?.id) {
-                sourceConfig.promoteId = { [config.sourceLayer]: config.inspect.id };
-            }
-
-            // Add attribution if available
-            if (config.attribution) {
-                sourceConfig.attribution = config.attribution;
-            }
-
-            this._map.addSource(sourceId, sourceConfig);
-
-            // Add layers based on style properties
-            await this._addVectorLayers(groupId, config, sourceId, visible);
-        } else {
-            // Update visibility only
+        if (alreadyBuilt) {
             this._updateVectorLayerVisibility(groupId, config, visible);
+        } else {
+            await this._addVectorLayers(groupId, config, sourceId, visible);
         }
 
         return true;
+    }
+
+    /**
+     * Every style layer id `_addVectorLayers` can mint for a group, across all
+     * of its style variants. The canonical list - the four call sites that used
+     * to spell it out inline all read it from here.
+     */
+    _vectorLayerIds(groupId, config) {
+        const ids = [];
+        this._getVariantPrefixes(config).forEach(prefix => {
+            const suffix = this._getVariantSuffix(prefix);
+            ids.push(
+                `vector-layer-${groupId}${suffix}`,
+                `vector-layer-${groupId}-outline${suffix}`,
+                `vector-layer-${groupId}-circle${suffix}`,
+                `vector-layer-${groupId}-text${suffix}`
+            );
+        });
+        return ids;
+    }
+
+    /**
+     * Identifies a vector source by what it actually fetches, so two layers that
+     * would produce byte-identical tile requests can share one. An OSM atlas
+     * routinely has a dozen layers (roads, paths, water, landuse, places, ...)
+     * reading different `source-layer`s out of a single tileset; a source each
+     * means the same tile is requested, decoded and held in memory a dozen times
+     * over.
+     *
+     * The zoom range is part of the identity, not just the URL: it changes which
+     * tiles get requested and how they overzoom.
+     */
+    _vectorSourceKey(config) {
+        return `${config.url}|${config.minzoom || 0}|${config.maxzoom || 22}`;
+    }
+
+    /**
+     * The `promoteId` a shared source should carry: the union of every
+     * configured layer's `{sourceLayer: inspect.id}` entry for that source.
+     *
+     * It has to be settled when the source is created - `promoteId` can't be
+     * changed afterwards - which is why this reads ahead over all of
+     * `_orderedGroups` instead of accumulating as layers are switched on.
+     *
+     * Two layers claiming the same `source-layer` with different id properties
+     * can't be reconciled; the conflicting `source-layer` is left out here and
+     * `_acquireVectorSource` gives those layers their own source instead.
+     */
+    _collectSharedPromoteIds(key) {
+        const promoteId = {};
+        const conflicting = new Set();
+
+        for (const group of this._orderedGroups || []) {
+            if (!group || group.type !== 'vector' || !group.url) continue;
+            if (this._vectorSourceKey(group) !== key) continue;
+
+            const sourceLayer = group.sourceLayer;
+            const idProperty = group.inspect?.id;
+            if (!sourceLayer || !idProperty) continue;
+
+            if (promoteId[sourceLayer] !== undefined && promoteId[sourceLayer] !== idProperty) {
+                conflicting.add(sourceLayer);
+                continue;
+            }
+            promoteId[sourceLayer] = idProperty;
+        }
+
+        conflicting.forEach(sourceLayer => delete promoteId[sourceLayer]);
+        return { promoteId, conflicting };
+    }
+
+    _buildVectorSourceConfig(config, promoteId) {
+        const sourceConfig = {
+            type: 'vector',
+            minzoom: config.minzoom || 0,
+            maxzoom: config.maxzoom || 22
+        };
+
+        if (config.url.startsWith('mapbox://')) {
+            sourceConfig.url = config.url;
+        } else {
+            sourceConfig.tiles = [config.url];
+        }
+
+        if (promoteId && Object.keys(promoteId).length > 0) {
+            sourceConfig.promoteId = promoteId;
+        }
+
+        // Attribution is normally rendered from each layer's own config by
+        // MapAttributionControl; this is only the fallback for an unmanaged
+        // source, so the first consumer's is enough.
+        if (config.attribution) {
+            sourceConfig.attribution = config.attribution;
+        }
+
+        return sourceConfig;
+    }
+
+    /**
+     * The map source a layer group renders from, for callers that can't derive
+     * it from the group id any more - a group sharing a source renders from one
+     * named after whichever group created it. See
+     * MapFeatureStateManager._sourceIdFor.
+     * @returns {string|undefined}
+     */
+    getSourceIdForGroup(groupId) {
+        return this._vectorSourceByGroup.get(groupId);
+    }
+
+    /**
+     * The source id this group should render from, creating the source if it
+     * doesn't exist yet and joining an existing one when the tiles match.
+     *
+     * Recorded against the group id rather than on `config`: createLayerGroup
+     * hands every loader a fresh copy of the config (ConfigManager
+     * .applyDefaultMetadata), so anything written onto it here is invisible to
+     * the removal path and to the state manager.
+     */
+    _acquireVectorSource(groupId, config) {
+        const key = this._vectorSourceKey(config);
+        let entry = this._sharedVectorSources.get(key);
+
+        // A setStyle() wipes every source out from under this bookkeeping.
+        if (entry && !this._map.getSource(entry.sourceId)) {
+            this._sharedVectorSources.delete(key);
+            entry = null;
+        }
+
+        if (entry) {
+            const idProperty = config.inspect?.id;
+            const shareable = !idProperty ||
+                entry.promoteId[config.sourceLayer] === idProperty;
+
+            if (shareable) {
+                entry.consumers.add(groupId);
+                this._vectorSourceByGroup.set(groupId, entry.sourceId);
+                return entry.sourceId;
+            }
+
+            // Can't share: this layer needs a promoteId the shared source
+            // doesn't carry, and promoteId is fixed at creation. Fall through
+            // to a private source so feature identity stays correct.
+            const privateId = `vector-${groupId}`;
+            if (!this._map.getSource(privateId)) {
+                this._map.addSource(privateId, this._buildVectorSourceConfig(
+                    config,
+                    { [config.sourceLayer]: idProperty }
+                ));
+            }
+            this._vectorSourceByGroup.set(groupId, privateId);
+            return privateId;
+        }
+
+        // First consumer names the source, so ids stay readable in the
+        // inspector rather than becoming hashes.
+        const sourceId = `vector-${groupId}`;
+        const { promoteId } = this._collectSharedPromoteIds(key);
+
+        if (!this._map.getSource(sourceId)) {
+            this._map.addSource(sourceId, this._buildVectorSourceConfig(config, promoteId));
+        }
+
+        this._sharedVectorSources.set(key, { sourceId, consumers: new Set([groupId]), promoteId });
+        this._vectorSourceByGroup.set(groupId, sourceId);
+        return sourceId;
+    }
+
+    /**
+     * Drop this group's claim on its vector source, removing the source only
+     * once no other layer is still rendering from it.
+     */
+    _releaseVectorSource(groupId, config) {
+        const key = this._vectorSourceKey(config);
+        const entry = this._sharedVectorSources.get(key);
+        const sourceId = this._vectorSourceByGroup.get(groupId) || `vector-${groupId}`;
+        this._vectorSourceByGroup.delete(groupId);
+
+        if (entry && entry.sourceId === sourceId) {
+            entry.consumers.delete(groupId);
+            if (entry.consumers.size > 0) return;
+            this._sharedVectorSources.delete(key);
+        }
+
+        if (this._map.getSource(sourceId)) {
+            this._map.removeSource(sourceId);
+        }
     }
 
     async _addVectorLayers(groupId, config, sourceId, visible) {
@@ -1103,28 +1302,13 @@ export class MapboxAPI {
     _removeVectorLayer(groupId, config) {
         this._stopBlinking(groupId, config);
 
-        const sourceId = `vector-${groupId}`;
-
-        this._getVariantPrefixes(config).forEach(prefix => {
-            const suffix = this._getVariantSuffix(prefix);
-            const layers = [
-                `vector-layer-${groupId}${suffix}`,
-                `vector-layer-${groupId}-outline${suffix}`,
-                `vector-layer-${groupId}-circle${suffix}`,
-                `vector-layer-${groupId}-text${suffix}`
-            ];
-
-            layers.forEach(layerId => {
-                if (this._map.getLayer(layerId)) {
-                    this._map.removeLayer(layerId);
-                }
-            });
+        this._vectorLayerIds(groupId, config).forEach(layerId => {
+            if (this._map.getLayer(layerId)) {
+                this._map.removeLayer(layerId);
+            }
         });
 
-        // Remove source
-        if (this._map.getSource(sourceId)) {
-            this._map.removeSource(sourceId);
-        }
+        this._releaseVectorSource(groupId, config);
 
         return true;
     }

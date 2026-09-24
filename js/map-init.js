@@ -29,6 +29,7 @@ import { MapMaskManager } from './map-mask-manager.js';
 import { NearbyFeaturesControl } from './map-nearby-features-control.js';
 import { MapOrientationControl } from './map-orientation-control.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
+import { fetchConfigJson, fetchConfigResult } from './config-cache.js';
 import { CameraUtils } from './map-camera-utils.js';
 import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands } from './dynamic-layer-shorthand.js';
 import { setAll as setMarkerRegistry, parseMarkersParam } from './marker-registry.js';
@@ -70,8 +71,7 @@ export class MapInitializer {
 
             if (layer) {
                 // Get initially checked layers from index atlas
-                const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
-                const indexConfig = await indexResponse.json();
+                const indexConfig = await fetchConfigJson(window.amche.DEFAULT_ATLAS) || {};
                 const indexLayers = indexConfig.layers?.filter(l => l.initiallyChecked).map(l => l.id) || [];
 
                 // Build layers array with the hash layer first, then index layers
@@ -267,31 +267,27 @@ export class MapInitializer {
 
         // Load the configuration file (only if we didn't parse JSON directly)
         if (!config) {
-            const configResponse = await fetch(configPath);
-            if (!configResponse.ok) {
-                console.warn(`[MapInit] Atlas not found: ${configPath} (${configResponse.status}), falling back to index`);
+            const result = await fetchConfigResult(configPath);
+            if (!result.ok) {
+                console.warn(`[MapInit] Atlas not found: ${configPath} (${result.error}), falling back to index`);
                 configPath = window.amche.DEFAULT_ATLAS;
                 atlasId = 'index';
-                const fallbackResponse = await fetch(configPath);
-                config = await fallbackResponse.json();
+                config = await fetchConfigJson(configPath);
             } else {
-                config = await configResponse.json();
+                config = result.json;
             }
         }
 
         // For non-index atlases, ensure they inherit the map style from index.atlas.json if not specified
         if (atlasId !== 'index' && (!config.map || !config.map.style)) {
-            try {
-                const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
-                const indexConfig = await indexResponse.json();
-                if (indexConfig.map && indexConfig.map.style) {
-                    if (!config.map) {
-                        config.map = {};
-                    }
-                    config.map.style = indexConfig.map.style;
+            const indexConfig = await fetchConfigJson(window.amche.DEFAULT_ATLAS);
+            if (indexConfig?.map?.style) {
+                if (!config.map) {
+                    config.map = {};
                 }
-            } catch (error) {
-                console.warn('[MapInit] Failed to load index atlas for style inheritance:', error);
+                config.map.style = indexConfig.map.style;
+            } else if (!indexConfig) {
+                console.warn('[MapInit] Failed to load index atlas for style inheritance');
             }
         }
 
@@ -350,8 +346,7 @@ export class MapInitializer {
                 console.log('[MapInit] Loading non-index atlas without layers param, merging with index atlas');
 
                 // Load index atlas to get common layers
-                const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
-                const indexConfig = await indexResponse.json();
+                const indexConfig = await fetchConfigJson(window.amche.DEFAULT_ATLAS) || {};
 
                 // Get layers marked as initiallyChecked from both configs
                 const atlasLayers = config.layers?.filter(l => l.initiallyChecked).map(l => l.id) || [];
@@ -493,16 +488,14 @@ export class MapInitializer {
         }
 
         // Load defaults
-        try {
-            const configDefaultsResponse = await fetch('config/_defaults.json');
-            const configDefaults = await configDefaultsResponse.json();
-
+        const configDefaults = await fetchConfigJson(window.amche.LAYER_DEFAULTS);
+        if (configDefaults) {
             // Merge defaults with anyoverrides in config
             config.defaults = config.defaults ?
                 DataUtils.deepMerge(configDefaults, config.defaults) :
                 configDefaults;
-        } catch (error) {
-            console.warn('Default configuration values not found or invalid:', error);
+        } else {
+            console.warn('Default configuration values not found or invalid');
         }
 
         // Imported atlases (`?atlas=<url>` / inline JSON) loaded with no `?layers=`
@@ -785,16 +778,16 @@ export class MapInitializer {
 
         const needsIndex = configPath !== window.amche.DEFAULT_ATLAS;
 
-        // Parallel fetches: defaults + active atlas + (optional) index for style inheritance
-        const [defaultsResult, atlasResult, indexResult] = await Promise.allSettled([
-            fetch(window.amche.LAYER_DEFAULTS).then(r => r.ok ? r.json() : null),
-            inlineConfig ? Promise.resolve(inlineConfig) : fetch(configPath).then(r => r.ok ? r.json() : null),
-            needsIndex ? fetch(window.amche.DEFAULT_ATLAS).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
+        // Parallel fetches: defaults + active atlas + (optional) index for style
+        // inheritance. All three are cached, so the later loadConfiguration()
+        // pass and the layer registry reuse these responses.
+        const [defaults, atlasConfig, indexConfig] = await Promise.all([
+            fetchConfigJson(window.amche.LAYER_DEFAULTS),
+            inlineConfig ? Promise.resolve(inlineConfig) : fetchConfigJson(configPath),
+            needsIndex ? fetchConfigJson(window.amche.DEFAULT_ATLAS) : Promise.resolve(null),
         ]);
 
-        const defaults = defaultsResult.status === 'fulfilled' ? defaultsResult.value : null;
-        let atlas = atlasResult.status === 'fulfilled' ? atlasResult.value : null;
-        const indexConfig = indexResult.status === 'fulfilled' ? indexResult.value : null;
+        let atlas = atlasConfig;
 
         // If the requested atlas failed, fall back to the index atlas wholesale
         if (!atlas && indexConfig) atlas = indexConfig;
@@ -839,7 +832,8 @@ export class MapInitializer {
         // mapbox:// scheme itself and has no such incompatibilities.
         if (window.amche.MAPBOX_MAP_OPTIONS.style) {
             window.amche.MAPBOX_MAP_OPTIONS.style = await window.amche.resolveMapboxStyle(
-                window.amche.MAPBOX_MAP_OPTIONS.style
+                window.amche.MAPBOX_MAP_OPTIONS.style,
+                window.amche.MAPBOX_MAP_OPTIONS
             );
         }
 

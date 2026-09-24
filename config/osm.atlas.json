@@ -2286,7 +2286,7 @@
       "id": "landuse",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "land",
-      "maxzoom": 17,
+      "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread OSMF vector tiles</a>",
       "style": {
         "text-font": [
@@ -2590,8 +2590,8 @@
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
       "style": {
         "line-color": "#e6e6e6",
-        "fill-opacity": 0.95,
-        "fill-color": "ebfaff",
+        "fill-opacity": 0.5,
+        "fill-color": "#ebfaff",
         "line-width": 0.2
       },
       "inspect": false

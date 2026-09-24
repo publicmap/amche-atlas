@@ -604,6 +604,31 @@ Setting `inspect: false`/`null` on a layer still disables interactivity (the ins
 
 Goa renders with the atlas defaults, Maharashtra with the `highlighted` preset on top of the defaults, and Karnataka with the defaults plus a per-layer `line-width` override.
 
+#### Atlas-level `map` block
+
+The `map` block holds the options handed to the GL renderer's `Map` constructor, merged over `config/_defaults.json`'s own `map` block.
+
+| Field | Notes |
+|---|---|
+| `style` | Base style URL (`mapbox://styles/...` or any style URL), or `"blank"`. Inherited from the instance's `index.atlas.json` when omitted. |
+| `backgroundColor` | `"blank"` only — the color shown wherever no layer covers. Default `#e8e6e1`. |
+| `glyphs`, `sprite` | `"blank"` only — override the Mapbox fontstack/icon endpoints the blank style points at. |
+| `center`, `zoom`, `bearing`, `pitch`, `bounds` | Opening camera. A `#zoom/lat/lng` URL hash wins over these. |
+
+##### `"style": "blank"` — no base map
+
+```json
+"map": { "style": "blank", "backgroundColor": "#0b1b2b" }
+```
+
+Builds a minimal style in place of a base map: no sources, no layers but a background, plus the Mapbox glyphs and sprite so `text-font` and `icon-image` still resolve. (`"none"` and `"empty"` are accepted spellings of the same thing.)
+
+Use it when the atlas draws **everything** from its own `layers` — an OpenStreetMap vector atlas, a satellite-only atlas. Without it such an atlas inherits the host instance's full Mapbox style and pays for all of it with nothing to show: a ~130KB style JSON, four tileset lookups plus their tiles, and ~200 style layers compiled every frame. A tileset the atlas *does* use (`mapbox.satellite`, say) ends up loaded twice, once from each side.
+
+Layer ordering is unaffected — the `bottom`/`middle`/`top` anchors come from `MapUtils.initializeSlotLayers`, not from the style.
+
+**Caveat:** `style` and `raster-style-layer` layers only toggle layers a base style already defines, so they do nothing over a blank one. Toggling such a layer logs a warning naming the missing `source-layer`. Everything else — `vector`, `tms`, `geojson`, … — brings its own source and is unaffected.
+
 #### Inspect Configuration
 
 ```json

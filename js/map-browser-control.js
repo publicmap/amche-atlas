@@ -119,6 +119,12 @@ export class MapBrowserControl {
             this.toggleBrowser();
         });
 
+        // First sign the user is heading for this panel - start its document
+        // then rather than waiting for the click, and well before the idle
+        // preload below would have got to it.
+        this._button.addEventListener('pointerenter', this._preloadBrowser, { once: true });
+        this._button.addEventListener('focus', this._preloadBrowser, { once: true });
+
         // The vertical control column: this button, the active atlas, then a
         // thumbnail per visible layer in the map's own visual order. The strip
         // adopts the button as its first item, so it is not appended here.
@@ -265,12 +271,38 @@ export class MapBrowserControl {
         this._browserContainer.appendChild(this._iframe);
     }
 
-    _preloadBrowser() {
+    // Arrow-bound so it can be handed straight to addEventListener.
+    _preloadBrowser = () => {
         this._ensureIframe();
     }
 
     preload() {
         this._ensureIframe();
+    }
+
+    /**
+     * Preload the panel's document once the map has stopped working, not the
+     * moment the inspector reports ready.
+     *
+     * map-browser.html is a page of its own: its own jQuery, Tailwind and
+     * Shoelace, none of it shared with the parent. Starting it while the map is
+     * still fetching tiles and compiling layers put ~90 extra requests on the
+     * critical path for a panel most visitors never open.
+     */
+    _schedulePreload() {
+        if (this._preloadScheduled) return;
+        this._preloadScheduled = true;
+
+        const start = () => {
+            if (typeof requestIdleCallback === 'function') {
+                requestIdleCallback(this._preloadBrowser, { timeout: 10000 });
+            } else {
+                setTimeout(this._preloadBrowser, 3000);
+            }
+        };
+
+        if (this._map && !this._map.loaded()) this._map.once('idle', start);
+        else start();
     }
 
     _setupMessageListener() {
@@ -291,8 +323,7 @@ export class MapBrowserControl {
             }
 
             if (event.data.type === 'inspector-ready') {
-                // Preload browser iframe when inspector is ready
-                this._preloadBrowser();
+                this._schedulePreload();
             }
 
             if (event.data.type === 'layer-toggle') {
@@ -631,7 +662,11 @@ export class MapBrowserControl {
             mapboxToken: window.amche?.MAPBOXGL_ACCESS_TOKEN || mapboxgl.accessToken,
             selectedAtlasId: atlasParam,
             layerDefaults: window.layerControl?._defaultStyles || {},
-            viewCanGoBack: this._canGoBackView()
+            viewCanGoBack: this._canGoBackView(),
+            // The iframe is preloaded hidden, and its bbox preview map costs a
+            // whole second GL library. Tell it whether anyone can actually see
+            // it, so it holds that off until the panel is opened.
+            panelVisible: this._isOpen
         }, '*');
     }
 

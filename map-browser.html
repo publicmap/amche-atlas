@@ -8,8 +8,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.css" rel="stylesheet">
-    <script src="https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.js"></script>
+    <!-- The GL library is NOT loaded here. This page is preloaded hidden behind
+         the map's layer-stack button, and it only needs a renderer for the small
+         bbox preview map - so loadGlLibrary() below pulls it in on first use
+         instead, from whichever renderer and version the parent page chose
+         (window.amche.RENDERER_ASSETS - see index.html). A static tag here used
+         to load ~900KB of Mapbox GL on every page load, at a different version
+         from the parent's, and even when ?renderer=maplibre was in effect. -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css" />
     <script type="module"
         src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace-autoloader.js"></script>
@@ -1491,7 +1496,10 @@
 
                     populateAtlasSelect();
                     renderExplorerHeader(window.selectedAtlasId);
-                    initializePreviewMap();
+                    // Held off while this page is still the hidden preload -
+                    // the panel's own open sends layer-data again with
+                    // panelVisible, which is when the preview is worth building.
+                    if (event.data.panelVisible) initializePreviewMap();
                     renderLayers();
                     renderAtlasSuggestionBanner();
                     drawBboxes();
@@ -1591,9 +1599,60 @@
             });
         }
 
+        // Pull in the parent page's chosen GL renderer, once, on first use.
+        // Same origin, so window.parent.amche is readable; the pinned Mapbox
+        // build is the fallback for opening this page standalone.
+        let glLibraryPromise = null;
+        function loadGlLibrary() {
+            if (window.mapboxgl) return Promise.resolve();
+            if (glLibraryPromise) return glLibraryPromise;
+
+            let asset;
+            try {
+                const amche = window.parent.amche;
+                asset = amche && amche.RENDERER_ASSETS[amche.RENDERER];
+            } catch (e) { /* cross-origin parent - fall through to the default */ }
+            if (!asset) {
+                asset = {
+                    js: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.31.0/dist/mapbox-gl.min.js',
+                    css: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.31.0/dist/mapbox-gl.min.css'
+                };
+            }
+
+            glLibraryPromise = new Promise((resolve, reject) => {
+                const css = document.createElement('link');
+                css.rel = 'stylesheet';
+                css.href = asset.css;
+                document.head.appendChild(css);
+
+                if (asset.module) {
+                    // MapLibre v6+ ships only an ES module and defines no global.
+                    import(asset.js)
+                        .then(ns => { window.mapboxgl = Object.assign({}, ns); resolve(); })
+                        .catch(reject);
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = asset.js;
+                script.onload = () => {
+                    if (!window.mapboxgl && window.maplibregl) window.mapboxgl = Object.assign({}, window.maplibregl);
+                    resolve();
+                };
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+            return glLibraryPromise;
+        }
+
         // Initialize preview map
-        function initializePreviewMap() {
+        async function initializePreviewMap() {
             if (previewMap || !mapboxAccessToken) return;
+
+            await loadGlLibrary().catch(error => {
+                console.warn('[Browser] Could not load the GL library for the preview map:', error);
+            });
+            // A second caller may have won the race while we were loading.
+            if (previewMap || !window.mapboxgl) return;
 
             mapboxgl.accessToken = mapboxAccessToken;
 
@@ -1632,7 +1691,11 @@
 
         // Draw bboxes on preview map
         function drawBboxes() {
-            if (!previewMap || !previewMap.loaded()) {
+            // No preview map at all means this page is still the hidden
+            // preload - retrying here would spin a 100ms timer for the whole
+            // session. Opening the panel re-sends layer-data and calls back in.
+            if (!previewMap) return;
+            if (!previewMap.loaded()) {
                 setTimeout(drawBboxes, 100);
                 return;
             }

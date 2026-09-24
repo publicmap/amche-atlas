@@ -108,6 +108,63 @@
         return expr.some(usesPitchExpression);
     }
 
+    // `map.style` values naming a base map that draws nothing of its own.
+    var BLANK_STYLE_IDS = { blank: true, none: true, empty: true };
+
+    window.amche.isBlankStyle = function (style) {
+        return typeof style === 'string' && BLANK_STYLE_IDS[style.toLowerCase()] === true;
+    };
+
+    /**
+     * The style behind `"style": "blank"` - no sources, no layers but a
+     * background, just the glyphs and sprite an atlas's own layers need for
+     * text and icons.
+     *
+     * An atlas that draws everything from its own layers (an OpenStreetMap
+     * vector atlas, say) otherwise inherits the host instance's full Mapbox
+     * style and pays for all of it with nothing to show: a ~130KB style JSON,
+     * four tileset lookups, the raster and vector tiles behind them, and ~200
+     * style layers compiled on every frame. Worse, a tileset the atlas uses
+     * itself (mapbox.satellite) ends up loaded twice, once from each side.
+     *
+     * The `bottom`/`middle`/`top` ordering anchors are added by
+     * MapUtils.initializeSlotLayers rather than coming from the style, so
+     * layer ordering works here exactly as it does over a full base style.
+     *
+     * @param {object} [options]
+     * @param {string} [options.backgroundColor] `map.backgroundColor`, shown wherever no layer covers.
+     * @param {string} [options.glyphs] `map.glyphs` override.
+     * @param {string} [options.sprite] `map.sprite` override.
+     */
+    window.amche.buildBlankStyle = function (options) {
+        options = options || {};
+        var style = {
+            version: 8,
+            sources: {},
+            // Mapbox's own fontstacks and icons, so a layer styled with
+            // `text-font: ["Open Sans Bold"]` or an `icon-image` renders the
+            // same over a blank base as over a Mapbox one. Both are mapbox://
+            // refs: Mapbox GL JS resolves them natively, MapLibre through the
+            // transformRequest installed below.
+            sprite: options.sprite || 'mapbox://sprites/mapbox/streets-v12',
+            layers: [{
+                id: 'background',
+                type: 'background',
+                paint: { 'background-color': options.backgroundColor || '#e8e6e1' }
+            }]
+        };
+        // Same reasoning as the `delete styleJson.glyphs` below: MapLibre
+        // shapes text with the browser's own font rendering when `glyphs` is
+        // absent, which is the only way Indic scripts come out right. Mapbox
+        // GL JS has no such fallback and needs the glyph atlas.
+        if (renderer !== 'maplibre') {
+            style.glyphs = options.glyphs || 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf';
+        } else if (options.glyphs) {
+            style.glyphs = options.glyphs;
+        }
+        return style;
+    };
+
     /**
      * A map.style URL is normally left as a plain URL and fetched by the
      * library itself. That doesn't work for a Mapbox-hosted "Standard"-family
@@ -129,7 +186,9 @@
      * unaffected - transformRequest above still resolves those fine).
      * No-op (returns the input unchanged) when running Mapbox GL JS.
      */
-    window.amche.resolveMapboxStyle = async function (styleUrl) {
+    window.amche.resolveMapboxStyle = async function (styleUrl, mapOptions) {
+        // Checked for both renderers, before the MapLibre-only work below.
+        if (window.amche.isBlankStyle(styleUrl)) return window.amche.buildBlankStyle(mapOptions);
         if (renderer !== 'maplibre' || typeof styleUrl !== 'string') return styleUrl;
         var resolvedUrl = window.amche.resolveMapboxUrl(styleUrl, 'Style');
         if (resolvedUrl.indexOf('/styles/v1/') === -1) return resolvedUrl;

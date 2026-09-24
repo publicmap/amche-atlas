@@ -43,6 +43,7 @@
 import {LayerSettingsModal} from './layer-settings-modal.js';
 import {MapboxAPI} from './mapbox-api.js';
 import {DataUtils} from './map-utils.js';
+import {fetchConfigJson} from './config-cache.js';
 import {MapWarperAPI} from './mapwarper-url-api.js';
 import {LayerOrderManager} from './layer-order-manager.js';
 import {LayerThumbnail} from './layer-thumbnail.js';
@@ -391,25 +392,38 @@ export class MapLayerControl {
      * Load default styles configuration
      */
     async _loadDefaultStyles() {
-        try {
-            const defaultsResponse = await fetch(window.amche.LAYER_DEFAULTS);
-            const configResponse = await fetch(window.amche.DEFAULT_ATLAS);
+        // The constructor kicks this off without awaiting it, so
+        // _ensureDefaultStylesLoaded() below routinely arrives while it is
+        // still in flight - hold the promise so the second caller joins the
+        // first instead of starting a parallel load.
+        if (this._defaultStylesPromise) return this._defaultStylesPromise;
 
-            if (!defaultsResponse.ok || !configResponse.ok) {
-                throw new Error('Failed to load configuration files');
+        // Never rejects: the constructor starts this without awaiting it, so a
+        // rejection here would surface as an unhandled promise rejection.
+        this._defaultStylesPromise = (async () => {
+            try {
+                const [defaults, config] = await Promise.all([
+                    fetchConfigJson(window.amche.LAYER_DEFAULTS),
+                    fetchConfigJson(window.amche.DEFAULT_ATLAS)
+                ]);
+
+                if (!defaults || !config) {
+                    throw new Error('failed to load configuration files');
+                }
+
+                this._defaultStyles = defaults.layer.style || {};
+                if (config.styles) {
+                    this._defaultStyles = DataUtils.deepMerge(config.styles, this._defaultStyles) || {};
+                }
+            } catch (error) {
+                console.error('Error loading default styles:', error);
+                // Let a later _ensureDefaultStylesLoaded() retry rather than
+                // pinning the failure for the rest of the session.
+                this._defaultStylesPromise = null;
             }
+        })();
 
-            const defaults = await defaultsResponse.json();
-            const config = await configResponse.json();
-
-            this._defaultStyles = defaults.layer.style || {};
-            if (config.styles) {
-                this._defaultStyles = DataUtils.deepMerge(config.styles, this._defaultStyles) || {};
-            }
-
-        } catch (error) {
-            console.error('Error loading default styles:', error);
-        }
+        return this._defaultStylesPromise;
     }
 
     /**

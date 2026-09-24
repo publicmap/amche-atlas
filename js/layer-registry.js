@@ -1,3 +1,5 @@
+import { fetchConfigJson, fetchConfigResult } from './config-cache.js';
+
 // In-flight initialize() promise, keyed off the registry instance. Held in
 // a module-level WeakMap (not on the instance) because postMessage to iframes
 // structured-clones the registry, and Promises can't be cloned.
@@ -66,11 +68,8 @@ export class LayerRegistry {
         // instance it embeds - see _parseAtlasEntry's fallbackUrl.
         const collectionBase = this._collectionImported ? this._getBaseUrl(atlasParam) : null;
         if (!atlases) {
-            const indexResponse = await fetch(window.amche.DEFAULT_ATLAS);
-            if (indexResponse.ok) {
-                const indexConfig = await indexResponse.json();
-                if (Array.isArray(indexConfig.atlases)) atlases = indexConfig.atlases;
-            }
+            const indexConfig = await fetchConfigJson(window.amche.DEFAULT_ATLAS);
+            if (Array.isArray(indexConfig?.atlases)) atlases = indexConfig.atlases;
         }
 
         (atlases || []).forEach(entry => {
@@ -156,15 +155,12 @@ export class LayerRegistry {
      */
     async _importedAtlasList(atlasParam) {
         if (!atlasParam || !(atlasParam.startsWith('http://') || atlasParam.startsWith('https://'))) return null;
-        try {
-            const response = await fetch(atlasParam);
-            if (!response.ok) return null;
-            const config = await response.json();
-            return Array.isArray(config.atlases) ? config.atlases : null;
-        } catch (error) {
-            console.warn('[LayerRegistry] Could not read atlases from imported config:', error);
+        const result = await fetchConfigResult(atlasParam);
+        if (!result.ok) {
+            console.warn('[LayerRegistry] Could not read atlases from imported config:', result.error);
             return null;
         }
+        return Array.isArray(result.json.atlases) ? result.json.atlases : null;
     }
 
     /**
@@ -175,40 +171,25 @@ export class LayerRegistry {
      */
     async _fetchAtlasConfig(atlasId, url, baseUrl) {
         const isExternal = !!url && (url.startsWith('http://') || url.startsWith('https://'));
-        try {
-            const fetchUrl = url || `config/${atlasId}.atlas.json`;
-            const response = await fetch(fetchUrl);
-            if (response.ok) {
-                // Check Content-Type to ensure we're getting JSON, not HTML (e.g., 404 page).
-                // Skip for external URLs since hosts like raw.githubusercontent.com serve
-                // .json files as text/plain.
-                if (!isExternal) {
-                    const contentType = response.headers.get('content-type') || '';
-                    if (!contentType.includes('application/json') && !contentType.includes('text/json')) {
-                        return {
-                            atlasId,
-                            error: `Invalid content type: ${contentType} (expected JSON)`,
-                            success: false
-                        };
-                    }
-                }
+        const fetchUrl = url || `config/${atlasId}.atlas.json`;
+        const result = await fetchConfigResult(fetchUrl);
 
-                const config = await response.json();
-                return { atlasId, config, baseUrl, url: fetchUrl, success: true };
-            } else {
-                return { atlasId, error: `HTTP ${response.status}`, success: false };
-            }
-        } catch (error) {
-            // Handle JSON parsing errors specifically
-            if (error.message.includes('JSON') || error.message.includes('DOCTYPE')) {
-                return {
-                    atlasId,
-                    error: `Invalid JSON response (likely HTML/404 page)`,
-                    success: false
-                };
-            }
-            return { atlasId, error: error.message, success: false };
+        if (!result.ok) {
+            return { atlasId, error: result.error, success: false };
         }
+
+        // Check Content-Type to ensure we're getting JSON, not HTML (e.g., 404 page).
+        // Skip for external URLs since hosts like raw.githubusercontent.com serve
+        // .json files as text/plain.
+        if (!isExternal && !result.contentType.includes('application/json') && !result.contentType.includes('text/json')) {
+            return {
+                atlasId,
+                error: `Invalid content type: ${result.contentType} (expected JSON)`,
+                success: false
+            };
+        }
+
+        return { atlasId, config: result.json, baseUrl, url: fetchUrl, success: true };
     }
 
     /**
@@ -814,31 +795,51 @@ export class LayerRegistry {
 
         const contextAtlas = currentAtlas || this._currentAtlas;
 
-        // First, try unprefixed ID in current atlas
-        const currentAtlasId = `${contextAtlas}-${layerId}`;
-        if (this._registry.has(currentAtlasId)) {
-            return this._registry.get(currentAtlasId);
+        // Candidate keys, most specific first:
+        //   1. unprefixed id in the current atlas
+        //   2. the id as-is (already prefixed, e.g. "osm-places")
+        //   3. the index atlas, for shared/system layers ('selection', 'notes')
+        //      defined once in index.atlas.json but referenced from every atlas
+        const candidates = [`${contextAtlas}-${layerId}`, layerId];
+        if (contextAtlas !== 'index') candidates.push(`index-${layerId}`);
+
+        // A stub entry names a layer without defining it. An imported atlas
+        // registers its own layers verbatim (see markImportedAtlas), so a bare
+        // `{id: "osm-places"}` reference in it lands at candidate 1 as
+        // "imported-osm-places" and would shadow the real definition sitting at
+        // candidate 2. Keep walking past stubs rather than returning the first
+        // hit: callers treat a stub as "not found" and fall back to
+        // tryLoadCrossConfigLayer, which refetches an atlas the registry has
+        // already loaded - once per layer.
+        let stub = null;
+        for (const key of candidates) {
+            const entry = this._registry.get(key);
+            if (!entry) continue;
+            if (!this._isStubEntry(entry)) return entry;
+            stub = stub || entry;
         }
 
-        // Then try the ID as-is (might be prefixed)
-        if (this._registry.has(layerId)) {
-            return this._registry.get(layerId);
-        }
-
-        // Finally, fall back to the index atlas for shared/system layers
-        // (e.g. 'selection', 'notes') that are defined once in index.atlas.json
-        // but referenced from every atlas context.
-        if (contextAtlas !== 'index') {
-            const indexId = `index-${layerId}`;
-            if (this._registry.has(indexId)) {
-                return this._registry.get(indexId);
-            }
-        }
+        // Nothing complete anywhere - hand back the stub so the caller can try
+        // to resolve it over the network, same as before.
+        if (stub) return stub;
 
         if (!silent) {
             console.warn(`[LayerRegistry] Layer not found: ${layerId} (context: ${contextAtlas})`);
         }
         return null;
+    }
+
+    /**
+     * A registry entry that names a layer without defining it: a bare `{id}`
+     * cross-atlas reference, or one carrying metadata (title, style) but not the
+     * tile source its type requires. Mirrors MapInitializer._isUnresolvedTypeStub,
+     * which applies the same test to the incoming layer config.
+     */
+    _isStubEntry(layer) {
+        if (!layer || !layer.type) return true;
+        const URL_REQUIRED_TYPES = new Set(['vector', 'tms', 'wmts', 'wms', 'cog', 'img']);
+        if (!URL_REQUIRED_TYPES.has(layer.type)) return false;
+        return !layer.url && !(Array.isArray(layer.tiles) && layer.tiles.length > 0);
     }
 
     /**
@@ -892,16 +893,13 @@ export class LayerRegistry {
         const configPrefix = layerId.substring(0, dashIndex);
         const originalLayerId = layerId.substring(dashIndex + 1);
 
-        // Try to load the config file
+        // Try to load the config file. Cached per URL, so resolving a dozen
+        // layers that all live in the same atlas costs one request, not a dozen.
         try {
-            const configPath = `config/${configPrefix}.atlas.json`;
-            const configResponse = await fetch(configPath);
-
-            if (!configResponse.ok) {
+            const crossConfig = await fetchConfigJson(`config/${configPrefix}.atlas.json`);
+            if (!crossConfig) {
                 return null;
             }
-
-            const crossConfig = await configResponse.json();
 
             // Look for the layer in the cross-config
             if (crossConfig.layers && Array.isArray(crossConfig.layers)) {
@@ -926,8 +924,7 @@ export class LayerRegistry {
 
             // Also check if we need to load the cross-config's library
             try {
-                const libraryResponse = await fetch('config/_map-layer-presets.json');
-                const layerLibrary = await libraryResponse.json();
+                const layerLibrary = await fetchConfigJson('config/_map-layer-presets.json');
 
                 // Look for the original layer ID in the main library
                 const libraryLayer = layerLibrary.layers.find(lib => lib.id === originalLayerId);

@@ -1120,6 +1120,29 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
+     * The map source id a layer's features live in, for setFeatureState.
+     *
+     * MapboxAPI is authoritative when it knows: a vector layer sharing one
+     * source with its siblings (see MapboxAPI._acquireVectorSource) renders
+     * from a source named after whichever layer created it, so
+     * `<type>-<layerId>` no longer reaches it.
+     *
+     * `source` is only consulted as a legacy fallback, and only when it looks
+     * like an id: a good number of atlas configs use that field for a citation
+     * URL (`"source": "https://forest.goa.gov.in/..."`), which is not a source
+     * id and must not be handed to Mapbox as one.
+     */
+    _sourceIdFor(layerConfig, layerId) {
+        const owned = this._mapboxAPI?.getSourceIdForGroup?.(layerId);
+        if (owned) return owned;
+        if (layerConfig.source && typeof layerConfig.source === 'string' &&
+            !/^\s*(https?:\/\/|<)/i.test(layerConfig.source)) {
+            return layerConfig.source;
+        }
+        return `${layerConfig.type}-${layerId}`;
+    }
+
+    /**
      * Dump why a layer's events couldn't be set up — i.e. why _getMatchingLayerIds
      * returned nothing. Note: _setupSingleLayerEvents is currently a no-op (all
      * interaction goes through the global click handler in MapFeatureControl), so
@@ -1141,7 +1164,7 @@ export class MapFeatureStateManager extends EventTarget {
                 (layerConfig.sourceLayer && l['source-layer'] === layerConfig.sourceLayer)
             ).map(l => ({ id: l.id, type: l.type, source: l.source, sourceLayer: l['source-layer'] }));
 
-            const sourceId = layerConfig.source || `${layerConfig.type}-${id}`;
+            const sourceId = this._sourceIdFor(layerConfig, id);
             const sourcePresent = !!(this._map?.getSource?.(sourceId) || (style?.sources && style.sources[sourceId]));
 
             console.warn(`[StateManager] No matching style layers for "${id}" — interaction still works via the global handler. Diagnostics:`, {
@@ -1711,7 +1734,7 @@ export class MapFeatureStateManager extends EventTarget {
 
             // Build feature identifier for Mapbox
             const featureIdentifier = {
-                source: layerConfig.source || `${layerConfig.type}-${layerId}`,
+                source: this._sourceIdFor(layerConfig, layerId),
                 id: rawFeatureId
             };
 
@@ -1750,7 +1773,7 @@ export class MapFeatureStateManager extends EventTarget {
 
             // Build feature identifier for Mapbox
             const featureIdentifier = {
-                source: layerConfig.source || `${layerConfig.type}-${layerId}`,
+                source: this._sourceIdFor(layerConfig, layerId),
                 id: rawFeatureId
             };
 
@@ -1783,7 +1806,7 @@ export class MapFeatureStateManager extends EventTarget {
             }
 
             const rawFeatureId = this._extractRawFeatureId(featureId);
-            const source = layerConfig.source || `${layerConfig.type}-${layerId}`;
+            const source = this._sourceIdFor(layerConfig, layerId);
 
             // Get all matching style layer IDs for this layer config
             const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
@@ -1836,7 +1859,7 @@ export class MapFeatureStateManager extends EventTarget {
             }
 
             const rawFeatureId = this._extractRawFeatureId(featureId);
-            const source = layerConfig.source || `${layerConfig.type}-${layerId}`;
+            const source = this._sourceIdFor(layerConfig, layerId);
 
             // Get all matching style layer IDs for this layer config
             const matchingLayerIds = this._getMatchingLayerIds(layerConfig);
