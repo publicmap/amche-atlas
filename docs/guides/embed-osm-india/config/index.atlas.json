@@ -1,0 +1,40 @@
+{
+  "name": "OpenStreetMap India",
+  "description": "Community maps of India from the <a href='https://openstreetmap.in/'>OpenStreetMap India</a> community, rendered by <a href='https://amche.in'>Amche Atlas</a>.",
+  "areaOfInterest": "India",
+  "color": "#7ebc6f",
+  "atlases": [
+    "osm",
+    "world",
+    "mapbox"
+  ],
+  "map": {
+    "center": [
+      76.9541,
+      10.8293
+    ],
+    "zoom": 10.32
+  },
+  "layers": [
+    {
+      "id": "osm-places",
+      "initiallyChecked": true
+    },
+    {
+      "id": "mapbox-admin-lines",
+      "initiallyChecked": true
+    },
+    {
+      "id": "osm-boundaries-india",
+      "initiallyChecked": true
+    },
+    {
+      "id": "osm-topo",
+      "initiallyChecked": true
+    },
+    {
+      "id": "mapbox-satellite",
+      "initiallyChecked": true
+    }
+  ]
+}
