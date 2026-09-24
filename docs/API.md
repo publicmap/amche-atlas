@@ -444,7 +444,9 @@ Override the app's current locale country (see js/locale-manager.js). Defaults t
 
 ### `lang`
 
-Override the app's current locale primary + fallback languages (see js/locale-manager.js), as one comma-separated priority list - the first code is the primary language, every code after it is a fallback, in priority order. Defaults to `config/_defaults.json`'s `locale.primaryLanguage`/`locale.fallbackLanguages` (`en` / `[]` by default).
+Override the app's current locale primary + fallback languages (see js/locale-manager.js), as one comma-separated priority list - the first code is the primary language, every code after it is a fallback, in priority order.
+
+Without this parameter, a non-English browser locale sets the initial values: the browser's preferred language becomes the primary and `en` the fallback (so a Hindi browser starts at `hi,en`). Region subtags are dropped (`pt-BR` -> `pt`); script subtags are kept when known (`zh-Hant`). An English (or unrecognised) browser locale falls through to `config/_defaults.json`'s `locale.primaryLanguage`/`locale.fallbackLanguages` (`en` / `[]` by default).
 
 **Format:** `?lang=<primary ISO 639-1 code>[,<fallback ISO 639-1 code>...]`
 

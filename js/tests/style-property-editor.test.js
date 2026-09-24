@@ -95,7 +95,7 @@ describe('StylePropertyEditor', () => {
         expect(names).toEqual(['fill-color', 'fill-opacity', 'line-dasharray', 'text-field']);
 
         const sections = [...editor.element.querySelectorAll('.spe-section')].map(node => node.textContent);
-        expect(sections).toEqual(['Paint', 'Layout']);
+        expect(sections).toEqual(['Colors', 'Paint', 'Layout']);
     });
 
     it('gives a colour property a picker and a number property a bounded box', () => {
@@ -231,5 +231,67 @@ describe('StylePropertyEditor', () => {
         const names = [...editor.element.querySelectorAll('.spe-name')].map(node => node.textContent);
         expect(names).toEqual(['casing/line-color', 'casing/line-width']);
         expect(rowFor(editor, 'casing/line-width').querySelector('input[type="number"]').value).toBe('6');
+    });
+
+    it('offers one swatch per unique colour, deduping a repeated colour across properties', () => {
+        const { editor } = mount({
+            type: 'geojson',
+            style: {
+                'fill-color': '#ff0000',
+                'line-color': '#ff0000',
+                'circle-color': ['match', ['get', 'kind'], 'a', '#00ff00', '#0000ff']
+            }
+        });
+
+        const swatches = [...editor.element.querySelectorAll('.spe-color-gallery .spe-color-swatch')];
+        expect(swatches.map(s => s.value)).toEqual(['#ff0000', '#00ff00', '#0000ff']);
+    });
+
+    it('editing a colour swatch rewrites every occurrence of that colour, including inside expressions', () => {
+        const { editor, onChange } = mount({
+            type: 'geojson',
+            style: {
+                'fill-color': '#ff0000',
+                'line-color': '#ff0000',
+                'circle-color': ['match', ['get', 'kind'], 'a', '#ff0000', '#0000ff']
+            }
+        });
+
+        const swatch = editor.element.querySelector('.spe-color-gallery .spe-color-swatch');
+        swatch.value = '#00ffaa';
+        swatch.dispatchEvent(new Event('input'));
+
+        const style = editor.getStyle();
+        expect(style['fill-color']).toBe('#00ffaa');
+        expect(style['line-color']).toBe('#00ffaa');
+        expect(style['circle-color']).toEqual(['match', ['get', 'kind'], 'a', '#00ffaa', '#0000ff']);
+        expect(onChange).toHaveBeenCalled();
+    });
+
+    it('keeps a colour with alpha distinct from its opaque form and preserves alpha on edit', () => {
+        const { editor } = mount({
+            type: 'geojson',
+            style: {
+                'fill-color': '#ff0000',
+                'fill-outline-color': 'rgba(255, 0, 0, 0.5)'
+            }
+        });
+
+        const swatches = [...editor.element.querySelectorAll('.spe-color-gallery .spe-color-swatch')];
+        expect(swatches).toHaveLength(2);
+
+        const translucent = swatches.find(s => s.title.startsWith('rgba'));
+        translucent.value = '#00ff00';
+        translucent.dispatchEvent(new Event('input'));
+
+        const style = editor.getStyle();
+        expect(style['fill-color']).toBe('#ff0000');
+        expect(style['fill-outline-color']).toBe('rgba(0, 255, 0, 0.5)');
+    });
+
+    it('omits the Colors section when the style has no colours', () => {
+        const { editor } = mount({ type: 'geojson', style: { 'line-width': 2 } });
+        const sections = [...editor.element.querySelectorAll('.spe-section')].map(node => node.textContent);
+        expect(sections).not.toContain('Colors');
     });
 });

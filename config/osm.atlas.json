@@ -1037,6 +1037,7 @@
         [
           "pedestrian",
           "footway",
+          "steps",
           "path"
         ],
         true,
@@ -1052,6 +1053,7 @@
           [
             "pedestrian",
             "footway",
+            "steps",
             "path"
           ],
           "cyan",
@@ -2052,10 +2054,10 @@
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
       "style": {
         "line-opacity": 0.9,
-        "fill-opacity": 0.95,
-        "fill-color": "lightblue",
-        "line-color": "blue",
-        "line-width": 1
+        "fill-opacity": 0.5,
+        "fill-color": "#7adeff",
+        "line-color": "#3dd8ff",
+        "line-width": 0.2
       },
       "inspect": {
         "id": "kind",
@@ -2087,7 +2089,7 @@
             "river",
             "stream"
           ],
-          "blue",
+          "#7adeff",
           "lightblue"
         ],
         "line-width": [
@@ -2100,13 +2102,13 @@
             "river",
             "canal"
           ],
-          3,
+          1,
           [
             "stream",
             "drain"
           ],
-          2,
-          1
+          0.5,
+          0.2
         ]
       },
       "inspect": {

@@ -159,6 +159,11 @@ export class StylePropertyEditor {
     render() {
         this.element.textContent = '';
 
+        const colors = this._collectUniqueColors();
+        if (colors.length) {
+            this.element.appendChild(this._buildColorsSection(colors));
+        }
+
         const keys = [...Object.keys(this._style), ...this._drafts];
         const sections = { paint: [], layout: [], other: [] };
         keys.forEach(key => sections[sectionFor(key)].push(key));
@@ -177,6 +182,72 @@ export class StylePropertyEditor {
 
         this.element.appendChild(this._buildAddControl());
         return this.element;
+    }
+
+    /**
+     * Every distinct colour used anywhere in the style, including inside
+     * expressions (a `match`/`case` branch, an `interpolate` stop). Grouped by
+     * resolved hex + alpha, so "#ff0000" and "red" collapse into one swatch but
+     * a colour with a different alpha gets its own.
+     */
+    _collectUniqueColors() {
+        const groups = new Map();
+        Object.entries(this._style).forEach(([key, value]) => {
+            collectColorLeaves(value).forEach(raw => {
+                const hex = cssColorToHex(raw);
+                if (!hex) return;
+                const alpha = colorAlpha(raw);
+                const groupKey = `${hex}@${alpha === undefined ? '' : alpha}`;
+                if (!groups.has(groupKey)) {
+                    groups.set(groupKey, { hex, alpha, raw, properties: new Set() });
+                }
+                groups.get(groupKey).properties.add(propertyName(key));
+            });
+        });
+        return [...groups.values()];
+    }
+
+    /**
+     * A mini swatch gallery above the property rows: one swatch per unique
+     * colour in the style. Editing a swatch rewrites every occurrence of that
+     * exact colour, across every property and expression branch that uses it.
+     */
+    _buildColorsSection(colors) {
+        const wrap = el('div', 'spe-colors-section');
+        wrap.appendChild(el('div', 'spe-section', { textContent: 'Colors' }));
+
+        const gallery = el('div', 'spe-color-gallery');
+        colors.forEach(({ hex, alpha, raw, properties }) => {
+            const propList = [...properties].join(', ');
+            const swatch = el('input', 'spe-color-swatch', {
+                type: 'color',
+                value: hex,
+                title: `${raw} — used in ${propList}`
+            });
+            swatch.addEventListener('input', () => {
+                this._replaceColor(hex, alpha, swatch.value);
+            });
+            gallery.appendChild(swatch);
+        });
+
+        wrap.appendChild(gallery);
+        return wrap;
+    }
+
+    /** Rewrite every occurrence of one colour (hex + alpha) across the style. */
+    _replaceColor(hex, alpha, newHex) {
+        const changedKeys = [];
+        Object.keys(this._style).forEach(key => {
+            const next = replaceColorLeaves(this._style[key], hex, alpha, newHex);
+            if (next !== this._style[key]) {
+                this._style[key] = next;
+                changedKeys.push(key);
+            }
+        });
+        if (!changedKeys.length) return;
+
+        this.render();
+        this._onChange(this.getStyle(), { property: changedKeys[0], colorReplaced: true });
     }
 
     _buildRow(key) {
@@ -393,6 +464,42 @@ function rgbaFromHex(hex, alpha) {
     return `rgba(${r}, ${g}, ${b}, ${Math.round(alpha * 100) / 100})`;
 }
 
+/** Every string leaf that parses as a colour, walking into expression arrays. */
+function collectColorLeaves(value, out = []) {
+    if (typeof value === 'string') {
+        if (toHexColor(value)) out.push(value);
+    } else if (Array.isArray(value)) {
+        value.forEach(item => collectColorLeaves(item, out));
+    }
+    return out;
+}
+
+function sameAlpha(a, b) {
+    if (a === undefined && b === undefined) return true;
+    if (a === undefined || b === undefined) return false;
+    return Math.abs(a - b) < 0.001;
+}
+
+/** Replace every leaf matching (hex, alpha) with `newHex`, preserving structure. */
+function replaceColorLeaves(value, hex, alpha, newHex) {
+    if (typeof value === 'string') {
+        if (toHexColor(value) === hex && sameAlpha(colorAlpha(value), alpha)) {
+            return alpha !== undefined ? rgbaFromHex(newHex, alpha) : newHex;
+        }
+        return value;
+    }
+    if (Array.isArray(value)) {
+        let changed = false;
+        const next = value.map(item => {
+            const replaced = replaceColorLeaves(item, hex, alpha, newHex);
+            if (replaced !== item) changed = true;
+            return replaced;
+        });
+        return changed ? next : value;
+    }
+    return value;
+}
+
 const STYLESHEET_ID = 'style-property-editor-css';
 
 function injectStyles() {
@@ -400,6 +507,11 @@ function injectStyles() {
     const style = el('style', null, { id: STYLESHEET_ID, textContent: `
         .spe-section { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
             color: #9ca3af; margin: 10px 0 4px; }
+        .spe-colors-section .spe-section { margin-top: 0; }
+        .spe-color-gallery { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .spe-color-swatch { width: 28px; height: 28px; padding: 0; border: 1px solid #374151; border-radius: 6px;
+            background: #0b1220; cursor: pointer; }
+        .spe-color-swatch:hover { border-color: #6b7280; }
         .spe-row { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 6px 8px; margin-bottom: 6px; }
         .spe-head { display: flex; align-items: center; gap: 6px; }
         .spe-name { font-family: 'Courier New', monospace; font-size: 11px; color: #e5e7eb; }

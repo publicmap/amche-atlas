@@ -10,13 +10,37 @@
  * lazily); a `null` default country there means "whatever the map is
  * currently centered over", read live from js/map-attribution-control.js's
  * last Nominatim reverse-geocode (window.attributionControl.getAddress()).
+ * A non-English browser locale takes priority over the config's default
+ * language (see _browserLanguage()) - a visitor whose browser is set to e.g.
+ * Hindi gets Hindi labels with English as the fallback, without having to
+ * touch the settings UI.
  * A value the user actually sets (via the modal, or already present in the
- * URL on load) overrides both and is mirrored to `?country=`/`?lang=` via
- * js/url-manager.js - see docs/API.md. `?lang=` is comma-separated, primary
- * language first followed by fallbacks in priority order (e.g. `?lang=hi,en`).
+ * URL on load) overrides all of the above and is mirrored to
+ * `?country=`/`?lang=` via js/url-manager.js - see docs/API.md. `?lang=` is
+ * comma-separated, primary language first followed by fallbacks in priority
+ * order (e.g. `?lang=hi,en`).
  */
 import { findLanguageByCode } from './language-data.js';
 import { COUNTRIES } from './search/providers/country-provider.js';
+
+/**
+ * Resolves a BCP 47 tag from `navigator.languages` to one of our language
+ * codes. Region subtags ("en-GB", "pt-BR") are dropped - LANGUAGES does list
+ * a few of those, but map labels come from `name:<lang>` tags that are keyed
+ * by language, not locale. Script subtags ("zh-Hant") are kept and widened
+ * away only if unmatched, since those do name distinct label sets.
+ */
+function matchBrowserTag(tag) {
+    const [language, ...subtags] = (tag || '').toLowerCase().split('-').filter(Boolean);
+    if (!language) return null;
+    const parts = [language, ...subtags.filter(s => !/^([a-z]{2}|\d{3})$/.test(s))];
+    while (parts.length) {
+        const found = findLanguageByCode(parts.join('-'));
+        if (found) return found;
+        parts.pop();
+    }
+    return null;
+}
 
 function findCountryByCode(code) {
     if (!code) return null;
@@ -33,6 +57,8 @@ class LocaleManager {
         this._defaults = { country: null, primaryLanguage: null, fallbackLanguages: [] };
         this._defaultsLoaded = false;
         this._defaultsPromise = null;
+        this._browserLanguageResolved = false;
+        this._browserLanguageValue = null;
         this._listeners = new Set();
     }
 
@@ -65,17 +91,44 @@ class LocaleManager {
         return { name: address.country, code: (address.country_code || '').toUpperCase() };
     }
 
+    /**
+     * The browser's preferred language, if it's anything other than English -
+     * an English browser wants no change from the config default, and pinning
+     * it would only add a redundant "en" fallback. Regional English variants
+     * ("en-GB") resolve to "en" and are skipped too.
+     */
+    _browserLanguage() {
+        if (this._browserLanguageResolved) return this._browserLanguageValue;
+        this._browserLanguageResolved = true;
+        const tags = navigator?.languages?.length ? navigator.languages : [navigator?.language];
+        for (const tag of tags) {
+            const lang = matchBrowserTag(tag);
+            if (lang && lang.code !== 'en') {
+                this._browserLanguageValue = lang;
+                break;
+            }
+            if (lang) break; // English came first in the preference list.
+        }
+        return this._browserLanguageValue;
+    }
+
     getCountry() {
         return this._country || this._liveCountry() ||
             (this._defaults.country ? findCountryByCode(this._defaults.country) : null);
     }
 
     getPrimaryLanguage() {
-        return this._primaryLanguage || this._defaults.primaryLanguage || null;
+        return this._primaryLanguage || this._browserLanguage() || this._defaults.primaryLanguage || null;
     }
 
     getFallbackLanguages() {
-        return this._fallbackLanguages.length ? this._fallbackLanguages : (this._defaults.fallbackLanguages || []);
+        if (this._fallbackLanguages.length) return this._fallbackLanguages;
+        // A browser-derived primary falls back to English rather than to the
+        // config's (which assumes an English primary and so lists none).
+        if (!this._primaryLanguage && this._browserLanguage()) {
+            return [findLanguageByCode('en') || { name: 'English', code: 'en' }];
+        }
+        return this._defaults.fallbackLanguages || [];
     }
 
     /**
