@@ -109,14 +109,26 @@
     }
 
     // `map.style` values naming a base map that draws nothing of its own.
+    //
+    // `null` is the spelling to reach for: it says "no base style" in JSON's
+    // own vocabulary, and matches how this app already reads an explicit null
+    // elsewhere (`"inspect": null` disables interactivity). What it does NOT
+    // mean is "unset" - an atlas that omits `map.style` entirely still inherits
+    // the instance's, so the two cases are `undefined` vs `null`.
+    //
+    // The strings are accepted too, and are worth using where a null could get
+    // eaten: config generators and JSON editors that strip null-valued keys
+    // would silently turn "no base style" back into "inherit the 130KB one",
+    // with no error to notice.
     var BLANK_STYLE_IDS = { blank: true, none: true, empty: true };
 
     window.amche.isBlankStyle = function (style) {
+        if (style === null) return true;
         return typeof style === 'string' && BLANK_STYLE_IDS[style.toLowerCase()] === true;
     };
 
     /**
-     * The style behind `"style": "blank"` - no sources, no layers but a
+     * The style behind `"style": null` - no sources, no layers but a
      * background, just the glyphs and sprite an atlas's own layers need for
      * text and icons.
      *

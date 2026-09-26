@@ -30,6 +30,40 @@ function collectHtmlEntries() {
   return entries;
 }
 
+/**
+ * Redirect `/some/dir` to `/some/dir/` when that directory holds an index.html.
+ *
+ * Static hosts (GitHub Pages, nginx) do this themselves, so production is fine.
+ * Vite's dev/preview server does not: it falls through to the root index.html
+ * and serves the main app under the wrong path with a 200. Every relative URL
+ * on the page then resolves one directory too high - `config/index.atlas.json`
+ * becomes `/docs/guides/config/index.atlas.json` - and the page fails in a way
+ * that looks like a config bug rather than a URL bug.
+ *
+ * Applies to both `serve` and `preview`, since `npm run preview` is how the
+ * built output gets checked against production behaviour.
+ */
+function directoryTrailingSlashRedirect() {
+  const handler = (rootDir) => (req, res, next) => {
+    const [pathname, query = ''] = req.url.split('?');
+    if (pathname.endsWith('/') || path.extname(pathname)) return next();
+    const candidate = path.join(rootDir, pathname, 'index.html');
+    if (!fs.existsSync(candidate)) return next();
+    res.writeHead(301, { Location: pathname + '/' + (query ? '?' + query : '') });
+    res.end();
+  };
+
+  return {
+    name: 'amche-directory-trailing-slash-redirect',
+    configureServer(server) {
+      server.middlewares.use(handler(path.resolve('.')));
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(handler(path.resolve('dist')));
+    },
+  };
+}
+
 export default defineConfig({
   root: '.',
   // Relative asset paths so the same build artifact works both at the domain
@@ -55,6 +89,7 @@ export default defineConfig({
   },
 
   plugins: [
+    directoryTrailingSlashRedirect(),
     viteStaticCopy({
       targets: [
         // Static dirs referenced by absolute URL paths from HTML/JS.

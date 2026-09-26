@@ -1627,7 +1627,9 @@
 
                 if (asset.module) {
                     // MapLibre v6+ ships only an ES module and defines no global.
-                    import(asset.js)
+                    // @vite-ignore: a CDN URL chosen at runtime, nothing for
+                    // the bundler to resolve or pre-bundle.
+                    import(/* @vite-ignore */ asset.js)
                         .then(ns => { window.mapboxgl = Object.assign({}, ns); resolve(); })
                         .catch(reject);
                     return;

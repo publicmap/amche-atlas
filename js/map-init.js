@@ -278,8 +278,23 @@ export class MapInitializer {
             }
         }
 
-        // For non-index atlases, ensure they inherit the map style from index.atlas.json if not specified
-        if (atlasId !== 'index' && (!config.map || !config.map.style)) {
+        // Both the requested atlas and the index fallback failed. Everything
+        // below dereferences `config`, so carry on with an empty atlas rather
+        // than throwing a TypeError on the first property access - the map
+        // itself is already up and the user gets a blank but working canvas.
+        // The usual cause is the page being served from a path where the
+        // relative `config/` URLs don't resolve (a directory URL missing its
+        // trailing slash, say), which the warning above names.
+        if (!config) {
+            console.error(`[MapInit] Could not load any atlas config (tried ${configPath}). Starting with no layers.`);
+            config = { name: 'Map', layers: [] };
+            atlasId = 'index';
+        }
+
+        // For non-index atlases, ensure they inherit the map style from index.atlas.json if not specified.
+        // Strictly `undefined` - an explicit `"style": null` is the atlas asking
+        // for no base map at all (see docs/API.md), not an unset value to fill in.
+        if (atlasId !== 'index' && (!config.map || config.map.style === undefined)) {
             const indexConfig = await fetchConfigJson(window.amche.DEFAULT_ATLAS);
             if (indexConfig?.map?.style) {
                 if (!config.map) {
@@ -795,7 +810,9 @@ export class MapInitializer {
         // Inherit missing style/center/zoom from index — matches loadConfiguration()
         if (atlas && indexConfig && atlas !== indexConfig) {
             atlas.map = atlas.map || {};
-            atlas.map.style = atlas.map.style || indexConfig.map?.style;
+            // `undefined` means unset, so inherit; `null` is the atlas explicitly
+            // asking for no base style at all and must survive to the constructor.
+            if (atlas.map.style === undefined) atlas.map.style = indexConfig.map?.style;
             atlas.map.center = atlas.map.center || indexConfig.map?.center;
             if (atlas.map.zoom === undefined) atlas.map.zoom = indexConfig.map?.zoom;
         }
@@ -830,7 +847,11 @@ export class MapInitializer {
         // way - resolve it (and patch known Mapbox/MapLibre incompatibilities)
         // when running MapLibre. No-op under Mapbox GL JS, which resolves the
         // mapbox:// scheme itself and has no such incompatibilities.
-        if (window.amche.MAPBOX_MAP_OPTIONS.style) {
+        //
+        // `!== undefined` rather than a truthiness test: `"style": null` asks
+        // for a blank base map, which resolveMapboxStyle turns into a real
+        // (empty) style object. Neither renderer accepts a null style itself.
+        if (window.amche.MAPBOX_MAP_OPTIONS.style !== undefined) {
             window.amche.MAPBOX_MAP_OPTIONS.style = await window.amche.resolveMapboxStyle(
                 window.amche.MAPBOX_MAP_OPTIONS.style,
                 window.amche.MAPBOX_MAP_OPTIONS

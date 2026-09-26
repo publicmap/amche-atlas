@@ -610,20 +610,24 @@ The `map` block holds the options handed to the GL renderer's `Map` constructor,
 
 | Field | Notes |
 |---|---|
-| `style` | Base style URL (`mapbox://styles/...` or any style URL), or `"blank"`. Inherited from the instance's `index.atlas.json` when omitted. |
-| `backgroundColor` | `"blank"` only — the color shown wherever no layer covers. Default `#e8e6e1`. |
-| `glyphs`, `sprite` | `"blank"` only — override the Mapbox fontstack/icon endpoints the blank style points at. |
+| `style` | Base style URL (`mapbox://styles/...` or any style URL), or `null` for no base map. **Omitted** inherits the instance's `index.atlas.json` style — which is not the same as `null`, see below. |
+| `backgroundColor` | `null` style only — the color shown wherever no layer covers. Default `#e8e6e1`. |
+| `glyphs`, `sprite` | `null` style only — override the Mapbox fontstack/icon endpoints the blank style points at. |
 | `center`, `zoom`, `bearing`, `pitch`, `bounds` | Opening camera. A `#zoom/lat/lng` URL hash wins over these. |
 
-##### `"style": "blank"` — no base map
+##### `"style": null` — no base map
 
 ```json
-"map": { "style": "blank", "backgroundColor": "#0b1b2b" }
+"map": { "style": null, "backgroundColor": "#0b1b2b" }
 ```
 
-Builds a minimal style in place of a base map: no sources, no layers but a background, plus the Mapbox glyphs and sprite so `text-font` and `icon-image` still resolve. (`"none"` and `"empty"` are accepted spellings of the same thing.)
+Builds a minimal style in place of a base map: no sources, no layers but a background, plus the Mapbox glyphs and sprite so `text-font` and `icon-image` still resolve.
 
 Use it when the atlas draws **everything** from its own `layers` — an OpenStreetMap vector atlas, a satellite-only atlas. Without it such an atlas inherits the host instance's full Mapbox style and pays for all of it with nothing to show: a ~130KB style JSON, four tileset lookups plus their tiles, and ~200 style layers compiled every frame. A tileset the atlas *does* use (`mapbox.satellite`, say) ends up loaded twice, once from each side.
+
+**Omitting `style` is not the same as setting it to `null`.** Omitted means "unset, inherit from the instance"; `null` means "no base map". Every ordinary atlas (`goa`, `india`, …) omits it and inherits.
+
+The strings `"blank"`, `"none"` and `"empty"` do the same thing as `null`. Prefer them anywhere a null might get eaten — some config generators and JSON editors drop null-valued keys, which would silently turn "no base map" back into "inherit the 130KB one" with nothing to notice.
 
 Layer ordering is unaffected — the `bottom`/`middle`/`top` anchors come from `MapUtils.initializeSlotLayers`, not from the style.
 
