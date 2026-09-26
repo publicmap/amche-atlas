@@ -94,8 +94,21 @@ window.addEventListener('message', (event) => {
     const mapUrl = new URL(event.data.href);
     // Dropped by hand rather than through searchParams.delete(), which would
     // re-serialize the rest and percent-encode the commas in `layers` and
-    // `lang` that the atlas deliberately leaves readable.
-    const params = mapUrl.search.slice(1).split('&').filter(p => p && !p.startsWith('atlas='));
+    // `lang` that the atlas deliberately leaves readable. Also drops any
+    // site.params key still at its configured default value - buildSrc()
+    // always passes those into the frame so it can read them (e.g.
+    // window.amche.RENDERER parses `?renderer=` off the frame's own URL),
+    // but echoing them back here would make the address bar show
+    // `?renderer=maplibre` forever even though that's just this site's
+    // default, not a visitor override.
+    const params = mapUrl.search.slice(1).split('&').filter(p => {
+        if (!p || p.startsWith('atlas=')) return false;
+        const eq = p.indexOf('=');
+        const key = decodeURIComponent(eq === -1 ? p : p.slice(0, eq));
+        if (!(key in (site.params || {}))) return true;
+        const value = eq === -1 ? '' : decodeURIComponent(p.slice(eq + 1));
+        return value !== String(site.params[key]);
+    });
     const search = params.length ? '?' + params.join('&') : '';
     history.replaceState(null, '', location.pathname + search + mapUrl.hash);
     setView(mapUrl.hash);
