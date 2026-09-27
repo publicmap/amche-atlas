@@ -108,14 +108,36 @@ export class GeolocationWatch {
     _whenButtonReady(callback) {
         const attach = () => {
             this._button = this._element.querySelector(`.${CTRL_PREFIX}-ctrl-geolocate`);
-            if (!this._button) return false;
+            return !!this._button;
+        };
+        const finish = () => {
             this._observer = new MutationObserver(this._sync);
             this._observer.observe(this._button, { attributes: true, attributeFilter: ['class'] });
             callback();
-            return true;
         };
-        if (attach()) return;
-        const pending = new MutationObserver(() => { if (attach()) pending.disconnect(); });
+        // The button appears in the same tick as onAdd, but GL JS's own
+        // support check that onAdd kicks off is still async - trigger()
+        // gates on a private `_setup` flag that check sets a tick or two
+        // later. Calling trigger() (via _autoActivate below) before then is
+        // a silent no-op ("Geolocate control triggered before added to a
+        // map"), which is exactly what an immediate ?geolocate=true/
+        // userLocation auto-start would otherwise race into - a manual
+        // button click never hits this because human reaction time is much
+        // longer than that gap. Should the private field ever be renamed,
+        // this degrades to the old (racy) behavior after the poll cap
+        // rather than hanging.
+        const whenSetup = () => {
+            if (this._control._setup) { finish(); return; }
+            let attempts = 0;
+            const timer = setInterval(() => {
+                if (this._control._setup || ++attempts >= 50) {
+                    clearInterval(timer);
+                    finish();
+                }
+            }, 20);
+        };
+        if (attach()) { whenSetup(); return; }
+        const pending = new MutationObserver(() => { if (attach()) { pending.disconnect(); whenSetup(); } });
         pending.observe(this._element, { childList: true, subtree: true });
     }
 
@@ -225,6 +247,7 @@ export class GeolocationWatch {
         if (!this._analyticsReported) {
             this._analyticsReported = true;
             trackEvent('geolocate', { status: 'success' });
+            this._recoverFromStaleTerrainElevation();
         }
         this._errorCount = 0;
         const now = performance.now();
@@ -235,6 +258,43 @@ export class GeolocationWatch {
             `[GPS] First position from Mapbox at t=${Math.round(now)}ms (${elapsed}):`,
             `${event.coords.latitude.toFixed(6)}, ${event.coords.longitude.toFixed(6)}`
         );
+    }
+
+    // GL JS computes the camera's altitude against terrain elevation only at
+    // the moment a camera command runs, not continuously - so when GL JS's
+    // own internal camera move to a first-ever GPS fix happens before the DEM
+    // tile for that spot has loaded, it sets the camera assuming flat (zero)
+    // ground there. Once that tile lands a moment later, the real (often
+    // much higher, exaggeration-multiplied) terrain surface can end up
+    // poking through a camera that never got repositioned for it: the map
+    // renders solid black because the camera is now looking out from inside
+    // the ground. This mostly went unnoticed before, since a human's manual
+    // geolocate click almost always lands well after terrain has already
+    // settled - but ?geolocate=true firing automatically at page load races
+    // the DEM fetch directly, and even races terrain itself: the `terrain=`
+    // URL param is only applied later, on url-manager.js's post-
+    // "layersInitialized" pass, so `getTerrain()` is frequently still null at
+    // this exact moment.
+    //
+    // GL JS has no renderer-portable event for "terrain turned on" or "that
+    // DEM tile arrived", and `idle` isn't a reliable stand-in for either: with
+    // terrain enabled the map can stay legitimately busy well past when the
+    // elevation data this needs has already arrived (still-loading vector
+    // tiles elsewhere), and conversely a DEM source with sparse coverage that
+    // keeps retrying failed tiles can mean `idle` never fires at all. A plain
+    // timer that re-issues a no-op jumpTo - cheap, and inert once elevation
+    // has actually settled - converges reliably where waiting on GL JS's own
+    // signals doesn't.
+    _recoverFromStaleTerrainElevation() {
+        const map = this._map;
+        if (!map) return;
+        let ticks = 0;
+        const timer = setInterval(() => {
+            if (map.getTerrain?.()) {
+                map.jumpTo({ center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() });
+            }
+            if (++ticks >= 16) clearInterval(timer);
+        }, 400);
     }
 
     _onError = (error) => {

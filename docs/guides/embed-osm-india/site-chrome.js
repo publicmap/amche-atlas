@@ -40,6 +40,28 @@ const config = await fetch(CONFIG_URL)
 const site = config.site || {};
 const brand = site.brand || {};
 
+// Brand the placeholder immediately - this runs before the iframe below is
+// even given a `src`, so it's on screen well before the embedded atlas's own
+// splash gets far enough to fetch this same config and apply its own
+// matching branding (see js/splash-screen-manager.js's applyBranding). That
+// gap is what used to show the atlas's default amche.in branding first;
+// removePlaceholder() below then keeps this covering the iframe until the
+// map is actually ready, so the switch never becomes visible to begin with.
+const placeholderLogo = document.getElementById('placeholder-logo');
+const placeholderName = document.getElementById('placeholder-name');
+const placeholderTagline = document.getElementById('placeholder-tagline');
+if (brand.logo && placeholderLogo) {
+    // Written relative to config/index.atlas.json, same convention the atlas
+    // itself resolves it against (see splash-screen-manager.js) - resolve
+    // here the same way rather than against this page's own location, which
+    // is one directory up from the config file.
+    placeholderLogo.src = new URL(brand.logo, CONFIG_URL).href;
+    placeholderLogo.alt = brand.name || '';
+    placeholderLogo.style.display = 'block';
+}
+if (brand.name && placeholderName) placeholderName.textContent = brand.name;
+if (brand.tagline && placeholderTagline) placeholderTagline.textContent = brand.tagline;
+
 // A browser won't let an https atlas read a config from http://localhost, so
 // while this page is served from a local amche-atlas checkout (npm start)
 // embed that same checkout: same origin, config loads, nothing to deploy
@@ -76,11 +98,28 @@ function buildSrc() {
 
 const frame = document.getElementById('atlas');
 
-frame.addEventListener('load', () => {
+// The iframe's own `load` fires once its document has loaded - long before
+// its map has actually rendered anything (the atlas's own splash screen
+// stays up well past that point). Removing the placeholder there is what let
+// its default amche.in branding show through before the atlas applied its
+// own; wait instead for the `{type: 'url'}` message the atlas posts once
+// after its map's `load` event (see js/url-manager.js), which lands at
+// essentially the same moment its own splash closes. A timeout is a
+// fallback only, in case that message is ever missing (an older cached
+// build, or the map failing to load at all) so this overlay can't get stuck
+// forever.
+let placeholderRemoved = false;
+function removePlaceholder() {
+    if (placeholderRemoved) return;
+    placeholderRemoved = true;
     document.getElementById('placeholder')?.remove();
+}
+
+frame.addEventListener('load', () => {
     // Tell the atlas where it is embedded, so the links it offers visitors
     // point back at this page.
     frame.contentWindow.postMessage({ type: 'amche:embed', href: location.href }, atlasOrigin);
+    setTimeout(removePlaceholder, 8000);
 });
 
 // Mirror the map's own URL onto this page, so the address bar always
@@ -90,6 +129,7 @@ frame.addEventListener('load', () => {
 window.addEventListener('message', (event) => {
     if (event.origin !== atlasOrigin) return;
     if (event.data?.type !== 'url' || typeof event.data.href !== 'string') return;
+    removePlaceholder();
 
     const mapUrl = new URL(event.data.href);
     // Dropped by hand rather than through searchParams.delete(), which would
@@ -170,7 +210,10 @@ function link(item, className) {
 function brandMark(className) {
     return el('a', { class: className, href: brand.href || './' }, [
         brand.name ? el('span', { class: 'site-name', text: brand.name }) : null,
-        brand.logo ? el('img', { src: brand.logo, alt: brand.name || '' }) : null
+        // Resolved against CONFIG_URL, not this page's own location - same
+        // convention `brand.logo` is written against everywhere else (see
+        // placeholderLogo above and splash-screen-manager.js's applyBranding).
+        brand.logo ? el('img', { src: new URL(brand.logo, CONFIG_URL).href, alt: brand.name || '' }) : null
     ]);
 }
 

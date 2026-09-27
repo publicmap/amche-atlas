@@ -8,11 +8,12 @@
     "params": {
       "renderer": "maplibre",
       "terrain": "1.5",
-      "lang": "en,hi"
+      "lang": "en,hi",
+      "geolocate": "true"
     },
     "brand": {
       "name": "OpenStreetMap India",
-      "logo": "https://wiki.openstreetmap.org/w/images/0/07/OpenStreetMap-India.svg",
+      "logo": "../osm-india-stamp-2026.svg",
       "href": "./",
       "tagline": "Join the volunteer community of citizens crowdsourcing a free and open source map of India using the OpenStreetMap Project."
     },

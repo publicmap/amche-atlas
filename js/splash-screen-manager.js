@@ -37,6 +37,7 @@ export class SplashScreenManager {
         this.showSplashSection();
         this.setupEventListeners();
         this.applyAtlasName();
+        this.applyBranding();
 
         // URL drives atlas/coords → no detection needed, and parseURLConfiguration
         // above already resolved the atlas without the registry (see
@@ -61,6 +62,7 @@ export class SplashScreenManager {
             await this.waitForLayerRegistry();
             await this.runLocationDetectionFlow();
             this.applyAtlasName();
+            this.applyBranding();
             this.showAtlasState();
             this.watchForMapReady();
         }
@@ -96,7 +98,10 @@ export class SplashScreenManager {
             locatedText: document.getElementById('splash-located-text'),
             atlasName: document.getElementById('splash-atlas-name'),
             changeAtlasBtn: document.getElementById('splash-change-atlas-btn'),
-            atlasDropdown: document.getElementById('splash-atlas-dropdown')
+            atlasDropdown: document.getElementById('splash-atlas-dropdown'),
+            logoImg: document.getElementById('splash-logo-img'),
+            brandLink: document.getElementById('splash-brand-link'),
+            description: document.getElementById('splash-description')
         };
     }
 
@@ -148,6 +153,10 @@ export class SplashScreenManager {
         try {
             let atlasConfig;
             let atlasId = 'index';
+            // Base URL to resolve config-relative asset references (e.g.
+            // `site.brand.logo`) against - see _atlasFromConfig. Left null for
+            // the inline-JSON case below, which has no URL to resolve against.
+            let configUrl = null;
 
             if (atlasParam) {
                 if (atlasParam.startsWith('{') && atlasParam.endsWith('}')) {
@@ -156,6 +165,7 @@ export class SplashScreenManager {
                 } else if (atlasParam.startsWith('http')) {
                     atlasConfig = await fetchConfigJson(atlasParam);
                     atlasId = 'imported';
+                    configUrl = atlasParam;
                 } else {
                     // Short-id atlas: try the conventional local path directly first —
                     // this is the common case and avoids waiting on the full layer
@@ -167,11 +177,13 @@ export class SplashScreenManager {
                     // SPA fallback returns index.html with a 200, not a real 404, hence
                     // the content-type check, mirrored from LayerRegistry._doInitialize).
                     let result = await fetchConfigResult(`config/${atlasParam}.atlas.json`);
+                    configUrl = new URL(`config/${atlasParam}.atlas.json`, window.location.href).href;
                     if (!result.ok || !result.contentType.includes('json')) {
                         await this.waitForLayerRegistry();
                         const meta = window.layerRegistry?.getAtlasMetadata?.(atlasParam);
                         if (meta?.url) {
                             result = await fetchConfigResult(meta.url);
+                            configUrl = meta.url;
                         }
                     }
                     atlasConfig = result.json;
@@ -179,13 +191,14 @@ export class SplashScreenManager {
                 }
             } else {
                 atlasConfig = await fetchConfigJson(window.amche.DEFAULT_ATLAS);
+                configUrl = window.amche.DEFAULT_ATLAS;
             }
 
             // fetchConfigJson answers null rather than throwing, so the
             // fall-through to loadFallbackConfiguration() needs an explicit push.
             if (!atlasConfig) throw new Error(`Could not load atlas config: ${atlasParam || window.amche.DEFAULT_ATLAS}`);
 
-            this.state.atlas = this._atlasFromConfig(atlasId, atlasConfig);
+            this.state.atlas = this._atlasFromConfig(atlasId, atlasConfig, configUrl);
 
             if (layersParam) {
                 this.state.layers = this.parseLayersParam(layersParam);
@@ -237,7 +250,7 @@ export class SplashScreenManager {
             await this.loadFallbackConfiguration();
             return;
         }
-        this.state.atlas = this._atlasFromConfig('index', config);
+        this.state.atlas = this._atlasFromConfig('index', config, window.amche.DEFAULT_ATLAS);
         this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
     }
 
@@ -248,7 +261,7 @@ export class SplashScreenManager {
             return;
         }
         this.state.atlas = {
-            ...this._atlasFromConfig('index', config),
+            ...this._atlasFromConfig('index', config, window.amche.DEFAULT_ATLAS),
             name: 'Goa Map (Fallback)',
             description: 'Default map view',
             color: '#3b82f6'
@@ -256,17 +269,59 @@ export class SplashScreenManager {
         this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
     }
 
-    _atlasFromConfig(id, config) {
+    _atlasFromConfig(id, config, configUrl) {
+        // Reuses the `site.brand` block a config already authors for the
+        // embedding page's own chrome (see docs/guides/embed-osm-india) -
+        // when present, it doubles as the splash's branding so an embedded
+        // atlas doesn't flash generic amche.in branding before its own.
+        const siteBrand = config.site?.brand;
+        // Config authors write `logo` relative to their own config file's
+        // location (e.g. a logo living next to it), same as this page's own
+        // asset references - resolve it against the URL the config actually
+        // came from (which is deployment-agnostic: works whether the app is
+        // hosted at a root or under a subpath like /dev/) rather than
+        // assuming any fixed absolute or app-root-relative convention. An
+        // already-absolute `logo` URL round-trips through this unchanged.
+        const brand = siteBrand && configUrl
+            ? { ...siteBrand, logo: siteBrand.logo ? new URL(siteBrand.logo, configUrl).href : siteBrand.logo }
+            : (siteBrand || null);
         return {
             id,
             name: config.name || config.title || 'Map',
             description: config.description || '',
             color: config.color || '#3b82f6',
             headerImage: config.headerImage || null,
+            brand,
             center: config.map?.center,
             zoom: config.map?.zoom,
             bbox: config.bbox
         };
+    }
+
+    /**
+     * Swap the splash's logo/title/description for a config-authored
+     * `site.brand` (logo, name, tagline), if the loaded atlas defines one.
+     * Left untouched (default amche.in branding) otherwise.
+     */
+    applyBranding() {
+        const brand = this.state.atlas?.brand;
+        if (!brand) return;
+
+        if (this.elements.logoImg && brand.logo) {
+            this.elements.logoImg.src = brand.logo;
+            this.elements.logoImg.alt = brand.name || this.elements.logoImg.alt;
+            // The default icon is a square app glyph (rounded corners, drop
+            // shadow); a community's own logo/stamp graphic rarely wants either.
+            this.elements.logoImg.style.borderRadius = '0';
+            this.elements.logoImg.style.boxShadow = 'none';
+            this.elements.logoImg.style.objectFit = 'contain';
+        }
+        if (this.elements.brandLink && brand.name) {
+            this.elements.brandLink.textContent = brand.name;
+        }
+        if (this.elements.description && brand.tagline) {
+            this.elements.description.textContent = brand.tagline;
+        }
     }
 
     /**
@@ -424,12 +479,13 @@ export class SplashScreenManager {
 
     async loadAtlasById(atlasId) {
         const meta = window.layerRegistry?.getAtlasMetadata?.(atlasId);
-        const config = await fetchConfigJson(meta?.url || `config/${atlasId}.atlas.json`);
+        const configUrl = meta?.url || new URL(`config/${atlasId}.atlas.json`, window.location.href).href;
+        const config = await fetchConfigJson(configUrl);
         if (!config) {
             console.error('[SplashScreen] Error loading atlas:', atlasId);
             return;
         }
-        this.state.atlas = this._atlasFromConfig(atlasId, config);
+        this.state.atlas = this._atlasFromConfig(atlasId, config, configUrl);
         this.state.layers = config.layers?.filter(l => l.initiallyChecked) || [];
     }
 
