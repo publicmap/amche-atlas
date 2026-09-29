@@ -1,7 +1,7 @@
 /**
  * SearchBoxControl - Mapbox GL JS control hosting the primary top-left row:
- * the map-browser "Maps" button and the <mapbox-search-box> web component,
- * in one row, in that order.
+ * the map-browser control and the <mapbox-search-box> web component, which
+ * lives in the atlas caption's collapsed search slot.
  *
  * onAdd() only builds the empty row and returns it - it's added to the map
  * immediately (before map.on('load')) purely to claim its slot at the top of
@@ -49,12 +49,14 @@ export class SearchBoxControl {
         this._row.insertBefore(browserControlEl, this._row.firstChild);
     }
 
-    // Adds the search box at the end of the row, after the Maps button.
+    // Adds the search box into the atlas caption's search slot, falling back
+    // to the end of the row when the caption is not mounted.
     mount() {
         if (this._searchBox) return; // already mounted
 
         this._searchBox = document.createElement('mapbox-search-box');
         this._searchBox.id = 'mapbox-search-box';
-        this._row.appendChild(this._searchBox);
+        const slot = this._browserEl?.querySelector('.layer-stack-atlas-search-slot');
+        (slot || this._row).appendChild(this._searchBox);
     }
 }

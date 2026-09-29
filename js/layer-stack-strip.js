@@ -1,6 +1,6 @@
 /**
  * LayerStackStrip - the vertical control column at the top-left of the map:
- * the map-browser toggle (MapBrowserControl's own button, moved in here),
+ * the atlas caption that toggles the map browser,
  * followed by one thumbnail per layer currently visible on the map.
  *
  * The toggle is fixed and built once at mount; only the layer thumbnails are
@@ -26,6 +26,7 @@
 import { LayerThumbnail } from './layer-thumbnail.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { LayerStackOptionsMenu } from './layer-stack-options-menu.js';
+import { LayerStackAtlasCaption } from './layer-stack-atlas-caption.js';
 
 const THUMB_SIZE = 36;
 
@@ -45,6 +46,7 @@ export class LayerStackStrip {
         this._reordering = false;
         this._reorderItem = null;
         this._map = null;
+        this._atlasCaption = null;
         this._onMapClick = () => this._setReordering(false);
         // Debounced: window.urlManager's active-layers state updates on its own
         // 300ms debounce (see CLAUDE.md), so reading it synchronously on
@@ -85,8 +87,11 @@ export class LayerStackStrip {
         this._el.addEventListener('mouseover', (e) => this._positionLabel(e.target));
         hostEl.appendChild(this._el);
 
+        this._atlasCaption = new LayerStackAtlasCaption();
+        this._atlasCaption.mount(hostEl, { triggerButton: browserButton });
+
         this._map = map;
-        this._mountBrowserItem(browserButton);
+        this._mountBrowserProxy(browserButton);
         this._mountReorderItem();
         this._mountOptionsItem(map);
         this._mountImportItem();
@@ -132,6 +137,7 @@ export class LayerStackStrip {
             this._optionsMenu?.close();
         }
         this._el.style.display = visible ? '' : 'none';
+        this._atlasCaption?.setVisible(visible);
     }
 
     /**
@@ -171,6 +177,8 @@ export class LayerStackStrip {
         this._optionsItem = null;
         this._exportItem = null;
         this._importItem = null;
+        this._atlasCaption?.destroy();
+        this._atlasCaption = null;
         if (this._el && this._el.parentNode) this._el.parentNode.removeChild(this._el);
         this._el = null;
     }
@@ -194,6 +202,7 @@ export class LayerStackStrip {
         this._pendingRender = false;
 
         const layers = this._getVisibleLayers();
+        this._atlasCaption?.update(layers.length);
         const comparedId = this._getComparedLayerId();
         const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
@@ -277,29 +286,10 @@ export class LayerStackStrip {
         }, 80);
     }
 
-    /**
-     * The fixed item at the head of the stack. The browser button is moved in
-     * rather than recreated, so MapBrowserControl keeps driving its icon and
-     * active state exactly as before.
-     */
-    _mountBrowserItem(browserButton) {
+    _mountBrowserProxy(browserButton) {
         if (!browserButton) return;
-
-        const item = document.createElement('div');
-        item.className = 'layer-stack-item layer-stack-control layer-stack-browser';
-
-        browserButton.classList.add('layer-stack-cell');
-        item.appendChild(browserButton);
-
-        const label = document.createElement('div');
-        label.className = 'layer-stack-label';
-        const titleEl = document.createElement('div');
-        titleEl.className = 'layer-stack-label-title';
-        titleEl.textContent = 'Browse all maps';
-        label.appendChild(titleEl);
-        item.appendChild(label);
-
-        this._el.appendChild(item);
+        browserButton.classList.add('layer-stack-browser-proxy');
+        this._el.parentNode.appendChild(browserButton);
     }
 
     _mountReorderItem() {

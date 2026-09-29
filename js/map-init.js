@@ -13,7 +13,6 @@ import { Terrain3DControl } from './terrain-3d-control.js';
 import { MeasureControl } from './map-measure-control.js';
 import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
-import { AtlasLayerMenuControl } from './atlas-layer-menu-control.js';
 import { SettingsMenuControl } from './settings-menu-control.js';
 import { initLocaleMapSync } from './locale-map-sync.js';
 import { MapAttributionControl } from './map-attribution-control.js';
@@ -317,13 +316,13 @@ export class MapInitializer {
 
         // Mark as imported atlas if loaded via URL
         if (isImportedAtlas) {
-            // Store the imported atlas metadata with '*' prefix and register layers
+            // Store the imported atlas metadata and register layers
             // `title` is accepted as an alias for `name` - externally authored
             // atlases (e.g. STAC-derived configs) commonly use it.
             const atlasName = config.name || config.title || 'Imported Map';
             layerRegistry.markImportedAtlas(atlasId, {
-                name: `* ${atlasName}`,
-                originalName: atlasName,
+                name: atlasName,
+                icon: MapInitializer._resolveAtlasAsset(config.icon || config.site?.brand?.logo, configPath),
                 color: config.color || '#059669',
                 areaOfInterest: config.areaOfInterest || '',
                 description: config.description || '',
@@ -993,12 +992,6 @@ export class MapInitializer {
             window.featureControl = new MapFeatureControl();
             window.featureControl.onAdd(map);
 
-            // Header-nav atlas + layers nested menu (top-left of the header,
-            // not a map control) - reuses browserControl's layer-toggle logic
-            // so it behaves exactly like map-browser.html.
-            window.atlasLayerMenuControl = new AtlasLayerMenuControl(window.browserControl);
-            window.atlasLayerMenuControl.mount(document.getElementById('atlas-layer-menu-container'));
-
             // Header-nav location navigator, next to the atlas + layers menu -
             // add a marker at the current map center, or jump straight to any
             // marker already saved on the map (see location-navigator-control.js).
@@ -1599,6 +1592,15 @@ export class MapInitializer {
         const URL_REQUIRED_TYPES = new Set(['vector', 'tms', 'wmts', 'wms', 'cog', 'img']);
         if (!URL_REQUIRED_TYPES.has(layerConfig.type)) return false;
         return !layerConfig.url && !(Array.isArray(layerConfig.tiles) && layerConfig.tiles.length > 0);
+    }
+
+    static _resolveAtlasAsset(path, configPath) {
+        if (!path) return null;
+        try {
+            return new URL(path, new URL(configPath, window.location.href)).href;
+        } catch (error) {
+            return path;
+        }
     }
 
     static _escapeHtml(text) {

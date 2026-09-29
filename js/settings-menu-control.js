@@ -1,7 +1,7 @@
 /**
  * SettingsMenuControl - header-nav gear button (top-left, before the atlas +
  * layers menu). Built as a manual toggle button + panel, the same pattern
- * every other header-nav menu here uses (see atlas-layer-menu-control.js,
+ * every other header-nav menu here uses (see the atlas-layer-menu-* styles in css/styles.css,
  * map-location-menu-control.js) rather than a Shoelace <sl-dropdown>, so it
  * looks and behaves identically to its neighbors.
  *
