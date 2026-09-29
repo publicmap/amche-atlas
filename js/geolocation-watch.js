@@ -290,8 +290,8 @@ export class GeolocationWatch {
         if (!map) return;
         let ticks = 0;
         const timer = setInterval(() => {
-            if (map.getTerrain?.()) {
-                map.jumpTo({ center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() });
+            if (map.getTerrain?.() && !map.isMoving()) {
+                map.jumpTo({ center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() }, { geolocateSource: true });
             }
             if (++ticks >= 16) clearInterval(timer);
         }, 400);

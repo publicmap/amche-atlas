@@ -142,7 +142,8 @@ export class StatePersistence {
             if (paramsString) {
                 restoredUrl += '?' + paramsString;
             }
-            if (savedUrl.hash) {
+            const hasGpsFix = !!window.loadingStartupState?.gpsFix;
+            if (savedUrl.hash && !hasGpsFix) {
                 restoredUrl += savedUrl.hash;
             }
 
@@ -150,7 +151,7 @@ export class StatePersistence {
             window.history.replaceState(null, '', restoredUrl);
 
             // If map state was saved and map is available, restore map position
-            this.restoreMapState(savedState.mapState);
+            if (!hasGpsFix) this.restoreMapState(savedState.mapState);
 
             return true;
         } catch (error) {
