@@ -51,6 +51,23 @@ function registerCOGProvider() {
     _cogProviderRegistered = true;
 }
 
+const PMTILES_PROVIDER_URL = new URL('./pmtiles-tile-provider.js', import.meta.url).href;
+let _pmtilesRegistration = null;
+function registerPMTilesProvider() {
+    if (_pmtilesRegistration) return _pmtilesRegistration;
+    if (typeof mapboxgl === 'undefined') return Promise.resolve();
+    if (typeof mapboxgl.addTileProvider === 'function') {
+        mapboxgl.addTileProvider('pmtiles', PMTILES_PROVIDER_URL);
+        _pmtilesRegistration = Promise.resolve();
+    } else if (typeof mapboxgl.addProtocol === 'function') {
+        _pmtilesRegistration = import('https://cdn.jsdelivr.net/npm/pmtiles@4.5.0/+esm').then(({ Protocol }) => {
+            const protocol = new Protocol();
+            mapboxgl.addProtocol('pmtiles', protocol.tile);
+        });
+    }
+    return _pmtilesRegistration || Promise.resolve();
+}
+
 export class MapboxAPI {
     constructor(map, atlasConfig = {}) {
         this._map = map;
@@ -58,6 +75,7 @@ export class MapboxAPI {
         this._defaultStyles = atlasConfig.styles || {};
         this._orderedGroups = atlasConfig.orderedGroups || []; // Store ordered groups for layer positioning
         registerCOGProvider();
+        registerPMTilesProvider();
         this._layerCache = new Map(); // Cache for layer configurations
         this._sourceCache = new Map(); // Cache for sources
         // Shared with every other MapboxAPI over this same map - see _acquireVectorSource
@@ -884,6 +902,8 @@ export class MapboxAPI {
             this._setupBlinking(groupId, config);
         }
 
+        if (/\.pmtiles(\?|$)/.test(config.url)) await registerPMTilesProvider();
+
         const sourceId = this._acquireVectorSource(groupId, config);
 
         // The source may be shared with other groups, so "already built?" has to
@@ -977,6 +997,17 @@ export class MapboxAPI {
 
         if (config.url.startsWith('mapbox://')) {
             sourceConfig.url = config.url;
+        } else if (/\.pmtiles(\?|$)/.test(config.url)) {
+            if (typeof mapboxgl.addTileProvider === 'function') {
+                sourceConfig.provider = 'pmtiles';
+                sourceConfig.url = config.url;
+            } else {
+                sourceConfig.url = `pmtiles://${config.url}`;
+            }
+            delete sourceConfig.minzoom;
+            delete sourceConfig.maxzoom;
+            if (config.minzoom !== undefined) sourceConfig.minzoom = config.minzoom;
+            if (config.maxzoom !== undefined) sourceConfig.maxzoom = config.maxzoom;
         } else {
             sourceConfig.tiles = [config.url];
         }

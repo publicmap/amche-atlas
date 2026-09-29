@@ -768,11 +768,11 @@ Toggle the visibility of layers already present in the base Mapbox style (e.g. M
 
 ### `vector` — Vector tile source
 
-Mapbox Vector Tiles (`.pbf` / `.mvt`). Renders as fill / line / circle / symbol layers driven by the `style` object.
+Mapbox Vector Tiles (`.pbf` / `.mvt`) or a single-file [PMTiles](https://docs.protomaps.com/pmtiles/) archive. Renders as fill / line / circle / symbol layers driven by the `style` object.
 
 | Field | Notes |
 |---|---|
-| `url` | XYZ template `https://.../{z}/{x}/{y}.pbf` **or** `mapbox://tileset.id`. **Required.** |
+| `url` | XYZ template `https://.../{z}/{x}/{y}.pbf`, `mapbox://tileset.id`, **or** a `https://.../file.pmtiles` URL. PMTiles are read with HTTP range requests through `js/pmtiles-tile-provider.js` (Mapbox GL JS TileProvider API) under Mapbox, or the `pmtiles://` protocol via `maplibregl.addProtocol` under MapLibre (pmtiles library from jsDelivr); the server must support `Range` and CORS. Zoom range defaults to the archive header. **Required.** |
 | `sourceLayer` | Name of the source-layer inside the tile. **Required.** |
 | `minzoom`, `maxzoom` | Vector tile zoom range. |
 | `inspect` | Popup configuration (see common properties). |
@@ -788,6 +788,19 @@ Mapbox Vector Tiles (`.pbf` / `.mvt`). Renders as fill / line / circle / symbol 
   "minzoom": 0,
   "maxzoom": 14,
   "inspect": { "id": "id", "title": "Plot", "label": "survey_no" }
+}
+```
+
+PMTiles example (Overture Maps buildings, see `config/world.atlas.json`):
+
+```json
+{
+  "id": "overture-buildings",
+  "type": "vector",
+  "title": "Overture Buildings",
+  "url": "https://overturemaps-extras-us-west-2.s3.us-west-2.amazonaws.com/tiles/2026-09-23.1/buildings.pmtiles",
+  "sourceLayer": "building",
+  "maxzoom": 14
 }
 ```
 
