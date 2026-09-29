@@ -432,6 +432,10 @@
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     pointer-events: auto;
+    max-height: calc(100dvh - 130px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
 }
 
 .layer-stack-item {
@@ -743,10 +747,10 @@
    interactive, so it must stay inside the item's hover region - hence flush
    against the cell, with no gap for the pointer to fall through. */
 .layer-stack-label {
-    position: absolute;
+    position: fixed;
     left: 100%;
     top: -1px;
-    margin-left: -1px;
+    margin-left: 0;
     min-height: 36px;
     display: flex;
     flex-direction: column;

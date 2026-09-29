@@ -80,6 +80,9 @@ export class LayerStackStrip {
                 e.clientY < rect.top || e.clientY > rect.bottom;
             if (outside) this._clearDropIndicators();
         });
+        // Flyouts are fixed-positioned from the hovered row because the strip
+        // scrolls when it is taller than the map, which would clip an absolute one.
+        this._el.addEventListener('mouseover', (e) => this._positionLabel(e.target));
         hostEl.appendChild(this._el);
 
         this._map = map;
@@ -99,6 +102,15 @@ export class LayerStackStrip {
 
         // The event may already have fired by the time this mounts.
         if (window.layersInitialized) this._onChange();
+    }
+
+    _positionLabel(target) {
+        const item = target.closest?.('.layer-stack-item');
+        const label = item?.querySelector(':scope > .layer-stack-label');
+        if (!label) return;
+        const rect = item.getBoundingClientRect();
+        label.style.left = `${rect.right - 1}px`;
+        label.style.top = `${rect.top - 1}px`;
     }
 
     setVisible(visible) {
