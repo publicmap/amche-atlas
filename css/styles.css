@@ -749,26 +749,32 @@
 .layer-stack-label {
     position: fixed;
     left: 100%;
-    top: -1px;
-    margin-left: 0;
+    top: 0;
+    box-sizing: border-box;
     min-height: 36px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 3px;
-    padding: 5px 10px;
+    padding: 5px 12px 5px 10px;
     background: #1f2937;
-    border: 1px solid #000;
+    border: 1px solid var(--primary-color);
     border-left: none;
-    border-radius: 0 5px 5px 0;
-    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.45);
+    border-radius: 0 6px 6px 0;
+    box-shadow: 3px 2px 8px rgba(0, 0, 0, 0.4);
     color: #fff;
     white-space: nowrap;
     opacity: 0;
     visibility: hidden;
-    transform: translateX(-4px);
-    transition: opacity 0.12s ease, transform 0.12s ease;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
     z-index: 15;
+}
+
+/* The cell's right edge is hidden while its flyout is open, so the two read as
+   one accent-outlined shape rather than a cell with a tooltip beside it */
+.layer-stack-item:hover > .layer-stack-cell {
+    border-right-color: #1f2937 !important;
 }
 
 /* Hover only. Focus is not a reveal trigger: the browser toggle is focused
@@ -778,7 +784,7 @@
 .layer-stack-item:hover .layer-stack-label {
     opacity: 1;
     visibility: visible;
-    transform: translateX(0);
+    pointer-events: auto;
 }
 
 /* The name opens map-information.html for the layer */

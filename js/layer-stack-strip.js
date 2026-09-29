@@ -108,9 +108,19 @@ export class LayerStackStrip {
         const item = target.closest?.('.layer-stack-item');
         const label = item?.querySelector(':scope > .layer-stack-label');
         if (!label) return;
-        const rect = item.getBoundingClientRect();
-        label.style.left = `${rect.right - 1}px`;
-        label.style.top = `${rect.top - 1}px`;
+        const cell = item.querySelector(':scope > .layer-thumbnail') || item.querySelector(':scope > .layer-stack-cell') || item;
+        const rect = cell.getBoundingClientRect();
+        label.style.left = `${rect.right}px`;
+        label.style.top = `${rect.top}px`;
+        // A transformed ancestor would make `fixed` resolve against it instead of
+        // the viewport, so correct by however far the label actually landed.
+        const placed = label.getBoundingClientRect();
+        const dx = placed.left - rect.right;
+        const dy = placed.top - rect.top;
+        if (dx || dy) {
+            label.style.left = `${rect.right - dx}px`;
+            label.style.top = `${rect.top - dy}px`;
+        }
     }
 
     setVisible(visible) {

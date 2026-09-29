@@ -644,6 +644,104 @@
       "initiallyChecked": false
     },
     {
+      "id": "esri-jrc-water-occurrence",
+      "type": "tms",
+      "title": "JRC Water Occurrence (Esri)",
+      "description": "Frequency (%) with which water was present from 1984-2021, from the JRC Global Surface Water dataset via Esri Living Atlas. Tiles are rendered on demand by Esri's ImageServer, so panning may be slow.",
+      "tags": [
+        "water",
+        "imagery",
+        "jrc"
+      ],
+      "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Water_Occurrence/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "initiallyChecked": false
+    },
+    {
+      "id": "esri-jrc-max-water-extent",
+      "type": "tms",
+      "title": "JRC Maximum Water Extent (Esri)",
+      "description": "Every location where water was detected at least once between 1984 and 2021. Tiles are rendered on demand by Esri's ImageServer, so panning may be slow.",
+      "tags": [
+        "water",
+        "imagery",
+        "jrc"
+      ],
+      "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Maximum_Water_Extent/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "initiallyChecked": false
+    },
+    {
+      "id": "esri-jrc-seasonality",
+      "type": "tms",
+      "title": "JRC Water Seasonality (Esri)",
+      "description": "Number of months per year water was present — permanent vs. seasonal water bodies. Tiles are rendered on demand by Esri's ImageServer, so panning may be slow.",
+      "tags": [
+        "water",
+        "imagery",
+        "jrc"
+      ],
+      "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Seasonality/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "initiallyChecked": false
+    },
+    {
+      "id": "esri-jrc-recurrence",
+      "type": "tms",
+      "title": "JRC Water Recurrence (Esri)",
+      "description": "Percentage of years in which water returned after being present in a previous year — a measure of inter-annual variability. Tiles are rendered on demand by Esri's ImageServer, so panning may be slow.",
+      "tags": [
+        "water",
+        "imagery",
+        "jrc"
+      ],
+      "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Recurrence/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "initiallyChecked": false
+    },
+    {
+      "id": "esri-jrc-occurrence-change",
+      "type": "tms",
+      "title": "JRC Water Occurrence Change Intensity (Esri)",
+      "description": "Change in water occurrence between 1984-1999 and 2000-2021, showing where surface water has increased or decreased. Tiles are rendered on demand by Esri's ImageServer, so panning may be slow.",
+      "tags": [
+        "water",
+        "imagery",
+        "jrc"
+      ],
+      "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Occurrence_Change_Intensity/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "initiallyChecked": false
+    },
+    {
+      "id": "esri-jrc-transitions",
+      "type": "tms",
+      "title": "JRC Water Transitions (Esri)",
+      "description": "Conversions between permanent, seasonal and no water between the first and last years of the record. Tiles are rendered on demand by Esri's ImageServer, so panning may be slow.",
+      "tags": [
+        "water",
+        "imagery",
+        "jrc"
+      ],
+      "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Transitions/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "initiallyChecked": false
+    },
+    {
+      "id": "esri-jrc-yearly-history",
+      "type": "tms",
+      "title": "JRC Water Yearly History (Esri)",
+      "description": "Year-by-year permanent, seasonal and not-water classification from 1984 to 2021. Tiles are rendered on demand by Esri's ImageServer, so panning may be slow.",
+      "tags": [
+        "water",
+        "imagery",
+        "jrc"
+      ],
+      "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/GSW_Yearly_History_TimeEnabled/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "initiallyChecked": false
+    },
+    {
       "id": "copernicus-dem",
       "type": "tms",
       "title": "Copernicus DEM GLO-30 (Elevation)",
