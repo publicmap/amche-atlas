@@ -1241,7 +1241,7 @@ export class MapInitializer {
             // default view.
             let gpsLockMessageTimer = null;
             const applyGpsLock = (lat, lng) => {
-                map.flyTo({ center: [lng, lat], zoom: 17, pitch: 0, bearing: 0, duration: 2000, essential: true });
+                map.flyTo({ center: [lng, lat], zoom: 17, pitch: 0, bearing: 0, duration: 2000, essential: true }, { geolocateSource: true });
                 MapContextMessagesControl.show(
                     'Locked to <a href="#" onclick="window.orientationControl?.turnOff();return false;">GPS</a>. ' +
                     'Switch to <a href="#" onclick="window.__amcheSwitchToAtlasDefault?.();return false;">map default</a>',
@@ -1328,6 +1328,22 @@ export class MapInitializer {
                 const { lat, lng } = window.loadingStartupState.gpsFix;
                 applyGpsLock(lat, lng);
                 map.once('moveend', () => map.once('idle', signalMapReady));
+            } else if (window.orientationControl?.isTracking || URLUtils.getUrlParameter('geolocate') === 'true') {
+                // GPS tracking owns the camera. Any untagged flyTo here would
+                // read as the user panning away and drop the lock, so wait for
+                // the fix instead of flying to the atlas default.
+                const settle = () => map.once('moveend', () => map.once('idle', signalMapReady));
+                const fix = window.orientationControl?.lastPosition;
+                if (fix) {
+                    applyGpsLock(fix.lat, fix.lng);
+                    settle();
+                } else {
+                    window.orientationControl?.once('geolocate', (position) => {
+                        applyGpsLock(position.coords.latitude, position.coords.longitude);
+                        settle();
+                    });
+                    setTimeout(signalMapReady, 10000);
+                }
             } else if (window.hashLayerView) {
                 // Hash layer view was calculated from layer/atlas bbox
                 console.log('[MapInit] Applying hashLayerView:', window.hashLayerView);
