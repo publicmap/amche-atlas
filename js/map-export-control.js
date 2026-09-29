@@ -1260,8 +1260,8 @@ export class MapExportControl {
     <meta charset="utf-8">
     <title>${this._title || 'Map Export'}</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-    <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
-    <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.32.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.32.0/mapbox-gl.js"></script>
     <style>
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
