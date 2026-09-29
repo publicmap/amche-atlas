@@ -922,6 +922,22 @@
     width: 28px;
     height: 28px;
     display: block;
+    transition: width 0.2s ease, height 0.2s ease;
+}
+
+/* Rotated off north-up or tilted off flat: double the button so the tap that
+   undoes it (js/map-orientation-control.js's _faceNorth) is easy to land,
+   especially on a phone. The generic corner-control theme sets the button's
+   30px square with !important, so this needs the same to win. */
+.map-orientation-control.map-orientation-control--reorient .map-orientation-btn {
+    width: 60px !important;
+    height: 60px !important;
+    transition: width 0.2s ease, height 0.2s ease;
+}
+
+.map-orientation-control--reorient .map-orientation-icon {
+    width: 56px;
+    height: 56px;
 }
 
 /* At a steep pitch the leaning rose is wider than the 30px button (the scale

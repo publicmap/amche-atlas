@@ -250,10 +250,19 @@ export class MapOrientationControl {
         return `scale(${1 / Math.pow(Math.cos(pitch * (Math.PI / 180)), 0.5)}) rotateX(${pitch}deg)`;
     }
 
+    // Rotated or tilted away from north-up/flat, the button's only job is
+    // getting the user back there - so it doubles in size to make that tap
+    // easy to land, especially on a phone screen.
+    _needsReorient(mapBearing) {
+        const pitch = this._map ? this._map.getPitch() : 0;
+        return Math.abs(normalizeBearing(mapBearing + 180) - 180) > 0.5 || pitch > 0.5;
+    }
+
     _render = () => {
         if (!this._button) return;
         const mapBearing = this._map ? this._map.getBearing() : 0;
         this._icon.style.transform = this._pitchTransform();
+        this._container.classList.toggle('map-orientation-control--reorient', this._needsReorient(mapBearing));
 
         // A pending auto-activation is a visual state only: the click cycle
         // still runs off the real mode, which is still OFF.
