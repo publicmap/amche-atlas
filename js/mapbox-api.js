@@ -839,7 +839,7 @@ export class MapboxAPI {
 
             config.layers.forEach(layer => {
                 const layerIds = styleLayers
-                    .filter(styleLayer => styleLayer['source-layer'] === layer.sourceLayer)
+                    .filter(styleLayer => styleLayer['source-layer'] === layer.sourceLayer && !styleLayer.metadata?.groupId)
                     .map(styleLayer => styleLayer.id);
 
                 if (layerIds.length === 0 && visible) {

@@ -1009,7 +1009,7 @@
       },
       "inspect": {
         "id": "kind",
-        "title": "OSM Type",
+        "title": "Rail Type",
         "label": "kind",
         "fields": [
           "surface"
@@ -1063,7 +1063,7 @@
       },
       "inspect": {
         "id": "kind",
-        "title": "OSM Type",
+        "title": "Path Type",
         "label": "kind",
         "fields": [
           "surface"
@@ -1302,7 +1302,7 @@
       },
       "inspect": {
         "id": "kind",
-        "title": "OSM Type",
+        "title": "Road Type",
         "label": "kind",
         "fields": [
           "surface"
@@ -2061,7 +2061,7 @@
       },
       "inspect": {
         "id": "kind",
-        "title": "OSM Type",
+        "title": "Water Type",
         "label": "kind",
         "fields": [
           "way_area"
@@ -2113,7 +2113,7 @@
       },
       "inspect": {
         "id": "kind",
-        "title": "OSM Type",
+        "title": "Waterway Type",
         "label": "kind",
         "fields": [
           "surface"
@@ -2275,7 +2275,7 @@
       },
       "inspect": {
         "id": "kind",
-        "title": "OSM Type",
+        "title": "Landuse",
         "label": "kind"
       }
     },
@@ -2549,7 +2549,7 @@
       },
       "inspect": {
         "id": "kind",
-        "title": "OSM Type",
+        "title": "Landuse",
         "label": "kind"
       }
     },
