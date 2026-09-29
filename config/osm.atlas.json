@@ -889,7 +889,8 @@
         "circle-stroke-color": "#ffffff"
       },
       "inspect": {
-        "id": "name"
+        "id": "name",
+        "title": "POI Name"
       }
     },
     {
@@ -1903,15 +1904,13 @@
       },
       "inspect": {
         "id": "render_height",
-        "title": "Building",
+        "title": "Building Height (m)",
         "label": "render_height",
         "fields": [
-          "render_height",
           "render_min_height",
           "colour"
         ],
         "fieldTitles": [
-          "Height (m)",
           "Base height (m)",
           "Colour"
         ]

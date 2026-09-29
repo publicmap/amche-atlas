@@ -42,6 +42,10 @@ export class LayerStackStrip {
         this._exportItem = null;
         this._optionsItem = null;
         this._optionsMenu = null;
+        this._reordering = false;
+        this._reorderItem = null;
+        this._map = null;
+        this._onMapClick = () => this._setReordering(false);
         // Debounced: window.urlManager's active-layers state updates on its own
         // 300ms debounce (see CLAUDE.md), so reading it synchronously on
         // 'layer-toggled' would render from stale state.
@@ -78,7 +82,9 @@ export class LayerStackStrip {
         });
         hostEl.appendChild(this._el);
 
+        this._map = map;
         this._mountBrowserItem(browserButton);
+        this._mountReorderItem();
         this._mountOptionsItem(map);
         this._mountImportItem();
         this._mountExportItem();
@@ -134,6 +140,9 @@ export class LayerStackStrip {
         window.removeEventListener('mask-changed', this._onChange);
         clearTimeout(this._refreshTimer);
         clearTimeout(this._reorderTimer);
+        (this._map || window.map)?.off?.('click', this._onMapClick);
+        this._reordering = false;
+        this._reorderItem = null;
         this._clearIsolation({ immediate: true });
         this._optionsMenu?.unmount();
         this._optionsMenu = null;
@@ -166,7 +175,7 @@ export class LayerStackStrip {
         const comparedId = this._getComparedLayerId();
         const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
-        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${comparedId}|mask:${maskedId}`;
+        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${comparedId}|mask:${maskedId}|reorder:${this._reordering}`;
         if (!force && signature === this._signature) return;
         this._signature = signature;
 
@@ -178,7 +187,13 @@ export class LayerStackStrip {
         // its own list to know whether it can still move up or down.
         const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(layers);
 
+        this._reorderItem?.remove();
+
         [overlays, basemaps].forEach((list, section) => {
+            if (section === 0 && !this._reordering) {
+                if (list.length && this._reorderItem) this._el.appendChild(this._reorderItem);
+                return;
+            }
             list.forEach((layer, index) => {
                 const item = this._createItem(layer, { index, total: list.length, comparedId, maskedId });
                 // The two groups meet at the first basemap, which carries the rule
@@ -263,6 +278,35 @@ export class LayerStackStrip {
         item.appendChild(label);
 
         this._el.appendChild(item);
+    }
+
+    _mountReorderItem() {
+        const item = document.createElement('div');
+        item.className = 'layer-stack-item layer-stack-control layer-stack-reorder';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'layer-stack-cell layer-stack-reorder-btn';
+        button.title = 'Edit Layers';
+        button.setAttribute('aria-label', 'Edit Layers');
+        button.innerHTML = '<sl-icon name="sliders"></sl-icon>';
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._setReordering(true);
+        });
+
+        item.appendChild(button);
+        item.appendChild(this._createFooterLabel('Edit Layers'));
+        this._reorderItem = item;
+    }
+
+    _setReordering(on) {
+        if (on === this._reordering) return;
+        this._reordering = on;
+        const map = this._map || window.map;
+        map?.[on ? 'on' : 'off']?.('click', this._onMapClick);
+        this._clearIsolation({ immediate: true });
+        this.render({ force: true });
     }
 
     /**
@@ -481,6 +525,7 @@ export class LayerStackStrip {
         }, 'layer-stack-label-action-danger'));
 
         label.appendChild(meta);
+        label.appendChild(this._createOpacitySlider(layer, title, item));
         item.appendChild(label);
 
         // Isolation is bound to the name alone, not the whole row: hovering the
@@ -649,6 +694,34 @@ export class LayerStackStrip {
 
         this._post({ type: 'reorder-layers', overlayOrder, basemapOrder });
         this._scheduleReorderRepaint();
+    }
+
+    _createOpacitySlider(layer, title, item) {
+        const row = document.createElement('label');
+        row.className = 'layer-stack-label-opacity';
+        row.title = `Opacity of ${title}`;
+
+        const icon = document.createElement('sl-icon');
+        icon.name = 'droplet-half';
+        row.appendChild(icon);
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = '0';
+        slider.max = '1';
+        slider.step = '0.05';
+        slider.value = String(layer.opacity ?? 1);
+        slider.setAttribute('aria-label', `Opacity of ${title}`);
+        slider.addEventListener('input', () => {
+            this._post({ type: 'update-layer-opacity', layerId: layer.id, opacity: parseFloat(slider.value) });
+        });
+        // The row is draggable for reordering, which would otherwise swallow the slider's own drag
+        slider.addEventListener('pointerdown', () => { item.draggable = false; });
+        ['pointerup', 'pointercancel'].forEach(type => {
+            slider.addEventListener(type, () => { item.draggable = true; });
+        });
+        row.appendChild(slider);
+        return row;
     }
 
     _createLabelAction(icon, text, title, onClick, variant = '', disabled = false) {

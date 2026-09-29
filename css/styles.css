@@ -820,6 +820,27 @@
     line-height: 1.3;
 }
 
+.layer-stack-label-opacity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    color: #9ca3af;
+}
+
+.layer-stack-label-opacity sl-icon {
+    font-size: 12px;
+}
+
+.layer-stack-label-opacity input[type="range"] {
+    flex: 1;
+    min-width: 90px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--primary-color, #f59e0b);
+    cursor: pointer;
+}
+
 /* zoom | remove */
 .layer-stack-label-action {
     display: inline-flex;
