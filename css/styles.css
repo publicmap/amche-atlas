@@ -261,8 +261,162 @@
 /* Settings menu (see js/settings-menu-control.js) - reuses the atlas-layer-menu
    panel/row primitives above for a pixel-identical look; only the version
    kbd + homepage link shown next to each renderer option is specific here. */
+/* Matches .map-control-bar (see js/map-control-bar.js): #111827 card, soft
+   white hairline border, 12px radius, inset top highlight. */
 .settings-menu-panel {
-    padding: 4px 0;
+    width: 340px;
+    padding: 0;
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.settings-section {
+    position: relative;
+    overflow: hidden;
+    padding: 14px 14px 12px;
+}
+
+.settings-section + .settings-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.settings-section > * {
+    position: relative;
+    z-index: 1;
+}
+
+.settings-section-header {
+    margin-bottom: 10px;
+}
+
+.settings-section-title {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.settings-section-caption {
+    margin-top: 3px;
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.settings-locale-section {
+    background-image: linear-gradient(100deg, rgba(8, 12, 20, 0.88) 0%, rgba(8, 12, 20, 0.62) 55%, rgba(8, 12, 20, 0.35) 100%);
+}
+
+.settings-locale-section > .settings-locale-watermark {
+    position: absolute;
+    z-index: 0;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 20px;
+    transform: scale(5.5);
+    transform-origin: top right;
+    opacity: 0.09;
+    color: #fff;
+    pointer-events: none;
+}
+
+.settings-renderer-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.settings-renderer-option {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 2px;
+    padding: 8px 10px;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    color: #d1d5db;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.settings-renderer-option:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.settings-renderer-option.on {
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+.settings-renderer-option.on sl-icon {
+    color: var(--primary-color);
+}
+
+.settings-renderer-name {
+    font-weight: 700;
+}
+
+.settings-renderer-meta {
+    grid-column: 2;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+}
+
+.settings-menu-btn {
+    width: auto;
+}
+
+.locale-icon {
+    position: relative;
+    display: block;
+    width: 22px;
+    height: 20px;
+}
+
+.locale-icon-box {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    box-sizing: border-box;
+    border-radius: 3px;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.locale-icon-fallback {
+    top: -2px;
+    right: 0;
+    width: auto;
+    height: auto;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.locale-icon-primary {
+    left: 0;
+    bottom: 0;
+    background: currentColor;
+    -webkit-text-fill-color: #111827;
+}
+
+.settings-menu-btn.active .locale-icon-primary {
+    -webkit-text-fill-color: var(--primary-color);
 }
 
 .settings-menu-version-link {
@@ -283,7 +437,7 @@
 }
 
 .settings-locale-body {
-    padding: 4px 12px 8px;
+    padding: 0;
 }
 
 /* Locale settings (see js/locale-ui.js) - country/primary/fallback-language
