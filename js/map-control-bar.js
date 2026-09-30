@@ -1,25 +1,26 @@
-const LONG_NAME_LENGTH = 22;
-
-export class LayerStackAtlasCaption {
+export class MapControlBar {
     constructor() {
         this._el = null;
         this._iconEl = null;
         this._nameEl = null;
         this._countEl = null;
         this._iconKey = null;
+        this._imageKey = null;
         this._main = null;
         this._trigger = null;
         this._observer = null;
+        this._layerCount = null;
+        this._onAtlasChanged = () => this.update(this._layerCount);
     }
 
-    mount(hostEl, { triggerButton = null } = {}) {
+    mount(hostEl, { triggerButton = null, editButton = null } = {}) {
         this._trigger = triggerButton;
         this._el = document.createElement('div');
-        this._el.className = 'layer-stack-atlas';
+        this._el.className = 'map-control-bar';
 
         this._main = document.createElement('button');
         this._main.type = 'button';
-        this._main.className = 'layer-stack-atlas-main';
+        this._main.className = 'map-control-bar-main';
         this._main.title = 'Browse all maps';
         this._main.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -30,22 +31,27 @@ export class LayerStackAtlasCaption {
         }, { once: true });
 
         this._iconEl = document.createElement('span');
-        this._iconEl.className = 'layer-stack-atlas-icon';
+        this._iconEl.className = 'map-control-bar-icon';
+        const iconWrap = document.createElement('span');
+        iconWrap.className = 'map-control-bar-icon-wrap';
+        const spinner = document.createElement('sl-spinner');
+        spinner.className = 'map-control-bar-spinner';
+        iconWrap.append(this._iconEl, spinner);
 
         const text = document.createElement('span');
-        text.className = 'layer-stack-atlas-text';
+        text.className = 'map-control-bar-text';
         this._nameEl = document.createElement('span');
-        this._nameEl.className = 'layer-stack-atlas-name';
+        this._nameEl.className = 'map-control-bar-name';
         this._countEl = document.createElement('span');
-        this._countEl.className = 'layer-stack-atlas-count';
+        this._countEl.className = 'map-control-bar-count';
         text.append(this._nameEl, this._countEl);
-        this._main.append(this._iconEl, text);
+        this._main.append(iconWrap, text);
 
         const slot = document.createElement('div');
-        slot.className = 'layer-stack-atlas-search-slot';
+        slot.className = 'map-control-bar-search-slot';
         const toggle = document.createElement('button');
         toggle.type = 'button';
-        toggle.className = 'layer-stack-atlas-search-btn';
+        toggle.className = 'map-control-bar-search-btn';
         toggle.title = 'Search places';
         toggle.setAttribute('aria-label', 'Search places');
         toggle.innerHTML = '<sl-icon name="search"></sl-icon>';
@@ -65,9 +71,12 @@ export class LayerStackAtlasCaption {
         });
         this._el.addEventListener('focusout', () => setTimeout(() => this._collapseSearch(), 150));
 
+        if (editButton) this._el.appendChild(editButton);
         this._el.append(this._main, slot);
         hostEl.appendChild(this._el);
-        hostEl.classList.add('has-atlas-caption');
+        hostEl.classList.add('has-map-control-bar');
+
+        window.addEventListener('atlasChanged', this._onAtlasChanged);
 
         if (this._trigger) {
             const sync = () => this._el?.classList.toggle('active', this._trigger.classList.contains('active'));
@@ -105,16 +114,30 @@ export class LayerStackAtlasCaption {
 
     update(layerCount) {
         if (!this._el) return;
+        this._layerCount = layerCount;
         const registry = window.layerRegistry;
-        const atlasId = registry?.getCurrentAtlas?.();
+        const resolved = registry?._currentAtlasSet;
+        const atlasId = resolved ? registry.getCurrentAtlas() : null;
         const metadata = atlasId ? registry.getAtlasMetadata(atlasId) : null;
-        const name = metadata?.name || atlasId || '';
+        const name = metadata ? (metadata.name || atlasId) : '';
 
-        this._nameEl.textContent = name;
-        this._nameEl.classList.toggle('long', name.length > LONG_NAME_LENGTH);
+        this._nameEl.textContent = name || 'Loading Atlas';
+        this._nameEl.classList.toggle('placeholder', !name);
         this._main.title = name ? `${name} - browse all maps` : 'Browse all maps';
-        this._countEl.textContent = `Displaying ${layerCount} map layer${layerCount === 1 ? '' : 's'}`;
+        this._countEl.textContent = layerCount == null ? '' : `Displaying ${layerCount} map layer${layerCount === 1 ? '' : 's'}`;
         this._setIcon(metadata?.icon || null);
+        this._setBackground(metadata?.headerImage || null);
+    }
+
+    setLoading(loading) {
+        this._el?.classList.toggle('loading', !!loading);
+    }
+
+    _setBackground(src) {
+        if (src === this._imageKey) return;
+        this._imageKey = src;
+        if (src) this._el.style.setProperty('--bar-image', `url("${src.replace(/"/g, '%22')}")`);
+        else this._el.style.removeProperty('--bar-image');
     }
 
     _setIcon(src) {
@@ -132,8 +155,9 @@ export class LayerStackAtlasCaption {
     }
 
     destroy() {
+        window.removeEventListener('atlasChanged', this._onAtlasChanged);
         this._observer?.disconnect();
-        this._el?.parentNode?.classList.remove('has-atlas-caption');
+        this._el?.parentNode?.classList.remove('has-map-control-bar');
         this._el?.remove();
         this._el = null;
     }

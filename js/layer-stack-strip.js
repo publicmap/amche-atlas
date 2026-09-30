@@ -1,6 +1,6 @@
 /**
  * LayerStackStrip - the vertical control column at the top-left of the map:
- * the atlas caption that toggles the map browser,
+ * the map control bar that toggles the map browser,
  * followed by one thumbnail per layer currently visible on the map.
  *
  * The toggle is fixed and built once at mount; only the layer thumbnails are
@@ -26,7 +26,7 @@
 import { LayerThumbnail } from './layer-thumbnail.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { LayerStackOptionsMenu } from './layer-stack-options-menu.js';
-import { LayerStackAtlasCaption } from './layer-stack-atlas-caption.js';
+import { MapControlBar } from './map-control-bar.js';
 
 const THUMB_SIZE = 36;
 
@@ -44,9 +44,12 @@ export class LayerStackStrip {
         this._optionsItem = null;
         this._optionsMenu = null;
         this._reordering = false;
-        this._reorderItem = null;
+        this._editButton = null;
+        this._hideTimer = null;
         this._map = null;
-        this._atlasCaption = null;
+        this._controlBar = null;
+        this._onDataLoading = () => this._controlBar?.setLoading(true);
+        this._onMapIdle = () => this._controlBar?.setLoading(!!window.layerControl?._loadingLayerIds?.size);
         this._onMapClick = () => this._setReordering(false);
         // Debounced: window.urlManager's active-layers state updates on its own
         // 300ms debounce (see CLAUDE.md), so reading it synchronously on
@@ -85,14 +88,20 @@ export class LayerStackStrip {
         // Flyouts are fixed-positioned from the hovered row because the strip
         // scrolls when it is taller than the map, which would clip an absolute one.
         this._el.addEventListener('mouseover', (e) => this._positionLabel(e.target));
+        this._el.addEventListener('mouseenter', () => clearTimeout(this._hideTimer));
+        this._el.addEventListener('mouseleave', () => this._scheduleHide());
         hostEl.appendChild(this._el);
 
-        this._atlasCaption = new LayerStackAtlasCaption();
-        this._atlasCaption.mount(hostEl, { triggerButton: browserButton });
+        this._mountEditButton();
+        this._controlBar = new MapControlBar();
+        this._controlBar.mount(hostEl, { triggerButton: browserButton, editButton: this._editButton });
+        map?.on?.('dataloading', this._onDataLoading);
+        map?.on?.('idle', this._onMapIdle);
+        this._controlBar.setLoading(true);
+        this._controlBar.update(window.layersInitialized ? this._getVisibleLayers().length : null);
 
         this._map = map;
         this._mountBrowserProxy(browserButton);
-        this._mountReorderItem();
         this._mountOptionsItem(map);
         this._mountImportItem();
         this._mountExportItem();
@@ -137,7 +146,7 @@ export class LayerStackStrip {
             this._optionsMenu?.close();
         }
         this._el.style.display = visible ? '' : 'none';
-        this._atlasCaption?.setVisible(visible);
+        this._controlBar?.setVisible(visible);
     }
 
     /**
@@ -169,16 +178,19 @@ export class LayerStackStrip {
         clearTimeout(this._refreshTimer);
         clearTimeout(this._reorderTimer);
         (this._map || window.map)?.off?.('click', this._onMapClick);
+        this._map?.off?.('dataloading', this._onDataLoading);
+        this._map?.off?.('idle', this._onMapIdle);
         this._reordering = false;
-        this._reorderItem = null;
+        this._editButton = null;
+        clearTimeout(this._hideTimer);
         this._clearIsolation({ immediate: true });
         this._optionsMenu?.unmount();
         this._optionsMenu = null;
         this._optionsItem = null;
         this._exportItem = null;
         this._importItem = null;
-        this._atlasCaption?.destroy();
-        this._atlasCaption = null;
+        this._controlBar?.destroy();
+        this._controlBar = null;
         if (this._el && this._el.parentNode) this._el.parentNode.removeChild(this._el);
         this._el = null;
     }
@@ -202,7 +214,7 @@ export class LayerStackStrip {
         this._pendingRender = false;
 
         const layers = this._getVisibleLayers();
-        this._atlasCaption?.update(layers.length);
+        this._controlBar?.update(layers.length);
         const comparedId = this._getComparedLayerId();
         const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
@@ -218,13 +230,8 @@ export class LayerStackStrip {
         // its own list to know whether it can still move up or down.
         const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(layers);
 
-        this._reorderItem?.remove();
-
         [overlays, basemaps].forEach((list, section) => {
-            if (section === 0 && !this._reordering) {
-                if (list.length && this._reorderItem) this._el.appendChild(this._reorderItem);
-                return;
-            }
+            if (section === 0 && !this._reordering) return;
             list.forEach((layer, index) => {
                 const item = this._createItem(layer, { index, total: list.length, comparedId, maskedId });
                 // The two groups meet at the first basemap, which carries the rule
@@ -292,32 +299,48 @@ export class LayerStackStrip {
         this._el.parentNode.appendChild(browserButton);
     }
 
-    _mountReorderItem() {
-        const item = document.createElement('div');
-        item.className = 'layer-stack-item layer-stack-control layer-stack-reorder';
-
+    _mountEditButton() {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'layer-stack-cell layer-stack-reorder-btn';
+        button.className = 'layer-stack-edit-btn';
         button.title = 'Edit Layers';
         button.setAttribute('aria-label', 'Edit Layers');
         button.innerHTML = '<sl-icon name="sliders"></sl-icon>';
         button.addEventListener('click', (e) => {
             e.stopPropagation();
-            this._setReordering(true);
+            this._setReordering(!this._reordering);
         });
+        button.addEventListener('pointerenter', () => this._reveal());
+        button.addEventListener('pointerleave', () => this._scheduleHide());
+        button.addEventListener('focus', () => this._reveal());
+        button.addEventListener('blur', () => this._scheduleHide());
+        this._editButton = button;
+    }
 
-        item.appendChild(button);
-        item.appendChild(this._createFooterLabel('Edit Layers'));
-        this._reorderItem = item;
+    _reveal() {
+        clearTimeout(this._hideTimer);
+        this._el?.classList.add('revealed');
+    }
+
+    _scheduleHide() {
+        clearTimeout(this._hideTimer);
+        this._hideTimer = setTimeout(() => {
+            if (!this._el || this._reordering || this._draggedItem) return;
+            if (this._el.matches(':hover') || this._editButton?.matches(':hover, :focus-visible')) return;
+            if (this._el.classList.contains('options-open')) return;
+            this._el.classList.remove('revealed');
+        }, 200);
     }
 
     _setReordering(on) {
         if (on === this._reordering) return;
         this._reordering = on;
+        this._editButton?.classList.toggle('active', on);
         const map = this._map || window.map;
         map?.[on ? 'on' : 'off']?.('click', this._onMapClick);
         this._clearIsolation({ immediate: true });
+        if (on) this._reveal();
+        else this._scheduleHide();
         this.render({ force: true });
     }
 

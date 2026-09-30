@@ -416,38 +416,48 @@
     flex-shrink: 0;
 }
 
-.map-browser-control.has-atlas-caption {
-    width: min(240px, calc(100vw - 20px));
+.map-browser-control.has-map-control-bar {
+    width: auto;
+    height: auto;
+    min-height: 60px;
+    max-width: calc(100vw - 80px);
 }
 
-.layer-stack-atlas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: min(240px, calc(100vw - 20px));
-    height: 44px;
+.map-control-bar {
+    position: relative;
+    width: fit-content;
+    max-width: 100%;
+    min-height: 60px;
     box-sizing: border-box;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 0 6px 0 9px;
-    background: rgba(0, 0, 0, 0.6);
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    gap: 10px;
+    padding: 10px 12px 10px 10px;
+    background-color: #111827;
+    background-image: linear-gradient(100deg, rgba(8, 12, 20, 0.88) 0%, rgba(8, 12, 20, 0.62) 55%, rgba(8, 12, 20, 0.35) 100%), var(--bar-image, none);
+    background-size: cover;
+    background-position: center;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     color: #fff;
     text-align: left;
     pointer-events: auto;
-    transition: background 0.15s;
+    overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.layer-stack-atlas:hover,
-.layer-stack-atlas.active,
-.layer-stack-atlas.searching {
-    background: rgba(31, 41, 55, 0.92);
+.map-control-bar:hover,
+.map-control-bar.active,
+.map-control-bar.searching {
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
-.map-browser-control .layer-stack-atlas button {
+.map-control-bar.active {
+    border-color: var(--primary-color);
+}
+
+.map-browser-control .map-control-bar button {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
@@ -455,52 +465,56 @@
     cursor: pointer;
 }
 
-.layer-stack-atlas-main {
+.map-control-bar-main {
     flex: 1;
     min-width: 0;
-    height: 100%;
+    align-self: stretch;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     padding: 0;
     text-align: left;
 }
 
-.layer-stack-atlas.searching .layer-stack-atlas-main {
+.map-control-bar.searching .map-control-bar-main {
     display: none;
 }
 
-.layer-stack-atlas-search-slot {
+.map-control-bar-search-slot {
     display: flex;
     align-items: center;
     flex-shrink: 0;
     min-width: 0;
 }
 
-.layer-stack-atlas.searching .layer-stack-atlas-search-slot {
+.map-control-bar.searching {
+    width: min(320px, 100%);
+}
+
+.map-control-bar.searching .map-control-bar-search-slot {
     flex: 1;
 }
 
-.layer-stack-atlas-search-btn {
-    width: 30px;
-    height: 30px;
+.map-control-bar-search-btn {
+    width: 38px;
+    height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
-    border-radius: 6px;
-    font-size: 15px;
+    border-radius: 10px;
+    font-size: 18px;
 }
 
-.map-browser-control .layer-stack-atlas .layer-stack-atlas-search-btn:hover {
-    background: rgba(255, 255, 255, 0.14) !important;
+.map-browser-control .map-control-bar .map-control-bar-search-btn:hover {
+    background: rgba(255, 255, 255, 0.18) !important;
 }
 
-.layer-stack-atlas.searching .layer-stack-atlas-search-btn {
+.map-control-bar.searching .map-control-bar-search-btn {
     display: none;
 }
 
-.layer-stack-atlas-search-slot #mapbox-search-box {
+.map-control-bar-search-slot #mapbox-search-box {
     width: 0;
     max-width: none;
     opacity: 0;
@@ -508,16 +522,16 @@
     pointer-events: none;
 }
 
-.layer-stack-atlas.searching .layer-stack-atlas-search-slot #mapbox-search-box {
+.map-control-bar.searching .map-control-bar-search-slot #mapbox-search-box {
     width: 100%;
     opacity: 1;
     overflow: visible;
     pointer-events: auto;
 }
 
-.layer-stack-atlas mapbox-search-box::part(input) {
-    height: 32px !important;
-    min-height: 32px !important;
+.map-control-bar mapbox-search-box::part(input) {
+    height: 38px !important;
+    min-height: 38px !important;
     background: rgba(255, 255, 255, 0.1) !important;
     border: 1px solid rgba(255, 255, 255, 0.25) !important;
 }
@@ -534,62 +548,136 @@
     pointer-events: none;
 }
 
-.layer-stack-atlas-icon {
-    width: 26px;
-    height: 26px;
+.map-control-bar-icon-wrap {
+    position: relative;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+}
+
+.map-control-bar-spinner {
+    display: none;
+    position: absolute;
+    inset: 0;
+    width: 40px;
+    height: 40px;
+    font-size: 40px;
+    --indicator-color: var(--primary-color);
+    --track-color: rgba(0, 0, 0, 0.25);
+    --track-width: 3px;
+    border-radius: 10px;
+    background: rgba(8, 12, 20, 0.45);
+    pointer-events: none;
+}
+
+.map-control-bar.loading .map-control-bar-spinner {
+    display: block;
+}
+
+.map-control-bar-name.placeholder {
+    opacity: 0.85;
+}
+
+.map-control-bar-name.placeholder::after {
+    content: '';
+    display: inline-block;
+    width: 1.1em;
+    text-align: left;
+    animation: map-control-bar-dots 1.2s steps(1, end) infinite;
+}
+
+@keyframes map-control-bar-dots {
+    0% { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
+}
+
+.map-control-bar-icon {
+    width: 40px;
+    height: 40px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.12);
-    color: var(--primary-color);
-    font-size: 15px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #111827;
+    font-size: 22px;
     overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
-.layer-stack-atlas-icon img {
+.map-control-bar-icon img {
     width: 100%;
     height: 100%;
-    padding: 3px;
+    padding: 4px;
     box-sizing: border-box;
     object-fit: contain;
 }
 
-.layer-stack-atlas-text {
+.map-control-bar-text {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 3px;
 }
 
-.layer-stack-atlas-name {
-    font-size: 13px;
+.map-control-bar-name {
+    font-size: 17px;
     font-weight: 700;
-    line-height: 1.15;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 
-.layer-stack-atlas-name.long {
-    font-size: 10.5px;
-    line-height: 1.1;
-}
-
-.layer-stack-atlas-count {
-    font-size: 10px;
+.map-control-bar-count {
+    font-size: 11.5px;
+    font-weight: 500;
     line-height: 1.2;
-    color: #9ca3af;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.72);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
+.layer-stack-strip:not(.revealed) {
+    display: none;
+}
+
+.layer-stack-edit-btn {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 10px;
+    font-size: 18px;
+}
+
+.map-browser-control .map-control-bar .layer-stack-edit-btn:hover {
+    background: rgba(255, 255, 255, 0.18) !important;
+}
+
+.map-browser-control .map-control-bar .layer-stack-edit-btn.active {
+    background: var(--primary-color) !important;
+    color: #000 !important;
+}
+
+.map-control-bar.searching .layer-stack-edit-btn {
+    display: none;
+}
+
 .layer-stack-strip {
     position: absolute;
-    top: 48px;
+    top: calc(100% + 6px);
     left: 0;
     display: flex;
     flex-direction: column;

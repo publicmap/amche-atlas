@@ -11,6 +11,7 @@ export class LayerRegistry {
         this._atlasLayers = new Map(); // atlasId -> array of layer configs
         this._atlasMetadata = new Map(); // atlasId -> atlas metadata (color, name, etc.)
         this._currentAtlas = 'index'; // default atlas
+        this._currentAtlasSet = false;
         this._initialized = false;
         // External (cross-repo) atlases known about but not yet fetched — see
         // _doInitialize's deferred-loading logic and ensureAtlasLoaded().
@@ -437,6 +438,8 @@ export class LayerRegistry {
      */
     setCurrentAtlas(atlasId) {
         this._currentAtlas = atlasId;
+        this._currentAtlasSet = true;
+        window.dispatchEvent?.(new CustomEvent('atlasChanged', { detail: { atlasId } }));
     }
 
     /**
@@ -457,6 +460,7 @@ export class LayerRegistry {
             stylePresets: metadata.stylePresets || (config && config.stylePresets) || null,
             isImported: true
         });
+        window.dispatchEvent?.(new CustomEvent('atlasChanged', { detail: { atlasId } }));
 
         if (config && config.layers && Array.isArray(config.layers)) {
             this._atlasLayers.set(atlasId, config.layers);
