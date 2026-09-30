@@ -23,6 +23,23 @@
     ],
     "zoom": 2.2
   },
+  "constants": {
+    "commercial-color": "blue",
+    "retail-color": "navy",
+    "residential-color": "orange",
+    "industrial-color": "purple",
+    "railway-color": "maroon",
+    "brownfield-color": "brown",
+    "farmland-color": "lightgreen",
+    "park-color": "lime",
+    "cemetery-color": "teal",
+    "grass-color": "green",
+    "forest-color": "darkgreen",
+    "swamp-color": "seagreen",
+    "wetland-color": "lightblue",
+    "beach-color": "gold",
+    "default-landuse-color": "grey"
+  },
   "layers": [
     {
       "id": "office-govt",
@@ -879,17 +896,42 @@
       "maxzoom": 14,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
       "style": {
-        "circle-radius": 4,
-        "circle-color": [
-          "match",
+        "text-field": [
+          "step",
           [
-            "get",
+            "zoom"
+          ],
+          "",
+          17,
+          [
+            "case",
+            [
+              "has",
+              "shop"
+            ],
+            [
+              "to-string",
+              [
+                "get",
+                "name"
+              ]
+            ],
+            ""
+          ]
+        ],
+        "circle-radius": 2.5,
+        "circle-color": [
+          "case",
+          [
+            "has",
+            "shop"
+          ],
+          "$commercial-color",
+          [
+            "has",
             "amenity"
           ],
-          [
-            "restaurant"
-          ],
-          "brown",
+          "$residential-color",
           "green"
         ],
         "circle-stroke-width": 1,
@@ -2350,32 +2392,32 @@
             "quarry",
             "brownfield"
           ],
-          "brown",
+          "$brownfield-color",
           [
             "railway"
           ],
-          "maroon",
+          "$railway-color",
           [
             "industrial"
           ],
-          "purple",
+          "$industrial-color",
           [
             "commercial"
           ],
-          "blue",
+          "$commercial-color",
           [
             "retail"
           ],
-          "navy",
+          "$retail-color",
           [
             "residential"
           ],
-          "orange",
+          "$residential-color",
           [
             "farmland",
             "allotments"
           ],
-          "lightgreen",
+          "$farmland-color",
           [
             "recreation_ground",
             "park",
@@ -2384,11 +2426,11 @@
             "golf_course",
             "village_green"
           ],
-          "lime",
+          "$park-color",
           [
             "cemetery"
           ],
-          "teal",
+          "$cemetery-color",
           [
             "orchard",
             "scrub",
@@ -2396,25 +2438,25 @@
             "grass",
             "meadow"
           ],
-          "green",
+          "$grass-color",
           [
             "forest"
           ],
-          "darkgreen",
+          "$forest-color",
           [
             "swamp"
           ],
-          "seagreen",
+          "$swamp-color",
           [
             "marsh",
             "wet_meadow"
           ],
-          "lightblue",
+          "$wetland-color",
           [
             "beach"
           ],
-          "gold",
-          "grey"
+          "$beach-color",
+          "$default-landuse-color"
         ],
         "text-halo-width": 5,
         "text-size": 13,
@@ -2430,32 +2472,32 @@
             "quarry",
             "brownfield"
           ],
-          "brown",
+          "$brownfield-color",
           [
             "railway"
           ],
-          "maroon",
+          "$railway-color",
           [
             "industrial"
           ],
-          "purple",
+          "$industrial-color",
           [
             "commercial"
           ],
-          "blue",
+          "$commercial-color",
           [
             "retail"
           ],
-          "navy",
+          "$retail-color",
           [
             "residential"
           ],
-          "orange",
+          "$residential-color",
           [
             "farmland",
             "allotments"
           ],
-          "lightgreen",
+          "$farmland-color",
           [
             "recreation_ground",
             "park",
@@ -2464,11 +2506,11 @@
             "golf_course",
             "village_green"
           ],
-          "lime",
+          "$park-color",
           [
             "cemetery"
           ],
-          "teal",
+          "$cemetery-color",
           [
             "orchard",
             "scrub",
@@ -2476,25 +2518,25 @@
             "grass",
             "meadow"
           ],
-          "green",
+          "$grass-color",
           [
             "forest"
           ],
-          "darkgreen",
+          "$forest-color",
           [
             "swamp"
           ],
-          "seagreen",
+          "$swamp-color",
           [
             "marsh",
             "wet_meadow"
           ],
-          "lightblue",
+          "$wetland-color",
           [
             "beach"
           ],
-          "gold",
-          "grey"
+          "$beach-color",
+          "$default-landuse-color"
         ],
         "line-color": "black",
         "line-width": [

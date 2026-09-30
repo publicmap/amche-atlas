@@ -1,3 +1,5 @@
+import { resolveConstants } from './atlas-constants.js';
+
 /**
  * Process-wide cache for the small JSON configs fetched during startup
  * (`config/_defaults.json`, `config/*.atlas.json`, a remote `?atlas=<url>`).
@@ -59,7 +61,8 @@ async function load(url) {
     }
 
     try {
-        return { ok: true, status: response.status, contentType, json: await response.json(), error: null };
+        const json = resolveConstants(await response.json());
+        return { ok: true, status: response.status, contentType, json, error: null };
     } catch (error) {
         // A static host answering a missing file with its SPA fallback lands
         // here: 200 OK, an HTML body, and a JSON parse error.

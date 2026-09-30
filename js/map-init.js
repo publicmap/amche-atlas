@@ -31,6 +31,7 @@ import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 import { ZoomToParam } from './zoom-to-param.js';
 import { fetchConfigJson, fetchConfigResult } from './config-cache.js';
 import { CameraUtils } from './map-camera-utils.js';
+import { resolveConstants } from './atlas-constants.js';
 import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands } from './dynamic-layer-shorthand.js';
 import { setAll as setMarkerRegistry, parseMarkersParam } from './marker-registry.js';
 
@@ -219,7 +220,7 @@ export class MapInitializer {
             // Check if the config parameter is a JSON string
             if (configParam.startsWith('{') && configParam.endsWith('}')) {
                 try {
-                    config = JSON.parse(configParam); // Parse JSON directly
+                    config = resolveConstants(JSON.parse(configParam)); // Parse JSON directly
 
                     // Minify the JSON by removing whitespace and rewrite the URL
                     const minifiedJson = JSON.stringify(config);
@@ -781,7 +782,7 @@ export class MapInitializer {
 
         if (configParam) {
             if (configParam.startsWith('{') && configParam.endsWith('}')) {
-                try { inlineConfig = JSON.parse(configParam); } catch (e) {
+                try { inlineConfig = resolveConstants(JSON.parse(configParam)); } catch (e) {
                     console.warn('[MapInit] Inline atlas JSON parse failed:', e);
                 }
             } else if (configParam.startsWith('http://') || configParam.startsWith('https://')) {

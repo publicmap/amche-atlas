@@ -608,6 +608,45 @@ Setting `inspect: false`/`null` on a layer still disables interactivity (the ins
 
 Goa renders with the atlas defaults, Maharashtra with the `highlighted` preset on top of the defaults, and Karnataka with the defaults plus a per-layer `line-width` override.
 
+#### Atlas `constants` — reusable values
+
+An atlas can declare a `constants` dictionary and reference its entries elsewhere in the same file as `"$name"`. This keeps a palette (or any repeated width, expression, or array) defined once so layers that describe the same thing stay in sync.
+
+- A reference is a string that is **exactly** `$name` — no interpolation inside longer strings (`"cost $a"` is left alone).
+- A constant can be any JSON value (string, number, array, expression, object), and may itself reference other constants.
+- References work anywhere in the atlas: `style`, `stylePresets`, `filter`, `inspect`, layer fields.
+- An unknown `$name` is left as-is. A circular reference logs a warning and is left unresolved.
+- Constants are scoped to the atlas file that declares them; they are not shared across atlases. Substitution happens when the config is loaded (files, remote `?atlas=<url>`, and inline `?atlas={...}` JSON).
+
+```json
+{
+  "constants": {
+    "commercial-color": "blue",
+    "residential-color": "orange"
+  },
+  "layers": [
+    {
+      "id": "landuse",
+      "type": "vector",
+      "sourceLayer": "land",
+      "style": {
+        "fill-color": ["match", ["get", "kind"], "commercial", "$commercial-color", "residential", "$residential-color", "grey"]
+      }
+    },
+    {
+      "id": "pois",
+      "type": "vector",
+      "sourceLayer": "pois",
+      "style": {
+        "circle-color": ["case", ["has", "shop"], "$commercial-color", ["has", "amenity"], "$residential-color", "green"]
+      }
+    }
+  ]
+}
+```
+
+`config/osm.atlas.json` uses this to share one landuse palette between the `landuse` polygons and the `pois` points.
+
 #### Atlas-level `map` block
 
 The `map` block holds the options handed to the GL renderer's `Map` constructor, merged over `config/_defaults.json`'s own `map` block.
