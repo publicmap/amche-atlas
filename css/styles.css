@@ -434,9 +434,6 @@
     gap: 10px;
     padding: 10px 12px 10px 10px;
     background-color: #111827;
-    background-image: linear-gradient(100deg, rgba(8, 12, 20, 0.88) 0%, rgba(8, 12, 20, 0.62) 55%, rgba(8, 12, 20, 0.35) 100%), var(--bar-image, none);
-    background-size: cover;
-    background-position: center;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 12px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -445,6 +442,36 @@
     pointer-events: auto;
     overflow: hidden;
     transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.map-control-bar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: linear-gradient(100deg, rgba(8, 12, 20, 0.88) 0%, rgba(8, 12, 20, 0.62) 55%, rgba(8, 12, 20, 0.35) 100%), var(--bar-image, none);
+    background-size: cover;
+    background-position: center;
+    transition: filter 0.2s, transform 0.2s;
+    pointer-events: none;
+}
+
+.map-control-bar > * {
+    position: relative;
+    z-index: 1;
+}
+
+.map-control-bar:hover::before {
+    filter: blur(6px);
+    transform: scale(1.1);
+}
+
+.map-browser-control .map-control-bar button.map-control-bar-main:hover:not(:disabled),
+.map-browser-control .map-control-bar button:not(.layer-stack-edit-btn):not(.map-control-bar-search-btn):hover:not(:disabled) {
+    background: #ffffff1a !important;
+    border: none !important;
+    color: #fff !important;
+    transform: none;
 }
 
 .map-control-bar:hover,
@@ -472,7 +499,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 0;
+    padding: 0 12px 0 0;
     text-align: left;
 }
 
@@ -507,7 +534,7 @@
 }
 
 .map-browser-control .map-control-bar .map-control-bar-search-btn:hover {
-    background: rgba(255, 255, 255, 0.18) !important;
+    background: #ffffff1a !important;
 }
 
 .map-control-bar.searching .map-control-bar-search-btn {
@@ -663,7 +690,7 @@
 }
 
 .map-browser-control .map-control-bar .layer-stack-edit-btn:hover {
-    background: rgba(255, 255, 255, 0.18) !important;
+    background: #ffffff1a !important;
 }
 
 .map-browser-control .map-control-bar .layer-stack-edit-btn.active {
@@ -914,7 +941,7 @@
 }
 
 .layer-stack-browser .map-browser-btn:hover {
-    background: #374151 !important;
+    background: #ffffff1a !important;
 }
 
 /* Browser open: the one filled state in the column */
@@ -987,7 +1014,7 @@
 .map-browser-control .layer-stack-strip button.layer-stack-import-btn:hover,
 .map-browser-control .layer-stack-strip button.layer-stack-export-btn:hover,
 .map-browser-control .layer-stack-strip button.layer-stack-options-btn:hover {
-    background: #374151 !important;
+    background: #ffffff1a !important;
     color: #fff !important;
 }
 
