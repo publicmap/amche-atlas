@@ -5,6 +5,7 @@
 
 import { LayerOrderManager } from './layer-order-manager.js';
 import { URL_API_PARAMS } from './url-api-params.js';
+import { ZoomToParam } from './zoom-to-param.js';
 import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
 import { allEntries as allRegisteredMarkers, buildMarkersParam, parseMarkersParam } from './marker-registry.js';
 import { localeManager } from './locale-manager.js';
@@ -1568,42 +1569,14 @@ export class URLManager {
                 this.applyMaskFromURL(maskParam);
             }
 
-            // Handle zoomTo parameter - zoom to newly added layer
-            const zoomToParam = urlParams.get('zoomTo');
-            if (zoomToParam && this.mapLayerControl) {
+            if (zoomToParam && this.map && window.__zoomToApplied !== zoomToParam) {
                 applied = true;
-                const layerId = zoomToParam;
-
-                // Find the layer in the layer control
-                const layer = this.mapLayerControl._state.groups.find(g => g.id === layerId);
-
-                if (layer && layer.bbox && Array.isArray(layer.bbox) && layer.bbox.length === 4) {
-                    console.log('[URL API] Zooming to newly added layer:', layerId, 'bbox:', layer.bbox);
-
-                    // Wait a bit for the layer to be fully loaded on the map
-                    setTimeout(() => {
-                        try {
-                            const [minLng, minLat, maxLng, maxLat] = layer.bbox;
-                            this.map.fitBounds(
-                                [[minLng, minLat], [maxLng, maxLat]],
-                                {
-                                    padding: 50,
-                                    maxZoom: 16,
-                                    duration: 1000
-                                }
-                            );
-
-                            // Remove zoomTo parameter from URL after zooming
-                            const url = new URL(window.location);
-                            url.searchParams.delete('zoomTo');
-                            window.history.replaceState({}, '', url);
-                        } catch (error) {
-                            console.error('[URL API] Error zooming to layer bbox:', error);
-                        }
-                    }, 500);
-                } else {
-                    console.warn('[URL API] Layer not found or has no bbox:', layerId);
-                }
+                const zoomToLayerId = zoomToParam;
+                setTimeout(() => {
+                    if (!ZoomToParam.apply(this.map, zoomToLayerId)) {
+                        console.warn('[URL API] Layer not found or has no bbox:', zoomToLayerId);
+                    }
+                }, 500);
             }
 
         } catch (error) {

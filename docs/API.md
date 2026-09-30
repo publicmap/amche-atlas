@@ -422,13 +422,17 @@ A marker dropped by clicking the map is numbered serially ("1", "2", ...); one c
 
 ### `zoomTo`
 
-Zoom to a layer's bounding box on load, then remove the parameter from the URL. Used when a newly added layer should be framed on first view.
+Zoom to a layer's bounding box on load. Overrides any map location in the URL (the `#zoom/lat/lng` hash, GPS/GeoIP position and the atlas default view). The layer's `bbox` is used, falling back to its atlas's bbox. If the layer id is unknown or has no bbox, the parameter is ignored and the normal starting view applies.
+
+The parameter stays in the URL until the map location changes (any pan, zoom, rotate or programmatic move after the zoom has settled), then it is removed.
+
+The zoom buttons in the map browser (`map-browser.html`) and the layer information panel (`map-information.html`) are real links to `?zoomTo=<layer-id>`, so right-click → "Copy link address" gives a shareable link that frames that layer. Zooming to a layer from the layer-stack strip or the browser also adds the parameter to the current URL.
 
 **Format:** `?zoomTo=<layer-id>`
 
 **Example:**
 ```
-?zoomTo=goa-plots
+?layers=goa-plots&zoomTo=goa-plots
 ```
 
 ### `country`

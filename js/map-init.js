@@ -28,6 +28,7 @@ import { MapMaskManager } from './map-mask-manager.js';
 import { NearbyFeaturesControl } from './map-nearby-features-control.js';
 import { MapOrientationControl } from './map-orientation-control.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
+import { ZoomToParam } from './zoom-to-param.js';
 import { fetchConfigJson, fetchConfigResult } from './config-cache.js';
 import { CameraUtils } from './map-camera-utils.js';
 import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands } from './dynamic-layer-shorthand.js';
@@ -1315,7 +1316,14 @@ export class MapInitializer {
                 atlasBoundsCheckTimeout = setTimeout(checkAtlasBounds, 600);
             });
 
-            if (window.loadingStartupState?.gpsFix) {
+            const zoomToLayerId = URLUtils.getUrlParameter('zoomTo');
+            const zoomToBbox = zoomToLayerId ? ZoomToParam.resolveBbox(zoomToLayerId, layerRegistry) : null;
+
+            if (zoomToBbox) {
+                window.__zoomToApplied = zoomToLayerId;
+                ZoomToParam.apply(map, zoomToLayerId, layerRegistry);
+                map.once('moveend', () => map.once('idle', signalMapReady));
+            } else if (window.loadingStartupState?.gpsFix) {
                 // GPS already resolved by the time we got here — go straight
                 // to it instead of running the placement chain below at all.
                 const { lat, lng } = window.loadingStartupState.gpsFix;

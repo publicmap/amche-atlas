@@ -10,6 +10,7 @@
  */
 
 import { MapMarkerManager } from './map-marker-manager.js';
+import { ZoomToParam } from './zoom-to-param.js';
 import ConfigManager from './config-manager.js';
 
 /**
@@ -1209,6 +1210,8 @@ export class MapFeatureControl {
      * Zoom to layer bounds
      */
     _zoomToLayer(layerId) {
+        if (ZoomToParam.resolveBbox(layerId)) ZoomToParam.setParam(this._map, layerId);
+
         const activeLayers = this._getActiveLayersFromConfig();
         const layerData = activeLayers.get(layerId);
 

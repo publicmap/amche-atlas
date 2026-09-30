@@ -988,6 +988,11 @@
         .atlas-collapsed-layer-btn.zoom {
             background: #6b7280;
             color: white;
+            text-decoration: none;
+        }
+
+        a.zoom-btn {
+            text-decoration: none;
         }
 
         .atlas-collapsed-layer-btn.zoom:hover {
@@ -1382,6 +1387,7 @@
     <script type="module">
         import { LayerThumbnail } from './js/layer-thumbnail.js';
         import { MapUtils } from './js/map-utils.js';
+        import { ZoomToParam } from './js/zoom-to-param.js';
 
         // State
         let allLayers = [];
@@ -3463,14 +3469,12 @@
             const isGlobalLayer = isGlobalLayerCheck(layer, atlasData);
 
             if (isActive && hasBbox && !isGlobalLayer) {
-                const $zoomBtn = $('<button>', {
+                const $zoomBtn = $('<a>', {
                     class: 'atlas-collapsed-layer-btn zoom',
+                    href: ZoomToParam.buildUrl(layer.id),
                     html: '🔍',
                     title: 'Zoom to layer',
-                    click: function (e) {
-                        e.stopPropagation();
-                        zoomToLayer(layer);
-                    }
+                    click: onZoomLinkClick(layer)
                 });
                 $actions.append($zoomBtn);
             }
@@ -3550,13 +3554,12 @@
 
                 // Only show zoom button for active layers
                 if (isActive && hasBbox && !isGlobalLayer) {
-                    const $zoomBtn = $('<button>', {
+                    const $zoomBtn = $('<a>', {
                         class: 'zoom-btn px-3 py-1.5 rounded flex items-center justify-center gap-1.5 bg-gray-600 hover:bg-gray-500 text-white text-xs whitespace-nowrap',
+                        href: ZoomToParam.buildUrl(layer.id),
+                        title: 'Zoom to layer',
                         html: '<sl-icon name="geo-alt" style="font-size: 14px;"></sl-icon><span>Zoom To</span>',
-                        click: function (e) {
-                            e.stopPropagation();
-                            zoomToLayer(layer);
-                        }
+                        click: onZoomLinkClick(layer)
                     });
                     $rightButtons.append($zoomBtn);
                 }
@@ -3651,14 +3654,12 @@
 
                 // Only show zoom button for active layers
                 if (isActive && hasBbox && !isGlobalLayer) {
-                    const $zoomBtn = $('<button>', {
+                    const $zoomBtn = $('<a>', {
                         class: 'zoom-btn w-7 h-7 rounded flex items-center justify-center text-white text-xs',
+                        href: ZoomToParam.buildUrl(layer.id),
                         html: '🔍',
                         title: 'Zoom to layer',
-                        click: function (e) {
-                            e.stopPropagation();
-                            zoomToLayer(layer);
-                        }
+                        click: onZoomLinkClick(layer)
                     });
                     $buttonGroup.append($zoomBtn);
                 }
@@ -3848,6 +3849,15 @@
             }
         }
 
+        function onZoomLinkClick(layer) {
+            return function (e) {
+                e.stopPropagation();
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+                e.preventDefault();
+                zoomToLayer(layer);
+            };
+        }
+
         // Zoom to layer bounds
         function zoomToLayer(layer) {
             // Get bbox from layer or atlas
@@ -3865,7 +3875,8 @@
             // Notify parent to zoom
             window.parent.postMessage({
                 type: 'zoom-to-bounds',
-                bounds: bbox
+                bounds: bbox,
+                zoomToLayerId: layer.id
             }, '*');
         }
 

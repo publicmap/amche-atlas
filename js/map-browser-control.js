@@ -5,6 +5,7 @@
  * a full-screen map browser overlay when clicked.
  */
 import { MapContextMessagesControl } from './map-context-messages-control.js';
+import { ZoomToParam } from './zoom-to-param.js';
 import { LayerStackStrip } from './layer-stack-strip.js';
 
 export class MapBrowserControl {
@@ -389,7 +390,7 @@ export class MapBrowserControl {
             }
 
             if (event.data.type === 'zoom-to-bounds') {
-                this._handleZoomToBounds(event.data.bounds, event.data.toggle);
+                this._handleZoomToBounds(event.data.bounds, event.data.toggle, event.data.zoomToLayerId);
             }
 
             if (event.data.type === 'previous-view') {
@@ -1087,7 +1088,7 @@ export class MapBrowserControl {
         this._switchToCreator();
     }
 
-    _handleZoomToBounds(bounds, toggle = false) {
+    _handleZoomToBounds(bounds, toggle = false, zoomToLayerId = null) {
         if (!this._map || !bounds) return;
 
         // Parse bbox if it's a string "minLng,minLat,maxLng,maxLat"
@@ -1126,6 +1127,8 @@ export class MapBrowserControl {
                 prevBounds: [[b.getWest(), b.getSouth()], [b.getEast(), b.getNorth()]]
             };
         }
+
+        if (zoomToLayerId) ZoomToParam.setParam(this._map, zoomToLayerId);
 
         // Zoom to bounds
         this._map.fitBounds(bbox, {
@@ -1205,6 +1208,8 @@ export class MapBrowserControl {
             console.warn('[MapBrowserControl] Invalid bbox format:', bbox);
             return;
         }
+
+        ZoomToParam.setParam(this._map, layerId);
 
         // First fit bounds to show the full extent
         this._map.fitBounds(parsedBbox, {
