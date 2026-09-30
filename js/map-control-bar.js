@@ -1,9 +1,3 @@
-import { LayerThumbnail } from './layer-thumbnail.js';
-import { LayerOrderManager } from './layer-order-manager.js';
-
-const THUMB_SIZE = 20;
-const MAX_THUMBS = 8;
-
 export class MapControlBar {
     constructor() {
         this._el = null;
@@ -16,12 +10,13 @@ export class MapControlBar {
         this._trigger = null;
         this._observer = null;
         this._layers = null;
-        this._thumbKey = null;
-        this._clearTimer = null;
+        this._summaryEl = null;
+        this._summaryTextEl = null;
+        this._summaryKey = null;
         this._onAtlasChanged = () => this.update(this._layers);
     }
 
-    mount(hostEl, { triggerButton = null, editButton = null } = {}) {
+    mount(hostEl, { triggerButton = null, onSummaryClick = null, onSummaryEnter = null, onSummaryLeave = null } = {}) {
         this._trigger = triggerButton;
         this._el = document.createElement('div');
         this._el.className = 'map-control-bar';
@@ -52,6 +47,7 @@ export class MapControlBar {
         this._nameEl.className = 'map-control-bar-name';
         this._countEl = document.createElement('span');
         this._countEl.className = 'map-control-bar-count';
+        this._mountSummary({ onSummaryClick, onSummaryEnter, onSummaryLeave });
         text.append(this._nameEl, this._countEl);
         this._main.append(iconWrap, text);
 
@@ -79,7 +75,6 @@ export class MapControlBar {
         });
         this._el.addEventListener('focusout', () => setTimeout(() => this._collapseSearch(), 150));
 
-        if (editButton) this._el.appendChild(editButton);
         this._el.append(this._main, slot);
         hostEl.appendChild(this._el);
         hostEl.classList.add('has-map-control-bar');
@@ -132,60 +127,57 @@ export class MapControlBar {
         this._nameEl.textContent = name || 'Loading Atlas';
         this._nameEl.classList.toggle('placeholder', !name);
         this._main.title = name ? `${name} - browse all maps` : 'Browse all maps';
-        this._setThumbnails(layers);
+        this._setSummary(layers);
         this._setIcon(metadata?.icon || null);
         this._setBackground(metadata?.headerImage || null);
     }
 
-    _setThumbnails(layers) {
-        const list = layers || [];
-        const key = list.map(l => l.id).join(',');
-        if (key === this._thumbKey) return;
-        this._thumbKey = key;
-        this._clearIsolation(true);
-        const defaults = window.layerControl?._defaultStyles || {};
-        const thumbs = list.slice(0, MAX_THUMBS).map(layer => {
-            const thumb = LayerThumbnail.generate(layer, THUMB_SIZE, { layerDefaults: defaults, interactive: false, title: layer.title || layer.id });
-            thumb.classList.add('map-control-bar-thumb');
-            this._bindThumb(thumb, layer);
-            return thumb;
-        });
-        if (list.length > MAX_THUMBS) {
-            const more = document.createElement('span');
-            more.className = 'map-control-bar-more';
-            more.textContent = `+${list.length - MAX_THUMBS}`;
-            thumbs.push(more);
-        }
-        this._countEl.replaceChildren(...thumbs);
-    }
-
-    _bindThumb(thumb, layer) {
-        const isBasemap = LayerOrderManager.isBasemap(layer);
-        thumb.addEventListener('mouseenter', () => {
-            clearTimeout(this._clearTimer);
-            window.layerControl?.isolation?.hoverIsolate(layer.id, isBasemap);
-        });
-        thumb.addEventListener('mouseleave', () => this._clearIsolation());
-        thumb.addEventListener('click', (e) => {
+    _mountSummary({ onSummaryClick, onSummaryEnter, onSummaryLeave }) {
+        const summary = document.createElement('span');
+        summary.className = 'map-control-bar-summary';
+        summary.setAttribute('role', 'button');
+        summary.tabIndex = 0;
+        summary.title = 'Edit layers';
+        const icon = document.createElement('sl-icon');
+        icon.name = 'sliders';
+        this._summaryTextEl = document.createElement('span');
+        summary.append(icon, this._summaryTextEl);
+        const activate = (e) => {
             e.stopPropagation();
-            this._clearIsolation(true);
-            window.postMessage({ type: 'open-layer-info', layer: this._serializable(layer) }, '*');
+            onSummaryClick?.();
+        };
+        summary.addEventListener('click', activate);
+        summary.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                activate(e);
+            }
         });
+        summary.addEventListener('pointerenter', () => onSummaryEnter?.());
+        summary.addEventListener('pointerleave', () => onSummaryLeave?.());
+        summary.addEventListener('focus', () => onSummaryEnter?.());
+        summary.addEventListener('blur', () => onSummaryLeave?.());
+        this._summaryEl = summary;
+        this._countEl.appendChild(summary);
     }
 
-    _serializable(layer) {
-        try {
-            return JSON.parse(JSON.stringify(layer));
-        } catch (e) {
-            return { id: layer.id, title: layer.title, type: layer.type, _sourceAtlas: layer._sourceAtlas };
-        }
+    get summaryEl() {
+        return this._summaryEl;
     }
 
-    _clearIsolation(immediate = false) {
-        clearTimeout(this._clearTimer);
-        const clear = () => window.layerControl?.isolation?.clearHover();
-        if (immediate) clear();
-        else this._clearTimer = setTimeout(clear, 60);
+    setSummaryActive(active) {
+        this._summaryEl?.classList.toggle('active', !!active);
+    }
+
+    _setSummary(layers) {
+        const count = (layers || []).length;
+        if (this._summaryKey === count) return;
+        this._summaryKey = count;
+        this._summaryTextEl.textContent = `Configure ${count} ${count === 1 ? 'Map' : 'Maps'}`;
+    }
+
+    setMinWidth(px) {
+        if (this._el) this._el.style.minWidth = px ? `${px}px` : '';
     }
 
     setLoading(loading) {
@@ -214,7 +206,6 @@ export class MapControlBar {
     }
 
     destroy() {
-        this._clearIsolation(true);
         window.removeEventListener('atlasChanged', this._onAtlasChanged);
         this._observer?.disconnect();
         this._el?.parentNode?.classList.remove('has-map-control-bar');

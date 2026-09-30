@@ -80,26 +80,27 @@
               3,
               "town",
               4,
+              "suburb",
+              5,
               [
                 "village",
                 "hamlet"
               ],
-              5,
+              6,
               [
-                "suburb",
                 "quarter",
                 "neighbourhood"
               ],
-              6,
-              "island",
               7,
+              "island",
+              8,
               [
                 "locality",
                 "isolated_dwelling",
                 "farm"
               ],
-              8,
-              9
+              9,
+              10
             ],
             10000000
           ],
@@ -118,10 +119,6 @@
         ],
         "text-field": [
           "coalesce",
-          [
-            "get",
-            "name_hi"
-          ],
           [
             "get",
             "name_en"
@@ -199,6 +196,7 @@
             ]
           ],
           [
+            "suburb",
             "village",
             "hamlet"
           ],
@@ -209,7 +207,6 @@
             ]
           ],
           [
-            "suburb",
             "quarter",
             "neighbourhood"
           ],
@@ -259,6 +256,7 @@
           "uppercase",
           "none"
         ],
+        "text-max-width": 5,
         "text-letter-spacing": [
           "match",
           [
@@ -275,10 +273,13 @@
           0.08,
           [
             "suburb",
-            "quarter",
-            "neighbourhood"
+            "quarter"
           ],
           0.05,
+          [
+            "neighbourhood"
+          ],
+          0.03,
           0
         ],
         "text-size": [
@@ -336,7 +337,10 @@
             "town",
             10,
             [
-              "suburb",
+              "suburb"
+            ],
+            9,
+            [
               "village"
             ],
             8,
@@ -402,12 +406,13 @@
             ],
             "town",
             16,
+            "suburb",
+            15,
             [
               "village",
-              "suburb",
               "quarter"
             ],
-            15,
+            14,
             [
               "hamlet",
               "neighbourhood"
@@ -444,7 +449,10 @@
             "city"
           ],
           "#ffffff",
-          "town",
+          [
+            "town",
+            "suburb"
+          ],
           "#e8e8e8",
           [
             "village",
@@ -452,7 +460,6 @@
           ],
           "#d8d8d8",
           [
-            "suburb",
             "quarter",
             "neighbourhood"
           ],
@@ -1021,7 +1028,7 @@
       }
     },
     {
-      "title": "Pedestrian Paths and Trails",
+      "title": "Paths",
       "description": "Footpaths and trails from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "id": "paths",
@@ -1129,7 +1136,7 @@
       }
     },
     {
-      "title": "Motorable Roads",
+      "title": "Roads",
       "description": "Road network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "id": "roads",
@@ -2123,7 +2130,7 @@
       }
     },
     {
-      "title": "OSM Landuse Sites",
+      "title": "Landuse Sites",
       "description": "High resolution landuse polygons for institutional sites and amenities from the OpenStreetMap project.",
       "type": "vector",
       "id": "sites",
@@ -2279,7 +2286,7 @@
       }
     },
     {
-      "title": "OSM Landuse",
+      "title": "Landuse",
       "description": "High resolution landuse polygons from the OpenStreetMap project.",
       "type": "vector",
       "id": "landuse",

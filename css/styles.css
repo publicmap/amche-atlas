@@ -431,8 +431,8 @@
     box-sizing: border-box;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px 10px 10px;
+    gap: 0;
+    padding: 8px;
     background-color: #111827;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 12px;
@@ -467,7 +467,7 @@
 }
 
 .map-browser-control .map-control-bar button.map-control-bar-main:hover:not(:disabled),
-.map-browser-control .map-control-bar button:not(.layer-stack-edit-btn):not(.map-control-bar-search-btn):hover:not(:disabled) {
+.map-browser-control .map-control-bar button:not(.map-control-bar-search-btn):hover:not(:disabled) {
     background: #ffffff1a !important;
     border: none !important;
     color: #fff !important;
@@ -664,10 +664,11 @@
 
 .map-control-bar-count {
     font-size: 11.5px;
-    font-weight: 500;
+    font-weight: 400;
     line-height: 1.2;
     letter-spacing: 0.02em;
     color: rgba(255, 255, 255, 0.72);
+    min-height: var(--bar-thumb-size, 20px);
     white-space: nowrap;
     overflow: hidden;
     display: flex;
@@ -675,55 +676,36 @@
     gap: 3px;
 }
 
+.map-control-bar-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
 .map-control-bar-count:empty {
     display: none;
 }
 
-.map-control-bar-thumb {
-    cursor: pointer !important;
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    border-radius: 4px !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+.map-control-bar-summary.active {
+    color: var(--primary-color);
 }
 
-.map-control-bar-more {
-    font-size: 11px;
-    font-weight: 600;
+.map-control-bar-summary {
+    cursor: pointer;
 }
 
 .layer-stack-strip:not(.revealed) {
     display: none;
 }
 
-.layer-stack-edit-btn {
-    width: 38px;
-    height: 38px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border-radius: 10px;
-    font-size: 18px;
-}
-
-.map-browser-control .map-control-bar .layer-stack-edit-btn:hover {
-    background: #ffffff1a !important;
-}
-
-.map-browser-control .map-control-bar .layer-stack-edit-btn.active {
-    background: var(--primary-color) !important;
-    color: #000 !important;
-}
-
-.map-control-bar.searching .layer-stack-edit-btn {
-    display: none;
-}
-
 .layer-stack-strip {
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% - 1px);
     left: 0;
+    min-width: 100%;
+    width: max-content;
+    max-width: min(440px, calc(100vw - 80px));
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     /* No gap, on a solid backing panel: hovering a cell isolates its layer, so
@@ -731,10 +713,12 @@
        mid-move and make a neighbouring hover look laggy. The panel also swallows
        those pointer events instead of passing them to the map. */
     gap: 0;
-    padding: 4px;
-    background: rgba(0, 0, 0, 0.6);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    padding: 8px;
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45);
     pointer-events: auto;
     max-height: calc(100dvh - 178px);
     overflow-y: auto;
@@ -746,6 +730,14 @@
     position: relative;
     display: flex;
     align-items: center;
+    width: 100%;
+}
+
+/* The strip is the bar extended downward: while it is open the bar squares off
+   its bottom corners and its bottom border becomes the seam between the two. */
+.layer-stack-strip.revealed ~ .map-control-bar {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
 }
 
 /* One shared cell: the browser button and every layer thumbnail. LayerThumbnail
@@ -860,6 +852,62 @@
     border-radius: 5px !important;
 }
 
+/* The "Show Hidden Maps" row closes the layer block above it and is its own
+   rounded cell, like the controls below */
+[data-layer-item]:has(+ .layer-stack-show-hidden) .layer-stack-cell {
+    border-bottom-width: 1px !important;
+    border-radius: 0 0 5px 5px !important;
+}
+
+[data-layer-item]:first-child:has(+ .layer-stack-show-hidden) .layer-stack-cell,
+.layer-stack-browser+[data-layer-item]:has(+ .layer-stack-show-hidden) .layer-stack-cell,
+.layer-stack-basemap-start:has(+ .layer-stack-show-hidden) .layer-stack-cell {
+    border-bottom-width: 1px !important;
+    border-radius: 5px !important;
+}
+
+.layer-stack-show-hidden .layer-stack-cell {
+    position: relative;
+    overflow: hidden;
+    background: #1f2937;
+    border-bottom-width: 1px !important;
+    border-radius: 5px !important;
+    cursor: pointer;
+}
+
+.layer-stack-show-hidden {
+    cursor: pointer;
+}
+
+/* A plain action button, not a layer: no hover panel and no accent outline,
+   so its text stays put and its cell keeps its resting border */
+.layer-stack-item.layer-stack-show-hidden:hover .layer-stack-row-text,
+.layer-stack-item.layer-stack-control:hover .layer-stack-row-text {
+    visibility: visible;
+}
+
+/* The footer action rows have no hover panel either: the row is one button, so
+   the whole cell lights up instead of taking the layers' accent outline */
+.layer-stack-item.layer-stack-control:hover .layer-stack-cell,
+.layer-stack-item.layer-stack-control:hover > .layer-stack-cell {
+    border-color: #000 !important;
+}
+
+.layer-stack-control {
+    cursor: pointer;
+}
+
+.map-browser-control .layer-stack-strip .layer-stack-control:hover button.layer-stack-cell,
+.layer-stack-control.active button.layer-stack-cell {
+    background: #ffffff1a !important;
+    color: #fff !important;
+}
+
+.layer-stack-item.layer-stack-show-hidden:hover .layer-stack-cell,
+.layer-stack-item.layer-stack-show-hidden:hover > .layer-stack-cell {
+    border-color: #000 !important;
+}
+
 /* Compared layer: the compare cell holds the row's slot in the column and the
    thumbnail is pushed out to the right of the strip, so the layer being swiped
    reads as stepped out of the stack. The thumbnail is absolutely positioned
@@ -868,7 +916,7 @@
     /* LayerThumbnail sets position:relative inline, and leaving the thumbnail in
        flow here would widen every row in the column to fit two cells. */
     position: absolute !important;
-    left: 100%;
+    left: 36px;
     top: -1px;
     margin-left: 5px;
     border-bottom-width: 1px !important;
@@ -980,23 +1028,14 @@
    shifts when import/export appear. */
 .layer-stack-options,
 .layer-stack-import,
-.layer-stack-export {
+.layer-stack-export,
+.layer-stack-show-hidden {
     margin-top: 5px;
 }
 
 /* Options is always visible; import/export only reveal on hover, so the
    column stays as short as the layers themselves plus the options button
    at rest. */
-.layer-stack-import,
-.layer-stack-export {
-    display: none;
-}
-
-.layer-stack-strip:hover .layer-stack-import,
-.layer-stack-strip:hover .layer-stack-export {
-    display: flex;
-}
-
 /* The flyouts hide during a drag; so do these, or they would sit under the
    pointer as a drop target that is not a row. */
 .layer-stack-strip.dragging .layer-stack-import,
@@ -1036,7 +1075,7 @@
     color: #fff !important;
 }
 
-.map-browser-control .layer-stack-strip button.layer-stack-options-btn.active {
+.map-browser-control .layer-stack-strip .layer-stack-options.active button.layer-stack-options-btn {
     background: var(--primary-color) !important;
     color: #000 !important;
 }
@@ -1051,9 +1090,11 @@
    interactive, so it must stay inside the item's hover region - hence flush
    against the cell, with no gap for the pointer to fall through. */
 .layer-stack-label {
-    position: fixed;
-    left: 100%;
+    position: absolute;
+    left: 36px;
+    right: 0;
     top: 0;
+    margin-left: -1px;
     box-sizing: border-box;
     min-height: 36px;
     display: flex;
@@ -1068,6 +1109,7 @@
     box-shadow: 3px 2px 8px rgba(0, 0, 0, 0.4);
     color: #fff;
     white-space: nowrap;
+    min-width: 0;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
@@ -1075,10 +1117,72 @@
     z-index: 15;
 }
 
+.layer-stack-row-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    padding: 0 8px;
+    cursor: pointer;
+}
+
+.layer-stack-row-name {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.layer-stack-row-meta {
+    font-size: 10px;
+    line-height: 1.25;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* No rendered features in view (the thumbnail's red diagonal): dim the name to
+   the atlas line's colour */
+.layer-stack-empty .layer-stack-row-name {
+    color: #9ca3af;
+}
+
+.layer-stack-label-nodata {
+    margin-top: 4px;
+    font-size: 10px;
+    line-height: 1.3;
+    color: #9ca3af;
+}
+
+/* The hover panel opens over the row text, so drop the text beneath it */
+.layer-stack-item:hover .layer-stack-row-text {
+    visibility: hidden;
+}
+
 /* The cell's right edge is hidden while its flyout is open, so the two read as
    one accent-outlined shape rather than a cell with a tooltip beside it */
 .layer-stack-item:hover > .layer-stack-cell {
+    border-color: var(--primary-color) !important;
     border-right-color: #1f2937 !important;
+    border-bottom-width: 1px !important;
+}
+
+/* When the panel is taller than the cell, carry the outline's left edge down
+   from the cell's bottom-right corner to the panel's bottom */
+.layer-stack-label::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 35px;
+    bottom: -1px;
+    width: 1px;
+    background: var(--primary-color);
 }
 
 /* Hover only. Focus is not a reveal trigger: the browser toggle is focused
@@ -1091,10 +1195,49 @@
     pointer-events: auto;
 }
 
+.layer-stack-label-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    cursor: pointer;
+}
+
+.layer-stack-label-head .layer-stack-label-title {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Info icon at the row's right edge: opens map-information.html */
+.layer-stack-label-info {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    font-size: 15px;
+    line-height: 1;
+}
+
+.layer-stack-label-info sl-icon {
+    font-size: 15px;
+}
+
+/* One hover state for the whole title row: name and icon light up together */
+.map-browser-control .layer-stack-strip .layer-stack-label-head:hover button.layer-stack-label-title {
+    background: transparent !important;
+    color: var(--primary-color) !important;
+    text-decoration: underline;
+}
+
+.layer-stack-label-head:hover .layer-stack-label-info {
+    color: var(--primary-color);
+}
+
 /* The name opens map-information.html for the layer */
 .layer-stack-label-title {
     display: block;
-    max-width: 260px;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     padding: 0;
@@ -1124,8 +1267,9 @@
 
 .layer-stack-label-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 7px;
+    gap: 2px 7px;
 }
 
 .layer-stack-label-atlas {

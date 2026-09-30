@@ -673,12 +673,16 @@
       "maxzoom": 10,
       "attribution": "Source: <a href='https://lgdirectory.gov.in' target='_blank' rel='noopener noreferrer'>Local Government Directory</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
       "style": {
-        "text-padding": 2,
+        "text-padding": 50,
         "text-field": [
           "get",
           "STNAME"
         ],
-        "text-color": "black",
+        "text-color": "purple",
+        "text-halo-width": 1,
+        "text-font": [
+          "PT Sans Bold"
+        ],
         "text-size": 15,
         "line-color": "black"
       },

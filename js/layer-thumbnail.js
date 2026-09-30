@@ -19,11 +19,11 @@ export class LayerThumbnail {
      * Generate a thumbnail element for a layer
      * @param {Object} layer - Layer configuration
      * @param {number} size - Thumbnail size in pixels (square)
-     * @param {Object} options - Additional options (isInView, currentBounds)
+     * @param {Object} options - Additional options (isInView: layer is within the map view, hasFeatures: layer has features in the current view)
      * @returns {HTMLElement} Thumbnail element
      */
     static generate(layer, size = 80, options = {}) {
-        const { isInView = true, layerDefaults = {}, interactive = true, title = null } = options;
+        const { isInView = true, hasFeatures = true, layerDefaults = {}, interactive = true, title = null } = options;
         // Same priority everywhere this is used: a curated headerImage wins,
         // then a curated legendImage, then an auto-generated preview (sample
         // tile for raster layers, or a style-derived/default SVG).
@@ -42,32 +42,40 @@ export class LayerThumbnail {
             position: relative;
             flex-shrink: 0;
             transition: all 0.2s ease;
-            ${!isInView ? 'opacity: 0.5; border: 2px solid #f59e0b;' : ''}
         `;
+
+        const faded = !isInView || !hasFeatures;
+        const content = document.createElement('div');
+        content.className = 'layer-thumbnail-content';
+        content.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transition: opacity 0.2s ease;
+            ${faded ? 'opacity: 0.35; filter: grayscale(0.3);' : ''}
+        `;
+        container.appendChild(content);
 
         // Set background image if available
         if (thumbnailImage) {
-            container.style.backgroundImage = `url('${thumbnailImage}')`;
-            container.style.backgroundSize = 'cover';
-            container.style.backgroundPosition = 'center';
-            container.style.backgroundColor = '#f3f4f6';
+            content.style.backgroundImage = `url('${thumbnailImage}')`;
+            content.style.backgroundSize = 'cover';
+            content.style.backgroundPosition = 'center';
+            content.style.backgroundColor = '#f3f4f6';
         } else if (layer.type === 'tms') {
             const tileUrl = LayerThumbnail._getSampleTileUrl(layer);
             if (tileUrl) {
-                container.style.backgroundImage = `url('${tileUrl}')`;
-                container.style.backgroundSize = 'cover';
-                container.style.backgroundPosition = 'center';
-                container.style.backgroundColor = '#e5e7eb';
+                content.style.backgroundImage = `url('${tileUrl}')`;
+                content.style.backgroundSize = 'cover';
+                content.style.backgroundPosition = 'center';
+                content.style.backgroundColor = '#e5e7eb';
             } else {
-                container.style.backgroundColor = 'transparent';
+                content.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
             }
         } else {
-            container.style.backgroundColor = 'transparent';
-        }
-
-        // Add grayscale filter for out-of-view layers
-        if (!isInView) {
-            container.style.filter = 'grayscale(0.3)';
+            content.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
         }
 
         // Overlay symbology on top
@@ -77,12 +85,12 @@ export class LayerThumbnail {
             if (overlay) {
                 overlay.style.transform = 'scale(0.75)';
                 overlay.style.transformOrigin = 'bottom left';
-                container.appendChild(overlay);
+                content.appendChild(overlay);
             }
         } else if (!thumbnailImage) {
             // No style and no background - show default
             const svg = this._generateDefaultThumbnail(layer, size);
-            container.appendChild(svg);
+            content.appendChild(svg);
         }
 
         const words = String(layer.title || layer.name || title || layer.id || '').trim().split(/\s+/).filter(Boolean);
@@ -106,7 +114,7 @@ export class LayerThumbnail {
                 user-select: none;
             `;
             initialLabel.textContent = initial;
-            container.appendChild(initialLabel);
+            content.appendChild(initialLabel);
         }
 
         const typeBadge = this.getTypeBadge(layer.type);
@@ -128,67 +136,29 @@ export class LayerThumbnail {
         typeLabel.textContent = typeBadge.label;
         container.appendChild(typeLabel);
 
-        // Add out-of-view badge if layer is not in view
-        if (!isInView) {
-            const outOfViewBadge = document.createElement('div');
-            outOfViewBadge.className = 'layer-out-of-view-badge';
-            outOfViewBadge.style.cssText = `
-                position: absolute;
-                bottom: 4px;
-                left: 50%;
-                transform: translateX(-50%);
-                padding: 2px 6px;
-                border-radius: 3px;
-                font-size: 7px;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.3px;
-                color: white;
-                background-color: #f59e0b;
-                opacity: 0.9;
-            `;
-            outOfViewBadge.textContent = 'OUT OF VIEW';
-            container.appendChild(outOfViewBadge);
-        }
-
         const actionIcon = document.createElement('div');
         actionIcon.className = 'layer-action-icon';
 
-        if (!isInView) {
-            // Show zoom icon for out-of-view layers
-            actionIcon.style.cssText = `
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                font-size: 24px;
-                opacity: 0;
-                transition: opacity 0.2s ease;
-                background: #f59e0b;
-                border-radius: 50%;
-                width: 36px;
-                height: 36px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-            `;
-            actionIcon.textContent = '🔍';
-        } else {
-            // Show info icon for in-view layers
-            actionIcon.style.cssText = `
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                font-size: 19px;
-                opacity: 0;
-                transition: opacity 0.2s ease;
-                pointer-events: none;
-            `;
-            actionIcon.textContent = 'ℹ️';
+        actionIcon.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 19px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        `;
+        actionIcon.textContent = 'ℹ️';
+        if (isInView) {
+            container.appendChild(actionIcon);
         }
-        container.appendChild(actionIcon);
+
+        if (!isInView) {
+            container.appendChild(this._generateMagnifier(size));
+        } else if (!hasFeatures) {
+            container.appendChild(this._generateNoFeaturesLine(size));
+        }
 
         let liveStrobe = null;
         let liveBadge = null;
@@ -238,7 +208,6 @@ export class LayerThumbnail {
             actionIcon.style.opacity = '0.9';
             if (liveStrobe) { liveStrobe.style.opacity = '0'; liveBadge.style.opacity = '0.95'; }
             if (!isInView) {
-                container.style.opacity = '0.8';
                 container.style.transform = 'scale(1.05)';
             }
         });
@@ -247,7 +216,6 @@ export class LayerThumbnail {
             actionIcon.style.opacity = '0';
             if (liveStrobe) { liveStrobe.style.opacity = '1'; liveBadge.style.opacity = '0'; }
             if (!isInView) {
-                container.style.opacity = '0.5';
                 container.style.transform = 'scale(1)';
             }
         });
@@ -277,6 +245,62 @@ export class LayerThumbnail {
         }
 
         return container;
+    }
+
+    static _generateMagnifier(size) {
+        const svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttribute('width', size);
+        svg.setAttribute('height', size);
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', '#fff');
+        svg.setAttribute('stroke-width', '2.5');
+        svg.setAttribute('stroke-linecap', 'round');
+        svg.setAttribute('class', 'layer-out-of-view-icon');
+        svg.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.7));
+        `;
+        const lens = document.createElementNS(SVG_NS, 'circle');
+        lens.setAttribute('cx', '10.5');
+        lens.setAttribute('cy', '10.5');
+        lens.setAttribute('r', '6');
+        const handle = document.createElementNS(SVG_NS, 'line');
+        handle.setAttribute('x1', '15');
+        handle.setAttribute('y1', '15');
+        handle.setAttribute('x2', '20');
+        handle.setAttribute('y2', '20');
+        svg.appendChild(lens);
+        svg.appendChild(handle);
+        return svg;
+    }
+
+    static _generateNoFeaturesLine(size) {
+        const svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttribute('width', size);
+        svg.setAttribute('height', size);
+        svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+        svg.setAttribute('class', 'layer-no-features-line');
+        svg.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        `;
+        const line = document.createElementNS(SVG_NS, 'line');
+        line.setAttribute('x1', size * 0.1);
+        line.setAttribute('y1', size * 0.9);
+        line.setAttribute('x2', size * 0.9);
+        line.setAttribute('y2', size * 0.1);
+        line.setAttribute('stroke', '#dc2626');
+        line.setAttribute('stroke-opacity', '0.7');
+        line.setAttribute('stroke-width', Math.max(1, size * 0.04));
+        line.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(line);
+        return svg;
     }
 
     /**

@@ -209,6 +209,12 @@
             border-color: #b45309;
         }
 
+        .info-header-action:disabled {
+            opacity: 0.4;
+            cursor: default;
+            pointer-events: none;
+        }
+
         .info-header-action.apply {
             color: #fff;
             background: #16a34a;
@@ -337,6 +343,20 @@
                 <sl-icon name="circle-half" style="color: #9ca3af; font-size: 13px; flex-shrink: 0;"></sl-icon>
                 <input type="range" id="opacity-slider" min="0" max="100" value="100" class="flex-1">
                 <span id="opacity-value" class="text-xs text-gray-400 flex-shrink-0" style="width: 2.25rem; text-align: right;">100%</span>
+            </div>
+
+            <div class="edit-mode mt-2">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Layer Order</span>
+                    <button class="info-header-action" id="move-up-btn" title="Move this layer up the map stack">
+                        <sl-icon name="arrow-up"></sl-icon>
+                        <span>Move Up</span>
+                    </button>
+                    <button class="info-header-action" id="move-down-btn" title="Move this layer down the map stack">
+                        <sl-icon name="arrow-down"></sl-icon>
+                        <span>Move Down</span>
+                    </button>
+                </div>
             </div>
 
             <div class="flex items-center gap-1.5 mt-2 flex-wrap">
@@ -591,6 +611,8 @@
             $('#compare-layer-btn').on('click', toggleCompare);
             $('#mask-layer-btn').on('click', toggleMask);
             $('#isolate-layer-btn').on('click', toggleIsolate);
+            $('#move-up-btn').on('click', () => moveLayer(-1));
+            $('#move-down-btn').on('click', () => moveLayer(1));
             window.addEventListener('pagehide', releaseIsolation);
             $('#opacity-slider').on('input', handleOpacitySliderInput);
             $('#zoom-to-feature-btn').on('click', zoomToFeature);
@@ -886,6 +908,64 @@
             $btn.find('span').text(active ? 'Hiding Other Maps' : 'Hide Other Maps');
         }
 
+        /**
+         * The layer's section of the map stack (overlays and basemaps are
+         * separate orders), in the same visual order layer-stack-strip.js lists
+         * them, read straight off the parent's layer control.
+         */
+        function getOrderContext() {
+            if (window.self === window.top || !currentLayer || !LayerOrderManager) return null;
+            const parent = window.parent;
+            const groups = parent?.layerControl?._state?.groups;
+            const urlManager = parent?.urlManager;
+            if (!groups || !urlManager) return null;
+
+            const visible = [];
+            groups.forEach((group, index) => {
+                if (group.id === 'selection' || !urlManager.isGroupActive(index)) return;
+                const registryLayer = parent.layerRegistry?.getLayer?.(group.id);
+                visible.push(registryLayer ? { ...registryLayer, ...group } : group);
+            });
+
+            const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(
+                LayerOrderManager.mapOrderToUrlOrder(visible)
+            );
+            const layerId = originalLayerId || currentLayer.id;
+            const isBasemap = LayerOrderManager.isBasemap(currentLayer);
+            const ids = (isBasemap ? basemaps : overlays).map(l => l.id);
+            return {
+                overlayIds: overlays.map(l => l.id),
+                basemapIds: basemaps.map(l => l.id),
+                ids,
+                isBasemap,
+                index: ids.indexOf(layerId)
+            };
+        }
+
+        function updateOrderButtons() {
+            const ctx = getOrderContext();
+            const known = !!ctx && ctx.index !== -1;
+            $('#move-up-btn').prop('disabled', !known || ctx.index === 0);
+            $('#move-down-btn').prop('disabled', !known || ctx.index === ctx.ids.length - 1);
+        }
+
+        function moveLayer(delta) {
+            const ctx = getOrderContext();
+            if (!ctx || ctx.index === -1) return;
+            const to = ctx.index + delta;
+            if (to < 0 || to >= ctx.ids.length) return;
+
+            const ids = [...ctx.ids];
+            ids.splice(to, 0, ids.splice(ctx.index, 1)[0]);
+            window.parent.postMessage({
+                type: 'reorder-layers',
+                overlayOrder: ctx.isBasemap ? ctx.overlayIds : ids,
+                basemapOrder: ctx.isBasemap ? ids : ctx.basemapIds
+            }, '*');
+
+            setTimeout(updateOrderButtons, 150);
+        }
+
         function toggleEditMode() {
             if (!isEditing) {
                 enterEditMode();
@@ -906,6 +986,7 @@
                 .addClass('apply');
             $('#config-content').attr('contenteditable', 'true').addClass('editable');
             setupEditMode();
+            updateOrderButtons();
         }
 
         /**

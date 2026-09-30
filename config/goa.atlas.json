@@ -1640,7 +1640,7 @@
         "3.Coastal Zone Plans",
         "CZMP 2019 (Draft)"
       ],
-      "title": "Draft Goa CZMP 2019 Khazan Bunds",
+      "title": "Khazan Bunds",
       "description": "Khazan bunds priort to 1991 from Goa WRD. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a>",
       "type": "vector",
       "id": "2019-czmp-bunds",
@@ -1848,7 +1848,7 @@
         "CZMP 2019 (Draft)"
       ],
       "id": "2019-czmp-khazan",
-      "title": "Draft Goa CZMP 2019 Khazan Lands",
+      "title": "Khazan Lands",
       "description": "Khazan lands from Goa WRD. <br><b>Note:</b> Not yet verified against certified <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>maps by the Department of Water Resources</a> and <a href='https://drive.google.com/drive/folders/1_X_7oUZZ7o7MGu32_Koce1PU9AbfUGXt?usp=sharing'>lists by the Department of Agriculture</a> , Government of Goa - Collected via RTI by <a href='https://goafoundation.org/'>Goa Foundation</a> <br><small>The ground truthing of the Marginal bunds, sluice gates and the defended Khazan lands was carried out by the Water Resources Department, along with the Members of Bio Diversity, Surveyors of DSLR. Soil Conservation Engineers of the Agriculture department, Forest officials.</p><p>It is further certified that the ground truthing is carried with details enumerated on the Toposheets published by the Survey of India in the year 1964, Cadastral village maps published by the land survey department in the year 1972-76. The Khazan land, bunds sluice gates mapped by the village Panchayat were also used utilised for identification and ground truthing. Thus, the Bunds/Sluice gates and Khazan Lands shown in this map are verified and it is certified that the Bunds and Sluice gates shown in this map exist now and were constructed in the past, prior to the date of notification issued vide S. O. 114(E) dated 19th February 1999.</small>",
       "type": "vector",
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=c2f4f183-2526-4cbd-bc8b-985928a84222",
@@ -3055,7 +3055,7 @@
         "3.Coastal Zone Plans",
         "CZMP 2019 (Draft)"
       ],
-      "title": "Draft Goa CZMP 2019 Coastal Landuse Map (1:25K)",
+      "title": "CZMP 2019 (Draft) Coastal Landuse Map Of Goa (1:25K)",
       "headerImage": "assets/map-layers/goa/czmp.jpg",
       "legendImage": "assets/map-layers/goa/2019-czmp-coastal-landuse-legend.png",
       "description": "Draft Goa Coastal Zone Management Plan 2019 showing existing coastal landuse prepared by the National Centre for Earth Science Studies at 1:25000 scale per <a href='https://environmentclearance.nic.in/writereaddata/CRZ_Notifications/CRZ_Notification_2019/0.pdf'>CRZ 2019 Notification</a>. Read the <a href='https://drive.google.com/drive/folders/1PinhVq3BLJl4FOAePXjdBdaC1f-nNAqG'>Draft CZMP Report</a> for more details.",
@@ -3086,7 +3086,7 @@
         "3.Coastal Zone Plans",
         "CZMP 2019 (Draft)"
       ],
-      "title": "Draft Goa CZMP 2019 (1:4K)",
+      "title": "CZMP 2019 (Draft) Map Of Goa(1:4K)",
       "headerImage": "assets/map-layers/goa/czmp.jpg",
       "legendImage": "assets/map-layers/goa/2019-czmp-legend.png",
       "description": "Draft Goa Coastal Zone Management Plan 2019 prepared by the National Centre for Earth Science Studies at 1:4000 scale per <a href='https://environmentclearance.nic.in/writereaddata/CRZ_Notifications/CRZ_Notification_2019/0.pdf'>CRZ 2019 Notification</a>. Read the <a href='https://drive.google.com/drive/folders/1PinhVq3BLJl4FOAePXjdBdaC1f-nNAqG'>Draft CZMP Report</a> for more details.",

@@ -866,6 +866,24 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
+     * Whether a layer has anything rendered in the current viewport. Raster
+     * layers and layers with no matching style layer can't be told apart from
+     * "not loaded yet", so they report true rather than flag a false negative.
+     * @param {Object} layerConfig - Layer configuration object with id, type, etc.
+     * @returns {boolean}
+     */
+    hasRenderedFeatures(layerConfig) {
+        if (!this._mapboxAPI || this._isRasterLayer(layerConfig)) return true;
+        const ids = this._getMatchingLayerIds(layerConfig).filter(id => this._map.getLayer(id));
+        if (!ids.length) return true;
+        try {
+            return this._map.queryRenderedFeatures({ layers: ids }).length > 0;
+        } catch (error) {
+            return true;
+        }
+    }
+
+    /**
      * Get features at the center of the map canvas
      * @returns {Array} Array of {feature, layerId} objects
      */

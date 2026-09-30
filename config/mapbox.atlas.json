@@ -116,6 +116,17 @@
       "initiallyChecked": true
     },
     {
+      "id": "standard",
+      "tags": [
+        "basemap"
+      ],
+      "title": "Mapbox Standard",
+      "description": "Administrative boundary lines (admin-0/1/2) from Mapbox. See <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-streets-v8/#admin' target='_blank'>Mapbox Streets v8 Docs</a> for details.",
+      "type": "style",
+      "attribution": "<a href='https://www.mapbox.com/boundaries'>© Mapbox Boundaries</a>",
+      "url": "mapbox://styles/mapbox/standard"
+    },
+    {
       "initiallyChecked": true,
       "id": "streets",
       "tags": [
@@ -753,7 +764,7 @@
         "satellite"
       ],
       "type": "tms",
-      "title": "Satellite Imagery",
+      "title": "Mapbox Satellite",
       "description": "Satellite imagery from Mapbox. See <a href='https://docs.mapbox.com/help/dive-deeper/imagery/'>Mapbox Satellite Imagery</a> for details.",
       "headerImage": "assets/map-layers/mapbox/map-layer-satellite.png",
       "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",

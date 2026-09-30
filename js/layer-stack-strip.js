@@ -1,7 +1,8 @@
 /**
  * LayerStackStrip - the vertical control column at the top-left of the map:
- * the map control bar that toggles the map browser,
- * followed by one thumbnail per layer currently visible on the map.
+ * the map control bar that toggles the map browser, whose "Loaded N Maps"
+ * summary reveals and edits this strip - one thumbnail per layer currently
+ * visible on the map.
  *
  * The toggle is fixed and built once at mount; only the layer thumbnails are
  * rebuilt by render(), so the button keeps its identity and open/closed state
@@ -12,16 +13,16 @@
  * (first = on top), so only the overlay/basemap split is applied - overlays
  * first, then basemaps - and the strip is painted top-to-bottom in that order.
  *
- * The column ends with an always-visible options button, that opens the
- * map/selection shortcuts shared with the long-press menu (see
- * LayerStackOptionsMenu), followed by an import and an export button that
- * are only revealed while the pointer is over the strip.
+ * The column ends with three always-visible action rows: "More Options", which
+ * opens the map/selection shortcuts shared with the long-press menu (see
+ * LayerStackOptionsMenu), then "Import Map" and "Export Map".
  *
  * Each thumbnail is a LayerThumbnail, so clicking one opens that layer's info
  * panel (or zooms to it when it's out of view) exactly like the thumbnails in
- * map-browser.html. Hovering a thumbnail reveals a flyout with the layer name,
- * its atlas and shortcut actions; hovering the name itself isolates that layer
- * through MapLayerControl's shared LayerIsolationManager.
+ * map-browser.html. Hovering a row isolates that layer through
+ * MapLayerControl's shared LayerIsolationManager and reveals the layer's details
+ * (name, atlas, shortcut actions, opacity) in a panel that opens over the rest
+ * of its own row, inside the strip.
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
 import { LayerOrderManager } from './layer-order-manager.js';
@@ -29,6 +30,7 @@ import { LayerStackOptionsMenu } from './layer-stack-options-menu.js';
 import { MapControlBar } from './map-control-bar.js';
 
 const THUMB_SIZE = 36;
+const HOVER_EXPAND_DELAY = 500;
 
 export class LayerStackStrip {
     constructor() {
@@ -44,13 +46,29 @@ export class LayerStackStrip {
         this._optionsItem = null;
         this._optionsMenu = null;
         this._reordering = false;
-        this._editButton = null;
         this._hideTimer = null;
+        this._expandTimer = null;
+        this._expandedByHover = false;
+        this._showHidden = false;
+        this._zoomState = null;
         this._map = null;
         this._controlBar = null;
         this._onDataLoading = () => this._controlBar?.setLoading(true);
-        this._onMapIdle = () => this._controlBar?.setLoading(!!window.layerControl?._loadingLayerIds?.size);
+        this._noFeatureIds = new Set();
+        this._onMapIdle = () => {
+            this._controlBar?.setLoading(!!window.layerControl?._loadingLayerIds?.size);
+            if (this._updateFeatureVisibility()) this.render();
+        };
         this._onMapClick = () => this._setReordering(false);
+        // Only a user-driven move collapses the strip: a programmatic one (the
+        // strip's own Zoom action, say) has no originalEvent.
+        this._onMapMoveStart = (e) => {
+            if (!e?.originalEvent) return;
+            // Moving the map after a layer zoom makes "Reset" meaningless: the
+            // next click zooms again instead.
+            this._zoomState = null;
+            this._collapse();
+        };
         // Debounced: window.urlManager's active-layers state updates on its own
         // 300ms debounce (see CLAUDE.md), so reading it synchronously on
         // 'layer-toggled' would render from stale state.
@@ -85,18 +103,42 @@ export class LayerStackStrip {
                 e.clientY < rect.top || e.clientY > rect.bottom;
             if (outside) this._clearDropIndicators();
         });
-        // Flyouts are fixed-positioned from the hovered row because the strip
-        // scrolls when it is taller than the map, which would clip an absolute one.
-        this._el.addEventListener('mouseover', (e) => this._positionLabel(e.target));
         this._el.addEventListener('mouseenter', () => clearTimeout(this._hideTimer));
         this._el.addEventListener('mouseleave', () => this._scheduleHide());
         hostEl.appendChild(this._el);
 
-        this._mountEditButton();
         this._controlBar = new MapControlBar();
-        this._controlBar.mount(hostEl, { triggerButton: browserButton, editButton: this._editButton });
+        this._controlBar.mount(hostEl, {
+            triggerButton: browserButton,
+            onSummaryClick: () => {
+                clearTimeout(this._expandTimer);
+                // A click right after the hover expanded the strip confirms it
+                // rather than toggling it straight back off.
+                if (this._expandedByHover) {
+                    this._expandedByHover = false;
+                    return;
+                }
+                this._setReordering(!this._reordering);
+            },
+            onSummaryEnter: () => {
+                this._reveal();
+                if (this._updateFeatureVisibility()) this.render();
+                clearTimeout(this._expandTimer);
+                if (!this._reordering) {
+                    this._expandTimer = setTimeout(() => {
+                        this._expandedByHover = true;
+                        this._setReordering(true);
+                    }, HOVER_EXPAND_DELAY);
+                }
+            },
+            onSummaryLeave: () => {
+                clearTimeout(this._expandTimer);
+                this._scheduleHide();
+            }
+        });
         map?.on?.('dataloading', this._onDataLoading);
         map?.on?.('idle', this._onMapIdle);
+        map?.on?.('movestart', this._onMapMoveStart);
         this._controlBar.setLoading(true);
         this._controlBar.update(window.layersInitialized ? this._getVisibleLayers() : null);
 
@@ -116,25 +158,6 @@ export class LayerStackStrip {
 
         // The event may already have fired by the time this mounts.
         if (window.layersInitialized) this._onChange();
-    }
-
-    _positionLabel(target) {
-        const item = target.closest?.('.layer-stack-item');
-        const label = item?.querySelector(':scope > .layer-stack-label');
-        if (!label) return;
-        const cell = item.querySelector(':scope > .layer-thumbnail') || item.querySelector(':scope > .layer-stack-cell') || item;
-        const rect = cell.getBoundingClientRect();
-        label.style.left = `${rect.right}px`;
-        label.style.top = `${rect.top}px`;
-        // A transformed ancestor would make `fixed` resolve against it instead of
-        // the viewport, so correct by however far the label actually landed.
-        const placed = label.getBoundingClientRect();
-        const dx = placed.left - rect.right;
-        const dy = placed.top - rect.top;
-        if (dx || dy) {
-            label.style.left = `${rect.right - dx}px`;
-            label.style.top = `${rect.top - dy}px`;
-        }
     }
 
     setVisible(visible) {
@@ -177,11 +200,12 @@ export class LayerStackStrip {
         window.removeEventListener('mask-changed', this._onChange);
         clearTimeout(this._refreshTimer);
         clearTimeout(this._reorderTimer);
+        clearTimeout(this._expandTimer);
         (this._map || window.map)?.off?.('click', this._onMapClick);
         this._map?.off?.('dataloading', this._onDataLoading);
         this._map?.off?.('idle', this._onMapIdle);
+        this._map?.off?.('movestart', this._onMapMoveStart);
         this._reordering = false;
-        this._editButton = null;
         clearTimeout(this._hideTimer);
         this._clearIsolation({ immediate: true });
         this._optionsMenu?.unmount();
@@ -213,18 +237,20 @@ export class LayerStackStrip {
         }
         this._pendingRender = false;
 
-        const layers = this._getVisibleLayers();
-        this._controlBar?.update(layers);
+        const allLayers = this._getVisibleLayers();
+        this._controlBar?.update(allLayers);
+        const layers = this._showHidden ? allLayers : allLayers.filter(l => !this._noFeatureIds.has(l.id));
+        const hiddenCount = allLayers.length - layers.length;
         const comparedId = this._getComparedLayerId();
         const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
-        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${comparedId}|mask:${maskedId}|reorder:${this._reordering}`;
+        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${comparedId}|mask:${maskedId}|reorder:${this._reordering}|zoom:${this._zoomState?.layerId}|hidden:${hiddenCount}|empty:${[...this._noFeatureIds].join(',')}`;
         if (!force && signature === this._signature) return;
         this._signature = signature;
 
         // Layer items sit alongside the fixed toggle, so replace only the ones
         // this method owns.
-        this._el.querySelectorAll('[data-layer-item]').forEach(el => el.remove());
+        this._el.querySelectorAll('[data-layer-item], .layer-stack-show-hidden').forEach(el => el.remove());
 
         // Reordering happens within a section, so each row needs its position in
         // its own list to know whether it can still move up or down.
@@ -242,48 +268,23 @@ export class LayerStackStrip {
             });
         });
 
+        if (hiddenCount) this._el.appendChild(this._createShowHiddenItem(hiddenCount));
+
         // The options, import and export controls belong at the foot of the
-        // column, and the layer rows were just appended after them. Options
-        // is always visible; import/export only reveal on hover (see the CSS).
+        // column, and the layer rows were just appended after them.
         if (this._optionsItem) this._el.appendChild(this._optionsItem);
         if (this._importItem) this._el.appendChild(this._importItem);
         if (this._exportItem) this._el.appendChild(this._exportItem);
-    }
 
-    /**
-     * Move a layer one place up or down its own section of the stack, using the
-     * same `reorder-layers` message (and so the same code path) as this strip's
-     * own drag-to-reorder below. Sections are independent lists in that protocol:
-     * an overlay cannot be dragged into the basemaps there either.
-     *
-     * @param {number} delta -1 to move up (towards the top of the map stack), +1 down
-     */
-    _moveLayer(layer, delta) {
-        const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(this._getVisibleLayers());
-        const isBasemap = LayerOrderManager.isBasemap(layer);
-        const ids = (isBasemap ? basemaps : overlays).map(l => l.id);
-
-        const from = ids.indexOf(layer.id);
-        const to = from + delta;
-        if (from === -1 || to < 0 || to >= ids.length) return;
-
-        ids.splice(to, 0, ids.splice(from, 1)[0]);
-
-        this._post({
-            type: 'reorder-layers',
-            overlayOrder: isBasemap ? overlays.map(l => l.id) : ids,
-            basemapOrder: isBasemap ? ids : basemaps.map(l => l.id)
-        });
-
-        this._scheduleReorderRepaint();
+        this._syncBarWidth();
     }
 
     /**
      * postMessage is async and the handler rewrites layerControl._state.groups,
      * which is what _getVisibleLayers reads - repaint just after it lands so the
-     * rounding, the basemap rule and the arrows' disabled states all follow the
-     * new order. The isolation is dropped first because the rebuild replaces the
-     * row under the cursor; the fresh row's own mouseenter re-applies it.
+     * rounding and the basemap rule follow the new order. The isolation is
+     * dropped first because the rebuild replaces the row under the cursor;
+     * the fresh row's own mouseenter re-applies it.
      */
     _scheduleReorderRepaint() {
         clearTimeout(this._reorderTimer);
@@ -299,43 +300,87 @@ export class LayerStackStrip {
         this._el.parentNode.appendChild(browserButton);
     }
 
-    _mountEditButton() {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'layer-stack-edit-btn';
-        button.title = 'Edit Layers';
-        button.setAttribute('aria-label', 'Edit Layers');
-        button.innerHTML = '<sl-icon name="sliders"></sl-icon>';
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._setReordering(!this._reordering);
-        });
-        button.addEventListener('pointerenter', () => this._reveal());
-        button.addEventListener('pointerleave', () => this._scheduleHide());
-        button.addEventListener('focus', () => this._reveal());
-        button.addEventListener('blur', () => this._scheduleHide());
-        this._editButton = button;
-    }
-
     _reveal() {
         clearTimeout(this._hideTimer);
         this._el?.classList.add('revealed');
+        this._syncBarWidth();
+    }
+
+    /**
+     * The strip grows to fit its longest layer name, so the bar above it is
+     * widened to match while it is open and the two stay one flush block.
+     */
+    _syncBarWidth() {
+        if (!this._el || !this._controlBar) return;
+        this._controlBar.setMinWidth(0);
+        if (this._el.classList.contains('revealed')) {
+            this._controlBar.setMinWidth(this._el.offsetWidth);
+        }
     }
 
     _scheduleHide() {
         clearTimeout(this._hideTimer);
         this._hideTimer = setTimeout(() => {
             if (!this._el || this._reordering || this._draggedItem) return;
-            if (this._el.matches(':hover') || this._editButton?.matches(':hover, :focus-visible')) return;
+            if (this._el.matches(':hover') || this._controlBar?.summaryEl?.matches(':hover, :focus-visible')) return;
             if (this._el.classList.contains('options-open')) return;
             this._el.classList.remove('revealed');
+            this._controlBar?.setMinWidth(0);
+            this._resetShowHidden();
         }, 200);
+    }
+
+    _collapse() {
+        if (!this._el) return;
+        clearTimeout(this._expandTimer);
+        clearTimeout(this._hideTimer);
+        this._setReordering(false);
+        this._clearIsolation({ immediate: true });
+        this._el.classList.remove('revealed');
+        this._controlBar?.setMinWidth(0);
+        this._resetShowHidden();
+    }
+
+    /**
+     * Zoom doubles as its own undo: the first click remembers the current view
+     * and zooms to the layer, a second click with no map movement since flies
+     * back. Any user-driven move in between drops the remembered view (see
+     * _onMapMoveStart), so the next click is a fresh zoom.
+     */
+    _toggleLayerZoom(layer) {
+        const map = this._map || window.map;
+        if (!map) return;
+
+        const state = this._zoomState;
+        if (state && state.layerId === layer.id) {
+            this._zoomState = null;
+            map.flyTo(state.view);
+        } else {
+            this._zoomState = {
+                layerId: layer.id,
+                view: {
+                    center: map.getCenter().toArray(),
+                    zoom: map.getZoom(),
+                    bearing: map.getBearing(),
+                    pitch: map.getPitch()
+                }
+            };
+            this._post({ type: 'zoom-to-layer', layerId: layer.id });
+        }
+        this._scheduleReorderRepaint();
+    }
+
+    _resetShowHidden() {
+        if (!this._showHidden) return;
+        this._showHidden = false;
+        this.render();
     }
 
     _setReordering(on) {
         if (on === this._reordering) return;
         this._reordering = on;
-        this._editButton?.classList.toggle('active', on);
+        if (!on) this._expandedByHover = false;
+        this._controlBar?.setSummaryActive(on);
         const map = this._map || window.map;
         map?.[on ? 'on' : 'off']?.('click', this._onMapClick);
         this._clearIsolation({ immediate: true });
@@ -345,108 +390,108 @@ export class LayerStackStrip {
     }
 
     /**
-     * The import trigger, mounted right after the options control and before
-     * export - both hover-revealed (see the CSS), unlike the always-visible
-     * options button. Opens map-creator.html the same way the long-press
-     * shortcut menu's "Import Map" entry does (see shortcut-menu-base.js):
-     * the browser overlay has to be open for its iframe to be visible at all,
-     * so this opens it first if needed before switching that iframe to the
-     * creator.
+     * A full-width action row at the foot of the column: an icon cell and a
+     * label, acting as one button. The whole row is the click (and hover)
+     * target, not just the icon.
      */
-    _mountImportItem() {
+    _createActionItem({ className, buttonClass, icon, iconHover = null, label, title, onClick }) {
         const item = document.createElement('div');
-        item.className = 'layer-stack-item layer-stack-control layer-stack-import';
+        item.className = `layer-stack-item layer-stack-control ${className}`;
+        item.title = title;
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'layer-stack-cell layer-stack-import-btn';
-        button.title = 'Import map';
-        button.setAttribute('aria-label', 'Import map');
-        const icon = document.createElement('sl-icon');
-        icon.name = 'plus-circle';
-        button.appendChild(icon);
-        button.addEventListener('mouseenter', () => icon.setAttribute('name', 'plus-circle-fill'));
-        button.addEventListener('mouseleave', () => icon.setAttribute('name', 'plus-circle'));
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (!window.browserControl?._isOpen) window.browserControl?.openBrowser();
-            window.browserControl?._switchToCreator();
-        });
-
+        button.className = `layer-stack-cell ${buttonClass}`;
+        button.setAttribute('aria-label', title);
+        button.tabIndex = -1;
+        const iconEl = document.createElement('sl-icon');
+        iconEl.name = icon;
+        button.appendChild(iconEl);
         item.appendChild(button);
-        item.appendChild(this._createFooterLabel('Import Map'));
+
+        const text = document.createElement('div');
+        text.className = 'layer-stack-row-text';
+        const name = document.createElement('div');
+        name.className = 'layer-stack-row-name';
+        name.textContent = label;
+        text.appendChild(name);
+        item.appendChild(text);
+
+        if (iconHover) {
+            item.addEventListener('mouseenter', () => iconEl.setAttribute('name', iconHover));
+            item.addEventListener('mouseleave', () => iconEl.setAttribute('name', icon));
+        }
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onClick();
+        });
+        return item;
+    }
+
+    /**
+     * The import row, after the options row and before export. Opens
+     * map-creator.html the same way the long-press shortcut menu's "Import Map"
+     * entry does (see shortcut-menu-base.js): the browser overlay has to be open
+     * for its iframe to be visible at all, so this opens it first if needed
+     * before switching that iframe to the creator.
+     */
+    _mountImportItem() {
+        const item = this._createActionItem({
+            className: 'layer-stack-import',
+            buttonClass: 'layer-stack-import-btn',
+            icon: 'plus-circle',
+            iconHover: 'plus-circle-fill',
+            label: 'Import Map',
+            title: 'Import map',
+            onClick: () => {
+                if (!window.browserControl?._isOpen) window.browserControl?.openBrowser();
+                window.browserControl?._switchToCreator();
+            }
+        });
         this._el.appendChild(item);
         this._importItem = item;
     }
 
     /**
-     * The export trigger, mounted last, after import - both hover-revealed
-     * (see the CSS). MapExportControl isn't mounted as a map control (see
-     * map-init.js) - its own message listener already handles 'toggle-export',
-     * so this button just posts that rather than reaching into the control
-     * directly.
+     * The export row, mounted last. MapExportControl isn't mounted as a map
+     * control (see map-init.js) - its own message listener already handles
+     * 'toggle-export', so this row just posts that rather than reaching into
+     * the control directly.
      */
     _mountExportItem() {
-        const item = document.createElement('div');
-        item.className = 'layer-stack-item layer-stack-control layer-stack-export';
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'layer-stack-cell layer-stack-export-btn';
-        button.title = 'Export map';
-        button.setAttribute('aria-label', 'Export map');
-        button.innerHTML = '<sl-icon name="download"></sl-icon>';
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._post({ type: 'toggle-export' });
+        const item = this._createActionItem({
+            className: 'layer-stack-export',
+            buttonClass: 'layer-stack-export-btn',
+            icon: 'download',
+            label: 'Export Map',
+            title: 'Export map',
+            onClick: () => this._post({ type: 'toggle-export' })
         });
-
-        item.appendChild(button);
-        item.appendChild(this._createFooterLabel('Export Map'));
         this._el.appendChild(item);
         this._exportItem = item;
     }
 
-    /** Plain hover flyout (no atlas/shortcut-action row) for a footer control. */
-    _createFooterLabel(text) {
-        const label = document.createElement('div');
-        label.className = 'layer-stack-label';
-        const titleEl = document.createElement('div');
-        titleEl.className = 'layer-stack-label-title';
-        titleEl.textContent = text;
-        label.appendChild(titleEl);
-        return label;
-    }
-
     /**
-     * The first fixed control at the foot of the stack, always visible
-     * (unlike the import/export buttons below it), opening the shared
-     * shortcut actions. No flyout label - the menu opens into that same
-     * space beside the column.
+     * The first fixed row at the foot of the stack, opening the shared shortcut
+     * actions. The menu opens into the space beside the column, anchored to the
+     * whole row.
      */
     _mountOptionsItem(map) {
-        const item = document.createElement('div');
-        item.className = 'layer-stack-item layer-stack-control layer-stack-options';
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'layer-stack-cell layer-stack-options-btn';
-        button.title = 'Map and selection options';
-        button.setAttribute('aria-label', 'Map and selection options');
-        button.innerHTML = '<sl-icon name="three-dots"></sl-icon>';
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._optionsMenu?.toggle();
+        const item = this._createActionItem({
+            className: 'layer-stack-options',
+            buttonClass: 'layer-stack-options-btn',
+            icon: 'three-dots',
+            label: 'More Options',
+            title: 'Map and selection options',
+            onClick: () => this._optionsMenu?.toggle()
         });
-
-        item.appendChild(button);
         this._el.appendChild(item);
         this._optionsItem = item;
 
         this._optionsMenu = new LayerStackOptionsMenu({
             onVisibilityChange: (open) => this._el?.classList.toggle('options-open', open)
         });
-        this._optionsMenu.mount(map || window.map, button);
+        this._optionsMenu.mount(map || window.map, item);
     }
 
     /**
@@ -473,17 +518,34 @@ export class LayerStackStrip {
         return LayerOrderManager.mapOrderToUrlOrder(visible);
     }
 
+    _updateFeatureVisibility() {
+        const stateManager = window.stateManager;
+        if (!stateManager?.hasRenderedFeatures || !window.layersInitialized) return false;
+        if (!this._reordering && !this._el?.classList.contains('revealed')) return false;
+        const next = new Set(
+            this._getVisibleLayers()
+                .filter(layer => !stateManager.hasRenderedFeatures(layer))
+                .map(layer => layer.id)
+        );
+        const changed = next.size !== this._noFeatureIds.size || [...next].some(id => !this._noFeatureIds.has(id));
+        this._noFeatureIds = next;
+        return changed;
+    }
+
     _createItem(layer, position = { index: 0, total: 1, comparedId: null, maskedId: null }) {
         const item = document.createElement('div');
         item.className = 'layer-stack-item';
         item.dataset.layerItem = 'true';
         item.dataset.layerId = layer.id;
         item.dataset.basemap = String(LayerOrderManager.isBasemap(layer));
+        const noFeatures = this._noFeatureIds.has(layer.id);
+        if (noFeatures) item.classList.add('layer-stack-empty');
 
         const title = layer.title || layer.id;
         const atlasName = this._getAtlasName(layer);
 
         const thumbnail = LayerThumbnail.generate(layer, THUMB_SIZE, {
+            hasFeatures: !this._noFeatureIds.has(layer.id),
             layerDefaults: window.layerControl?._defaultStyles || {}
         });
         thumbnail.classList.add('layer-stack-cell');
@@ -515,8 +577,10 @@ export class LayerStackStrip {
             item.appendChild(spinner);
         }
 
-        // Flyout: the layer name (opens map-information.html), then the atlas name
-        // followed by shortcut actions for the layer.
+        item.appendChild(this._createRowText(layer, title, atlasName));
+
+        // Hover panel: the layer name (opens map-information.html), then the atlas
+        // name followed by shortcut actions for the layer. It opens over the row text.
         const label = document.createElement('div');
         label.className = 'layer-stack-label';
 
@@ -525,61 +589,130 @@ export class LayerStackStrip {
         titleBtn.className = 'layer-stack-label-title';
         titleBtn.textContent = title;
         titleBtn.title = `Open details for ${title}`;
-        titleBtn.addEventListener('click', (e) => {
+        const head = document.createElement('div');
+        head.className = 'layer-stack-label-head';
+        head.appendChild(titleBtn);
+        head.appendChild(this._createInfoIcon());
+        head.title = `Open details for ${title}`;
+        head.addEventListener('mouseenter', () => head.querySelector('sl-icon').setAttribute('name', 'info-circle-fill'));
+        head.addEventListener('mouseleave', () => head.querySelector('sl-icon').setAttribute('name', 'info-circle'));
+        head.addEventListener('click', (e) => {
             e.stopPropagation();
             this._post({ type: 'open-layer-info', layer: this._serializable(layer) });
         });
-        label.appendChild(titleBtn);
+        label.appendChild(head);
 
         const meta = document.createElement('div');
         meta.className = 'layer-stack-label-meta';
 
-        if (atlasName) {
-            const atlasEl = document.createElement('span');
-            atlasEl.className = 'layer-stack-label-atlas';
-            atlasEl.textContent = atlasName;
-            meta.appendChild(atlasEl);
-        }
-
-        // Reorder within this layer's own section: up = towards the top of the
-        // map stack (first in the URL), matching the strip's paint order.
-        meta.appendChild(this._createLabelAction('arrow-up', '', `Move ${title} up`, () => {
-            this._moveLayer(layer, -1);
-        }, '', position.index === 0));
-        meta.appendChild(this._createLabelAction('arrow-down', '', `Move ${title} down`, () => {
-            this._moveLayer(layer, 1);
-        }, '', position.index === position.total - 1));
+        meta.appendChild(this._createLabelAction('pencil', 'Edit', `Edit ${title}`, () => {
+            this._post({ type: 'open-layer-info', layer: this._serializable(layer), edit: true });
+        }));
         meta.appendChild(this._createLabelSeparator());
 
-        meta.appendChild(this._createLabelAction('zoom-in', 'Zoom', `Zoom to ${title}`, () => {
-            this._post({ type: 'zoom-to-layer', layerId: layer.id });
-        }));
+        const zoomed = this._zoomState?.layerId === layer.id;
+        meta.appendChild(zoomed
+            ? this._createLabelAction('arrow-counterclockwise', 'Reset', `Return to the view before zooming to ${title}`, () => this._toggleLayerZoom(layer))
+            : this._createLabelAction('zoom-in', 'Zoom', `Zoom to ${title}`, () => this._toggleLayerZoom(layer)));
         meta.appendChild(this._createLabelSeparator());
         meta.appendChild(this._createLabelAction('trash', 'Remove', `Remove ${title} from the map`, () => {
             this._post({ type: 'remove-layer', layerId: layer.id });
         }, 'layer-stack-label-action-danger'));
 
         label.appendChild(meta);
-        label.appendChild(this._createOpacitySlider(layer, title, item));
+        label.appendChild(noFeatures
+            ? this._createNoDataNote()
+            : this._createOpacitySlider(layer, title, item));
         item.appendChild(label);
 
-        // Isolation is bound to the name alone, not the whole row: hovering the
-        // thumbnail only opens the flyout, and the map is left as it is until the
-        // pointer reaches the name. Same effect the feature control's marker
-        // badges apply - only this layer and the other section (overlay vs
-        // basemap) stay visible.
+        // Hovering anywhere on the row (thumbnail, text or hover panel) isolates the layer - same effect
+        // the feature control's marker badges apply: only this layer and the
+        // other section (overlay vs basemap) stay visible.
         const isBasemap = LayerOrderManager.isBasemap(layer);
         const isolate = () => this._isolate(layer.id, isBasemap);
         const clearIsolation = () => this._clearIsolation();
 
-        titleBtn.addEventListener('mouseenter', isolate);
-        titleBtn.addEventListener('mouseleave', clearIsolation);
+        item.addEventListener('mouseenter', isolate);
+        item.addEventListener('mouseleave', clearIsolation);
         titleBtn.addEventListener('focus', isolate);
         titleBtn.addEventListener('blur', clearIsolation);
 
         this._setupItemDrag(item);
 
         return item;
+    }
+
+    /**
+     * Last row of the list while maps with no data in view are filtered out:
+     * a red-diagonal cell that brings every active layer back, as listed
+     * without the filter. It lasts until the strip closes.
+     */
+    _createShowHiddenItem(count) {
+        const item = document.createElement('div');
+        item.className = 'layer-stack-item layer-stack-show-hidden layer-stack-empty';
+
+        const cell = document.createElement('div');
+        cell.className = 'layer-stack-cell layer-stack-show-hidden-cell';
+        cell.setAttribute('role', 'button');
+        cell.setAttribute('tabindex', '0');
+        cell.setAttribute('aria-label', `Show ${count} hidden ${count === 1 ? 'map' : 'maps'}`);
+        cell.appendChild(LayerThumbnail._generateNoFeaturesLine(THUMB_SIZE));
+        item.appendChild(cell);
+
+        const text = document.createElement('div');
+        text.className = 'layer-stack-row-text';
+        const name = document.createElement('div');
+        name.className = 'layer-stack-row-name';
+        name.textContent = `Show ${count} hidden ${count === 1 ? 'map' : 'maps'}`;
+        const meta = document.createElement('div');
+        meta.className = 'layer-stack-row-meta';
+        meta.textContent = 'with no features in current view';
+        text.append(name, meta);
+        item.appendChild(text);
+
+        const show = (e) => {
+            e.stopPropagation();
+            this._showHidden = true;
+            this.render({ force: true });
+        };
+        item.addEventListener('click', show);
+        cell.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                show(e);
+            }
+        });
+        return item;
+    }
+
+    /**
+     * The always-visible half of a row: the layer name over its atlas and tags.
+     * Clicking it opens the layer's info panel, like the name in the hover panel.
+     */
+    _createRowText(layer, title, atlasName) {
+        const text = document.createElement('div');
+        text.className = 'layer-stack-row-text';
+
+        const name = document.createElement('div');
+        name.className = 'layer-stack-row-name';
+        name.textContent = title;
+        text.appendChild(name);
+
+        const details = [atlasName, ...(Array.isArray(layer.tags) ? layer.tags : [])]
+            .filter(Boolean)
+            .slice(0, 4);
+        if (details.length) {
+            const meta = document.createElement('div');
+            meta.className = 'layer-stack-row-meta';
+            meta.textContent = details.join(' / ');
+            text.appendChild(meta);
+        }
+
+        text.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._post({ type: 'open-layer-info', layer: this._serializable(layer) });
+        });
+        return text;
     }
 
     /**
@@ -721,14 +854,43 @@ export class LayerStackStrip {
      * `reorder-layers` handler the arrows above use.
      */
     _commitDragOrder() {
-        const overlayOrder = [];
-        const basemapOrder = [];
+        const shownOverlays = [];
+        const shownBasemaps = [];
         this._el.querySelectorAll('[data-layer-item]').forEach(el => {
-            (el.dataset.basemap === 'true' ? basemapOrder : overlayOrder).push(el.dataset.layerId);
+            (el.dataset.basemap === 'true' ? shownBasemaps : shownOverlays).push(el.dataset.layerId);
         });
 
-        this._post({ type: 'reorder-layers', overlayOrder, basemapOrder });
+        // Layers filtered out of the strip keep their slots: only the rows on
+        // screen are reordered among themselves.
+        const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(this._getVisibleLayers());
+        const merge = (full, shown) => {
+            const onScreen = new Set(shown);
+            let next = 0;
+            return full.map(layer => (onScreen.has(layer.id) ? shown[next++] : layer.id));
+        };
+
+        this._post({
+            type: 'reorder-layers',
+            overlayOrder: merge(overlays, shownOverlays),
+            basemapOrder: merge(basemaps, shownBasemaps)
+        });
         this._scheduleReorderRepaint();
+    }
+
+    _createInfoIcon() {
+        const wrap = document.createElement('span');
+        wrap.className = 'layer-stack-label-info';
+        const icon = document.createElement('sl-icon');
+        icon.name = 'info-circle';
+        wrap.appendChild(icon);
+        return wrap;
+    }
+
+    _createNoDataNote() {
+        const note = document.createElement('div');
+        note.className = 'layer-stack-label-nodata';
+        note.textContent = 'No map data at this location';
+        return note;
     }
 
     _createOpacitySlider(layer, title, item) {
