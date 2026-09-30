@@ -8,7 +8,7 @@
     "params": {
       "renderer": "maplibre",
       "terrain": "1.5",
-      "lang": "en,hi",
+      "lang": "en",
       "geolocate": "true"
     },
     "brand": {

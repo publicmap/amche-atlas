@@ -59,10 +59,10 @@ export class LayerThumbnail {
                 container.style.backgroundPosition = 'center';
                 container.style.backgroundColor = '#e5e7eb';
             } else {
-                container.style.backgroundColor = '#f9fafb';
+                container.style.backgroundColor = 'transparent';
             }
         } else {
-            container.style.backgroundColor = '#f9fafb';
+            container.style.backgroundColor = 'transparent';
         }
 
         // Add grayscale filter for out-of-view layers
@@ -75,12 +75,38 @@ export class LayerThumbnail {
         if (layer.style || layer['icon-image'] || layer['circle-radius'] || layer['line-color'] || layer['fill-color']) {
             const overlay = this._generateSymbologyOverlay(layer, size, layerDefaults);
             if (overlay) {
+                overlay.style.transform = 'scale(0.75)';
+                overlay.style.transformOrigin = 'bottom left';
                 container.appendChild(overlay);
             }
         } else if (!thumbnailImage) {
             // No style and no background - show default
             const svg = this._generateDefaultThumbnail(layer, size);
             container.appendChild(svg);
+        }
+
+        const words = String(layer.title || layer.name || title || layer.id || '').trim().split(/\s+/).filter(Boolean);
+        const initial = words.length > 1
+            ? (words[0][0] + words[1][0]).toUpperCase()
+            : (words[0] || '').slice(0, 2).replace(/^./, c => c.toUpperCase());
+        if (initial) {
+            const initialLabel = document.createElement('div');
+            initialLabel.className = 'layer-initial';
+            initialLabel.style.cssText = `
+                position: absolute;
+                top: ${Math.max(1, Math.round(size * 0.06))}px;
+                left: ${Math.max(2, Math.round(size * 0.08))}px;
+                font-size: ${Math.max(8, Math.round(size * 0.32))}px;
+                font-weight: 300;
+                line-height: 1;
+                color: #fff;
+                text-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
+                opacity: 0.85;
+                pointer-events: none;
+                user-select: none;
+            `;
+            initialLabel.textContent = initial;
+            container.appendChild(initialLabel);
         }
 
         const typeBadge = this.getTypeBadge(layer.type);
