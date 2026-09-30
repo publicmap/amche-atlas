@@ -674,9 +674,12 @@
 
 .map-control-bar.searching .map-control-bar-search-slot {
     flex: 1;
+    order: -1;
+    gap: 8px;
 }
 
 .map-control-bar-search-btn {
+    flex-shrink: 0;
     width: 38px;
     height: 38px;
     display: flex;
@@ -691,11 +694,22 @@
     background: #ffffff1a !important;
 }
 
-.map-control-bar.searching .map-control-bar-search-btn {
+.map-browser-control .map-control-bar.searching .map-control-bar-search-btn:not(.map-control-bar-sources-btn) {
+    background: rgba(255, 255, 255, 0.22) !important;
+}
+
+.map-control-bar-sources {
     display: none;
+    order: 2;
+    flex-shrink: 0;
+}
+
+.map-control-bar.searching .map-control-bar-sources {
+    display: block;
 }
 
 .map-control-bar-search-slot #mapbox-search-box {
+    order: 1;
     width: 0;
     max-width: none;
     opacity: 0;
@@ -710,11 +724,20 @@
     pointer-events: auto;
 }
 
+.map-control-bar mapbox-search-box [class$='--SearchIcon'] {
+    display: none !important;
+}
+
+.map-control-bar mapbox-search-box input {
+    padding-left: 12px !important;
+}
+
 .map-control-bar mapbox-search-box::part(input) {
     height: 38px !important;
     min-height: 38px !important;
     background: rgba(255, 255, 255, 0.1) !important;
     border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    padding-left: 12px !important;
 }
 
 .layer-stack-browser-proxy {
