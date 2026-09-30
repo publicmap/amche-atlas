@@ -198,6 +198,17 @@
             border-color: #6d28d9;
         }
 
+        .info-header-action.isolating {
+            color: #fff;
+            background: #d97706;
+            border-color: #d97706;
+        }
+
+        .info-header-action.isolating:hover {
+            background: #b45309;
+            border-color: #b45309;
+        }
+
         .info-header-action.apply {
             color: #fff;
             background: #16a34a;
@@ -372,6 +383,10 @@
                     <span class="compare-icons"><sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right"></sl-icon></span>
                     <span>Compare</span>
                 </button>
+                <button class="info-header-action" id="isolate-layer-btn" title="Dim all other layers so only this one stands out">
+                    <sl-icon name="layers-half"></sl-icon>
+                    <span>Hide Other Maps</span>
+                </button>
                 <button class="info-header-action" id="mask-layer-btn" title="Mask the map to this layer's polygons">
                     <sl-icon name="mask"></sl-icon>
                     <span>Toggle Mask</span>
@@ -468,7 +483,7 @@
     </div>
 
     <script type="module">
-        let LayerThumbnail, LayerLegend, LAYER_SPECIFICATIONS, StylePropertyEditor, ZoomToParam;
+        let LayerThumbnail, LayerLegend, LAYER_SPECIFICATIONS, StylePropertyEditor, ZoomToParam, LayerOrderManager;
         let styleEditor = null;
         let currentLayer = null;
         // The layer exactly as this panel received it, and the id it had then.
@@ -489,6 +504,8 @@
         let isEditing = false;
         let hasChanges = false;
         let editModeRequested = false;
+        let isolateEnabled = true;
+        let isolatedLayerId = null;
 
         function maybeEnterEditMode() {
             if (editModeRequested && !isEditing) {
@@ -503,13 +520,15 @@
                     import('./js/layer-legend.js'),
                     import('./js/config-manager.js'),
                     import('./js/style-property-editor.js'),
-                    import('./js/zoom-to-param.js')
+                    import('./js/zoom-to-param.js'),
+                    import('./js/layer-order-manager.js')
                 ]);
                 LayerThumbnail = modules[0].LayerThumbnail;
                 LayerLegend = modules[1].LayerLegend;
                 LAYER_SPECIFICATIONS = modules[2].LAYER_SPECIFICATIONS;
                 StylePropertyEditor = modules[3].StylePropertyEditor;
                 ZoomToParam = modules[4].ZoomToParam;
+                LayerOrderManager = modules[5].LayerOrderManager;
                 console.log('[Layer Info] Modules loaded successfully');
                 if (currentLayer) {
                     renderLayerInfo(currentLayer);
@@ -571,6 +590,8 @@
             $('#remove-layer-btn').on('click', removeLayer);
             $('#compare-layer-btn').on('click', toggleCompare);
             $('#mask-layer-btn').on('click', toggleMask);
+            $('#isolate-layer-btn').on('click', toggleIsolate);
+            window.addEventListener('pagehide', releaseIsolation);
             $('#opacity-slider').on('input', handleOpacitySliderInput);
             $('#zoom-to-feature-btn').on('click', zoomToFeature);
             $('#zoom-to-layer-btn').on('click', zoomToLayer);
@@ -821,6 +842,48 @@
 
         function updateMaskButton() {
             setMaskButtonState(isMasking());
+        }
+
+        /**
+         * While this panel is open the layer is isolated on the map (the other
+         * layers in its section are dimmed) through the parent's shared
+         * LayerIsolationManager. The panel is unloaded whenever it closes, so
+         * pagehide releases it.
+         */
+        function applyIsolation() {
+            setIsolateButtonState(isolateEnabled);
+            if (window.self === window.top || !currentLayer || !LayerOrderManager) return;
+            const isolation = window.parent?.layerControl?.isolation;
+            if (!isolation) return;
+            if (!isolateEnabled) {
+                releaseIsolation();
+                return;
+            }
+            const layerId = originalLayerId || currentLayer.id;
+            isolation.isolate(layerId, LayerOrderManager.isBasemap(currentLayer));
+            isolatedLayerId = layerId;
+        }
+
+        function releaseIsolation() {
+            if (isolatedLayerId === null) return;
+            isolatedLayerId = null;
+            try {
+                window.parent?.layerControl?.isolation?.clear();
+            } catch (e) { /* parent gone */ }
+        }
+
+        function toggleIsolate() {
+            if (window.self === window.top) {
+                alert('Isolation requires the map to be embedded.');
+                return;
+            }
+            isolateEnabled = !isolateEnabled;
+            applyIsolation();
+        }
+
+        function setIsolateButtonState(active) {
+            const $btn = $('#isolate-layer-btn').toggleClass('isolating', active);
+            $btn.find('span').text(active ? 'Hiding Other Maps' : 'Hide Other Maps');
         }
 
         function toggleEditMode() {
@@ -1380,6 +1443,8 @@
             $('#config-content').text(rawConfig);
 
             console.log('[Layer Info] Complete layer object:', layer);
+
+            applyIsolation();
         }
 
         function formatBbox(bbox) {

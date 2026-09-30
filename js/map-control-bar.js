@@ -1,3 +1,9 @@
+import { LayerThumbnail } from './layer-thumbnail.js';
+import { LayerOrderManager } from './layer-order-manager.js';
+
+const THUMB_SIZE = 20;
+const MAX_THUMBS = 8;
+
 export class MapControlBar {
     constructor() {
         this._el = null;
@@ -9,8 +15,10 @@ export class MapControlBar {
         this._main = null;
         this._trigger = null;
         this._observer = null;
-        this._layerCount = null;
-        this._onAtlasChanged = () => this.update(this._layerCount);
+        this._layers = null;
+        this._thumbKey = null;
+        this._clearTimer = null;
+        this._onAtlasChanged = () => this.update(this._layers);
     }
 
     mount(hostEl, { triggerButton = null, editButton = null } = {}) {
@@ -112,9 +120,9 @@ export class MapControlBar {
         if (this._el) this._el.style.display = visible ? '' : 'none';
     }
 
-    update(layerCount) {
+    update(layers) {
         if (!this._el) return;
-        this._layerCount = layerCount;
+        this._layers = layers;
         const registry = window.layerRegistry;
         const resolved = registry?._currentAtlasSet;
         const atlasId = resolved ? registry.getCurrentAtlas() : null;
@@ -124,9 +132,60 @@ export class MapControlBar {
         this._nameEl.textContent = name || 'Loading Atlas';
         this._nameEl.classList.toggle('placeholder', !name);
         this._main.title = name ? `${name} - browse all maps` : 'Browse all maps';
-        this._countEl.textContent = layerCount == null ? '' : `Displaying ${layerCount} map layer${layerCount === 1 ? '' : 's'}`;
+        this._setThumbnails(layers);
         this._setIcon(metadata?.icon || null);
         this._setBackground(metadata?.headerImage || null);
+    }
+
+    _setThumbnails(layers) {
+        const list = layers || [];
+        const key = list.map(l => l.id).join(',');
+        if (key === this._thumbKey) return;
+        this._thumbKey = key;
+        this._clearIsolation(true);
+        const defaults = window.layerControl?._defaultStyles || {};
+        const thumbs = list.slice(0, MAX_THUMBS).map(layer => {
+            const thumb = LayerThumbnail.generate(layer, THUMB_SIZE, { layerDefaults: defaults, interactive: false, title: layer.title || layer.id });
+            thumb.classList.add('map-control-bar-thumb');
+            this._bindThumb(thumb, layer);
+            return thumb;
+        });
+        if (list.length > MAX_THUMBS) {
+            const more = document.createElement('span');
+            more.className = 'map-control-bar-more';
+            more.textContent = `+${list.length - MAX_THUMBS}`;
+            thumbs.push(more);
+        }
+        this._countEl.replaceChildren(...thumbs);
+    }
+
+    _bindThumb(thumb, layer) {
+        const isBasemap = LayerOrderManager.isBasemap(layer);
+        thumb.addEventListener('mouseenter', () => {
+            clearTimeout(this._clearTimer);
+            window.layerControl?.isolation?.hoverIsolate(layer.id, isBasemap);
+        });
+        thumb.addEventListener('mouseleave', () => this._clearIsolation());
+        thumb.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._clearIsolation(true);
+            window.postMessage({ type: 'open-layer-info', layer: this._serializable(layer) }, '*');
+        });
+    }
+
+    _serializable(layer) {
+        try {
+            return JSON.parse(JSON.stringify(layer));
+        } catch (e) {
+            return { id: layer.id, title: layer.title, type: layer.type, _sourceAtlas: layer._sourceAtlas };
+        }
+    }
+
+    _clearIsolation(immediate = false) {
+        clearTimeout(this._clearTimer);
+        const clear = () => window.layerControl?.isolation?.clearHover();
+        if (immediate) clear();
+        else this._clearTimer = setTimeout(clear, 60);
     }
 
     setLoading(loading) {
@@ -155,6 +214,7 @@ export class MapControlBar {
     }
 
     destroy() {
+        this._clearIsolation(true);
         window.removeEventListener('atlasChanged', this._onAtlasChanged);
         this._observer?.disconnect();
         this._el?.parentNode?.classList.remove('has-map-control-bar');

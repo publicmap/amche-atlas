@@ -98,7 +98,7 @@ export class LayerStackStrip {
         map?.on?.('dataloading', this._onDataLoading);
         map?.on?.('idle', this._onMapIdle);
         this._controlBar.setLoading(true);
-        this._controlBar.update(window.layersInitialized ? this._getVisibleLayers().length : null);
+        this._controlBar.update(window.layersInitialized ? this._getVisibleLayers() : null);
 
         this._map = map;
         this._mountBrowserProxy(browserButton);
@@ -214,7 +214,7 @@ export class LayerStackStrip {
         this._pendingRender = false;
 
         const layers = this._getVisibleLayers();
-        this._controlBar?.update(layers.length);
+        this._controlBar?.update(layers);
         const comparedId = this._getComparedLayerId();
         const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
