@@ -166,7 +166,7 @@ export class MeasureControl {
 
     _toggleTools() {
         this._expanded = !this._expanded;
-        this._toolsContainer.style.display = this._expanded ? 'block' : 'none';
+        this._toolsContainer.style.display = this._expanded ? 'flex' : 'none';
         this._toggleBtn.classList.toggle('active', this._expanded);
         if (this._expanded) {
             trackEvent('measure_use');

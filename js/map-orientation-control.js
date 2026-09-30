@@ -13,12 +13,18 @@
  */
 
 import { GeolocationWatch, WATCH, showGeolocationStatus } from './geolocation-watch.js';
+import { OrientationHandles, pitchTransform } from './map-orientation-handles.js';
 import {
     MODE, MODE_MESSAGES, normalizeBearing, nextOrientationAction, buildOrientationTooltipLines
 } from './map-orientation-modes.js';
 
 // GPS state names line up with the modes of the same name; only ACTIVE splits
 // in two, depending on whether the device compass is driving the bearing.
+// 'rotate' and 'pitch' only fire while those values are changing; the end
+// events re-render once the camera has settled, so a drag, inertia or bearing
+// snap that lands on north-up/flat always resizes the button.
+const CAMERA_EVENTS = ['rotate', 'pitch', 'move', 'rotateend', 'pitchend', 'moveend'];
+
 const WATCH_MODES = {
     [WATCH.OFF]: MODE.OFF,
     [WATCH.LOCATING]: MODE.LOCATING,
@@ -100,9 +106,9 @@ export class MapOrientationControl {
         this._needle = this._container.querySelector('.map-orientation-needle');
         this._headingTick = this._container.querySelector('.map-orientation-heading');
         this._button.addEventListener('click', this._onClick);
+        this._handles = new OrientationHandles(map, this._container, () => this._render());
 
-        map.on('rotate', this._render);
-        map.on('pitch', this._render);
+        CAMERA_EVENTS.forEach(type => map.on(type, this._render));
         $(window).on('deviceorientationabsolute deviceorientation', this._onDeviceOrientation);
         this._watch.onAdd(map);
 
@@ -111,8 +117,7 @@ export class MapOrientationControl {
     }
 
     onRemove() {
-        this._map?.off('rotate', this._render);
-        this._map?.off('pitch', this._render);
+        CAMERA_EVENTS.forEach(type => this._map?.off(type, this._render));
         $(window).off('deviceorientationabsolute deviceorientation', this._onDeviceOrientation);
         this._watch.onRemove();
         this._container?.remove();
@@ -245,9 +250,7 @@ export class MapOrientationControl {
     // it composes over the in-plane rotations the needle and heading tick carry
     // as SVG transform attributes.
     _pitchTransform() {
-        const pitch = this._map ? this._map.getPitch() : 0;
-        if (!pitch) return '';
-        return `scale(${1 / Math.pow(Math.cos(pitch * (Math.PI / 180)), 0.5)}) rotateX(${pitch}deg)`;
+        return pitchTransform(this._map ? this._map.getPitch() : 0);
     }
 
     // Rotated or tilted away from north-up/flat, the button's only job is
@@ -255,13 +258,14 @@ export class MapOrientationControl {
     // easy to land, especially on a phone screen.
     _needsReorient(mapBearing) {
         const pitch = this._map ? this._map.getPitch() : 0;
-        return Math.abs(normalizeBearing(mapBearing + 180) - 180) > 0.5 || pitch > 0.5;
+        return this._handles?.active || Math.abs(normalizeBearing(mapBearing + 180) - 180) > 0.5 || pitch > 0.5;
     }
 
     _render = () => {
         if (!this._button) return;
         const mapBearing = this._map ? this._map.getBearing() : 0;
         this._icon.style.transform = this._pitchTransform();
+        this._handles?.sync();
         this._container.classList.toggle('map-orientation-control--reorient', this._needsReorient(mapBearing));
 
         // A pending auto-activation is a visual state only: the click cycle

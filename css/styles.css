@@ -1219,15 +1219,107 @@
    undoes it (js/map-orientation-control.js's _faceNorth) is easy to land,
    especially on a phone. The generic corner-control theme sets the button's
    30px square with !important, so this needs the same to win. */
-.map-orientation-control.map-orientation-control--reorient .map-orientation-btn {
+.map-orientation-control.map-orientation-control--reorient .map-orientation-btn,
+.map-orientation-control.mapboxgl-ctrl-group:hover .map-orientation-btn {
     width: 60px !important;
     height: 60px !important;
     transition: width 0.2s ease, height 0.2s ease;
 }
 
-.map-orientation-control--reorient .map-orientation-icon {
+.map-orientation-control--reorient .map-orientation-icon,
+.map-orientation-control:hover .map-orientation-icon {
     width: 56px;
     height: 56px;
+}
+
+.map-orientation-control {
+    position: relative;
+}
+
+.map-orientation-track,
+.map-orientation-ring {
+    display: none;
+    position: absolute;
+    z-index: 1;
+}
+
+.map-orientation-control--reorient .map-orientation-track,
+.map-orientation-control--reorient .map-orientation-ring,
+.map-orientation-control:hover .map-orientation-track,
+.map-orientation-control:hover .map-orientation-ring {
+    display: block;
+}
+
+.map-orientation-thumb {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 0 2px #ffffff;
+    touch-action: none;
+}
+
+.map-orientation-thumb::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+}
+
+.map-orientation-track {
+    left: 2px;
+    top: 10px;
+    bottom: 10px;
+    width: 2px;
+    border-radius: 1px;
+    background: #6b7280;
+}
+
+.map-orientation-track::before,
+.map-orientation-track::after {
+    content: '';
+    position: absolute;
+    left: -1.5px;
+    width: 5px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.map-orientation-track::before {
+    top: 0;
+}
+
+.map-orientation-track::after {
+    bottom: 0;
+}
+
+.map-orientation-track .map-orientation-thumb {
+    left: -3px;
+    bottom: calc(var(--pos, 0) * 100%);
+    width: 8px;
+    height: 2px;
+    border-radius: 1px;
+    background: #ffffff;
+    box-shadow: none;
+    transform: translateY(50%);
+    cursor: ns-resize;
+}
+
+.map-orientation-ring {
+    left: 10px;
+    top: 10px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.map-orientation-ring .map-orientation-thumb {
+    left: 50%;
+    top: -3px;
+    margin-left: -3px;
+    pointer-events: auto;
+    cursor: grab;
 }
 
 /* At a steep pitch the leaning rose is wider than the 30px button (the scale
@@ -2843,6 +2935,35 @@ main {
     color: var(--primary-hover) !important;
 }
 
+/* The group's own white background (Mapbox and MapLibre both paint one, with
+   the same 4px radius as the buttons) shows as a sliver at antialiased rounded
+   corners and as a line along any edge a button does not quite reach. Paint the
+   group in the button colour instead, following the hover and active fills. */
+.mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) {
+    background: #1f2937;
+}
+
+.mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib):hover {
+    background: #374151;
+}
+
+.mapboxgl-ctrl-group:has(.measure-toggle-btn.active),
+.mapboxgl-ctrl-group:has(.map-orientation-btn[data-mode="follow-heading"]),
+.mapboxgl-ctrl-group:has(.map-orientation-btn[data-mode="follow-north"]) {
+    background: #000;
+}
+
+.mapboxgl-ctrl-group:has(.map-orientation-btn[data-mode="error"]) {
+    background: #ef4444;
+}
+
+/* Mapbox and MapLibre round only the first/last button of a group, and the
+   handles and tools siblings inside these two controls make their button
+   neither; take the group's radius on every corner instead. */
+.map-orientation-btn {
+    border-radius: inherit !important;
+}
+
 /* Compass needle: Mapbox's default north arrow is #333, which is invisible
    against the dark (#1f2937) control background set above. Repaint north red
    and south light grey so both halves read on the dark button. */
@@ -2850,7 +2971,23 @@ main {
     background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%23ef4444' viewBox='0 0 29 29'%3E%3Cpath d='M10.5 14l4-8 4 8h-8z'/%3E%3Cpath id='south' d='M10.5 16l4 8 4-8h-8z' fill='%23e5e7eb'/%3E%3C/svg%3E") !important;
 }
 
-/* Measure control: single toggle that expands to reveal the draw/clear tools */
+/* Measure control: single toggle that expands sideways to reveal the
+   draw/clear tools. The group clips its buttons to its own rounded corners
+   rather than each button carrying a radius. */
+.maplibregl-measures {
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+}
+
+.maplibregl-measures button {
+    border-radius: 0 !important;
+}
+
+.maplibregl-measures .measure-tools {
+    flex-direction: row;
+}
+
 .maplibregl-measures .measure-tools button svg {
     width: 100%;
     height: 100%;
@@ -2872,7 +3009,7 @@ main {
 
 /* Separator lines between the expanded sub-tool buttons */
 .maplibregl-measures .measure-tools button {
-    border-top: 1px solid #374151;
+    border-left: 1px solid #374151 !important;
 }
 
 /* The currently active draw mode highlights its icon in the brand yellow */

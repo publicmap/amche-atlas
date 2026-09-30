@@ -80,6 +80,7 @@ function createMap(initial = {}) {
         state,
         getBearing: () => state.bearing,
         getPitch: () => state.pitch,
+        getMaxPitch: () => 85,
         easeTo: vi.fn(({ bearing, pitch }) => {
             if (bearing != null) state.bearing = bearing;
             if (pitch != null) state.pitch = pitch;
