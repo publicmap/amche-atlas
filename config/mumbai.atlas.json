@@ -3,6 +3,7 @@
   "areaOfInterest": "Mumbai, India",
   "version": "0.1.0",
   "color": "#4f46e5",
+  "icon": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ec/Great_Gateway_of_India_Mumbai.jpg/60px-Great_Gateway_of_India_Mumbai.jpg",
   "map": {
     "center": [
       72.8,

@@ -141,9 +141,10 @@ export class MapFeatureControl {
     }
 
     /**
-     * When off, mousemove no longer queries the map at all: no hover feature
-     * state is set on any layer and no hover popup/marker is rendered (see the
-     * guard in the 'mousemove' handler). Clicks are unaffected. Turning it off
+     * When off, mousemove still queries the map so the cursor can turn into a
+     * pointer over interactive features, but no hover feature state is set on
+     * any layer and no hover popup/marker is rendered (see the guard at the end
+     * of _handleMouseMove). Clicks are unaffected. Turning it off
      * drops whatever hover is currently applied, since no further mousemove
      * will arrive to replace it.
      */
@@ -1516,7 +1517,6 @@ export class MapFeatureControl {
                 // canvas — skip the hover query entirely so it doesn't compete with
                 // the drag for the main thread or flip hover state underneath it.
                 if (this._stateManager._isDraggingMarkerPanel) return;
-                if (!this._hoverEnabled) return;
                 this._pendingHoverEvent = e;
                 if (this._pendingHoverRAF) return;
                 this._pendingHoverRAF = requestAnimationFrame(() => {
@@ -1758,6 +1758,7 @@ export class MapFeatureControl {
         });
 
         this._updateCursor(interactiveFeatures.length > 0);
+        if (!this._hoverEnabled) return;
         this._stateManager.handleFeatureHovers(interactiveFeatures, e.lngLat);
     }
 

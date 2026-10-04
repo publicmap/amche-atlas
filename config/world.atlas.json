@@ -3,6 +3,7 @@
   "headerImage": "assets/map-layers/world/map-layer-weather-satellite.png",
   "areaOfInterest": "World",
   "version": "0.1.0",
+  "icon": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7b/Earth_Western_Hemisphere.jpg/60px-Earth_Western_Hemisphere.jpg",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/index.atlas.json",
   "color": "#06b6d4",
   "bbox": [

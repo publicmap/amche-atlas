@@ -110,6 +110,7 @@ export class LayerStackStrip {
         this._controlBar = new MapControlBar();
         this._controlBar.mount(hostEl, {
             triggerButton: browserButton,
+            onSearchStart: () => this._collapse(),
             onSummaryClick: () => {
                 clearTimeout(this._expandTimer);
                 // A click right after the hover expanded the strip confirms it

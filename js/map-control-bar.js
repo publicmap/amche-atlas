@@ -18,7 +18,8 @@ export class MapControlBar {
         this._onAtlasChanged = () => this.update(this._layers);
     }
 
-    mount(hostEl, { triggerButton = null, onSummaryClick = null, onSummaryEnter = null, onSummaryLeave = null } = {}) {
+    mount(hostEl, { triggerButton = null, onSummaryClick = null, onSummaryEnter = null, onSummaryLeave = null, onSearchStart = null } = {}) {
+        this._onSearchStart = onSearchStart;
         this._trigger = triggerButton;
         this._el = document.createElement('div');
         this._el.className = 'map-control-bar';
@@ -134,6 +135,7 @@ export class MapControlBar {
     }
 
     _setSearching(on) {
+        if (on && !this._el.classList.contains('searching')) this._onSearchStart?.();
         this._el.classList.toggle('searching', on);
         this._searchBtn?.setAttribute('aria-pressed', String(on));
     }
