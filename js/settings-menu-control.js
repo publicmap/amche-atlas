@@ -172,9 +172,10 @@ export class SettingsMenuControl {
         meta.className = 'settings-renderer-meta';
         if (asset?.version) {
             const kbd = document.createElement('kbd');
-            if (asset.homepage) {
+            const href = asset.releases ? `${asset.releases}${asset.version}` : asset.homepage;
+            if (href) {
                 const link = document.createElement('a');
-                link.href = asset.homepage;
+                link.href = href;
                 link.target = '_blank';
                 link.rel = 'noopener';
                 link.className = 'settings-menu-version-link';

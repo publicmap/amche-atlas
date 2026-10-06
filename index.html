@@ -34,21 +34,23 @@
         // alongside the URLs below.
         window.amche.RENDERER_ASSETS = {
             mapbox: {
-                version: '3.31.0',
+                version: '3.33.0-rc.1',
                 homepage: 'https://docs.mapbox.com/mapbox-gl-js/guides/',
-                js: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.32.0/dist/mapbox-gl.min.js',
-                css: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.32.0/dist/mapbox-gl.min.css'
+                releases: 'https://github.com/mapbox/mapbox-gl-js/releases/tag/v',
+                js: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.33.0-rc.1/dist/mapbox-gl.min.js',
+                css: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.33.0-rc.1/dist/mapbox-gl.min.css'
             },
             maplibre: {
-                version: '6.10.0',
+                version: '6.12.0',
                 homepage: 'https://maplibre.org/maplibre-gl-js/docs/',
+                releases: 'https://github.com/maplibre/maplibre-gl-js/releases/tag/v',
                 // v6 dropped the UMD build (no more plain dist/maplibre-gl.js
                 // global) - only ships an ES module now, so this needs the
                 // `module: true` loading path below instead of a plain
                 // `<script defer src="...">`.
                 module: true,
-                js: 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.10.0/dist/maplibre-gl.mjs',
-                css: 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.10.0/dist/maplibre-gl.css'
+                js: 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.12.0/dist/maplibre-gl.mjs',
+                css: 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.12.0/dist/maplibre-gl.css'
             }
         };
         // `?renderer=<id>@<version>` (see above) pins an exact version for
@@ -62,16 +64,17 @@
                 var v = window.amche.RENDERER_VERSION_OVERRIDE;
                 var id = window.amche.RENDERER;
                 var homepage = window.amche.RENDERER_ASSETS[id].homepage;
+                var releases = window.amche.RENDERER_ASSETS[id].releases;
                 if (id === 'mapbox') {
                     window.amche.RENDERER_ASSETS.mapbox = {
-                        version: v, homepage: homepage,
+                        version: v, homepage: homepage, releases: releases,
                         js: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v' + v + '/dist/mapbox-gl.min.js',
                         css: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v' + v + '/dist/mapbox-gl.min.css'
                     };
                 } else {
                     var isModule = (parseInt(v, 10) || 0) >= 6;
                     window.amche.RENDERER_ASSETS.maplibre = {
-                        version: v, homepage: homepage, module: isModule,
+                        version: v, homepage: homepage, releases: releases, module: isModule,
                         js: 'https://cdn.jsdelivr.net/npm/maplibre-gl@' + v + '/dist/maplibre-gl.' + (isModule ? 'mjs' : 'js'),
                         css: 'https://cdn.jsdelivr.net/npm/maplibre-gl@' + v + '/dist/maplibre-gl.css'
                     };

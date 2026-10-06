@@ -13,7 +13,9 @@
     "test:watch": "vitest",
     "lint": "npm run lint:json",
     "lint:json": "node js/tests/lint-json.js",
-    "bump:mapbox-gl": "node scripts/bump-mapbox-gl.js"
+    "bump:mapbox-gl": "node scripts/bump-mapbox-gl.js",
+    "bump:maplibre-gl": "node scripts/bump-maplibre-gl.js",
+    "bump:gl": "node scripts/bump-mapbox-gl.js latest && node scripts/bump-maplibre-gl.js latest"
   },
   "keywords": [
     "goa",
