@@ -904,19 +904,11 @@
           "",
           17,
           [
-            "case",
+            "to-string",
             [
-              "has",
-              "shop"
-            ],
-            [
-              "to-string",
-              [
-                "get",
-                "name"
-              ]
-            ],
-            ""
+              "get",
+              "name"
+            ]
           ]
         ],
         "circle-radius": 2.5,
@@ -1085,7 +1077,9 @@
           "kind"
         ],
         [
+          "track",
           "pedestrian",
+          "cycleway",
           "footway",
           "steps",
           "path"
@@ -1101,7 +1095,67 @@
             "kind"
           ],
           [
+            "track",
             "pedestrian",
+            "cycleway",
+            "footway",
+            "steps",
+            "path"
+          ],
+          "cyan",
+          "black"
+        ],
+        "line-width": 2
+      },
+      "inspect": {
+        "id": "kind",
+        "title": "Path Type",
+        "label": "kind",
+        "fields": [
+          "surface"
+        ],
+        "fieldTitles": [
+          "Surface"
+        ]
+      }
+    },
+    {
+      "title": "Street Areas",
+      "description": "Areas with pedestrian access from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
+      "type": "vector",
+      "id": "road-areas",
+      "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+      "sourceLayer": "street_polygons",
+      "maxzoom": 14,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "filter": [
+        "match",
+        [
+          "get",
+          "kind"
+        ],
+        [
+          "track",
+          "pedestrian",
+          "cycleway",
+          "footway",
+          "steps",
+          "path"
+        ],
+        true,
+        false
+      ],
+      "style": {
+        "line-color": [
+          "match",
+          [
+            "get",
+            "kind"
+          ],
+          [
+            "track",
+            "pedestrian",
+            "cycleway",
             "footway",
             "steps",
             "path"
@@ -1140,6 +1194,7 @@
         ],
         [
           "pedestrian",
+          "cycleway",
           "footway",
           "path",
           "track",
@@ -1194,6 +1249,7 @@
         ],
         [
           "pedestrian",
+          "cycleway",
           "footway",
           "path",
           "track",
@@ -1722,7 +1778,6 @@
       }
     },
     {
-      "initiallyChecked": true,
       "id": "boundaries-india",
       "title": "Boundaries (India)",
       "description": "Boundaries from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/Tag:boundary%3Dadministrative'>OSM Wiki</a> for details.",

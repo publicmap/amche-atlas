@@ -164,11 +164,11 @@
     },
     {
       "id": "mapbox-admin-lines",
-      "initiallyChecked": true
+      "initiallyChecked": false
     },
     {
       "id": "india-state",
-      "initiallyChecked": true,
+      "initiallyChecked": false,
       "inspect": false
     },
     {
@@ -221,7 +221,7 @@
     },
     {
       "id": "osm-boundaries-india",
-      "initiallyChecked": true
+      "initiallyChecked": false
     },
     {
       "id": "osm-topo",
@@ -229,7 +229,7 @@
     },
     {
       "id": "osm-ocean",
-      "initiallyChecked": true
+      "initiallyChecked": false
     },
     {
       "id": "mapbox-satellite",
