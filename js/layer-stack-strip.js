@@ -30,7 +30,6 @@ import { LayerStackOptionsMenu } from './layer-stack-options-menu.js';
 import { MapControlBar } from './map-control-bar.js';
 
 const THUMB_SIZE = 36;
-const HOVER_EXPAND_DELAY = 500;
 
 export class LayerStackStrip {
     constructor() {
@@ -117,6 +116,7 @@ export class LayerStackStrip {
                 // rather than toggling it straight back off.
                 if (this._expandedByHover) {
                     this._expandedByHover = false;
+                    this._controlBar?.setSummaryActive(true, true);
                     return;
                 }
                 this._setReordering(!this._reordering);
@@ -124,16 +124,12 @@ export class LayerStackStrip {
             onSummaryEnter: () => {
                 this._reveal();
                 if (this._updateFeatureVisibility()) this.render();
-                clearTimeout(this._expandTimer);
                 if (!this._reordering) {
-                    this._expandTimer = setTimeout(() => {
-                        this._expandedByHover = true;
-                        this._setReordering(true);
-                    }, HOVER_EXPAND_DELAY);
+                    this._expandedByHover = true;
+                    this._setReordering(true);
                 }
             },
             onSummaryLeave: () => {
-                clearTimeout(this._expandTimer);
                 this._scheduleHide();
             }
         });
@@ -322,9 +318,14 @@ export class LayerStackStrip {
     _scheduleHide() {
         clearTimeout(this._hideTimer);
         this._hideTimer = setTimeout(() => {
-            if (!this._el || this._reordering || this._draggedItem) return;
+            if (!this._el || this._draggedItem) return;
             if (this._el.matches(':hover') || this._controlBar?.summaryEl?.matches(':hover, :focus-visible')) return;
             if (this._el.classList.contains('options-open')) return;
+            if (this._expandedByHover) {
+                this._setReordering(false);
+                return;
+            }
+            if (this._reordering) return;
             this._el.classList.remove('revealed');
             this._controlBar?.setMinWidth(0);
             this._resetShowHidden();
@@ -381,7 +382,7 @@ export class LayerStackStrip {
         if (on === this._reordering) return;
         this._reordering = on;
         if (!on) this._expandedByHover = false;
-        this._controlBar?.setSummaryActive(on);
+        this._controlBar?.setSummaryActive(on, on && !this._expandedByHover);
         const map = this._map || window.map;
         map?.[on ? 'on' : 'off']?.('click', this._onMapClick);
         this._clearIsolation({ immediate: true });

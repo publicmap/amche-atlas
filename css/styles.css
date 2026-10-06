@@ -871,6 +871,18 @@
     cursor: pointer;
 }
 
+.map-control-bar-count.sticky {
+    background: rgba(255, 255, 255, 0.92);
+    color: #111827;
+    border-radius: 6px;
+    padding: 0 6px;
+    text-shadow: none;
+}
+
+.map-control-bar-count.sticky .map-control-bar-summary.active {
+    color: #111827;
+}
+
 .layer-stack-strip:not(.revealed) {
     display: none;
 }
@@ -908,6 +920,14 @@
     display: flex;
     align-items: center;
     width: 100%;
+}
+
+.layer-stack-item[data-layer-item] {
+    transition: opacity 0.15s ease;
+}
+
+.layer-stack-strip:has(.layer-stack-item[data-layer-item]:hover) .layer-stack-item[data-layer-item]:not(:hover) {
+    opacity: 0.35;
 }
 
 /* The strip is the bar extended downward: while it is open the bar squares off

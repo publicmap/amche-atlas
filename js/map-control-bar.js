@@ -185,7 +185,7 @@ export class MapControlBar {
         summary.tabIndex = 0;
         summary.title = 'Edit layers';
         const icon = document.createElement('sl-icon');
-        icon.name = 'sliders';
+        icon.name = 'stack';
         this._summaryTextEl = document.createElement('span');
         summary.append(icon, this._summaryTextEl);
         const activate = (e) => {
@@ -211,15 +211,16 @@ export class MapControlBar {
         return this._summaryEl;
     }
 
-    setSummaryActive(active) {
+    setSummaryActive(active, sticky = false) {
         this._summaryEl?.classList.toggle('active', !!active);
+        this._countEl?.classList.toggle('sticky', !!active && sticky);
     }
 
     _setSummary(layers) {
         const count = (layers || []).length;
         if (this._summaryKey === count) return;
         this._summaryKey = count;
-        this._summaryTextEl.textContent = `Configure ${count} ${count === 1 ? 'Map' : 'Maps'}`;
+        this._summaryTextEl.textContent = `${count} ${count === 1 ? 'Map' : 'Maps'} Loaded`;
     }
 
     setMinWidth(px) {
