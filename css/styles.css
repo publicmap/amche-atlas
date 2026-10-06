@@ -5599,7 +5599,15 @@ sl-menu {
 }
 
 /* Bus location markers on map */
-.user-location-marker {
+.user-location-marker,
+.mapboxgl-user-location-dot,
+.mapboxgl-user-location-dot::before,
+.mapboxgl-user-location-dot::after,
+.maplibregl-user-location-dot,
+.maplibregl-user-location-dot::before,
+.maplibregl-user-location-dot::after,
+.mapboxgl-user-location-accuracy-circle,
+.maplibregl-user-location-accuracy-circle {
     cursor: pointer;
 }
 
