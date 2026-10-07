@@ -93,9 +93,10 @@ test('SVG export vectorizes atlas overlay layers as real paths/text', async ({ p
     }, null, { timeout: 30000 });
 
     // The export trigger lives in the layer-stack strip (js/layer-stack-strip.js),
-    // not as a mounted map control - it's hover-revealed (see css/styles.css),
-    // so the strip needs a hover before its export button becomes visible/clickable.
-    await page.hover('.layer-stack-strip');
+    // not as a mounted map control - it's display:none until revealed, and it is
+    // revealed by hovering the control bar's summary (the strip itself can't be
+    // hovered while hidden).
+    await page.hover('.map-control-bar-summary');
     await page.click('.layer-stack-export-btn');
 
     const iframeEl = await page.waitForSelector('iframe.map-export-iframe');
