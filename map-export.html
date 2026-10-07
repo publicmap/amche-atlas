@@ -537,8 +537,8 @@
                                 Modify selection
                             </button>
                         </div>
-                        <div class="format-description">If no features are selected, all visible features will be
-                            exported</div>
+                        <div class="format-description">If no features are selected, the full source data of every
+                            active layer is exported, not just what is in the current map view</div>
 
                         <!-- Feature Selection List -->
                         <div class="feature-list-container" id="feature-list-container" style="display: none;">
@@ -672,6 +672,7 @@
         let currentFormat = 'jpeg';
         let exportData = null;
         let isExporting = false;
+        let exportCancellable = true;
         let exportCancelled = false;
         let currentExportProgress = 0;
         let currentExportMessage = '';
@@ -770,7 +771,8 @@
 
             $('#export-btn').on('click', () => {
                 if (isExporting) {
-                    cancelExport();
+                    if (currentExportProgress < 0) stopProcessing(false);
+                    else if (exportCancellable) cancelExport();
                 } else {
                     performExport();
                 }
@@ -1227,8 +1229,7 @@
                 exportConfig.mapboxToken = $('#mapbox-token').val();
             }
 
-            // Check if this export requires canvas control
-            const needsProcessing =
+            const needsCanvas =
                 currentFormat === 'pdf' ||
                 currentFormat === 'geotiff' ||
                 currentFormat === 'png' ||
@@ -1236,8 +1237,14 @@
                 currentFormat === 'svg' ||
                 (currentFormat === 'dxf' && exportConfig.includeRaster);
 
-            if (needsProcessing) {
-                startProcessing();
+            const isVectorExport =
+                currentFormat === 'geojson' ||
+                currentFormat === 'kml' ||
+                currentFormat === 'csv' ||
+                currentFormat === 'dxf';
+
+            if (needsCanvas || isVectorExport) {
+                startProcessing(needsCanvas);
             }
 
             window.parent.postMessage({
@@ -1247,8 +1254,9 @@
         }
 
 
-        function startProcessing() {
+        function startProcessing(needsCanvas = true) {
             isExporting = true;
+            exportCancellable = needsCanvas;
             exportCancelled = false;
             currentExportProgress = 0;
             currentExportMessage = 'Starting export';
@@ -1258,9 +1266,11 @@
             $btn.addClass('processing');
             $btn.prop('disabled', false);
 
-            window.parent.postMessage({
-                type: 'processing-overlay-show'
-            }, '*');
+            if (needsCanvas) {
+                window.parent.postMessage({
+                    type: 'processing-overlay-show'
+                }, '*');
+            }
 
             updateButtonProgress(0, 'Starting export');
         }
@@ -1306,7 +1316,7 @@
                 setTimeout(() => stopProcessing(true), 1000);
             } else {
                 $icon.attr('name', 'arrow-clockwise');
-                $text.text(`${message} (${Math.round(percent)}%) - Click to cancel`);
+                $text.text(`${message} (${Math.round(percent)}%)${exportCancellable ? ' - Click to cancel' : ''}`);
             }
         }
 

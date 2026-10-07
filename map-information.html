@@ -209,6 +209,22 @@
             border-color: #b45309;
         }
 
+        .info-header-action.processing {
+            color: #fff;
+            background: #f59e0b;
+            border-color: #f59e0b;
+        }
+
+        .info-header-action.processing sl-icon:first-of-type {
+            animation: info-export-spin 1s linear infinite;
+        }
+
+        @keyframes info-export-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         .info-header-action:disabled {
             opacity: 0.4;
             cursor: default;
@@ -383,7 +399,7 @@
                 </sl-dropdown>
 
                 <sl-dropdown id="export-layer-dropdown">
-                    <button slot="trigger" class="info-header-action" title="Export the whole layer">
+                    <button slot="trigger" class="info-header-action" title="Export the layer's entire source dataset, not just the current map view">
                         <sl-icon name="download"></sl-icon>
                         <span>Export Layer</span>
                         <sl-icon name="chevron-down" style="font-size: 9px;"></sl-icon>
@@ -526,6 +542,7 @@
         let editModeRequested = false;
         let isolateEnabled = true;
         let isolatedLayerId = null;
+        let activeExport = null;
 
         function maybeEnterEditMode() {
             if (editModeRequested && !isEditing) {
@@ -614,6 +631,7 @@
             $('#move-up-btn').on('click', () => moveLayer(-1));
             $('#move-down-btn').on('click', () => moveLayer(1));
             window.addEventListener('pagehide', releaseIsolation);
+            window.addEventListener('pagehide', stopListeningForExportProgress);
             $('#opacity-slider').on('input', handleOpacitySliderInput);
             $('#zoom-to-feature-btn').on('click', zoomToFeature);
             $('#zoom-to-layer-btn').on('click', zoomToLayer);
@@ -762,6 +780,11 @@
         function exportLayer(kind, format) {
             if (!format || !currentLayer || window.self === window.top) return;
             if (kind === 'export-selected' && !currentFeature) return;
+            if (activeExport) return;
+
+            activeExport = { kind, format, label: format === 'csv' ? 'GeoCSV' : format.toUpperCase() };
+            window.parent.addEventListener('map-export-progress', handleExportProgress);
+            setExportButtonState(0, 'Preparing');
 
             window.parent.postMessage({
                 type: kind,
@@ -769,6 +792,66 @@
                 layerId: currentLayer.id,
                 feature: kind === 'export-selected' ? currentFeature : null
             }, '*');
+
+            const pending = activeExport;
+            setTimeout(() => {
+                if (activeExport === pending && !pending.started) {
+                    setExportButtonState(-1, 'Export failed');
+                }
+            }, 3000);
+        }
+
+        function stopListeningForExportProgress() {
+            try {
+                window.parent.removeEventListener('map-export-progress', handleExportProgress);
+            } catch (e) { /* parent gone */ }
+        }
+
+        function handleExportProgress(event) {
+            if (!activeExport) return;
+            const { percent, message } = event.detail;
+            activeExport.started = true;
+            setExportButtonState(percent, message);
+        }
+
+        function exportTrigger() {
+            return $(activeExport.kind === 'export-selected' ? '#export-selected-dropdown' : '#export-layer-dropdown')
+                .find('button[slot="trigger"]');
+        }
+
+        function setExportButtonState(percent, message) {
+            const $btn = exportTrigger();
+            const $icon = $btn.find('sl-icon').first();
+            const $text = $btn.find('span');
+            const baseLabel = activeExport.kind === 'export-selected' ? 'Export Selected' : 'Export Layer';
+
+            if (percent < 0) {
+                $btn.removeClass('processing');
+                $icon.attr('name', 'x-circle');
+                $text.text('Export failed');
+                finishExport(baseLabel, 2000);
+            } else if (percent >= 100) {
+                $btn.removeClass('processing');
+                $icon.attr('name', 'check-circle');
+                $text.text('Export complete');
+                finishExport(baseLabel, 1500);
+            } else {
+                $btn.addClass('processing');
+                $icon.attr('name', 'arrow-clockwise');
+                $text.text(`${activeExport.label}: ${message} (${Math.round(percent)}%)`);
+            }
+        }
+
+        function finishExport(baseLabel, delay) {
+            const finished = activeExport;
+            stopListeningForExportProgress();
+            setTimeout(() => {
+                if (activeExport !== finished) return;
+                const $btn = exportTrigger();
+                $btn.find('sl-icon').first().attr('name', 'download');
+                $btn.find('span').text(baseLabel);
+                activeExport = null;
+            }, delay);
         }
 
         /**

@@ -1,7 +1,10 @@
 import { ExportFrame } from './export-frame.js';
 import { InspectionHandlerLoader } from './inspection-handler-loader.js';
 import { trackEvent } from './analytics.js';
+import { collectSourceFeatures, prefetchGeoJSONSources } from './source-feature-collector.js';
 import { isNominatimBackedOff, reportNominatimFailure } from './nominatim-search.js';
+
+const VECTOR_FORMATS = ['geojson', 'kml', 'csv', 'dxf'];
 
 export class MapExportControl {
     constructor() {
@@ -188,6 +191,7 @@ export class MapExportControl {
                     this._iframe.style.zIndex = '999';
                 }
             } else if (type === 'request-selected-features') {
+                this._prefetchSourceData();
                 const selectedFeatures = this._getSelectedFeatures();
                 const bounds = this._map.getBounds();
 
@@ -361,10 +365,20 @@ export class MapExportControl {
     async _handleExport(config) {
         this._isExporting = true;
         this._exportCancelled = false;
+        this._lastProgress = 0;
+        this._currentFormat = config.format;
         this._sendProgress(5, 'Starting export');
 
         try {
             const format = config.format;
+
+            if (VECTOR_FORMATS.includes(format)) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+
+            if (config.exportLayerId) {
+                await this._loadWholeLayer(config);
+            }
 
             trackEvent('map_export', { export_type: format });
 
@@ -428,6 +442,13 @@ export class MapExportControl {
     }
 
     _sendProgress(percent, message) {
+        if (percent >= 0 && percent < (this._lastProgress || 0)) return;
+        this._lastProgress = Math.max(percent, 0);
+
+        window.dispatchEvent(new CustomEvent('map-export-progress', {
+            detail: { percent, message, format: this._currentFormat }
+        }));
+
         if (this._iframe && this._iframe.contentWindow) {
             this._iframe.contentWindow.postMessage({
                 type: 'export-progress',
@@ -1299,21 +1320,9 @@ export class MapExportControl {
         if (config.exportSelectedOnly && (config.customSelectedFeatures || this._hasSelectedFeatures())) {
             const selectedFeatures = config.customSelectedFeatures || this._getSelectedFeatures();
             features = selectedFeatures.map(item => item.feature);
-            filename = this._generateFilenameFromFeatures(selectedFeatures, 'geojson');
+            filename = this._generateFilenameFromFeatures(selectedFeatures, 'geojson', config.layerNameOnly);
         } else {
-            features = [];
-            const activeLayerIds = this._getActiveStyleLayerIds();
-            const layers = this._map.getStyle().layers.filter(l =>
-                activeLayerIds.has(l.id) &&
-                (l.type === 'fill' || l.type === 'line' || l.type === 'circle' || l.type === 'symbol')
-            );
-
-            for (const layer of layers) {
-                const sourceFeatures = this._map.querySourceFeatures(layer.source, {
-                    sourceLayer: layer['source-layer']
-                });
-                features.push(...sourceFeatures);
-            }
+            features = (await this._collectAllFeatureItems()).map(item => item.feature);
             filename = this._generateFilename('geojson');
         }
 
@@ -1323,7 +1332,7 @@ export class MapExportControl {
         };
 
         this._sendProgress(80, 'Downloading file');
-        this._downloadFile(JSON.stringify(geojson, null, 2), filename, 'application/geo+json');
+        this._downloadFile(JSON.stringify(geojson), filename, 'application/geo+json');
     }
 
     async _exportKML(config) {
@@ -1335,21 +1344,9 @@ export class MapExportControl {
         if (config.exportSelectedOnly && (config.customSelectedFeatures || this._hasSelectedFeatures())) {
             const selectedFeatures = config.customSelectedFeatures || this._getSelectedFeatures();
             features = selectedFeatures.map(item => item.feature);
-            filename = this._generateFilenameFromFeatures(selectedFeatures, 'kml');
+            filename = this._generateFilenameFromFeatures(selectedFeatures, 'kml', config.layerNameOnly);
         } else {
-            features = [];
-            const activeLayerIds = this._getActiveStyleLayerIds();
-            const layers = this._map.getStyle().layers.filter(l =>
-                activeLayerIds.has(l.id) &&
-                (l.type === 'fill' || l.type === 'line' || l.type === 'circle' || l.type === 'symbol')
-            );
-
-            for (const layer of layers) {
-                const sourceFeatures = this._map.querySourceFeatures(layer.source, {
-                    sourceLayer: layer['source-layer']
-                });
-                features.push(...sourceFeatures);
-            }
+            features = (await this._collectAllFeatureItems()).map(item => item.feature);
             filename = this._generateFilename('kml');
         }
 
@@ -1396,25 +1393,18 @@ export class MapExportControl {
                     layerConfig: item.layerConfig
                 });
             }
-            filename = this._generateFilenameFromFeatures(selectedFeatures, 'csv');
+            filename = this._generateFilenameFromFeatures(selectedFeatures, 'csv', config.layerNameOnly);
         } else {
-            console.log('CSV Export: Using all rendered features');
-            const activeLayerIds = Array.from(this._getActiveStyleLayerIds());
-            const allFeatures = activeLayerIds.length
-                ? this._map.queryRenderedFeatures({ layers: activeLayerIds })
-                : [];
-            console.log(`CSV Export: Found ${allFeatures.length} rendered features`);
+            console.log('CSV Export: Using all source features');
+            const items = await this._collectAllFeatureItems();
+            console.log(`CSV Export: Found ${items.length} source features`);
 
-            const validFeatures = allFeatures.filter(f => f.geometry && f.geometry.type);
-            console.log(`CSV Export: After filtering: ${validFeatures.length} features with geometry`);
-
-            for (const feature of validFeatures) {
-                const layerConfig = this._getLayerConfigById(feature.layer?.id);
+            for (const item of items) {
                 featuresWithMetadata.push({
-                    feature: feature,
-                    layerId: feature.layer?.id,
-                    layerTitle: feature.layer?.id,
-                    layerConfig: layerConfig
+                    feature: item.feature,
+                    layerId: item.layerId,
+                    layerTitle: item.layerConfig?.title || item.layerId,
+                    layerConfig: item.layerConfig
                 });
             }
             filename = this._generateFilename('csv');
@@ -1673,12 +1663,9 @@ export class MapExportControl {
             if (config.exportSelectedOnly && (config.customSelectedFeatures || this._hasSelectedFeatures())) {
                 const selectedFeatures = config.customSelectedFeatures || this._getSelectedFeatures();
                 features = selectedFeatures.map(item => item.feature);
-                filename = this._generateFilenameFromFeatures(selectedFeatures, 'dxf');
+                filename = this._generateFilenameFromFeatures(selectedFeatures, 'dxf', config.layerNameOnly);
             } else {
-                const activeLayerIds = Array.from(this._getActiveStyleLayerIds());
-                features = activeLayerIds.length
-                    ? this._map.queryRenderedFeatures({ layers: activeLayerIds })
-                    : [];
+                features = (await this._collectAllFeatureItems([10, 30])).map(item => item.feature);
                 filename = this._generateFilename('dxf');
             }
 
@@ -1846,17 +1833,7 @@ export class MapExportControl {
 
         this._sendProgress(55, 'Extracting vector features');
 
-        const activeLayerIds = Array.from(this._getActiveStyleLayerIds());
-        const features = activeLayerIds.length
-            ? this._map.queryRenderedFeatures({ layers: activeLayerIds })
-            : [];
-        const filteredFeatures = features.filter(feature => {
-            if (feature.geometry.type === 'Point') {
-                const [lng, lat] = feature.geometry.coordinates;
-                return lng >= nw.lng && lng <= se.lng && lat <= nw.lat && lat >= se.lat;
-            }
-            return true;
-        });
+        const filteredFeatures = (await this._collectAllFeatureItems([55, 59])).map(item => item.feature);
 
         this._sendProgress(60, 'Calculating dimensions');
 
@@ -2692,6 +2669,60 @@ export class MapExportControl {
         return new Set(window.stateManager?.getInteractiveRenderedLayerIds() || []);
     }
 
+    /**
+     * Every feature of every active layer's source data, independent of the
+     * current map view (see collectSourceFeatures), tagged with the layer it
+     * belongs to. Layers sharing a source are collected once.
+     */
+    _prefetchSourceData() {
+        const stateManager = window.stateManager;
+        if (!stateManager) return;
+        for (const [layerId] of stateManager.getActiveLayers()) {
+            prefetchGeoJSONSources(this._map, stateManager.getLayerSourceRefs(layerId));
+        }
+    }
+
+    async _collectAllFeatureItems(range = [20, 50]) {
+        const stateManager = window.stateManager;
+        if (!stateManager) return [];
+
+        const items = [];
+        const collected = new Set();
+        const layers = [...stateManager.getActiveLayers()]
+            .filter(([, { config }]) => config?.inspect !== false);
+
+        for (const [index, [layerId, { config }]] of layers.entries()) {
+            const refs = stateManager.getLayerSourceRefs(layerId)
+                .filter(ref => !collected.has(`${ref.source}|${ref.sourceLayer || ''}`));
+            refs.forEach(ref => collected.add(`${ref.source}|${ref.sourceLayer || ''}`));
+            if (!refs.length) continue;
+
+            const percent = range[0] + (range[1] - range[0]) * (index / layers.length);
+            this._sendProgress(percent, `Loading ${config?.title || layerId}`);
+
+            const features = await collectSourceFeatures(this._map, refs);
+            features.forEach(feature => items.push({ feature, layerId, layerConfig: config }));
+        }
+
+        this._sendProgress(range[1], `Collected ${items.length.toLocaleString()} features`);
+        return items;
+    }
+
+    async _loadWholeLayer(config) {
+        const layerId = config.exportLayerId;
+        const stateManager = window.stateManager;
+        const layerConfig = stateManager?.getLayerConfig(layerId);
+
+        this._sendProgress(10, `Loading ${layerConfig?.title || layerId}`);
+        const features = await collectSourceFeatures(this._map, stateManager?.getLayerSourceRefs(layerId) || []);
+        if (features.length === 0) throw new Error('No features found for this layer');
+
+        config.customSelectedFeatures = features.map(feature => ({ feature, layerId, layerConfig }));
+        config.exportSelectedOnly = true;
+        config.layerNameOnly = true;
+        this._sendProgress(20, `Collected ${features.length.toLocaleString()} features`);
+    }
+
     _hasSelectedFeatures() {
         if (!window.stateManager) {
             return false;
@@ -2725,7 +2756,7 @@ export class MapExportControl {
         return selectedFeatures;
     }
 
-    _generateFilenameFromFeatures(selectedFeatures, extension) {
+    _generateFilenameFromFeatures(selectedFeatures, extension, layerNameOnly = false) {
         const layerGroups = new Map();
 
         for (const item of selectedFeatures) {
@@ -2748,6 +2779,8 @@ export class MapExportControl {
                 .replace(/\s+/g, '_');
 
             parts.push(sanitizedLayer);
+
+            if (layerNameOnly) continue;
 
             for (const feature of group.features) {
                 const featureTitle = this._getFeatureTitle(feature, group.layerConfig);

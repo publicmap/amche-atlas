@@ -449,7 +449,28 @@ export class MapBrowserControl {
         });
     }
 
+    /**
+     * The browser lists layers under their atlas-prefixed registry ids
+     * (goa-local-body), while the map and layer control address the same layer
+     * by its group id (local-body). Hand the info panel the live layer, merged
+     * the way LayerStackStrip does, so isolation, export and the other
+     * actions that address the map by layer id find it.
+     */
+    _resolveLiveLayer(layer) {
+        const groups = window.layerControl?._state?.groups;
+        if (!layer?.id || !groups) return layer;
+
+        const atlasPrefix = layer._sourceAtlas ? `${layer._sourceAtlas}-` : null;
+        const strippedId = atlasPrefix && layer.id.startsWith(atlasPrefix) ? layer.id.slice(atlasPrefix.length) : null;
+        const group = groups.find(g => g.id === layer.id) || (strippedId && groups.find(g => g.id === strippedId));
+        if (!group) return layer;
+
+        const registryLayer = window.layerRegistry?.getLayer?.(group.id);
+        return { ...layer, ...(registryLayer || {}), ...group };
+    }
+
     _openLayerInfo(layer, options = {}) {
+        layer = this._resolveLiveLayer(layer);
         const modal = document.getElementById('layer-info-modal');
         const iframe = document.getElementById('layer-info-iframe');
 

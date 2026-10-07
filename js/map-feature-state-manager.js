@@ -824,6 +824,21 @@ export class MapFeatureStateManager extends EventTarget {
     }
 
     /**
+     * The (source, source-layer) pairs behind a registered layer's style layers.
+     * @param {string} layerId - Layer ID
+     * @returns {Array<{source: string, sourceLayer: (string|undefined)}>}
+     */
+    getLayerSourceRefs(layerId) {
+        const layerConfig = this._registeredLayers.get(layerId);
+        if (!layerConfig || !this._mapboxAPI || this._isRasterLayer(layerConfig)) return [];
+        const styleLayers = new Map((this._mapboxAPI.getStyle().layers || []).map(l => [l.id, l]));
+        return this._getMatchingLayerIds(layerConfig)
+            .map(id => styleLayers.get(id))
+            .filter(l => l?.source && l.type !== 'raster')
+            .map(l => ({ source: l.source, sourceLayer: l['source-layer'] }));
+    }
+
+    /**
      * Check if a layer is interactive (registered for events)
      * @param {string} layerId - Layer ID
      * @returns {boolean} True if layer is interactive (supports feature clicks/hovers)
