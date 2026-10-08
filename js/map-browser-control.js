@@ -415,7 +415,9 @@ export class MapBrowserControl {
             }
 
             if (event.data.type === 'creator-live-preview') {
-                this._creatorLivePreviewPromise = this._handleCreatorLivePreview(event.data.config, { bbox: event.data.bbox, fitBounds: event.data.fitBounds });
+                const previous = this._creatorLivePreviewPromise || Promise.resolve();
+                this._creatorLivePreviewPromise = previous.catch(() => {})
+                    .then(() => this._handleCreatorLivePreview(event.data.config, { bbox: event.data.bbox, fitBounds: event.data.fitBounds }));
             }
 
             if (event.data.type === 'creator-clear-preview') {

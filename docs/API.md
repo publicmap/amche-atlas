@@ -1008,6 +1008,8 @@ Once built, `StacAPI.publishAtlas(atlasData, sourceUrl)` immediately publishes t
 
 Inline or remote GeoJSON. Also accepts a KML URL (auto-converted using `js/kml-converter.js`).
 
+In the Map Creator, PARIVESH `https://parivesh.nic.in/dms/okm/downloadDocument?...` KML download links are also accepted (fetched through the CORS proxy). Paste several separated by `;` to merge them into one layer; each feature then gets a `source_file` property (1-based).
+
 | Field | Notes |
 |---|---|
 | `url` | Remote GeoJSON or KML URL. |

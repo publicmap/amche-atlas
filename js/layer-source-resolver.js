@@ -41,6 +41,7 @@ export const SOURCE_TYPES = {
     JSON_FILE: 'json',
     GEOJSON_FILE: 'geojson',
     KML: 'kml',
+    PARIVESH_KML: 'parivesh-kml',
     GEOJSONL: 'geojsonl',
     GPKG: 'gpkg',
     SHAPEFILE: 'shapefile',
@@ -65,6 +66,7 @@ export const SOURCE_TYPE_LABELS = {
     [SOURCE_TYPES.JSON_FILE]: 'Amche Atlas JSON',
     [SOURCE_TYPES.GEOJSON_FILE]: 'GeoJSON',
     [SOURCE_TYPES.KML]: 'KML',
+    [SOURCE_TYPES.PARIVESH_KML]: 'KML',
     [SOURCE_TYPES.GEOJSONL]: 'GeoJSONL',
     [SOURCE_TYPES.GPKG]: 'GeoPackage',
     [SOURCE_TYPES.SHAPEFILE]: 'Shapefile',
@@ -91,6 +93,18 @@ export function isBharatlasUrl(url) {
     if (/bharatlas\.com\/c\/[a-z0-9]+/i.test(url)) return true;
     if (/bharatlas\.com\/api\/r2\/community\/[a-z0-9]+\//i.test(url)) return true;
     return false;
+}
+
+export function isPariveshKmlUrl(url) {
+    return KMLConverter.isPariveshKmlUrl(url);
+}
+
+export function splitPariveshUrls(url) {
+    return KMLConverter.splitPariveshUrls(url);
+}
+
+export function resolvePariveshKml(url) {
+    return KMLConverter.fetchPariveshAndConvert(url);
 }
 
 export function isGistUrl(url) {
@@ -326,6 +340,7 @@ export function detectLayerSourceType(url) {
 
     if (isOverpassShareUrl(url)) return SOURCE_TYPES.OVERPASS_SHARE;
     if (isBharatlasUrl(url)) return SOURCE_TYPES.BHARATLAS;
+    if (isPariveshKmlUrl(url)) return SOURCE_TYPES.PARIVESH_KML;
     if (isGistUrl(url)) return SOURCE_TYPES.GIST;
     // Every textb.org pad this app reads/writes holds JSON (atlas configs,
     // GeoLibre projects, STAC-built atlases) regardless of whether the pad
@@ -1202,6 +1217,10 @@ export async function resolveLayerSource(url, urlOptions = {}) {
         case SOURCE_TYPES.BHARATLAS: {
             const { geojson, meta } = await resolveBharatlas(resolvedUrl);
             return { status: 'ok', layerType: 'geojson', geojson, meta, resolvedUrl };
+        }
+        case SOURCE_TYPES.PARIVESH_KML: {
+            const geojson = await resolvePariveshKml(resolvedUrl);
+            return { status: 'ok', layerType: 'geojson', geojson, resolvedUrl };
         }
         case SOURCE_TYPES.WMS:
             return { status: 'ok', layerType: 'wms', config: createWMSConfig(resolvedUrl), resolvedUrl };

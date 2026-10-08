@@ -1,3 +1,6 @@
+const PARIVESH_DOWNLOAD_RE = /^https?:\/\/parivesh\.nic\.in\/dms\/okm\/downloadDocument\?/i;
+const CORS_PROXY_URL = 'https://amche-atlas-production.up.railway.app/proxy';
+
 export class KMLConverter {
     static async kmlToGeoJson(kmlString) {
         const parser = new DOMParser();
@@ -342,13 +345,46 @@ export class KMLConverter {
             .replace(/'/g, '&apos;');
     }
 
+    static splitPariveshUrls(url) {
+        if (!url) return [];
+        return url.split(';').map(u => u.trim()).filter(Boolean);
+    }
+
+    static isPariveshKmlUrl(url) {
+        const urls = this.splitPariveshUrls(url);
+        return urls.length > 0 && urls.every(u => PARIVESH_DOWNLOAD_RE.test(u));
+    }
+
     static isKmlUrl(url) {
         if (!url) return false;
+        if (this.isPariveshKmlUrl(url)) return true;
         const urlLower = url.toLowerCase();
         return urlLower.endsWith('.kml') || urlLower.includes('.kml?');
     }
 
+    static async fetchPariveshAndConvert(url) {
+        const urls = this.splitPariveshUrls(url);
+        const collections = await Promise.all(urls.map(async (u) => {
+            const response = await fetch(`${CORS_PROXY_URL}?url=${encodeURIComponent(u)}`);
+            if (!response.ok) {
+                throw new Error(`Could not download Parivesh KML (HTTP ${response.status})`);
+            }
+            return this.kmlToGeoJson(await response.text());
+        }));
+        return {
+            type: 'FeatureCollection',
+            features: collections.flatMap((fc, i) =>
+                (fc.features || []).map(f => ({
+                    ...f,
+                    properties: urls.length > 1 ? { ...f.properties, source_file: i + 1 } : f.properties
+                })))
+        };
+    }
+
     static async fetchAndConvert(url) {
+        if (this.isPariveshKmlUrl(url)) {
+            return this.fetchPariveshAndConvert(url);
+        }
         try {
             const response = await fetch(url);
             if (!response.ok) {

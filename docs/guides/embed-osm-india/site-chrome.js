@@ -90,7 +90,14 @@ function defaultHash() {
 function buildSrc() {
     const src = new URL(atlasUrl, location.href);
     src.searchParams.set('atlas', CONFIG_URL);
-    for (const [key, value] of Object.entries(site.params || {})) src.searchParams.set(key, value);
+    // A camera hash in this page's URL is the visitor's explicit choice of
+    // where to look; the site's default `geolocate` would otherwise hand the
+    // camera to GPS and fly away from it.
+    const hasCamera = !!parseHash(location.hash);
+    for (const [key, value] of Object.entries(site.params || {})) {
+        if (key === 'geolocate' && hasCamera) continue;
+        src.searchParams.set(key, value);
+    }
     for (const [key, value] of new URLSearchParams(location.search)) src.searchParams.set(key, value);
     src.hash = location.hash || defaultHash();
     return src.toString();
