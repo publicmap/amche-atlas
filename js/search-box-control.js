@@ -1,7 +1,9 @@
+import { MapSearchToggle } from './map-search-toggle.js';
+
 /**
  * SearchBoxControl - Mapbox GL JS control hosting the primary top-left row:
  * the map-browser control and the <mapbox-search-box> web component, which
- * lives in the map control bar's collapsed search slot.
+ * sits in its own search button to the right of the map control bar.
  *
  * onAdd() only builds the empty row and returns it - it's added to the map
  * immediately (before map.on('load')) purely to claim its slot at the top of
@@ -27,6 +29,9 @@ export class SearchBoxControl {
         this._row.className = 'search-box-row';
         this._container.appendChild(this._row);
 
+        this._searchEl = new MapSearchToggle().build();
+        this._row.appendChild(this._searchEl);
+
         return this._container;
     }
 
@@ -49,14 +54,12 @@ export class SearchBoxControl {
         this._row.insertBefore(browserControlEl, this._row.firstChild);
     }
 
-    // Adds the search box into the map control bar's search slot, falling back
-    // to the end of the row when the caption is not mounted.
+    // Adds the search box into the search control beside the map control bar.
     mount() {
         if (this._searchBox) return; // already mounted
 
         this._searchBox = document.createElement('mapbox-search-box');
         this._searchBox.id = 'mapbox-search-box';
-        const slot = this._browserEl?.querySelector('.map-control-bar-search-slot');
-        (slot || this._row).appendChild(this._searchBox);
+        this._searchEl.appendChild(this._searchBox);
     }
 }

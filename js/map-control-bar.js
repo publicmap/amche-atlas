@@ -1,5 +1,3 @@
-import { SEARCH_SOURCES, isSearchSourceEnabled, setSearchSourceEnabled } from './search/search-sources.js';
-
 export class MapControlBar {
     constructor() {
         this._el = null;
@@ -18,8 +16,7 @@ export class MapControlBar {
         this._onAtlasChanged = () => this.update(this._layers);
     }
 
-    mount(hostEl, { triggerButton = null, onSummaryClick = null, onSummaryEnter = null, onSummaryLeave = null, onSearchStart = null } = {}) {
-        this._onSearchStart = onSearchStart;
+    mount(hostEl, { triggerButton = null, onSummaryClick = null, onSummaryEnter = null, onSummaryLeave = null } = {}) {
         this._trigger = triggerButton;
         this._el = document.createElement('div');
         this._el.className = 'map-control-bar';
@@ -51,41 +48,13 @@ export class MapControlBar {
         this._countEl = document.createElement('span');
         this._countEl.className = 'map-control-bar-count';
         this._mountSummary({ onSummaryClick, onSummaryEnter, onSummaryLeave });
-        text.append(this._nameEl, this._countEl);
-        this._main.append(iconWrap, text);
+        text.append(this._nameEl);
+        const chevron = document.createElement('sl-icon');
+        chevron.className = 'map-control-bar-chevron';
+        chevron.name = 'chevron-down';
+        this._main.append(iconWrap, text, chevron);
 
-        const slot = document.createElement('div');
-        slot.className = 'map-control-bar-search-slot';
-        const toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = 'map-control-bar-search-btn';
-        this._searchBtn = toggle;
-        toggle.setAttribute('aria-pressed', 'false');
-        toggle.title = 'Search places';
-        toggle.setAttribute('aria-label', 'Search places');
-        toggle.innerHTML = '<sl-icon name="search"></sl-icon>';
-        toggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (this._el.classList.contains('searching')) {
-                this._searchInput()?.blur();
-                this._collapseSearch(true);
-            } else {
-                this._expandSearch();
-            }
-        });
-        slot.append(toggle, this._buildSourcesMenu());
-        slot.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this._searchInput()?.blur();
-                this._collapseSearch(true);
-            }
-        });
-        this._el.addEventListener('focusin', (e) => {
-            if (e.target.closest?.('mapbox-search-box')) this._setSearching(true);
-        });
-        this._el.addEventListener('focusout', () => setTimeout(() => this._collapseSearch(), 150));
-
-        this._el.append(this._main, slot);
+        this._el.append(this._main, this._countEl);
         hostEl.appendChild(this._el);
         hostEl.classList.add('has-map-control-bar');
 
@@ -97,64 +66,6 @@ export class MapControlBar {
             this._observer.observe(this._trigger, { attributes: true, attributeFilter: ['class'] });
             sync();
         }
-    }
-
-    _buildSourcesMenu() {
-        const dropdown = document.createElement('sl-dropdown');
-        dropdown.className = 'map-control-bar-sources';
-        dropdown.placement = 'bottom-end';
-        dropdown.setAttribute('stay-open-on-select', '');
-        dropdown.hoist = true;
-        const more = document.createElement('button');
-        more.type = 'button';
-        more.slot = 'trigger';
-        more.className = 'map-control-bar-search-btn map-control-bar-sources-btn';
-        more.title = 'Search sources';
-        more.setAttribute('aria-label', 'Search sources');
-        more.innerHTML = '<sl-icon name="three-dots"></sl-icon>';
-        const menu = document.createElement('sl-menu');
-        const label = document.createElement('sl-menu-label');
-        label.textContent = 'Search in';
-        menu.appendChild(label);
-        for (const { id, label: text } of SEARCH_SOURCES) {
-            const item = document.createElement('sl-menu-item');
-            item.type = 'checkbox';
-            item.checked = isSearchSourceEnabled(id);
-            item.textContent = text;
-            item.addEventListener('click', () => setSearchSourceEnabled(id, item.checked));
-            menu.appendChild(item);
-        }
-        dropdown.append(more, menu);
-        dropdown.addEventListener('mousedown', (e) => e.preventDefault());
-        return dropdown;
-    }
-
-    _searchInput() {
-        const box = document.querySelector('mapbox-search-box');
-        return box?.shadowRoot?.querySelector('input') || box?.querySelector('input') || null;
-    }
-
-    _setSearching(on) {
-        if (on && !this._el.classList.contains('searching')) this._onSearchStart?.();
-        this._el.classList.toggle('searching', on);
-        this._searchBtn?.setAttribute('aria-pressed', String(on));
-    }
-
-    _expandSearch() {
-        this._setSearching(true);
-        requestAnimationFrame(() => {
-            const input = this._searchInput();
-            if (input) input.focus();
-            else document.querySelector('mapbox-search-box')?.focus?.();
-        });
-    }
-
-    _collapseSearch(force = false) {
-        if (!this._el) return;
-        const box = document.querySelector('mapbox-search-box');
-        if (!force && (this._el.matches(':focus-within') || box?.matches(':focus-within'))) return;
-        if (!force && this._searchInput()?.value) return;
-        this._setSearching(false);
     }
 
     setVisible(visible) {

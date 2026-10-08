@@ -58,6 +58,7 @@ export class LayerStackStrip {
             this._controlBar?.setLoading(!!window.layerControl?._loadingLayerIds?.size);
             if (this._updateFeatureVisibility()) this.render();
         };
+        this._onSearchStart = () => this._collapse();
         this._onMapClick = () => this._setReordering(false);
         // Only a user-driven move collapses the strip: a programmatic one (the
         // strip's own Zoom action, say) has no originalEvent.
@@ -106,10 +107,10 @@ export class LayerStackStrip {
         this._el.addEventListener('mouseleave', () => this._scheduleHide());
         hostEl.appendChild(this._el);
 
+        window.addEventListener('mapSearchStart', this._onSearchStart);
         this._controlBar = new MapControlBar();
         this._controlBar.mount(hostEl, {
             triggerButton: browserButton,
-            onSearchStart: () => this._collapse(),
             onSummaryClick: () => {
                 clearTimeout(this._expandTimer);
                 // A click right after the hover expanded the strip confirms it
@@ -210,6 +211,7 @@ export class LayerStackStrip {
         this._optionsItem = null;
         this._exportItem = null;
         this._importItem = null;
+        window.removeEventListener('mapSearchStart', this._onSearchStart);
         this._controlBar?.destroy();
         this._controlBar = null;
         if (this._el && this._el.parentNode) this._el.parentNode.removeChild(this._el);

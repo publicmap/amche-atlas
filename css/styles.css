@@ -293,7 +293,7 @@
 }
 
 .settings-section-title {
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 700;
     line-height: 1.2;
     letter-spacing: -0.01em;
@@ -584,8 +584,9 @@
     min-height: 60px;
     box-sizing: border-box;
     display: flex;
-    align-items: center;
-    gap: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
     padding: 8px;
     background-color: #111827;
     border: 1px solid rgba(255, 255, 255, 0.14);
@@ -620,8 +621,7 @@
     transform: scale(1.1);
 }
 
-.map-browser-control .map-control-bar button.map-control-bar-main:hover:not(:disabled),
-.map-browser-control .map-control-bar button:not(.map-control-bar-search-btn):hover:not(:disabled) {
+.map-browser-control .map-control-bar button:not(.map-control-bar-search-btn):not(.map-control-bar-main):hover:not(:disabled) {
     background: #ffffff1a !important;
     border: none !important;
     color: #fff !important;
@@ -629,8 +629,7 @@
 }
 
 .map-control-bar:hover,
-.map-control-bar.active,
-.map-control-bar.searching {
+.map-control-bar.active {
     border-color: rgba(255, 255, 255, 0.3);
 }
 
@@ -638,7 +637,95 @@
     border-color: var(--primary-color);
 }
 
+.map-browser-control .map-control-bar button:not(.map-control-bar-main) {
+    background: transparent !important;
+    border: none !important;
+}
+
 .map-browser-control .map-control-bar button {
+    box-shadow: none !important;
+    color: #fff !important;
+    cursor: pointer;
+}
+
+.map-browser-control .map-control-bar button.map-control-bar-main {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.28) !important;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.map-browser-control .map-control-bar button.map-control-bar-main:hover {
+    background: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.map-control-bar-main {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    text-align: left;
+}
+
+.map-control-bar-chevron {
+    flex-shrink: 0;
+    margin-left: auto;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+}
+
+.map-control-bar-main:hover .map-control-bar-chevron,
+.map-control-bar.active .map-control-bar-chevron {
+    color: #fff;
+}
+
+.map-control-bar.active .map-control-bar-chevron {
+    transform: rotate(180deg);
+}
+
+.map-search-control {
+    position: relative;
+    align-self: flex-start;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    min-height: 60px;
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    color: #fff;
+    pointer-events: auto;
+    transition: border-color 0.15s;
+}
+
+.map-search-control:hover,
+.map-search-control.searching {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.map-search-control.searching {
+    width: min(320px, calc(100vw - 80px));
+}
+
+.search-box-row:has(.map-search-control.searching) > .map-browser-control {
+    display: none;
+}
+
+.search-box-row .map-search-control button.map-search-btn {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 20px;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
@@ -646,69 +733,31 @@
     cursor: pointer;
 }
 
-.map-control-bar-main {
-    flex: 1;
-    min-width: 0;
-    align-self: stretch;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0 12px 0 0;
-    text-align: left;
-}
-
-.map-control-bar.searching .map-control-bar-main {
-    display: none;
-}
-
-.map-control-bar-search-slot {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    min-width: 0;
-}
-
-.map-control-bar.searching {
-    width: min(320px, 100%);
-}
-
-.map-control-bar.searching .map-control-bar-search-slot {
-    flex: 1;
-    order: -1;
-    gap: 8px;
-}
-
-.map-control-bar-search-btn {
-    flex-shrink: 0;
-    width: 38px;
-    height: 38px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border-radius: 10px;
-    font-size: 18px;
-}
-
-.map-browser-control .map-control-bar .map-control-bar-search-btn:hover {
+.search-box-row .map-search-control button.map-search-btn:hover {
     background: #ffffff1a !important;
 }
 
-.map-browser-control .map-control-bar.searching .map-control-bar-search-btn:not(.map-control-bar-sources-btn) {
+.map-search-control.searching > .map-search-btn {
     background: rgba(255, 255, 255, 0.22) !important;
 }
 
-.map-control-bar-sources {
+.map-search-sources {
     display: none;
     order: 2;
     flex-shrink: 0;
 }
 
-.map-control-bar.searching .map-control-bar-sources {
+.map-search-control.searching .map-search-sources {
     display: block;
 }
 
-.map-control-bar-search-slot #mapbox-search-box {
+.map-search-sources .map-search-btn {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 18px !important;
+}
+
+.map-search-control #mapbox-search-box {
     order: 1;
     width: 0;
     max-width: none;
@@ -717,22 +766,23 @@
     pointer-events: none;
 }
 
-.map-control-bar.searching .map-control-bar-search-slot #mapbox-search-box {
-    width: 100%;
+.map-search-control.searching #mapbox-search-box {
+    flex: 1;
+    width: auto;
     opacity: 1;
     overflow: visible;
     pointer-events: auto;
 }
 
-.map-control-bar mapbox-search-box [class$='--SearchIcon'] {
+.map-search-control mapbox-search-box [class$='--SearchIcon'] {
     display: none !important;
 }
 
-.map-control-bar mapbox-search-box input {
+.map-search-control mapbox-search-box input {
     padding-left: 12px !important;
 }
 
-.map-control-bar mapbox-search-box::part(input) {
+.map-search-control mapbox-search-box::part(input) {
     height: 38px !important;
     min-height: 38px !important;
     background: rgba(255, 255, 255, 0.1) !important;
@@ -755,21 +805,21 @@
 .map-control-bar-icon-wrap {
     position: relative;
     flex-shrink: 0;
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
 }
 
 .map-control-bar-spinner {
     display: none;
     position: absolute;
     inset: 0;
-    width: 40px;
-    height: 40px;
-    font-size: 40px;
+    width: 30px;
+    height: 30px;
+    font-size: 30px;
     --indicator-color: var(--primary-color);
     --track-color: rgba(0, 0, 0, 0.25);
     --track-width: 3px;
-    border-radius: 10px;
+    border-radius: 7px;
     background: rgba(8, 12, 20, 0.45);
     pointer-events: none;
 }
@@ -798,16 +848,16 @@
 }
 
 .map-control-bar-icon {
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 10px;
+    border-radius: 7px;
     background: rgba(255, 255, 255, 0.92);
     color: #111827;
-    font-size: 22px;
+    font-size: 18px;
     overflow: hidden;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
@@ -815,7 +865,7 @@
 .map-control-bar-icon img {
     width: 100%;
     height: 100%;
-    padding: 4px;
+    padding: 3px;
     box-sizing: border-box;
     object-fit: contain;
 }
@@ -828,7 +878,7 @@
 }
 
 .map-control-bar-name {
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 700;
     line-height: 1.2;
     letter-spacing: -0.01em;
