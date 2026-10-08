@@ -20,6 +20,7 @@ import { MapWarperAPI } from './mapwarper-url-api.js';
 import { AllmapsAPI } from './allmaps-url-api.js';
 import { OSMApi } from './osm-url-api.js';
 import { StacAPI } from './stac-url-api.js';
+import { PariveshAPI } from './parivesh-url-api.js';
 import { RouteApi } from './route-url-api.js';
 import { KMLConverter } from './kml-converter.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
@@ -1172,6 +1173,7 @@ export const DYNAMIC_SHORTHAND_PROVIDERS = {
     mapwarper: { resolveFromId: (id) => MapWarperAPI.createConfigFromId(id) },
     osm: { resolveFromId: (id) => OSMApi.createConfigFromRef(id) },
     stac: { resolveFromId: (id) => StacAPI.createConfigFromShorthandId(id) },
+    parivesh: { resolveFromId: (id) => PariveshAPI.createConfigFromId(id) },
     route: { resolveFromId: (id, rid) => RouteApi.createConfigFromId(id, rid) }
 };
 

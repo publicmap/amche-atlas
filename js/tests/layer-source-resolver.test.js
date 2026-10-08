@@ -367,12 +367,13 @@ describe('StacAPI.pickCogAsset', () => {
 });
 
 describe('DYNAMIC_SHORTHAND_PROVIDERS', () => {
-    it('exposes exactly the allmaps/mapwarper/osm/stac/route providers dynamic-layer-shorthand.js dispatches to', () => {
-        expect(Object.keys(DYNAMIC_SHORTHAND_PROVIDERS).sort()).toEqual(['allmaps', 'mapwarper', 'osm', 'route', 'stac']);
+    it('exposes exactly the allmaps/mapwarper/osm/stac/parivesh/route providers dynamic-layer-shorthand.js dispatches to', () => {
+        expect(Object.keys(DYNAMIC_SHORTHAND_PROVIDERS).sort()).toEqual(['allmaps', 'mapwarper', 'osm', 'parivesh', 'route', 'stac']);
         expect(typeof DYNAMIC_SHORTHAND_PROVIDERS.allmaps.resolveFromId).toBe('function');
         expect(typeof DYNAMIC_SHORTHAND_PROVIDERS.mapwarper.resolveFromId).toBe('function');
         expect(typeof DYNAMIC_SHORTHAND_PROVIDERS.osm.resolveFromId).toBe('function');
         expect(typeof DYNAMIC_SHORTHAND_PROVIDERS.stac.resolveFromId).toBe('function');
+        expect(typeof DYNAMIC_SHORTHAND_PROVIDERS.parivesh.resolveFromId).toBe('function');
         expect(typeof DYNAMIC_SHORTHAND_PROVIDERS.route.resolveFromId).toBe('function');
     });
 });

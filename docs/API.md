@@ -75,6 +75,7 @@ Instead of pasting a full external URL into the map creator to build a complete 
 | `mapwarper` | MapWarper map ID (e.g. `108838`) | `mapwarper.net/api/v1/maps/<id>` | `tms` layer — georeferenced historic map tiles |
 | `osm` | OSM element reference, `<node\|way\|relation>/<id>` (e.g. `relation/21057460`) | Overpass API (fetched once, not re-queried on pan) | `geojson` layer with the element's geometry inlined |
 | `stac` | A STAC Item JSON URL, or a `developmentseed.org/stac-map/` viewer share link — URL-encoded (see [`cog` — STAC support](#stac-support)) | Fetches the STAC Item JSON directly | `cog` layer pointing at the item's best-matching COG asset |
+| `parivesh` | `<docTypemappingId>/<refId>/<refType>/<uuid>[/<version>]` from a PARIVESH `downloadDocument` KML link, or the whole link URL-encoded (e.g. `40829/98845457/caf/e6bee99c-e43e-4f12-b86b-66e78f78029c`) | Fetches the KML through the CORS proxy (parivesh.nic.in blocks browser reads) once at load | `geojson` layer with the converted features inlined, id `parivesh-<refId>-<docTypemappingId>` |
 | `route` | `-<rid>:<engine>-<profile>(<markerId>,<markerId>[,…])` — this route's own id, then a routing service and profile, then two or more [`markers`](#markers) ids. E.g. `route-1:mapbox-driving-traffic(1,2)`, `route-1:osrm-driving(1,2)` | The named service in `js/search/directions-router.js`'s `ROUTING_ENGINES`, waypoint coordinates resolved from `?markers=` | `geojson` layer — the route line with every property the routing API returned, plus a Point per waypoint tagged `role` = `start` / `waypoint` / `end` |
 
 **Examples:**
@@ -84,6 +85,7 @@ Instead of pasting a full external URL into the map creator to build a complete 
 ?layers=osm:relation/21057460
 ?layers=mapbox-streets,osm:way/28845634
 ?layers=stac:https%3A%2F%2Fexample.com%2Fitems%2Fscene.json
+?layers=parivesh:40829/98845457/caf/e6bee99c-e43e-4f12-b86b-66e78f78029c&zoomTo=parivesh-98845457-40829
 ?layers=route-1:mapbox-driving-traffic(1,2)&markers=1(73.81,15.49),2(73.83,15.51)
 ?layers=route-1:mapbox-walking(1,2,3)&markers=1(73.81,15.49),2(73.82,15.50),3(73.83,15.51)
 ?layers=route-1:osrm-driving(1,2)&markers=1(73.81,15.49),2(73.83,15.51)
@@ -110,7 +112,7 @@ Instead of pasting a full external URL into the map creator to build a complete 
 - OSM: `https://www.openstreetmap.org/<node|way|relation>/<id>`
 - STAC: a STAC Item JSON URL, or a `https://developmentseed.org/stac-map/?href=...` viewer share link
 
-**Implementation:** each service's API calls live in its own module — `js/allmaps-url-api.js`, `js/mapwarper-url-api.js`, `js/osm-url-api.js`, `js/stac-url-api.js`, `js/route-url-api.js`. `js/layer-source-resolver.js` exports a `DYNAMIC_SHORTHAND_PROVIDERS` table (`{allmaps, mapwarper, osm, stac, route} -> {resolveFromId}`) wrapping those modules — it's also where `map-creator.html`'s "Add Layer" URL box resolves the same services' *full URL* forms (via `resolveLayerSource()`/`detectLayerSourceType()`), so there's one place that knows about each service rather than two. `js/dynamic-layer-shorthand.js`'s `expandDynamicLayerShorthand()` looks up the shorthand's `type` in that table; adding a new service means adding one module plus one entry in `DYNAMIC_SHORTHAND_PROVIDERS`. The `type:id` string is parsed by `parseDynamicLayerShorthandString()` (in `dynamic-layer-shorthand.js`) wherever `?layers=` is split into individual entries — `js/map-utils.js`'s `URLUtils.parseLayersFromUrl()` (startup) and `js/url-manager.js`'s `parseLayersFromUrl()` (runtime). Resolution happens once, during `js/map-init.js`'s `loadConfiguration()`, before the layer ever reaches `MapboxAPI`; the compact shorthand — not the resolved config — is what's kept in the shareable URL.
+**Implementation:** each service's API calls live in its own module — `js/allmaps-url-api.js`, `js/mapwarper-url-api.js`, `js/osm-url-api.js`, `js/stac-url-api.js`, `js/parivesh-url-api.js`, `js/route-url-api.js`. `js/layer-source-resolver.js` exports a `DYNAMIC_SHORTHAND_PROVIDERS` table (`{allmaps, mapwarper, osm, stac, parivesh, route} -> {resolveFromId}`) wrapping those modules — it's also where `map-creator.html`'s "Add Layer" URL box resolves the same services' *full URL* forms (via `resolveLayerSource()`/`detectLayerSourceType()`), so there's one place that knows about each service rather than two. `js/dynamic-layer-shorthand.js`'s `expandDynamicLayerShorthand()` looks up the shorthand's `type` in that table; adding a new service means adding one module plus one entry in `DYNAMIC_SHORTHAND_PROVIDERS`. The `type:id` string is parsed by `parseDynamicLayerShorthandString()` (in `dynamic-layer-shorthand.js`) wherever `?layers=` is split into individual entries — `js/map-utils.js`'s `URLUtils.parseLayersFromUrl()` (startup) and `js/url-manager.js`'s `parseLayersFromUrl()` (runtime). Resolution happens once, during `js/map-init.js`'s `loadConfiguration()`, before the layer ever reaches `MapboxAPI`; the compact shorthand — not the resolved config — is what's kept in the shareable URL.
 
 **A note on the `stac` shorthand's id:** unlike `allmaps`/`mapwarper`/`osm` (short opaque IDs), the `stac` shorthand's id is itself a full URL. A bare STAC Item URL with no query string (e.g. `https://host/items/scene.json`) can be used as-is. A `stac-map` viewer link carries its own `&`-separated query params (`href=`, `bbox=`, `viz=`), which would otherwise be parsed as top-level `?layers=`-sibling parameters — percent-encode the whole viewer URL (as in the example above) before appending it after `stac:`.
 
@@ -434,6 +436,8 @@ The zoom buttons in the map browser (`map-browser.html`) and the layer informati
 ```
 ?layers=goa-plots&zoomTo=goa-plots
 ```
+
+A [`parivesh:`](#dynamic-layer-shortcuts) layer's bbox comes from its fetched KML, so it works here too: `?layers=parivesh:40829/98845457/caf/<uuid>&zoomTo=parivesh-98845457-40829` (the layer id is `parivesh-<refId>-<docTypemappingId>`).
 
 ### `country`
 

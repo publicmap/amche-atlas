@@ -8,6 +8,7 @@
  *   mapwarper:108838
  *   osm:relation/21057460
  *   stac:<url-encoded STAC Item or stac-map viewer URL>
+ *   parivesh:<docTypemappingId>/<refId>/<refType>/<uuid>
  *   route-1:mapbox-driving-traffic(1,2)
  *   route-1:osrm-driving(1,2,3)
  *
@@ -31,8 +32,8 @@
 import { DYNAMIC_SHORTHAND_PROVIDERS } from './layer-source-resolver.js';
 import { OSMApi } from './osm-url-api.js';
 
-const SHORTHAND_TYPES = new Set(['allmaps', 'mapwarper', 'osm', 'stac', 'route']);
-const SHORTHAND_STRING_RE = /^(allmaps|mapwarper|osm|stac|route)(?:-([A-Za-z0-9_]+))?:(.+)$/;
+const SHORTHAND_TYPES = new Set(['allmaps', 'mapwarper', 'osm', 'stac', 'parivesh', 'route']);
+const SHORTHAND_STRING_RE = /^(allmaps|mapwarper|osm|stac|parivesh|route)(?:-([A-Za-z0-9_]+))?:(.+)$/;
 
 /**
  * Parses the compact `type:id` string form (e.g. "osm:relation/21057460",
