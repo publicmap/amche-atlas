@@ -227,3 +227,10 @@ describe('collectFilters', () => {
         expect(collectFilters({}, null)).toEqual([]);
     });
 });
+
+describe('describeExpression: a quick property filter', () => {
+    it('reads a single-condition "all" as the condition itself', () => {
+        expect(describeExpression(['all', ['==', ['get', 'kind'], 'park']]).text).toBe('kind = park');
+        expect(describeExpression(['all', ['==', ['get', 'kind'], 'park'], ['==', ['get', 'zone'], 'A']]).text).toBe('kind = park and zone = A');
+    });
+});

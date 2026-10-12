@@ -190,7 +190,7 @@ export class MapFeatureControl {
             } else if (event.data.type === 'update-layer-style') {
                 this._updateLayerStyle(event.data.layerId, event.data.style, event.data.resetProperties, event.data.isDefaultStyle, event.data);
             } else if (event.data.type === 'update-layer') {
-                // "Apply Changes" in the layer editor (map-creator.html)'s edit mode
+                // "Save Layer" in the layer editor (map-creator.html)'s edit mode
                 this._updateLayer(event.data.layer, event.data.originalId || event.data.layer?.id, event.data.changedFields);
             } else if (event.data.type === 'toggle-compare') {
                 this._toggleCompare(event.data.layerId, event.data.enabled);

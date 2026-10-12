@@ -18,15 +18,15 @@ function infoItem(key, value) {
 }
 
 /** Fill the legend and metadata from a layer config. */
-export function renderOverview(layer) {
+export function renderOverview(layer, { onLegendSelect } = {}) {
     $('#lo-legend-content, #lo-metadata-content').empty();
 
-    const legend = LayerLegend.generate(layer);
+    const legend = LayerLegend.generate(layer, { onSelect: onLegendSelect });
     $('#lo-legend-section').toggle(!!legend);
     if (legend) $('#lo-legend-content').append(legend);
 
     const metadata = {};
-    if (layer.bbox) metadata['Bounding Box'] = formatBbox(layer.bbox);
+    $('#data-bbox-value').text(layer.bbox ? formatBbox(layer.bbox) : 'none');
     if (layer.tags && Array.isArray(layer.tags)) metadata['Tags'] = layer.tags.join(', ');
     if (layer._sourceAtlas) metadata['Source Atlas'] = layer._sourceAtlas;
     if (layer.opacity !== undefined) metadata['Opacity'] = `${Math.round(layer.opacity * 100)}%`;

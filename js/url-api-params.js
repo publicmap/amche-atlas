@@ -16,6 +16,7 @@ export const URL_API_PARAMS = [
     'layers',
     'selected',
     'markers',
+    'edit',
     'geolocate',
     'q',
     'compare',

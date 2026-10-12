@@ -1125,6 +1125,19 @@ export class MapInitializer {
                 window.browserControl?.preload?.();
             });
 
+            // `?edit=<layer-id>`: reopen that layer in the editor (links copied from the editor).
+            const editLayerId = new URLSearchParams(window.location.search).get('edit');
+            if (editLayerId) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('edit');
+                history.replaceState(history.state, '', url);
+                map.once('idle', () => {
+                    const layer = window.layerControl._state.groups.find(group => group.id === editLayerId);
+                    if (layer) window.browserControl.openLayerEditor(layer);
+                    else console.warn('[map-init] ?edit: no layer with id', editLayerId);
+                });
+            }
+
             // Initialize 3D control from URL parameters after URL manager is ready
             window.terrain3DControl.initializeFromURL();
 

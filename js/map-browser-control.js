@@ -496,7 +496,7 @@ export class MapBrowserControl {
      * @param {Object} layer
      * @param {{tab?: 'overview'|'edit', feature?: Object|null}} [options]
      */
-    openLayerEditor(layer, { tab = 'edit', feature = null } = {}) {
+    openLayerEditor(layer, { tab = 'view', feature = null } = {}) {
         if (!layer) return;
         const live = this._resolveLiveLayer(layer);
         let serializable;
@@ -514,7 +514,7 @@ export class MapBrowserControl {
 
     // "Layer info" is the editor's Overview tab; "edit" is its Edit tab.
     _openLayerInfo(layer, options = {}) {
-        this.openLayerEditor(layer, { tab: 'edit', feature: options.feature || null });
+        this.openLayerEditor(layer, { tab: options.edit ? 'edit' : 'view', feature: options.feature || null });
     }
 
     /**
@@ -1010,9 +1010,12 @@ export class MapBrowserControl {
     hideAllLayers() {
         const indexBase = new Set(this._getAtlasLayerReferenceIds('index').map(id => this._baseLayerId(id)));
         const handledOff = new Set();
+        // The layer being previewed from the creator is the one the user is
+        // working on: it is not one of "the other maps".
+        const draftBase = this._creatorDraftLayerId ? this._baseLayerId(this._creatorDraftLayerId) : null;
         this._getActiveLayers().forEach(layerId => {
             const base = this._baseLayerId(layerId);
-            if (indexBase.has(base) || handledOff.has(base)) return;
+            if (indexBase.has(base) || handledOff.has(base) || base === draftBase) return;
             handledOff.add(base);
             this._handleLayerToggle(layerId, false);
         });

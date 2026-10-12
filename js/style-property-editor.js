@@ -209,6 +209,15 @@ export class StylePropertyEditor {
         this.render();
     }
 
+    /** Show the Rules tab with one rule's row opened and scrolled into view. */
+    openRule(id) {
+        this._tab = 'rules';
+        this._rules.openRule(id);
+        this.render();
+        const row = [...this.element.querySelectorAll('.rv-row')].find(r => r.dataset.rule === id);
+        if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+    }
+
     get tab() {
         return this._tab;
     }

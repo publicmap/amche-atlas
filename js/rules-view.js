@@ -144,6 +144,11 @@ export class RulesView {
         this.render();
     }
 
+    /** Open a rule's row, so the next render shows it expanded. */
+    openRule(id) {
+        this._open = id;
+    }
+
     /** The number of data-driven rules (rows other than the fallback). */
     get ruleCount() {
         return analyzeRules(resolveStyleReferences(this._style)).ruleCount;
@@ -393,6 +398,10 @@ export class RulesView {
 }
 
 const STYLESHEET_ID = 'rules-view-css';
+
+export function injectRuleViewStyles() {
+    injectStyles();
+}
 
 function injectStyles() {
     if (document.getElementById(STYLESHEET_ID)) return;

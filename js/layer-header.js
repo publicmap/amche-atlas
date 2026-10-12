@@ -11,7 +11,6 @@
  * layers.
  */
 
-import { LayerThumbnail } from './layer-thumbnail.js';
 import { ZoomToParam } from './zoom-to-param.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 
@@ -20,10 +19,8 @@ export class LayerHeader {
      * @param {Object} options
      * @param {() => void} options.onClose - Close the whole panel
      * @param {(opacity: number) => void} [options.onOpacity] - The opacity slider moved
-     * @param {() => Object} [options.getConfig] - The layer as edited so far, for its shareable link
      */
-    constructor({ onClose, onOpacity, getConfig } = {}) {
-        this.getConfig = getConfig;
+    constructor({ onClose, onOpacity } = {}) {
         this._onClose = onClose || (() => {});
         this._onOpacity = onOpacity || (() => {});
         this.layer = null;
@@ -89,26 +86,15 @@ export class LayerHeader {
     // -- badges and link -------------------------------------------------------
 
     /**
-     * An atlas layer is linked by its id. A layer that exists only in the
-     * URL (a temporary one) has no id anyone else can resolve, so its link
-     * carries the layer's configuration.
+     * A link back to the current scene (layers, camera, everything in the
+     * map's URL) that reopens this layer in the editor: `edit=<layer id>`
+     * is read once on load (see openEditorFromUrl in js/map-init.js).
      */
     _shareableLink(layer) {
-        const id = String($('#layer-id').val() || '').trim() || layer.id || 'no-id';
-        const atlasId = layer._sourceAtlas;
-        if (atlasId) {
-            return `${window.location.origin}/#${id.startsWith(`${atlasId}-`) ? id : `${atlasId}-${id}`}`;
-        }
-        const config = {};
-        Object.entries(this.getConfig?.() || layer).forEach(([key, value]) => {
-            if (!key.startsWith('_')) config[key] = value;
-        });
-        config.id = id;
-        const parentUrl = new URL(window.parent.location.href);
-        const params = new URLSearchParams();
-        ['renderer', 'atlas'].forEach(key => { if (parentUrl.searchParams.has(key)) params.set(key, parentUrl.searchParams.get(key)); });
-        const layers = encodeURIComponent(JSON.stringify(config).replace(/"/g, "'"));
-        return `${parentUrl.origin}${parentUrl.pathname}?${params.toString()}${params.size ? '&' : ''}layers=${layers}`;
+        const id = String($('#layer-id').val() || '').trim() || layer.id;
+        const url = new URL(window.parent.location.href);
+        if (id) url.searchParams.set('edit', id);
+        return url.toString();
     }
 
     _renderBadges(layer) {
@@ -122,12 +108,23 @@ export class LayerHeader {
             return text;
         };
 
-        $('#lh-copy-link').off('click').on('click', () => {
-            navigator.clipboard.writeText(this._shareableLink(layer))
+        const refreshLink = () => $('#lh-copy-link').attr('href', this._shareableLink(layer));
+        refreshLink();
+        $('#lh-copy-link').off('mouseenter focus').on('mouseenter focus', refreshLink);
+
+        // The whole "#layer-id" copies the link while viewing; while editing the id is a text
+        // field, so only the "#" does.
+        $('#lh-id-group').off('click').on('click', (event) => {
+            const onHash = $(event.target).closest('#lh-copy-link').length > 0;
+            if (!onHash && !$('body').hasClass('is-viewing')) return;
+            event.preventDefault();
+            const link = this._shareableLink(layer);
+            $('#lh-copy-link').attr('href', link);
+            navigator.clipboard.writeText(link)
                 .then(() => {
-                    const $icon = $('#lh-copy-link sl-icon');
-                    $icon.attr('name', 'check2');
-                    setTimeout(() => $icon.attr('name', 'link-45deg'), 1500);
+                    const $link = $('#lh-copy-link');
+                    $link.text('✓');
+                    setTimeout(() => $link.text('#'), 1500);
                 })
                 .catch(err => console.error('Failed to copy URL:', err));
         });
@@ -146,9 +143,6 @@ export class LayerHeader {
         } else {
             $('#lh-atlas-badge').hide();
         }
-
-        const badge = LayerThumbnail.getTypeBadge(layer.type);
-        $('#lh-type-badge').text(badge.label).css({ color: badge.color, 'background-color': badge.bg });
     }
 
     // The raw config URL for an atlas, preferring where an imported atlas was fetched from.

@@ -339,8 +339,8 @@ export class MapCreator {
         });
 
         $('#add-to-map-btn').on('click', () => this.addToMap());
-        $('#cancel-btn, #back-btn').on('click', () => this.returnToBrowser());
-        $('#close-btn').on('click', () => this.closeBrowser());
+        // Closing mid-edit cancels it: the original comes back and the panel stays open, in view mode.
+        $('#close-btn').on('click', () => (this.layerPage.active && this.edit.active ? this.layerPage.cancelEdit() : this.closeBrowser()));
         $('#remove-other-maps-btn').on('click', () => this.removeOtherMaps());
 
         $('.color-preview').on('click', function() {
@@ -437,6 +437,12 @@ export class MapCreator {
                 }, 2000);
             });
         });
+    }
+
+    /** Put the form and the live preview at a layer configuration (undo / redo). */
+    applyConfigSnapshot(config) {
+        $('#config-preview').val(JSON.stringify(config, null, 2));
+        this.handleConfigJSONEdit();
     }
 
     handleConfigJSONEdit() {

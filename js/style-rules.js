@@ -134,7 +134,7 @@ export function describeExpression(expr) {
         if (op === 'boolean' && Array.isArray(a) && a[0] === 'feature-state') {
             return { text: `${a[1]} state`, complex: false };
         }
-        if ((op === 'all' || op === 'any') && expr.length > 2) {
+        if ((op === 'all' || op === 'any') && expr.length > 1) {
             const parts = expr.slice(1).map(describeExpression);
             return { text: parts.map(p => p.text).join(op === 'all' ? ' and ' : ' or '), complex: parts.some(p => p.complex) };
         }

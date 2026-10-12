@@ -24,6 +24,19 @@ Load a specific atlas configuration.
 
 **Note:** The atlas display name comes from the config's top-level `name`; `title` is accepted as an alias for configs authored elsewhere (e.g. STAC-derived atlases). If neither is present, an imported atlas falls back to "Imported Map".
 
+### `edit`
+
+Open a layer in the layer editor (map-creator.html) once the map has loaded. Used by the link button in the editor, which copies the current map URL with `edit` added, so the link restores the whole scene with the editor open on that layer.
+
+**Format:** `?edit=<layer-id>`
+
+The parameter is read once on load and removed from the address bar. If no active layer has that id, nothing opens.
+
+**Example:**
+```
+?atlas=world&layers={'id':'my-layer',...},mapbox-satellite&edit=my-layer
+```
+
 ### `renderer`
 
 Select the GL rendering library. Applies to script loading only and is read once at page load - it is not part of the debounced URL-write flow other parameters use.
@@ -1433,9 +1446,10 @@ Variants stack in reverse key order, so keys written first draw on top. Hover an
 
 #### One editor for adding and editing layers
 
-Adding a layer and editing one are the same screen, `map-creator.html`. A new layer starts empty: choose a data source, then customize it. Editing opens the editor on an existing layer, so everything the layer already carries is filled in: the data source (loaded again from its URL, query or stored data), title, description and attribution, the inspect fields (feature id, name and the fields shown), the style, filters and every other setting, in the Configuration JSON. The **Edit** button of the layer info panel (`map-information.html`, which now only shows a layer's legend, metadata and actions), the layer stack's edit action and the attribution bar's edit link all open it.
+Adding a layer and editing one are the same screen, `map-creator.html`. A new layer starts empty: choose a data source, then customize it. Editing opens the editor on an existing layer, so everything the layer already carries is filled in: the data source (loaded again from its URL, query or stored data), title, description and attribution, the inspect fields (feature id, name and the fields shown), the style, filters and every other setting, in the Configuration JSON. The layer stack's edit action and the attribution bar's edit link all open it.
 
-- **Live preview.** While editing, the layer on the map is replaced by a live preview of your changes, in the same place in the stack. **Apply Changes** keeps it (the URL then carries the edited layer, not the original reference), **Cancel** or closing the panel puts the original back untouched.
+- **Live preview.** While editing, the layer on the map is replaced by a live preview of your changes, in the same place in the stack. **Save Layer** keeps it (the URL then carries the edited layer, not the original reference); the panel returns to view mode. **Undo** and **Redo** step through the changes made so far, and the **×** cancels the edit: the original comes back untouched.
+- **View and edit modes.** An existing layer opens read-only; the title bar starts with `#<layer-id>` (a link to the current scene with this layer open) and an **Edit Layer** button. Only in edit mode do the thumbnail (style), the data card (data source) and the description open for editing.
 - **The Data card.** The data source is one card. For a layer that already has data it is collapsed to the link and, beneath it, the layer type (GeoJSON, Vector tiles, ArcGIS layer, ...), with an icon for the kind of data: `bounding-box-circles` for vector tiles, `image` for rasters, `globe` for web services and APIs (WMS, WFS, ArcGIS, Overpass, Allmaps, MapWarper, ...), `filetype-csv`, `filetype-json`, `filetype-xml` for KML and `file-earmark-zip` for GeoPackage and Shapefile. Hovering the icon describes the kind; kinds are told apart by icon, not colour. **Edit** expands the card: the link becomes an input (the upload button shows only while it is empty), with a "supported formats" link that opens help cards, each with an icon, a description and an example link to try.
 - **Replacing the source.** Paste a different link or upload a file in the Data card. Once it has loaded you choose what happens to the styling:
   - **Keep current styling** (default): the layer's style, filters, zoom range and other settings stay. Inspect settings narrow to the fields the new data actually has, and attribution follows the new source.

@@ -9,6 +9,7 @@
  */
 
 import { describeSource } from './source-icons.js';
+import { describeLayerSource } from './creator-edit-mode.js';
 
 const PLACEHOLDER_TITLE = 'Paste a link or upload a file';
 
@@ -17,6 +18,23 @@ export class DataCard {
         this.creator = creator;
         this._collapsed = false;
         this._collapsible = false;
+        this._viewLayer = null;
+    }
+
+    /** Show a layer's source as a card while it is only being viewed (not loaded into the form). */
+    setView(layer) {
+        this._viewLayer = layer;
+        this._collapsible = false;
+        this.setCollapsed(true);
+        this.refresh();
+    }
+
+    _viewSource() {
+        const source = describeLayerSource(this._viewLayer);
+        if (source.kind === 'url') return source.value;
+        if (source.kind === 'overpass') return String(source.value).split('\n')[0];
+        if (source.kind === 'local' || source.kind === 'inline') return 'Data stored with this layer';
+        return 'No data source of its own';
     }
 
     init() {
@@ -44,6 +62,7 @@ export class DataCard {
 
     /** Editing a layer that has data: start collapsed, and let the Edit button open it. */
     enterEditMode(hasSource) {
+        this._viewLayer = null;
         this._collapsible = hasSource;
         $('#data-card-toggle').toggleClass('hidden', !hasSource);
         this.setCollapsed(true);
@@ -67,6 +86,7 @@ export class DataCard {
     // The link or file being used, for the card's title.
     _title() {
         const creator = this.creator;
+        if (this._viewLayer && !creator.edit.active) return this._viewSource();
         const url = $('#url-input').val().trim();
         if (url) return url;
 
@@ -85,6 +105,7 @@ export class DataCard {
 
     _layerType() {
         const creator = this.creator;
+        if (this._viewLayer && !creator.edit.active) return this._viewLayer.type;
         // An edited layer shows its own type until a different source is loaded.
         if (creator.edit.active && !creator.edit.sourceChanged && creator.edit.layer) return creator.edit.layer.type;
         if (!creator.currentLayerType) return undefined;
@@ -93,8 +114,9 @@ export class DataCard {
 
     /** Redraw the card's icon, tooltip, link and layer type from what is being used now. */
     refresh() {
-        const url = $('#url-input').val().trim();
-        const { icon, tooltip, subtitle } = describeSource({ url: url || undefined, layerType: this._layerType() });
+        const viewing = this._viewLayer && !this.creator.edit.active;
+        const url = viewing ? (describeLayerSource(this._viewLayer).value || '') : $('#url-input').val().trim();
+        const { icon, tooltip, subtitle } = describeSource({ url: typeof url === 'string' && url ? url : undefined, layerType: this._layerType() });
         const title = this._title();
 
         $('#data-card-icon').attr('name', icon);

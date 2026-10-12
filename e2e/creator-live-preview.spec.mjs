@@ -81,13 +81,13 @@ test('"Add Map Layer" finalizes the live-previewed layer without duplicating it'
     expect(draftIdAfter).toBeNull();
 });
 
-test('"Cancel" removes the live-previewed layer', async ({ page }) => {
+test('closing the panel removes the live-previewed layer', async ({ page }) => {
     const frame = await openCreator(page);
     await frame.locator('#file-input').setInputFiles(writeSampleGeoJSON());
     await page.waitForFunction(() => !!window.browserControl._creatorDraftLayerId, { timeout: 10000 });
     const draftId = await page.evaluate(() => window.browserControl._creatorDraftLayerId);
 
-    await frame.locator('#cancel-btn').click();
+    await frame.locator('#close-btn').click();
     await page.waitForTimeout(500);
 
     const stillPresent = await page.evaluate(

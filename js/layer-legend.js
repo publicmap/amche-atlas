@@ -12,14 +12,30 @@ import {
     formatLabel,
     strokeScaler
 } from './layer-style-utils.js';
+import { generateRuleLegend } from './rule-legend.js';
 
 export class LayerLegend {
     /**
      * Generate legend HTML for a layer
      * @param {Object} layer - Layer configuration
+     * @param {{onSelect?: (ruleId: string|null) => void}} [options] - `onSelect` makes a vector legend
+     *        clickable: it gets the id of the rule clicked (see js/rule-legend.js), or null for the legend itself
      * @returns {HTMLElement|null} Legend element or null if no legend available
      */
-    static generate(layer) {
+    static generate(layer, options = {}) {
+        const legend = this._generate(layer);
+        if (legend && options.onSelect && legend.classList.contains('legend-vector')) {
+            legend.style.cursor = 'pointer';
+            legend.title = 'Edit style';
+            legend.addEventListener('click', (event) => {
+                const item = event.target.closest('[data-rule]');
+                options.onSelect(item ? item.dataset.rule : null);
+            });
+        }
+        return legend;
+    }
+
+    static _generate(layer) {
         if (Array.isArray(layer.legendMap) && layer.legendMap.length) {
             return this._generateCategoricalLegend(layer);
         }
@@ -29,7 +45,7 @@ export class LayerLegend {
         }
 
         if (layer.style) {
-            return this._generateVectorLegend(layer);
+            return generateRuleLegend(layer) || this._generateVectorLegend(layer);
         }
 
         return null;

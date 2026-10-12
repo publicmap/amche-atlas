@@ -186,12 +186,8 @@ export class CreatorEditMode {
     }
 
     _applyChrome() {
-        $('#creator-heading').text('Edit Map Layer');
-        $('#source-step-title').text('Data');
-        $('#source-step-hint').addClass('hidden');
-        $('#add-to-map-btn').text('Apply Changes');
+        $('#add-to-map-btn').text('Save Layer');
         $('#remove-other-maps-btn').hide();
-        $('#cancel-btn').text('Cancel');
         document.title = 'Edit Layer';
     }
 
@@ -244,6 +240,7 @@ export class CreatorEditMode {
         } finally {
             this._seeding = false;
         }
+        creator.layerPage.onEditSeeded();
     }
 
     _syncStyleTypes(style) {
@@ -339,7 +336,18 @@ export class CreatorEditMode {
         creator.updateConfigPreview();
     }
 
-    /** Apply Changes: the live draft becomes the layer (or, for a layer the creator can't preview, its JSON is applied). */
+    /** Leave edit mode (after Apply or Cancel); the form keeps whatever it holds until the next edit starts. */
+    stop() {
+        clearTimeout(this._timer);
+        clearTimeout(this.creator._previewTimer);
+        this.active = false;
+        this._seeding = false;
+        this.sourceChanged = false;
+        this.creator._resolveOptions = null;
+        $('#edit-style-choice, #edit-unsupported-note').addClass('hidden');
+    }
+
+    /** Save Layer: the live draft becomes the layer (or, for a layer the creator can't preview, its JSON is applied). */
     apply() {
         const creator = this.creator;
         if (!this.supported) {
@@ -352,12 +360,13 @@ export class CreatorEditMode {
             }
             const changed = Object.keys({ ...this.layer, ...config }).filter(key => JSON.stringify(this.layer[key]) !== JSON.stringify(config[key]));
             window.parent.postMessage({ type: 'update-layer', layer: config, originalId: this.originalId, changedFields: changed }, '*');
-            creator.closeBrowser();
+            creator.layerPage.finishEdit(config);
             return;
         }
 
         clearTimeout(creator._previewTimer);
         creator.sendPreview();
-        window.parent.postMessage({ type: 'finalize-creator-layer', keepOpen: false, edit: true }, '*');
+        window.parent.postMessage({ type: 'finalize-creator-layer', keepOpen: true, edit: true }, '*');
+        creator.layerPage.finishEdit();
     }
 }
