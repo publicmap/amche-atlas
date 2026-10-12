@@ -341,7 +341,7 @@
                 <div class="flex gap-2 mb-2">
                     <div class="relative flex-1">
                         <input type="text" id="url-input"
-                            placeholder="Paste a link to GeoJSON, CSV, KML, tiles, MapWarper, WMS…"
+                            placeholder="Paste a link to GeoJSON, CSV, KML, tiles, MapWarper, WMS, WFS, ArcGIS REST…"
                             class="w-full px-3 py-2 pr-20 rounded">
                         <div class="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
                             <span id="url-validation" class="text-xs"></span>
@@ -578,6 +578,32 @@ Supports: {{bbox}} placeholder for viewport
 Click to load a sample query">
                         Overpass
                     </button>
+                    <button type="button"
+                        class="format-chip px-2 py-1 bg-sky-900/40 hover:bg-sky-800/60 text-sky-200 rounded text-xs font-medium cursor-pointer transition-colors border border-sky-800/50"
+                        data-format="wfs"
+                        data-sample="https://service.pdok.nl/cbs/gebiedsindelingen/2023/wfs/v1_0?service=WFS"
+                        data-tooltip="🌐 WFS (Web Feature Service)
+OGC vector feature service
+Browse feature types, load as GeoJSON
+Needs a GeoJSON output format
+
+URL format: any WFS endpoint or GetFeature URL
+Click to browse a PDOK example">
+                        WFS
+                    </button>
+                    <button type="button"
+                        class="format-chip px-2 py-1 bg-fuchsia-900/40 hover:bg-fuchsia-800/60 text-fuchsia-200 rounded text-xs font-medium cursor-pointer transition-colors border border-fuchsia-800/50"
+                        data-format="arcgis"
+                        data-sample="https://gis.dda.org.in/server/rest/services/"
+                        data-tooltip="🗺️ ArcGIS REST
+FeatureServer and MapServer layers
+Paste a /rest/services directory to browse,
+or a layer / query URL to load directly
+
+URL format: .../rest/services/...
+Click to browse an example server">
+                        ArcGIS REST
+                    </button>
                     <span class="format-info px-2 py-1 bg-teal-900/30 text-teal-300 rounded text-xs font-medium border border-teal-800/40"
                         data-tooltip="📄 GeoJSON Lines (NDJSON)
 Newline-delimited GeoJSON features
@@ -708,9 +734,24 @@ File upload only: .zip containing shapefile">
                             <option value="cog">COG - Cloud Optimized GeoTIFF (.tif)</option>
                             <option value="style">Style - Uses existing Mapbox style sources</option>
                             <option value="overpass">Overpass - Live OSM data via Overpass API</option>
+                            <option value="arcgis">ArcGIS - Paged FeatureServer / MapServer layer</option>
                             <option value="atlas">Atlas - Atlas configuration</option>
                         </select>
                         <div class="text-xs text-gray-500 mt-1">Data format type (auto-detected from source)</div>
+                    </div>
+
+                    <div class="mb-4" id="service-output-section" style="display:none;">
+                        <details>
+                            <summary class="cursor-pointer text-sm font-medium py-1">
+                                Advanced: data output
+                                <span id="service-output-count" class="text-xs text-gray-500 ml-2"></span>
+                            </summary>
+                            <div class="mt-2">
+                                <select id="service-output-select"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm"></select>
+                                <div id="service-output-hint" class="text-xs text-gray-500 mt-1"></div>
+                            </div>
+                        </details>
                     </div>
 
                     <div class="mb-4" id="osm-data-mode-section" style="display:none;">

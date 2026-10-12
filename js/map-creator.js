@@ -6,6 +6,7 @@ import { StreamingGPKGReader } from './streaming-gpkg-reader.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
 import * as SourceResolver from './layer-source-resolver.js';
 import { styleLiteral, toHexColor, colorAlpha } from './layer-style-utils.js';
+import { ServiceImport } from './service-import.js';
 
 // Re-exported for the Style controls' own callers (and their tests), which have
 // always imported these from here; they now live in js/layer-style-utils.js so
@@ -42,6 +43,10 @@ export class MapCreator {
         // title, style and inspect settings and lands as a separate layer.
         this._fileQueue = [];
         this._fileQueueIndex = 0;
+        // ArcGIS REST / WFS: tree browser + output-format picker (see
+        // service-import.js). While active, a geojson-type config is a URL
+        // layer (currentLayerType 'geojson-url'), not local data.
+        this.service = new ServiceImport(this);
     }
 
     init() {
@@ -116,6 +121,7 @@ export class MapCreator {
      * the iframe keeps its state between visits.
      */
     resetLayerSettings() {
+        this.service.reset();
         $('#layer-title').val('');
         $('#layer-id').val('');
         $('#layer-description').val('');
@@ -140,9 +146,8 @@ export class MapCreator {
     setupEventListeners() {
         $('#load-data-btn').on('click', () => this.handleLoadData());
 
-        let urlInputTimeout;
         $('#url-input').on('input', (e) => {
-            clearTimeout(urlInputTimeout);
+            clearTimeout(this._urlInputTimeout);
             let url = e.target.value.trim();
 
             if (url) {
@@ -176,17 +181,19 @@ export class MapCreator {
                     'Amche Atlas JSON': 'atlas-json',
                     'WMS': 'wms',
                     'Bharatlas': 'bharatlas',
-                    'Overpass': 'overpass'
+                    'Overpass': 'overpass',
+                    'WFS': 'wfs',
+                    'ArcGIS': 'arcgis'
                 };
                 const formatKey = formatMap[validFormat];
                 if (formatKey) {
                     $(`.format-chip[data-format="${formatKey}"]`).addClass('active-format');
                 }
-                urlInputTimeout = setTimeout(() => {
+                this._urlInputTimeout = setTimeout(() => {
                     this.handleLoadData();
                 }, 1000);
             } else if (this.isValidDataUrl(url)) {
-                urlInputTimeout = setTimeout(() => {
+                this._urlInputTimeout = setTimeout(() => {
                     this.handleLoadData();
                 }, 1000);
             } else {
@@ -195,6 +202,7 @@ export class MapCreator {
         });
 
         $('#clear-url-btn').on('click', () => {
+            this.service.reset();
             $('#url-input').val('').focus();
             $('#clear-url-btn').addClass('hidden');
             $('#url-validation').html('');
@@ -207,6 +215,8 @@ export class MapCreator {
             this.clearPreview();
         });
 
+        $('#service-output-select').on('change', (e) => this.service.changeOutput(e.target.value));
+
         $('#google-sheet-select').on('change', () => {
             this.handleLoadData();
         });
@@ -216,6 +226,7 @@ export class MapCreator {
         });
 
         $('#clear-file-btn').on('click', () => {
+            this.service.reset();
             this.clearSelectedFile();
             $('#data-preview-details').hide();
             $('#settings-section').hide();
@@ -410,7 +421,7 @@ export class MapCreator {
         $('#config-json-status').html('<span style="color:#86efac;">✓ Valid — live preview updated</span>');
         $('#reset-config-json-btn').removeClass('hidden');
 
-        if (parsed.type) {
+        if (parsed.type && this.currentLayerType !== 'geojson-url') {
             this.currentLayerType = parsed.type;
         }
 
@@ -644,6 +655,10 @@ export class MapCreator {
     }
 
     handleLoadData() {
+        // An explicit Load Data click supersedes the typing-debounce auto-load
+        // queued by the url input, which would otherwise import a second time
+        // (resetting a service tree the user has already started browsing).
+        clearTimeout(this._urlInputTimeout);
         const url = $('#url-input').val().trim();
         const fileInput = $('#file-input')[0];
         const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
@@ -803,6 +818,7 @@ export class MapCreator {
 
         url = this.normalizeGoogleSheetsUrl(url);
 
+        this.service.reset();
         this.setLoadingState('loading');
 
         try {
@@ -867,6 +883,16 @@ export class MapCreator {
 
             if (result.status === 'needs-input' && result.kind === 'stac-children') {
                 this.handleStacImport(result.stacData, result.children, result.resolvedUrl);
+                return;
+            }
+
+            if (result.status === 'needs-input' && result.kind === 'service-browser') {
+                await this.service.show(result.service);
+                return;
+            }
+
+            if (result.status === 'ok' && result.service) {
+                await this.service.show(result.service, result.service.description);
                 return;
             }
 
@@ -1527,11 +1553,13 @@ export class MapCreator {
         // Label checked and let live detection (see _handleTileInfoDetected,
         // fed by MapBrowserControl._detectSourceInfo) or the user fill in
         // the rest.
-        if (config.type === 'vector' || config.type === 'overpass') {
+        if (this.usesDetectedGeometry(config.type)) {
             $('#style-controls').show();
             $('#geometry-type-info').text(config.type === 'overpass'
                 ? 'Geometry type unknown until the query returns — check the box(es) that match your data below, or wait for it to auto-detect once the preview loads.'
-                : 'Geometry type unknown until tiles load — check the box(es) that match your data below, or wait for it to auto-detect once the preview loads.');
+                : config.type === 'vector'
+                    ? 'Geometry type unknown until tiles load — check the box(es) that match your data below, or wait for it to auto-detect once the preview loads.'
+                    : 'Style controls follow the geometry type reported by the service.');
             this._styleTypesUserModified = false;
             $('#style-type-point, #style-type-line, #style-type-area').prop('checked', false);
             $('#style-type-label').prop('checked', true);
@@ -1557,6 +1585,13 @@ export class MapCreator {
         $('#add-to-map-btn').prop('disabled', false);
         this.setLoadingState('success');
         this.schedulePreview();
+    }
+
+    // Layer types whose geometry/fields are discovered from the source rather
+    // than from local data, so the Point/Line/Area boxes start unchecked.
+    usesDetectedGeometry(layerType) {
+        return layerType === 'vector' || layerType === 'overpass' || layerType === 'arcgis' ||
+            (layerType === 'geojson' && this.currentLayerType === 'geojson-url');
     }
 
     // Geometry size (in characters) drives whether embedding it inline
@@ -2084,7 +2119,7 @@ export class MapCreator {
             delete config.attribution;
         }
 
-        if ((layerType === 'vector' || layerType === 'overpass') && !this._styleManuallyEdited) {
+        if (this.usesDetectedGeometry(layerType) && !this._styleManuallyEdited) {
             // Until geometry detection (or the user) checks a Point/Line/Area
             // box, buildStyleFromControls() can only emit the label — taking it
             // wholesale would blank a style the config already carries (an
@@ -2208,14 +2243,15 @@ export class MapCreator {
 
             const isTile = ['vector', 'tms', 'wms', 'cog'].includes(config.type) && !!config.url;
             const isOverpass = config.type === 'overpass' && !!config.query;
-            if (!isTile && !isOverpass) return;
+            const isService = this.usesDetectedGeometry(config.type) && ['arcgis', 'geojson'].includes(config.type) && !!config.url;
+            if (!isTile && !isOverpass && !isService) return;
 
             // COG previews have no XYZ tile template to eyeball scale from
             // (unlike vector/tms/wms), and the source bbox (e.g. a STAC
             // item's, far from wherever the creator map happens to be
             // pointed) is usually the only way the raster is even in view —
             // fit to it once per distinct URL.
-            fitBounds = config.type === 'cog' && Array.isArray(config.bbox) &&
+            fitBounds = (config.type === 'cog' || isService) && Array.isArray(config.bbox) &&
                 this._cogPreviewFittedUrl !== config.url;
             if (fitBounds) this._cogPreviewFittedUrl = config.url;
             bbox = fitBounds ? config.bbox : null;
@@ -2500,6 +2536,7 @@ export class MapCreator {
         // of adding it a second time.
         const isLivePreviewed = this.currentLayerType === 'geojson' || this.currentLayerType === 'csv' ||
             (['vector', 'tms', 'wms', 'cog'].includes(this.currentData?.type) && !!this.currentData?.url) ||
+            (this.currentLayerType !== 'geojson' && ['arcgis', 'geojson'].includes(this.currentData?.type) && !!this.currentData?.url) ||
             (this.currentData?.type === 'overpass' && !!this.currentData?.query);
 
         if (isLivePreviewed) {

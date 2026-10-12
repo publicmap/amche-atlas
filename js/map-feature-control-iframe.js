@@ -1881,7 +1881,7 @@ export class MapFeatureControl {
                 return layerId;
             }
 
-            if (layerConfig.type === 'overpass' && actualLayerId.startsWith(`geojson-${layerId}-`)) {
+            if ((layerConfig.type === 'overpass' || layerConfig.type === 'arcgis') && actualLayerId.startsWith(`geojson-${layerId}-`)) {
                 return layerId;
             }
 

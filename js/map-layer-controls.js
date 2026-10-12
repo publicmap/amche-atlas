@@ -61,7 +61,7 @@ import {LayerThumbnail} from './layer-thumbnail.js';
  * so those keep using visibility.
  */
 const OPACITY_DIMMED_TYPES = new Set([
-    'vector', 'tms', 'wmts', 'wms', 'cog', 'geojson', 'js', 'overpass', 'img', 'raster-style-layer'
+    'vector', 'tms', 'wmts', 'wms', 'cog', 'geojson', 'js', 'overpass', 'arcgis', 'img', 'raster-style-layer'
 ]);
 
 /**

@@ -513,7 +513,7 @@ Available on all layer types unless noted otherwise.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | string | Unique identifier referenced from URLs and other configs. **Required** for all types except inline `style` layers. |
-| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `js`, `csv`, `sheet`, `overpass`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
+| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `js`, `csv`, `sheet`, `overpass`, `arcgis`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
 | `title` | string | Display name in the layer control. |
 | `description` | string | HTML allowed; shown in the layer info panel. |
 | `tags` | string[] | Used to group layers in the UI. Prefix with `N.` (e.g. `"1.Development Plans"`) to control sort order. |
@@ -1296,6 +1296,53 @@ This is the live equivalent of `map-creator.html`'s "All Sheets (combined)" opti
 - **Cost scales with tab count.** Loading (or refreshing) fetches every tab, one request each — fine for a handful of tabs, less so for dozens. If you only need one tab, use `csv` with an explicit `&gid=<gid>` instead; it's a single request.
 - Renders through the same pipeline as `csv` (same `csv-${id}` source, same style/inspect semantics) — everything documented above under `csv` besides `saveUrl` and its single-tab `url` applies here too.
 - A tab that fails to fetch is skipped (logged to the console) rather than failing the whole layer.
+
+### `arcgis` — ArcGIS REST FeatureServer / MapServer layer
+
+A single vector layer of an [ArcGIS REST](https://developers.arcgis.com/rest/services-reference/enterprise/layer-feature-service/) `FeatureServer` or `MapServer`, loaded by paging through the layer's `query` endpoint (`f=geojson`, `outSR=4326`) when the layer is turned on. The combined result is rendered through the standard GeoJSON pipeline, so `style`, `inspect`, `clustered`, and `opacity` work identically to a `geojson` layer.
+
+A separate type exists because Mapbox GL's `geojson` source takes one URL and cannot page: ArcGIS servers cap each response at the layer's `maxRecordCount` (commonly 1000–2000) and silently drop the rest. For layers that fit in one response, a plain `geojson` layer pointing at the `query` URL is simpler and works just as well — the creator picks between the two automatically (see below).
+
+| Field | Notes |
+|---|---|
+| `url` | Layer URL, e.g. `https://host/server/rest/services/Folder/Service/FeatureServer/1`. A trailing `/query?...` is ignored. **Required.** |
+| `where` | SQL `where` clause. Default `1=1`. |
+| `outFields` | Comma-separated fields to request. Default `*`. |
+| `pageSize` | Features requested per page. Set it to the layer's `maxRecordCount`. Default `1000`. |
+| `orderBy` | Field for `orderByFields`, which makes paging deterministic. The creator sets it to the layer's object-id field when the server supports advanced queries. |
+| `maxFeatures` | Hard cap on features loaded. Default `50000`. |
+| `style`, `inspect`, `clustered`, `attribution` | Same semantics as the `geojson` type. |
+
+Pages are fetched up to 4 at a time once the total is known (`returnCountOnly`), and the result is cached in memory per query so restyling a layer does not re-download it. The server must allow CORS and `f=geojson` queries (ArcGIS Server 10.4+ / ArcGIS Online); token-protected services are not supported.
+
+```json
+{
+  "id": "delhi-zones",
+  "type": "arcgis",
+  "title": "Delhi Master Plan zones",
+  "url": "https://gis.dda.org.in/server/rest/services/Hosted/MASTER_PLAN_OF_DELHI_2047/FeatureServer/1",
+  "pageSize": 2000,
+  "orderBy": "objectid",
+  "inspect": { "id": "objectid", "label": "zone", "fields": ["zone", "area"] }
+}
+```
+
+#### Adding ArcGIS REST and WFS layers in the layer creator
+
+Paste any of these into the "Add a New Map Layer" URL box (`map-creator.html`):
+
+- An ArcGIS directory, folder or service URL (`https://host/server/rest/services/`) opens a tree browser; expand folders and services and click a layer to load it.
+- An ArcGIS layer URL, including a `.../FeatureServer/1/query?...` URL copied from a web map's network requests, loads that layer directly and opens the tree at its position so another layer can be picked. Only `where` is read from a pasted query; viewport parameters (`geometry`, `quantizationParameters`, `outFields`, ...) are ignored.
+- A WFS endpoint (`...?service=WFS`) opens a tree of its feature types. A `GetFeature` URL with `typeName`/`typeNames` loads that type directly. The server needs a JSON output format (`application/json`, GeoJSON); WFS has no `arcgis`-style type because GetFeature already returns GeoJSON, so it becomes a plain `geojson` layer.
+
+Under **Advanced: data output** the creator offers every output that fits the source and preselects one:
+
+| Output | Resulting layer | Use when |
+|---|---|---|
+| GeoJSON URL | `geojson` with the `query` / `GetFeature` URL | The whole layer fits in one response (ArcGIS: feature count ≤ `maxRecordCount`). Preselected when it fits. Shareable and tiny. |
+| ArcGIS paged | `arcgis` | The layer has more features than one response holds. Preselected in that case. |
+| Static snapshot | local `geojson` | You want a frozen copy. Stored in the browser only, not shareable. |
+| Server-rendered map tiles | `tms` using the `MapServer/export` endpoint with `{bbox-epsg-3857}` | A `MapServer` layer where the service's own symbology matters more than restyling or inspecting features. |
 
 ### `overpass` — OpenStreetMap Overpass API
 

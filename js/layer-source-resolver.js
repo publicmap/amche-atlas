@@ -25,14 +25,18 @@ import { RouteApi } from './route-url-api.js';
 import { KMLConverter } from './kml-converter.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
 import { PlanetaryComputerAPI } from './planetary-computer-api.js';
+import { ArcgisAPI } from './arcgis-url-api.js';
+import { WfsAPI } from './wfs-url-api.js';
 
-export { StacAPI, PlanetaryComputerAPI };
+export { StacAPI, PlanetaryComputerAPI, ArcgisAPI, WfsAPI };
 
 export const SOURCE_TYPES = {
     OVERPASS_SHARE: 'overpass-share',
     BHARATLAS: 'bharatlas',
     GIST: 'gist',
     WMS: 'wms',
+    WFS: 'wfs',
+    ARCGIS: 'arcgis',
     CSV: 'csv',
     ALLMAPS: 'allmaps',
     OSM: 'osm',
@@ -58,6 +62,8 @@ export const SOURCE_TYPE_LABELS = {
     [SOURCE_TYPES.BHARATLAS]: 'Bharatlas',
     [SOURCE_TYPES.GIST]: 'GeoJSON',
     [SOURCE_TYPES.WMS]: 'WMS',
+    [SOURCE_TYPES.WFS]: 'WFS',
+    [SOURCE_TYPES.ARCGIS]: 'ArcGIS',
     [SOURCE_TYPES.CSV]: 'CSV',
     [SOURCE_TYPES.ALLMAPS]: 'Allmaps',
     [SOURCE_TYPES.OSM]: 'OSM',
@@ -137,6 +143,14 @@ export function isWMSUrl(url) {
     if (urlLower.includes('service=wms')) return true;
     if (urlLower.includes('/wms') && (urlLower.includes('request=getmap') || urlLower.includes('getmap'))) return true;
     return false;
+}
+
+// ArcGIS REST tile/export/WMS/WFS endpoints under /rest/services are image or
+// OGC requests that other source types already handle — only the service
+// directory, service, and layer URLs go to the ArcGIS browser.
+export function isArcgisServiceUrl(url) {
+    if (!ArcgisAPI.isArcgisUrl(url)) return false;
+    return !/\/(tile|export|exportimage|wmsserver|wfsserver)(\/|\?|$)|\{[xyz]\}/i.test(url.split('#')[0]);
 }
 
 export function isCSVUrl(url) {
@@ -349,6 +363,8 @@ export function detectLayerSourceType(url) {
     // `/t/<name>/` view) don't follow that convention. Must be checked before
     // the generic `\.json$` fallback below, which only catches generated ids.
     if (isTextbUrl(url)) return SOURCE_TYPES.JSON_FILE;
+    if (WfsAPI.isWfsUrl(url)) return SOURCE_TYPES.WFS;
+    if (isArcgisServiceUrl(url)) return SOURCE_TYPES.ARCGIS;
     if (isWMSUrl(url)) return SOURCE_TYPES.WMS;
     if (isCSVUrl(url)) return SOURCE_TYPES.CSV;
     if (AllmapsAPI.isAllmapsUrl(url)) return SOURCE_TYPES.ALLMAPS;
@@ -1223,6 +1239,22 @@ export async function resolveLayerSource(url, urlOptions = {}) {
         case SOURCE_TYPES.PARIVESH_KML: {
             const geojson = await resolvePariveshKml(resolvedUrl);
             return { status: 'ok', layerType: 'geojson', geojson, resolvedUrl };
+        }
+        case SOURCE_TYPES.ARCGIS: {
+            const parsed = ArcgisAPI.parseUrl(resolvedUrl);
+            if (parsed.kind !== 'layer') {
+                return { status: 'needs-input', kind: 'service-browser', service: { provider: 'arcgis', parsed }, resolvedUrl };
+            }
+            const description = await ArcgisAPI.describeLayer(resolvedUrl, { output: urlOptions.output });
+            return { status: 'ok', layerType: description.config.type, config: description.config, service: { provider: 'arcgis', parsed, description }, resolvedUrl };
+        }
+        case SOURCE_TYPES.WFS: {
+            const parsed = WfsAPI.parseUrl(resolvedUrl);
+            if (!parsed.typeName) {
+                return { status: 'needs-input', kind: 'service-browser', service: { provider: 'wfs', parsed }, resolvedUrl };
+            }
+            const description = await WfsAPI.describeLayer(resolvedUrl, { output: urlOptions.output });
+            return { status: 'ok', layerType: description.config.type, config: description.config, service: { provider: 'wfs', parsed, description }, resolvedUrl };
         }
         case SOURCE_TYPES.WMS:
             return { status: 'ok', layerType: 'wms', config: createWMSConfig(resolvedUrl), resolvedUrl };

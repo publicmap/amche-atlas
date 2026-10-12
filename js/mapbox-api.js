@@ -7,6 +7,7 @@ import { DataUtils, GeoUtils } from './map-utils.js';
 import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { OverpassLoader } from './overpass-loader.js';
+import { ArcgisAPI } from './arcgis-url-api.js';
 import { OSMApi } from './osm-url-api.js';
 import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
 import ConfigManager from './config-manager.js';
@@ -90,6 +91,7 @@ export class MapboxAPI {
         this._overpassPaintSignatures = new Map(); // groupId -> geometry signature the current fill/line/circle layers were built for
         this._overpassConfigs = new Map(); // groupId -> config, for rebuilding the zoom-gate message on manual refresh
         this._overpassCaches = new Map(); // groupId -> OverpassLoader.getCache(), so a re-added layer resumes without re-querying
+        this._arcgisDataCache = new Map(); // query key -> in-flight/resolved GeoJSON promise, so the creator's draft rebuilds don't re-page the service
         this._layerDataPrefetch = new Map(); // url -> in-flight/resolved GeoJSON promise, see prefetchLayerData
         this._dimSnapshots = new Map(); // groupId -> [[layerId, paintProp, originalValue]], see setLayerGroupDimmed
         this._opacityRecorder = null; // active snapshot array while a dim is being applied
@@ -620,6 +622,8 @@ export class MapboxAPI {
                     return this._createJsLayer(groupId, config, visible);
                 case 'overpass':
                     return this._createOverpassLayer(groupId, config, visible);
+                case 'arcgis':
+                    return this._createArcgisLayer(groupId, config, visible);
                 case 'csv':
                     return this._createCSVLayer(groupId, config, visible);
                 case 'sheet':
@@ -676,6 +680,8 @@ export class MapboxAPI {
                     return this._updateGeoJSONLayerVisibility(groupId, config, visible);
                 case 'overpass':
                     return this._updateOverpassLayerVisibility(groupId, config, visible);
+                case 'arcgis':
+                    return this._updateArcgisLayerVisibility(groupId, config, visible);
                 case 'csv':
                 case 'sheet':
                     return this._updateCSVLayerVisibility(groupId, config, visible);
@@ -737,6 +743,8 @@ export class MapboxAPI {
                     return this._removeGeoJSONLayer(groupId, config);
                 case 'overpass':
                     return this._removeOverpassLayer(groupId, config);
+                case 'arcgis':
+                    return this._removeGeoJSONLayer(groupId, config);
                 case 'csv':
                 case 'sheet':
                     return this._removeCSVLayer(groupId, config);
@@ -834,6 +842,7 @@ export class MapboxAPI {
                 case 'js':
                     return this._updateGeoJSONLayerOpacity(groupId, config, opacity);
                 case 'overpass':
+                case 'arcgis':
                     return this._updateGeoJSONLayerOpacity(groupId, config, opacity);
                 case 'img':
                     return this._updateImageLayerOpacity(groupId, config, opacity);
@@ -2126,6 +2135,48 @@ export class MapboxAPI {
         }, config.refresh);
 
         this._refreshTimers.set(groupId, timer);
+    }
+
+    // ArcGIS layer methods — pages through a FeatureServer/MapServer layer's
+    // query endpoint (see ArcgisAPI.fetchAllFeatures), then renders the result
+    // through the same pipeline as a `geojson` layer.
+    _fetchArcgisData(config) {
+        const key = JSON.stringify([config.url, config.where, config.outFields, config.orderBy, config.pageSize, config.maxFeatures]);
+        let promise = this._arcgisDataCache.get(key);
+        if (!promise) {
+            promise = ArcgisAPI.fetchAllFeatures(config);
+            promise.catch(() => this._arcgisDataCache.delete(key));
+            this._arcgisDataCache.set(key, promise);
+            if (this._arcgisDataCache.size > 5) {
+                this._arcgisDataCache.delete(this._arcgisDataCache.keys().next().value);
+            }
+        }
+        return promise;
+    }
+
+    async _createArcgisLayer(groupId, config, visible) {
+        const sourceId = `geojson-${groupId}`;
+
+        if (!this._map.getSource(sourceId) && visible) {
+            let geojson;
+            try {
+                geojson = await this._fetchArcgisData(config);
+            } catch (error) {
+                console.error(`Error loading ArcGIS layer ${groupId}:`, error);
+                return false;
+            }
+
+            return this._createGeoJSONLayer(groupId, { ...config, type: 'geojson', data: geojson, url: undefined }, visible);
+        }
+
+        return this._updateGeoJSONLayerVisibility(groupId, config, visible);
+    }
+
+    _updateArcgisLayerVisibility(groupId, config, visible) {
+        if (visible && !this._map.getSource(`geojson-${groupId}`)) {
+            return this._createArcgisLayer(groupId, config, visible);
+        }
+        return this._updateGeoJSONLayerVisibility(groupId, config, visible);
     }
 
     // JS layer methods
@@ -3891,6 +3942,7 @@ export class MapboxAPI {
             case 'wms':
                 return [`wms-layer-${groupId}`].filter(id => this._map.getLayer(id));
             case 'overpass':
+            case 'arcgis':
             case 'js':
             case 'geojson': {
                 const sourceId = `geojson-${groupId}`;
