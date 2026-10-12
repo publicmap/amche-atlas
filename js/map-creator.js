@@ -8,6 +8,8 @@ import * as SourceResolver from './layer-source-resolver.js';
 import { styleLiteral, toHexColor, colorAlpha } from './layer-style-utils.js';
 import { ServiceImport } from './service-import.js';
 import { CreatorStyleEditor } from './creator-style-editor.js';
+import { CreatorEditMode } from './creator-edit-mode.js';
+import { DataCard } from './data-card.js';
 
 // Re-exported for the Style controls' own callers (and their tests), which have
 // always imported these from here; they now live in js/layer-style-utils.js so
@@ -49,9 +51,15 @@ export class MapCreator {
         // layer (currentLayerType 'geojson-url'), not local data.
         this.service = new ServiceImport(this);
         this.styleEditor = new CreatorStyleEditor(this);
+        // Editing an existing layer instead of adding one (see creator-edit-mode.js).
+        this.edit = new CreatorEditMode(this);
+        this.dataCard = new DataCard(this);
+        // Options for the next source resolve (edit mode pins an ArcGIS layer's output type).
+        this._resolveOptions = null;
     }
 
     init() {
+        this.dataCard.init();
         this.styleEditor.init();
         this.setupEventListeners();
         this.setupColorPickers();
@@ -61,6 +69,10 @@ export class MapCreator {
 
     setupMessageListener() {
         window.addEventListener('message', async (event) => {
+            if (event.data.type === 'edit-layer') {
+                this.edit.start(event.data.layer);
+                return;
+            }
             if (event.data.type === 'creator-tile-info') {
                 this._handleTileInfoDetected(event.data.geometryTypes || [], event.data.fields || []);
                 return;
@@ -95,7 +107,8 @@ export class MapCreator {
             $('#file-queue-progress').addClass('hidden');
         }
 
-        $('#add-to-map-btn').text(this.hasMoreQueuedFiles() ? 'Add Layer & Next File' : 'Add Map Layer');
+        if (!this.edit.active) $('#add-to-map-btn').text(this.hasMoreQueuedFiles() ? 'Add Layer & Next File' : 'Add Map Layer');
+        this.dataCard.refresh();
     }
 
     clearSelectedFile() {
@@ -104,9 +117,10 @@ export class MapCreator {
         $('#selected-file-name').text('');
         $('#file-queue-progress').addClass('hidden');
         $('#georef-notice').addClass('hidden');
-        $('#add-to-map-btn').text('Add Map Layer');
+        if (!this.edit.active) $('#add-to-map-btn').text('Add Map Layer');
         this._fileQueue = [];
         this._fileQueueIndex = 0;
+        this.dataCard.refresh();
     }
 
     /**
@@ -218,6 +232,8 @@ export class MapCreator {
             this.clearPreview();
         });
 
+        $('input[name="edit-style-choice"]').on('change', () => this.handleLoadData());
+
         $('#service-output-select').on('change', (e) => this.service.changeOutput(e.target.value));
         $('#service-style-inherit').on('change', (e) => this.service.setInheritStyle(e.target.checked));
 
@@ -266,6 +282,11 @@ export class MapCreator {
             this.updateConfigPreview();
         });
 
+        $('.style-text-control').on('input', () => {
+            this._styleManuallyEdited = false;
+            this.updateConfigPreview();
+        });
+
         $('.style-type-checkbox').on('change', () => {
             this._styleTypesUserModified = true;
             this._styleManuallyEdited = false;
@@ -288,7 +309,9 @@ export class MapCreator {
 
         $('#layer-title').on('input', (e) => {
             const title = e.target.value.trim();
-            if (title) {
+            // A new layer's id follows its title; an edited layer keeps its own
+            // (it is what the URL and other layers refer to it by).
+            if (title && !this.edit.active) {
                 $('#layer-id').val(this.generateId(title));
             }
             this.updateConfigPreview();
@@ -878,7 +901,7 @@ export class MapCreator {
                 return;
             }
 
-            const result = await SourceResolver.resolveLayerSource(url);
+            const result = await SourceResolver.resolveLayerSource(url, this._resolveOptions || {});
 
             if (result.status === 'needs-input' && result.kind === 'atlas-layers') {
                 this.handleAtlasImport(result.atlasData, url);
@@ -1258,6 +1281,10 @@ export class MapCreator {
     }
 
     setLoadingState(state) {
+        if (state === 'success') {
+            this.edit.onLoaded();
+            this.dataCard.refresh();
+        }
         const $btn = $('#load-data-btn');
 
         switch (state) {
@@ -1565,7 +1592,7 @@ export class MapCreator {
                     ? 'Geometry type unknown until tiles load — check the box(es) that match your data below, or wait for it to auto-detect once the preview loads.'
                     : 'Style controls follow the geometry type reported by the service.');
             this._styleTypesUserModified = false;
-            $('#style-type-point, #style-type-line, #style-type-area').prop('checked', false);
+            $('#style-type-point, #style-type-line, #style-type-area, #style-type-circle, #style-type-icon').prop('checked', false);
             $('#style-type-label').prop('checked', true);
             this.updateStyleSectionVisibility();
             this.applyStyleToControls(config.style);
@@ -1738,6 +1765,8 @@ export class MapCreator {
         $('#style-section-line').toggle($('#style-type-line').is(':checked'));
         $('#style-section-area').toggle($('#style-type-area').is(':checked'));
         $('#style-section-label').toggle($('#style-type-label').is(':checked'));
+        $('#style-section-circle').toggle($('#style-type-circle').is(':checked'));
+        $('#style-section-icon').toggle($('#style-type-icon').is(':checked'));
     }
 
     // Builds the flat Mapbox style object from whichever Point/Line/Area/Label
@@ -1777,6 +1806,14 @@ export class MapCreator {
         setRange('#line-width', styleLiteral(style['line-width']));
         setRange('#point-radius', styleLiteral(style['circle-radius']));
 
+        setRange('#circle-stroke-width', styleLiteral(style['circle-stroke-width']));
+        setRange('#circle-opacity', styleLiteral(style['circle-opacity']));
+        setRange('#circle-blur', styleLiteral(style['circle-blur']));
+        setRange('#icon-size', styleLiteral(style['icon-size']));
+        setRange('#icon-opacity', styleLiteral(style['icon-opacity']));
+        const iconImage = styleLiteral(style['icon-image']);
+        if (typeof iconImage === 'string') $('#icon-image').val(iconImage);
+
         const fillOpacity = styleLiteral(style['fill-opacity']);
         setRange('#area-fill-opacity', typeof fillOpacity === 'number'
             ? fillOpacity
@@ -1804,7 +1841,8 @@ export class MapCreator {
             style['line-width'] = lineWidth;
         }
 
-        if ($('#style-type-point').is(':checked')) {
+        const circleOn = $('#style-type-circle').is(':checked');
+        if ($('#style-type-point').is(':checked') || circleOn) {
             const fillColor = $('#point-fill-color').val();
             const strokeColor = $('#point-stroke-color').val();
             const radius = parseFloat($('#point-radius').val());
@@ -1812,6 +1850,21 @@ export class MapCreator {
             style['circle-radius'] = radius;
             style['circle-stroke-color'] = ['coalesce', ['get', 'stroke-color'], ['get', 'color'], strokeColor];
             style['circle-stroke-width'] = 2;
+        }
+
+        // Circle: the options the Point section leaves out. Turning it on alone
+        // still draws a circle, with the Point section's colours and radius.
+        if (circleOn) {
+            style['circle-stroke-width'] = parseFloat($('#circle-stroke-width').val());
+            style['circle-opacity'] = parseFloat($('#circle-opacity').val());
+            style['circle-blur'] = parseFloat($('#circle-blur').val());
+        }
+
+        if ($('#style-type-icon').is(':checked')) {
+            const image = $('#icon-image').val().trim();
+            if (image) style['icon-image'] = image;
+            style['icon-size'] = parseFloat($('#icon-size').val());
+            style['icon-opacity'] = parseFloat($('#icon-opacity').val());
         }
 
         if ($('#style-type-label').is(':checked')) {
@@ -1903,6 +1956,8 @@ export class MapCreator {
         if (!this._styleTypesUserModified) {
             this.autoCheckStyleTypes(geometryTypes);
         }
+        // Detected fields replace the pickers' lists; an edited layer keeps its own picks.
+        if (this.edit.active && fields && fields.length) this.edit.applyInspect(fields);
         this.updateConfigPreview();
     }
 
@@ -1969,15 +2024,7 @@ export class MapCreator {
             title: title,
             type: layerType,
             initiallyChecked: false,
-            inspect: {
-                id: idField,
-                title: 'Name',
-                label: nameFieldOrDefault,
-                fields: selectedFields.length > 0 ? selectedFields : [idField, nameFieldOrDefault],
-                fieldTitles: (selectedFields.length > 0 ? selectedFields : [idField, nameFieldOrDefault]).map(f =>
-                    f.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-                )
-            }
+            inspect: this._inspectConfig(idField, nameFieldOrDefault, selectedFields)
         };
 
         if (isExternalUrl) {
@@ -2038,15 +2085,7 @@ export class MapCreator {
             title: title,
             type: 'geojson',
             initiallyChecked: false,
-            inspect: {
-                id: idField,
-                title: 'Name',
-                label: nameFieldOrDefault,
-                fields: selectedFields.length > 0 ? selectedFields : [idField, nameFieldOrDefault],
-                fieldTitles: (selectedFields.length > 0 ? selectedFields : [idField, nameFieldOrDefault]).map(f =>
-                    f.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-                )
-            }
+            inspect: this._inspectConfig(idField, nameFieldOrDefault, selectedFields)
         };
 
         if (isSheetType) {
@@ -2090,6 +2129,19 @@ export class MapCreator {
         return config;
     }
 
+    // The inspect block from the Data Fields pickers, over the options of an
+    // edited layer's own inspect that the form has no control for (a title, a
+    // click handler, hand-written field titles).
+    _inspectConfig(idField, nameField, selectedFields) {
+        const kept = (this._layerConfigOverride && this._layerConfigOverride.inspect) || {};
+        const fields = selectedFields.length > 0 ? selectedFields : [idField, nameField];
+        const titleOf = (field) => {
+            const known = Array.isArray(kept.fields) && Array.isArray(kept.fieldTitles) ? kept.fieldTitles[kept.fields.indexOf(field)] : undefined;
+            return known || field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        };
+        return { ...kept, id: idField, title: kept.title || 'Name', label: nameField, fields, fieldTitles: fields.map(titleOf) };
+    }
+
     updateSaveNotesVisibility() {
         const csvUrl = this.currentData?.csvUrl;
         const isGoogleSheet = this.currentLayerType === 'csv' &&
@@ -2131,7 +2183,7 @@ export class MapCreator {
             // bare defaults until detection lands. Layer the label over the
             // config's own style instead, and only hand the controls full
             // authority once they actually describe a geometry type.
-            const geometryStyled = $('#style-type-point, #style-type-line, #style-type-area').is(':checked');
+            const geometryStyled = $('#style-type-point, #style-type-line, #style-type-area, #style-type-circle, #style-type-icon').is(':checked');
             config.style = geometryStyled
                 ? this.buildStyleFromControls()
                 : { ...(baseConfig.style || {}), ...this.buildStyleFromControls() };
@@ -2268,7 +2320,9 @@ export class MapCreator {
             type: 'creator-live-preview',
             config,
             bbox,
-            fitBounds
+            fitBounds,
+            // Editing: the preview replaces this layer rather than adding another.
+            editOriginalId: this.edit.active ? this.edit.originalId : undefined
         }, '*');
     }
 
@@ -2499,6 +2553,11 @@ export class MapCreator {
     addToMap() {
         console.log('[MapCreator] addToMap called, layer type:', this.currentLayerType);
 
+        if (this.edit.active) {
+            this.edit.apply();
+            return;
+        }
+
         if (this.currentLayerType === 'atlas') {
             const selectedValue = $('#atlas-layer-select').val();
 
@@ -2586,6 +2645,11 @@ export class MapCreator {
     }
 
     returnToBrowser() {
+        // Cancelling an edit leaves the editor; there is no browser to go back to.
+        if (this.edit.active) {
+            this.closeBrowser();
+            return;
+        }
         this.clearPreview();
         window.parent.postMessage({
             type: 'return-to-browser'

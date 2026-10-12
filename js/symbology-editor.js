@@ -15,12 +15,17 @@ import {
     COLOR_RAMPS, CATEGORICAL_PALETTES, sampleRamp, sampleNumbers, paletteColor
 } from './style-expressions.js';
 import { toHexColor, colorAlpha } from './layer-style-utils.js';
+import { HATCH_KINDS, hatchImageName } from './hatch-patterns.js';
+import { hatchPreview, openHatchEditor } from './hatch-editor.js';
 
 const MODES = [['single', 'Single'], ['categorized', 'Categorized'], ['graduated', 'Graduated']];
 const MAX_CATEGORIES = 40;
 const SAMPLE_TTL_MS = 1500;
 const FALLBACK_COLOR = '#9ca3af';
 const STATE_DEFAULT_COLOR = '#ffff00';
+
+// Successive hatches for a new category / class: cycle the kinds so neighbours differ.
+const hatchFor = (index) => hatchImageName({ kind: HATCH_KINDS[index % HATCH_KINDS.length] });
 
 function el(tag, className, props = {}) {
     const node = Object.assign(document.createElement(tag), props);
@@ -39,11 +44,53 @@ function option(value, text, selected) {
     return el('option', null, { value, textContent: text, selected: !!selected });
 }
 
+/**
+ * The input for one style value: a colour swatch, a number box, or a hatch
+ * swatch that opens the hatch editor. Shared by the symbology editor's rows and
+ * the Rules view's inline edits.
+ * @param {'color'|'number'|'pattern'} valueKind
+ * @param {{min?:number,max?:number,step?:number|string}} range
+ * @param {*} value
+ * @param {(value: *) => void} onInput - Called with each accepted edit
+ */
+export function createValueControl(valueKind, range, value, onInput) {
+    injectStyles();
+
+    if (valueKind === 'pattern') {
+        let current = value;
+        const trigger = el('button', 'hatch-trigger', { type: 'button', title: 'Edit hatch' });
+        const draw = () => { trigger.textContent = ''; trigger.appendChild(hatchPreview(current)); };
+        draw();
+        trigger.addEventListener('click', () => openHatchEditor(trigger, current, (name) => {
+            current = name;
+            draw();
+            onInput(name);
+        }));
+        return trigger;
+    }
+
+    if (valueKind === 'color') {
+        const input = el('input', 'sym-swatch', { type: 'color', value: toHexColor(value) || FALLBACK_COLOR });
+        input.addEventListener('input', () => onInput(withAlpha(input.value, value)));
+        return input;
+    }
+
+    const { min, max, step } = range || {};
+    const input = el('input', 'sym-input sym-number', { type: 'number', value: Number.isFinite(value) ? value : '', step: String(step ?? 'any') });
+    if (min !== undefined) input.min = String(min);
+    if (max !== undefined) input.max = String(max);
+    input.addEventListener('input', () => {
+        const parsed = parseFloat(input.value);
+        if (Number.isFinite(parsed)) onInput(parsed);
+    });
+    return input;
+}
+
 export class SymbologyEditor {
     /**
      * @param {Object} options
      * @param {string} options.property - Style property, e.g. 'fill-color'
-     * @param {'color'|'number'} options.valueKind
+     * @param {'color'|'number'|'pattern'} options.valueKind  'pattern' is a hatch image name (fill-pattern)
      * @param {{min?:number,max?:number,step?:number|string}} [options.range] - Number bounds
      * @param {() => string[]} [options.getFields]
      * @param {() => Object[]} [options.getSamples] - Feature property objects
@@ -58,7 +105,7 @@ export class SymbologyEditor {
         this._getSamples = getSamples || (() => []);
         this._states = states;
         this._onChange = onChange || (() => {});
-        this.model = { mode: 'single', single: valueKind === 'color' ? '#3b82f6' : 1 };
+        this.model = { mode: 'single', single: valueKind === 'color' ? '#3b82f6' : valueKind === 'pattern' ? hatchFor(0) : 1 };
         this.ui = { palette: 'Tableau 10', ramp: 'Viridis', classes: 5, method: 'equal', from: 1, to: 10 };
 
         injectStyles();
@@ -69,7 +116,7 @@ export class SymbologyEditor {
         const parsed = parseSymbology(value);
         this.model = parsed.mode === 'custom' ? this.model : parsed;
         if (this.model.mode === 'graduated' && this.model.fallback === undefined) {
-            this.model.fallback = this.valueKind === 'color' ? FALLBACK_COLOR : 1;
+            this.model.fallback = this._plainDefault();
         }
         if (parsed.mode === 'custom' && (typeof value === 'string' || typeof value === 'number')) {
             this.model = { mode: 'single', single: value };
@@ -112,7 +159,11 @@ export class SymbologyEditor {
     }
 
     _default() {
-        return this.valueKind === 'color' ? FALLBACK_COLOR : (this.model.single ?? 1);
+        return this.valueKind === 'color' ? FALLBACK_COLOR : this.valueKind === 'pattern' ? hatchFor(0) : (this.model.single ?? 1);
+    }
+
+    _plainDefault() {
+        return this.valueKind === 'color' ? FALLBACK_COLOR : this.valueKind === 'pattern' ? hatchFor(0) : 1;
     }
 
     _setMode(mode) {
@@ -139,7 +190,7 @@ export class SymbologyEditor {
 
     _fallbackFrom(previous) {
         if (previous.fallback !== undefined) return previous.fallback;
-        return this.valueKind === 'color' ? FALLBACK_COLOR : (previous.single ?? 1);
+        return this.valueKind === 'number' ? (previous.single ?? 1) : this._plainDefault();
     }
 
     _detectCategories() {
@@ -150,7 +201,7 @@ export class SymbologyEditor {
         this.model.categories = found.map((entry, i) => ({
             value: entry.value,
             count: entry.count,
-            output: this.valueKind === 'color' ? paletteColor(palette, i) : numbers[i]
+            output: this.valueKind === 'color' ? paletteColor(palette, i) : this.valueKind === 'pattern' ? hatchFor(i) : numbers[i]
         }));
     }
 
@@ -163,26 +214,15 @@ export class SymbologyEditor {
         this.model.breaks = breaks;
         this.model.outputs = this.valueKind === 'color'
             ? sampleRamp(COLOR_RAMPS[this.ui.ramp], Math.max(count, 1))
-            : sampleNumbers(this.ui.from, this.ui.to, Math.max(count, 1));
+            : this.valueKind === 'pattern'
+                ? Array.from({ length: Math.max(count, 1) }, (_, i) => hatchFor(i))
+                : sampleNumbers(this.ui.from, this.ui.to, Math.max(count, 1));
     }
 
     // -- controls ----------------------------------------------------------
 
     _valueControl(value, onInput) {
-        if (this.valueKind === 'color') {
-            const input = el('input', 'sym-swatch', { type: 'color', value: toHexColor(value) || FALLBACK_COLOR });
-            input.addEventListener('input', () => onInput(withAlpha(input.value, value)));
-            return input;
-        }
-        const { min, max, step } = this.range;
-        const input = el('input', 'sym-input sym-number', { type: 'number', value: Number.isFinite(value) ? value : '', step: String(step ?? 'any') });
-        if (min !== undefined) input.min = String(min);
-        if (max !== undefined) input.max = String(max);
-        input.addEventListener('input', () => {
-            const parsed = parseFloat(input.value);
-            if (Number.isFinite(parsed)) onInput(parsed);
-        });
-        return input;
+        return createValueControl(this.valueKind, this.range, value, onInput);
     }
 
     _labelled(label, control, className = 'sym-field') {
@@ -274,7 +314,7 @@ export class SymbologyEditor {
             bar.appendChild(this._labelled('Palette', this._select(
                 Object.keys(CATEGORICAL_PALETTES).map(n => [n, n]), this.ui.palette, (name) => { this.ui.palette = name; }
             )));
-        } else {
+        } else if (this.valueKind === 'number') {
             bar.appendChild(this._labelled('From', this._rangeInput('from')));
             bar.appendChild(this._labelled('To', this._rangeInput('to')));
         }
@@ -296,7 +336,8 @@ export class SymbologyEditor {
 
         wrap.appendChild(this._button('+ Add category', () => {
             const palette = CATEGORICAL_PALETTES[this.ui.palette];
-            this.model.categories.push({ value: '', output: this.valueKind === 'color' ? paletteColor(palette, this.model.categories.length) : this._default() });
+            const index = this.model.categories.length;
+            this.model.categories.push({ value: '', output: this.valueKind === 'color' ? paletteColor(palette, index) : this.valueKind === 'pattern' ? hatchFor(index) : this._default() });
             this.render();
         }));
         wrap.appendChild(this._buildFallback('Other values'));
@@ -344,14 +385,17 @@ export class SymbologyEditor {
         }
 
         const bar = el('div', 'sym-bar');
-        bar.appendChild(this._labelled('Type', this._select(
-            [['step', 'Classes'], ['interpolate', 'Continuous']], this.model.kind, (kind) => {
-                this.model.kind = kind;
-                this._classify();
-                this.render();
-                this._emit();
-            }
-        )));
+        // Hatch names are strings, which can be picked per class but not blended.
+        if (this.valueKind !== 'pattern') {
+            bar.appendChild(this._labelled('Type', this._select(
+                [['step', 'Classes'], ['interpolate', 'Continuous']], this.model.kind, (kind) => {
+                    this.model.kind = kind;
+                    this._classify();
+                    this.render();
+                    this._emit();
+                }
+            )));
+        }
         const classes = el('input', 'sym-input sym-number', { type: 'number', min: '1', max: '12', value: this.ui.classes });
         classes.addEventListener('input', () => {
             const parsed = parseInt(classes.value, 10);
@@ -365,7 +409,7 @@ export class SymbologyEditor {
             bar.appendChild(this._labelled('Ramp', this._select(
                 Object.keys(COLOR_RAMPS).map(n => [n, n]), this.ui.ramp, (name) => { this.ui.ramp = name; }
             )));
-        } else {
+        } else if (this.valueKind === 'number') {
             bar.appendChild(this._labelled('From', this._rangeInput('from')));
             bar.appendChild(this._labelled('To', this._rangeInput('to')));
         }

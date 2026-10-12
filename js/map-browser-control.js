@@ -7,6 +7,7 @@
 import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { ZoomToParam } from './zoom-to-param.js';
 import { LayerStackStrip } from './layer-stack-strip.js';
+import { LayerOrderManager } from './layer-order-manager.js';
 
 export class MapBrowserControl {
     constructor() {
@@ -24,6 +25,11 @@ export class MapBrowserControl {
         this._creatorDraftLayerId = null;
         this._creatorLivePreviewPromise = null;
         this._overpassPreviewQuery = null;
+        // Editing an existing layer in the creator: the layer is swapped for a
+        // live draft while it is edited, so what it was (config and place in
+        // the stack) is kept to put back on Cancel. See _beginEditSession.
+        this._pendingEditLayer = null;
+        this._editSession = null;
         this._layerStack = new LayerStackStrip();
         this._setupMessageListener();
         this._setupViewHistory();
@@ -351,6 +357,10 @@ export class MapBrowserControl {
             }
 
             if (event.data.type === 'creator-ready') {
+                if (this._pendingEditLayer && this._iframe && this._iframe.contentWindow) {
+                    this._iframe.contentWindow.postMessage({ type: 'edit-layer', layer: this._pendingEditLayer }, '*');
+                    this._pendingEditLayer = null;
+                }
                 if (this._pendingFileData?.length && this._iframe && this._iframe.contentWindow) {
                     const msg = { type: 'load-file-data', files: this._pendingFileData };
                     const transfer = this._pendingFileData
@@ -382,6 +392,10 @@ export class MapBrowserControl {
 
             if (event.data.type === 'open-layer-info') {
                 this._openLayerInfo(event.data.layer, { edit: event.data.edit, feature: event.data.feature });
+            }
+
+            if (event.data.type === 'open-layer-editor') {
+                this.openLayerEditor(event.data.layer);
             }
 
             if (event.data.type === 'load-atlas') {
@@ -417,7 +431,11 @@ export class MapBrowserControl {
             if (event.data.type === 'creator-live-preview') {
                 const previous = this._creatorLivePreviewPromise || Promise.resolve();
                 this._creatorLivePreviewPromise = previous.catch(() => {})
-                    .then(() => this._handleCreatorLivePreview(event.data.config, { bbox: event.data.bbox, fitBounds: event.data.fitBounds }));
+                    .then(() => this._handleCreatorLivePreview(event.data.config, {
+                        bbox: event.data.bbox,
+                        fitBounds: event.data.fitBounds,
+                        editOriginalId: event.data.editOriginalId
+                    }));
             }
 
             if (event.data.type === 'creator-clear-preview') {
@@ -471,7 +489,97 @@ export class MapBrowserControl {
         return { ...layer, ...(registryLayer || {}), ...group };
     }
 
+    /**
+     * Open the layer editor on an existing layer: the creator, prefilled with
+     * the layer's source and settings (see js/creator-edit-mode.js).
+     */
+    openLayerEditor(layer) {
+        if (!layer) return;
+        const live = this._resolveLiveLayer(layer);
+        try {
+            this._pendingEditLayer = JSON.parse(JSON.stringify(live));
+        } catch (error) {
+            console.warn('[MapBrowserControl] Layer config not serializable, editing a minimal copy:', error);
+            this._pendingEditLayer = { id: live.id, title: live.title, type: live.type, url: live.url };
+        }
+
+        const modal = document.getElementById('layer-info-modal');
+        const infoFrame = document.getElementById('layer-info-iframe');
+        if (modal) modal.style.display = 'none';
+        if (infoFrame) infoFrame.src = '';
+
+        this.openBrowser();
+        this._switchToCreator();
+    }
+
+    /**
+     * The layer's place in the stack as two id lists in visual order, so it can
+     * be put back after the layer is removed and re-added (a re-added layer
+     * lands on top).
+     */
+    _captureLayerOrder() {
+        const control = window.layerControl;
+        const manager = window.urlManager;
+        if (!control?._state?.groups || !manager) return null;
+
+        const visible = [];
+        control._state.groups.forEach((group, index) => {
+            if (group.id === 'selection' || !manager.isGroupActive(index)) return;
+            const registryLayer = window.layerRegistry?.getLayer?.(group.id);
+            visible.push(registryLayer ? { ...registryLayer, ...group } : group);
+        });
+        const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(LayerOrderManager.mapOrderToUrlOrder(visible));
+        return { overlays: overlays.map(l => l.id), basemaps: basemaps.map(l => l.id) };
+    }
+
+    _applyLayerOrder(order, oldId, newId) {
+        if (!order || !window.featureControl?._reorderLayers) return;
+        const swap = (ids) => ids.map(id => (id === oldId ? newId : id));
+        window.featureControl._reorderLayers(swap(order.overlays), swap(order.basemaps));
+    }
+
+    // The first live preview of an edit takes the real layer off the map; the
+    // draft that follows stands in for it.
+    _beginEditSession(layerId) {
+        const group = window.layerControl?._state?.groups?.find(g => g.id === layerId);
+        if (!group) return;
+        this._editSession = {
+            id: layerId,
+            group: JSON.parse(JSON.stringify(group)),
+            order: this._captureLayerOrder()
+        };
+        window.layerControl.removeLayerCompletely(layerId);
+    }
+
+    // Cancel: drop the draft and put the original layer back where it was.
+    async _restoreEditSession() {
+        const session = this._editSession;
+        if (!session) return;
+        this._editSession = null;
+
+        if (this._creatorLivePreviewPromise) {
+            await this._creatorLivePreviewPromise.catch(() => {});
+        }
+        if (this._creatorDraftLayerId) {
+            window.layerControl?.removeLayerCompletely(this._creatorDraftLayerId);
+            this._creatorDraftLayerId = null;
+        }
+        try {
+            await window.layerControl._addLayerDirectly(session.group);
+            this._applyLayerOrder(session.order, session.id, session.id);
+        } catch (error) {
+            console.warn('[MapBrowserControl] Could not restore the layer after cancelling the edit:', error);
+        }
+    }
+
     _openLayerInfo(layer, options = {}) {
+        // Editing a layer happens in the layer editor (map-creator.html in edit
+        // mode), the same UI used to add one - the info panel only shows it.
+        if (options.edit) {
+            this.openLayerEditor(layer);
+            return;
+        }
+
         layer = this._resolveLiveLayer(layer);
         const modal = document.getElementById('layer-info-modal');
         const iframe = document.getElementById('layer-info-iframe');
@@ -1010,6 +1118,9 @@ export class MapBrowserControl {
     }
 
     closeBrowser() {
+        // Closing mid-edit without applying puts the layer back.
+        if (this._editSession) this._restoreEditSession();
+
         this._overlay.style.display = 'none';
         this._isOpen = false;
         this._updateButtonState(false);
@@ -1297,9 +1408,11 @@ export class MapBrowserControl {
     // so a style edit needs a full removeLayerGroup + createLayerGroup
     // anyway — and this also naturally handles the user switching data
     // sources mid-edit.
-    async _handleCreatorLivePreview(config, { bbox, fitBounds } = {}) {
+    async _handleCreatorLivePreview(config, { bbox, fitBounds, editOriginalId } = {}) {
         const mapLayerControl = window.layerControl;
         if (!mapLayerControl || !config || !config.id) return;
+
+        if (editOriginalId && !this._editSession) this._beginEditSession(editOriginalId);
 
         if (this._creatorDraftLayerId) {
             mapLayerControl.removeLayerCompletely(this._creatorDraftLayerId);
@@ -1361,6 +1474,10 @@ export class MapBrowserControl {
             await this._creatorLivePreviewPromise.catch(() => {});
         }
         this._overpassPreviewQuery = null;
+        if (this._editSession) {
+            await this._restoreEditSession();
+            return;
+        }
         if (!this._creatorDraftLayerId) return;
         window.layerControl?.removeLayerCompletely(this._creatorDraftLayerId);
         this._creatorDraftLayerId = null;
@@ -1379,7 +1496,9 @@ export class MapBrowserControl {
 
         const mapLayerControl = window.layerControl;
         const layerId = this._creatorDraftLayerId;
+        const session = this._editSession;
         this._creatorDraftLayerId = null;
+        this._editSession = null;
         this._overpassPreviewQuery = null;
 
         if (!keepOpen) {
@@ -1389,6 +1508,8 @@ export class MapBrowserControl {
         const group = layerId && mapLayerControl?._state?.groups?.find(g => g.id === layerId);
         if (!group || !mapLayerControl) return;
 
+        if (session) this._commitEditedLayer(group, session);
+
         const layerTitle = mapLayerControl._escapeHtml?.(group.title || group.id) || (group.title || group.id);
         const labelHtml = mapLayerControl._buildLayerLabelHTML?.(group, layerTitle) || `<strong>${layerTitle}</strong>`;
         const zoomLink = mapLayerControl._buildZoomToLayerLink?.(group) || '';
@@ -1396,6 +1517,20 @@ export class MapBrowserControl {
             `${labelHtml}${zoomLink ? ' &middot; ' + zoomLink : ''}`,
             { duration: 3000 }
         );
+    }
+
+    // An edited layer replaces the original in the stack and in the URL. A layer
+    // the registry knows would otherwise be written back to ?layers= as a bare
+    // id, silently dropping the edit, so the full config is kept with it.
+    _commitEditedLayer(group, session) {
+        const definition = {};
+        Object.keys(group).forEach(key => {
+            if (!key.startsWith('_') && key !== 'initiallyChecked') definition[key] = group[key];
+        });
+        group._originalJson = JSON.stringify(definition).replace(/'/g, "\\'").replace(/"/g, "'");
+
+        this._applyLayerOrder(session.order, session.id, group.id);
+        if (window.urlManager) setTimeout(() => window.urlManager.updateURL({ updateLayers: true }), 80);
     }
 
     _handleLoadAtlas(atlasUrl, { preserveHash = true } = {}) {

@@ -1,8 +1,7 @@
 /**
- * The creator's "Advanced style" panel: the same StylePropertyEditor
- * map-information.html uses (per-property controls, By-data symbology,
- * hover / selected states), bound to the layer config shown in the
- * Configuration JSON box.
+ * The layer editor's "Advanced style" panel: the StylePropertyEditor
+ * (per-property controls, By-data symbology, Rules, hover / selected states),
+ * bound to the layer config shown in the Configuration JSON box.
  *
  * Edits go back through MapCreator.handleConfigJSONEdit() - the path a hand
  * edit of that JSON takes - so they reach the live preview and survive the
@@ -26,7 +25,8 @@ export class CreatorStyleEditor {
         this.editor = new StylePropertyEditor({
             onChange: (style) => this._apply(style),
             getFields: () => this.knownFields(),
-            getSamples: () => this.samples()
+            getSamples: () => this.samples(),
+            onFilterChange: (filter) => this._applyFilter(filter)
         });
         host.appendChild(this.editor.element);
 
@@ -59,6 +59,22 @@ export class CreatorStyleEditor {
         if (!config) return;
 
         config.style = style;
+        document.getElementById('config-preview').value = JSON.stringify(config, null, 2);
+        this._applying = true;
+        try {
+            this.creator.handleConfigJSONEdit();
+        } finally {
+            this._applying = false;
+        }
+    }
+
+    // The layer's own `filter` sits outside `style`, in the same config JSON.
+    _applyFilter(filter) {
+        const config = this._currentConfig();
+        if (!config) return;
+
+        if (filter === undefined) delete config.filter;
+        else config.filter = filter;
         document.getElementById('config-preview').value = JSON.stringify(config, null, 2);
         this._applying = true;
         try {

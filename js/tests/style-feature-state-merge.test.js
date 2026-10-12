@@ -108,3 +108,12 @@ describe('user values that carry their own hover/selected branches', () => {
         expect(merged['fill-color'][merged['fill-color'].length - 1]).toEqual(match);
     });
 });
+
+describe('_composeFilters', () => {
+    it('combines the layer, clustering and overlay filters with "all", skipping the absent ones', () => {
+        expect(api._composeFilters(undefined, null, undefined)).toBeNull();
+        expect(api._composeFilters(['has', 'a'], null, undefined)).toEqual(['has', 'a']);
+        expect(api._composeFilters(['has', 'a'], ['!', ['has', 'point_count']], ['==', ['get', 'k'], 1]))
+            .toEqual(['all', ['has', 'a'], ['!', ['has', 'point_count']], ['==', ['get', 'k'], 1]]);
+    });
+});

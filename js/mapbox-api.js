@@ -71,6 +71,9 @@ function registerPMTilesProvider() {
     return _pmtilesRegistration || Promise.resolve();
 }
 
+// Layer types drawn from a `geojson-<id>` source, whose filters are applied on the map layers.
+const GEOJSON_FAMILY_TYPES = new Set(['geojson', 'arcgis', 'overpass', 'js']);
+
 export class MapboxAPI {
     constructor(map, atlasConfig = {}) {
         this._map = map;
@@ -567,6 +570,17 @@ export class MapboxAPI {
      * Get the ID suffix used to disambiguate map layers for a style variant.
      * Base variant (empty prefix) returns '' so existing layer IDs are preserved.
      */
+    /**
+     * One filter from the several that can scope a GeoJSON-family layer: the
+     * layer config's own `filter`, the clustering exclusion, and the style
+     * variant's `<prefix>/filter`. Null when there are none.
+     */
+    _composeFilters(...filters) {
+        const present = filters.filter(f => f !== undefined && f !== null);
+        if (!present.length) return null;
+        return present.length === 1 ? present[0] : ['all', ...present];
+    }
+
     _getVariantSuffix(prefix) {
         return prefix ? `--${prefix}` : '';
     }
@@ -2424,9 +2438,7 @@ export class MapboxAPI {
             // (see search/route-geojson.js) would otherwise do.
             const variantFilter = variantStyle.filter;
             delete variantStyle.filter;
-            const layerFilter = unclusteredFilter && variantFilter
-                ? ['all', unclusteredFilter, variantFilter]
-                : (variantFilter || unclusteredFilter);
+            const layerFilter = this._composeFilters(config.filter, unclusteredFilter, variantFilter);
 
             // Check if user has explicitly defined any styles
             const userHasFillStyles = variantStyle['fill-color'] || variantStyle['fill-opacity'] || variantStyle['fill-pattern'];
@@ -3851,6 +3863,17 @@ export class MapboxAPI {
             const defaultStyles = variant.prefix ? {} : this._getDefaultStylesForLayerType(mapLayer.type);
 
             this._applyStyleProperties(layerId, this._intelligentStyleMerge(variantStyle, defaultStyles));
+
+            // GeoJSON-family layers carry their filters on the map layers, so an
+            // edited layer or overlay filter is re-applied here too.
+            if (GEOJSON_FAMILY_TYPES.has(config.type) && typeof mapLayer.source === 'string' && mapLayer.source.startsWith('geojson-')) {
+                const unclustered = config.clustered ? ['!', ['has', 'point_count']] : null;
+                try {
+                    this._map.setFilter(layerId, this._composeFilters(config.filter, unclustered, variant.style.filter));
+                } catch (error) {
+                    console.warn(`Failed to update filter for ${layerId}:`, error);
+                }
+            }
         });
 
         return true;

@@ -124,6 +124,7 @@ describe('StylePropertyEditor integration', () => {
         const editor = new StylePropertyEditor({ onChange, getFields: () => ['use'], getSamples: () => SAMPLES });
         document.body.appendChild(editor.element);
         editor.setLayer({ type: 'geojson', style });
+        editor.setTab('all');
         return { editor, onChange };
     }
 
@@ -167,6 +168,7 @@ describe('StylePropertyEditor links', () => {
         const editor = new StylePropertyEditor({ onChange, getReferences: () => sources });
         document.body.appendChild(editor.element);
         editor.setLayer({ id: 'zones', type: 'geojson', style });
+        editor.setTab('all');
         return { editor, onChange };
     }
     const row = (editor, property) => [...editor.element.querySelectorAll('.spe-row')]

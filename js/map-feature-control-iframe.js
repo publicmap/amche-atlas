@@ -188,7 +188,7 @@ export class MapFeatureControl {
             if (event.data.type === 'update-layer-opacity') {
                 this._updateLayerOpacity(event.data.layerId, event.data.opacity);
             } else if (event.data.type === 'update-layer-style') {
-                this._updateLayerStyle(event.data.layerId, event.data.style, event.data.resetProperties, event.data.isDefaultStyle);
+                this._updateLayerStyle(event.data.layerId, event.data.style, event.data.resetProperties, event.data.isDefaultStyle, event.data);
             } else if (event.data.type === 'update-layer') {
                 // "Apply Changes" in map-information.html's edit mode
                 this._updateLayer(event.data.layer, event.data.originalId || event.data.layer?.id, event.data.changedFields);
@@ -299,6 +299,12 @@ export class MapFeatureControl {
      * Open layer information modal
      */
     _openLayerInfo(layer, options = {}) {
+        // Editing happens in the layer editor (map-creator.html in edit mode).
+        if (options.edit && window.browserControl?.openLayerEditor) {
+            window.browserControl.openLayerEditor(layer);
+            return;
+        }
+
         const modal = document.getElementById('layer-info-modal');
         const iframe = document.getElementById('layer-info-iframe');
 
@@ -777,12 +783,20 @@ export class MapFeatureControl {
      * re-render of the group, carry it - then pushed onto the rendered map
      * layers. `resetProperties` are the keys the editor removed.
      */
-    _updateLayerStyle(layerId, style, resetProperties = [], isDefaultStyle = false) {
+    _updateLayerStyle(layerId, style, resetProperties = [], isDefaultStyle = false, message = {}) {
         const mapboxAPI = this._getMapboxAPI();
         if (!mapboxAPI || !style) return;
 
         const layerData = this._getActiveLayersFromConfig().get(layerId);
         if (!layerData) return;
+
+        // The panel's Data filters section edits the layer's own `filter` along
+        // with the style; `filterChanged` says it did.
+        if (message.filterChanged) {
+            if (message.filter === undefined) delete layerData.config.filter;
+            else layerData.config.filter = message.filter;
+            markEditedFields(layerData.config, ['filter']);
+        }
 
         layerData.config.style = style;
         // Marks the config as diverging from whatever preset it came from, so

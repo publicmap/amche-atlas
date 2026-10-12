@@ -17,8 +17,16 @@ import { getSpecProperties, guessPropertyKind, lookupPropertyKind } from './mapb
 import { toHexColor, colorAlpha, styleLiteral, resolveValue, formatLabel } from './layer-style-utils.js';
 import { SymbologyEditor } from './symbology-editor.js';
 import { parseSymbology } from './style-expressions.js';
+import { hatchImageName } from './hatch-patterns.js';
+import { hatchPreview, openHatchEditor } from './hatch-editor.js';
 import {
-    isStyleReference, parseStyleReference, formatStyleReference, previewReference, referenceCandidates
+    STYLE_TABS, CATEGORY_LABELS, categoryOf, tabForKey, groupForAllTab, baseProperty
+} from './style-categories.js';
+import { RulesView } from './rules-view.js';
+import { analyzeRules, LAYER_FILTER_KEY } from './style-rules.js';
+import {
+    isStyleReference, parseStyleReference, formatStyleReference, previewReference, referenceCandidates,
+    resolveStyleReferences
 } from './style-references.js';
 
 const NUMERIC_RANGES = {
@@ -32,7 +40,7 @@ const NUMERIC_RANGES = {
 
 const SECTION_LABELS = { paint: 'Paint', layout: 'Layout', other: 'Other' };
 
-const NEW_PROPERTY_DEFAULTS = { color: '#3b82f6', number: 1 };
+const NEW_PROPERTY_DEFAULTS = { color: '#3b82f6', number: 1, pattern: hatchImageName({ kind: 'forward-diagonal' }) };
 
 /** The numeric bounds a number control validates against. */
 export function numericRange(property) {
@@ -85,6 +93,7 @@ function colorContext() {
  * then from the value's own type. null means only the JSON textarea fits.
  */
 export function uiControlKind(property, value) {
+    if (/-pattern$/.test(property)) return 'pattern';
     if (/-color$/.test(property)) return 'color';
     if (/-(radius|width|size)$/.test(property)) return 'number';
     if (typeof value === 'string' && cssColorToHex(value)) return 'color';
@@ -95,12 +104,12 @@ export function uiControlKind(property, value) {
 
 /**
  * Whether a property can be driven by data through the symbology editor, and
- * what it outputs: 'color' or 'number'. Only the properties a feature value
+ * what it outputs: 'color', 'number' or 'pattern' (a hatch image name). Only the properties a feature value
  * can sensibly pick between - not dash arrays, fonts or offsets.
  */
 export function symbologyKind(property) {
     const kind = uiControlKind(property, undefined);
-    if (kind === 'color' || kind === 'number') return kind;
+    if (kind === 'color' || kind === 'number' || kind === 'pattern') return kind;
     return null;
 }
 
@@ -138,8 +147,11 @@ function el(tag, className, props = {}) {
 }
 
 export class StylePropertyEditor {
-    constructor({ onChange, getFields, getSamples, getReferences } = {}) {
+    constructor({ onChange, getFields, getSamples, getReferences, onFilterChange } = {}) {
         this._onChange = onChange || (() => {});
+        // The layer config's own `filter` lives outside `style`, so it is reported separately.
+        this._onFilterChange = onFilterChange || (() => {});
+        this._layerFilter = undefined;
         // Where the symbology editor finds field names and sample feature
         // properties; the host owns the data, so it may change after construction.
         this._context = { getFields, getSamples, getReferences };
@@ -151,6 +163,14 @@ export class StylePropertyEditor {
         // Properties added from the picker that have no valid value yet, so are
         // shown as a row but not yet part of the style.
         this._drafts = new Set();
+        // The open tab: 'rules', a category, or 'all' ("*"). Null until the first
+        // render, which picks the most useful one for the style it is given.
+        this._tab = null;
+        this._rules = new RulesView({
+            onEdit: (key, value) => this._setValue(key, value, { rerender: false }),
+            onNavigate: (key) => this.focusProperty(key),
+            onFilterEdit: (key, value) => this._editFilter(key, value)
+        });
 
         injectStyles();
         this.element = el('div', 'spe-root');
@@ -164,6 +184,8 @@ export class StylePropertyEditor {
      */
     setLayer(layer, { resetControlModes = false } = {}) {
         this._layerType = layer?.type || null;
+        this._layerFilter = layer?.filter;
+        if ((layer?.id || null) !== this._layerId) this._tab = null;
         this._layerId = layer?.id || null;
         this._style = { ...(layer?.style || {}) };
         this._drafts.clear();
@@ -181,31 +203,121 @@ export class StylePropertyEditor {
         return { ...this._style };
     }
 
+    /** Open a tab: 'rules', a category id, or 'all' (the "*" tab). */
+    setTab(tab) {
+        this._tab = tab;
+        this.render();
+    }
+
+    get tab() {
+        return this._tab;
+    }
+
+    /**
+     * Open a property for editing: on the tab its category filters to - never
+     * Rules or "*", which only list it - scrolled into view and highlighted.
+     */
+    focusProperty(key) {
+        this._tab = tabForKey(key);
+        this.render();
+        const row = [...this.element.querySelectorAll('.spe-row')].find(r => r.dataset.key === key);
+        if (!row) return;
+        row.classList.add('spe-flash');
+        if (row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+        setTimeout(() => row.classList.remove('spe-flash'), 1600);
+    }
+
+    // A filter edit from the Rules tab: the layer's own goes to the host as such,
+    // one inside the style is a style value like any other.
+    _editFilter(key, value) {
+        if (key === LAYER_FILTER_KEY) {
+            this._layerFilter = value;
+            this._onFilterChange(value);
+        } else if (value === undefined) {
+            this._removeProperty(key);
+        } else {
+            this._setValue(key, value, { rerender: false });
+        }
+    }
+
+    _keys() {
+        return [...Object.keys(this._style), ...this._drafts];
+    }
+
+    // Rules when there are any; otherwise the one category in use, or "*".
+    _ruleCount() {
+        return analyzeRules(resolveStyleReferences(this._style)).ruleCount;
+    }
+
+    _defaultTab(keys) {
+        if (this._ruleCount() > 0) return 'rules';
+        const used = [...new Set(keys.map(categoryOf))];
+        return used.length === 1 && used[0] ? used[0] : 'all';
+    }
+
+    _tabCount(tabId, keys) {
+        if (tabId === 'rules') return this._ruleCount();
+        if (tabId === 'all') return keys.length;
+        return keys.filter(key => categoryOf(key) === tabId).length;
+    }
+
+    _buildTabs(keys, active) {
+        const bar = el('div', 'spe-tabs', { role: 'tablist' });
+        STYLE_TABS.forEach(({ id, label }) => {
+            const count = this._tabCount(id, keys);
+            const tab = el('button', `spe-tab${id === active ? ' spe-tab-active' : ''}${count ? '' : ' spe-tab-empty'}`, {
+                type: 'button', role: 'tab', title: id === 'all' ? 'Every property' : id === 'rules' ? 'Rules across all data-driven properties' : `${label} properties`
+            });
+            tab.dataset.tab = id;
+            tab.appendChild(el('span', null, { textContent: label }));
+            if (count) tab.appendChild(el('span', 'spe-tab-count', { textContent: String(count) }));
+            tab.addEventListener('click', () => this.setTab(id));
+            bar.appendChild(tab);
+        });
+        return bar;
+    }
+
     render() {
         this.element.textContent = '';
 
-        const colors = this._collectUniqueColors();
-        if (colors.length) {
-            this.element.appendChild(this._buildColorsSection(colors));
+        const keys = this._keys();
+        if (this._tab === null) this._tab = this._defaultTab(keys);
+        const tab = this._tab;
+
+        this.element.appendChild(this._buildTabs(keys, tab));
+        const body = el('div', 'spe-body');
+        this.element.appendChild(body);
+
+        if (tab === 'rules') {
+            this._rules.setStyle(this._style, { layerFilter: this._layerFilter });
+            body.appendChild(this._rules.element);
+            return this.element;
         }
 
-        const keys = [...Object.keys(this._style), ...this._drafts];
-        const sections = { paint: [], layout: [], other: [] };
-        keys.forEach(key => sections[sectionFor(key)].push(key));
+        if (tab === 'all') {
+            const colors = this._collectUniqueColors();
+            if (colors.length) body.appendChild(this._buildColorsSection(colors));
+            groupForAllTab(keys).forEach(({ category, keys: groupKeys }) => {
+                body.appendChild(el('div', 'spe-section', { textContent: CATEGORY_LABELS[category] }));
+                groupKeys.forEach(key => body.appendChild(this._buildRow(key)));
+            });
+        } else {
+            const tabKeys = keys.filter(key => categoryOf(key) === tab);
+            if (!tabKeys.length) {
+                body.appendChild(el('div', 'spe-empty', {
+                    textContent: `No ${CATEGORY_LABELS[tab].toLowerCase()} properties set. Add one below.`
+                }));
+            }
+            tabKeys.forEach(key => body.appendChild(this._buildRow(key)));
+        }
 
-        if (!keys.length) {
-            this.element.appendChild(el('div', 'spe-empty', {
+        if (!keys.length && tab === 'all') {
+            body.appendChild(el('div', 'spe-empty', {
                 textContent: 'No style properties set. Add one below to start styling this layer.'
             }));
         }
 
-        Object.entries(sections).forEach(([kind, sectionKeys]) => {
-            if (!sectionKeys.length) return;
-            this.element.appendChild(el('div', 'spe-section', { textContent: SECTION_LABELS[kind] }));
-            sectionKeys.forEach(key => this.element.appendChild(this._buildRow(key)));
-        });
-
-        this.element.appendChild(this._buildAddControl());
+        body.appendChild(this._buildAddControl(tab === 'all' ? null : tab));
         return this.element;
     }
 
@@ -301,6 +413,7 @@ export class StylePropertyEditor {
         const mode = this._resolveMode(key, controlKind, value);
 
         const row = el('div', 'spe-row');
+        row.dataset.key = key;
         const head = el('div', 'spe-head');
         // The section header already says paint or layout, so the row only
         // carries the property key itself.
@@ -489,7 +602,7 @@ export class StylePropertyEditor {
             range: numericRange(property),
             getFields: this._context.getFields,
             getSamples: this._context.getSamples,
-            states: guessPropertyKind(property) === 'paint',
+            states: guessPropertyKind(property) === 'paint' && symbologyKind(property) !== 'pattern',
             onChange: (next) => this._setValue(key, next, { rerender: false })
         });
         editor.setValue(value === undefined ? literalOf(value) : value);
@@ -536,7 +649,35 @@ export class StylePropertyEditor {
         const literal = typeof value === 'string' || typeof value === 'number' ? value : literalOf(value);
         const fromExpression = Array.isArray(value) || (value && typeof value === 'object');
 
-        if (controlKind === 'color') {
+        if (controlKind === 'pattern') {
+            const name = typeof literal === 'string' ? literal : NEW_PROPERTY_DEFAULTS.pattern;
+            const trigger = el('button', 'hatch-trigger', { type: 'button', title: 'Edit hatch' });
+            const text = el('input', 'spe-input spe-text', {
+                type: 'text', value: name, placeholder: 'hatch|diagonal-cross|#000000|8|1, or the name of an image in the style'
+            });
+            const draw = (next) => { trigger.textContent = ''; trigger.appendChild(hatchPreview(next)); };
+            draw(name);
+
+            trigger.addEventListener('click', () => openHatchEditor(trigger, text.value, (next) => {
+                text.value = next;
+                draw(next);
+                this._clearError(error, text);
+                this._setValue(key, next, { rerender: false });
+            }));
+            text.addEventListener('input', () => {
+                const next = text.value.trim();
+                draw(next);
+                if (!next) {
+                    this._setError(error, text, 'Enter a hatch name or an image name');
+                    return;
+                }
+                this._clearError(error, text);
+                this._setValue(key, next, { rerender: false });
+            });
+
+            wrap.appendChild(trigger);
+            wrap.appendChild(text);
+        } else if (controlKind === 'color') {
             const hex = cssColorToHex(literal) || '#3b82f6';
             const alpha = colorAlpha(typeof literal === 'string' ? literal : '');
             const swatch = el('input', 'spe-swatch', { type: 'color', value: hex });
@@ -603,7 +744,7 @@ export class StylePropertyEditor {
         return wrap;
     }
 
-    _buildAddControl() {
+    _buildAddControl(category = null) {
         const wrap = el('div', 'spe-add');
         const select = el('select', 'spe-input spe-select');
         select.appendChild(el('option', null, { value: '', textContent: '+ Add style property…' }));
@@ -611,6 +752,7 @@ export class StylePropertyEditor {
         const used = new Set([...Object.keys(this._style), ...this._drafts].map(propertyName));
         getSpecProperties(this._layerType)
             .filter(({ property }) => !used.has(property))
+            .filter(({ property }) => category === null || categoryOf(property) === category)
             .forEach(({ property, kind }) => {
                 select.appendChild(el('option', null, { value: property, textContent: `${property} (${kind})` }));
             });
@@ -787,6 +929,16 @@ function injectStyles() {
         .spe-error { display: none; font-size: 10px; color: #f87171; margin-top: 3px; }
         .spe-empty { font-size: 12px; color: #9ca3af; font-style: italic; }
         .spe-add { margin-top: 8px; }
+        .spe-tabs { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #374151; }
+        .spe-tab { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #9ca3af; background: transparent;
+            border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+        .spe-tab:hover { color: #fff; background: #1f2937; }
+        .spe-tab-active { color: #fff; background: #2563eb; }
+        .spe-tab-active:hover { background: #2563eb; }
+        .spe-tab-empty:not(.spe-tab-active) { opacity: .45; }
+        .spe-tab-count { font-size: 9px; background: rgba(255,255,255,.14); border-radius: 8px; padding: 0 5px; }
+        .spe-flash { animation: spe-flash 1.6s ease-out; }
+        @keyframes spe-flash { 0%, 30% { border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(96,165,250,.45); } 100% { border-color: #374151; box-shadow: none; } }
     ` });
     document.head.appendChild(style);
 }

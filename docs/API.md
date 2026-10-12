@@ -651,6 +651,27 @@ An atlas can declare a `constants` dictionary and reference its entries elsewher
 
 `config/osm.atlas.json` uses this to share one landuse palette between the `landuse` polygons and the `pois` points.
 
+#### The style editor's tabs: Rules, categories and `*`
+
+The **Advanced style** panel of the layer editor (`map-creator.html`, for a new layer or an existing one - see [One editor for adding and editing layers](#one-editor-for-adding-and-editing-layers)) is organised as tabs, so a layer with many properties doesn't need scrolling through all of them. Each tab is a filter over the style:
+
+| Tab | Shows |
+|---|---|
+| **Rules** | The data filters the layer uses, then every branch of every data-driven property, consolidated into rules (below) |
+| **Point** | Core marker appearance: `circle-color`, `circle-radius`, `circle-opacity`, `circle-stroke-color`, `circle-stroke-width` |
+| **Line** | `line-*` |
+| **Area** | `fill-*`, including `fill-pattern` hatches and `fill-extrusion-*` |
+| **Label** | `text-*` |
+| **Circle** | The other `circle-*` properties: blur, stroke opacity, translate, pitch |
+| **Icon** | `icon-*` and `symbol-*` |
+| **\*** | Every property: those no category claims first, then the sections above in that order, each property once |
+
+A variant-prefixed key (`hatch/fill-pattern`) is grouped by the property it styles. Tab badges count what each holds. The panel opens on Rules when the style has any, on the one category in use if there is just one, and otherwise on `*`. Opening a property from anywhere else (a link in Rules) always switches to that property's own category tab, scrolls to it and highlights it. The layer creator's simple controls have matching **Circle** (stroke width, opacity, blur) and **Icon** (image name or URL, size, opacity) sections alongside Point, Line, Area and Label.
+
+**Rules.** Data-driven styles spread their logic over many properties: `fill-color`, `line-color` and `line-width` may all match on `use_zones`. The Rules tab reads that per rule instead of per property. A rule is a set of conditions from `match` labels, `case` tests and `step` classes, nested to any depth and kept in the order they were nested; every distinct condition path found in any property is a row, and a final row collects the fallbacks. Each row draws a symbol from every property that applies to it (fill, hatch, outline, line, circle, label) and shows a count of the properties that define it. Opening a row shows its conditions (a test that isn't a recognised pattern is shown as JSON), the properties that define the rule - each editable in place, writing only that rule's branch - the properties that apply to every rule, and any overlay that doesn't apply to it. Clicking a property name opens it on its own tab. Because conditions are compared as expressions, a property that tests only `use_zones` lines up with a deeper `urban = true › use_zones = G1` rule: it contributes its `G1` branch there. Hover and selected branches are states, not rules, and properties that inherit from another (`"@fill-color"`) are shown read-only.
+
+**Data filters.** The top of the Rules tab lists every filter limiting what the layer draws: the layer's own `filter` (features that fail it are not drawn) and each `<prefix>/filter` inside `style` (the overlay's properties apply only to matching features), each shown readably (`use_zones in G1, T1`), expandable to a JSON editor, removable, with a button to add a layer filter. Both the expression syntax and the legacy `["==", "field", value]` syntax are read. For `geojson`, `arcgis`, `overpass` and `js` layers the layer's `filter` is combined with an overlay's filter and any clustering exclusion, and edits made in the style editor are applied to the map as they are typed.
+
 #### Inheriting a colour from another value
 
 A `*-color` property in a layer's `style` can name another value to inherit instead of carrying its own. The reference is a string that is **exactly** one of:
@@ -661,7 +682,7 @@ A `*-color` property in a layer's `style` can name another value to inherit inst
 | `"@fill-color"` | Another property of the same layer. Keys with a variant prefix work too (`"@overlay/line-color"`) |
 | `"@layer-id#fill-color"` | A property of another layer in the atlas |
 
-The whole value is inherited, so `"line-color": "@fill-color"` gives the outline the same categorized or graduated mapping as the fill, including any hover / selected overrides it carries (see [Styling by data](#styling-by-data-categories-classes-and-interaction-states)). In the style editor (layer info panel and layer creator) use the `link` button on a colour row; it lists the atlas constants, the layer's other colours and the colours of other layers, and **Detach** (switching the row to another mode) copies the inherited value in place.
+The whole value is inherited, so `"line-color": "@fill-color"` gives the outline the same categorized or graduated mapping as the fill, including any hover / selected overrides it carries (see [Styling by data](#styling-by-data-categories-classes-and-interaction-states)). In the style editor (the layer editor's Advanced style panel) use the `link` button on a colour row; it lists the atlas constants, the layer's other colours and the colours of other layers, and **Detach** (switching the row to another mode) copies the inherited value in place.
 
 ```json
 {
@@ -675,7 +696,7 @@ The whole value is inherited, so `"line-color": "@fill-color"` gives the outline
 }
 ```
 
-- References are resolved when the layer is drawn (and when its legend or thumbnail is drawn), against the layer's own style, the active atlas's `constants` and the live styles of other layers. The config itself keeps the reference, so it survives into `?layers=` and the layer info panel.
+- References are resolved when the layer is drawn (and when its legend or thumbnail is drawn), against the layer's own style, the active atlas's `constants` and the live styles of other layers. The config itself keeps the reference, so it survives into `?layers=` and the layer editor.
 - Constants in an atlas *file* are also substituted once when the file loads, so a `"$name"` written in a file reaches the layer already resolved. The `$name` form matters for layers added at runtime (inline `?layers=` JSON, the creator), which that load-time pass never sees. Constants come from the active atlas only.
 - A reference that points at nothing, or loops back on itself, is dropped with a console warning and the layer uses its default for that property. An unknown `$name` is left as-is, like in an atlas file.
 - Only `*-color` properties are resolved, so other strings (`text-field: "$5"`) are never touched.
@@ -729,7 +750,7 @@ Layer ordering is unaffected — the `bottom`/`middle`/`top` anchors come from `
 
 #### Styling by data: categories, classes and interaction states
 
-Any colour or number in `style` can be driven by a feature property. The **Style** panel of the layer info page (`map-information.html`, Edit) and the **Advanced style** panel of the layer creator (`map-creator.html`) share one editor for this: each colour/number row has `value`, `by data` and `{ }` (JSON) modes, and `by data` offers **Single**, **Categorized** and **Graduated**, plus **hover** and **selected** overrides and a fallback. Values and class breaks are computed from the features the map has loaded for the layer (the creator uses the file's own data for uploads). The editor writes ordinary Mapbox expressions, so the result is plain JSON that can also be written by hand:
+Any colour or number in `style` can be driven by a feature property. The **Advanced style** panel of the layer editor (`map-creator.html`) does this: each colour/number row has `value`, `by data` and `{ }` (JSON) modes, and `by data` offers **Single**, **Categorized** and **Graduated**, plus **hover** and **selected** overrides and a fallback. Values and class breaks are computed from the features the map has loaded for the layer (the creator uses the file's own data for uploads). The editor writes ordinary Mapbox expressions, so the result is plain JSON that can also be written by hand:
 
 | Mode | Expression written |
 |---|---|
@@ -1406,7 +1427,21 @@ There is no image to host: the map draws each hatch the first time a layer asks 
 }
 ```
 
+In the style editor a `fill-pattern` row has the same `value`, `by data` and `{ }` modes as a colour. By data reads a `match` like the one above - the field, and one branch per value - and shows each branch's hatch as a small swatch beside its value; clicking a swatch opens the hatch editor (pattern, line colour, line opacity, spacing, line width). The single value and the fallback ("Other values") are edited the same way. Hover / selected overrides aren't offered for patterns, and a graduated pattern picks one hatch per class (hatches can't be blended).
+
 Variants stack in reverse key order, so keys written first draw on top. Hover and selected highlights come from the plain fill underneath. Legends and thumbnails show the plain fill, so a hatched class appears as an outline only.
+
+#### One editor for adding and editing layers
+
+Adding a layer and editing one are the same screen, `map-creator.html`. A new layer starts empty: choose a data source, then customize it. Editing opens the editor on an existing layer, so everything the layer already carries is filled in: the data source (loaded again from its URL, query or stored data), title, description and attribution, the inspect fields (feature id, name and the fields shown), the style, filters and every other setting, in the Configuration JSON. The **Edit** button of the layer info panel (`map-information.html`, which now only shows a layer's legend, metadata and actions), the layer stack's edit action and the attribution bar's edit link all open it.
+
+- **Live preview.** While editing, the layer on the map is replaced by a live preview of your changes, in the same place in the stack. **Apply Changes** keeps it (the URL then carries the edited layer, not the original reference), **Cancel** or closing the panel puts the original back untouched.
+- **The Data card.** The data source is one card. For a layer that already has data it is collapsed to the link and, beneath it, the layer type (GeoJSON, Vector tiles, ArcGIS layer, ...), with an icon for the kind of data: `bounding-box-circles` for vector tiles, `image` for rasters, `globe` for web services and APIs (WMS, WFS, ArcGIS, Overpass, Allmaps, MapWarper, ...), `filetype-csv`, `filetype-json`, `filetype-xml` for KML and `file-earmark-zip` for GeoPackage and Shapefile. Hovering the icon describes the kind; kinds are told apart by icon, not colour. **Edit** expands the card: the link becomes an input (the upload button shows only while it is empty), with a "supported formats" link that opens help cards, each with an icon, a description and an example link to try.
+- **Replacing the source.** Paste a different link or upload a file in the Data card. Once it has loaded you choose what happens to the styling:
+  - **Keep current styling** (default): the layer's style, filters, zoom range and other settings stay. Inspect settings narrow to the fields the new data actually has, and attribution follows the new source.
+  - **Restyle layer**: the style a new layer would get from that data: from its geometry, the service's own styling when it has one (ArcGIS), and the atlas defaults in `config/_defaults.json`, which sit under every style.
+  Switching between the two re-applies the new source each way.
+- **What can be edited.** Layers with a URL, an Overpass query, or stored or inline GeoJSON have a source to reload. A layer with no data source of its own (a base-map `style` layer, a `layer-group`, `wmts`, `img`) opens with its settings editable as JSON.
 
 #### Adding ArcGIS REST and WFS layers in the layer creator
 

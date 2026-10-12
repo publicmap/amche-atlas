@@ -32,6 +32,8 @@ function mount(layer) {
     const editor = new StylePropertyEditor({ onChange });
     document.body.appendChild(editor.element);
     editor.setLayer(layer);
+    // These tests are about rows and controls, not tabs: the "*" tab lists every property.
+    editor.setTab('all');
     return { editor, onChange };
 }
 
@@ -102,13 +104,13 @@ describe('StylePropertyEditor', () => {
         }
     };
 
-    it('renders one row per style property, grouped by paint and layout', () => {
+    it('renders one row per style property on the "*" tab, grouped by category', () => {
         const { editor } = mount(layer);
         const names = [...editor.element.querySelectorAll('.spe-name')].map(node => node.textContent);
-        expect(names).toEqual(['fill-color', 'fill-opacity', 'line-dasharray', 'text-field']);
+        expect(names).toEqual(['line-dasharray', 'fill-color', 'fill-opacity', 'text-field']);
 
         const sections = [...editor.element.querySelectorAll('.spe-section')].map(node => node.textContent);
-        expect(sections).toEqual(['Colors', 'Paint', 'Layout']);
+        expect(sections).toEqual(['Colors', 'Line', 'Area', 'Label']);
     });
 
     it('gives a colour property a picker and a number property a bounded box', () => {
