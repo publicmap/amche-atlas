@@ -10,6 +10,7 @@ import { ServiceImport } from './service-import.js';
 import { CreatorStyleEditor } from './creator-style-editor.js';
 import { CreatorEditMode } from './creator-edit-mode.js';
 import { DataCard } from './data-card.js';
+import { LayerPage } from './layer-page.js';
 
 // Re-exported for the Style controls' own callers (and their tests), which have
 // always imported these from here; they now live in js/layer-style-utils.js so
@@ -54,11 +55,14 @@ export class MapCreator {
         // Editing an existing layer instead of adding one (see creator-edit-mode.js).
         this.edit = new CreatorEditMode(this);
         this.dataCard = new DataCard(this);
+        // An existing layer: header, live actions and Overview / Edit tabs (see layer-page.js).
+        this.layerPage = new LayerPage(this);
         // Options for the next source resolve (edit mode pins an ArcGIS layer's output type).
         this._resolveOptions = null;
     }
 
     init() {
+        this.layerPage.init();
         this.dataCard.init();
         this.styleEditor.init();
         this.setupEventListeners();
@@ -70,7 +74,7 @@ export class MapCreator {
     setupMessageListener() {
         window.addEventListener('message', async (event) => {
             if (event.data.type === 'edit-layer') {
-                this.edit.start(event.data.layer);
+                this.layerPage.open(event.data.layer, { tab: event.data.tab, feature: event.data.feature });
                 return;
             }
             if (event.data.type === 'creator-tile-info') {
@@ -2646,7 +2650,7 @@ export class MapCreator {
 
     returnToBrowser() {
         // Cancelling an edit leaves the editor; there is no browser to go back to.
-        if (this.edit.active) {
+        if (this.edit.active || this.layerPage.active) {
             this.closeBrowser();
             return;
         }

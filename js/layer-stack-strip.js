@@ -583,7 +583,7 @@ export class LayerStackStrip {
 
         item.appendChild(this._createRowText(layer, title, atlasName));
 
-        // Hover panel: the layer name (opens map-information.html), then the atlas
+        // Hover panel: the layer name (opens the layer editor (map-creator.html)), then the atlas
         // name followed by shortcut actions for the layer. It opens over the row text.
         const label = document.createElement('div');
         label.className = 'layer-stack-label';
@@ -729,7 +729,7 @@ export class LayerStackStrip {
 
     /**
      * Stand-in cell shown in the compared layer's slot: clicking it turns the
-     * comparison off, using the same `toggle-compare` message map-information.html
+     * comparison off, using the same `toggle-compare` message the layer editor (map-creator.html)
      * sends.
      */
     _createCompareCell(layer, title) {

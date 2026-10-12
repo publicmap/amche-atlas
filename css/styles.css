@@ -1455,7 +1455,7 @@
     min-width: 0;
 }
 
-/* Info icon at the row's right edge: opens map-information.html */
+/* Info icon at the row's right edge: opens the layer editor (map-creator.html) */
 .layer-stack-label-info {
     flex-shrink: 0;
     display: flex;
@@ -1481,7 +1481,7 @@
     color: var(--primary-color);
 }
 
-/* The name opens map-information.html for the layer */
+/* The name opens the layer editor (map-creator.html) for the layer */
 .layer-stack-label-title {
     display: block;
     max-width: 100%;

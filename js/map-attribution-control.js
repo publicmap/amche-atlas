@@ -376,7 +376,7 @@ export class MapAttributionControl {
     }
 
     /**
-     * Clicking a layer's thumbnail/name opens its map-information.html panel;
+     * Clicking a layer's thumbnail/name opens its the layer editor (map-creator.html) panel;
      * clicking the hover actions triggers the select/edit/remove behaviors.
      * All go through the same postMessage conventions used elsewhere
      * (LayerThumbnail, map-marker-manager.js) — index.html already has the

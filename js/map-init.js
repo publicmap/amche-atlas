@@ -1113,7 +1113,7 @@ export class MapInitializer {
             window.featureControl.initialize(stateManager, config);
 
             // Dynamic polygon mask (`?mask=<layer-id>`). Created here rather
-            // than lazily so the layer-stack strip and map-information.html can
+            // than lazily so the layer-stack strip and the layer editor (map-creator.html) can
             // read the current mask state without having to trigger one first.
             window.maskManager = new MapMaskManager(map);
 

@@ -459,7 +459,7 @@ describe('marker popup layout', () => {
             expect(layerRow.style.display).toBe('none');
         });
 
-        it("opens map-information.html for the layer and feature when its layer-info row is clicked", () => {
+        it("opens the layer editor's overview for the layer and feature when its layer-info row is clicked", () => {
             const manager = makeManager({ layers: [{ id: 'plots', title: 'Plots' }] });
             const features = [feature('plots', { id: '17/1' })];
             const el = mount(manager, features);

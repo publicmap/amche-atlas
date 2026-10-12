@@ -6,7 +6,7 @@
  * search and URL restore drive. Also bridges a handful of postMessage types
  * (open-layer-info, zoom-to-layer, remove-layer, toggle-compare, toggle-mask,
  * reorder-layers, update-layer, update-layer-opacity, update-layer-style) sent
- * by layer-stack-strip.js and map-information.html.
+ * by layer-stack-strip.js and the layer editor (map-creator.html).
  */
 
 import { MapMarkerManager } from './map-marker-manager.js';
@@ -170,11 +170,11 @@ export class MapFeatureControl {
 
     /**
      * Setup message listener for the postMessage bridge (layer-stack-strip.js,
-     * map-information.html and the layer-info modal all post into this window).
+     * the layer editor (map-creator.html) and the layer-info modal all post into this window).
      */
     _setupMessageListener() {
         // MapMaskManager fires this whenever the masked layer changes (from the
-        // URL, the layer-stack strip, or map-information.html itself) - mirror it
+        // URL, the layer-stack strip, or the layer editor (map-creator.html) itself) - mirror it
         // into the layer-info iframe so its Toggle Mask button repaints, the same
         // way _enableCompare posts 'compare-enabled'.
         window.addEventListener('mask-changed', (event) => {
@@ -190,7 +190,7 @@ export class MapFeatureControl {
             } else if (event.data.type === 'update-layer-style') {
                 this._updateLayerStyle(event.data.layerId, event.data.style, event.data.resetProperties, event.data.isDefaultStyle, event.data);
             } else if (event.data.type === 'update-layer') {
-                // "Apply Changes" in map-information.html's edit mode
+                // "Apply Changes" in the layer editor (map-creator.html)'s edit mode
                 this._updateLayer(event.data.layer, event.data.originalId || event.data.layer?.id, event.data.changedFields);
             } else if (event.data.type === 'toggle-compare') {
                 this._toggleCompare(event.data.layerId, event.data.enabled);
@@ -203,12 +203,10 @@ export class MapFeatureControl {
                 this._zoomToLayer(event.data.layerId);
             } else if (event.data.type === 'remove-layer') {
                 await this._removeLayer(event.data.layerId);
-            } else if (event.data.type === 'open-layer-info') {
-                this._openLayerInfo(event.data.layer, { edit: event.data.edit, feature: event.data.feature });
             } else if (event.data.type === 'reorder-layers') {
                 this._reorderLayers(event.data.overlayOrder || [], event.data.basemapOrder || []);
             } else if (event.data.type === 'zoom-to-feature') {
-                // From map-information.html's "Zoom to Feature" - the same
+                // From the layer editor (map-creator.html)'s "Zoom to Feature" - the same
                 // action the marker popup's own accordion row used to offer
                 // through a three-dot menu (see MapMarkerManager._zoomToFeature).
                 if (this._markerManager) {
@@ -217,7 +215,7 @@ export class MapFeatureControl {
                     setTimeout(() => { this._markerManager._isProgrammaticZoom = false; }, 1500);
                 }
             } else if (event.data.type === 'export-selected' || event.data.type === 'export-layer') {
-                // From map-information.html's export buttons - reuses
+                // From the layer editor (map-creator.html)'s export buttons - reuses
                 // MapMarkerManager._handleLayerExportAction unchanged, so it
                 // still expects a feature encoded the same way the old
                 // three-dot menu's `data-feature-data` attribute carried it.
@@ -296,62 +294,11 @@ export class MapFeatureControl {
     }
 
     /**
-     * Open layer information modal
+     * Open a layer's information / editor panel (the layer editor's Overview or
+     * Edit tab). MapBrowserControl owns the panel and answers `open-layer-info`.
      */
     _openLayerInfo(layer, options = {}) {
-        // Editing happens in the layer editor (map-creator.html in edit mode).
-        if (options.edit && window.browserControl?.openLayerEditor) {
-            window.browserControl.openLayerEditor(layer);
-            return;
-        }
-
-        const modal = document.getElementById('layer-info-modal');
-        const iframe = document.getElementById('layer-info-iframe');
-
-        if (!modal || !iframe) {
-            console.warn('Layer info modal not found in page');
-            return;
-        }
-
-        // The config is handed over via postMessage rather than a ?layer= query
-        // param: a layer with inline GeoJSON serializes to far more than the
-        // browser's URL length limit.
-        iframe.src = 'map-information.html';
-        modal.style.display = 'block';
-
-        const readyHandler = (e) => {
-            if (e.data?.type !== 'layer-info-ready') return;
-            if (!iframe.contentWindow || e.source !== iframe.contentWindow) return;
-            iframe.contentWindow.postMessage({
-                type: 'layer-info-data',
-                layer: layer,
-                feature: options.feature || null,
-                edit: !!options.edit
-            }, '*');
-        };
-
-        const closeHandler = (e) => {
-            if (e.data.type === 'close-layer-info') {
-                modal.style.display = 'none';
-                iframe.src = '';
-                window.removeEventListener('message', readyHandler);
-                window.removeEventListener('message', closeHandler);
-            }
-        };
-
-        const keyHandler = (e) => {
-            if (e.key === 'Escape') {
-                modal.style.display = 'none';
-                iframe.src = '';
-                document.removeEventListener('keydown', keyHandler);
-                window.removeEventListener('message', readyHandler);
-                window.removeEventListener('message', closeHandler);
-            }
-        };
-
-        window.addEventListener('message', readyHandler);
-        window.addEventListener('message', closeHandler);
-        document.addEventListener('keydown', keyHandler);
+        window.browserControl?._openLayerInfo?.(layer, options);
     }
 
     /**
@@ -778,7 +725,7 @@ export class MapFeatureControl {
     }
 
     /**
-     * Live style preview from map-information.html's Style controls. The edited
+     * Live style preview from the layer editor (map-creator.html)'s Style controls. The edited
      * style is written onto the layer's own config - so the URL, and any later
      * re-render of the group, carry it - then pushed onto the rendered map
      * layers. `resetProperties` are the keys the editor removed.
@@ -813,7 +760,7 @@ export class MapFeatureControl {
     }
 
     /**
-     * Apply an edited layer config from map-information.html. Fields that can
+     * Apply an edited layer config from the layer editor (map-creator.html). Fields that can
      * be written onto a live layer (IN_PLACE_LAYER_FIELDS) are, so the panel
      * can simply drop out of edit mode; anything that changes what the map
      * renders needs the layer rebuilt, which is still done by rewriting

@@ -148,10 +148,10 @@ export class KeyboardController {
             return;
         }
 
-        const layerInfoModal = document.getElementById('layer-info-modal');
-        if (layerInfoModal && layerInfoModal.style.display !== 'none') {
-            window.postMessage({ type: 'close-layer-info' }, '*');
-            this.focusMap();
+        // The layer editor (map-creator.html): closing it mid-edit puts the layer back.
+        const layerEditor = document.querySelector('iframe[src*="map-creator.html"]');
+        if (layerEditor && layerEditor.offsetParent !== null) {
+            window.postMessage({ type: 'close-browser' }, '*');
             return;
         }
 

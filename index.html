@@ -311,43 +311,6 @@
             }
         }
 
-        /* Layer information panel: sized/positioned identically to the map
-           browser's side panel (see MapBrowserControl._createOverlay) so the
-           two overlays occupy the exact same rectangle instead of one being
-           fullscreen. The outer element spans the viewport below the header
-           but stays pointer-events:none so the exposed map remains clickable;
-           only the inner panel (40%/75% width) is interactive. */
-        .layer-info-modal {
-            position: fixed;
-            top: 20px;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 10000;
-            pointer-events: none;
-        }
-
-        .layer-info-panel {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 40%;
-            height: 100%;
-            background: #1f2937;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            border-left: 1px solid #374151;
-            border-right: 1px solid #374151;
-            border-bottom: 1px solid #374151;
-            pointer-events: auto;
-        }
-
-        @media (max-width: 767px) {
-            .layer-info-panel {
-                width: 75%;
-            }
-        }
-
         /* Prevent FOUC for elements hidden before Tailwind loads */
         .hidden {
             display: none !important;
@@ -1601,12 +1564,6 @@
         </main>
     </div>
 
-    <!-- Layer Information Modal -->
-    <div id="layer-info-modal" class="layer-info-modal" style="display: none;">
-        <div class="layer-info-panel">
-            <iframe id="layer-info-iframe" style="width: 100%; height: 100%; border: none;"></iframe>
-        </div>
-    </div>
 </body>
 
 </html>

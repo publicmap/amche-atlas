@@ -358,7 +358,7 @@ export class MapBrowserControl {
 
             if (event.data.type === 'creator-ready') {
                 if (this._pendingEditLayer && this._iframe && this._iframe.contentWindow) {
-                    this._iframe.contentWindow.postMessage({ type: 'edit-layer', layer: this._pendingEditLayer }, '*');
+                    this._iframe.contentWindow.postMessage({ type: 'edit-layer', ...this._pendingEditLayer }, '*');
                     this._pendingEditLayer = null;
                 }
                 if (this._pendingFileData?.length && this._iframe && this._iframe.contentWindow) {
@@ -394,9 +394,7 @@ export class MapBrowserControl {
                 this._openLayerInfo(event.data.layer, { edit: event.data.edit, feature: event.data.feature });
             }
 
-            if (event.data.type === 'open-layer-editor') {
-                this.openLayerEditor(event.data.layer);
-            }
+
 
             if (event.data.type === 'load-atlas') {
                 console.log('[MapBrowserControl] Received load-atlas message');
@@ -490,26 +488,33 @@ export class MapBrowserControl {
     }
 
     /**
-     * Open the layer editor on an existing layer: the creator, prefilled with
-     * the layer's source and settings (see js/creator-edit-mode.js).
+     * Open the layer editor on an existing layer: map-creator.html showing the
+     * layer's header and live actions, with an Overview tab (what the layer is)
+     * and an Edit tab (the form used to add a layer, filled in from this one -
+     * see js/creator-edit-mode.js). Every "layer info" and "edit layer" entry
+     * point comes here.
+     * @param {Object} layer
+     * @param {{tab?: 'overview'|'edit', feature?: Object|null}} [options]
      */
-    openLayerEditor(layer) {
+    openLayerEditor(layer, { tab = 'edit', feature = null } = {}) {
         if (!layer) return;
         const live = this._resolveLiveLayer(layer);
+        let serializable;
         try {
-            this._pendingEditLayer = JSON.parse(JSON.stringify(live));
+            serializable = JSON.parse(JSON.stringify(live));
         } catch (error) {
             console.warn('[MapBrowserControl] Layer config not serializable, editing a minimal copy:', error);
-            this._pendingEditLayer = { id: live.id, title: live.title, type: live.type, url: live.url };
+            serializable = { id: live.id, title: live.title, type: live.type, url: live.url };
         }
-
-        const modal = document.getElementById('layer-info-modal');
-        const infoFrame = document.getElementById('layer-info-iframe');
-        if (modal) modal.style.display = 'none';
-        if (infoFrame) infoFrame.src = '';
+        this._pendingEditLayer = { layer: serializable, tab, feature };
 
         this.openBrowser();
-        this._switchToCreator();
+        this._switchToCreator('?mode=layer');
+    }
+
+    // "Layer info" is the editor's Overview tab; "edit" is its Edit tab.
+    _openLayerInfo(layer, options = {}) {
+        this.openLayerEditor(layer, { tab: options.edit ? 'edit' : 'overview', feature: options.feature || null });
     }
 
     /**
@@ -570,68 +575,6 @@ export class MapBrowserControl {
         } catch (error) {
             console.warn('[MapBrowserControl] Could not restore the layer after cancelling the edit:', error);
         }
-    }
-
-    _openLayerInfo(layer, options = {}) {
-        // Editing a layer happens in the layer editor (map-creator.html in edit
-        // mode), the same UI used to add one - the info panel only shows it.
-        if (options.edit) {
-            this.openLayerEditor(layer);
-            return;
-        }
-
-        layer = this._resolveLiveLayer(layer);
-        const modal = document.getElementById('layer-info-modal');
-        const iframe = document.getElementById('layer-info-iframe');
-
-        if (!modal || !iframe) {
-            console.warn('Layer info modal not found in page');
-            return;
-        }
-
-        // The config is handed over via postMessage rather than a ?layer= query
-        // param: a layer with inline GeoJSON serializes to far more than the
-        // browser's URL length limit.
-        iframe.src = 'map-information.html';
-        modal.style.display = 'block';
-
-        const readyHandler = (e) => {
-            if (e.data?.type !== 'layer-info-ready') return;
-            if (!iframe.contentWindow || e.source !== iframe.contentWindow) return;
-            iframe.contentWindow.postMessage({
-                type: 'layer-info-data',
-                layer: layer,
-                feature: options.feature || null,
-                edit: !!options.edit
-            }, '*');
-        };
-        window.addEventListener('message', readyHandler);
-
-        const closeHandler = (e) => {
-            if (e.data.type === 'close-layer-info') {
-                modal.style.display = 'none';
-                iframe.src = '';
-                window.removeEventListener('message', readyHandler);
-                window.removeEventListener('message', closeHandler);
-            }
-        };
-
-        const keyHandler = (e) => {
-            if (e.key === 'Escape') {
-                modal.style.display = 'none';
-                iframe.src = '';
-                document.removeEventListener('keydown', keyHandler);
-                window.removeEventListener('message', readyHandler);
-                window.removeEventListener('message', closeHandler);
-            }
-        };
-
-        // 'update-layer' (the panel's Apply Changes) is handled once, globally,
-        // by MapFeatureControl._updateLayer - it writes what it can onto the
-        // live layer and calls _handleLayerUpdate below only for an edit that
-        // needs the layer rebuilt. The panel stays open either way.
-        window.addEventListener('message', closeHandler);
-        document.addEventListener('keydown', keyHandler);
     }
 
     // The reload path for an edit that can't be applied to the live layer (a new
@@ -721,7 +664,7 @@ export class MapBrowserControl {
         const activeLayers = this._getActiveLayers();
 
         // Send the layer's full resolved config, not a whitelist of fields, so
-        // map-information.html's raw-config panel shows everything (url,
+        // the layer editor's raw-config panel shows everything (url,
         // sourceLayer, zoom range, opacity, ...) and edits round-trip intact.
         window.layerRegistry._registry.forEach((layer, layerId) => {
             const layerData = {
@@ -1120,6 +1063,7 @@ export class MapBrowserControl {
     closeBrowser() {
         // Closing mid-edit without applying puts the layer back.
         if (this._editSession) this._restoreEditSession();
+        window.layerControl?.isolation?.clear();
 
         this._overlay.style.display = 'none';
         this._isOpen = false;
@@ -1171,9 +1115,9 @@ export class MapBrowserControl {
         // No longer updating atlas name - button always shows "Maps"
     }
 
-    _switchToCreator() {
+    _switchToCreator(query = '') {
         this._ensureIframe();
-        this._iframe.src = 'map-creator.html';
+        this._iframe.src = `map-creator.html${query}`;
         if (this._loadingOverlay) {
             this._loadingOverlay.style.display = 'none';
         }

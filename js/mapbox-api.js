@@ -3806,7 +3806,7 @@ export class MapboxAPI {
 
     /**
      * Apply an edited style object to a layer group's already-rendered map
-     * layers - the live preview behind map-information.html's Style controls.
+     * layers - the live preview behind the layer editor (map-creator.html)'s Style controls.
      *
      * Each style variant ("overlay/line-color") paints its own map layer, so a
      * variant's properties go only to the sublayers carrying its suffix, and

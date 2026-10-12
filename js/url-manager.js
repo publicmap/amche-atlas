@@ -13,7 +13,7 @@ import { rebaseOnEmbedHost } from './embed-host.js';
 
 /**
  * `_editedFields` lists the definition fields a layer's config diverges from
- * its preset in, after an edit in map-information.html (see
+ * its preset in, after an edit in the layer editor (map-creator.html) (see
  * MapFeatureControl._applyLayerFieldsInPlace). Those fields would otherwise be
  * left out of the URL as "the preset has them anyway", so they are carried over
  * onto the serializable copy of the layer here, and written out by layerToURL.
@@ -41,7 +41,7 @@ function editedFieldValues(layer) {
  * Whether `layer.filter` is just whatever its preset already declares (config's
  * own `filter`, or a temporary preview/isolation change that never touched the
  * layer's own config entry) rather than something a user actually customized
- * (map-information.html's editor, or MapMarkerManager's quick-filter commit -
+ * (the layer editor, or MapMarkerManager's quick-filter commit -
  * see its _applyFeatureFilter). Only a real customization is worth spending
  * URL bytes on; the preset default is already implied by the layer id.
  */
@@ -215,7 +215,7 @@ export class URLManager {
         const cleanLayer = { id: layerId };
         // Definition fields like `style` and `title` normally stay out of the
         // URL - they come from the layer's preset - but one edited in
-        // map-information.html has to travel with the layer. `_editedFields`
+        // the layer editor (map-creator.html) has to travel with the layer. `_editedFields`
         // lists those (see MapFeatureControl._applyLayerFieldsInPlace).
         const editedFields = layer._editedFields || [];
         Object.keys(layer).forEach(key => {

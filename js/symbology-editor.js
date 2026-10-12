@@ -4,7 +4,7 @@
  * hover / selected overrides and a fallback for features that match nothing.
  *
  * Reusable and DOM-only: the host (js/style-property-editor.js, used by
- * map-information.html and map-creator.html) supplies the field names and a
+ * the layer editor (map-creator.html) and map-creator.html) supplies the field names and a
  * way to sample feature properties, and receives the finished style value
  * through `onChange(value)`. The Mapbox expressions themselves are built and
  * parsed in js/style-expressions.js.

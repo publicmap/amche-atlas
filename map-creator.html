@@ -346,6 +346,123 @@
             color: #6b7280;
         }
 
+        /* Layer header and tabs (an existing layer's identity, live actions and Overview / Edit tabs) */
+        .info-header-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 5px 9px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+
+        .info-header-action:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .info-header-action:disabled {
+            opacity: 0.4;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .info-header-action.danger {
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.35);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .info-header-action.danger:hover {
+            color: #fff;
+            background: #dc2626;
+            border-color: #dc2626;
+        }
+
+        .info-header-action.comparing { color: #fff; background: #2563eb; border-color: #2563eb; }
+        .info-header-action.masking { color: #fff; background: #7c3aed; border-color: #7c3aed; }
+        .info-header-action.isolating { color: #fff; background: #d97706; border-color: #d97706; }
+        .info-header-action.processing { color: #fff; background: #f59e0b; border-color: #f59e0b; }
+        .info-header-action.processing sl-icon:first-of-type { animation: spin 1s linear infinite; }
+
+        .compare-icons {
+            display: inline-flex;
+            align-items: center;
+            gap: 1px;
+        }
+
+        .layer-id-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.5rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border-radius: 0.4rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+        }
+
+        .atlas-badge-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.4rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+        }
+
+        .layer-id-badge.copied,
+        .atlas-badge-chip.copied {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        }
+
+        #lh-opacity {
+            accent-color: #3b82f6;
+            height: 20px;
+        }
+
+        .page-tabs {
+            display: flex;
+            gap: 4px;
+            border-bottom: 1px solid #374151;
+            margin-bottom: 16px;
+        }
+
+        .page-tab {
+            font-size: 13px;
+            font-weight: 600;
+            color: #9ca3af;
+            background: transparent;
+            border: 0;
+            border-bottom: 2px solid transparent;
+            padding: 8px 14px;
+            cursor: pointer;
+        }
+
+        .page-tab:hover {
+            color: #e5e7eb;
+        }
+
+        .page-tab-active {
+            color: #fff;
+            border-bottom-color: #3b82f6;
+        }
+
         @keyframes spin {
             to {
                 transform: rotate(360deg);
@@ -374,6 +491,122 @@
 
         <!-- Content -->
         <div class="flex-1 overflow-y-auto scrollbar-thin p-4" style="background:#111827;">
+            <!-- An existing layer: its identity and live actions, then Overview / Edit tabs -->
+            <div id="layer-header" class="hidden mb-3">
+                <div class="flex gap-3 items-center">
+                    <div class="flex-shrink-0" id="lh-thumbnail"></div>
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-base font-bold text-gray-50 mb-1 leading-tight truncate" id="lh-title"></h2>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <button type="button" class="atlas-badge-chip" id="lh-atlas-badge" title="Click to copy atlas config link" style="display: none;"></button>
+                            <button type="button" class="layer-id-badge" id="lh-id-badge" title="Click to copy shareable link"></button>
+                            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-700 rounded text-[10px] font-semibold text-gray-300 uppercase tracking-wide" id="lh-type-badge"></div>
+                        </div>
+                        <div id="lh-url-section" class="mt-2" style="display: none;">
+                            <div class="flex gap-2 items-center">
+                                <input type="text" id="lh-url-input" readonly class="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-xs text-gray-200 font-mono">
+                                <button type="button" id="lh-url-copy" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium whitespace-nowrap">
+                                    <span>Copy URL</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 mt-2.5">
+                    <sl-icon name="circle-half" style="color: #9ca3af; font-size: 13px; flex-shrink: 0;"></sl-icon>
+                    <input type="range" id="lh-opacity" min="0" max="100" value="100" class="flex-1">
+                    <span id="lh-opacity-value" class="text-xs text-gray-400 flex-shrink-0" style="width: 2.25rem; text-align: right;">100%</span>
+                </div>
+
+                <div class="mt-2 flex items-center gap-1.5 flex-wrap">
+                    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Layer Order</span>
+                    <button type="button" class="info-header-action" id="lh-move-up" title="Move this layer up the map stack">
+                        <sl-icon name="arrow-up"></sl-icon><span>Move Up</span>
+                    </button>
+                    <button type="button" class="info-header-action" id="lh-move-down" title="Move this layer down the map stack">
+                        <sl-icon name="arrow-down"></sl-icon><span>Move Down</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <button type="button" class="info-header-action" id="lh-zoom-feature" title="Zoom to this feature" style="display: none;">
+                        <sl-icon name="zoom-in"></sl-icon><span>Zoom to Feature</span>
+                    </button>
+                    <sl-dropdown id="lh-export-selected" style="display: none;">
+                        <button slot="trigger" type="button" class="info-header-action" title="Export just this feature">
+                            <sl-icon name="download"></sl-icon><span>Export Selected</span><sl-icon name="chevron-down" style="font-size: 9px;"></sl-icon>
+                        </button>
+                        <sl-menu>
+                            <sl-menu-item value="geojson">GeoJSON</sl-menu-item>
+                            <sl-menu-item value="kml">KML</sl-menu-item>
+                            <sl-menu-item value="csv">GeoCSV</sl-menu-item>
+                        </sl-menu>
+                    </sl-dropdown>
+                    <sl-dropdown id="lh-export-layer">
+                        <button slot="trigger" type="button" class="info-header-action" title="Export the layer's entire source dataset, not just the current map view">
+                            <sl-icon name="download"></sl-icon><span>Export Layer</span><sl-icon name="chevron-down" style="font-size: 9px;"></sl-icon>
+                        </button>
+                        <sl-menu>
+                            <sl-menu-item value="geojson">GeoJSON</sl-menu-item>
+                            <sl-menu-item value="kml">KML</sl-menu-item>
+                            <sl-menu-item value="csv">GeoCSV</sl-menu-item>
+                        </sl-menu>
+                    </sl-dropdown>
+                    <a class="info-header-action" id="lh-zoom-layer" href="#" title="Zoom to this layer" style="display: none; text-decoration: none;">
+                        <sl-icon name="zoom-in"></sl-icon><span>Zoom to Layer</span>
+                    </a>
+                    <button type="button" class="info-header-action" id="lh-compare" title="Swipe-compare this layer against the current map">
+                        <span class="compare-icons"><sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right"></sl-icon></span><span>Compare</span>
+                    </button>
+                    <button type="button" class="info-header-action" id="lh-isolate" title="Dim all other layers so only this one stands out">
+                        <sl-icon name="layers-half"></sl-icon><span>Hide Other Maps</span>
+                    </button>
+                    <button type="button" class="info-header-action" id="lh-mask" title="Mask the map to this layer's polygons">
+                        <sl-icon name="mask"></sl-icon><span>Toggle Mask</span>
+                    </button>
+                    <button type="button" class="info-header-action danger" id="lh-remove">
+                        <sl-icon name="trash"></sl-icon><span>Remove</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="page-tabs" class="page-tabs hidden" role="tablist">
+                <button type="button" id="page-tab-overview" class="page-tab" role="tab">Overview</button>
+                <button type="button" id="page-tab-edit" class="page-tab" role="tab">Edit</button>
+            </div>
+
+            <!-- Overview: the layer as it stands -->
+            <div id="overview-tab" class="hidden">
+                <div id="lo-description-section" class="section-box">
+                    <h3 class="text-sm font-bold mb-2">Description</h3>
+                    <div class="text-sm leading-relaxed" style="color:#d1d5db;" id="lo-description-content"></div>
+                </div>
+                <div id="lo-attribution-section" class="section-box" style="display:none;">
+                    <h3 class="text-sm font-bold mb-2">Attribution</h3>
+                    <div class="text-sm leading-relaxed" style="color:#d1d5db;" id="lo-attribution-content"></div>
+                </div>
+                <div id="lo-legend-section" class="section-box" style="display:none;">
+                    <h3 class="text-sm font-bold mb-2">Legend</h3>
+                    <div id="lo-legend-content"></div>
+                </div>
+                <div id="lo-metadata-section" class="section-box" style="display:none;">
+                    <h3 class="text-sm font-bold mb-2">Metadata</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="lo-metadata-content"></div>
+                </div>
+                <div class="section-box">
+                    <div class="flex items-center mb-2">
+                        <h3 class="text-sm font-bold">Raw Configuration</h3>
+                        <button type="button" id="lo-config-copy" class="ml-auto px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                    <pre id="lo-config-content" class="rounded-lg p-3 font-mono text-xs overflow-x-auto leading-relaxed" style="background:#0b1220;color:#e5e7eb;max-height:24rem;"></pre>
+                </div>
+            </div>
+
+            <!-- Edit: the form that adds a layer or edits one -->
+            <div id="edit-tab">
             <!-- Section 1: Pick a Data Source -->
             <div class="section-box">
                 <h2 class="text-md font-bold mb-1 flex items-center">
@@ -1179,10 +1412,11 @@
                     </div>
                 </div>
             </div>
+            </div>
         </div>
 
         <!-- Footer -->
-        <div class="px-4 py-3 flex justify-end gap-2"
+        <div id="edit-footer" class="px-4 py-3 flex justify-end gap-2"
             style="background:#111827;border-top:1px solid #374151;">
             <button id="cancel-btn"
                 class="px-4 py-2 rounded text-sm transition-colors"
@@ -1203,6 +1437,13 @@
 
     <script type="module">
         import { MapCreator } from './js/map-creator.js';
+
+        // Opened for an existing layer (see MapBrowserControl.openLayerEditor): the layer
+        // arrives by message, so don't flash an empty form while waiting for it.
+        if (new URLSearchParams(window.location.search).get('mode') === 'layer') {
+            document.getElementById('edit-tab').classList.add('hidden');
+            document.getElementById('edit-footer').classList.add('hidden');
+        }
 
         const creator = new MapCreator();
         creator.init();

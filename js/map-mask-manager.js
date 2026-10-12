@@ -3,7 +3,7 @@
  * except the polygons of one target layer, and feeds it to the `mask` layer.
  *
  * Linked from `?mask=<layer-id>` (see docs/API.md), from the "Toggle Mask"
- * button in map-information.html, and from the mask cell in the layer-stack
+ * button in the layer editor (map-creator.html), and from the mask cell in the layer-stack
  * strip. Only one layer can be masked at a time, matching swipe-compare.
  *
  * The cutout is derived from what is actually loaded on the map, not from the

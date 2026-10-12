@@ -978,7 +978,7 @@ export class MapMarkerManager {
      * (_openSummaryDetails shows it and hides the plain icon in its place;
      * _closeAllSummaryDetails swaps them back).
      *
-     * The whole row is a button: clicking it opens map-information.html for
+     * The whole row is a button: clicking it opens the layer editor (map-creator.html) for
      * this layer (see _attachChipLayerRowHandler), carrying this specific
      * feature along so that panel can offer per-feature actions (zoom to
      * feature, export selected) alongside the whole-layer ones - which used
